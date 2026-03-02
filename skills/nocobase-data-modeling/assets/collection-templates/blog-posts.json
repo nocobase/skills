@@ -1,0 +1,88 @@
+{
+  "name": "blog_posts",
+  "title": "Blog Posts",
+  "description": "Blog/CMS content management",
+  "fields": [
+    {
+      "name": "title",
+      "type": "string",
+      "interface": "input",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "Title",
+        "required": true
+      }
+    },
+    {
+      "name": "slug",
+      "type": "string",
+      "interface": "input",
+      "unique": true,
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "URL Slug"
+      }
+    },
+    {
+      "name": "content",
+      "type": "text",
+      "interface": "markdown",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Markdown",
+        "title": "Content"
+      }
+    },
+    {
+      "name": "excerpt",
+      "type": "text",
+      "interface": "textarea",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input.TextArea",
+        "title": "Excerpt"
+      }
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "interface": "select",
+      "defaultValue": "draft",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Select",
+        "title": "Status",
+        "enum": [
+          {"label": "Draft", "value": "draft"},
+          {"label": "Published", "value": "published"},
+          {"label": "Archived", "value": "archived"}
+        ]
+      }
+    },
+    {
+      "name": "publishedAt",
+      "type": "datetime",
+      "interface": "datetime",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "DatePicker",
+        "title": "Published At",
+        "x-component-props": {
+          "showTime": true
+        }
+      }
+    },
+    {
+      "name": "featuredImage",
+      "type": "string",
+      "interface": "attachment",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Upload",
+        "title": "Featured Image"
+      }
+    }
+  ]
+}

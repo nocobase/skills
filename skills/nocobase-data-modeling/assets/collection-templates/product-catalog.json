@@ -1,0 +1,77 @@
+{
+  "name": "products",
+  "title": "Products",
+  "description": "Product catalog with basic e-commerce fields",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string",
+      "interface": "input",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "Product Name",
+        "required": true
+      }
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "interface": "textarea",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input.TextArea",
+        "title": "Description"
+      }
+    },
+    {
+      "name": "price",
+      "type": "decimal",
+      "interface": "number",
+      "uiSchema": {
+        "type": "number",
+        "x-component": "InputNumber",
+        "title": "Price",
+        "x-component-props": {
+          "step": "0.01",
+          "stringMode": true
+        }
+      }
+    },
+    {
+      "name": "stock",
+      "type": "integer",
+      "interface": "number",
+      "uiSchema": {
+        "type": "number",
+        "x-component": "InputNumber",
+        "title": "Stock Quantity"
+      }
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "interface": "select",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Select",
+        "title": "Status",
+        "enum": [
+          {"label": "Draft", "value": "draft"},
+          {"label": "Active", "value": "active"},
+          {"label": "Inactive", "value": "inactive"}
+        ]
+      }
+    },
+    {
+      "name": "publishedAt",
+      "type": "date",
+      "interface": "datePicker",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "DatePicker",
+        "title": "Published Date"
+      }
+    }
+  ]
+}

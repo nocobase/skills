@@ -1,0 +1,94 @@
+{
+  "name": "customers",
+  "title": "Customers",
+  "description": "Customer/contact management",
+  "fields": [
+    {
+      "name": "firstName",
+      "type": "string",
+      "interface": "input",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "First Name",
+        "required": true
+      }
+    },
+    {
+      "name": "lastName",
+      "type": "string",
+      "interface": "input",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "Last Name",
+        "required": true
+      }
+    },
+    {
+      "name": "email",
+      "type": "string",
+      "interface": "email",
+      "unique": true,
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "Email",
+        "required": true
+      }
+    },
+    {
+      "name": "phone",
+      "type": "string",
+      "interface": "phone",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "Phone"
+      }
+    },
+    {
+      "name": "company",
+      "type": "string",
+      "interface": "input",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input",
+        "title": "Company"
+      }
+    },
+    {
+      "name": "address",
+      "type": "json",
+      "interface": "json",
+      "uiSchema": {
+        "type": "object",
+        "x-component": "Input.JSON",
+        "title": "Address"
+      }
+    },
+    {
+      "name": "tags",
+      "type": "array",
+      "interface": "multipleSelect",
+      "uiSchema": {
+        "type": "array",
+        "x-component": "Select",
+        "title": "Tags",
+        "x-component-props": {
+          "mode": "tags"
+        }
+      }
+    },
+    {
+      "name": "notes",
+      "type": "text",
+      "interface": "textarea",
+      "uiSchema": {
+        "type": "string",
+        "x-component": "Input.TextArea",
+        "title": "Notes"
+      }
+    }
+  ]
+}
