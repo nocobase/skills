@@ -1,5 +1,8 @@
 # NocoBase Skills
 
+> [!WARNING]
+> This project is currently in draft status. The content is incomplete and intended for orientation only. It may change and iterate at any time.
+
 This repository provides reusable NocoBase skills for coding agent CLIs (Codex, Claude Code, OpenCode, etc.) to automate installation, API calls, Swagger discovery, and data modeling tasks.
 
 ## Available Skills
