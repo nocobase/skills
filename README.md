@@ -8,9 +8,8 @@ This repository provides reusable NocoBase skills for coding agent CLIs (Codex, 
 ## Available Skills
 
 - `nocobase-install-start`: installs and starts NocoBase (Docker / create-nocobase-app / git).
-- `nocobase-api-call`: executes authenticated NocoBase API requests with environment setup guidance.
-- `nocobase-swagger-fetch`: fetches Swagger/OpenAPI docs by namespace via `nocobase-api-call`.
-- `nocobase-data-modeling`: runs an end-to-end data modeling flow based on Swagger + API calls.
+- `nocobase-mcp-setup`: configures NocoBase as an MCP server for your coding agent CLI.
+- `nocobase-data-modeling`: runs data modeling operations through MCP tools.
 
 ## Installation
 
@@ -29,11 +28,11 @@ npx skills add nocobase/skills
 
 ## Recommended Usage Flow
 
-1. Install NocoBase (skip this step if it is already installed).
+1. Install NocoBase (skip if already installed).
 
-Ask your agent to complete installation and startup:
+Ask your agent:
 
-```bash
+```text
 Install and start NocoBase.
 ```
 
@@ -45,15 +44,22 @@ In NocoBase admin:
 - Go to `Settings -> API keys`.
 - Create a key and copy the token.
 
-3. Enable the `API Docs` plugin.
+3. Configure NocoBase MCP server.
 
-Enable `API Docs` before any Swagger-related tasks.
+Ask your agent:
 
-If the Swagger API returns `404 Not Found`, the most likely cause is that `API Docs` is not enabled.
-
-4. Configure environment variables.
-
-```bash
-export NOCOBASE_URL="http://localhost:13000"
-export NOCOBASE_API_TOKEN="<your-token>"
+```text
+Set up NocoBase MCP connection.
 ```
+
+Or manually configure based on your CLI (see `nocobase-mcp-setup` skill for details).
+
+4. Start building with data modeling.
+
+Ask your agent:
+
+```text
+Create a collection named "products" with fields: title (text), price (number), description (textarea).
+```
+
+All NocoBase API operations are now available through MCP tools.
