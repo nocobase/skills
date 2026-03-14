@@ -24,17 +24,17 @@ The configuration command varies by CLI tool:
 **Codex CLI:**
 ```bash
 export NOCOBASE_API_TOKEN="your-token"
-codex mcp add nocobase --url http://localhost:13000/api/mcp --bearer-token-env-var NOCOBASE_API_TOKEN
+codex mcp add nocobase --url https://your-nocobase-host/api/mcp --bearer-token-env-var NOCOBASE_API_TOKEN
 ```
 
 **Claude Code:**
 ```bash
-claude mcp add --transport http nocobase http://localhost:13000/api/mcp --header "Authorization: Bearer your-token"
+claude mcp add --transport http nocobase https://your-nocobase-host/api/mcp --header "Authorization: Bearer your-token"
 ```
 
 **Other CLIs:**
 Refer to your CLI's documentation for MCP server configuration. The NocoBase MCP endpoint is:
-- URL: `http://localhost:13000/api/mcp`
+- URL: `https://your-nocobase-host/api/mcp`
 - Header: `Authorization: Bearer your-token`
 
 Replace `your-token` with the actual API token from NocoBase admin.

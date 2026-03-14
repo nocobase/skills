@@ -52,7 +52,37 @@ Ask your agent:
 Set up NocoBase MCP connection.
 ```
 
-Or manually configure based on your CLI (see `nocobase-mcp-setup` skill for details).
+Or configure it manually:
+
+Prerequisites:
+
+- NocoBase is running.
+- The `API Keys` plugin is enabled.
+- You have created an API token in `Settings -> API keys`.
+
+NocoBase MCP endpoint:
+
+- URL: `https://your-nocobase-host/api/mcp`
+- Header: `Authorization: Bearer your-token`
+
+Examples:
+
+**Codex CLI**
+
+```bash
+export NOCOBASE_API_TOKEN="your-token"
+codex mcp add nocobase --url https://your-nocobase-host/api/mcp --bearer-token-env-var NOCOBASE_API_TOKEN
+```
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http nocobase https://your-nocobase-host/api/mcp --header "Authorization: Bearer your-token"
+```
+
+**Other CLIs**
+
+Use your CLI's MCP configuration mechanism with the same endpoint and bearer token header shown above.
 
 4. Start building with data modeling.
 
