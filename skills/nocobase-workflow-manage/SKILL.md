@@ -1,36 +1,42 @@
 ---
 name: nocobase-workflow-manage
-description: Orchestrate and manage NocoBase workflows via API — create/update/delete workflows, add and configure nodes, inspect executions and job results. Use when users want to build, edit, test, or analyze workflow automation logic in NocoBase.
+description: Orchestrate and manage NocoBase workflows via MCP — create/update/delete workflows, add and configure nodes, inspect executions and job results. Use when users want to build, edit, test, or analyze workflow automation logic in NocoBase.
 argument-hint: "[task: create|list|get|update|delete|revision|execute|node-create|node-update|node-move|node-copy|node-delete|node-test|execution-list|execution-get|execution-cancel|jobs-get]"
-allowed-tools: Bash, Read
+allowed-tools: All MCP tools provided by NocoBase server
 ---
 
 # Goal
 
-Help users orchestrate NocoBase workflows end-to-end: design trigger logic, build node chains, manage versions, and inspect execution results — all through the NocoBase HTTP API.
+Help users orchestrate NocoBase workflows end-to-end through NocoBase MCP tools: design trigger logic, build node chains, manage versions, and inspect execution results.
 
 # Dependency Gate
 
-- Required dependency skills: `nocobase-swagger-fetch`, `nocobase-api-call`, `nocobase-data-modeling`.
-- If required skills are missing, pause and ask user to install skills first (e.g. `npx skills add nocobase/skills`).
-- Never construct raw `curl` calls — all API calls must go through `nocobase-api-call`.
+- Related helper skills: `nocobase-mcp-setup`, `nocobase-data-modeling`.
+- Check whether NocoBase MCP tools are available before planning write operations.
+- If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
 - Data modeling skill may be used to understand related collections and fields when configuring workflow triggers and nodes.
 
-# Mandatory Auth Gate
+# Mandatory MCP Gate
 
-- Follow the same auth rules as `nocobase-api-call` (requires `NOCOBASE_URL` and `NOCOBASE_API_TOKEN`).
-- Do not proceed with any API call until auth is confirmed.
+- Confirm the NocoBase MCP server is reachable and authenticated before attempting workflow operations.
+- Do not proceed with any workflow mutation until the MCP server exposes the relevant workflow endpoints.
 
 # Orchestration Process
 
 ## Planning Phase
 
-Before making any API calls, clarify with the user:
+Before making any MCP calls, clarify with the user:
 1. **Trigger type** — what event starts the workflow? → see [Trigger Reference](references/triggers/index.md)
 2. **Node chain** — what processing steps are needed? → see [Node Reference](references/nodes/index.md)
 3. **Execution mode** — synchronous or async? See [sync vs async](references/modeling/index.md#同步与异步模式)
 
 Summarize the plan in natural language before executing.
+
+Then map the requested action to the corresponding MCP-exposed endpoint:
+- Workflow CRUD and revisions → `workflows:*`
+- Node operations → `workflows/<workflowId>/nodes:create` and `flow_nodes:*`
+- Execution inspection → `executions:*`
+- Job detail inspection → `jobs:get`
 
 ## Creating a New Workflow
 
@@ -78,4 +84,4 @@ Summarize the plan in natural language before executing.
 | Architecture, data model & concepts | [references/modeling/index.md](references/modeling/index.md) |
 | Triggers | [references/triggers/index.md](references/triggers/index.md) |
 | Nodes | [references/nodes/index.md](references/nodes/index.md) |
-| HTTP API | [references/http-api/index.md](references/http-api/index.md) |
+| Endpoint mapping used through MCP | [references/http-api/index.md](references/http-api/index.md) |

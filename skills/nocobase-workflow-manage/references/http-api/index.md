@@ -1,16 +1,16 @@
 ---
 title: 工作流 HTTP API
-description: 工作流相关 HTTP API 的资源列表与调用规范，所有接口须通过 nocobase-api-call 调用。
+description: 工作流相关端点的资源列表与调用规范，这些端点通过 NocoBase MCP 工具暴露。
 ---
 
 # 工作流 HTTP API
 
 ## 调用规范
 
-- 所有接口须通过 `nocobase-api-call` skill 调用，不得直接构造 curl 命令。
+- 这些接口在 MCP 中对应同名资源动作；优先通过 NocoBase MCP 工具调用。
 - API 前缀为 `/api`，操作路由格式为 `/api/<resource>:<action>`。
 - 关联资源操作格式为 `/api/<resource>/<id>/<association>:<action>`。
-- 认证信息（`NOCOBASE_URL`、`NOCOBASE_API_TOKEN`）由 `nocobase-api-call` 统一管理。
+- 在 MCP 调用时，通常只需按资源动作和参数组织请求；此处保留 HTTP 路径用于端点映射与排障。
 
 ## 资源与接口
 

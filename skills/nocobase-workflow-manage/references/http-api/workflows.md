@@ -5,7 +5,7 @@ description: workflows 资源的增删改查、版本管理与手动执行接口
 
 # workflows 资源 HTTP API
 
-> 所有接口通过 `nocobase-api-call` 调用。
+> 这些端点通过 NocoBase MCP 工具暴露；以下 HTTP 路径用于映射具体资源动作与参数。
 
 ## workflows:list
 
