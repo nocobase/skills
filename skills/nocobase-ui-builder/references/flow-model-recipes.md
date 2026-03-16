@@ -2,6 +2,8 @@
 
 这些配方面向 Modern page (v2) 通过 MCP 构建首批公共区块的工作流。
 
+以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。
+
 ## 1. 初始化探测
 
 先抓取紧凑的 bundle：

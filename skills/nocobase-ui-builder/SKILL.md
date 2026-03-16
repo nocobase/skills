@@ -40,6 +40,41 @@ V1 范围刻意收窄：
 3. 如果 MCP 未配置或工具缺失，立即停止，先使用 `../nocobase-mcp-setup/SKILL.md`。
 4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`。
 
+# 执行日志
+
+这个 skill 应该为每次执行生成一份独立的工具调用日志，方便事后复盘。这里的“日志”是 skill 级 best-effort 记录，不是平台底层自动拦截，所以必须严格按下面流程执行。
+
+- 默认日志目录：`~/.codex/state/nocobase-ui-builder/tool-logs`
+- 最近一次运行清单：`~/.codex/state/nocobase-ui-builder/latest-run.json`
+- 日志格式：每次执行一个独立的 `.jsonl` 文件，每行一个 JSON 事件
+
+开始任何探测或写操作之前，先初始化本次运行日志：
+
+- `node scripts/tool_journal.mjs start-run --task "<用户请求>" [--title "<title>"] [--schemaUid "<schemaUid>"]`
+
+规则：
+
+1. 保存 `start-run` 返回的 `logPath`，整个 skill 执行期间都复用它。
+2. 每次调用 MCP 工具后，都立即追加一条 `tool_call` 记录；如果调用失败，也必须记录，`status=error`。
+3. 每次调用本 skill 的本地辅助脚本后，也要追加一条 `tool_call` 记录，`toolType=node`。
+4. 在关键阶段之间可以追加 `note` 记录，说明当前判断、分支原因或发现的问题。
+5. 在最终答复用户之前，必须写入 `run_finished` 记录。
+
+记录工具调用示例：
+
+- 成功：
+  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "PostFlowmodels_mutate" --tool-type mcp --args-json '{"requestBody":{"atomic":true}}' --status ok --summary "创建表格区块"`
+- 失败：
+  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "GetFlowmodels_schema" --tool-type mcp --args-json '{"use":"TableBlockModel"}' --status error --error "unsupported-model-use"`
+
+记录阶段说明示例：
+
+- `node scripts/tool_journal.mjs note --log-path "<logPath>" --message "schemaBundle 已读取，准备进入 schemas 精确探测"`
+
+结束本次执行：
+
+- `node scripts/tool_journal.mjs finish-run --log-path "<logPath>" --status success --summary "已完成页面创建与区块写入"`
+
 请求参数规则：
 
 - 如果工具暴露了 `requestBody`，就把原始 HTTP JSON 请求体直接放进 `requestBody`。
