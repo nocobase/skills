@@ -79,7 +79,11 @@
 - `commonPatterns`
 - `dynamicHints`
 
-如果 `dynamicHints` 把某个子树标记为仅运行时存在或仍未解析，就不要从零开始凭空构造那个子树。
+判定规则：
+
+- 如果 `dynamicHints` 出现，但同一 slot 已经有更具体的 `jsonSchema`、具体 child schema、allowed uses 或最小示例，就按这些更具体的信息构造
+- 只有当目标 slot 仍停留在泛型 / 未解析状态时，才不要从零开始凭空构造那个子树
+- 默认不要先读样板页；只有当 schema-first 仍不足，或 schema 与当前实例 live tree 明显不一致时，才读取样板页作为 fallback
 
 ## 4. 页面初始化生命周期
 

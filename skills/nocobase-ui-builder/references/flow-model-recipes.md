@@ -43,6 +43,12 @@
 }
 ```
 
+默认按 schema-first 执行：
+
+- 先看 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`
+- 如果 `schemas` 已经给出具体 slot schema 和 allowed uses，就直接构造该子树
+- 只有当目标 slot 仍停留在泛型节点或运行时未解析状态时，才回退到样板页或稳定壳层
+
 ## 2. 创建页面壳
 
 先预留一个 opaque 页面 `schemaUid`：
@@ -163,8 +169,8 @@ node scripts/opaque_uid.mjs node-uids \
 
 说明：
 
-- `TableBlockModel.subModels.columns` 是公共字段，但具体列子节点的 use 对运行时较敏感
-- V1 应先创建区块壳；只有当现有页面已经包含兼容子树时，才局部更新列定义
+- `TableBlockModel.subModels.columns` 是公共字段；如果当前 `schemas` 已经展开到 `TableColumnModel` 和字段渲染子树，就可以直接创建列
+- 只有当 `columns` 仍停留在泛型 / 未解析状态时，才先创建区块壳或读取样板页确认列定义
 
 ## 4. 新增创建表单区块
 
@@ -231,7 +237,8 @@ node scripts/opaque_uid.mjs node-uids \
 
 - `CreateFormModel` 是公共模型
 - `FormBlockModel` 是内部模型，不能直接提交
-- `grid.items` 对运行时较敏感，因此 V1 应先创建表单壳；只有目标子树已经存在且修改范围很局部时，才继续下钻添加字段项
+- 如果当前 `schemas` 已经展开到 `FormGridModel`、`FormItemModel`、字段渲染模型和 `FormSubmitActionModel`，就可以直接创建表单字段项和动作
+- 只有当 `grid.items` 或 `field` 仍未解析时，才先创建表单壳，或读取样板页补齐结构
 
 ## 5. 新增编辑表单区块
 
@@ -409,5 +416,6 @@ node scripts/opaque_uid.mjs node-uids \
 - 可见 / 自定义页签必须显式提供 `tabSchemaUid`
 - 新页面的 `schemaUid` 应来自 `scripts/opaque_uid.mjs reserve-page`
 - 新区块 / 子节点的 `uid` 应来自 `scripts/opaque_uid.mjs node-uids`
-- 不要自由生成 `grid.items`、表格列或表单字段下面那些任意嵌套的运行时子节点
+- 优先直接使用 `schemas` / `schema` 已明确展开的子树，不要再把这些稳定子树一律视为“不能生成”
+- 不要自由生成当前 schema 文档尚未展开的 `grid.items`、表格列或字段渲染子树
 - 每次请求周期内优先只做一次局部变更，然后重新读取

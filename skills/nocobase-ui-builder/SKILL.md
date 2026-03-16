@@ -32,6 +32,7 @@ V1 范围刻意收窄：
 - 读取现有页面壳及其默认页签网格（`grid`）
 - 在页面网格（`grid`）中新增、更新、移动或删除常见区块
 - 当前支持的公共区块模型：`TableBlockModel`、`CreateFormModel`、`EditFormModel`
+- 当 `PostFlowmodels_schemas` / `GetFlowmodels_schema` 已经返回具体子树 schema 时，可直接构造稳定子模型，不必默认退回到“只建壳层”
 
 # 前置条件
 
@@ -123,6 +124,7 @@ V1 范围刻意收窄：
 3. 是否有失败后靠猜参数重试的行为
 4. 是否可以把相邻写操作压缩进一次 `PostFlowmodels_mutate`
 5. 是否缺少可复用的最小成功模板
+6. 是否过早依赖样板页，而不是优先消化 `schemaBundle` / `schemas`
 
 请求参数规则：
 
@@ -151,6 +153,19 @@ NocoBase `resourcer` 的关键实现细节：
 4. 每次变更前都用 `GetFlowmodels_findone` 读取线上页面树
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
+
+# Schema-First 判定规则
+
+默认策略是 `schemaBundle` / `schemas` / `schema` 优先，样板页只作为 fallback。
+
+1. 如果 `PostFlowmodels_schemas` 或 `GetFlowmodels_schema` 已经为目标 slot 返回了具体子模型 schema、allowed uses、`stepParams` 结构，那么直接按 schema 构造合法 flow model 树。
+2. `dynamicHints` 不是自动阻断信号；只有当目标 slot 仍停留在泛型节点、未展开的 `genericModelNodeSchema`、或只有“运行时决定”提示而没有可落库的具体 schema 时，才把它视为未解析。
+3. 只有在以下情况，才允许读取样板页：
+   - schema 文档仍不足以确定目标子树
+   - schema 文档和当前实例实际 live tree 形状明显不一致
+   - 当前实例有插件扩展，导致你需要同实例成功样本来确认最小 payload
+4. 读取样板页时必须在日志里追加 `note`，写明为什么 schema-first 不足。
+5. 默认每种区块类型最多读取一个样板页；如果第一个样板不足，再明确记录不足点后再读第二个。
 
 # 公共模型限制
 
@@ -268,16 +283,19 @@ NocoBase `resourcer` 的关键实现细节：
 2. 为目标公共区块 use 加载 `schemaBundle` + `schemas`
 3. 如果某个字段或子结构仍不清楚，再读取该 use 对应的 `GetFlowmodels_schema`
 4. 从探测得到的骨架 / 最小示例出发，只填充用户明确要求的字段
-5. 使用 `node scripts/opaque_uid.mjs node-uids ...` 一次生成本次写入所需的全部 opaque uid
-6. 使用 `PostFlowmodels_mutate` 创建区块：
+5. 先判断目标子树是否已被 `schemas` / `schema` 明确展开：
+   - 已明确展开：直接构造区块壳与稳定子树
+   - 仍未解析：先退回稳定壳层，或按上面的 fallback 规则读取一个样板页
+6. 使用 `node scripts/opaque_uid.mjs node-uids ...` 一次生成本次写入所需的全部 opaque uid
+7. 使用 `PostFlowmodels_mutate` 创建区块：
    - `requestBody.atomic = true`
    - 使用 `type: "upsert"`
    - 始终显式包含 `uid`，保证重试安全
-7. 通过保存 / upsert 的方式把新区块挂到网格上：
+8. 通过保存 / upsert 的方式把新区块挂到网格上：
    - `parentId={gridUid}`
    - `subKey=items`
    - `subType=array`
-8. 重新读取网格，并返回新区块的快照
+9. 重新读取网格，并返回新区块的快照
 
 新区块的 Opaque UID 约定：
 
@@ -328,14 +346,21 @@ V1 阶段必须把修改范围控制得很窄：
 - `TableBlockModel`：区块壳、表格设置、分页大小、行号显示、排序、数据范围
 - `CreateFormModel`：区块壳、表单布局、表单网格壳、动作列表壳
 - `EditFormModel`：与创建表单相同，外加表单数据范围
+- 当当前 `schemas` / `schema` 已明确展开目标 slot 时，也允许直接创建这些稳定子树：
+  - `FormGridModel`
+  - `FormItemModel`
+  - `FormSubmitActionModel`
+  - `TableColumnModel`
+  - 已在 schema 中明确列出的字段渲染模型
 
-不要自由发挥去生成下面这些仅运行时才稳定的任意嵌套子节点：
+不要自由发挥去生成下面这些“当前 schema 文档尚未展开”的运行时子节点：
 
 - `BlockGridModel.subModels.items`
-- 表格列
-- 表单网格字段项
+- 未在当前 `schemas` / `schema` 中展开的表格列子树
+- 未在当前 `schemas` / `schema` 中展开的表单网格字段项
+- 未在当前 `schemas` / `schema` 中展开的字段渲染子树
 
-如果 `schemaBundle` 或 `schema` 把某个子树标记为 `dynamicHints` / 未解析的运行时提示，那么就停在稳定壳层；除非当前实时快照已经包含完全相同的子树，且用户要的修改是局部且显然的。
+如果 `dynamicHints` 已经被更具体的 `jsonSchema`、slot schema、allowed uses 覆盖，就按更具体的 schema 执行；只有在目标子树仍未解析时，才停在稳定壳层或读取样板页。
 
 # 现有页面修改规则
 
@@ -345,6 +370,7 @@ V1 可以修改现有页面，但必须严格控制范围：
 - 优先追加或定点补丁，不要重建
 - 不要为了一个局部改动替换整棵页面树
 - 不要凭空发明显式可见页签结构；除非用户明确提供 `tabSchemaUid`，否则默认使用隐藏默认页签
+- 除非触发 `Schema-First 判定规则` 里的 fallback 条件，否则不要先去找样板页
 
 # 安全规则
 

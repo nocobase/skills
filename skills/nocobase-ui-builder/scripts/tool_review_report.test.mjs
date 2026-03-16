@@ -129,6 +129,74 @@ test('analyzeRun generates improvement suggestions from tool call order', () => 
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('把探测步骤前置并批量化')));
 });
 
+test('analyzeRun does not treat different live targets as repeated reads', () => {
+  const rootDir = makeTempDir('live-targets');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Inspect multiple pages',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    args: { parentId: 'tabs-a', subKey: 'grid' },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    args: { parentId: 'tabs-b', subKey: 'grid' },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    args: { parentId: 'tabs-a', subKey: 'grid' },
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(
+    summary.optimizationItems.some((item) => item.title.includes('压缩重复的 live snapshot 读取')),
+    false,
+  );
+});
+
+test('analyzeRun flags repeated reads of the same live target', () => {
+  const rootDir = makeTempDir('same-live-target');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Inspect same page repeatedly',
+    logDir,
+    latestRunPath,
+  });
+
+  for (let index = 0; index < 3; index += 1) {
+    recordToolCall({
+      logPath: started.logPath,
+      tool: 'GetFlowmodels_findone',
+      toolType: 'mcp',
+      status: 'ok',
+      args: { parentId: 'tabs-a', subKey: 'grid' },
+    });
+  }
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(
+    summary.optimizationItems.some((item) => item.title.includes('压缩重复的 live snapshot 读取')),
+    true,
+  );
+});
+
 test('cli render resolves latest-run manifest automatically', () => {
   const rootDir = makeTempDir('cli');
   const logDir = path.join(rootDir, 'logs');

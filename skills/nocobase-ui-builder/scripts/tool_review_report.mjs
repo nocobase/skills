@@ -209,29 +209,55 @@ function buildCountsByTool(toolCalls) {
     .sort((left, right) => right.total - left.total || left.tool.localeCompare(right.tool));
 }
 
+function getFindoneTargetSignature(call) {
+  if (call.tool !== 'GetFlowmodels_findone') {
+    return null;
+  }
+  const parentId = call.args?.parentId ?? 'unknown-parent';
+  const subKey = call.args?.subKey ?? 'unknown-subKey';
+  return `${parentId}::${subKey}`;
+}
+
 function detectRepeatedRuns(toolCalls) {
   const repeated = [];
-  let currentTool = null;
+  let currentKey = null;
+  let currentLabel = null;
   let currentCount = 0;
   for (const call of toolCalls) {
-    if (call.tool === currentTool) {
+    const signature = getFindoneTargetSignature(call);
+    const key = signature ? `${call.tool}::${signature}` : call.tool;
+    const label = signature ? `${call.tool} (${signature})` : call.tool;
+    if (key === currentKey) {
       currentCount += 1;
       continue;
     }
-    if (currentTool && currentCount >= 3) {
-      repeated.push({ tool: currentTool, count: currentCount });
+    if (currentLabel && currentCount >= 3) {
+      repeated.push({ tool: currentLabel, count: currentCount });
     }
-    currentTool = call.tool;
+    currentKey = key;
+    currentLabel = label;
     currentCount = 1;
   }
-  if (currentTool && currentCount >= 3) {
-    repeated.push({ tool: currentTool, count: currentCount });
+  if (currentLabel && currentCount >= 3) {
+    repeated.push({ tool: currentLabel, count: currentCount });
   }
   return repeated;
 }
 
 function countTool(toolCalls, toolName) {
   return toolCalls.filter((record) => record.tool === toolName).length;
+}
+
+function buildFindoneTargetCounts(toolCalls) {
+  const counts = new Map();
+  for (const call of toolCalls) {
+    const signature = getFindoneTargetSignature(call);
+    if (!signature) {
+      continue;
+    }
+    counts.set(signature, (counts.get(signature) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([target, count]) => ({ target, count }));
 }
 
 function buildOptimizationItems({
@@ -248,7 +274,7 @@ function buildOptimizationItems({
 }) {
   const items = [];
   const schemaReadCount = countTool(toolCalls, 'GetFlowmodels_schema');
-  const liveReadCount = countTool(toolCalls, 'GetFlowmodels_findone');
+  const repeatedFindoneTargets = buildFindoneTargetCounts(toolCalls).filter((item) => item.count >= 3);
 
   if (hasWrites && (!hasSchemaBundle || !hasSchemas || (firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1))) {
     items.push({
@@ -274,13 +300,13 @@ function buildOptimizationItems({
     });
   }
 
-  if (liveReadCount >= 4) {
+  if (repeatedFindoneTargets.length > 0) {
     items.push({
       priority: 'medium',
       title: '压缩重复的 live snapshot 读取',
-      reason: `本次出现 ${liveReadCount} 次 \`GetFlowmodels_findone\`，其中一部分可能是中间重复读取。`,
-      fasterPath: '默认保持“写前一次、写后一次”的读取节奏；中间只在确有分支歧义时再补读。',
-      evidence: [`GetFlowmodels_findone x${liveReadCount}`],
+      reason: '同一个 live target 被读取了 3 次或更多次，通常意味着中间有可合并的重复探测。',
+      fasterPath: '默认保持“目标页面写前一次、写后一次”的读取节奏；样板页只在 schema-first 无法消歧时再作为 fallback。',
+      evidence: repeatedFindoneTargets.map((item) => `${item.target} x${item.count}`),
     });
   }
 
