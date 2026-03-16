@@ -10,6 +10,7 @@ This repository provides reusable NocoBase skills for coding agent CLIs (Codex, 
 - `nocobase-install-start`: installs and starts NocoBase (Docker / create-nocobase-app / git).
 - `nocobase-mcp-setup`: configures NocoBase as an MCP server for your coding agent CLI.
 - `nocobase-data-modeling`: runs data modeling operations through MCP tools.
+- `nocobase-ui-builder`: builds and updates Modern page (v2) UI structures through MCP tools generated from `desktopRoutes` v2 and `flowModels` APIs.
 
 ## Installation
 
@@ -93,3 +94,19 @@ Create a collection named "products" with fields: title (text), price (number), 
 ```
 
 All NocoBase API operations are now available through MCP tools.
+
+## Build Modern UI Through MCP
+
+After `nocobase-mcp-setup` is complete, `nocobase-ui-builder` uses MCP tools generated from the NocoBase Swagger documents.
+
+The workflow is:
+
+1. Discover page/block schemas through `flowModels` MCP tools.
+2. Create or inspect the page shell with `desktopRoutes` v2 MCP tools.
+3. Save, mutate, move, or destroy blocks through `flowModels` MCP tools.
+
+Example prompt:
+
+```text
+Create a Modern page (v2) named "Orders" with schemaUid "orders-page", then add a table block to the default tab through MCP.
+```
