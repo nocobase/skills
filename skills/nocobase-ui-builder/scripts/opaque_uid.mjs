@@ -26,7 +26,7 @@ function usage() {
     '  node scripts/opaque_uid.mjs reserve-page --title <title> [--registry-path <path>]',
     '  node scripts/opaque_uid.mjs rename-page --schemaUid <schemaUid> --title <title> [--registry-path <path>]',
     '  node scripts/opaque_uid.mjs resolve-page (--title <title> | --schemaUid <schemaUid>) [--registry-path <path>]',
-    '  node scripts/opaque_uid.mjs node-uid --page-schema-uid <schemaUid> --use <use> --path <logicalPath>',
+    '  node scripts/opaque_uid.mjs node-uids --page-schema-uid <schemaUid> --specs-json <jsonArray>',
   ].join('\n');
 }
 
@@ -286,6 +286,57 @@ export function nodeUid({
   };
 }
 
+function parseJsonFlag(value, label) {
+  const normalizedValue = normalizeNonEmpty(value, label);
+  try {
+    return JSON.parse(normalizedValue);
+  } catch (error) {
+    throw new Error(`${label} must be valid JSON: ${error.message}`);
+  }
+}
+
+export function nodeUids({
+  pageSchemaUid,
+  specs,
+}) {
+  const normalizedPageSchemaUid = normalizeNonEmpty(pageSchemaUid, 'page schemaUid');
+  if (!Array.isArray(specs) || specs.length === 0) {
+    throw new Error('specs must be a non-empty array');
+  }
+
+  const seenKeys = new Set();
+  const items = specs.map((spec, index) => {
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+      throw new Error(`specs[${index}] must be an object`);
+    }
+
+    const result = nodeUid({
+      pageSchemaUid: normalizedPageSchemaUid,
+      use: spec.use,
+      logicalPath: spec.path ?? spec.logicalPath,
+    });
+
+    if (spec.key != null) {
+      const key = normalizeNonEmpty(spec.key, `specs[${index}].key`);
+      if (seenKeys.has(key)) {
+        throw new Error(`Duplicate specs key "${key}"`);
+      }
+      seenKeys.add(key);
+      return {
+        key,
+        ...result,
+      };
+    }
+
+    return result;
+  });
+
+  return {
+    pageSchemaUid: normalizedPageSchemaUid,
+    items,
+  };
+}
+
 function parseArgs(argv) {
   if (argv.length === 0 || argv[0] === '--help' || argv[0] === 'help') {
     return { command: 'help', flags: {} };
@@ -340,11 +391,10 @@ export async function runCli(argv = process.argv.slice(2)) {
         registryPath,
       });
       break;
-    case 'node-uid':
-      result = nodeUid({
+    case 'node-uids':
+      result = nodeUids({
         pageSchemaUid: flags['page-schema-uid'],
-        use: flags.use,
-        logicalPath: flags.path,
+        specs: parseJsonFlag(flags['specs-json'], 'specs-json'),
       });
       break;
     default:

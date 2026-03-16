@@ -25,7 +25,7 @@ export const DEFAULT_LATEST_RUN_PATH = path.join(
 function usage() {
   return [
     'Usage:',
-    '  node scripts/tool_journal.mjs start-run --task <task> [--title <title>] [--schemaUid <schemaUid>] [--log-dir <path>] [--metadata-json <json>]',
+    '  node scripts/tool_journal.mjs start-run --task <task> [--title <title>] [--schemaUid <schemaUid>] [--log-dir <path>] [--latest-run-path <path>] [--metadata-json <json>]',
     '  node scripts/tool_journal.mjs tool-call --log-path <path> --tool <name> [--tool-type <mcp|shell|node|other>] [--args-json <json>] [--status <ok|error|skipped>] [--summary <text>] [--result-json <json>] [--error <text>]',
     '  node scripts/tool_journal.mjs note --log-path <path> --message <text> [--data-json <json>]',
     '  node scripts/tool_journal.mjs finish-run --log-path <path> [--status <success|partial|failed>] [--summary <text>] [--data-json <json>]',
@@ -85,6 +85,17 @@ function resolveLogPath(explicitPath) {
   throw new Error('log path is required');
 }
 
+export function resolveLatestRunPath(explicitPath) {
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+  const fromEnv = process.env.NOCOBASE_UI_BUILDER_LATEST_RUN_PATH;
+  if (fromEnv && fromEnv.trim()) {
+    return path.resolve(fromEnv.trim());
+  }
+  return DEFAULT_LATEST_RUN_PATH;
+}
+
 function parseOptionalJson(rawValue, label) {
   if (!rawValue) {
     return undefined;
@@ -127,6 +138,7 @@ export function startRun({
   title,
   schemaUid,
   logDir = DEFAULT_RUN_LOG_DIR,
+  latestRunPath,
   metadata,
 }) {
   const normalizedTask = normalizeNonEmpty(task, 'task');
@@ -154,11 +166,12 @@ export function startRun({
     title: record.title,
     schemaUid: record.schemaUid,
   };
-  writeJsonAtomic(DEFAULT_LATEST_RUN_PATH, manifest);
+  const resolvedLatestRunPath = resolveLatestRunPath(latestRunPath);
+  writeJsonAtomic(resolvedLatestRunPath, manifest);
 
   return {
     ...manifest,
-    latestRunPath: DEFAULT_LATEST_RUN_PATH,
+    latestRunPath: resolvedLatestRunPath,
   };
 }
 
@@ -280,6 +293,7 @@ export async function runCli(argv = process.argv.slice(2)) {
         title: flags.title,
         schemaUid: flags.schemaUid,
         logDir: flags['log-dir'],
+        latestRunPath: flags['latest-run-path'],
         metadata: parseOptionalJson(flags['metadata-json'], 'metadata-json'),
       });
       break;

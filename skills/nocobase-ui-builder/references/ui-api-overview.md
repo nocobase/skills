@@ -2,7 +2,7 @@
 
 本 reference 说明如何通过 Swagger 生成的 MCP 工具构建 NocoBase Modern page (v2) UI。
 
-在按本 reference 执行任何 MCP 调用前，先按 `SKILL.md` 中“执行日志”章节初始化 `tool_journal.mjs`，并在每次工具调用后追加日志记录。
+在按本 reference 执行任何 MCP 调用前，先按 `SKILL.md` 中“执行日志”章节初始化 `tool_journal.mjs`，并在每次工具调用后追加日志记录。任务结束后，默认都要执行一次 `tool_review_report.mjs render`，生成复盘与自动改进产物。
 
 ## 1. MCP 工具映射
 

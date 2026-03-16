@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 import {
   DEFAULT_REGISTRY_PATH,
   createEmptyRegistry,
   loadRegistry,
   nodeUid,
+  nodeUids,
   renamePage,
   reservePage,
   resolvePage,
@@ -94,6 +95,33 @@ test('node-uid is stable and changes when logical path changes', () => {
   assert.match(first.uid, /^[a-z][a-z0-9]{11}$/);
 });
 
+test('node-uids returns keyed batch results in order', () => {
+  const batch = nodeUids({
+    pageSchemaUid: 'k7n4x9p2q5ra',
+    specs: [
+      {
+        key: 'usersTable',
+        use: 'TableBlockModel',
+        path: 'block:table:users:main',
+      },
+      {
+        key: 'usersForm',
+        use: 'CreateFormModel',
+        path: 'block:create-form:users:main',
+      },
+    ],
+  });
+
+  assert.equal(batch.pageSchemaUid, 'k7n4x9p2q5ra');
+  assert.deepEqual(
+    batch.items.map((item) => item.key),
+    ['usersTable', 'usersForm'],
+  );
+  assert.match(batch.items[0].uid, /^[a-z][a-z0-9]{11}$/);
+  assert.match(batch.items[1].uid, /^[a-z][a-z0-9]{11}$/);
+  assert.notEqual(batch.items[0].uid, batch.items[1].uid);
+});
+
 test('resolve-page by title fails cleanly when the registry file is missing', () => {
   const registryPath = makeRegistryPath('missing');
 
@@ -125,13 +153,17 @@ test('cli smoke test writes and resolves opaque values', () => {
     process.execPath,
     [
       scriptPath,
-      'node-uid',
+      'node-uids',
       '--page-schema-uid',
       reserveResult.page.schemaUid,
-      '--use',
-      'CreateFormModel',
-      '--path',
-      'block:create-form:customers:main',
+      '--specs-json',
+      JSON.stringify([
+        {
+          key: 'createForm',
+          use: 'CreateFormModel',
+          path: 'block:create-form:customers:main',
+        },
+      ]),
     ],
     { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
   );
@@ -139,5 +171,37 @@ test('cli smoke test writes and resolves opaque values', () => {
 
   assert.equal(reserveResult.page.defaultTabSchemaUid, `tabs-${reserveResult.page.schemaUid}`);
   assert.match(reserveResult.page.schemaUid, /^[a-z][a-z0-9]{11}$/);
-  assert.match(nodeResult.uid, /^[a-z][a-z0-9]{11}$/);
+  assert.equal(nodeResult.items[0].key, 'createForm');
+  assert.match(nodeResult.items[0].uid, /^[a-z][a-z0-9]{11}$/);
+});
+
+test('cli rejects deprecated node-uid command', () => {
+  const scriptPath = path.join(
+    process.cwd(),
+    'skills',
+    'nocobase-ui-builder',
+    'scripts',
+    'opaque_uid.mjs',
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      scriptPath,
+      'node-uid',
+      '--page-schema-uid',
+      'k7n4x9p2q5ra',
+      '--use',
+      'CreateFormModel',
+      '--path',
+      'block:create-form:customers:main',
+    ],
+    {
+      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      encoding: 'utf8',
+    },
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown command "node-uid"/);
 });

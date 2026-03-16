@@ -2,7 +2,7 @@
 
 这些配方面向 Modern page (v2) 通过 MCP 构建首批公共区块的工作流。
 
-以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。
+以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。完成后默认执行 `tool_review_report.mjs render`，输出复盘报告和自动改进清单。
 
 ## 1. 初始化探测
 
@@ -108,13 +108,12 @@ node scripts/opaque_uid.mjs reserve-page --title "Orders"
 
 使用上一步读取返回的网格 uid，例如 `ens_grid_uid`。
 
-用辅助脚本生成 opaque 节点 id：
+用辅助脚本批量生成 opaque 节点 id：
 
 ```bash
-node scripts/opaque_uid.mjs node-uid \
+node scripts/opaque_uid.mjs node-uids \
   --page-schema-uid k7n4x9p2q5ra \
-  --use TableBlockModel \
-  --path block:table:orders:main
+  --specs-json '[{"key":"ordersTable","use":"TableBlockModel","path":"block:table:orders:main"}]'
 ```
 
 推荐的事务性写法：
@@ -169,20 +168,12 @@ node scripts/opaque_uid.mjs node-uid \
 
 ## 4. 新增创建表单区块
 
-用规范逻辑路径生成表单区块 uid 和子网格 uid：
+用规范逻辑路径批量生成表单区块 uid 和子网格 uid：
 
 ```bash
-node scripts/opaque_uid.mjs node-uid \
+node scripts/opaque_uid.mjs node-uids \
   --page-schema-uid k7n4x9p2q5ra \
-  --use CreateFormModel \
-  --path block:create-form:orders:main
-```
-
-```bash
-node scripts/opaque_uid.mjs node-uid \
-  --page-schema-uid k7n4x9p2q5ra \
-  --use FormGridModel \
-  --path block:create-form:orders:main:grid
+  --specs-json '[{"key":"ordersCreateForm","use":"CreateFormModel","path":"block:create-form:orders:main"},{"key":"ordersCreateFormGrid","use":"FormGridModel","path":"block:create-form:orders:main:grid"}]'
 ```
 
 ```json
@@ -417,6 +408,6 @@ node scripts/opaque_uid.mjs node-uid \
 - 默认目标页签是初始化时自动创建的隐藏页签：`tabs-{schemaUid}`
 - 可见 / 自定义页签必须显式提供 `tabSchemaUid`
 - 新页面的 `schemaUid` 应来自 `scripts/opaque_uid.mjs reserve-page`
-- 新区块 / 子节点的 `uid` 应来自 `scripts/opaque_uid.mjs node-uid`
+- 新区块 / 子节点的 `uid` 应来自 `scripts/opaque_uid.mjs node-uids`
 - 不要自由生成 `grid.items`、表格列或表单字段下面那些任意嵌套的运行时子节点
 - 每次请求周期内优先只做一次局部变更，然后重新读取

@@ -75,6 +75,55 @@ V1 范围刻意收窄：
 
 - `node scripts/tool_journal.mjs finish-run --log-path "<logPath>" --status success --summary "已完成页面创建与区块写入"`
 
+# 复盘报告与自动改进
+
+每次这个 skill 执行完后，都应该自动进入复盘与改进步骤，不需要等用户额外要求。目标不是写长报告，而是快速找出“下一次怎样更直接、更少步骤地完成同样结果”。
+
+- 默认报告目录：`~/.codex/state/nocobase-ui-builder/reports`
+- 默认输入来源：最近一次运行清单 `~/.codex/state/nocobase-ui-builder/latest-run.json`
+- 默认输出：
+  - 一份 Markdown 复盘报告
+  - 一份单文件 HTML 复盘报告
+  - 一份 `*.improve.md`
+  - 一份 `*.improve.json`
+  - 一份长期累积的 `~/.codex/state/nocobase-ui-builder/improvement-log.jsonl`
+
+常用命令：
+
+- 基于最近一次运行生成双份报告：
+  - `node scripts/tool_review_report.mjs render`
+- 基于指定日志生成双份报告：
+  - `node scripts/tool_review_report.mjs render --log-path "<logPath>"`
+- 只生成 Markdown：
+  - `node scripts/tool_review_report.mjs render --log-path "<logPath>" --formats md`
+- 指定输出目录：
+  - `node scripts/tool_review_report.mjs render --log-path "<logPath>" --out-dir "<dir>"`
+- 指定长期优化日志路径：
+  - `node scripts/tool_review_report.mjs render --log-path "<logPath>" --improvement-log-path "<file>"`
+
+报告内容至少应包含：
+
+1. 运行摘要：任务、runId、状态、耗时、目标页面信息
+2. 工具统计：各工具调用次数、失败次数、跳过次数
+3. 失败调用：失败工具、摘要、错误信息、关键参数
+4. 时间线：按顺序列出 `tool_call` 与 `note`
+5. 可改进点：基于日志自动给出的流程优化提示
+
+自动改进步骤要求：
+
+1. 每次执行结束，先写入 `run_finished`。
+2. 然后立刻执行一次 `tool_review_report.mjs render`。
+3. 优先查看生成的 `*.improve.md`，提炼最值得下次提速的 1 到 3 条。
+4. 如果本次任务以分析、复盘或流程改进为主，最终答复用户时应给出报告路径和最关键的提速建议。
+
+自动改进关注点应偏向“更快达到同样效果”，优先检查：
+
+1. 探测是否过晚，能否前置并批量化
+2. 是否存在重复读取或连续重复调用
+3. 是否有失败后靠猜参数重试的行为
+4. 是否可以把相邻写操作压缩进一次 `PostFlowmodels_mutate`
+5. 是否缺少可复用的最小成功模板
+
 请求参数规则：
 
 - 如果工具暴露了 `requestBody`，就把原始 HTTP JSON 请求体直接放进 `requestBody`。
@@ -144,15 +193,16 @@ NocoBase `resourcer` 的关键实现细节：
   - `node scripts/opaque_uid.mjs resolve-page --schemaUid "k7n4x9p2q5ra"`
 - 页面标题变更后，同步重命名本地注册表记录：
   - `node scripts/opaque_uid.mjs rename-page --schemaUid "k7n4x9p2q5ra" --title "Orders Admin"`
-- 生成稳定的 opaque 节点 uid：
-  - `node scripts/opaque_uid.mjs node-uid --page-schema-uid "k7n4x9p2q5ra" --use "TableBlockModel" --path "block:table:orders:main"`
+- 批量生成稳定的 opaque 节点 uid：
+  - `node scripts/opaque_uid.mjs node-uids --page-schema-uid "k7n4x9p2q5ra" --specs-json '[{"key":"ordersTable","use":"TableBlockModel","path":"block:table:orders:main"},{"key":"ordersCreateForm","use":"CreateFormModel","path":"block:create-form:orders:main"}]'`
 
 规则：
 
 - 在 `createV2` 模式下，页面路由的 `schemaUid` 必须来自 `reserve-page`
 - 隐藏默认页签路由固定为 `tabs-{schemaUid}`
 - 页面根节点和默认 `grid` flow model 的 `uid` 仍由 `createV2` 服务端生成，不要尝试覆盖
-- 你创建的每个新区块 / 列 / 表单项 / 动作，都应使用 `node-uid`
+- 你创建的每个新区块 / 列 / 表单项 / 动作，都应通过 `node-uids` 批量生成
+- 即使这次只需要一个 uid，也统一传单元素数组给 `node-uids`
 - 必须使用规范逻辑路径；不要从自然语言描述里临时拼接节点路径
 - 如果本地注册表缺失且用户没有提供 `schemaUid`，立即停止并向用户索取 `schemaUid`
 
@@ -218,7 +268,7 @@ NocoBase `resourcer` 的关键实现细节：
 2. 为目标公共区块 use 加载 `schemaBundle` + `schemas`
 3. 如果某个字段或子结构仍不清楚，再读取该 use 对应的 `GetFlowmodels_schema`
 4. 从探测得到的骨架 / 最小示例出发，只填充用户明确要求的字段
-5. 使用 `node scripts/opaque_uid.mjs node-uid ...` 生成新的 opaque uid
+5. 使用 `node scripts/opaque_uid.mjs node-uids ...` 一次生成本次写入所需的全部 opaque uid
 6. 使用 `PostFlowmodels_mutate` 创建区块：
    - `requestBody.atomic = true`
    - 使用 `type: "upsert"`
@@ -232,7 +282,7 @@ NocoBase `resourcer` 的关键实现细节：
 新区块的 Opaque UID 约定：
 
 - 不要手写 `table-{schemaUid}-{slug}` 这种语义化 id
-- 始终用规范逻辑路径调用 `node-uid`
+- 始终用规范逻辑路径调用 `node-uids`
 - 如果生成出的 uid 已存在，把任务视为更新/补丁，而不是静默覆盖
 
 ## 更新区块
@@ -241,7 +291,7 @@ NocoBase `resourcer` 的关键实现细节：
 2. 保留当前快照中未知但已存在的字段
 3. 只更新该具体区块 use 支持的字段
 4. 保持现有区块 `uid` 不变
-5. 对新增加的任何子节点，都用 `node-uid` 生成 uid
+5. 对新增加的任何子节点，都通过 `node-uids` 批量生成 uid
 6. 用相同的 `uid` 通过 `PostFlowmodels_save` 回写；如果更新必须与其他操作保持事务一致，则使用 `PostFlowmodels_mutate`
 7. 重新读取区块或网格，并报告变更差异
 

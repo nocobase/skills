@@ -18,6 +18,11 @@ function makeLogDir(testName) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `tool-journal-${testName}-`));
 }
 
+function makeLatestRunPath(testName) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `tool-journal-latest-${testName}-`));
+  return path.join(dir, 'latest-run.json');
+}
+
 function readJsonLines(filePath) {
   return fs.readFileSync(filePath, 'utf8')
     .trim()
@@ -33,11 +38,13 @@ test('default run log directory points to codex state directory', () => {
 
 test('start-run creates a jsonl log with a run_started record', () => {
   const logDir = makeLogDir('start');
+  const latestRunPath = makeLatestRunPath('start');
   const started = startRun({
     task: 'Create orders page',
     title: 'Orders',
     schemaUid: 'k7n4x9p2q5ra',
     logDir,
+    latestRunPath,
     metadata: { source: 'test' },
   });
 
@@ -53,9 +60,11 @@ test('start-run creates a jsonl log with a run_started record', () => {
 
 test('tool-call, note, and finish-run append ordered records', () => {
   const logDir = makeLogDir('append');
+  const latestRunPath = makeLatestRunPath('append');
   const started = startRun({
     task: 'Add table block',
     logDir,
+    latestRunPath,
   });
 
   recordToolCall({
@@ -92,6 +101,7 @@ test('tool-call, note, and finish-run append ordered records', () => {
 
 test('cli smoke test writes a complete tool journal', () => {
   const logDir = makeLogDir('cli');
+  const latestRunPath = makeLatestRunPath('cli');
   const scriptPath = path.join(
     process.cwd(),
     'skills',
@@ -102,7 +112,7 @@ test('cli smoke test writes a complete tool journal', () => {
 
   const startedOutput = execFileSync(
     process.execPath,
-    [scriptPath, 'start-run', '--task', 'Smoke test', '--log-dir', logDir],
+    [scriptPath, 'start-run', '--task', 'Smoke test', '--log-dir', logDir, '--latest-run-path', latestRunPath],
     { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
   );
   const started = JSON.parse(startedOutput);
