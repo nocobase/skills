@@ -1,6 +1,8 @@
 # Flow Model 配方
 
-这些配方面向 Modern page (v2) 通过 MCP 构建首批公共区块的工作流。
+这些配方面向 Modern page (v2) 通过 MCP 构建常见公共区块的工作流。
+
+这些 recipe 是常见起手式，不构成完整支持白名单。只要当前 `schemas` / `schema` 已明确展开其他公共模型、动作树或子槽位，也可以沿用同样的 `schema-first + mutate/save` 模式继续扩展。
 
 以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。完成后默认执行 `tool_review_report.mjs render`，输出复盘报告和自动改进清单。
 
@@ -13,7 +15,15 @@
   "tool": "PostFlowmodels_schemabundle",
   "arguments": {
     "requestBody": {
-      "uses": ["PageModel", "TableBlockModel", "CreateFormModel", "EditFormModel", "ActionModel"]
+      "uses": [
+        "PageModel",
+        "FilterFormBlockModel",
+        "TableBlockModel",
+        "DetailsBlockModel",
+        "CreateFormModel",
+        "EditFormModel",
+        "ActionModel"
+      ]
     }
   }
 }
@@ -26,7 +36,14 @@
   "tool": "PostFlowmodels_schemas",
   "arguments": {
     "requestBody": {
-      "uses": ["TableBlockModel", "CreateFormModel", "EditFormModel", "ActionModel"]
+      "uses": [
+        "FilterFormBlockModel",
+        "TableBlockModel",
+        "DetailsBlockModel",
+        "CreateFormModel",
+        "EditFormModel",
+        "ActionModel"
+      ]
     }
   }
 }
@@ -47,6 +64,7 @@
 
 - 先看 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`
 - 如果 `schemas` 已经给出具体 slot schema 和 allowed uses，就直接构造该子树
+- 如果 `schemas` 已经给出 popup/openView、关系区块、详情字段项、tab 子树等稳定结构，也可以直接构造，不必退回到“只建壳层”
 - 只有当目标 slot 仍停留在泛型节点或运行时未解析状态时，才回退到样板页或稳定壳层
 
 ## 2. 创建页面壳

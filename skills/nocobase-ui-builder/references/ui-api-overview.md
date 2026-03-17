@@ -6,7 +6,7 @@
 
 ## 1. MCP 工具映射
 
-`~/auto_works/nocobase` 仓库 `feat/improve-ui-apis` 分支上的相关工具名：
+当前这组 UI API 相关工具名通常为：
 
 - `PostDesktoproutes_createv2` -> `POST /desktopRoutes:createV2`
 - `PostDesktoproutes_destroyv2` -> `POST /desktopRoutes:destroyV2`
@@ -23,6 +23,8 @@
 - `PostFlowmodels_duplicate` -> `POST /flowModels:duplicate`
 
 调用 MCP 时要使用精确的工具名，不要传 REST 路径。
+
+如果当前会话里暴露出来的工具名不同，以实际 MCP 工具列表为准，但不要把 REST 路径直接当成工具名调用。
 
 ## 2. 请求格式规则
 
@@ -61,15 +63,25 @@
 3. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
 4. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照
 
-推荐的 `schemaBundle` 请求：
+推荐的 `schemaBundle` 请求起点：
 
 ```json
 {
   "requestBody": {
-    "uses": ["PageModel", "TableBlockModel", "CreateFormModel", "EditFormModel", "ActionModel"]
+    "uses": [
+      "PageModel",
+      "FilterFormBlockModel",
+      "TableBlockModel",
+      "DetailsBlockModel",
+      "CreateFormModel",
+      "EditFormModel",
+      "ActionModel"
+    ]
   }
 }
 ```
+
+这个 `uses` 列表是常见起点，不是固定白名单。本次任务如果还涉及 tab、popup、关系区块、引用区块或其他公共模型，应按任务动态追加。
 
 探测结果里重点关注：
 

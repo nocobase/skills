@@ -1,14 +1,14 @@
 ---
 name: nocobase-ui-builder
 description: 通过 MCP 构建和更新 NocoBase Modern page (v2) UI。用户要创建页面，或通过 desktopRoutes v2 与 flowModels MCP 工具修改现有页面区块时使用。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs
+allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/tool_journal.mjs, and scripts/tool_review_report.mjs
 ---
 
 # 目标
 
 通过 Swagger 生成的 NocoBase MCP 工具，构建和更新 NocoBase Modern page (v2) UI。
 
-本 skill 面向 `~/auto_works/nocobase` 仓库 `feat/improve-ui-apis` 分支当前生成的工具名：
+本 skill 面向当前会话中已暴露的以下 MCP 工具名：
 
 - `PostDesktoproutes_createv2`
 - `PostDesktoproutes_destroyv2`
@@ -26,19 +26,20 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 只要这些 MCP 工具名可用，就必须原样使用。不要把 `flowModels:schemaBundle` 或 `desktopRoutes:createV2` 当成真正的工具名本身。
 
-V1 范围刻意收窄：
+V1 默认采用 schema-first 的渐进支持策略：
 
 - 使用 `PostDesktoproutes_createv2` / `PostDesktoproutes_destroyv2` 创建或删除 v2 页面壳
-- 读取现有页面壳及其默认页签网格（`grid`）
-- 在页面网格（`grid`）中新增、更新、移动或删除常见区块
-- 当前支持的公共区块模型：`TableBlockModel`、`CreateFormModel`、`EditFormModel`
-- 当 `PostFlowmodels_schemas` / `GetFlowmodels_schema` 已经返回具体子树 schema 时，可直接构造稳定子模型，不必默认退回到“只建壳层”
+- 读取现有页面壳、页签、网格（`grid`）及相关 live tree
+- 在页面网格（`grid`）、页签网格和已解析的 popup/page 子树中新增、更新、移动或删除公共区块
+- 默认优先关注的常见公共模型包括：`FilterFormBlockModel`、`TableBlockModel`、`DetailsBlockModel`、`CreateFormModel`、`EditFormModel`、`ActionModel`
+- 当 `PostFlowmodels_schemas` / `GetFlowmodels_schema` 已经返回具体子树 schema、allowed uses 或稳定的 `stepParams` 结构时，支持范围自动扩展到已解析的页签结构、字段渲染、关系区块、popup/openView 动作、表单/表格子树等稳定模型
+- 实际可写范围始终以当前探测结果为准，不把支持范围硬编码成固定区块白名单
 
 # 前置条件
 
 1. 确认 NocoBase MCP 已经配置完成且当前可连接。
 2. 确认上面列出的工具在当前会话里可见。
-3. 如果 MCP 未配置或工具缺失，立即停止，先使用 `../nocobase-mcp-setup/SKILL.md`。
+3. 如果 MCP 未配置，先使用 `../nocobase-mcp-setup/SKILL.md`；如果只是工具缺失，先确认当前服务端实际暴露了对应 MCP/Swagger 工具，再决定是否需要重新接入。
 4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`。
 5. 如果当前任务是 validation case，不仅要准备数据模型，还要准备可查询的前置模拟数据；不要把“页面壳创建成功”当成 validation 完成。
 
@@ -143,12 +144,15 @@ NocoBase `resourcer` 的关键实现细节：
 
 任何写操作之前都必须遵循下面的顺序：
 
-1. 调用 `PostFlowmodels_schemabundle`，参数包含：
+1. 调用 `PostFlowmodels_schemabundle`，参数至少包含：
    - `PageModel`
+   - `FilterFormBlockModel`
    - `TableBlockModel`
+   - `DetailsBlockModel`
    - `CreateFormModel`
    - `EditFormModel`
    - `ActionModel`
+   - 以及本次任务明确涉及的其他目标公共模型 use
 2. 对即将修改的精确模型调用 `PostFlowmodels_schemas`
 3. 如果目标模型的 JSON Schema 或骨架仍有歧义，再调用 `GetFlowmodels_schema`
 4. 每次变更前都用 `GetFlowmodels_findone` 读取线上页面树
@@ -171,6 +175,7 @@ NocoBase `resourcer` 的关键实现细节：
 # 公共模型限制
 
 - 只提交从 `PostFlowmodels_schemabundle`、`PostFlowmodels_schemas` 或 `GetFlowmodels_schema` 探测到的公共模型 use
+- 公共模型 use 不是固定白名单；只要当前 schema 文档明确公开、允许且可落库，就可以使用
 - 拒绝 `FormBlockModel` 这类内部模型或禁止直接使用的模型
 - 如果服务端返回 `unsupported-model-use` 或 schema 校验错误，立即停止，并明确说明具体的 model/use 不匹配点
 
@@ -342,24 +347,27 @@ NocoBase `resourcer` 的关键实现细节：
 
 # 支持的区块范围
 
-V1 阶段必须把修改范围控制得很窄：
+V1 的边界不再由固定区块白名单决定，而由 schema-first 探测结果决定：
 
-- `TableBlockModel`：区块壳、表格设置、分页大小、行号显示、排序、数据范围
-- `CreateFormModel`：区块壳、表单布局、表单网格壳、动作列表壳
-- `EditFormModel`：与创建表单相同，外加表单数据范围
+- 页面骨架与页签层：`RootPageModel`、`PageModel`、`RootPageTabModel` / `PageTabModel`、`BlockGridModel` 等页面 / tab anchor 相关模型，可按当前 live tree 与 schema 做创建、读取和补丁
+- 常见公共区块：`FilterFormBlockModel`、`TableBlockModel`、`DetailsBlockModel`、`CreateFormModel`、`EditFormModel`
+- 常见动作与交互：`ActionModel` 及当前 `schemas` / `schema` 已明确展开的 record actions、popup/openView 相关动作树
 - 当当前 `schemas` / `schema` 已明确展开目标 slot 时，也允许直接创建这些稳定子树：
   - `FormGridModel`
   - `FormItemModel`
   - `FormSubmitActionModel`
   - `TableColumnModel`
   - 已在 schema 中明确列出的字段渲染模型
+  - 已在 schema 中明确列出的详情字段项、关系区块、popup page / tab 子树
+- 实际可写范围始终以当前探测到的 `allowed uses`、具体 child schema 和 live tree 为准，不把支持范围硬编码成固定白名单
 
-不要自由发挥去生成下面这些“当前 schema 文档尚未展开”的运行时子节点：
+不要自由发挥去生成下面这些“当前 schema 文档尚未展开、或 live tree 尚未确认”的运行时子节点或内部模型：
 
-- `BlockGridModel.subModels.items`
+- 未在当前 `schemas` / `schema` 中展开、且未在 `allowed uses` 中出现的 `BlockGridModel.subModels.items`
 - 未在当前 `schemas` / `schema` 中展开的表格列子树
 - 未在当前 `schemas` / `schema` 中展开的表单网格字段项
 - 未在当前 `schemas` / `schema` 中展开的字段渲染子树
+- 任何已被标记为内部模型、禁止直接提交的 model use
 
 如果 `dynamicHints` 已经被更具体的 `jsonSchema`、slot schema、allowed uses 覆盖，就按更具体的 schema 执行；只有在目标子树仍未解析时，才停在稳定壳层或读取样板页。
 
