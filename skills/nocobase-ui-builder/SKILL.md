@@ -40,6 +40,7 @@ V1 范围刻意收窄：
 2. 确认上面列出的工具在当前会话里可见。
 3. 如果 MCP 未配置或工具缺失，立即停止，先使用 `../nocobase-mcp-setup/SKILL.md`。
 4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`。
+5. 如果当前任务是 validation case，不仅要准备数据模型，还要准备可查询的前置模拟数据；不要把“页面壳创建成功”当成 validation 完成。
 
 # 执行日志
 
@@ -372,6 +373,21 @@ V1 可以修改现有页面，但必须严格控制范围：
 - 不要凭空发明显式可见页签结构；除非用户明确提供 `tabSchemaUid`，否则默认使用隐藏默认页签
 - 除非触发 `Schema-First 判定规则` 里的 fallback 条件，否则不要先去找样板页
 
+# Validation 附加规则
+
+当用户是在跑 `references/validation-cases/` 里的用例，或者明确要求验证页面真实可用性时，必须额外遵循下面的规则：
+
+1. validation 不等于“把页面搭出来”，还必须验证页面在存在业务数据时是否真的可用。
+2. 执行顺序必须是：
+   - 先校验或创建前置数据模型
+   - 再准备前置模拟数据
+   - 再开始页面与区块写入
+3. 前置模拟数据是 validation 的常规步骤，不要把它写成依赖某个单独 skill 的前置条件。
+4. 造数完成后，必须先做一次最小校验，确认主表和关键关系表都已经有数据，再进入 UI 搭建。
+5. 最终结果必须把“数据准备结果”和“UI 搭建结果”分开说明；如果页面建好了但数据没准备好，本次 validation 不能算完整通过。
+6. 具体造数基线、降级策略和输出要求见：
+   - [references/validation-data-preconditions.md](references/validation-data-preconditions.md)
+
 # 安全规则
 
 - 同一个页面初始化流程里，绝不要把旧版 `desktopRoutes:create` 和 `PostDesktoproutes_createv2` 混用
@@ -388,3 +404,5 @@ V1 可以修改现有页面，但必须严格控制范围：
   [references/ui-api-overview.md](references/ui-api-overview.md)
 - 具体区块请求体配方与 MCP 调用模式：
   [references/flow-model-recipes.md](references/flow-model-recipes.md)
+- validation 时的数据前置要求与造数基线：
+  [references/validation-data-preconditions.md](references/validation-data-preconditions.md)
