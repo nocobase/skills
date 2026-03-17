@@ -4,6 +4,11 @@
 
 在按本 reference 执行任何 MCP 调用前，先按 `SKILL.md` 中“执行日志”章节初始化 `tool_journal.mjs`，并在每次工具调用后追加日志记录。任务结束后，默认都要执行一次 `tool_review_report.mjs render`，生成复盘与自动改进产物。
 
+这个文件只覆盖 API 生命周期、请求格式、探测顺序与读写节奏。区块级细节不要继续堆在这里，按下面入口查阅：
+
+- 区块入口：[blocks/index.md](blocks/index.md)
+- 横切模式入口：[patterns/index.md](patterns/index.md)
+
 ## 1. MCP 工具映射
 
 当前这组 UI API 相关工具名通常为：
@@ -59,9 +64,10 @@
 任何写操作之前，都按以下顺序读取探测文档：
 
 1. `PostFlowmodels_schemabundle`
-2. `PostFlowmodels_schemas`
-3. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
-4. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照
+2. 先收敛本轮目标 public model use，并优先用一次 `PostFlowmodels_schemas`
+3. 如果中途新增了目标 use，先补一次增量 `PostFlowmodels_schemas`
+4. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
+5. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照，作为本轮默认唯一的写前 snapshot
 
 推荐的 `schemaBundle` 请求起点：
 
@@ -83,6 +89,13 @@
 
 这个 `uses` 列表是常见起点，不是固定白名单。本次任务如果还涉及 tab、popup、关系区块、引用区块或其他公共模型，应按任务动态追加。
 
+补充规则：
+
+- 同一写入阶段里，优先把目标 use 合并进一次 `PostFlowmodels_schemas`；只有发现遗漏 use 时，才补一次增量 `PostFlowmodels_schemas`。
+- `GetFlowmodels_schema` 只作为 `schemas` 之后仍未消歧的兜底，不要把多个目标 use 直接拆成多次单模型深挖。
+- 对同一目标 live tree，默认只做一次写前 `GetFlowmodels_findone` 和一次写后 `GetFlowmodels_findone`；如果额外读取，必须能说明是目标树切换、校验不同子树、返回不一致，或失败排查。
+- 不要为了“保险起见”连续重复读取同一个 grid/page；如果只是目标 use 变多了，先补 `PostFlowmodels_schemas`。
+
 探测结果里重点关注：
 
 - `minimalExample`
@@ -96,6 +109,12 @@
 - 如果 `dynamicHints` 出现，但同一 slot 已经有更具体的 `jsonSchema`、具体 child schema、allowed uses 或最小示例，就按这些更具体的信息构造
 - 只有当目标 slot 仍停留在泛型 / 未解析状态时，才不要从零开始凭空构造那个子树
 - 默认不要先读样板页；只有当 schema-first 仍不足，或 schema 与当前实例 live tree 明显不一致时，才读取样板页作为 fallback
+- 默认保持“写前一次、写后一次”的 live snapshot 节奏；额外读取时要在日志里说明为什么默认节奏不足
+
+如果当前任务已经进入某个具体区块或复杂模式，不要只停留在本总览文档；继续转到：
+
+- 区块文档：[blocks/index.md](blocks/index.md)
+- 横切模式文档：[patterns/index.md](patterns/index.md)
 
 ## 4. 页面初始化生命周期
 

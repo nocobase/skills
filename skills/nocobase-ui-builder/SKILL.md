@@ -43,6 +43,27 @@ V1 默认采用 schema-first 的渐进支持策略：
 4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`。
 5. 如果当前任务是 validation case，不仅要准备数据模型，还要准备可查询的前置模拟数据；不要把“页面壳创建成功”当成 validation 完成。
 
+# 区块与模式文档入口
+
+当任务开始进入 block-level 搭建时，推荐按下面路径查阅 references，而不是把所有细节都从 `SKILL.md` 现推导：
+
+1. 先从用户目标识别本轮涉及的区块 use 与横切场景
+   - 例如：筛选区块、主表、详情区块、创建/编辑表单、page/tabs
+   - 以及：表格列渲染、popup/openView、关系上下文、record actions、tree table、多对多/中间表
+2. 先打开 [references/blocks/index.md](references/blocks/index.md)
+3. 对每个目标区块，再打开对应 block 文档
+4. 然后按 block 文档里的“关联模式文档”继续打开 `references/patterns/*.md`
+5. 如果索引里还没有对应文档，退回本 skill 的通用 `schema-first` 规则继续执行，并在日志里追加 `note` 说明当前缺少专用文档
+
+这条路径是推荐入口，不是强制 gate；但以下场景优先走这条路径：
+
+- validation case
+- 复杂页面或多个区块并存
+- popup/openView 或嵌套 drawer/dialog
+- 关系区块、关系上下文、多对多/中间表
+- 显式 tabs、多 tab 页面
+- 树表、自关联、record action
+
 # 执行日志
 
 这个 skill 应该为每次执行生成一份独立的工具调用日志，方便事后复盘。这里的“日志”是 skill 级 best-effort 记录，不是平台底层自动拦截，所以必须严格按下面流程执行。
@@ -153,11 +174,34 @@ NocoBase `resourcer` 的关键实现细节：
    - `EditFormModel`
    - `ActionModel`
    - 以及本次任务明确涉及的其他目标公共模型 use
-2. 对即将修改的精确模型调用 `PostFlowmodels_schemas`
-3. 如果目标模型的 JSON Schema 或骨架仍有歧义，再调用 `GetFlowmodels_schema`
-4. 每次变更前都用 `GetFlowmodels_findone` 读取线上页面树
+2. 先收敛“本轮即将修改的目标 public model use 列表”，优先用一次 `PostFlowmodels_schemas` 拉齐这一批精确模型文档
+3. 如果在构造过程中新增了目标 use，先补一次增量 `PostFlowmodels_schemas`，不要直接跳到多个 `GetFlowmodels_schema`
+4. 如果目标模型的 JSON Schema 或骨架仍有歧义，再对仍未消歧的具体 use 调用 `GetFlowmodels_schema`
+5. 每次变更前都用 `GetFlowmodels_findone` 读取线上页面树，作为该目标树本轮唯一的写前 live snapshot
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
+
+补充执行规则：
+
+- 同一写入阶段里，默认先把目标 use 尽量合并进一次 `PostFlowmodels_schemas`；不要把多个目标 use 分散成多次单模型深挖。
+- `GetFlowmodels_schema` 只用于 `schemas` 之后仍未消歧的具体 use；如果同一 use 需要再次读取，必须是为了核对不同 slot 形状、服务端返回前后不一致、或排查失败，并在日志里追加 `note` 说明原因。
+- 如果只是中途发现漏了一个目标 use，先补增量 `PostFlowmodels_schemas`，不要因为“怕漏掉”就连续追加多个 `GetFlowmodels_schema`。
+
+# Live Snapshot 读取节奏
+
+对同一目标 live tree（同一个 page / grid / popup page 子树），默认只保留两次 `GetFlowmodels_findone`：
+
+1. 写前一次：拿最新快照作为本轮唯一基线
+2. 写后一次：确认结果已落库
+
+只有在以下情况，才允许对同一目标额外读取：
+
+- 目标父节点或目标树已经切换
+- 需要核对另一个不同子树，而不是同一个 grid/page
+- 服务端写入返回和 live tree 明显不一致
+- 当前是在排查失败、冲突或异常回写
+
+出现额外读取时，必须在日志里追加 `note`，写明为什么默认“两次节奏”不足。不要为了“保险起见”连续重复读取同一个 grid/page；如果只是新增了目标 use，先补 `PostFlowmodels_schemas`，不要先多读 live tree。
 
 # Schema-First 判定规则
 
@@ -285,23 +329,24 @@ NocoBase `resourcer` 的关键实现细节：
 
 ## 新增区块
 
-1. 先读取目标网格（`grid`）
-2. 为目标公共区块 use 加载 `schemaBundle` + `schemas`
+1. 先收敛本轮目标公共区块 use，并加载 `schemaBundle` + `schemas`
+2. 如果中途新增了目标 use，先补一次增量 `PostFlowmodels_schemas`
 3. 如果某个字段或子结构仍不清楚，再读取该 use 对应的 `GetFlowmodels_schema`
-4. 从探测得到的骨架 / 最小示例出发，只填充用户明确要求的字段
-5. 先判断目标子树是否已被 `schemas` / `schema` 明确展开：
+4. 读取目标网格（`grid`），作为本轮默认唯一的写前 live snapshot
+5. 从探测得到的骨架 / 最小示例出发，只填充用户明确要求的字段
+6. 先判断目标子树是否已被 `schemas` / `schema` 明确展开：
    - 已明确展开：直接构造区块壳与稳定子树
    - 仍未解析：先退回稳定壳层，或按上面的 fallback 规则读取一个样板页
-6. 使用 `node scripts/opaque_uid.mjs node-uids ...` 一次生成本次写入所需的全部 opaque uid
-7. 使用 `PostFlowmodels_mutate` 创建区块：
+7. 使用 `node scripts/opaque_uid.mjs node-uids ...` 一次生成本次写入所需的全部 opaque uid
+8. 使用 `PostFlowmodels_mutate` 创建区块：
    - `requestBody.atomic = true`
    - 使用 `type: "upsert"`
    - 始终显式包含 `uid`，保证重试安全
-8. 通过保存 / upsert 的方式把新区块挂到网格上：
+9. 通过保存 / upsert 的方式把新区块挂到网格上：
    - `parentId={gridUid}`
    - `subKey=items`
    - `subType=array`
-9. 重新读取网格，并返回新区块的快照
+10. 重新读取目标网格，作为本轮默认唯一的写后 live snapshot，并返回新区块的快照
 
 新区块的 Opaque UID 约定：
 
@@ -311,28 +356,29 @@ NocoBase `resourcer` 的关键实现细节：
 
 ## 更新区块
 
-1. 读取目标网格，并通过 `uid` 定位区块
+1. 读取目标网格或目标区块，并通过 `uid` 定位区块；这次读取就是本轮默认唯一的写前 live snapshot
 2. 保留当前快照中未知但已存在的字段
 3. 只更新该具体区块 use 支持的字段
 4. 保持现有区块 `uid` 不变
 5. 对新增加的任何子节点，都通过 `node-uids` 批量生成 uid
 6. 用相同的 `uid` 通过 `PostFlowmodels_save` 回写；如果更新必须与其他操作保持事务一致，则使用 `PostFlowmodels_mutate`
-7. 重新读取区块或网格，并报告变更差异
+7. 重新读取同一目标一次，作为本轮默认唯一的写后 live snapshot，并报告变更差异
+8. 如果因为切换父节点、核对不同子树、或排查失败需要额外读取，先在日志里追加 `note`
 
 ## 移动区块
 
-1. 读取目标网格，并解析出两个区块 uid
+1. 读取目标网格，并解析出两个区块 uid；这次读取就是本轮默认唯一的写前 live snapshot
 2. 使用 `PostFlowmodels_move`：
    - `sourceId`
    - `targetId`
    - `position=before|after`
-3. 重新读取网格，并报告新顺序
+3. 重新读取同一目标网格一次，作为本轮默认唯一的写后 live snapshot，并报告新顺序
 
 ## 删除区块
 
-1. 读取目标网格，并确认区块存在
+1. 读取目标网格，并确认区块存在；这次读取就是本轮默认唯一的写前 live snapshot
 2. 使用 `PostFlowmodels_destroy({ filterByTk: blockUid })` 删除
-3. 重新读取网格，确认区块已经消失
+3. 重新读取同一目标网格一次，作为本轮默认唯一的写后 live snapshot，确认区块已经消失
 
 ## 删除页面
 
@@ -412,5 +458,11 @@ V1 可以修改现有页面，但必须严格控制范围：
   [references/ui-api-overview.md](references/ui-api-overview.md)
 - 具体区块请求体配方与 MCP 调用模式：
   [references/flow-model-recipes.md](references/flow-model-recipes.md)
+- 区块文档索引：
+  [references/blocks/index.md](references/blocks/index.md)
+- 横切模式文档索引：
+  [references/patterns/index.md](references/patterns/index.md)
 - validation 时的数据前置要求与造数基线：
   [references/validation-data-preconditions.md](references/validation-data-preconditions.md)
+- validation 用例目录：
+  [references/validation-cases/index.md](references/validation-cases/index.md)

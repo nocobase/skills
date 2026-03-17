@@ -6,6 +6,11 @@
 
 以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。完成后默认执行 `tool_review_report.mjs render`，输出复盘报告和自动改进清单。
 
+这个文件负责“起手式”和“通用配方”，不是每一种区块细节的全集。进入具体区块后，继续查：
+
+- 区块索引：[blocks/index.md](blocks/index.md)
+- 模式索引：[patterns/index.md](patterns/index.md)
+
 ## 1. 初始化探测
 
 先抓取紧凑的 bundle：
@@ -49,6 +54,21 @@
 }
 ```
 
+执行规则：
+
+- 先把本阶段目标 use 尽量收敛进一次 `PostFlowmodels_schemas`
+- 如果中途新增了目标 use，先补一次增量 `PostFlowmodels_schemas`
+- 只有 `schemas` 之后仍不能确定时，再针对具体 use 调 `GetFlowmodels_schema`
+
+如果这次任务已经明确涉及某类区块，不要只靠这里的通用 recipe：
+
+- `FilterFormBlockModel` -> 继续看 [blocks/filter-form.md](blocks/filter-form.md)
+- `TableBlockModel` -> 继续看 [blocks/table.md](blocks/table.md)
+- `DetailsBlockModel` -> 继续看 [blocks/details.md](blocks/details.md)
+- `CreateFormModel` -> 继续看 [blocks/create-form.md](blocks/create-form.md)
+- `EditFormModel` -> 继续看 [blocks/edit-form.md](blocks/edit-form.md)
+- popup / 关系 / 列渲染 / tree / 多对多 -> 继续看 [patterns/index.md](patterns/index.md)
+
 如果某个模型仍需要进一步确认：
 
 ```json
@@ -66,6 +86,7 @@
 - 如果 `schemas` 已经给出具体 slot schema 和 allowed uses，就直接构造该子树
 - 如果 `schemas` 已经给出 popup/openView、关系区块、详情字段项、tab 子树等稳定结构，也可以直接构造，不必退回到“只建壳层”
 - 只有当目标 slot 仍停留在泛型节点或运行时未解析状态时，才回退到样板页或稳定壳层
+- 对同一目标 live tree，默认只读两次：写前一次、写后一次；额外读取必须能说明是目标树切换、核对不同子树、返回不一致，或失败排查
 
 ## 2. 创建页面壳
 
@@ -117,6 +138,11 @@ node scripts/opaque_uid.mjs reserve-page --title "Orders"
 }
 ```
 
+说明：
+
+- 这两次读取是 `createV2` 后解析 page/grid 锚点的初始化读取，不算“同一目标树的重复回读”
+- 进入具体区块写入阶段后，对同一个 grid 默认再读一次作为写前快照，写后再读一次确认结果
+
 ```json
 {
   "tool": "GetFlowmodels_findone",
@@ -131,6 +157,19 @@ node scripts/opaque_uid.mjs reserve-page --title "Orders"
 ## 3. 新增表格区块
 
 使用上一步读取返回的网格 uid，例如 `ens_grid_uid`。
+
+如果这是该 grid 的一个新写入阶段，先读一次当前 live grid，作为本轮默认唯一的写前 snapshot：
+
+```json
+{
+  "tool": "GetFlowmodels_findone",
+  "arguments": {
+    "parentId": "tabs-k7n4x9p2q5ra",
+    "subKey": "grid",
+    "includeAsyncNode": true
+  }
+}
+```
 
 用辅助脚本批量生成 opaque 节点 id：
 
@@ -189,6 +228,19 @@ node scripts/opaque_uid.mjs node-uids \
 
 - `TableBlockModel.subModels.columns` 是公共字段；如果当前 `schemas` 已经展开到 `TableColumnModel` 和字段渲染子树，就可以直接创建列
 - 只有当 `columns` 仍停留在泛型 / 未解析状态时，才先创建区块壳或读取样板页确认列定义
+
+写入后默认只回读一次同一个 grid：
+
+```json
+{
+  "tool": "GetFlowmodels_findone",
+  "arguments": {
+    "parentId": "tabs-k7n4x9p2q5ra",
+    "subKey": "grid",
+    "includeAsyncNode": true
+  }
+}
+```
 
 ## 4. 新增创建表单区块
 
