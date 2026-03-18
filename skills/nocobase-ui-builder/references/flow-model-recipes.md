@@ -195,10 +195,12 @@ node scripts/flow_payload_guard.mjs audit-payload \
 
 ```bash
 node scripts/flow_payload_guard.mjs build-filter \
-  --path order_id \
+  --path order \
   --operator '$eq' \
   --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
 ```
+
+如果这是 popup / 详情页里“当前记录的关联子表”，优先不要退化成普通 `dataScope.filter`，而是先确认是否应该写 `resourceSettings.init.associationName + sourceId`。
 
 用辅助脚本批量生成 opaque 节点 id：
 

@@ -170,13 +170,17 @@ V1 默认采用 schema-first 的渐进支持策略：
 2. 不允许把 `foreignKey` 直接当成 `fieldPath`
 3. popup/openView 动作如果要落库，至少要有 `action + openView + page + tab + grid + business block`
 4. popup 子树如果依赖 `{{ctx.view.inputArgs.filterByTk}}`，动作层必须显式传 `filterByTk`
-5. validation case 默认使用 `--mode validation-case`，比普通页面更严格
+5. popup / 详情里的“当前记录关联子表”优先使用 `resourceSettings.init.associationName + sourceId`；`ctx.view.inputArgs.filterByTk` 是 `sourceId` 来源，不是默认鼓励你手写 `dataScope.filter`
+6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；如果没有稳定 reference 或 live tree 证明该资源协议可用，validation case 默认保持 blocker
+7. `DetailsBlockModel` 不能只落空 grid；validation case 下至少要有详情字段、动作或子业务区块之一
+8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；先确认稳定的标题字段展示策略
+9. validation case 默认使用 `--mode validation-case`，比普通页面更严格
 
 命令示例：
 
 ```bash
 node scripts/flow_payload_guard.mjs build-filter \
-  --path order_id \
+  --path order \
   --operator '$eq' \
   --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
 ```
@@ -196,6 +200,12 @@ node scripts/flow_payload_guard.mjs audit-payload \
 `audit-payload` 返回 blocker 时，默认立即停止写入。只有确实需要保留风险时，才允许追加一条 `risk_accept` note，并重新运行一次 `audit-payload`：
 
 - `node scripts/tool_journal.mjs note --log-path "<logPath>" --message "risk-accept for EMPTY_POPUP_GRID" --data-json '{"type":"risk_accept","codes":["EMPTY_POPUP_GRID"],"reason":"temporary shell allowed during migration"}'`
+
+以下 code 不允许通过 `risk_accept` 降级，哪怕在 note 里显式列出也必须继续保持 blocker：
+
+- `ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE`
+- `ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL`
+- `EMPTY_DETAILS_BLOCK`
 
 不要用自然语言口头说明代替 `risk_accept` note；复盘脚本只认结构化 note。
 

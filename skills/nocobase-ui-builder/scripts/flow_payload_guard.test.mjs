@@ -35,11 +35,28 @@ const metadata = {
         { name: 'name', type: 'string', interface: 'input' },
       ],
     },
+    order_items: {
+      titleField: 'id',
+      fields: [
+        { name: 'quantity', type: 'integer', interface: 'number' },
+        { name: 'order', type: 'belongsTo', interface: 'm2o', target: 'orders', foreignKey: 'order_id' },
+      ],
+    },
     project_members: {
       titleField: 'id',
       fields: [
         { name: 'role', type: 'string', interface: 'select' },
       ],
+    },
+  },
+};
+
+const metadataWithCustomerTitle = {
+  collections: {
+    ...metadata.collections,
+    customers: {
+      titleField: 'name',
+      fields: metadata.collections.customers.fields,
     },
   },
 };
@@ -85,6 +102,42 @@ function makePopupPageWithTable(filter) {
                         },
                       },
                     ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function makePopupPageWithChildTab(tableBlock) {
+  return {
+    use: 'ViewActionModel',
+    stepParams: {
+      popupSettings: {
+        openView: {
+          mode: 'drawer',
+          collectionName: 'orders',
+          pageModelClass: 'ChildPageModel',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+    },
+    subModels: {
+      page: {
+        use: 'ChildPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'ChildPageTabModel',
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [tableBlock],
                   },
                 },
               },
@@ -323,6 +376,34 @@ test('auditPayload blocks association display bindings when target collection ha
   assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_DISPLAY_TARGET_UNRESOLVED'), true);
 });
 
+test('auditPayload warns and blocks direct DisplayTextFieldModel association bindings even when target title exists', () => {
+  const payload = {
+    use: 'DisplayTextFieldModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer',
+        },
+      },
+    },
+  };
+
+  const generalResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: GENERAL_MODE });
+  assert.equal(generalResult.ok, true);
+  assert.equal(
+    generalResult.warnings.some((item) => item.code === 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL'),
+    true,
+  );
+
+  const validationResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL'),
+    true,
+  );
+});
+
 test('auditPayload warns on hardcoded filterByTk in general mode and blocks in validation-case mode', () => {
   const payload = {
     use: 'DetailsBlockModel',
@@ -396,6 +477,129 @@ test('auditPayload warns on empty popup grids in general mode and blocks in vali
   assert.equal(validationResult.blockers.some((item) => item.code === 'EMPTY_POPUP_GRID'), true);
 });
 
+test('auditPayload accepts ChildPageTabModel as a valid popup tab subtree', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [],
+          },
+        },
+      },
+    },
+  });
+
+  const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
+  assert.equal(result.blockers.some((item) => item.code === 'POPUP_ACTION_MISSING_SUBTREE'), false);
+});
+
+test('auditPayload warns and blocks popup relation tables that should use association context', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'order',
+                operator: '$eq',
+                value: '{{ctx.view.inputArgs.filterByTk}}',
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const generalResult = auditPayload({ payload, metadata, mode: GENERAL_MODE });
+  assert.equal(generalResult.ok, true);
+  assert.equal(generalResult.warnings.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'), true);
+
+  const validationResult = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'),
+    true,
+  );
+});
+
+test('auditPayload warns and blocks popup relation tables that guess associationName from child belongsTo field', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+          associationName: 'order',
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+      tableSettings: {
+        pageSize: {
+          pageSize: 20,
+        },
+      },
+    },
+  });
+
+  const generalResult = auditPayload({ payload, metadata, mode: GENERAL_MODE });
+  assert.equal(generalResult.ok, true);
+  assert.equal(
+    generalResult.warnings.some((item) => item.code === 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE'),
+    true,
+  );
+
+  const validationResult = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE'),
+    true,
+  );
+});
+
+test('auditPayload warns and blocks empty details blocks', () => {
+  const payload = {
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'customers',
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'DetailsGridModel',
+      },
+    },
+  };
+
+  const generalResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: GENERAL_MODE });
+  assert.equal(generalResult.ok, true);
+  assert.equal(generalResult.warnings.some((item) => item.code === 'EMPTY_DETAILS_BLOCK'), true);
+
+  const validationResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  assert.equal(validationResult.blockers.some((item) => item.code === 'EMPTY_DETAILS_BLOCK'), true);
+});
+
 test('auditPayload can downgrade blocker with riskAccept', () => {
   const payload = {
     use: 'TableBlockModel',
@@ -434,6 +638,84 @@ test('auditPayload can downgrade blocker with riskAccept', () => {
     result.warnings.some((item) => item.code === 'FILTER_ITEM_USES_FIELD_NOT_PATH' && item.accepted === true),
     true,
   );
+});
+
+test('auditPayload does not allow riskAccept to bypass hard validation-case blockers for relation and details integrity', () => {
+  const cases = [
+    {
+      code: 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
+      payload: {
+        use: 'DisplayTextFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer',
+            },
+          },
+        },
+      },
+      metadata: metadataWithCustomerTitle,
+    },
+    {
+      code: 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
+      payload: makePopupPageWithChildTab({
+        use: 'TableBlockModel',
+        stepParams: {
+          resourceSettings: {
+            init: {
+              collectionName: 'order_items',
+              associationName: 'order',
+              sourceId: '{{ctx.view.inputArgs.filterByTk}}',
+            },
+          },
+          tableSettings: {
+            pageSize: {
+              pageSize: 20,
+            },
+          },
+        },
+      }),
+      metadata,
+    },
+    {
+      code: 'EMPTY_DETAILS_BLOCK',
+      payload: {
+        use: 'DetailsBlockModel',
+        stepParams: {
+          resourceSettings: {
+            init: {
+              collectionName: 'customers',
+              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+            },
+          },
+        },
+        subModels: {
+          grid: {
+            use: 'DetailsGridModel',
+          },
+        },
+      },
+      metadata: metadataWithCustomerTitle,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const result = auditPayload({
+      payload: testCase.payload,
+      metadata: testCase.metadata,
+      mode: VALIDATION_CASE_MODE,
+      riskAccept: [testCase.code],
+    });
+
+    assert.equal(result.ok, false, `${testCase.code} should remain a blocker`);
+    assert.equal(result.acceptedRiskCodes.includes(testCase.code), false, `${testCase.code} must not be accepted`);
+    assert.equal(
+      result.blockers.some((item) => item.code === testCase.code),
+      true,
+      `${testCase.code} should still appear in blockers`,
+    );
+  }
 });
 
 test('build-filter CLI prints normalized JSON', () => {

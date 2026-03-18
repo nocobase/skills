@@ -85,6 +85,23 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 1. 退回到更稳定的关联字段展示方式
 2. 或明确记录“关联路径列未稳定落库”
 
+如果当前只确认了 `customer` / `product` 这类关联字段存在，而没有稳定的 relation-display 模式，不要直接写：
+
+```json
+{
+  "use": "DisplayTextFieldModel",
+  "stepParams": {
+    "fieldSettings": {
+      "init": {
+        "fieldPath": "customer"
+      }
+    }
+  }
+}
+```
+
+这类写法在 validation case 下默认视为不稳定，需要先明确目标 titleField 或其他已验证的展示模板。
+
 ## 写后验收
 
 回读表格后，至少检查：
@@ -100,6 +117,7 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - 只写 `TableColumnModel`，不写 `subModels.field`
 - 只在 `tableColumnSettings.model.use` 里写 display model，却不创建实际 `subModels.field`
 - 因为 popup/action 更复杂，就先牺牲主列表的真实可见列
+- 把关联字段本身直接交给 `DisplayTextFieldModel(fieldPath=<relationField>)`，却没有验证实际可见值
 - 直接把 `customer.name` 当稳定路径使用，而不核对元数据与 schema
 
 ## 关联文档

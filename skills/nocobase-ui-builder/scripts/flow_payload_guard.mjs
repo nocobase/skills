@@ -8,9 +8,15 @@ export const GENERAL_MODE = 'general';
 export const VALIDATION_CASE_MODE = 'validation-case';
 export const BLOCKER_EXIT_CODE = 2;
 
+const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
+  'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
+  'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
+  'EMPTY_DETAILS_BLOCK',
+]);
+
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
 
-const PAGE_TAB_MODEL_USES = new Set(['RootPageTabModel', 'PageTabModel']);
+const PAGE_TAB_MODEL_USES = new Set(['RootPageTabModel', 'PageTabModel', 'ChildPageTabModel']);
 const GRID_MODEL_USES = new Set(['BlockGridModel', 'FormGridModel']);
 const BUSINESS_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
@@ -28,6 +34,8 @@ const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'DisplayTextFieldModel',
   'FilterFormRecordSelectFieldModel',
 ]);
+const DIRECT_ASSOCIATION_TEXT_FIELD_MODEL_USES = new Set(['DisplayTextFieldModel']);
+const DETAILS_LAYOUT_ONLY_MODEL_USES = new Set(['DetailsGridModel', 'BlockGridModel', 'FormGridModel']);
 
 function usage() {
   return [
@@ -280,6 +288,51 @@ function getCollectionMeta(metadata, collectionName) {
   return metadata.collections[collectionName] || null;
 }
 
+function isAssociationField(field) {
+  if (!field) {
+    return false;
+  }
+  return Boolean(
+    field.target
+      || field.foreignKey
+      || field.type === 'belongsTo'
+      || field.type === 'hasMany'
+      || field.type === 'hasOne'
+      || field.interface === 'm2o'
+      || field.interface === 'o2m',
+  );
+}
+
+function findAssociationFieldToTarget(collectionMeta, targetCollectionName) {
+  if (!collectionMeta || !targetCollectionName) {
+    return null;
+  }
+  return collectionMeta.fields.find((field) => isAssociationField(field) && field.target === targetCollectionName) || null;
+}
+
+function collectFilterConditions(filter, results = []) {
+  if (!isPlainObject(filter) || !Array.isArray(filter.items)) {
+    return results;
+  }
+  for (const item of filter.items) {
+    if (!isPlainObject(item)) {
+      continue;
+    }
+    if (typeof item.path === 'string' && typeof item.operator === 'string') {
+      results.push(item);
+      continue;
+    }
+    if (typeof item.logic === 'string' && Array.isArray(item.items)) {
+      collectFilterConditions(item, results);
+    }
+  }
+  return results;
+}
+
+function usesPopupInputArgsFilterByTk(value) {
+  return typeof value === 'string' && value.includes(POPUP_INPUT_ARGS_FILTER_BY_TK);
+}
+
 function isSimpleFieldName(value) {
   return typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 }
@@ -369,7 +422,174 @@ function findNestedRelationBlocks(pageNode, parentCollectionName) {
   return findings;
 }
 
-function inspectPopupActions(payload, mode, warnings, blockers, seen) {
+function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionName, metadata) {
+  const findings = [];
+
+  function visit(node, pathValue, currentParentCollectionName) {
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => visit(item, joinPath(pathValue, index), currentParentCollectionName));
+      return;
+    }
+    if (!isPlainObject(node)) {
+      return;
+    }
+
+    const use = typeof node.use === 'string' ? node.use : '';
+    const initOptions = node.stepParams?.resourceSettings?.init;
+    const resourceCollectionName = initOptions?.collectionName || currentParentCollectionName;
+    const dataScopeFilter = node.stepParams?.tableSettings?.dataScope?.filter
+      || node.stepParams?.detailsSettings?.dataScope?.filter
+      || node.stepParams?.formSettings?.dataScope?.filter;
+    const hasAssociationProtocol = Boolean(
+      typeof initOptions?.associationName === 'string'
+      && initOptions.associationName.trim()
+      && Object.hasOwn(initOptions, 'sourceId'),
+    );
+
+    if (
+      FILTER_CONTAINER_MODEL_USES.has(use)
+      && initOptions?.collectionName
+      && currentParentCollectionName
+      && initOptions.collectionName !== currentParentCollectionName
+      && !hasAssociationProtocol
+    ) {
+      const collectionMeta = getCollectionMeta(metadata, initOptions.collectionName);
+      const relationField = findAssociationFieldToTarget(collectionMeta, currentParentCollectionName);
+      const matchedCondition = relationField
+        ? collectFilterConditions(dataScopeFilter).find(
+          (condition) => condition.path === relationField.name && usesPopupInputArgsFilterByTk(condition.value),
+        )
+        : null;
+
+      if (relationField && matchedCondition) {
+        findings.push({
+          path: pathValue,
+          use,
+          collectionName: initOptions.collectionName,
+          parentCollectionName: currentParentCollectionName,
+          relationField: relationField.name,
+          targetCollectionName: relationField.target,
+          suggestedProtocol: {
+            associationName: relationField.name,
+            sourceId: POPUP_INPUT_ARGS_FILTER_BY_TK,
+          },
+        });
+      }
+    }
+
+    for (const [key, child] of Object.entries(node)) {
+      visit(child, joinPath(pathValue, key), resourceCollectionName);
+    }
+  }
+
+  visit(pageNode, '$.subModels.page', parentCollectionName);
+  return findings;
+}
+
+function findRelationBlocksUsingAmbiguousAssociationContext(pageNode, parentCollectionName, metadata) {
+  const findings = [];
+
+  function visit(node, pathValue, currentParentCollectionName) {
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => visit(item, joinPath(pathValue, index), currentParentCollectionName));
+      return;
+    }
+    if (!isPlainObject(node)) {
+      return;
+    }
+
+    const use = typeof node.use === 'string' ? node.use : '';
+    const initOptions = node.stepParams?.resourceSettings?.init;
+    const resourceCollectionName = initOptions?.collectionName || currentParentCollectionName;
+    const associationName = typeof initOptions?.associationName === 'string' ? initOptions.associationName.trim() : '';
+    const sourceId = initOptions?.sourceId;
+
+    if (
+      FILTER_CONTAINER_MODEL_USES.has(use)
+      && initOptions?.collectionName
+      && currentParentCollectionName
+      && initOptions.collectionName !== currentParentCollectionName
+      && associationName
+      && Object.hasOwn(initOptions, 'sourceId')
+    ) {
+      const collectionMeta = getCollectionMeta(metadata, initOptions.collectionName);
+      const directAssociationField = collectionMeta?.fieldsByName.get(associationName) || null;
+      if (
+        directAssociationField
+        && isAssociationField(directAssociationField)
+        && directAssociationField.target === currentParentCollectionName
+        && usesPopupInputArgsFilterByTk(sourceId)
+      ) {
+        findings.push({
+          path: pathValue,
+          use,
+          collectionName: initOptions.collectionName,
+          parentCollectionName: currentParentCollectionName,
+          associationName,
+          sourceId,
+          relationField: directAssociationField.name,
+          targetCollectionName: directAssociationField.target,
+        });
+      }
+    }
+
+    for (const [key, child] of Object.entries(node)) {
+      visit(child, joinPath(pathValue, key), resourceCollectionName);
+    }
+  }
+
+  visit(pageNode, '$.subModels.page', parentCollectionName);
+  return findings;
+}
+
+function hasMeaningfulDetailsContent(detailsBlock) {
+  if (!isPlainObject(detailsBlock?.subModels)) {
+    return false;
+  }
+
+  let hasContent = false;
+  walk(detailsBlock.subModels, (node) => {
+    if (hasContent || !isPlainObject(node) || typeof node.use !== 'string') {
+      return;
+    }
+    if (DETAILS_LAYOUT_ONLY_MODEL_USES.has(node.use)) {
+      return;
+    }
+    if (node.use === 'DetailsBlockModel') {
+      return;
+    }
+    hasContent = true;
+  });
+
+  return hasContent;
+}
+
+function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'DetailsBlockModel') {
+      return;
+    }
+
+    if (hasMeaningfulDetailsContent(node)) {
+      return;
+    }
+
+    const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+    pushFinding(targetList, seen, createFinding({
+      severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+      code: 'EMPTY_DETAILS_BLOCK',
+      message: 'DetailsBlockModel 只有空 grid 壳，没有任何详情字段、动作或子业务区块。',
+      path: pathValue,
+      mode,
+      dedupeKey: `EMPTY_DETAILS_BLOCK:${pathValue}`,
+      details: {
+        collectionName: node.stepParams?.resourceSettings?.init?.collectionName || null,
+      },
+    }));
+  });
+}
+
+function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || typeof node.use !== 'string' || !node.use.endsWith('ActionModel')) {
       return;
@@ -443,6 +663,42 @@ function inspectPopupActions(payload, mode, warnings, blockers, seen) {
           path: relationBlock.path,
           mode,
           dedupeKey: `RELATION_BLOCK_WITH_EMPTY_FILTER:${relationBlock.path}`,
+          details: relationBlock,
+        }));
+      }
+
+      const genericRelationBlocks = findRelationBlocksUsingGenericPopupFilter(
+        pageNode,
+        openView?.collectionName || null,
+        metadata,
+      );
+      for (const relationBlock of genericRelationBlocks) {
+        const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT',
+          message: 'popup 内当前记录的关联子表不应退化成普通 dataScope.filter；优先使用 associationName + sourceId。',
+          path: relationBlock.path,
+          mode,
+          dedupeKey: `RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT:${relationBlock.path}`,
+          details: relationBlock,
+        }));
+      }
+
+      const ambiguousAssociationBlocks = findRelationBlocksUsingAmbiguousAssociationContext(
+        pageNode,
+        openView?.collectionName || null,
+        metadata,
+      );
+      for (const relationBlock of ambiguousAssociationBlocks) {
+        const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
+          message: 'popup 内关联子表的 associationName 不能只复用子表指向父表的 belongsTo 字段名；先基于稳定 reference 或 live tree 验真。',
+          path: relationBlock.path,
+          mode,
+          dedupeKey: `ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE:${relationBlock.path}`,
           details: relationBlock,
         }));
       }
@@ -632,6 +888,23 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
     }
 
     const targetDisplayField = targetCollectionMeta.titleField || targetCollectionMeta.filterTargetKey;
+    if (DIRECT_ASSOCIATION_TEXT_FIELD_MODEL_USES.has(context.use)) {
+      const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+      pushFinding(targetList, seen, createFinding({
+        severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+        code: 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
+        message: `关联字段 "${fieldPath}" 不应直接用 ${context.use} 绑定自身；请显式选择目标 collection "${directField.target}" 的稳定显示策略。`,
+        path: pathValue,
+        mode,
+        dedupeKey: `ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL:${collectionName}:${fieldPath}:${pathValue}`,
+        details: {
+          collectionName,
+          fieldPath,
+          targetCollection: directField.target,
+          suggestedTitleField: targetDisplayField || null,
+        },
+      }));
+    }
     if (!targetDisplayField || (targetCollectionMeta.fields.length > 0 && !targetCollectionMeta.fieldsByName.has(targetDisplayField))) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
@@ -690,7 +963,7 @@ function applyRiskAccept(blockers, warnings, acceptedCodes) {
   const appliedCodes = new Set();
 
   for (const blocker of blockers) {
-    if (acceptedSet.has(blocker.code)) {
+    if (acceptedSet.has(blocker.code) && !NON_RISK_ACCEPTABLE_BLOCKER_CODES.has(blocker.code)) {
       downgradedWarnings.push({
         ...blocker,
         severity: 'warning',
@@ -801,7 +1074,8 @@ export function auditPayload({ payload, metadata = {}, mode = GENERAL_MODE, risk
 
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
-  inspectPopupActions(payload, mode, warnings, blockers, blockerSeen);
+  inspectPopupActions(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
+  inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
   if (mode === VALIDATION_CASE_MODE) {
     inspectHardcodedFilterByTk(payload, mode, blockers, blockerSeen);
   } else {
