@@ -361,6 +361,91 @@ function buildGuardSummary(records) {
   return summary;
 }
 
+function normalizeStringList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => item.trim());
+}
+
+function buildPostWriteReadbackMismatches(toolCalls) {
+  const mismatches = [];
+
+  for (let index = 0; index < toolCalls.length; index += 1) {
+    const writeCall = toolCalls[index];
+    if (!WRITE_TOOL_NAMES.has(writeCall.tool) || !isPlainObject(writeCall.result)) {
+      continue;
+    }
+
+    let readbackCall = null;
+    for (let cursor = index + 1; cursor < toolCalls.length; cursor += 1) {
+      const candidate = toolCalls[cursor];
+      if (WRITE_TOOL_NAMES.has(candidate.tool)) {
+        break;
+      }
+      if (candidate.tool === 'GetFlowmodels_findone') {
+        readbackCall = candidate;
+        break;
+      }
+    }
+
+    if (!readbackCall || !isPlainObject(readbackCall.result)) {
+      continue;
+    }
+
+    const evidence = [];
+    const writeTabCount = Number.isFinite(writeCall.result.tabCount) ? writeCall.result.tabCount : null;
+    const readbackTabCount = Number.isFinite(readbackCall.result.tabCount) ? readbackCall.result.tabCount : null;
+    if (writeTabCount !== null && readbackTabCount !== null && writeTabCount !== readbackTabCount) {
+      evidence.push(`write.tabCount=${writeTabCount}，readback.tabCount=${readbackTabCount}`);
+    }
+
+    const writeItemCount = Number.isFinite(writeCall.result.itemCount) ? writeCall.result.itemCount : null;
+    const readbackItemCount = Number.isFinite(readbackCall.result.itemCount) ? readbackCall.result.itemCount : null;
+    if (writeItemCount !== null && readbackItemCount !== null && writeItemCount !== readbackItemCount) {
+      evidence.push(`write.itemCount=${writeItemCount}，readback.itemCount=${readbackItemCount}`);
+    }
+
+    const writeTabTitles = normalizeStringList(writeCall.result.tabTitles);
+    const readbackTabTitles = normalizeStringList(readbackCall.result.tabTitles);
+    if (
+      writeTabTitles.length > 0
+      && readbackTabTitles.length > 0
+      && JSON.stringify(writeTabTitles) !== JSON.stringify(readbackTabTitles)
+    ) {
+      evidence.push(`write.tabTitles=${writeTabTitles.join(' / ')}，readback.tabTitles=${readbackTabTitles.join(' / ')}`);
+    }
+
+    const writeTopLevelUses = normalizeStringList(writeCall.result.topLevelUses);
+    const readbackTopLevelUses = normalizeStringList(readbackCall.result.topLevelUses);
+    if (
+      writeTopLevelUses.length > 0
+      && readbackTopLevelUses.length > 0
+      && JSON.stringify(writeTopLevelUses) !== JSON.stringify(readbackTopLevelUses)
+    ) {
+      evidence.push(`write.topLevelUses=${writeTopLevelUses.join(' / ')}，readback.topLevelUses=${readbackTopLevelUses.join(' / ')}`);
+    }
+
+    if (evidence.length === 0) {
+      continue;
+    }
+
+    mismatches.push({
+      writeTool: writeCall.tool,
+      writeTimestamp: writeCall.timestamp,
+      writeSummary: writeCall.summary,
+      readTool: readbackCall.tool,
+      readbackTimestamp: readbackCall.timestamp,
+      readbackSummary: readbackCall.summary,
+      evidence,
+    });
+  }
+
+  return mismatches;
+}
+
 function buildOptimizationItems({
   toolCalls,
   hasWrites,
@@ -371,6 +456,7 @@ function buildOptimizationItems({
   firstWriteIndex,
   firstDiscoveryIndex,
   errors,
+  readbackMismatches,
   repeatedRuns,
   missingSummaryCount,
 }) {
@@ -409,6 +495,16 @@ function buildOptimizationItems({
       reason: `本次出现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程。`,
       fasterPath: 'guard 报 blocker 后，默认先修 payload；只有确实接受风险时，才追加 risk-accept note 并重新审计后再写入。',
       evidence: guardSummary.violations.map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
+    });
+  }
+
+  if (readbackMismatches.length > 0) {
+    items.push({
+      priority: 'high',
+      title: '把 write 后 readback 不一致直接判为失败',
+      reason: `本次发现 ${readbackMismatches.length} 组写后回读矛盾，说明不能只看 save/mutate 的乐观返回值。`,
+      fasterPath: '每次写入后立即做同目标 readback，并让 run_finished、review 文案和最终状态都以 readback 事实为准；发现计数或标题不一致时直接降级成 partial/failed。',
+      evidence: readbackMismatches.flatMap((item) => item.evidence).slice(0, 4),
     });
   }
 
@@ -513,6 +609,7 @@ export function analyzeRun(records, sourceLogPath) {
   const hasSchemas = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemas');
   const hasFindone = toolCalls.some((record) => record.tool === 'GetFlowmodels_findone');
   const guardSummary = buildGuardSummary(records);
+  const readbackMismatches = buildPostWriteReadbackMismatches(toolCalls);
   const repeatedRuns = detectRepeatedRuns(toolCalls);
   const missingSummaryCount = toolCalls.filter((record) => !record.summary).length;
 
@@ -541,6 +638,9 @@ export function analyzeRun(records, sourceLogPath) {
   if (guardSummary.riskAcceptCount > 0) {
     suggestions.push(`本次使用了 ${guardSummary.riskAcceptCount} 次 risk-accept，建议复盘这些豁免是否还能继续缩减。`);
   }
+  if (readbackMismatches.length > 0) {
+    suggestions.push(`发现 ${readbackMismatches.length} 组 write 后 readback 不一致，不能再把 save/mutate 的返回值当成最终成功依据。`);
+  }
   if (hasWrites && firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1) {
     suggestions.push('首次探测发生在首次写操作之后，建议把探测顺序前置。');
   }
@@ -563,6 +663,7 @@ export function analyzeRun(records, sourceLogPath) {
     hasSchemas,
     hasFindone,
     guardSummary,
+    readbackMismatches,
     firstWriteIndex,
     firstDiscoveryIndex,
     errors,
@@ -587,6 +688,7 @@ export function analyzeRun(records, sourceLogPath) {
     notes,
     errors,
     guardSummary,
+    readbackMismatches,
     countsByTool: buildCountsByTool(toolCalls),
     suggestions,
     optimizationItems,
@@ -681,6 +783,26 @@ function renderMarkdownReport(summary) {
     guard.push('');
   }
 
+  const readback = [
+    '## 写后回读',
+    '',
+  ];
+  if (summary.readbackMismatches.length === 0) {
+    readback.push('- 未发现 save/mutate 与紧随其后的 readback 矛盾。');
+    readback.push('');
+  } else {
+    readback.push(...summary.readbackMismatches.flatMap((item, index) => [
+      `### ${index + 1}. ${item.writeTool} -> ${item.readTool}`,
+      '',
+      `- 写入时间：${item.writeTimestamp ?? '未知'}`,
+      `- 写入摘要：${item.writeSummary ?? '未提供'}`,
+      `- 回读时间：${item.readbackTimestamp ?? '未知'}`,
+      `- 回读摘要：${item.readbackSummary ?? '未提供'}`,
+      `- 证据：${item.evidence.join('；')}`,
+      '',
+    ]));
+  }
+
   const suggestions = [
     '## 可改进点',
     '',
@@ -755,6 +877,7 @@ function renderMarkdownReport(summary) {
     ...header,
     ...overview,
     ...guard,
+    ...readback,
     ...suggestions,
     ...optimization,
     ...toolStats,
@@ -813,6 +936,18 @@ function renderHtmlReport(summary) {
   )).join('\n');
 
   const suggestionItems = summary.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
+  const readbackBlocks = summary.readbackMismatches.length === 0
+    ? '<p class="muted">未发现 save/mutate 与紧随其后的 readback 矛盾。</p>'
+    : summary.readbackMismatches.map((item, index) => `
+      <section class="card">
+        <h3>${index + 1}. ${escapeHtml(item.writeTool)} -&gt; ${escapeHtml(item.readTool)}</h3>
+        <p><strong>写入时间：</strong>${escapeHtml(item.writeTimestamp ?? '未知')}</p>
+        <p><strong>写入摘要：</strong>${escapeHtml(item.writeSummary ?? '未提供')}</p>
+        <p><strong>回读时间：</strong>${escapeHtml(item.readbackTimestamp ?? '未知')}</p>
+        <p><strong>回读摘要：</strong>${escapeHtml(item.readbackSummary ?? '未提供')}</p>
+        <p><strong>证据：</strong>${escapeHtml(item.evidence.join('；'))}</p>
+      </section>
+    `).join('\n');
   const optimizationBlocks = summary.optimizationItems.map((item, index) => `
       <section class="card">
         <h3>${index + 1}. [${escapeHtml(item.priority)}] ${escapeHtml(item.title)}</h3>
@@ -955,6 +1090,9 @@ function renderHtmlReport(summary) {
     <section class="card">
       ${guardViolationItems}
     </section>
+
+    <h2>写后回读</h2>
+    ${readbackBlocks}
 
     <h2>可改进点</h2>
     <section class="card">

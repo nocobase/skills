@@ -30,6 +30,7 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 2. 默认隐藏 tab 的 `schemaUid` 是 `tabs-{schemaUid}`
 3. 当前任务是否真的要求“显式 tabs”，还是只需要默认隐藏 tab
 4. 如果显式 tabs / popup page tabs 仍有歧义，先明确是哪一层 page / tab / grid
+5. 写前就要确定写后 readback 要核对什么，不能等 `save` 返回 ok 再临时猜成功标准
 
 ## 最小成功树
 
@@ -44,18 +45,22 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 - 页面根
 - 明确的 tab 节点
 - 每个 tab 各自的 grid
+- 每个 tab 的 grid 下至少一个真实业务 block
 
 ## 完成标准
 
 - 用户只要单页时，默认隐藏 tab 即可，不必强造显式 tabs
 - 用户明确要求“多个可见标签”时，必须能区分默认隐藏 tab 与显式 tab
 - 每个 tab 的 block 都要挂到正确 grid，不能只创建 page 壳
+- `save` 之后必须做 write-after-read；至少核对 tab 数、tab 标题和每个 tab 的 grid 是否真的存在
+- 如果 readback 只剩 page 壳或 `Add block`，即使 `save` 返回成功，也必须判成 `partial/failed`
 
 ## 常见陷阱
 
 - 把默认隐藏 tab 当成显式 tabs 能力
 - 写 block 时定位错了 page 根和 tab grid
 - 以为 `createV2` 会自动补齐显式 tabs
+- `save` 返回了 `tabCount` 就直接宣布成功，却没有看 write-after-read
 - 在显式 tabs 能力不足时，静默退回默认隐藏 tab 却不说明
 
 ## 关联模式文档
@@ -66,3 +71,4 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 
 - 如果显式 tabs 仍不稳定，不要绕开问题；应明确说明当前只能稳定依赖默认隐藏 tab
 - 多标签页至少要说明哪个 tab 已落库、哪个 tab 仍缺定位或写入协议
+- 如果显式 tabs payload 自身不稳定，优先回退到“阻断写入并报告 payload/协议问题”，不要把空壳页面交给用户继续验证

@@ -80,6 +80,54 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - 再确认选择的 display model 是否适合这个路径
 - 如果只知道 `customer` 关系存在，但无法稳定确认 `customer.name` 的渲染绑定，不要静默创建一个列壳然后报成功
 
+表格/详情要展示关联标题字段时，优先保留父 collection，并直接写完整 dotted path。例如：
+
+```json
+{
+  "use": "TableColumnModel",
+  "stepParams": {
+    "fieldSettings": {
+      "init": {
+        "collectionName": "orders",
+        "fieldPath": "customer.name"
+      }
+    }
+  },
+  "subModels": {
+    "field": {
+      "use": "DisplayTextFieldModel",
+      "stepParams": {
+        "fieldSettings": {
+          "init": {
+            "collectionName": "orders",
+            "fieldPath": "customer.name"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+不要改成下面这种拆分绑定：
+
+```json
+{
+  "use": "TableColumnModel",
+  "stepParams": {
+    "fieldSettings": {
+      "init": {
+        "collectionName": "customers",
+        "associationPathName": "customer",
+        "fieldPath": "name"
+      }
+    }
+  }
+}
+```
+
+这类写法会让取值逻辑退化成在父记录上读取 `name`，很容易静默空值。
+
 在这种场景里，允许的降级顺序是：
 
 1. 退回到更稳定的关联字段展示方式

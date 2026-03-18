@@ -356,6 +356,52 @@ test('analyzeRun treats structured risk-accept without re-audit as a violation',
   assert.equal(summary.guardSummary.violations[0].violationType, 'risk_accept_without_reaudit');
 });
 
+test('analyzeRun flags save/readback mismatches as a high-priority workflow issue', () => {
+  const rootDir = makeTempDir('readback-mismatch');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Visible tabs page',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'write visible tabs',
+    result: {
+      tabCount: 4,
+      tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'read back root page',
+    args: {
+      parentId: 'wjsktwr1sdzp',
+      subKey: 'page',
+    },
+    result: {
+      uid: 'ens_root_page',
+      tabCount: 0,
+      tabTitles: [],
+    },
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.readbackMismatches.length, 1);
+  assert.ok(summary.readbackMismatches[0].evidence.some((item) => item.includes('tabCount=4')));
+  assert.ok(summary.suggestions.some((item) => item.includes('write 后 readback 不一致')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('write 后 readback 不一致')));
+});
+
 test('analyzeRun ignores non-structured risk-accept notes', () => {
   const rootDir = makeTempDir('non-structured-risk-accept');
   const logDir = path.join(rootDir, 'logs');
@@ -451,6 +497,60 @@ test('renderReport keeps timeline records in original event order', () => {
   assert.notEqual(noteIndex, -1);
   assert.notEqual(secondToolIndex, -1);
   assert.equal(firstToolIndex < noteIndex && noteIndex < secondToolIndex, true);
+});
+
+test('renderReport includes readback mismatch section', () => {
+  const rootDir = makeTempDir('render-readback-mismatch');
+  const logDir = path.join(rootDir, 'logs');
+  const outDir = path.join(rootDir, 'reports');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+  const improvementLogPath = path.join(rootDir, 'improvement-log.jsonl');
+
+  const started = startRun({
+    task: 'Render mismatch report',
+    logDir,
+    latestRunPath,
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'save tabs',
+    result: {
+      tabCount: 4,
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'read back tabs',
+    args: {
+      parentId: 'page-a',
+      subKey: 'page',
+    },
+    result: {
+      tabCount: 0,
+    },
+  });
+  finishRun({
+    logPath: started.logPath,
+    status: 'success',
+    summary: 'save looked good',
+  });
+
+  const result = renderReport({
+    logPath: started.logPath,
+    outDir,
+    formats: 'md',
+    improvementLogPath,
+  });
+  const markdown = fs.readFileSync(result.markdownPath, 'utf8');
+
+  assert.match(markdown, /## 写后回读/);
+  assert.match(markdown, /write\.tabCount=4，readback\.tabCount=0/);
 });
 
 test('cli render resolves latest-run manifest automatically', () => {

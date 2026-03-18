@@ -37,6 +37,8 @@
 6. 如果嵌套 popup 的上下文无法稳定传递，请明确记录到底是哪一层 popup、哪一种动作、哪一个 model tree 出了问题。
 7. 不要把子表 `belongsTo(orders)` 的字段名直接当成 `associationName` 就报成功；如果 relation resource 协议未证实，应明确保留 blocker。
 8. “客户”列和“客户详情”都必须展示真实字段；只有列头或 drawer 标题、不显示任何客户字段值，不能算通过。
+9. 主表“客户”列优先使用父表上的完整 dotted path，例如 `customer.name`；不要拆成 target collection + `associationPathName` + simple `fieldPath`。
+10. 如果订单详情里的 `order_items` 表还没有已验证的 parent->child relation resource，允许保留 child-side 的逻辑 relation filter；不要为了“过 guard”伪造 `associationName`。
 
 执行要求：
 - 开始搭建 UI 之前，先准备并校验前置模拟数据，不要跳过这一步直接验证空页面。
@@ -50,6 +52,7 @@
 - 能说明订单详情抽屉内订单项表格的挂载与动作情况
 - 能说明查看客户抽屉这条支线是否可行
 - 如果客户列为空、客户 drawer 为空，必须单独记录为失败或 warning，不能混入“链路已打通”
+- 如果 `order_items` 表用了 child-side 逻辑 relation filter，但能稳定命中当前订单的订单项，不应因为“没写 associationName”而被误判为失败
 - 工具日志与复盘报告成功生成
 - 对失败节点有明确而非模糊的描述
 - 结果可直接用作 popup 相关优化的依据

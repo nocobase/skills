@@ -170,12 +170,15 @@ V1 默认采用 schema-first 的渐进支持策略：
 2. 不允许把 `foreignKey` 直接当成 `fieldPath`
 3. popup/openView 动作如果要落库，至少要有 `action + openView + page + tab + grid + business block`
 4. popup 子树如果依赖 `{{ctx.view.inputArgs.filterByTk}}`，动作层必须显式传 `filterByTk`
-5. popup / 详情里的“当前记录关联子表”优先使用 `resourceSettings.init.associationName + sourceId`；`ctx.view.inputArgs.filterByTk` 是 `sourceId` 来源，不是默认鼓励你手写 `dataScope.filter`
-6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；如果没有稳定 reference 或 live tree 证明该资源协议可用，默认保持 blocker
+5. popup / 详情里的“当前记录关联子表”只有在 parent->child relation resource 已被稳定 reference、live tree 或样板页证实时，才优先使用 `resourceSettings.init.associationName + sourceId`；未证实前允许保留 child-side 的逻辑 `dataScope.filter`
+6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；裸字段名和 `childCollection.belongsToField` 这种全限定写法都算未验证协议，如果没有稳定 reference 或 live tree 证明可用，默认保持 blocker
 7. `DetailsBlockModel` 不能只落空 grid；至少要有详情字段、动作或子业务区块之一
-8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；先确认稳定的标题字段展示策略
+8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；表格/详情要展示目标标题字段时，优先保留父 collection，并使用完整 dotted path，例如 `customer.name`
 9. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
-10. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard
+10. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要同时覆盖 block 级 `actions` 和 `TableActionsColumnModel` 里的记录动作
+11. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过 `requirements.requiredTabs` 声明给 guard；仅有默认隐藏 tab 或只有 page 壳，不能算成功
+12. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续 `GetFlowmodels_findone` 的 write-after-read 结果为准
+13. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
 
 命令示例：
 
@@ -208,6 +211,7 @@ node scripts/flow_payload_guard.mjs audit-payload \
 
 - `ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE`
 - `ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL`
+- `ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE`
 - `EMPTY_DETAILS_BLOCK`
 
 不要用自然语言口头说明代替 `risk_accept` note；复盘脚本只认结构化 note。
@@ -247,6 +251,7 @@ NocoBase `resourcer` 的关键实现细节：
 8. 通过当前会话可见的 collection / field MCP 工具补齐元数据，并整理成 `metadata-json`
 9. 运行 `flow_payload_guard.mjs audit-payload`
 10. 只有 `audit-payload` 没有 blocker，或已经通过结构化 `risk_accept` note 明确豁免后，才允许 `PostFlowmodels_save` / `PostFlowmodels_mutate`
+11. 每次写入后立刻执行一次同目标 `GetFlowmodels_findone` 做 write-after-read 对账；如果 readback 与 write 预期不一致，立即降级为 `partial/failed`，不要继续沿用 save 的乐观结论
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
 
@@ -257,6 +262,8 @@ NocoBase `resourcer` 的关键实现细节：
 - 如果只是中途发现漏了一个目标 use，先补增量 `PostFlowmodels_schemas`，不要因为“怕漏掉”就连续追加多个 `GetFlowmodels_schema`。
 - 默认使用 `flow_payload_guard.mjs audit-payload --mode validation-case`；`--mode general` 仅用于调试或分析中间 draft，不能代替最终写前审计
 - `flow_payload_guard.audit-payload` 的结果必须记录到 tool journal；推荐把 `tool` 名写成 `flow_payload_guard.audit-payload`
+- 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`
+- `run_finished`、tool review 和最终答复都必须引用 write-after-read 事实；不能在 readback 为空时继续写“已落库完成”
 - 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次
 
 # Live Snapshot 读取节奏

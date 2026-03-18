@@ -12,11 +12,19 @@ export const BLOCKER_EXIT_CODE = 2;
 const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
   'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
+  'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
   'EMPTY_DETAILS_BLOCK',
+  'TAB_SLOT_USE_INVALID',
+  'TAB_GRID_MISSING_OR_INVALID',
+  'TAB_GRID_ITEM_USE_INVALID',
+  'TAB_SUBTREE_UID_REUSED',
+  'REQUIRED_VISIBLE_TABS_MISSING',
+  'REQUIRED_TABS_TARGET_PAGE_MISSING',
 ]);
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
 
+const PAGE_MODEL_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
 const PAGE_TAB_MODEL_USES = new Set(['RootPageTabModel', 'PageTabModel', 'ChildPageTabModel']);
 const GRID_MODEL_USES = new Set(['BlockGridModel', 'FormGridModel']);
 const BUSINESS_BLOCK_MODEL_USES = new Set([
@@ -39,6 +47,16 @@ const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
 ]);
 const DIRECT_ASSOCIATION_TEXT_FIELD_MODEL_USES = new Set(['DisplayTextFieldModel']);
 const DETAILS_LAYOUT_ONLY_MODEL_USES = new Set(['DetailsGridModel', 'BlockGridModel', 'FormGridModel']);
+const INVALID_VISIBLE_TAB_ITEM_MODEL_USES = new Set([
+  'RootPageModel',
+  'PageModel',
+  'ChildPageModel',
+  'RootPageTabModel',
+  'PageTabModel',
+  'ChildPageTabModel',
+  'BlockGridModel',
+  'FormGridModel',
+]);
 
 function usage() {
   return [
@@ -159,6 +177,7 @@ function buildContext(node, parentContext) {
     context.fieldBinding = {
       collectionName: fieldInit.collectionName || resourceCollectionName || fieldBinding?.collectionName,
       fieldPath: fieldInit.fieldPath,
+      associationPathName: fieldInit.associationPathName || fieldBinding?.associationPathName || null,
       path: fieldInit.path,
       sourceUse: use,
     };
@@ -218,10 +237,39 @@ function normalizeRequiredAction(entry, index) {
   };
 }
 
+function normalizeRequiredTab(entry, index) {
+  if (!isPlainObject(entry)) {
+    throw new Error(`requirements.requiredTabs[${index}] must be an object`);
+  }
+
+  const titles = Array.isArray(entry.titles)
+    ? entry.titles
+      .map((title, titleIndex) => normalizeNonEmpty(title, `requirements.requiredTabs[${index}].titles[${titleIndex}]`))
+    : null;
+
+  if (!titles || titles.length === 0) {
+    throw new Error(`requirements.requiredTabs[${index}].titles must be a non-empty array`);
+  }
+
+  const pageUse = entry.pageUse == null
+    ? null
+    : normalizeNonEmpty(entry.pageUse, `requirements.requiredTabs[${index}].pageUse`);
+
+  if (pageUse && !PAGE_MODEL_USES.has(pageUse)) {
+    throw new Error(`Unsupported required tab pageUse "${pageUse}"`);
+  }
+
+  return {
+    pageUse,
+    titles,
+  };
+}
+
 function normalizeRequirements(rawRequirements = {}) {
   if (rawRequirements == null) {
     return {
       requiredActions: [],
+      requiredTabs: [],
     };
   }
   if (!isPlainObject(rawRequirements)) {
@@ -229,17 +277,22 @@ function normalizeRequirements(rawRequirements = {}) {
   }
 
   const rawRequiredActions = rawRequirements.requiredActions;
-  if (rawRequiredActions == null) {
-    return {
-      requiredActions: [],
-    };
-  }
-  if (!Array.isArray(rawRequiredActions)) {
+  if (rawRequiredActions != null && !Array.isArray(rawRequiredActions)) {
     throw new Error('requirements.requiredActions must be an array');
   }
 
+  const rawRequiredTabs = rawRequirements.requiredTabs;
+  if (rawRequiredTabs != null && !Array.isArray(rawRequiredTabs)) {
+    throw new Error('requirements.requiredTabs must be an array');
+  }
+
   return {
-    requiredActions: rawRequiredActions.map((entry, index) => normalizeRequiredAction(entry, index)),
+    requiredActions: Array.isArray(rawRequiredActions)
+      ? rawRequiredActions.map((entry, index) => normalizeRequiredAction(entry, index))
+      : [],
+    requiredTabs: Array.isArray(rawRequiredTabs)
+      ? rawRequiredTabs.map((entry, index) => normalizeRequiredTab(entry, index))
+      : [],
   };
 }
 
@@ -396,6 +449,77 @@ function findAssociationFieldToTarget(collectionMeta, targetCollectionName) {
   return collectionMeta.fields.find((field) => isAssociationField(field) && field.target === targetCollectionName) || null;
 }
 
+function isBelongsToLikeField(field) {
+  if (!field) {
+    return false;
+  }
+  return field.type === 'belongsTo' || field.interface === 'm2o';
+}
+
+function findAssociationFieldByAssociationName(collectionMeta, associationName) {
+  if (!collectionMeta || typeof associationName !== 'string') {
+    return null;
+  }
+  const normalized = associationName.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const directField = collectionMeta.fieldsByName.get(normalized);
+  if (directField) {
+    return directField;
+  }
+
+  const collectionPrefix = `${collectionMeta.name}.`;
+  if (normalized.startsWith(collectionPrefix)) {
+    return collectionMeta.fieldsByName.get(normalized.slice(collectionPrefix.length)) || null;
+  }
+
+  return null;
+}
+
+function resolveFieldPathInMetadata(metadata, collectionName, fieldPath) {
+  if (!collectionName || typeof fieldPath !== 'string') {
+    return null;
+  }
+  const segments = fieldPath
+    .split('.')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  let currentCollection = getCollectionMeta(metadata, collectionName);
+  if (!currentCollection) {
+    return null;
+  }
+
+  let field = null;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    field = currentCollection.fieldsByName.get(segment) || null;
+    if (!field) {
+      return null;
+    }
+    if (index === segments.length - 1) {
+      return {
+        field,
+        collection: currentCollection,
+      };
+    }
+    if (!field.target) {
+      return null;
+    }
+    currentCollection = getCollectionMeta(metadata, field.target);
+    if (!currentCollection) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 function collectFilterConditions(filter, results = []) {
   if (!isPlainObject(filter) || !Array.isArray(filter.items)) {
     return results;
@@ -467,6 +591,40 @@ function countUses(value, useSet) {
   return count;
 }
 
+function getAllowedTabUsesForPage(pageUse) {
+  if (pageUse === 'RootPageModel') {
+    return new Set(['RootPageTabModel']);
+  }
+  if (pageUse === 'PageModel') {
+    return new Set(['PageTabModel']);
+  }
+  if (pageUse === 'ChildPageModel') {
+    return new Set(['PageTabModel', 'ChildPageTabModel']);
+  }
+  return PAGE_TAB_MODEL_USES;
+}
+
+function getTabTitle(tabNode) {
+  if (!isPlainObject(tabNode)) {
+    return '';
+  }
+  const title = tabNode.stepParams?.pageTabSettings?.tab?.title;
+  return typeof title === 'string' ? title.trim() : '';
+}
+
+function pushStructuralUidOccurrence(occurrences, uid, use, pathValue) {
+  if (typeof uid !== 'string' || !uid.trim() || typeof use !== 'string' || !use.trim()) {
+    return;
+  }
+  const normalizedUid = uid.trim();
+  const list = occurrences.get(normalizedUid) ?? [];
+  list.push({
+    use,
+    path: pathValue,
+  });
+  occurrences.set(normalizedUid, list);
+}
+
 function subtreeReferencesCollection(node, collectionName) {
   let matched = false;
   walk(node, (child) => {
@@ -504,6 +662,19 @@ function hasEditRecordPopupAction(actionNode, collectionName) {
   const hasEditForm = countUses(actionNode, EDIT_FORM_MODEL_USES) > 0;
 
   return hasPopup && hasRecordContext && mentionsEdit && targetsCollection && hasEditForm;
+}
+
+function hasEditRecordPopupActionInSubtree(node, collectionName) {
+  let matched = false;
+  walk(node, (child) => {
+    if (matched) {
+      return;
+    }
+    if (hasEditRecordPopupAction(child, collectionName)) {
+      matched = true;
+    }
+  });
+  return matched;
 }
 
 function findNestedRelationBlocks(pageNode, parentCollectionName) {
@@ -561,8 +732,11 @@ function inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, se
     }
 
     matchedBlockCount += 1;
-    const actions = Array.isArray(node.subModels?.actions) ? node.subModels.actions : [];
-    if (actions.some((actionNode) => hasEditRecordPopupAction(actionNode, collectionName))) {
+    const directActions = Array.isArray(node.subModels?.actions) ? node.subModels.actions : [];
+    if (
+      directActions.some((actionNode) => hasEditRecordPopupAction(actionNode, collectionName))
+      || hasEditRecordPopupActionInSubtree(node.subModels, collectionName)
+    ) {
       return;
     }
 
@@ -576,7 +750,7 @@ function inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, se
       details: {
         collectionName,
         requiredAction: requirement.kind,
-        actionCount: actions.length,
+        actionCount: directActions.length,
       },
     }));
   });
@@ -605,6 +779,163 @@ function inspectDeclaredRequirements(payload, mode, requirements, blockers, seen
       inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, seen);
     }
   }
+  for (const requirement of requirements.requiredTabs) {
+    inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen);
+  }
+}
+
+function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) {
+  let matchedPageCount = 0;
+
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !Array.isArray(node.subModels?.tabs)) {
+      return;
+    }
+    if (requirement.pageUse && node.use !== requirement.pageUse) {
+      return;
+    }
+
+    matchedPageCount += 1;
+    const actualTitles = node.subModels.tabs
+      .map((tabNode) => getTabTitle(tabNode))
+      .filter(Boolean);
+    const missingTitles = requirement.titles.filter((title) => !actualTitles.includes(title));
+    if (missingTitles.length === 0) {
+      return;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'REQUIRED_VISIBLE_TABS_MISSING',
+      message: `显式要求的可见 tabs 未完整落入 payload；缺少：${missingTitles.join('、')}。`,
+      path: `${pathValue}.subModels.tabs`,
+      mode,
+      dedupeKey: `REQUIRED_VISIBLE_TABS_MISSING:${pathValue}:${missingTitles.join('|')}`,
+      details: {
+        pageUse: node.use || null,
+        requiredTitles: requirement.titles,
+        actualTitles,
+        missingTitles,
+      },
+    }));
+  });
+
+  if (matchedPageCount > 0) {
+    return;
+  }
+
+  pushFinding(blockers, seen, createFinding({
+    severity: 'blocker',
+    code: 'REQUIRED_TABS_TARGET_PAGE_MISSING',
+    message: '要求显式可见 tabs，但 payload 中未找到目标 page/tabs 结构。',
+    path: '$',
+    mode,
+    dedupeKey: `REQUIRED_TABS_TARGET_PAGE_MISSING:${requirement.pageUse || 'any'}:${requirement.titles.join('|')}`,
+    details: {
+      pageUse: requirement.pageUse,
+      requiredTitles: requirement.titles,
+    },
+  }));
+}
+
+function inspectTabTrees(payload, mode, warnings, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !PAGE_MODEL_USES.has(node.use) || !Array.isArray(node.subModels?.tabs)) {
+      return;
+    }
+
+    const tabs = node.subModels.tabs;
+    const allowedTabUses = getAllowedTabUsesForPage(node.use);
+    const uidOccurrences = new Map();
+    pushStructuralUidOccurrence(uidOccurrences, node.uid, node.use, pathValue);
+
+    tabs.forEach((tabNode, tabIndex) => {
+      const tabPath = `${pathValue}.subModels.tabs[${tabIndex}]`;
+      const tabUse = isPlainObject(tabNode) && typeof tabNode.use === 'string' ? tabNode.use : null;
+
+      if (!tabUse || !allowedTabUses.has(tabUse)) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'TAB_SLOT_USE_INVALID',
+          message: `${node.use} 的 tabs 槽位只能放 ${[...allowedTabUses].join(' / ')}，当前收到 ${tabUse || '未知 use'}。`,
+          path: tabPath,
+          mode,
+          dedupeKey: `TAB_SLOT_USE_INVALID:${tabPath}:${tabUse || 'unknown'}`,
+          details: {
+            pageUse: node.use,
+            allowedTabUses: [...allowedTabUses],
+            actualTabUse: tabUse,
+          },
+        }));
+        return;
+      }
+
+      pushStructuralUidOccurrence(uidOccurrences, tabNode.uid, tabUse, tabPath);
+      const gridNode = tabNode.subModels?.grid;
+      const gridPath = `${tabPath}.subModels.grid`;
+      const gridUse = isPlainObject(gridNode) && typeof gridNode.use === 'string' ? gridNode.use : null;
+      if (gridUse !== 'BlockGridModel') {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'TAB_GRID_MISSING_OR_INVALID',
+          message: '显式 tab 下必须有稳定的 BlockGridModel，不能缺失或写成其他模型。',
+          path: gridPath,
+          mode,
+          dedupeKey: `TAB_GRID_MISSING_OR_INVALID:${gridPath}:${gridUse || 'missing'}`,
+          details: {
+            pageUse: node.use,
+            tabUse,
+            actualGridUse: gridUse,
+          },
+        }));
+        return;
+      }
+
+      pushStructuralUidOccurrence(uidOccurrences, gridNode.uid, gridUse, gridPath);
+      const gridItems = Array.isArray(gridNode.subModels?.items) ? gridNode.subModels.items : [];
+      gridItems.forEach((itemNode, itemIndex) => {
+        if (!isPlainObject(itemNode) || typeof itemNode.use !== 'string') {
+          return;
+        }
+        const itemPath = `${gridPath}.subModels.items[${itemIndex}]`;
+        pushStructuralUidOccurrence(uidOccurrences, itemNode.uid, itemNode.use, itemPath);
+        if (INVALID_VISIBLE_TAB_ITEM_MODEL_USES.has(itemNode.use)) {
+          pushFinding(blockers, seen, createFinding({
+            severity: 'blocker',
+            code: 'TAB_GRID_ITEM_USE_INVALID',
+            message: '显式 tab 的 grid.items 槽位必须放业务 block，不能继续塞 page/tab/grid 结构节点。',
+            path: itemPath,
+            mode,
+            dedupeKey: `TAB_GRID_ITEM_USE_INVALID:${itemPath}:${itemNode.use}`,
+            details: {
+              pageUse: node.use,
+              tabUse,
+              itemUse: itemNode.use,
+            },
+          }));
+        }
+      });
+    });
+
+    for (const [uid, occurrences] of uidOccurrences.entries()) {
+      if (occurrences.length <= 1) {
+        continue;
+      }
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'TAB_SUBTREE_UID_REUSED',
+        message: `显式 tabs 子树复用了同一个 uid "${uid}"，这会让 page/tab/grid/block 结构塌缩。`,
+        path: `${pathValue}.subModels.tabs`,
+        mode,
+        dedupeKey: `TAB_SUBTREE_UID_REUSED:${pathValue}:${uid}`,
+        details: {
+          pageUse: node.use,
+          uid,
+          occurrences,
+        },
+      }));
+    }
+  });
 }
 
 function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionName, metadata) {
@@ -639,23 +970,25 @@ function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionNam
       && !hasAssociationProtocol
     ) {
       const collectionMeta = getCollectionMeta(metadata, initOptions.collectionName);
-      const relationField = findAssociationFieldToTarget(collectionMeta, currentParentCollectionName);
-      const matchedCondition = relationField
+      const childRelationField = findAssociationFieldToTarget(collectionMeta, currentParentCollectionName);
+      const parentCollectionMeta = getCollectionMeta(metadata, currentParentCollectionName);
+      const parentAssociationField = findAssociationFieldToTarget(parentCollectionMeta, initOptions.collectionName);
+      const matchedCondition = childRelationField
         ? collectFilterConditions(dataScopeFilter).find(
-          (condition) => condition.path === relationField.name && usesPopupInputArgsFilterByTk(condition.value),
+          (condition) => condition.path === childRelationField.name && usesPopupInputArgsFilterByTk(condition.value),
         )
         : null;
 
-      if (relationField && matchedCondition) {
+      if (childRelationField && parentAssociationField && matchedCondition) {
         findings.push({
           path: pathValue,
           use,
           collectionName: initOptions.collectionName,
           parentCollectionName: currentParentCollectionName,
-          relationField: relationField.name,
-          targetCollectionName: relationField.target,
+          relationField: childRelationField.name,
+          targetCollectionName: childRelationField.target,
           suggestedProtocol: {
-            associationName: relationField.name,
+            associationName: `${currentParentCollectionName}.${parentAssociationField.name}`,
             sourceId: POPUP_INPUT_ARGS_FILTER_BY_TK,
           },
         });
@@ -698,10 +1031,10 @@ function findRelationBlocksUsingAmbiguousAssociationContext(pageNode, parentColl
       && Object.hasOwn(initOptions, 'sourceId')
     ) {
       const collectionMeta = getCollectionMeta(metadata, initOptions.collectionName);
-      const directAssociationField = collectionMeta?.fieldsByName.get(associationName) || null;
+      const directAssociationField = findAssociationFieldByAssociationName(collectionMeta, associationName);
       if (
         directAssociationField
-        && isAssociationField(directAssociationField)
+        && isBelongsToLikeField(directAssociationField)
         && directAssociationField.target === currentParentCollectionName
         && usesPopupInputArgsFilterByTk(sourceId)
       ) {
@@ -858,11 +1191,10 @@ function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) 
         metadata,
       );
       for (const relationBlock of genericRelationBlocks) {
-        const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
-        pushFinding(targetList, seen, createFinding({
-          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+        pushFinding(warnings, seen, createFinding({
+          severity: 'warning',
           code: 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT',
-          message: 'popup 内当前记录的关联子表不应退化成普通 dataScope.filter；优先使用 associationName + sourceId。',
+          message: '当前 child-side relation filter 已可用；若 parent->child association resource 已验证，可进一步收敛成 associationName + sourceId。',
           path: relationBlock.path,
           mode,
           dedupeKey: `RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT:${relationBlock.path}`,
@@ -1021,7 +1353,12 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
 
 function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue, context) => {
-    if (!isPlainObject(node) || !context.fieldBinding?.collectionName || !context.fieldBinding.fieldPath) {
+    if (
+      !isPlainObject(node)
+      || typeof node.use !== 'string'
+      || !context.fieldBinding?.collectionName
+      || !context.fieldBinding.fieldPath
+    ) {
       return;
     }
     const collectionMeta = getCollectionMeta(metadata, context.fieldBinding.collectionName);
@@ -1029,15 +1366,16 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
       return;
     }
 
-    const { fieldPath, collectionName } = context.fieldBinding;
-    if (!isSimpleFieldName(fieldPath) || hasTemplateExpression(fieldPath)) {
+    const { fieldPath, collectionName, associationPathName } = context.fieldBinding;
+    if (hasTemplateExpression(fieldPath)) {
       return;
     }
 
-    const directField = collectionMeta.fieldsByName.get(fieldPath) || null;
-    const associationFromForeignKey = collectionMeta.associationsByForeignKey.get(fieldPath) || null;
+    const isSimpleBinding = isSimpleFieldName(fieldPath);
+    const resolvedFieldBinding = resolveFieldPathInMetadata(metadata, collectionName, fieldPath);
+    const associationFromForeignKey = isSimpleBinding ? collectionMeta.associationsByForeignKey.get(fieldPath) || null : null;
 
-    if (!directField) {
+    if (!resolvedFieldBinding) {
       if (associationFromForeignKey) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
@@ -1069,9 +1407,44 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
       return;
     }
 
+    const directField = resolvedFieldBinding.field;
+    const parentCollectionName = context.resourceCollectionName;
+    if (
+      associationPathName
+      && parentCollectionName
+      && collectionName !== parentCollectionName
+      && isSimpleBinding
+    ) {
+      const parentAssociationBinding = resolveFieldPathInMetadata(metadata, parentCollectionName, associationPathName);
+      if (
+        parentAssociationBinding?.field
+        && isAssociationField(parentAssociationBinding.field)
+        && parentAssociationBinding.field.target === collectionName
+      ) {
+        const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
+          message: `关联展示字段不应拆成 target collection "${collectionName}" + associationPathName "${associationPathName}" + simple fieldPath "${fieldPath}"；请改为父 collection 上的完整 dotted path。`,
+          path: pathValue,
+          mode,
+          dedupeKey: `ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE:${parentCollectionName}:${collectionName}:${associationPathName}.${fieldPath}`,
+          details: {
+            parentCollectionName,
+            collectionName,
+            associationPathName,
+            fieldPath,
+            suggestedCollectionName: parentCollectionName,
+            suggestedFieldPath: `${associationPathName}.${fieldPath}`,
+          },
+        }));
+      }
+    }
+
     const needsAssociationTarget = FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET.has(context.use);
-    const isAssociationField = directField.target || directField.foreignKey || directField.type === 'belongsTo' || directField.interface === 'm2o';
-    if (!needsAssociationTarget || !isAssociationField) {
+    const isDirectAssociationField = isSimpleBinding
+      && (directField.target || directField.foreignKey || directField.type === 'belongsTo' || directField.interface === 'm2o');
+    if (!needsAssociationTarget || !isDirectAssociationField) {
       return;
     }
 
@@ -1307,6 +1680,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
+  inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectDeclaredRequirements(payload, mode, normalizedRequirements, blockers, blockerSeen);

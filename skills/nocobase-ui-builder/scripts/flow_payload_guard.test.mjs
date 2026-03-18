@@ -61,6 +61,21 @@ const metadataWithCustomerTitle = {
   },
 };
 
+const metadataWithVerifiedOrderItemsRelation = {
+  collections: {
+    ...metadata.collections,
+    orders: {
+      titleField: 'order_no',
+      fields: [
+        { name: 'order_no', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id' },
+        { name: 'order_items', type: 'hasMany', interface: 'o2m', target: 'order_items' },
+      ],
+    },
+  },
+};
+
 function makePopupPageWithTable(filter) {
   return {
     use: 'ViewActionModel',
@@ -237,6 +252,79 @@ function makeActionTargetBlock(collectionName = 'order_items', actions = []) {
     },
     subModels: {
       actions,
+    },
+  };
+}
+
+function makeRowActionTargetBlock(collectionName = 'order_items', actions = []) {
+  return {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName,
+        },
+      },
+    },
+    subModels: {
+      columns: [
+        {
+          use: 'TableActionsColumnModel',
+          subModels: {
+            actions,
+          },
+        },
+      ],
+    },
+  };
+}
+
+function makeVisibleTabsPage({
+  pageUse = 'RootPageModel',
+  pageUid = 'page-root',
+  tabUse = 'RootPageTabModel',
+  tabUidPrefix = 'tab',
+  gridUidPrefix = 'grid',
+  itemUse = 'TableBlockModel',
+  itemUidPrefix = 'item',
+  titles = ['客户概览', '联系人'],
+} = {}) {
+  return {
+    uid: pageUid,
+    use: pageUse,
+    subModels: {
+      tabs: titles.map((title, index) => ({
+        uid: `${tabUidPrefix}-${index + 1}`,
+        use: tabUse,
+        stepParams: {
+          pageTabSettings: {
+            tab: {
+              title,
+            },
+          },
+        },
+        subModels: {
+          grid: {
+            uid: `${gridUidPrefix}-${index + 1}`,
+            use: 'BlockGridModel',
+            subModels: {
+              items: [
+                {
+                  uid: `${itemUidPrefix}-${index + 1}`,
+                  use: itemUse,
+                  stepParams: {
+                    resourceSettings: {
+                      init: {
+                        collectionName: 'orders',
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      })),
     },
   };
 }
@@ -641,7 +729,7 @@ test('auditPayload accepts ChildPageTabModel as a valid popup tab subtree', () =
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_ACTION_MISSING_SUBTREE'), false);
 });
 
-test('auditPayload warns and blocks popup relation tables that should use association context', () => {
+test('auditPayload accepts popup relation tables with child-side logical filter when parent->child association resource is not verified', () => {
   const payload = makePopupPageWithChildTab({
     use: 'TableBlockModel',
     stepParams: {
@@ -669,14 +757,45 @@ test('auditPayload warns and blocks popup relation tables that should use associ
 
   const generalResult = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(generalResult.ok, true);
-  assert.equal(generalResult.warnings.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'), true);
+  assert.equal(generalResult.warnings.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'), false);
 
   const validationResult = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
-  assert.equal(validationResult.ok, false);
+  assert.equal(validationResult.ok, true);
   assert.equal(
     validationResult.blockers.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'),
-    true,
+    false,
   );
+});
+
+test('auditPayload warns on child-side logical relation filter only when verified parent->child association resource exists', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'order',
+                operator: '$eq',
+                value: '{{ctx.view.inputArgs.filterByTk}}',
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const result = auditPayload({ payload, metadata: metadataWithVerifiedOrderItemsRelation, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, true);
+  assert.equal(result.warnings.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'), true);
 });
 
 test('auditPayload warns and blocks popup relation tables that guess associationName from child belongsTo field', () => {
@@ -711,6 +830,122 @@ test('auditPayload warns and blocks popup relation tables that guess association
     validationResult.blockers.some((item) => item.code === 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE'),
     true,
   );
+});
+
+test('auditPayload blocks popup relation tables that guess fully-qualified child belongsTo resourceName', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+          associationName: 'order_items.order',
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+      tableSettings: {
+        pageSize: {
+          pageSize: 20,
+        },
+      },
+    },
+  });
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, false);
+  assert.equal(
+    result.blockers.some((item) => item.code === 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE'),
+    true,
+  );
+});
+
+test('auditPayload warns and blocks split association display bindings that switch to target collection plus associationPathName', () => {
+  const payload = {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+    },
+    subModels: {
+      columns: [
+        {
+          use: 'TableColumnModel',
+          stepParams: {
+            fieldSettings: {
+              init: {
+                collectionName: 'customers',
+                fieldPath: 'name',
+                associationPathName: 'customer',
+              },
+            },
+          },
+          subModels: {
+            field: {
+              use: 'DisplayTextFieldModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'customers',
+                    fieldPath: 'name',
+                    associationPathName: 'customer',
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const generalResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: GENERAL_MODE });
+  assert.equal(generalResult.ok, true);
+  assert.equal(
+    generalResult.warnings.some((item) => item.code === 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE'),
+    true,
+  );
+
+  const validationResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE'),
+    true,
+  );
+});
+
+test('auditPayload accepts dotted association display bindings on the parent collection', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'DisplayTextFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer.name',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'FIELD_PATH_NOT_FOUND'), false);
+  assert.equal(result.ok, true);
 });
 
 test('auditPayload warns and blocks empty details blocks', () => {
@@ -780,6 +1015,121 @@ test('auditPayload accepts declared edit-record-popup requirements when stable a
 
   assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING'), false);
   assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared edit-record-popup requirements when stable action tree exists in TableActionsColumnModel', () => {
+  const payload = makeRowActionTargetBlock('order_items', [makeEditRecordPopupAction('order_items')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'edit-record-popup',
+          collectionName: 'order_items',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload blocks visible tabs with invalid tab slot use', () => {
+  const payload = makeVisibleTabsPage({
+    tabUse: 'RootPageModel',
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TAB_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload blocks visible tabs whose grid items still use page-like models', () => {
+  const payload = makeVisibleTabsPage({
+    itemUse: 'RootPageModel',
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TAB_GRID_ITEM_USE_INVALID'), true);
+});
+
+test('auditPayload blocks visible tabs that reuse the page uid across tab subtree', () => {
+  const payload = makeVisibleTabsPage({
+    pageUid: 'dup-root',
+    tabUidPrefix: 'dup-root',
+    gridUidPrefix: 'dup-root',
+    itemUidPrefix: 'dup-root',
+  });
+
+  payload.subModels.tabs.forEach((tabNode) => {
+    tabNode.uid = 'dup-root';
+    tabNode.subModels.grid.uid = 'dup-root';
+    tabNode.subModels.grid.subModels.items[0].uid = 'dup-root';
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TAB_SUBTREE_UID_REUSED'), true);
+});
+
+test('auditPayload validates declared visible tab titles', () => {
+  const payload = makeVisibleTabsPage({
+    titles: ['客户概览', '联系人', '商机', '跟进记录'],
+  });
+
+  const successResult = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      requiredTabs: [
+        {
+          pageUse: 'RootPageModel',
+          titles: ['客户概览', '联系人', '商机', '跟进记录'],
+        },
+      ],
+    },
+  });
+
+  assert.equal(successResult.ok, true);
+  assert.equal(successResult.blockers.some((item) => item.code === 'REQUIRED_VISIBLE_TABS_MISSING'), false);
+
+  const failureResult = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      requiredTabs: [
+        {
+          pageUse: 'RootPageModel',
+          titles: ['客户概览', '联系人', '商机', '跟进记录', '续约预测'],
+        },
+      ],
+    },
+  });
+
+  assert.equal(failureResult.ok, false);
+  assert.equal(failureResult.blockers.some((item) => item.code === 'REQUIRED_VISIBLE_TABS_MISSING'), true);
 });
 
 test('auditPayload defaults to validation-case mode when mode is omitted', () => {
@@ -921,6 +1271,36 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
       metadata: metadataWithCustomerTitle,
     },
     {
+      code: 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
+      payload: {
+        use: 'TableBlockModel',
+        stepParams: {
+          resourceSettings: {
+            init: {
+              collectionName: 'orders',
+            },
+          },
+        },
+        subModels: {
+          columns: [
+            {
+              use: 'TableColumnModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'customers',
+                    fieldPath: 'name',
+                    associationPathName: 'customer',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      metadata: metadataWithCustomerTitle,
+    },
+    {
       code: 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
       payload: makePopupPageWithChildTab({
         use: 'TableBlockModel',
@@ -938,6 +1318,13 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
             },
           },
         },
+      }),
+      metadata,
+    },
+    {
+      code: 'TAB_SLOT_USE_INVALID',
+      payload: makeVisibleTabsPage({
+        tabUse: 'RootPageModel',
       }),
       metadata,
     },
