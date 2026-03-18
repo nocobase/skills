@@ -6,6 +6,10 @@
 
 以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。完成后默认执行 `tool_review_report.mjs render`，输出复盘报告和自动改进清单。
 
+写入前的一条硬规则：
+
+- draft payload 不直接落库；必须先经过 [patterns/payload-guard.md](patterns/payload-guard.md)
+
 这个文件负责“起手式”和“通用配方”，不是每一种区块细节的全集。进入具体区块后，继续查：
 
 - 区块索引：[blocks/index.md](blocks/index.md)
@@ -169,6 +173,31 @@ node scripts/opaque_uid.mjs reserve-page --title "Orders"
     "includeAsyncNode": true
   }
 }
+```
+
+在真正写入之前，先本地组装 draft payload，然后：
+
+```bash
+node scripts/flow_payload_guard.mjs extract-required-metadata \
+  --payload-json '<draft-payload-json>'
+```
+
+补齐元数据后，再运行：
+
+```bash
+node scripts/flow_payload_guard.mjs audit-payload \
+  --payload-json '<draft-payload-json>' \
+  --metadata-json '<normalized-metadata-json>' \
+  --mode general
+```
+
+如果表格包含 relation/dataScope condition，不要手写 `items[*]`，而是先生成 condition 片段：
+
+```bash
+node scripts/flow_payload_guard.mjs build-filter \
+  --path order_id \
+  --operator '$eq' \
+  --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
 ```
 
 用辅助脚本批量生成 opaque 节点 id：

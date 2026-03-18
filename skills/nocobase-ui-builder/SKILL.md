@@ -1,7 +1,7 @@
 ---
 name: nocobase-ui-builder
 description: 通过 MCP 构建和更新 NocoBase Modern page (v2) UI。用户要创建页面，或通过 desktopRoutes v2 与 flowModels MCP 工具修改现有页面区块时使用。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/tool_journal.mjs, and scripts/tool_review_report.mjs
+allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, and scripts/tool_review_report.mjs
 ---
 
 # 目标
@@ -40,7 +40,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 1. 确认 NocoBase MCP 已经配置完成且当前可连接。
 2. 确认上面列出的工具在当前会话里可见。
 3. 如果 MCP 未配置，先使用 `../nocobase-mcp-setup/SKILL.md`；如果只是工具缺失，先确认当前服务端实际暴露了对应 MCP/Swagger 工具，再决定是否需要重新接入。
-4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`。
+4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`、`scripts/flow_payload_guard.mjs`。
 5. 如果当前任务是 validation case，不仅要准备数据模型，还要准备可查询的前置模拟数据；不要把“页面壳创建成功”当成 validation 完成。
 
 # 区块与模式文档入口
@@ -94,6 +94,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 记录阶段说明示例：
 
 - `node scripts/tool_journal.mjs note --log-path "<logPath>" --message "schemaBundle 已读取，准备进入 schemas 精确探测"`
+- `node scripts/tool_journal.mjs note --log-path "<logPath>" --message "risk-accept for EMPTY_POPUP_GRID" --data-json '{"type":"risk_accept","codes":["EMPTY_POPUP_GRID"],"reason":"temporary shell allowed during migration"}'`
 
 结束本次执行：
 
@@ -130,8 +131,9 @@ V1 默认采用 schema-first 的渐进支持策略：
 1. 运行摘要：任务、runId、状态、耗时、目标页面信息
 2. 工具统计：各工具调用次数、失败次数、跳过次数
 3. 失败调用：失败工具、摘要、错误信息、关键参数
-4. 时间线：按顺序列出 `tool_call` 与 `note`
-5. 可改进点：基于日志自动给出的流程优化提示
+4. Guard 摘要：`flow_payload_guard.audit-payload` 调用次数、blocker/warning 总数、risk-accept 次数、是否出现“带 blocker 继续写入”
+5. 时间线：按顺序列出 `tool_call` 与 `note`
+6. 可改进点：基于日志自动给出的流程优化提示
 
 自动改进步骤要求：
 
@@ -148,6 +150,54 @@ V1 默认采用 schema-first 的渐进支持策略：
 4. 是否可以把相邻写操作压缩进一次 `PostFlowmodels_mutate`
 5. 是否缺少可复用的最小成功模板
 6. 是否过早依赖样板页，而不是优先消化 `schemaBundle` / `schemas`
+
+# Payload 守卫
+
+任何落库前都要先经过本地 payload 守卫。Prompt 只负责模式选择，脚本负责阻断高风险 payload。
+
+本 skill 使用 `scripts/flow_payload_guard.mjs` 提供 3 个命令：
+
+- `build-filter`
+  - 生成唯一允许的 relation/dataScope condition 形状：`{ path, operator, value }`
+- `extract-required-metadata`
+  - 从 draft payload 中提取 collection / field / popup context 校验所需的元数据需求
+- `audit-payload`
+  - 在写入前审计 draft payload，输出 `blockers` / `warnings`
+
+强制规则：
+
+1. 不允许手写 `dataScope.filter.items[*] = { field, operator, value }`
+2. 不允许把 `foreignKey` 直接当成 `fieldPath`
+3. popup/openView 动作如果要落库，至少要有 `action + openView + page + tab + grid + business block`
+4. popup 子树如果依赖 `{{ctx.view.inputArgs.filterByTk}}`，动作层必须显式传 `filterByTk`
+5. validation case 默认使用 `--mode validation-case`，比普通页面更严格
+
+命令示例：
+
+```bash
+node scripts/flow_payload_guard.mjs build-filter \
+  --path order_id \
+  --operator '$eq' \
+  --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
+```
+
+```bash
+node scripts/flow_payload_guard.mjs extract-required-metadata \
+  --payload-json '<draft-payload-json>'
+```
+
+```bash
+node scripts/flow_payload_guard.mjs audit-payload \
+  --payload-json '<draft-payload-json>' \
+  --metadata-json '<normalized-metadata-json>' \
+  --mode validation-case
+```
+
+`audit-payload` 返回 blocker 时，默认立即停止写入。只有确实需要保留风险时，才允许追加一条 `risk_accept` note，并重新运行一次 `audit-payload`：
+
+- `node scripts/tool_journal.mjs note --log-path "<logPath>" --message "risk-accept for EMPTY_POPUP_GRID" --data-json '{"type":"risk_accept","codes":["EMPTY_POPUP_GRID"],"reason":"temporary shell allowed during migration"}'`
+
+不要用自然语言口头说明代替 `risk_accept` note；复盘脚本只认结构化 note。
 
 请求参数规则：
 
@@ -178,6 +228,11 @@ NocoBase `resourcer` 的关键实现细节：
 3. 如果在构造过程中新增了目标 use，先补一次增量 `PostFlowmodels_schemas`，不要直接跳到多个 `GetFlowmodels_schema`
 4. 如果目标模型的 JSON Schema 或骨架仍有歧义，再对仍未消歧的具体 use 调用 `GetFlowmodels_schema`
 5. 每次变更前都用 `GetFlowmodels_findone` 读取线上页面树，作为该目标树本轮唯一的写前 live snapshot
+6. 在本地组装 draft payload；如果有 relation/dataScope condition，必须先用 `flow_payload_guard.mjs build-filter` 生成 condition 片段
+7. 用 `flow_payload_guard.mjs extract-required-metadata` 提取本轮 draft payload 依赖的元数据需求
+8. 通过当前会话可见的 collection / field MCP 工具补齐元数据，并整理成 `metadata-json`
+9. 运行 `flow_payload_guard.mjs audit-payload`
+10. 只有 `audit-payload` 没有 blocker，或已经通过结构化 `risk_accept` note 明确豁免后，才允许 `PostFlowmodels_save` / `PostFlowmodels_mutate`
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
 
@@ -186,6 +241,9 @@ NocoBase `resourcer` 的关键实现细节：
 - 同一写入阶段里，默认先把目标 use 尽量合并进一次 `PostFlowmodels_schemas`；不要把多个目标 use 分散成多次单模型深挖。
 - `GetFlowmodels_schema` 只用于 `schemas` 之后仍未消歧的具体 use；如果同一 use 需要再次读取，必须是为了核对不同 slot 形状、服务端返回前后不一致、或排查失败，并在日志里追加 `note` 说明原因。
 - 如果只是中途发现漏了一个目标 use，先补增量 `PostFlowmodels_schemas`，不要因为“怕漏掉”就连续追加多个 `GetFlowmodels_schema`。
+- 普通页面默认使用 `flow_payload_guard.mjs audit-payload --mode general`；validation case 默认使用 `--mode validation-case`
+- `flow_payload_guard.audit-payload` 的结果必须记录到 tool journal；推荐把 `tool` 名写成 `flow_payload_guard.audit-payload`
+- 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次
 
 # Live Snapshot 读取节奏
 

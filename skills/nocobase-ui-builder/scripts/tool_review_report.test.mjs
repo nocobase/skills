@@ -87,8 +87,11 @@ test('renderReport writes markdown and html outputs from a log path', () => {
   assert.match(markdown, /NocoBase UI Builder 复盘报告/);
   assert.match(markdown, /unsupported-model-use/);
   assert.match(markdown, /存在写操作，但没有记录 `PostFlowmodels_schemas`/);
+  assert.match(markdown, /Guard 摘要/);
+  assert.match(markdown, /缺少 `flow_payload_guard.audit-payload`/);
   assert.match(markdown, /自动改进建议/);
   assert.match(html, /复盘报告/);
+  assert.match(html, /Guard 摘要/);
   assert.match(html, /PostFlowmodels_mutate/);
   assert.match(html, /unsupported-model-use/);
   assert.match(html, /自动改进建议/);
@@ -125,8 +128,10 @@ test('analyzeRun generates improvement suggestions from tool call order', () => 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.ok(summary.suggestions.some((item) => item.includes('PostFlowmodels_schemabundle')));
   assert.ok(summary.suggestions.some((item) => item.includes('首次探测发生在首次写操作之后')));
+  assert.ok(summary.suggestions.some((item) => item.includes('flow_payload_guard.audit-payload')));
   assert.ok(summary.suggestions.some((item) => item.includes('`summary`')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('把探测步骤前置并批量化')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('payload guard')));
 });
 
 test('analyzeRun does not treat different live targets as repeated reads', () => {
@@ -195,6 +200,96 @@ test('analyzeRun flags repeated reads of the same live target', () => {
     summary.optimizationItems.some((item) => item.title.includes('压缩重复的 live snapshot 读取')),
     true,
   );
+});
+
+test('analyzeRun detects writes after guard blockers without risk-accept', () => {
+  const rootDir = makeTempDir('guard-violation');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Guard violation',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'flow_payload_guard.audit-payload',
+    toolType: 'node',
+    status: 'ok',
+    summary: 'audit payload before write',
+    args: { mode: 'general' },
+    result: {
+      ok: false,
+      mode: 'general',
+      blockers: [{ code: 'FILTER_ITEM_USES_FIELD_NOT_PATH' }],
+      warnings: [],
+      acceptedRiskCodes: [],
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_mutate',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'write anyway',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.guardSummary.auditCount, 1);
+  assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 1);
+  assert.ok(summary.suggestions.some((item) => item.includes('guard 已报 blocker')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('不要绕过 blocker 直接写入')));
+});
+
+test('analyzeRun counts risk-accept notes and does not flag accepted writes as violations', () => {
+  const rootDir = makeTempDir('risk-accept');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Risk accept',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'flow_payload_guard.audit-payload',
+    toolType: 'node',
+    status: 'ok',
+    summary: 'audit payload before write',
+    args: { mode: 'general' },
+    result: {
+      ok: false,
+      mode: 'general',
+      blockers: [{ code: 'EMPTY_POPUP_GRID' }],
+      warnings: [],
+      acceptedRiskCodes: [],
+    },
+  });
+  appendNote({
+    logPath: started.logPath,
+    message: 'risk-accept for popup shell',
+    data: {
+      type: 'risk_accept',
+      codes: ['EMPTY_POPUP_GRID'],
+      reason: 'temporary shell allowed during migration',
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'write after accepted risk',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.guardSummary.riskAcceptCount, 1);
+  assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 0);
+  assert.ok(summary.suggestions.some((item) => item.includes('risk-accept')));
 });
 
 test('cli render resolves latest-run manifest automatically', () => {

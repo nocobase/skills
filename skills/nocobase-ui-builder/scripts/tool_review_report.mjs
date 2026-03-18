@@ -45,6 +45,8 @@ const DISCOVERY_TOOL_NAMES = new Set([
   'GetFlowmodels_findone',
 ]);
 
+const GUARD_AUDIT_TOOL_NAME = 'flow_payload_guard.audit-payload';
+
 function usage() {
   return [
     'Usage:',
@@ -190,6 +192,10 @@ function escapeMarkdownCell(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', '<br>');
 }
 
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
 function buildCountsByTool(toolCalls) {
   const counts = new Map();
   for (const call of toolCalls) {
@@ -260,12 +266,103 @@ function buildFindoneTargetCounts(toolCalls) {
   return [...counts.entries()].map(([target, count]) => ({ target, count }));
 }
 
+function getGuardAuditResult(call) {
+  if (call.tool !== GUARD_AUDIT_TOOL_NAME || !isPlainObject(call.result)) {
+    return null;
+  }
+  return {
+    blockers: Array.isArray(call.result.blockers) ? call.result.blockers : [],
+    warnings: Array.isArray(call.result.warnings) ? call.result.warnings : [],
+    acceptedRiskCodes: Array.isArray(call.result.acceptedRiskCodes) ? call.result.acceptedRiskCodes : [],
+    mode: call.result.mode ?? call.args?.mode ?? 'unknown',
+  };
+}
+
+function getRiskAcceptInfo(note) {
+  const data = isPlainObject(note.data) ? note.data : {};
+  const codes = Array.isArray(data.codes)
+    ? data.codes.filter((value) => typeof value === 'string' && value.trim())
+    : [];
+  const message = typeof note.message === 'string' ? note.message : '';
+  if (data.type === 'risk_accept' || message.includes('risk-accept')) {
+    return {
+      codes,
+      reason: typeof data.reason === 'string' ? data.reason : undefined,
+    };
+  }
+  return null;
+}
+
+function buildGuardSummary(records) {
+  const summary = {
+    hasGuardAudit: false,
+    auditCount: 0,
+    blockerCount: 0,
+    warningCount: 0,
+    acceptedRiskCodeCount: 0,
+    riskAcceptCount: 0,
+    violations: [],
+  };
+
+  let pendingBlockerAudit = null;
+
+  for (const record of records) {
+    if (record.type === 'tool_call' && record.tool === GUARD_AUDIT_TOOL_NAME) {
+      const result = getGuardAuditResult(record);
+      summary.hasGuardAudit = true;
+      summary.auditCount += 1;
+      if (result) {
+        summary.blockerCount += result.blockers.length;
+        summary.warningCount += result.warnings.length;
+        summary.acceptedRiskCodeCount += result.acceptedRiskCodes.length;
+        pendingBlockerAudit = result.blockers.length > 0
+          ? {
+            timestamp: record.timestamp,
+            blockerCodes: result.blockers.map((item) => item.code).filter(Boolean),
+            hasRiskAccept: false,
+          }
+          : null;
+      } else {
+        pendingBlockerAudit = null;
+      }
+      continue;
+    }
+
+    if (record.type === 'note') {
+      const riskAccept = getRiskAcceptInfo(record);
+      if (riskAccept) {
+        summary.riskAcceptCount += 1;
+        if (pendingBlockerAudit) {
+          pendingBlockerAudit.hasRiskAccept = true;
+        }
+      }
+      continue;
+    }
+
+    if (record.type === 'tool_call' && WRITE_TOOL_NAMES.has(record.tool) && pendingBlockerAudit) {
+      if (!pendingBlockerAudit.hasRiskAccept) {
+        summary.violations.push({
+          auditTimestamp: pendingBlockerAudit.timestamp,
+          writeTimestamp: record.timestamp,
+          writeTool: record.tool,
+          blockerCodes: pendingBlockerAudit.blockerCodes,
+        });
+      }
+      pendingBlockerAudit = null;
+    }
+  }
+
+  summary.writeAfterBlockerWithoutRiskAcceptCount = summary.violations.length;
+  return summary;
+}
+
 function buildOptimizationItems({
   toolCalls,
   hasWrites,
   hasSchemaBundle,
   hasSchemas,
   hasFindone,
+  guardSummary,
   firstWriteIndex,
   firstDiscoveryIndex,
   errors,
@@ -287,6 +384,26 @@ function buildOptimizationItems({
         !hasSchemas ? '缺少 `PostFlowmodels_schemas`' : null,
         firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1 ? '首次探测晚于首次写入' : null,
       ].filter(Boolean),
+    });
+  }
+
+  if (hasWrites && !guardSummary.hasGuardAudit) {
+    items.push({
+      priority: 'high',
+      title: '把 payload guard 放到首次写入前',
+      reason: '存在写操作，但没有记录任何 `flow_payload_guard.audit-payload` 审计结果，坏 payload 可能直接落库。',
+      fasterPath: '每轮写入前先执行一次 `flow_payload_guard.extract-required-metadata` 和 `flow_payload_guard.audit-payload`；命中 blocker 时立即停止写入。',
+      evidence: ['缺少 `flow_payload_guard.audit-payload`'],
+    });
+  }
+
+  if (guardSummary.writeAfterBlockerWithoutRiskAcceptCount > 0) {
+    items.push({
+      priority: 'high',
+      title: '不要绕过 blocker 直接写入',
+      reason: `本次出现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程。`,
+      fasterPath: 'guard 报 blocker 后，默认先修 payload；只有确实接受风险时，才追加 risk-accept note 并重新审计后再写入。',
+      evidence: guardSummary.violations.map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
     });
   }
 
@@ -389,6 +506,7 @@ export function analyzeRun(records, sourceLogPath) {
   const hasSchemaBundle = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemabundle');
   const hasSchemas = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemas');
   const hasFindone = toolCalls.some((record) => record.tool === 'GetFlowmodels_findone');
+  const guardSummary = buildGuardSummary(records);
   const repeatedRuns = detectRepeatedRuns(toolCalls);
   const missingSummaryCount = toolCalls.filter((record) => !record.summary).length;
 
@@ -407,6 +525,15 @@ export function analyzeRun(records, sourceLogPath) {
   }
   if (hasWrites && !hasFindone) {
     suggestions.push('存在写操作，但没有记录 `GetFlowmodels_findone`，建议在每次变更前后都记录 live snapshot 读取。');
+  }
+  if (hasWrites && !guardSummary.hasGuardAudit) {
+    suggestions.push('存在写操作，但没有记录 `flow_payload_guard.audit-payload`，建议在首次写入前加一轮 payload 审计。');
+  }
+  if (guardSummary.writeAfterBlockerWithoutRiskAcceptCount > 0) {
+    suggestions.push(`发现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程，建议先修 payload 或显式记录 risk-accept。`);
+  }
+  if (guardSummary.riskAcceptCount > 0) {
+    suggestions.push(`本次使用了 ${guardSummary.riskAcceptCount} 次 risk-accept，建议复盘这些豁免是否还能继续缩减。`);
   }
   if (hasWrites && firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1) {
     suggestions.push('首次探测发生在首次写操作之后，建议把探测顺序前置。');
@@ -429,6 +556,7 @@ export function analyzeRun(records, sourceLogPath) {
     hasSchemaBundle,
     hasSchemas,
     hasFindone,
+    guardSummary,
     firstWriteIndex,
     firstDiscoveryIndex,
     errors,
@@ -451,6 +579,7 @@ export function analyzeRun(records, sourceLogPath) {
     toolCalls,
     notes,
     errors,
+    guardSummary,
     countsByTool: buildCountsByTool(toolCalls),
     suggestions,
     optimizationItems,
@@ -528,6 +657,23 @@ function renderMarkdownReport(summary) {
     '',
   ];
 
+  const guard = [
+    '## Guard 摘要',
+    '',
+    `- 审计调用数：${summary.guardSummary.auditCount}`,
+    `- blocker 总数：${summary.guardSummary.blockerCount}`,
+    `- warning 总数：${summary.guardSummary.warningCount}`,
+    `- risk-accept 次数：${summary.guardSummary.riskAcceptCount}`,
+    `- 带 blocker 继续写入次数：${summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount}`,
+    '',
+  ];
+  if (summary.guardSummary.violations.length > 0) {
+    guard.push(...summary.guardSummary.violations.map(
+      (item, index) => `- 违规 ${index + 1}：${item.writeTool} 在 blocker [${item.blockerCodes.join(', ')}] 之后继续写入`,
+    ));
+    guard.push('');
+  }
+
   const suggestions = [
     '## 可改进点',
     '',
@@ -602,6 +748,7 @@ function renderMarkdownReport(summary) {
   return [
     ...header,
     ...overview,
+    ...guard,
     ...suggestions,
     ...optimization,
     ...toolStats,
@@ -667,6 +814,9 @@ function renderHtmlReport(summary) {
         ${item.evidence?.length ? `<p><strong>证据：</strong>${escapeHtml(item.evidence.join('；'))}</p>` : ''}
       </section>
     `).join('\n');
+  const guardViolationItems = summary.guardSummary.violations.length === 0
+    ? '<p class="muted">未发现带 blocker 继续写入的流程。</p>'
+    : `<ul>${summary.guardSummary.violations.map((item) => `<li>${escapeHtml(`${item.writeTool} 在 blocker [${item.blockerCodes.join(', ')}] 之后继续写入`)}</li>`).join('\n')}</ul>`;
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -785,6 +935,18 @@ function renderHtmlReport(summary) {
       <article class="card"><strong>备注</strong><br>${summary.totalNotes}</article>
       <article class="card"><strong class="err">失败调用</strong><br>${summary.errorCount}</article>
       <article class="card"><strong>跳过调用</strong><br>${summary.skippedCount}</article>
+    </section>
+
+    <h2>Guard 摘要</h2>
+    <section class="stats">
+      <article class="card"><strong>审计调用</strong><br>${summary.guardSummary.auditCount}</article>
+      <article class="card"><strong>blocker</strong><br>${summary.guardSummary.blockerCount}</article>
+      <article class="card"><strong>warning</strong><br>${summary.guardSummary.warningCount}</article>
+      <article class="card"><strong>risk-accept</strong><br>${summary.guardSummary.riskAcceptCount}</article>
+      <article class="card"><strong class="err">违规继续写入</strong><br>${summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount}</article>
+    </section>
+    <section class="card">
+      ${guardViolationItems}
     </section>
 
     <h2>可改进点</h2>
