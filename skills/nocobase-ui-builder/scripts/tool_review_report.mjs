@@ -283,8 +283,7 @@ function getRiskAcceptInfo(note) {
   const codes = Array.isArray(data.codes)
     ? data.codes.filter((value) => typeof value === 'string' && value.trim())
     : [];
-  const message = typeof note.message === 'string' ? note.message : '';
-  if (data.type === 'risk_accept' || message.includes('risk-accept')) {
+  if (data.type === 'risk_accept' && codes.length > 0) {
     return {
       codes,
       reason: typeof data.reason === 'string' ? data.reason : undefined,
@@ -305,6 +304,7 @@ function buildGuardSummary(records) {
   };
 
   let pendingBlockerAudit = null;
+  let pendingRiskAccept = null;
 
   for (const record of records) {
     if (record.type === 'tool_call' && record.tool === GUARD_AUDIT_TOOL_NAME) {
@@ -315,14 +315,15 @@ function buildGuardSummary(records) {
         summary.blockerCount += result.blockers.length;
         summary.warningCount += result.warnings.length;
         summary.acceptedRiskCodeCount += result.acceptedRiskCodes.length;
+        pendingRiskAccept = null;
         pendingBlockerAudit = result.blockers.length > 0
           ? {
             timestamp: record.timestamp,
             blockerCodes: result.blockers.map((item) => item.code).filter(Boolean),
-            hasRiskAccept: false,
           }
           : null;
       } else {
+        pendingRiskAccept = null;
         pendingBlockerAudit = null;
       }
       continue;
@@ -332,22 +333,26 @@ function buildGuardSummary(records) {
       const riskAccept = getRiskAcceptInfo(record);
       if (riskAccept) {
         summary.riskAcceptCount += 1;
-        if (pendingBlockerAudit) {
-          pendingBlockerAudit.hasRiskAccept = true;
+        if (pendingBlockerAudit && riskAccept.codes.some((code) => pendingBlockerAudit.blockerCodes.includes(code))) {
+          pendingRiskAccept = {
+            timestamp: record.timestamp,
+            codes: riskAccept.codes,
+          };
         }
       }
       continue;
     }
 
     if (record.type === 'tool_call' && WRITE_TOOL_NAMES.has(record.tool) && pendingBlockerAudit) {
-      if (!pendingBlockerAudit.hasRiskAccept) {
-        summary.violations.push({
-          auditTimestamp: pendingBlockerAudit.timestamp,
-          writeTimestamp: record.timestamp,
-          writeTool: record.tool,
-          blockerCodes: pendingBlockerAudit.blockerCodes,
-        });
-      }
+      summary.violations.push({
+        auditTimestamp: pendingBlockerAudit.timestamp,
+        writeTimestamp: record.timestamp,
+        writeTool: record.tool,
+        blockerCodes: pendingBlockerAudit.blockerCodes,
+        riskAcceptTimestamp: pendingRiskAccept?.timestamp,
+        violationType: pendingRiskAccept ? 'risk_accept_without_reaudit' : 'write_after_blocker',
+      });
+      pendingRiskAccept = null;
       pendingBlockerAudit = null;
     }
   }
@@ -492,6 +497,7 @@ export function analyzeRun(records, sourceLogPath) {
   const notes = records.filter((record) => record.type === 'note');
   const errors = toolCalls.filter((record) => record.status === 'error' || record.error);
   const skipped = toolCalls.filter((record) => record.status === 'skipped');
+  const timelineRecords = records.filter((record) => record.type === 'tool_call' || record.type === 'note');
 
   const startedAt = toDate(start?.startedAt);
   const finishedAt = toDate(finish?.timestamp);
@@ -576,6 +582,7 @@ export function analyzeRun(records, sourceLogPath) {
     totalNotes: notes.length,
     errorCount: errors.length,
     skippedCount: skipped.length,
+    timelineRecords,
     toolCalls,
     notes,
     errors,
@@ -669,7 +676,7 @@ function renderMarkdownReport(summary) {
   ];
   if (summary.guardSummary.violations.length > 0) {
     guard.push(...summary.guardSummary.violations.map(
-      (item, index) => `- 违规 ${index + 1}：${item.writeTool} 在 blocker [${item.blockerCodes.join(', ')}] 之后继续写入`,
+      (item, index) => `- 违规 ${index + 1}：${item.writeTool} 在 blocker [${item.blockerCodes.join(', ')}] 之后继续写入${item.violationType === 'risk_accept_without_reaudit' ? '（已写 risk-accept note，但没有重新审计）' : ''}`,
     ));
     guard.push('');
   }
@@ -736,11 +743,10 @@ function renderMarkdownReport(summary) {
     '',
     '| # | 时间 | 事件 | 名称/消息 | 状态 | 摘要 |',
     '| --- | --- | --- | --- | --- | --- |',
-    ...summary.toolCalls.map((item, index) => (
-      `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | tool_call | ${escapeMarkdownCell(item.tool)} | ${escapeMarkdownCell(item.status ?? '')} | ${escapeMarkdownCell(item.summary ?? '')} |`
-    )),
-    ...summary.notes.map((item, index) => (
-      `| N${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | note | ${escapeMarkdownCell(item.message)} |  | ${escapeMarkdownCell(compactJson(item.data, 160))} |`
+    ...summary.timelineRecords.map((item, index) => (
+      item.type === 'tool_call'
+        ? `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | tool_call | ${escapeMarkdownCell(item.tool)} | ${escapeMarkdownCell(item.status ?? '')} | ${escapeMarkdownCell(item.summary ?? '')} |`
+        : `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | note | ${escapeMarkdownCell(item.message)} |  | ${escapeMarkdownCell(compactJson(item.data, 160))} |`
     )),
     '',
   ];
@@ -782,8 +788,9 @@ function renderHtmlReport(summary) {
       </tr>
     `).join('\n');
 
-  const timelineRows = [
-    ...summary.toolCalls.map((item, index) => `
+  const timelineRows = summary.timelineRecords.map((item, index) => (
+    item.type === 'tool_call'
+      ? `
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(item.timestamp ?? '')}</td>
@@ -792,18 +799,18 @@ function renderHtmlReport(summary) {
         <td>${escapeHtml(item.status ?? '')}</td>
         <td>${escapeHtml(item.summary ?? '')}</td>
       </tr>
-    `),
-    ...summary.notes.map((item, index) => `
+    `
+      : `
       <tr>
-        <td>N${index + 1}</td>
+        <td>${index + 1}</td>
         <td>${escapeHtml(item.timestamp ?? '')}</td>
         <td>note</td>
         <td>${escapeHtml(item.message)}</td>
         <td></td>
         <td>${escapeHtml(compactJson(item.data, 160))}</td>
       </tr>
-    `),
-  ].join('\n');
+    `
+  )).join('\n');
 
   const suggestionItems = summary.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
   const optimizationBlocks = summary.optimizationItems.map((item, index) => `

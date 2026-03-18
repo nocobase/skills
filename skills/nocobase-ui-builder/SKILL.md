@@ -41,7 +41,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 2. 确认上面列出的工具在当前会话里可见。
 3. 如果 MCP 未配置，先使用 `../nocobase-mcp-setup/SKILL.md`；如果只是工具缺失，先确认当前服务端实际暴露了对应 MCP/Swagger 工具，再决定是否需要重新接入。
 4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`、`scripts/flow_payload_guard.mjs`。
-5. 如果当前任务是 validation case，不仅要准备数据模型，还要准备可查询的前置模拟数据；不要把“页面壳创建成功”当成 validation 完成。
+5. 默认按真实可用性标准执行：不仅要准备数据模型，还要准备可查询的数据样本；不要把“页面壳创建成功”当成任务完成。
 
 # 区块与模式文档入口
 
@@ -57,7 +57,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 
 这条路径是推荐入口，不是强制 gate；但以下场景优先走这条路径：
 
-- validation case
+- 需要验证真实可用性
 - 复杂页面或多个区块并存
 - popup/openView 或嵌套 drawer/dialog
 - 关系区块、关系上下文、多对多/中间表
@@ -171,10 +171,11 @@ V1 默认采用 schema-first 的渐进支持策略：
 3. popup/openView 动作如果要落库，至少要有 `action + openView + page + tab + grid + business block`
 4. popup 子树如果依赖 `{{ctx.view.inputArgs.filterByTk}}`，动作层必须显式传 `filterByTk`
 5. popup / 详情里的“当前记录关联子表”优先使用 `resourceSettings.init.associationName + sourceId`；`ctx.view.inputArgs.filterByTk` 是 `sourceId` 来源，不是默认鼓励你手写 `dataScope.filter`
-6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；如果没有稳定 reference 或 live tree 证明该资源协议可用，validation case 默认保持 blocker
-7. `DetailsBlockModel` 不能只落空 grid；validation case 下至少要有详情字段、动作或子业务区块之一
+6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；如果没有稳定 reference 或 live tree 证明该资源协议可用，默认保持 blocker
+7. `DetailsBlockModel` 不能只落空 grid；至少要有详情字段、动作或子业务区块之一
 8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；先确认稳定的标题字段展示策略
-9. validation case 默认使用 `--mode validation-case`，比普通页面更严格
+9. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
+10. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard
 
 命令示例：
 
@@ -194,12 +195,14 @@ node scripts/flow_payload_guard.mjs extract-required-metadata \
 node scripts/flow_payload_guard.mjs audit-payload \
   --payload-json '<draft-payload-json>' \
   --metadata-json '<normalized-metadata-json>' \
-  --mode validation-case
+  --mode validation-case \
+  --requirements-json '{"requiredActions":[{"kind":"edit-record-popup","collectionName":"order_items"}]}'
 ```
 
 `audit-payload` 返回 blocker 时，默认立即停止写入。只有确实需要保留风险时，才允许追加一条 `risk_accept` note，并重新运行一次 `audit-payload`：
 
 - `node scripts/tool_journal.mjs note --log-path "<logPath>" --message "risk-accept for EMPTY_POPUP_GRID" --data-json '{"type":"risk_accept","codes":["EMPTY_POPUP_GRID"],"reason":"temporary shell allowed during migration"}'`
+- `node scripts/flow_payload_guard.mjs audit-payload --payload-json '<draft-payload-json>' --metadata-json '<normalized-metadata-json>' --mode validation-case --risk-accept EMPTY_POPUP_GRID`
 
 以下 code 不允许通过 `risk_accept` 降级，哪怕在 note 里显式列出也必须继续保持 blocker：
 
@@ -208,6 +211,7 @@ node scripts/flow_payload_guard.mjs audit-payload \
 - `EMPTY_DETAILS_BLOCK`
 
 不要用自然语言口头说明代替 `risk_accept` note；复盘脚本只认结构化 note。
+如果同一个 draft 里同一个 blocker code 同时命中多个位置，当前 `--risk-accept <CODE>` 不会做模糊降级；先拆小 payload 或先修结构，再重新审计。
 
 请求参数规则：
 
@@ -251,7 +255,7 @@ NocoBase `resourcer` 的关键实现细节：
 - 同一写入阶段里，默认先把目标 use 尽量合并进一次 `PostFlowmodels_schemas`；不要把多个目标 use 分散成多次单模型深挖。
 - `GetFlowmodels_schema` 只用于 `schemas` 之后仍未消歧的具体 use；如果同一 use 需要再次读取，必须是为了核对不同 slot 形状、服务端返回前后不一致、或排查失败，并在日志里追加 `note` 说明原因。
 - 如果只是中途发现漏了一个目标 use，先补增量 `PostFlowmodels_schemas`，不要因为“怕漏掉”就连续追加多个 `GetFlowmodels_schema`。
-- 普通页面默认使用 `flow_payload_guard.mjs audit-payload --mode general`；validation case 默认使用 `--mode validation-case`
+- 默认使用 `flow_payload_guard.mjs audit-payload --mode validation-case`；`--mode general` 仅用于调试或分析中间 draft，不能代替最终写前审计
 - `flow_payload_guard.audit-payload` 的结果必须记录到 tool journal；推荐把 `tool` 名写成 `flow_payload_guard.audit-payload`
 - 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次
 
@@ -495,18 +499,18 @@ V1 可以修改现有页面，但必须严格控制范围：
 - 不要凭空发明显式可见页签结构；除非用户明确提供 `tabSchemaUid`，否则默认使用隐藏默认页签
 - 除非触发 `Schema-First 判定规则` 里的 fallback 条件，否则不要先去找样板页
 
-# Validation 附加规则
+# 默认严格模式
 
-当用户是在跑 `references/validation-cases/` 里的用例，或者明确要求验证页面真实可用性时，必须额外遵循下面的规则：
+这个 skill 默认按真实可用性标准执行。无论是在跑 `references/validation-cases/` 里的用例，还是在做实际页面交付，都遵循下面的规则：
 
-1. validation 不等于“把页面搭出来”，还必须验证页面在存在业务数据时是否真的可用。
+1. 页面搭出来不等于任务完成，还必须验证页面在存在业务数据时是否真的可用。
 2. 执行顺序必须是：
    - 先校验或创建前置数据模型
    - 再准备前置模拟数据
    - 再开始页面与区块写入
-3. 前置模拟数据是 validation 的常规步骤，不要把它写成依赖某个单独 skill 的前置条件。
+3. 前置数据准备是默认步骤，不要把它写成依赖某个单独 skill 的特殊前置条件。
 4. 造数完成后，必须先做一次最小校验，确认主表和关键关系表都已经有数据，再进入 UI 搭建。
-5. 最终结果必须把“数据准备结果”和“UI 搭建结果”分开说明；如果页面建好了但数据没准备好，本次 validation 不能算完整通过。
+5. 最终结果必须把“数据准备结果”和“UI 搭建结果”分开说明；如果页面建好了但数据没准备好，本次任务不能算完整通过。
 6. 具体造数基线、降级策略和输出要求见：
    - [references/validation-data-preconditions.md](references/validation-data-preconditions.md)
 

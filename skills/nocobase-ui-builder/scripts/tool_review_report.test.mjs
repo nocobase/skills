@@ -243,7 +243,7 @@ test('analyzeRun detects writes after guard blockers without risk-accept', () =>
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('不要绕过 blocker 直接写入')));
 });
 
-test('analyzeRun counts risk-accept notes and does not flag accepted writes as violations', () => {
+test('analyzeRun requires a re-audit after structured risk-accept before allowing writes', () => {
   const rootDir = makeTempDir('risk-accept');
   const logDir = path.join(rootDir, 'logs');
   const latestRunPath = path.join(rootDir, 'latest-run.json');
@@ -280,6 +280,21 @@ test('analyzeRun counts risk-accept notes and does not flag accepted writes as v
   });
   recordToolCall({
     logPath: started.logPath,
+    tool: 'flow_payload_guard.audit-payload',
+    toolType: 'node',
+    status: 'ok',
+    summary: 're-audit after accepted risk',
+    args: { mode: 'validation-case', riskAccept: ['EMPTY_POPUP_GRID'] },
+    result: {
+      ok: true,
+      mode: 'validation-case',
+      blockers: [],
+      warnings: [{ code: 'EMPTY_POPUP_GRID', accepted: true }],
+      acceptedRiskCodes: ['EMPTY_POPUP_GRID'],
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
     tool: 'PostFlowmodels_save',
     toolType: 'mcp',
     status: 'ok',
@@ -290,6 +305,152 @@ test('analyzeRun counts risk-accept notes and does not flag accepted writes as v
   assert.equal(summary.guardSummary.riskAcceptCount, 1);
   assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 0);
   assert.ok(summary.suggestions.some((item) => item.includes('risk-accept')));
+});
+
+test('analyzeRun treats structured risk-accept without re-audit as a violation', () => {
+  const rootDir = makeTempDir('risk-accept-without-reaudit');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Risk accept without re-audit',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'flow_payload_guard.audit-payload',
+    toolType: 'node',
+    status: 'ok',
+    summary: 'audit payload before write',
+    args: { mode: 'validation-case' },
+    result: {
+      ok: false,
+      mode: 'validation-case',
+      blockers: [{ code: 'EMPTY_POPUP_GRID' }],
+      warnings: [],
+      acceptedRiskCodes: [],
+    },
+  });
+  appendNote({
+    logPath: started.logPath,
+    message: 'risk-accept for popup shell',
+    data: {
+      type: 'risk_accept',
+      codes: ['EMPTY_POPUP_GRID'],
+      reason: 'temporary shell allowed during migration',
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'write without re-audit',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.guardSummary.riskAcceptCount, 1);
+  assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 1);
+  assert.equal(summary.guardSummary.violations[0].violationType, 'risk_accept_without_reaudit');
+});
+
+test('analyzeRun ignores non-structured risk-accept notes', () => {
+  const rootDir = makeTempDir('non-structured-risk-accept');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Non structured risk accept',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'flow_payload_guard.audit-payload',
+    toolType: 'node',
+    status: 'ok',
+    summary: 'audit payload before write',
+    args: { mode: 'validation-case' },
+    result: {
+      ok: false,
+      mode: 'validation-case',
+      blockers: [{ code: 'EMPTY_POPUP_GRID' }],
+      warnings: [],
+      acceptedRiskCodes: [],
+    },
+  });
+  appendNote({
+    logPath: started.logPath,
+    message: 'risk-accept maybe later',
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'write after loose note',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.guardSummary.riskAcceptCount, 0);
+  assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 1);
+});
+
+test('renderReport keeps timeline records in original event order', () => {
+  const rootDir = makeTempDir('timeline-order');
+  const logDir = path.join(rootDir, 'logs');
+  const outDir = path.join(rootDir, 'reports');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+  const improvementLogPath = path.join(rootDir, 'improvement-log.jsonl');
+
+  const started = startRun({
+    task: 'Timeline order',
+    logDir,
+    latestRunPath,
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'first tool',
+  });
+  appendNote({
+    logPath: started.logPath,
+    message: 'middle note',
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_schemabundle',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'second tool',
+  });
+  finishRun({
+    logPath: started.logPath,
+    status: 'success',
+    summary: 'done',
+  });
+
+  const result = renderReport({
+    logPath: started.logPath,
+    outDir,
+    formats: 'md',
+    improvementLogPath,
+  });
+  const markdown = fs.readFileSync(result.markdownPath, 'utf8');
+  const timelineSection = markdown.split('## 时间线')[1];
+  const firstToolIndex = timelineSection.indexOf('GetFlowmodels_findone');
+  const noteIndex = timelineSection.indexOf('middle note');
+  const secondToolIndex = timelineSection.indexOf('PostFlowmodels_schemabundle');
+
+  assert.notEqual(firstToolIndex, -1);
+  assert.notEqual(noteIndex, -1);
+  assert.notEqual(secondToolIndex, -1);
+  assert.equal(firstToolIndex < noteIndex && noteIndex < secondToolIndex, true);
 });
 
 test('cli render resolves latest-run manifest automatically', () => {

@@ -149,6 +149,98 @@ function makePopupPageWithChildTab(tableBlock) {
   };
 }
 
+function makeEditRecordPopupAction(collectionName = 'order_items') {
+  return {
+    use: 'EditActionModel',
+    stepParams: {
+      buttonSettings: {
+        general: {
+          title: '编辑记录',
+        },
+      },
+      popupSettings: {
+        openView: {
+          mode: 'dialog',
+          collectionName,
+          pageModelClass: 'ChildPageModel',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+    },
+    subModels: {
+      page: {
+        use: 'ChildPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'PageTabModel',
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [
+                      {
+                        use: 'EditFormModel',
+                        stepParams: {
+                          resourceSettings: {
+                            init: {
+                              collectionName,
+                              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+                            },
+                          },
+                        },
+                        subModels: {
+                          grid: {
+                            use: 'FormGridModel',
+                            subModels: {
+                              items: [
+                                {
+                                  use: 'FormItemModel',
+                                  stepParams: {
+                                    fieldSettings: {
+                                      init: {
+                                        collectionName,
+                                        fieldPath: 'quantity',
+                                      },
+                                    },
+                                  },
+                                },
+                                {
+                                  use: 'FormSubmitActionModel',
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function makeActionTargetBlock(collectionName = 'order_items', actions = []) {
+  return {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName,
+        },
+      },
+    },
+    subModels: {
+      actions,
+    },
+  };
+}
+
 test('buildFilterGroup returns a valid FilterGroupType wrapper', () => {
   assert.deepEqual(
     buildFilterGroup({
@@ -307,6 +399,36 @@ test('auditPayload blocks malformed filter groups', () => {
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_GROUP_MALFORMED'), true);
 });
 
+test('auditPayload blocks unsupported filter logic values', () => {
+  const payload = {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: 'BAD',
+            items: [
+              {
+                logic: '$xor',
+                items: [],
+              },
+            ],
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_LOGIC_UNSUPPORTED'), true);
+});
+
 test('auditPayload blocks foreign keys used as fieldPath', () => {
   const payload = {
     use: 'FormItemModel',
@@ -322,6 +444,24 @@ test('auditPayload blocks foreign keys used as fieldPath', () => {
 
   const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(result.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), true);
+});
+
+test('auditPayload blocks when required collection metadata is missing', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'missing_field',
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata: {}, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_COLLECTION_METADATA_MISSING'), true);
 });
 
 test('auditPayload blocks popup actions missing required page subtree', () => {
@@ -600,6 +740,75 @@ test('auditPayload warns and blocks empty details blocks', () => {
   assert.equal(validationResult.blockers.some((item) => item.code === 'EMPTY_DETAILS_BLOCK'), true);
 });
 
+test('auditPayload blocks declared edit-record-popup requirements when target block has no stable edit action tree', () => {
+  const payload = makeActionTargetBlock('order_items', []);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'edit-record-popup',
+          collectionName: 'order_items',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING'), true);
+});
+
+test('auditPayload accepts declared edit-record-popup requirements when stable action tree exists', () => {
+  const payload = makeActionTargetBlock('order_items', [makeEditRecordPopupAction('order_items')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'edit-record-popup',
+          collectionName: 'order_items',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload defaults to validation-case mode when mode is omitted', () => {
+  const payload = {
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+          filterByTk: 6,
+        },
+      },
+      detailsSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [],
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata });
+  assert.equal(result.mode, VALIDATION_CASE_MODE);
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'HARDCODED_FILTER_BY_TK'), true);
+});
+
 test('auditPayload can downgrade blocker with riskAccept', () => {
   const payload = {
     use: 'TableBlockModel',
@@ -634,10 +843,64 @@ test('auditPayload can downgrade blocker with riskAccept', () => {
   });
   assert.equal(result.ok, true);
   assert.deepEqual(result.acceptedRiskCodes, ['FILTER_ITEM_USES_FIELD_NOT_PATH']);
+  assert.deepEqual(result.ignoredRiskAcceptCodes, []);
   assert.equal(
     result.warnings.some((item) => item.code === 'FILTER_ITEM_USES_FIELD_NOT_PATH' && item.accepted === true),
     true,
   );
+});
+
+test('auditPayload does not downgrade ambiguous riskAccept codes that match multiple blockers', () => {
+  const emptyPopupAction = {
+    use: 'ViewActionModel',
+    stepParams: {
+      popupSettings: {
+        openView: {
+          collectionName: 'orders',
+          pageModelClass: 'ChildPageModel',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+    },
+    subModels: {
+      page: {
+        use: 'ChildPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'PageTabModel',
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+  const payload = {
+    use: 'RootPageModel',
+    subModels: {
+      actions: [emptyPopupAction, emptyPopupAction],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    riskAccept: ['EMPTY_POPUP_GRID'],
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.acceptedRiskCodes, []);
+  assert.deepEqual(result.ignoredRiskAcceptCodes, ['EMPTY_POPUP_GRID']);
+  assert.equal(result.blockers.filter((item) => item.code === 'EMPTY_POPUP_GRID').length, 2);
 });
 
 test('auditPayload does not allow riskAccept to bypass hard validation-case blockers for relation and details integrity', () => {

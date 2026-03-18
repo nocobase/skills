@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 export const GENERAL_MODE = 'general';
 export const VALIDATION_CASE_MODE = 'validation-case';
+export const DEFAULT_AUDIT_MODE = VALIDATION_CASE_MODE;
 export const BLOCKER_EXIT_CODE = 2;
 
 const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
@@ -25,6 +26,8 @@ const BUSINESS_BLOCK_MODEL_USES = new Set([
   'CreateFormModel',
   'EditFormModel',
 ]);
+const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel']);
+const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
 const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'TableColumnModel',
@@ -42,7 +45,9 @@ function usage() {
     'Usage:',
     '  node scripts/flow_payload_guard.mjs build-filter (--condition-json <json> | --path <path> --operator <op> --value-json <json>) [--logic <$and|$or>]',
     '  node scripts/flow_payload_guard.mjs extract-required-metadata (--payload-json <json> | --payload-file <path>)',
-    '  node scripts/flow_payload_guard.mjs audit-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case] [--risk-accept <CODE>]',
+    '  node scripts/flow_payload_guard.mjs audit-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case] [(--requirements-json <json> | --requirements-file <path>)] [--risk-accept <CODE>]',
+    '',
+    `Default audit mode: ${DEFAULT_AUDIT_MODE}`,
   ].join('\n');
 }
 
@@ -175,6 +180,69 @@ function normalizeFilterLogic(logic) {
   return normalized;
 }
 
+function createUnsupportedFilterLogicFinding({ path: findingPath, mode, logic }) {
+  return createFinding({
+    severity: 'blocker',
+    code: 'FILTER_LOGIC_UNSUPPORTED',
+    message: `filter logic "${logic}" 不受支持；只允许 "$and" 或 "$or"。`,
+    path: findingPath,
+    mode,
+    details: {
+      logic,
+    },
+  });
+}
+
+function normalizeRequirementKind(value, label) {
+  return normalizeNonEmpty(value, label).toLowerCase();
+}
+
+function normalizeRequiredAction(entry, index) {
+  if (!isPlainObject(entry)) {
+    throw new Error(`requirements.requiredActions[${index}] must be an object`);
+  }
+
+  const kind = normalizeRequirementKind(entry.kind, `requirements.requiredActions[${index}].kind`);
+  const collectionName = normalizeNonEmpty(
+    entry.collectionName,
+    `requirements.requiredActions[${index}].collectionName`,
+  );
+
+  if (kind !== 'edit-record-popup') {
+    throw new Error(`Unsupported required action kind "${kind}"`);
+  }
+
+  return {
+    kind,
+    collectionName,
+  };
+}
+
+function normalizeRequirements(rawRequirements = {}) {
+  if (rawRequirements == null) {
+    return {
+      requiredActions: [],
+    };
+  }
+  if (!isPlainObject(rawRequirements)) {
+    throw new Error('requirements must be an object');
+  }
+
+  const rawRequiredActions = rawRequirements.requiredActions;
+  if (rawRequiredActions == null) {
+    return {
+      requiredActions: [],
+    };
+  }
+  if (!Array.isArray(rawRequiredActions)) {
+    throw new Error('requirements.requiredActions must be an array');
+  }
+
+  return {
+    requiredActions: rawRequiredActions.map((entry, index) => normalizeRequiredAction(entry, index)),
+  };
+}
+
 export function buildFilterGroup({ logic = '$and', condition }) {
   const normalizedLogic = normalizeFilterLogic(logic);
   if (!isPlainObject(condition)) {
@@ -288,6 +356,24 @@ function getCollectionMeta(metadata, collectionName) {
   return metadata.collections[collectionName] || null;
 }
 
+function inspectRequiredMetadataCoverage(requiredMetadata, metadata, mode, blockers, seen) {
+  for (const collectionRef of requiredMetadata.collectionRefs) {
+    const collectionMeta = getCollectionMeta(metadata, collectionRef.collectionName);
+    if (collectionMeta) {
+      continue;
+    }
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'REQUIRED_COLLECTION_METADATA_MISSING',
+      message: `payload 依赖 collection "${collectionRef.collectionName}" 的元数据，但当前 metadata 未提供。`,
+      path: collectionRef.path,
+      mode,
+      dedupeKey: `REQUIRED_COLLECTION_METADATA_MISSING:${collectionRef.collectionName}`,
+      details: collectionRef,
+    }));
+  }
+}
+
 function isAssociationField(field) {
   if (!field) {
     return false;
@@ -381,6 +467,45 @@ function countUses(value, useSet) {
   return count;
 }
 
+function subtreeReferencesCollection(node, collectionName) {
+  let matched = false;
+  walk(node, (child) => {
+    if (!isPlainObject(child) || matched) {
+      return;
+    }
+    const resourceCollectionName = child.stepParams?.resourceSettings?.init?.collectionName;
+    const fieldCollectionName = child.stepParams?.fieldSettings?.init?.collectionName;
+    if (resourceCollectionName === collectionName || fieldCollectionName === collectionName) {
+      matched = true;
+    }
+  });
+  return matched;
+}
+
+function hasEditRecordPopupAction(actionNode, collectionName) {
+  if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string' || !actionNode.use.endsWith('ActionModel')) {
+    return false;
+  }
+
+  const openView = actionNode.stepParams?.popupSettings?.openView;
+  const pageNode = actionNode.subModels?.page;
+  const title = actionNode.stepParams?.buttonSettings?.general?.title || '';
+  const strings = collectStrings(actionNode, []);
+  const hasPopup = isPlainObject(openView) || isPlainObject(pageNode);
+  const hasRecordContext = Boolean(openView?.filterByTk)
+    || strings.some(
+      (value) => typeof value === 'string'
+        && (value.includes('{{ctx.record.id}}') || value.includes(POPUP_INPUT_ARGS_FILTER_BY_TK)),
+    );
+  const mentionsEdit = /编辑|edit/i.test(title)
+    || /Edit/i.test(actionNode.use)
+    || strings.some((value) => typeof value === 'string' && /(编辑订单项|编辑|edit)/i.test(value));
+  const targetsCollection = openView?.collectionName === collectionName || subtreeReferencesCollection(pageNode, collectionName);
+  const hasEditForm = countUses(actionNode, EDIT_FORM_MODEL_USES) > 0;
+
+  return hasPopup && hasRecordContext && mentionsEdit && targetsCollection && hasEditForm;
+}
+
 function findNestedRelationBlocks(pageNode, parentCollectionName) {
   const findings = [];
   function visit(node, pathValue, currentParentCollectionName) {
@@ -420,6 +545,66 @@ function findNestedRelationBlocks(pageNode, parentCollectionName) {
 
   visit(pageNode, '$.subModels.page', parentCollectionName);
   return findings;
+}
+
+function inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, seen) {
+  let matchedBlockCount = 0;
+
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !ACTION_HOST_MODEL_USES.has(node.use)) {
+      return;
+    }
+
+    const collectionName = node.stepParams?.resourceSettings?.init?.collectionName;
+    if (collectionName !== requirement.collectionName) {
+      return;
+    }
+
+    matchedBlockCount += 1;
+    const actions = Array.isArray(node.subModels?.actions) ? node.subModels.actions : [];
+    if (actions.some((actionNode) => hasEditRecordPopupAction(actionNode, collectionName))) {
+      return;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING',
+      message: `显式要求 ${collectionName} 提供稳定的记录级编辑 popup 动作树，但当前未发现满足条件的 action/page/EditForm 结构。`,
+      path: `${pathValue}.subModels.actions`,
+      mode,
+      dedupeKey: `REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING:${pathValue}`,
+      details: {
+        collectionName,
+        requiredAction: requirement.kind,
+        actionCount: actions.length,
+      },
+    }));
+  });
+
+  if (matchedBlockCount > 0) {
+    return;
+  }
+
+  pushFinding(blockers, seen, createFinding({
+    severity: 'blocker',
+    code: 'REQUIRED_ACTION_TARGET_BLOCK_MISSING',
+    message: `显式要求 ${requirement.collectionName} 提供 ${requirement.kind}，但当前 payload 中未找到对应业务区块。`,
+    path: '$',
+    mode,
+    dedupeKey: `REQUIRED_ACTION_TARGET_BLOCK_MISSING:${requirement.kind}:${requirement.collectionName}`,
+    details: {
+      collectionName: requirement.collectionName,
+      requiredAction: requirement.kind,
+    },
+  }));
+}
+
+function inspectDeclaredRequirements(payload, mode, requirements, blockers, seen) {
+  for (const requirement of requirements.requiredActions) {
+    if (requirement.kind === 'edit-record-popup') {
+      inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, seen);
+    }
+  }
 }
 
 function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionName, metadata) {
@@ -750,6 +935,17 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
     return;
   }
 
+  try {
+    normalizeFilterLogic(filter.logic);
+  } catch (error) {
+    pushFinding(blockers, seen, createUnsupportedFilterLogicFinding({
+      path: `${filterPath}.logic`,
+      mode,
+      logic: filter.logic,
+    }));
+    return;
+  }
+
   const collectionMeta = getCollectionMeta(metadata, collectionName);
   const validateItem = (item, itemPath) => {
     if (!isPlainObject(item)) {
@@ -797,6 +993,16 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
     }
 
     if (looksLikeGroup && Array.isArray(item.items) && typeof item.logic === 'string') {
+      try {
+        normalizeFilterLogic(item.logic);
+      } catch (error) {
+        pushFinding(blockers, seen, createUnsupportedFilterLogicFinding({
+          path: `${itemPath}.logic`,
+          mode,
+          logic: item.logic,
+        }));
+        return;
+      }
       item.items.forEach((child, index) => validateItem(child, `${itemPath}.items[${index}]`));
       return;
     }
@@ -954,6 +1160,7 @@ function applyRiskAccept(blockers, warnings, acceptedCodes) {
       blockers,
       warnings,
       acceptedRiskCodes: [],
+      ignoredRiskAcceptCodes: [],
     };
   }
 
@@ -961,9 +1168,20 @@ function applyRiskAccept(blockers, warnings, acceptedCodes) {
   const downgradedWarnings = [...warnings];
   const remainingBlockers = [];
   const appliedCodes = new Set();
+  const blockerCountsByCode = new Map();
+  for (const blocker of blockers) {
+    blockerCountsByCode.set(blocker.code, (blockerCountsByCode.get(blocker.code) ?? 0) + 1);
+  }
+  const ignoredCodes = new Set(
+    [...acceptedSet].filter((code) => (blockerCountsByCode.get(code) ?? 0) > 1),
+  );
 
   for (const blocker of blockers) {
-    if (acceptedSet.has(blocker.code) && !NON_RISK_ACCEPTABLE_BLOCKER_CODES.has(blocker.code)) {
+    if (
+      acceptedSet.has(blocker.code)
+      && !ignoredCodes.has(blocker.code)
+      && !NON_RISK_ACCEPTABLE_BLOCKER_CODES.has(blocker.code)
+    ) {
       downgradedWarnings.push({
         ...blocker,
         severity: 'warning',
@@ -979,6 +1197,7 @@ function applyRiskAccept(blockers, warnings, acceptedCodes) {
     blockers: remainingBlockers,
     warnings: downgradedWarnings,
     acceptedRiskCodes: [...appliedCodes],
+    ignoredRiskAcceptCodes: [...ignoredCodes].sort(),
   };
 }
 
@@ -1037,6 +1256,17 @@ export function extractRequiredMetadata({ payload }) {
     const openView = node.stepParams?.popupSettings?.openView;
     const pageNode = node.subModels?.page;
     if ((isPlainObject(openView) || pageNode) && typeof node.use === 'string' && node.use.endsWith('ActionModel')) {
+      if (openView?.collectionName) {
+        const dedupeKey = `${openView.collectionName}:${pathValue}:open-view`;
+        if (!seenCollectionRefs.has(dedupeKey)) {
+          seenCollectionRefs.add(dedupeKey);
+          collectionRefs.push({
+            collectionName: openView.collectionName,
+            reason: 'popupSettings.openView.collectionName',
+            path: pathValue,
+          });
+        }
+      }
       const subtreeStrings = pageNode ? collectStrings(pageNode) : [];
       if (subtreeStrings.some((value) => value.includes(POPUP_INPUT_ARGS_FILTER_BY_TK))) {
         const dedupeKey = `${pathValue}:${node.use}`;
@@ -1061,21 +1291,25 @@ export function extractRequiredMetadata({ payload }) {
   };
 }
 
-export function auditPayload({ payload, metadata = {}, mode = GENERAL_MODE, riskAccept = [] }) {
+export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE, riskAccept = [], requirements = {} }) {
   if (mode !== GENERAL_MODE && mode !== VALIDATION_CASE_MODE) {
     throw new Error(`Unsupported mode "${mode}"`);
   }
 
+  const requiredMetadata = extractRequiredMetadata({ payload });
   const normalizedMetadata = normalizeMetadata(metadata);
+  const normalizedRequirements = normalizeRequirements(requirements);
   const blockers = [];
   const warnings = [];
   const blockerSeen = new Set();
   const warningSeen = new Set();
 
+  inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
+  inspectDeclaredRequirements(payload, mode, normalizedRequirements, blockers, blockerSeen);
   if (mode === VALIDATION_CASE_MODE) {
     inspectHardcodedFilterByTk(payload, mode, blockers, blockerSeen);
   } else {
@@ -1094,8 +1328,10 @@ export function auditPayload({ payload, metadata = {}, mode = GENERAL_MODE, risk
     blockers: finalBlockers,
     warnings: finalWarnings,
     acceptedRiskCodes: applied.acceptedRiskCodes,
+    ignoredRiskAcceptCodes: applied.ignoredRiskAcceptCodes,
     metadataCoverage: {
       collectionCount: Object.keys(normalizedMetadata.collections).length,
+      requiredCollectionCount: new Set(requiredMetadata.collectionRefs.map((item) => item.collectionName)).size,
     },
   };
 }
@@ -1126,9 +1362,12 @@ function handleExtractRequiredMetadata(flags) {
 function handleAuditPayload(flags) {
   const payload = readJsonInput(flags['payload-json'], flags['payload-file'], 'payload');
   const metadata = readJsonInput(flags['metadata-json'], flags['metadata-file'], 'metadata');
-  const mode = flags.mode ? normalizeNonEmpty(flags.mode, 'mode') : GENERAL_MODE;
+  const mode = flags.mode ? normalizeNonEmpty(flags.mode, 'mode') : DEFAULT_AUDIT_MODE;
   const riskAccept = Array.isArray(flags['risk-accept']) ? flags['risk-accept'] : [];
-  const result = auditPayload({ payload, metadata, mode, riskAccept });
+  const requirements = flags['requirements-json'] || flags['requirements-file']
+    ? readJsonInput(flags['requirements-json'], flags['requirements-file'], 'requirements')
+    : {};
+  const result = auditPayload({ payload, metadata, mode, riskAccept, requirements });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!result.ok) {
     process.exitCode = BLOCKER_EXIT_CODE;

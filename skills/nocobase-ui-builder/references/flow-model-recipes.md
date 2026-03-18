@@ -188,7 +188,7 @@ node scripts/flow_payload_guard.mjs extract-required-metadata \
 node scripts/flow_payload_guard.mjs audit-payload \
   --payload-json '<draft-payload-json>' \
   --metadata-json '<normalized-metadata-json>' \
-  --mode general
+  --mode validation-case
 ```
 
 如果表格包含 relation/dataScope condition，不要手写 `items[*]`，而是先生成 condition 片段：
