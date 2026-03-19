@@ -14,6 +14,9 @@ import {
 } from './tool_review_report.mjs';
 import {
   DEFAULT_LATEST_RUN_PATH,
+  recordCacheEvent,
+  recordGate,
+  recordPhase,
   recordToolCall,
   startRun,
   finishRun,
@@ -65,6 +68,33 @@ test('renderReport writes markdown and html outputs from a log path', () => {
     message: 'need to inspect table schema',
     data: { use: 'TableBlockModel' },
   });
+  recordPhase({
+    logPath: started.logPath,
+    phase: 'schema_discovery',
+    event: 'start',
+  });
+  recordPhase({
+    logPath: started.logPath,
+    phase: 'schema_discovery',
+    event: 'end',
+    status: 'ok',
+    attributes: { durationMs: 1800 },
+  });
+  recordCacheEvent({
+    logPath: started.logPath,
+    action: 'cache_miss',
+    kind: 'schemas',
+    identity: 'RootPageModel|TableBlockModel',
+    source: 'none',
+  });
+  recordGate({
+    logPath: started.logPath,
+    gate: 'build',
+    status: 'failed',
+    reasonCode: 'WRITE_ERROR',
+    findings: [{ code: 'unsupported-model-use' }],
+    stoppedRemainingWork: true,
+  });
   finishRun({
     logPath: started.logPath,
     status: 'partial',
@@ -88,9 +118,15 @@ test('renderReport writes markdown and html outputs from a log path', () => {
   assert.match(markdown, /unsupported-model-use/);
   assert.match(markdown, /存在写操作，但没有记录 `PostFlowmodels_schemas`/);
   assert.match(markdown, /Guard 摘要/);
+  assert.match(markdown, /阶段耗时画像/);
+  assert.match(markdown, /Stable Cache 摘要/);
+  assert.match(markdown, /Gate 摘要/);
   assert.match(markdown, /缺少 `flow_payload_guard.audit-payload`/);
   assert.match(markdown, /自动改进建议/);
   assert.match(html, /复盘报告/);
+  assert.match(html, /阶段耗时画像/);
+  assert.match(html, /Stable Cache 摘要/);
+  assert.match(html, /Gate 摘要/);
   assert.match(html, /Guard 摘要/);
   assert.match(html, /PostFlowmodels_mutate/);
   assert.match(html, /unsupported-model-use/);
@@ -132,6 +168,61 @@ test('analyzeRun generates improvement suggestions from tool call order', () => 
   assert.ok(summary.suggestions.some((item) => item.includes('`summary`')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('把探测步骤前置并批量化')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('payload guard')));
+});
+
+test('analyzeRun summarizes phase, cache and gate telemetry', () => {
+  const rootDir = makeTempDir('telemetry');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Telemetry summary',
+    logDir,
+    latestRunPath,
+  });
+
+  recordPhase({
+    logPath: started.logPath,
+    phase: 'schema_discovery',
+    event: 'start',
+  });
+  recordPhase({
+    logPath: started.logPath,
+    phase: 'schema_discovery',
+    event: 'end',
+    status: 'ok',
+  });
+  recordCacheEvent({
+    logPath: started.logPath,
+    action: 'cache_hit',
+    kind: 'schemas',
+    identity: 'RootPageModel',
+    source: 'disk',
+  });
+  recordCacheEvent({
+    logPath: started.logPath,
+    action: 'cache_miss',
+    kind: 'collectionFields',
+    identity: 'customers',
+    source: 'none',
+  });
+  recordGate({
+    logPath: started.logPath,
+    gate: 'pre_open',
+    status: 'failed',
+    reasonCode: 'PRE_OPEN_BLOCKER',
+    findings: [{ code: 'runtime-exception' }],
+    stoppedRemainingWork: true,
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.phaseSummary.totals.length, 1);
+  assert.equal(summary.phaseSummary.totals[0].phase, 'schema_discovery');
+  assert.equal(summary.cacheSummary.hitRatio, 0.5);
+  assert.equal(summary.gateSummary.failed, 1);
+  assert.equal(summary.totalPhases, 2);
+  assert.equal(summary.totalCacheEvents, 2);
+  assert.equal(summary.totalGates, 1);
 });
 
 test('analyzeRun does not treat different live targets as repeated reads', () => {

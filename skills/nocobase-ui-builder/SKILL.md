@@ -1,7 +1,7 @@
 ---
 name: nocobase-ui-builder
 description: 通过 MCP 构建和更新 NocoBase Modern page (v2) UI。用户要创建页面，或通过 desktopRoutes v2 与 flowModels MCP 工具修改现有页面区块时使用。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, and scripts/tool_review_report.mjs
+allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, scripts/tool_review_report.mjs, and scripts/spec_contracts.mjs
 ---
 
 # 目标
@@ -34,6 +34,28 @@ V1 默认采用 schema-first 的渐进支持策略：
 - 默认优先关注的常见公共模型包括：`FilterFormBlockModel`、`TableBlockModel`、`DetailsBlockModel`、`CreateFormModel`、`EditFormModel`、`ActionModel`
 - 当 `PostFlowmodels_schemas` / `GetFlowmodels_schema` 已经返回具体子树 schema、allowed uses 或稳定的 `stepParams` 结构时，支持范围自动扩展到已解析的页签结构、字段渲染、关系区块、popup/openView 动作、表单/表格子树等稳定模型
 - 实际可写范围始终以当前探测结果为准，不把支持范围硬编码成固定区块白名单
+
+# 运行时优化基线
+
+这个 skill 现在默认带一层通用运行时优化，不再把优化写死在单个 case 上：
+
+1. 稳定信息缓存
+   - 只缓存稳定结果：`schemaBundle`、`schemas`、collection fields、relation metadata
+   - 不缓存 live tree、write 后 readback、页面运行时结果
+   - 建议通过 `scripts/stable_cache.mjs` 复用跨 run 的 instance fingerprint + TTL 缓存
+2. 平台噪声基线
+   - React invalid prop、deprecated、重复注册、FlowEngine circular warning 这类重复背景噪声，优先通过 `scripts/noise_baseline.mjs` 归类
+   - 真正的 runtime exception 继续保持 blocking，不要混入 baseline
+3. 契约归一化与原语编译
+   - 先把需求归一化成 BuildSpec / VerifySpec，再通过 `scripts/spec_contracts.mjs` 编译成 primitive tree
+   - 编译粒度是 `Page / Tabs / Grid / Table / Details / Action / Popup / RelationScope / Form`
+   - 不要为单个 case 现场手搓整棵 flowModels 树
+4. 强 gate
+   - write-after-read mismatch、pre-open blocker、mandatory stage failure 都应在 gate 失败时直接截停
+   - 推荐复用 `scripts/gate_engine.mjs` 的通用判定，不要把“停在何处”散落到 prompt 里
+5. 阶段耗时画像
+   - 每轮至少记录 `schema_discovery`、`stable_metadata`、`write`、`readback`、`browser_attach`、`smoke`
+   - phase/gate/cache event 统一记入 `tool_journal`，最终由 `tool_review_report` 输出阶段画像、cache 摘要和 gate 摘要
 
 # 前置条件
 
@@ -82,7 +104,9 @@ V1 默认采用 schema-first 的渐进支持策略：
 2. 每次调用 MCP 工具后，都立即追加一条 `tool_call` 记录；如果调用失败，也必须记录，`status=error`。
 3. 每次调用本 skill 的本地辅助脚本后，也要追加一条 `tool_call` 记录，`toolType=node`。
 4. 在关键阶段之间可以追加 `note` 记录，说明当前判断、分支原因或发现的问题。
-5. 在最终答复用户之前，必须写入 `run_finished` 记录。
+5. 对关键路径阶段额外记录 `phase` / `gate` / `cache-event`，不要只写 note。
+6. 复盘时优先看 phase 耗时、stable cache 命中率和 gate 截停情况，而不是先假设“浏览器慢”。
+7. 在最终答复用户之前，必须写入 `run_finished` 记录。
 
 记录工具调用示例：
 

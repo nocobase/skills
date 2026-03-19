@@ -28,6 +28,9 @@ function usage() {
     '  node scripts/tool_journal.mjs start-run --task <task> [--title <title>] [--schemaUid <schemaUid>] [--log-dir <path>] [--latest-run-path <path>] [--metadata-json <json>]',
     '  node scripts/tool_journal.mjs tool-call --log-path <path> --tool <name> [--tool-type <mcp|shell|node|other>] [--args-json <json>] [--status <ok|error|skipped>] [--summary <text>] [--result-json <json>] [--error <text>]',
     '  node scripts/tool_journal.mjs note --log-path <path> --message <text> [--data-json <json>]',
+    '  node scripts/tool_journal.mjs phase --log-path <path> --phase <name> --event <start|end> [--status <running|ok|error|skipped>] [--attributes-json <json>]',
+    '  node scripts/tool_journal.mjs gate --log-path <path> --gate <name> --status <passed|failed|skipped> --reason-code <code> [--findings-json <json>] [--stopped-remaining-work <true|false>] [--data-json <json>]',
+    '  node scripts/tool_journal.mjs cache-event --log-path <path> --action <cache_hit|cache_miss|cache_store|cache_invalidate> --kind <kind> --identity <id> [--source <memory|disk|live|none|expired>] [--ttl-ms <ms>] [--data-json <json>]',
     '  node scripts/tool_journal.mjs finish-run --log-path <path> [--status <success|partial|failed>] [--summary <text>] [--data-json <json>]',
   ].join('\n');
 }
@@ -231,6 +234,116 @@ export function appendNote({
   };
 }
 
+function parseBooleanString(rawValue, label, fallback = false) {
+  if (rawValue === undefined) {
+    return fallback;
+  }
+  if (rawValue === 'true') {
+    return true;
+  }
+  if (rawValue === 'false') {
+    return false;
+  }
+  throw new Error(`${label} must be "true" or "false"`);
+}
+
+export function recordPhase({
+  logPath,
+  phase,
+  event,
+  status = 'running',
+  attributes,
+}) {
+  const resolvedLogPath = resolveLogPath(logPath);
+  const normalizedPhase = normalizeNonEmpty(phase, 'phase');
+  const normalizedEvent = normalizeNonEmpty(event, 'event');
+  if (normalizedEvent !== 'start' && normalizedEvent !== 'end') {
+    throw new Error('phase event must be "start" or "end"');
+  }
+  const runStarted = readRunStartedRecord(resolvedLogPath);
+  const record = {
+    type: 'phase',
+    timestamp: nowIso(),
+    runId: runStarted?.runId,
+    phase: normalizedPhase,
+    event: normalizedEvent,
+    status,
+    attributes: attributes && Object.keys(attributes).length > 0 ? attributes : undefined,
+  };
+  appendJsonLine(resolvedLogPath, record);
+  return {
+    ok: true,
+    logPath: resolvedLogPath,
+    record,
+  };
+}
+
+export function recordGate({
+  logPath,
+  gate,
+  status,
+  reasonCode,
+  findings,
+  stoppedRemainingWork = false,
+  data,
+}) {
+  const resolvedLogPath = resolveLogPath(logPath);
+  const normalizedGate = normalizeNonEmpty(gate, 'gate');
+  const normalizedStatus = normalizeNonEmpty(status, 'status');
+  const normalizedReasonCode = normalizeNonEmpty(reasonCode, 'reason code');
+  const runStarted = readRunStartedRecord(resolvedLogPath);
+  const record = {
+    type: 'gate',
+    timestamp: nowIso(),
+    runId: runStarted?.runId,
+    gate: normalizedGate,
+    status: normalizedStatus,
+    reasonCode: normalizedReasonCode,
+    findings: Array.isArray(findings) ? findings : [],
+    stoppedRemainingWork: Boolean(stoppedRemainingWork),
+    data: data && Object.keys(data).length > 0 ? data : undefined,
+  };
+  appendJsonLine(resolvedLogPath, record);
+  return {
+    ok: true,
+    logPath: resolvedLogPath,
+    record,
+  };
+}
+
+export function recordCacheEvent({
+  logPath,
+  action,
+  kind,
+  identity,
+  source,
+  ttlMs,
+  data,
+}) {
+  const resolvedLogPath = resolveLogPath(logPath);
+  const normalizedAction = normalizeNonEmpty(action, 'action');
+  const normalizedKind = normalizeNonEmpty(kind, 'kind');
+  const normalizedIdentity = normalizeNonEmpty(identity, 'identity');
+  const runStarted = readRunStartedRecord(resolvedLogPath);
+  const record = {
+    type: 'cache_event',
+    timestamp: nowIso(),
+    runId: runStarted?.runId,
+    action: normalizedAction,
+    kind: normalizedKind,
+    identity: normalizedIdentity,
+    source: source?.trim() || undefined,
+    ttlMs: Number.isFinite(ttlMs) ? ttlMs : undefined,
+    data: data && Object.keys(data).length > 0 ? data : undefined,
+  };
+  appendJsonLine(resolvedLogPath, record);
+  return {
+    ok: true,
+    logPath: resolvedLogPath,
+    record,
+  };
+}
+
 export function finishRun({
   logPath,
   status = 'success',
@@ -313,6 +426,37 @@ export async function runCli(argv = process.argv.slice(2)) {
       result = appendNote({
         logPath: flags['log-path'],
         message: flags.message,
+        data: parseOptionalJson(flags['data-json'], 'data-json'),
+      });
+      break;
+    case 'phase':
+      result = recordPhase({
+        logPath: flags['log-path'],
+        phase: flags.phase,
+        event: flags.event,
+        status: flags.status ?? (flags.event === 'end' ? 'ok' : 'running'),
+        attributes: parseOptionalJson(flags['attributes-json'], 'attributes-json'),
+      });
+      break;
+    case 'gate':
+      result = recordGate({
+        logPath: flags['log-path'],
+        gate: flags.gate,
+        status: flags.status,
+        reasonCode: flags['reason-code'],
+        findings: parseOptionalJson(flags['findings-json'], 'findings-json'),
+        stoppedRemainingWork: parseBooleanString(flags['stopped-remaining-work'], 'stopped-remaining-work', false),
+        data: parseOptionalJson(flags['data-json'], 'data-json'),
+      });
+      break;
+    case 'cache-event':
+      result = recordCacheEvent({
+        logPath: flags['log-path'],
+        action: flags.action,
+        kind: flags.kind,
+        identity: flags.identity,
+        source: flags.source,
+        ttlMs: typeof flags['ttl-ms'] === 'string' ? Number.parseInt(flags['ttl-ms'], 10) : undefined,
         data: parseOptionalJson(flags['data-json'], 'data-json'),
       });
       break;

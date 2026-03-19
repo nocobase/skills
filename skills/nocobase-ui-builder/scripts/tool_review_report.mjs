@@ -180,6 +180,19 @@ function compactJson(value, limit = 400) {
   return truncateText(text, limit);
 }
 
+function normalizeItem(value) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (isPlainObject(value)) {
+    return Object.entries(value)
+      .filter(([, inner]) => inner !== undefined && inner !== null && inner !== '')
+      .map(([key, inner]) => `${key}: ${inner}`)
+      .join(' | ');
+  }
+  return '';
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -446,6 +459,125 @@ function buildPostWriteReadbackMismatches(toolCalls) {
   return mismatches;
 }
 
+function buildPhaseSummary(records) {
+  const phaseRecords = records.filter((record) => record.type === 'phase');
+  const pendingStarts = new Map();
+  const spans = [];
+
+  for (const record of phaseRecords) {
+    if (record.event === 'start') {
+      const queue = pendingStarts.get(record.phase) ?? [];
+      queue.push(record);
+      pendingStarts.set(record.phase, queue);
+      continue;
+    }
+    if (record.event !== 'end') {
+      continue;
+    }
+    const queue = pendingStarts.get(record.phase) ?? [];
+    const startRecord = queue.shift() ?? null;
+    pendingStarts.set(record.phase, queue);
+    const startedAt = toDate(startRecord?.timestamp);
+    const endedAt = toDate(record.timestamp);
+    const durationMs = startedAt && endedAt ? endedAt.getTime() - startedAt.getTime() : null;
+    spans.push({
+      phase: record.phase,
+      startedAt: startRecord?.timestamp ?? null,
+      finishedAt: record.timestamp ?? null,
+      durationMs,
+      durationLabel: formatDuration(durationMs),
+      status: record.status ?? startRecord?.status ?? 'unknown',
+      attributes: {
+        ...(isPlainObject(startRecord?.attributes) ? startRecord.attributes : {}),
+        ...(isPlainObject(record.attributes) ? record.attributes : {}),
+      },
+    });
+  }
+
+  const totals = new Map();
+  for (const span of spans) {
+    const current = totals.get(span.phase) ?? {
+      phase: span.phase,
+      count: 0,
+      totalDurationMs: 0,
+      maxDurationMs: 0,
+    };
+    current.count += 1;
+    if (typeof span.durationMs === 'number' && !Number.isNaN(span.durationMs)) {
+      current.totalDurationMs += span.durationMs;
+      current.maxDurationMs = Math.max(current.maxDurationMs, span.durationMs);
+    }
+    totals.set(span.phase, current);
+  }
+
+  const orderedTotals = [...totals.values()]
+    .map((item) => ({
+      ...item,
+      totalDurationLabel: formatDuration(item.totalDurationMs),
+      maxDurationLabel: formatDuration(item.maxDurationMs),
+    }))
+    .sort((left, right) => right.totalDurationMs - left.totalDurationMs || left.phase.localeCompare(right.phase));
+
+  return {
+    spans,
+    totals: orderedTotals,
+  };
+}
+
+function buildCacheSummary(records) {
+  const cacheEvents = records.filter((record) => record.type === 'cache_event');
+  const summary = {
+    total: cacheEvents.length,
+    hitCount: 0,
+    missCount: 0,
+    storeCount: 0,
+    invalidateCount: 0,
+    byKind: {},
+  };
+
+  for (const record of cacheEvents) {
+    if (record.action === 'cache_hit') {
+      summary.hitCount += 1;
+    } else if (record.action === 'cache_miss') {
+      summary.missCount += 1;
+    } else if (record.action === 'cache_store') {
+      summary.storeCount += 1;
+    } else if (record.action === 'cache_invalidate') {
+      summary.invalidateCount += 1;
+    }
+
+    const key = record.kind ?? 'unknown';
+    const current = summary.byKind[key] ?? {
+      total: 0,
+      hits: 0,
+      misses: 0,
+      stores: 0,
+      invalidates: 0,
+    };
+    current.total += 1;
+    if (record.action === 'cache_hit') current.hits += 1;
+    if (record.action === 'cache_miss') current.misses += 1;
+    if (record.action === 'cache_store') current.stores += 1;
+    if (record.action === 'cache_invalidate') current.invalidates += 1;
+    summary.byKind[key] = current;
+  }
+
+  const attempts = summary.hitCount + summary.missCount;
+  summary.hitRatio = attempts > 0 ? Number((summary.hitCount / attempts).toFixed(3)) : null;
+  return summary;
+}
+
+function buildGateSummaryRecords(records) {
+  const gateRecords = records.filter((record) => record.type === 'gate');
+  return {
+    total: gateRecords.length,
+    passed: gateRecords.filter((record) => record.status === 'passed').length,
+    failed: gateRecords.filter((record) => record.status === 'failed').length,
+    stopped: gateRecords.filter((record) => record.stoppedRemainingWork).length,
+    records: gateRecords,
+  };
+}
+
 function buildOptimizationItems({
   toolCalls,
   hasWrites,
@@ -459,6 +591,9 @@ function buildOptimizationItems({
   readbackMismatches,
   repeatedRuns,
   missingSummaryCount,
+  cacheSummary,
+  phaseSummary,
+  gateRecords,
 }) {
   const items = [];
   const schemaReadCount = countTool(toolCalls, 'GetFlowmodels_schema');
@@ -515,6 +650,58 @@ function buildOptimizationItems({
       reason: `本次出现 ${schemaReadCount} 次 \`GetFlowmodels_schema\`，通常说明单模型深挖过多。`,
       fasterPath: '优先一次性拉取 `PostFlowmodels_schemas`，只对最后仍不清楚的模型再补单独 `GetFlowmodels_schema`。',
       evidence: [`GetFlowmodels_schema x${schemaReadCount}`],
+    });
+  }
+
+  if (cacheSummary.total === 0 && (hasSchemaBundle || hasSchemas || schemaReadCount > 0)) {
+    items.push({
+      priority: 'high',
+      title: '为稳定探测结果接入跨 run 缓存',
+      reason: '本次已经有 schema/metadata 探测，但没有记录任何缓存命中或回写。',
+      fasterPath: '只缓存 schemaBundle、schemas、collection fields、relation metadata；live tree 与 runtime 结果继续实时读取。',
+      evidence: [
+        hasSchemaBundle ? '执行了 `PostFlowmodels_schemabundle`' : null,
+        hasSchemas ? '执行了 `PostFlowmodels_schemas`' : null,
+        schemaReadCount > 0 ? `GetFlowmodels_schema x${schemaReadCount}` : null,
+      ].filter(Boolean),
+    });
+  }
+
+  if (cacheSummary.total > 0 && cacheSummary.hitRatio !== null && cacheSummary.hitRatio < 0.5 && cacheSummary.missCount >= 2) {
+    items.push({
+      priority: 'medium',
+      title: '提高稳定缓存命中率',
+      reason: `当前缓存命中率仅 ${Math.round(cacheSummary.hitRatio * 100)}%，大量稳定探测仍走了实时读取。`,
+      fasterPath: '复用 instanceFingerprint 下的 stable metadata cache，并在 collection/field 写操作后只做选择性失效。',
+      evidence: [`cache_hit=${cacheSummary.hitCount}`, `cache_miss=${cacheSummary.missCount}`],
+    });
+  }
+
+  const slowPhase = phaseSummary.totals[0] ?? null;
+  if (slowPhase && slowPhase.totalDurationMs >= 20_000) {
+    items.push({
+      priority: 'medium',
+      title: `压缩最慢阶段：${slowPhase.phase}`,
+      reason: `本次最慢阶段耗时 ${slowPhase.totalDurationLabel}，已经成为关键路径。`,
+      fasterPath: slowPhase.phase === 'browser_attach'
+        ? '固定浏览器 attach 主路径，并减少多次 attach / fallback。'
+        : slowPhase.phase === 'schema_discovery' || slowPhase.phase === 'stable_metadata'
+          ? '优先命中稳定缓存，并把 schema/metadata 探测批量化。'
+          : '优先把该阶段的输入归一化并减少重复推理或重复读取。',
+      evidence: [`${slowPhase.phase}=${slowPhase.totalDurationLabel}`],
+    });
+  }
+
+  if (gateRecords.failed > 0) {
+    items.push({
+      priority: 'medium',
+      title: '把 gate 决策前置到更早阶段',
+      reason: `本次已有 ${gateRecords.failed} 个 gate 失败，如果失败后仍继续执行，整体耗时会被后半段放大。`,
+      fasterPath: 'write-after-read mismatch、pre-open blocker、mandatory stage 失败都要直接截停后续动作。',
+      evidence: gateRecords.records
+        .filter((item) => item.status === 'failed')
+        .map((item) => `${item.gate}:${item.reasonCode}`)
+        .slice(0, 4),
     });
   }
 
@@ -591,9 +778,12 @@ export function analyzeRun(records, sourceLogPath) {
   const finish = finishCandidates.at(-1) ?? null;
   const toolCalls = records.filter((record) => record.type === 'tool_call');
   const notes = records.filter((record) => record.type === 'note');
+  const phaseRecords = records.filter((record) => record.type === 'phase');
+  const gateEvents = records.filter((record) => record.type === 'gate');
+  const cacheEvents = records.filter((record) => record.type === 'cache_event');
   const errors = toolCalls.filter((record) => record.status === 'error' || record.error);
   const skipped = toolCalls.filter((record) => record.status === 'skipped');
-  const timelineRecords = records.filter((record) => record.type === 'tool_call' || record.type === 'note');
+  const timelineRecords = records.filter((record) => ['tool_call', 'note', 'phase', 'gate', 'cache_event'].includes(record.type));
 
   const startedAt = toDate(start?.startedAt);
   const finishedAt = toDate(finish?.timestamp);
@@ -607,11 +797,15 @@ export function analyzeRun(records, sourceLogPath) {
   const hasWrites = firstWriteIndex >= 0;
   const hasSchemaBundle = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemabundle');
   const hasSchemas = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemas');
+  const schemaReadCount = countTool(toolCalls, 'GetFlowmodels_schema');
   const hasFindone = toolCalls.some((record) => record.tool === 'GetFlowmodels_findone');
   const guardSummary = buildGuardSummary(records);
   const readbackMismatches = buildPostWriteReadbackMismatches(toolCalls);
   const repeatedRuns = detectRepeatedRuns(toolCalls);
   const missingSummaryCount = toolCalls.filter((record) => !record.summary).length;
+  const phaseSummary = buildPhaseSummary(records);
+  const cacheSummary = buildCacheSummary(records);
+  const gateSummary = buildGateSummaryRecords(records);
 
   const suggestions = [];
   if (!finish) {
@@ -652,6 +846,15 @@ export function analyzeRun(records, sourceLogPath) {
   if (missingSummaryCount > 0) {
     suggestions.push(`有 ${missingSummaryCount} 条 tool_call 没有 ` + '`summary`' + '，复盘时可读性会变差。');
   }
+  if (phaseSummary.spans.length === 0) {
+    suggestions.push('本次没有记录任何 phase span，无法判断关键路径。建议至少记录 schema_discovery、write、readback、browser_attach 和 smoke 阶段。');
+  }
+  if (cacheSummary.total === 0 && (hasSchemaBundle || hasSchemas || schemaReadCount > 0)) {
+    suggestions.push('本次没有记录任何 stable cache 事件，schema/metadata 探测仍可能重复走实时请求。');
+  }
+  if (gateSummary.failed > 0) {
+    suggestions.push(`本次有 ${gateSummary.failed} 个 gate 失败，建议确认失败后是否已经真正截停后续动作。`);
+  }
   if (suggestions.length === 0) {
     suggestions.push('本次日志结构完整，可继续从失败率、重复调用和探测顺序三个角度优化。');
   }
@@ -669,6 +872,9 @@ export function analyzeRun(records, sourceLogPath) {
     errors,
     repeatedRuns,
     missingSummaryCount,
+    cacheSummary,
+    phaseSummary,
+    gateRecords: gateSummary,
   });
 
   return {
@@ -681,6 +887,9 @@ export function analyzeRun(records, sourceLogPath) {
     totalEvents: records.length,
     totalToolCalls: toolCalls.length,
     totalNotes: notes.length,
+    totalPhases: phaseRecords.length,
+    totalGates: gateEvents.length,
+    totalCacheEvents: cacheEvents.length,
     errorCount: errors.length,
     skippedCount: skipped.length,
     timelineRecords,
@@ -688,6 +897,9 @@ export function analyzeRun(records, sourceLogPath) {
     notes,
     errors,
     guardSummary,
+    phaseSummary,
+    cacheSummary,
+    gateSummary,
     readbackMismatches,
     countsByTool: buildCountsByTool(toolCalls),
     suggestions,
@@ -761,10 +973,53 @@ function renderMarkdownReport(summary) {
     `- 事件总数：${summary.totalEvents}`,
     `- 工具调用数：${summary.totalToolCalls}`,
     `- 备注数：${summary.totalNotes}`,
+    `- phase 事件数：${summary.totalPhases}`,
+    `- gate 事件数：${summary.totalGates}`,
+    `- cache 事件数：${summary.totalCacheEvents}`,
     `- 失败调用数：${summary.errorCount}`,
     `- 跳过调用数：${summary.skippedCount}`,
     '',
   ];
+
+  const phases = [
+    '## 阶段耗时画像',
+    '',
+  ];
+  if (summary.phaseSummary.totals.length === 0) {
+    phases.push('- 未记录 phase span。');
+    phases.push('');
+  } else {
+    phases.push('| 阶段 | 次数 | 总耗时 | 最长单次 |');
+    phases.push('| --- | ---: | ---: | ---: |');
+    phases.push(...summary.phaseSummary.totals.map((item) => `| ${escapeMarkdownCell(item.phase)} | ${item.count} | ${item.totalDurationLabel} | ${item.maxDurationLabel} |`));
+    phases.push('');
+  }
+
+  const cache = [
+    '## Stable Cache 摘要',
+    '',
+    `- 事件总数：${summary.cacheSummary.total}`,
+    `- 命中：${summary.cacheSummary.hitCount}`,
+    `- miss：${summary.cacheSummary.missCount}`,
+    `- store：${summary.cacheSummary.storeCount}`,
+    `- invalidate：${summary.cacheSummary.invalidateCount}`,
+    `- 命中率：${summary.cacheSummary.hitRatio === null ? '未知' : `${Math.round(summary.cacheSummary.hitRatio * 100)}%`}`,
+    '',
+  ];
+
+  const gates = [
+    '## Gate 摘要',
+    '',
+    `- gate 总数：${summary.gateSummary.total}`,
+    `- 通过：${summary.gateSummary.passed}`,
+    `- 失败：${summary.gateSummary.failed}`,
+    `- 截停后续流程：${summary.gateSummary.stopped}`,
+    '',
+  ];
+  if (summary.gateSummary.records.length > 0) {
+    gates.push(...summary.gateSummary.records.map((item) => `- ${item.gate}: ${item.status} / ${item.reasonCode}`));
+    gates.push('');
+  }
 
   const guard = [
     '## Guard 摘要',
@@ -868,7 +1123,13 @@ function renderMarkdownReport(summary) {
     ...summary.timelineRecords.map((item, index) => (
       item.type === 'tool_call'
         ? `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | tool_call | ${escapeMarkdownCell(item.tool)} | ${escapeMarkdownCell(item.status ?? '')} | ${escapeMarkdownCell(item.summary ?? '')} |`
-        : `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | note | ${escapeMarkdownCell(item.message)} |  | ${escapeMarkdownCell(compactJson(item.data, 160))} |`
+        : item.type === 'note'
+          ? `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | note | ${escapeMarkdownCell(item.message)} |  | ${escapeMarkdownCell(compactJson(item.data, 160))} |`
+          : item.type === 'phase'
+            ? `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | phase | ${escapeMarkdownCell(`${item.phase}:${item.event}`)} | ${escapeMarkdownCell(item.status ?? '')} | ${escapeMarkdownCell(compactJson(item.attributes, 160))} |`
+            : item.type === 'gate'
+              ? `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | gate | ${escapeMarkdownCell(item.gate)} | ${escapeMarkdownCell(item.status ?? '')} | ${escapeMarkdownCell(item.reasonCode ?? '')} |`
+              : `| ${index + 1} | ${escapeMarkdownCell(item.timestamp ?? '')} | cache_event | ${escapeMarkdownCell(`${item.action}:${item.kind}`)} | ${escapeMarkdownCell(item.source ?? '')} | ${escapeMarkdownCell(item.identity ?? '')} |`
     )),
     '',
   ];
@@ -876,6 +1137,9 @@ function renderMarkdownReport(summary) {
   return [
     ...header,
     ...overview,
+    ...phases,
+    ...cache,
+    ...gates,
     ...guard,
     ...readback,
     ...suggestions,
@@ -901,39 +1165,117 @@ function renderHtmlReport(summary) {
         </section>
       `).join('\n');
 
-  const toolRows = summary.countsByTool.map((item) => `
-      <tr>
-        <td>${escapeHtml(item.tool)}</td>
-        <td>${item.total}</td>
-        <td>${item.ok}</td>
-        <td>${item.error}</td>
-        <td>${item.skipped}</td>
-      </tr>
-    `).join('\n');
+  const toolRows = summary.countsByTool.length === 0
+    ? '<tr><td colspan="5" class="muted">未记录工具调用。</td></tr>'
+    : summary.countsByTool.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.tool)}</td>
+          <td>${item.total}</td>
+          <td>${item.ok}</td>
+          <td>${item.error}</td>
+          <td>${item.skipped}</td>
+        </tr>
+      `).join('\n');
 
-  const timelineRows = summary.timelineRecords.map((item, index) => (
-    item.type === 'tool_call'
-      ? `
+  const phaseRows = summary.phaseSummary.totals.length === 0
+    ? '<tr><td colspan="4" class="muted">未记录 phase span。</td></tr>'
+    : summary.phaseSummary.totals.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.phase)}</td>
+          <td>${item.count}</td>
+          <td>${escapeHtml(item.totalDurationLabel)}</td>
+          <td>${escapeHtml(item.maxDurationLabel)}</td>
+        </tr>
+      `).join('\n');
+
+  const cacheKindRows = Object.entries(summary.cacheSummary.byKind).length === 0
+    ? '<tr><td colspan="5" class="muted">未记录 stable cache 事件。</td></tr>'
+    : Object.entries(summary.cacheSummary.byKind)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([kind, value]) => `
+        <tr>
+          <td>${escapeHtml(kind)}</td>
+          <td>${value.total}</td>
+          <td>${value.hits}</td>
+          <td>${value.misses}</td>
+          <td>${value.stores + value.invalidates}</td>
+        </tr>
+      `).join('\n');
+
+  const gateBlocks = summary.gateSummary.records.length === 0
+    ? '<p class="muted">未记录 gate 决策。</p>'
+    : summary.gateSummary.records.map((item, index) => `
+        <section class="card">
+          <h3>${index + 1}. ${escapeHtml(item.gate)}</h3>
+          <p><strong>状态：</strong>${escapeHtml(item.status ?? 'unknown')}</p>
+          <p><strong>原因：</strong>${escapeHtml(item.reasonCode ?? 'unknown')}</p>
+          <p><strong>截停后续流程：</strong>${escapeHtml(String(Boolean(item.stoppedRemainingWork)))}</p>
+          ${Array.isArray(item.findings) && item.findings.length > 0
+            ? `<p><strong>发现：</strong>${escapeHtml(item.findings.map((finding) => normalizeItem(finding)).filter(Boolean).join('；'))}</p>`
+            : '<p class="muted">未记录 findings。</p>'}
+        </section>
+      `).join('\n');
+
+  const timelineRows = summary.timelineRecords.map((item, index) => {
+    if (item.type === 'tool_call') {
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.timestamp ?? '')}</td>
+          <td>tool_call</td>
+          <td>${escapeHtml(item.tool)}</td>
+          <td>${escapeHtml(item.status ?? '')}</td>
+          <td>${escapeHtml(item.summary ?? '')}</td>
+        </tr>
+      `;
+    }
+    if (item.type === 'note') {
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.timestamp ?? '')}</td>
+          <td>note</td>
+          <td>${escapeHtml(item.message)}</td>
+          <td></td>
+          <td>${escapeHtml(compactJson(item.data, 160))}</td>
+        </tr>
+      `;
+    }
+    if (item.type === 'phase') {
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.timestamp ?? '')}</td>
+          <td>phase</td>
+          <td>${escapeHtml(`${item.phase}:${item.event}`)}</td>
+          <td>${escapeHtml(item.status ?? '')}</td>
+          <td>${escapeHtml(compactJson(item.attributes, 160))}</td>
+        </tr>
+      `;
+    }
+    if (item.type === 'gate') {
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(item.timestamp ?? '')}</td>
+          <td>gate</td>
+          <td>${escapeHtml(item.gate)}</td>
+          <td>${escapeHtml(item.status ?? '')}</td>
+          <td>${escapeHtml([item.reasonCode, compactJson(item.findings, 120)].filter(Boolean).join(' | '))}</td>
+        </tr>
+      `;
+    }
+    return `
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(item.timestamp ?? '')}</td>
-        <td>tool_call</td>
-        <td>${escapeHtml(item.tool)}</td>
-        <td>${escapeHtml(item.status ?? '')}</td>
-        <td>${escapeHtml(item.summary ?? '')}</td>
+        <td>cache_event</td>
+        <td>${escapeHtml(`${item.action}:${item.kind}`)}</td>
+        <td>${escapeHtml(item.source ?? '')}</td>
+        <td>${escapeHtml([item.identity, item.ttlMs ? `ttl=${item.ttlMs}` : '', compactJson(item.data, 100)].filter(Boolean).join(' | '))}</td>
       </tr>
-    `
-      : `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${escapeHtml(item.timestamp ?? '')}</td>
-        <td>note</td>
-        <td>${escapeHtml(item.message)}</td>
-        <td></td>
-        <td>${escapeHtml(compactJson(item.data, 160))}</td>
-      </tr>
-    `
-  )).join('\n');
+    `;
+  }).join('\n');
 
   const suggestionItems = summary.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
   const readbackBlocks = summary.readbackMismatches.length === 0
@@ -1075,9 +1417,51 @@ function renderHtmlReport(summary) {
       <article class="card"><strong>事件总数</strong><br>${summary.totalEvents}</article>
       <article class="card"><strong>工具调用</strong><br>${summary.totalToolCalls}</article>
       <article class="card"><strong>备注</strong><br>${summary.totalNotes}</article>
+      <article class="card"><strong>phase 事件</strong><br>${summary.totalPhases}</article>
+      <article class="card"><strong>gate 事件</strong><br>${summary.totalGates}</article>
+      <article class="card"><strong>cache 事件</strong><br>${summary.totalCacheEvents}</article>
       <article class="card"><strong class="err">失败调用</strong><br>${summary.errorCount}</article>
       <article class="card"><strong>跳过调用</strong><br>${summary.skippedCount}</article>
     </section>
+
+    <h2>阶段耗时画像</h2>
+    <section class="stats">
+      <article class="card"><strong>阶段数</strong><br>${summary.phaseSummary.totals.length}</article>
+      <article class="card"><strong>已闭合 span</strong><br>${summary.phaseSummary.spans.length}</article>
+      <article class="card"><strong>最慢阶段</strong><br>${escapeHtml(summary.phaseSummary.totals[0]?.phase ?? '未记录')}</article>
+      <article class="card"><strong>最慢耗时</strong><br>${escapeHtml(summary.phaseSummary.totals[0]?.totalDurationLabel ?? '未知')}</article>
+    </section>
+    <table>
+      <thead>
+        <tr><th>阶段</th><th>次数</th><th>总耗时</th><th>最长单次</th></tr>
+      </thead>
+      <tbody>${phaseRows}</tbody>
+    </table>
+
+    <h2>Stable Cache 摘要</h2>
+    <section class="stats">
+      <article class="card"><strong>事件总数</strong><br>${summary.cacheSummary.total}</article>
+      <article class="card"><strong>命中</strong><br>${summary.cacheSummary.hitCount}</article>
+      <article class="card"><strong>miss</strong><br>${summary.cacheSummary.missCount}</article>
+      <article class="card"><strong>store</strong><br>${summary.cacheSummary.storeCount}</article>
+      <article class="card"><strong>invalidate</strong><br>${summary.cacheSummary.invalidateCount}</article>
+      <article class="card"><strong>命中率</strong><br>${escapeHtml(summary.cacheSummary.hitRatio === null ? '未知' : `${Math.round(summary.cacheSummary.hitRatio * 100)}%`)}</article>
+    </section>
+    <table>
+      <thead>
+        <tr><th>Kind</th><th>总事件</th><th>Hit</th><th>Miss</th><th>Store/Invalidate</th></tr>
+      </thead>
+      <tbody>${cacheKindRows}</tbody>
+    </table>
+
+    <h2>Gate 摘要</h2>
+    <section class="stats">
+      <article class="card"><strong>gate 总数</strong><br>${summary.gateSummary.total}</article>
+      <article class="card"><strong class="ok">通过</strong><br>${summary.gateSummary.passed}</article>
+      <article class="card"><strong class="err">失败</strong><br>${summary.gateSummary.failed}</article>
+      <article class="card"><strong>截停后续流程</strong><br>${summary.gateSummary.stopped}</article>
+    </section>
+    ${gateBlocks}
 
     <h2>Guard 摘要</h2>
     <section class="stats">

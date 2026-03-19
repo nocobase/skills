@@ -10,6 +10,9 @@ import {
   DEFAULT_RUN_LOG_DIR,
   appendNote,
   finishRun,
+  recordCacheEvent,
+  recordGate,
+  recordPhase,
   recordToolCall,
   startRun,
 } from './tool_journal.mjs';
@@ -99,6 +102,58 @@ test('tool-call, note, and finish-run append ordered records', () => {
   assert.equal(records[3].status, 'success');
 });
 
+test('phase, gate and cache-event append structured runtime records', () => {
+  const logDir = makeLogDir('runtime-records');
+  const latestRunPath = makeLatestRunPath('runtime-records');
+  const started = startRun({
+    task: 'Runtime instrumentation',
+    logDir,
+    latestRunPath,
+  });
+
+  recordPhase({
+    logPath: started.logPath,
+    phase: 'schema_discovery',
+    event: 'start',
+    attributes: { source: 'stable-cache' },
+  });
+  recordPhase({
+    logPath: started.logPath,
+    phase: 'schema_discovery',
+    event: 'end',
+    status: 'ok',
+    attributes: { durationMs: 320 },
+  });
+  recordGate({
+    logPath: started.logPath,
+    gate: 'pre_open',
+    status: 'failed',
+    reasonCode: 'PRE_OPEN_BLOCKER',
+    findings: [{ code: 'runtime-exception' }],
+    stoppedRemainingWork: true,
+  });
+  recordCacheEvent({
+    logPath: started.logPath,
+    action: 'cache_hit',
+    kind: 'schemas',
+    identity: 'RootPageModel|TableBlockModel',
+    source: 'disk',
+    ttlMs: 86_400_000,
+  });
+
+  const records = readJsonLines(started.logPath);
+  assert.deepEqual(
+    records.map((record) => record.type),
+    ['run_started', 'phase', 'phase', 'gate', 'cache_event'],
+  );
+  assert.equal(records[1].phase, 'schema_discovery');
+  assert.equal(records[2].event, 'end');
+  assert.equal(records[3].reasonCode, 'PRE_OPEN_BLOCKER');
+  assert.equal(records[3].stoppedRemainingWork, true);
+  assert.equal(records[4].kind, 'schemas');
+  assert.equal(records[4].source, 'disk');
+});
+
 test('cli smoke test writes a complete tool journal', () => {
   const logDir = makeLogDir('cli');
   const latestRunPath = makeLatestRunPath('cli');
@@ -116,6 +171,23 @@ test('cli smoke test writes a complete tool journal', () => {
     { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
   );
   const started = JSON.parse(startedOutput);
+
+  execFileSync(
+    process.execPath,
+    [
+      scriptPath,
+      'phase',
+      '--log-path',
+      started.logPath,
+      '--phase',
+      'schema_discovery',
+      '--event',
+      'start',
+      '--attributes-json',
+      '{"source":"disk"}',
+    ],
+    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+  );
 
   execFileSync(
     process.execPath,
@@ -142,6 +214,48 @@ test('cli smoke test writes a complete tool journal', () => {
     process.execPath,
     [
       scriptPath,
+      'gate',
+      '--log-path',
+      started.logPath,
+      '--gate',
+      'build',
+      '--status',
+      'passed',
+      '--reason-code',
+      'OK',
+      '--findings-json',
+      '[]',
+      '--stopped-remaining-work',
+      'false',
+    ],
+    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+  );
+
+  execFileSync(
+    process.execPath,
+    [
+      scriptPath,
+      'cache-event',
+      '--log-path',
+      started.logPath,
+      '--action',
+      'cache_store',
+      '--kind',
+      'schemaBundle',
+      '--identity',
+      'root-page',
+      '--source',
+      'live',
+      '--ttl-ms',
+      '86400000',
+    ],
+    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+  );
+
+  execFileSync(
+    process.execPath,
+    [
+      scriptPath,
       'finish-run',
       '--log-path',
       started.logPath,
@@ -154,8 +268,11 @@ test('cli smoke test writes a complete tool journal', () => {
   );
 
   const records = readJsonLines(started.logPath);
-  assert.equal(records.length, 3);
-  assert.equal(records[1].tool, 'GetFlowmodels_findone');
-  assert.equal(records[1].args.parentId, 'tabs-k7n4x9p2q5ra');
-  assert.equal(records[2].type, 'run_finished');
+  assert.equal(records.length, 6);
+  assert.equal(records[1].type, 'phase');
+  assert.equal(records[2].tool, 'GetFlowmodels_findone');
+  assert.equal(records[2].args.parentId, 'tabs-k7n4x9p2q5ra');
+  assert.equal(records[3].type, 'gate');
+  assert.equal(records[4].type, 'cache_event');
+  assert.equal(records[5].type, 'run_finished');
 });
