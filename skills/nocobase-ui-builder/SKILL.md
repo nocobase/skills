@@ -174,6 +174,8 @@ V1 默认采用 schema-first 的渐进支持策略：
 4. 是否可以把相邻写操作压缩进一次 `PostFlowmodels_mutate`
 5. 是否缺少可复用的最小成功模板
 6. 是否过早依赖样板页，而不是优先消化 `schemaBundle` / `schemas`
+7. validation / 复盘阶段若确认渲染异常，是否已按 [references/validation.md](references/validation.md) 的判定顺序处理
+8. 对已确认的结构型渲染问题，是否已经把结论沉淀回 validation / recipe 文档，而不是停留在临时口头经验
 
 # Payload 守卫
 
@@ -206,6 +208,8 @@ V1 默认采用 schema-first 的渐进支持策略：
 14. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过 `requirements.requiredTabs` 声明给 guard；仅有默认隐藏 tab 或只有 page 壳，不能算成功
 15. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续 `GetFlowmodels_findone` 的 write-after-read 结果为准
 16. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
+17. validation 阶段若出现结构型渲染问题，具体判定顺序与约束以 [references/validation.md](references/validation.md) 为准
+18. 对已被源码证实的结构型渲染问题，优先把结论沉淀为 `flow_payload_guard`、reference recipe 或 validation 文档约束；不要只增加一次运行时 smoke 作为补救
 
 命令示例：
 
@@ -298,6 +302,7 @@ NocoBase `resourcer` 的关键实现细节：
 - 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`
 - `run_finished`、tool review 和最终答复都必须引用 write-after-read 事实；不能在 readback 为空时继续写“已落库完成”
 - 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次
+- 如果 write-after-read 之后的 validation 暴露了渲染异常，下一轮改进必须补一条“源码契约 -> payload 结构 -> guard/rule”链路说明，并回写到 validation / recipe 文档；不要只记录浏览器现象
 
 # Live Snapshot 读取节奏
 

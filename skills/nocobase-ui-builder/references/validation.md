@@ -38,6 +38,32 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 - 数据链路不通
 - 因 payload、schema、上下文或数据问题导致的页面行为错误
 
+### 渲染问题判定顺序
+
+对下列渲染异常，validation 不应停在“页面看起来不对”这一层：
+
+- 列有壳但值为空
+- 字段有壳但不可编辑
+- 动作按钮显示了，但位置明显不对
+- drawer / dialog / details / table 只有结构壳，没有真实字段或数据
+
+处理顺序固定为：
+
+1. 先记录浏览器症状，确认是 `pre-open` 还是 `post-open`
+2. 再读取 write-after-read / live tree，确认当前 flow model 真实结构
+3. 再去源码确认对应 runtime model 的渲染契约：
+   - 读哪个 `subModels` slot
+   - 读哪些 `stepParams`
+   - 允许哪些 child model/use
+4. 用源码契约反查当前 readback 是否结构错误
+5. 只有当 readback 已满足源码契约时，才继续怀疑 case 数据或平台 runtime
+
+强制规则：
+
+1. 浏览器 smoke 只负责确认现象，不负责给出根修复方案。
+2. 对结构型渲染问题，不要先补“多跑一次 smoke”或“多开一次浏览器”当改进建议。
+3. 如果源码已经证明当前 payload 违反固定结构契约，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
+
 ## 数据前置与造数
 
 validation 不应该只验证“页面壳有没有搭起来”，还必须验证页面在存在真实业务数据时是否可读、可筛选、可进入详情、可触发关系区块与弹窗动作。
