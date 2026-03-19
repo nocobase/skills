@@ -195,12 +195,12 @@ node scripts/flow_payload_guard.mjs audit-payload \
 
 ```bash
 node scripts/flow_payload_guard.mjs build-filter \
-  --path order \
+  --path order_id \
   --operator '$eq' \
   --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
 ```
 
-如果这是 popup / 详情页里“当前记录的关联子表”，先确认 parent->child relation resource 是否真的已验证。只有协议已证实时，才升级成 `resourceSettings.init.associationName + sourceId`；否则保留 child-side 的逻辑 `dataScope.filter`，不要为了“看起来更完整”去猜 `associationName`。
+如果这是 popup / 详情页里“当前记录的关联子表”，先确认 parent->child relation resource 是否真的已验证。只有协议已证实时，才升级成 `resourceSettings.init.associationName + sourceId`；否则保留 child-side 的逻辑 `dataScope.filter`，不要为了“看起来更完整”去猜 `associationName`。同时，`build-filter` 里的 `path` 不能写裸 `belongsTo` 字段名；必须优先取 relation metadata 的 `foreignKey`，否则使用 `<belongsToField>.<targetKey>`。
 
 用辅助脚本批量生成 opaque 节点 id：
 

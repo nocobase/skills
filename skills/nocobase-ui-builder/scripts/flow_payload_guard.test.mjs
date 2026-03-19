@@ -27,7 +27,7 @@ const metadata = {
       fields: [
         { name: 'order_no', type: 'string', interface: 'input' },
         { name: 'status', type: 'string', interface: 'select' },
-        { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id' },
+        { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id', targetKey: 'id' },
       ],
     },
     customers: {
@@ -39,7 +39,7 @@ const metadata = {
       titleField: 'id',
       fields: [
         { name: 'quantity', type: 'integer', interface: 'number' },
-        { name: 'order', type: 'belongsTo', interface: 'm2o', target: 'orders', foreignKey: 'order_id' },
+        { name: 'order', type: 'belongsTo', interface: 'm2o', target: 'orders', foreignKey: 'order_id', targetKey: 'id' },
       ],
     },
     project_members: {
@@ -71,6 +71,25 @@ const metadataWithVerifiedOrderItemsRelation = {
         { name: 'status', type: 'string', interface: 'select' },
         { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id' },
         { name: 'order_items', type: 'hasMany', interface: 'o2m', target: 'order_items' },
+      ],
+    },
+  },
+};
+
+const metadataWithTargetKeyOnlyRelation = {
+  collections: {
+    teams: {
+      titleField: 'name',
+      fields: [
+        { name: 'slug', type: 'string', interface: 'input' },
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+    team_memberships: {
+      titleField: 'id',
+      fields: [
+        { name: 'role', type: 'string', interface: 'select' },
+        { name: 'team', type: 'belongsTo', interface: 'm2o', target: 'teams', targetKey: 'slug' },
       ],
     },
   },
@@ -729,7 +748,7 @@ test('auditPayload accepts ChildPageTabModel as a valid popup tab subtree', () =
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_ACTION_MISSING_SUBTREE'), false);
 });
 
-test('auditPayload accepts popup relation tables with child-side logical filter when parent->child association resource is not verified', () => {
+test('auditPayload blocks bare belongsTo child-side scalar filter and suggests metadata-derived scalar paths', () => {
   const payload = makePopupPageWithChildTab({
     use: 'TableBlockModel',
     stepParams: {
@@ -745,6 +764,43 @@ test('auditPayload accepts popup relation tables with child-side logical filter 
             items: [
               {
                 path: 'order',
+                operator: '$eq',
+                value: '{{ctx.view.inputArgs.filterByTk}}',
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const validationResult = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  const blocker = validationResult.blockers.find((item) => item.code === 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH');
+  assert.ok(blocker);
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'),
+    false,
+  );
+  assert.deepEqual(blocker.details.suggestedPaths, ['order_id', 'order.id']);
+});
+
+test('auditPayload accepts popup relation tables with child-side foreignKey filter when parent->child association resource is not verified', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'order_id',
                 operator: '$eq',
                 value: '{{ctx.view.inputArgs.filterByTk}}',
               },
@@ -758,16 +814,9 @@ test('auditPayload accepts popup relation tables with child-side logical filter 
   const generalResult = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(generalResult.ok, true);
   assert.equal(generalResult.warnings.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'), false);
-
-  const validationResult = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
-  assert.equal(validationResult.ok, true);
-  assert.equal(
-    validationResult.blockers.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'),
-    false,
-  );
 });
 
-test('auditPayload warns on child-side logical relation filter only when verified parent->child association resource exists', () => {
+test('auditPayload accepts dotted targetKey child-side relation filters when relation metadata exposes targetKey', () => {
   const payload = makePopupPageWithChildTab({
     use: 'TableBlockModel',
     stepParams: {
@@ -782,7 +831,38 @@ test('auditPayload warns on child-side logical relation filter only when verifie
             logic: '$and',
             items: [
               {
-                path: 'order',
+                path: 'order.id',
+                operator: '$eq',
+                value: '{{ctx.view.inputArgs.filterByTk}}',
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH'), false);
+});
+
+test('auditPayload warns on child-side scalar relation filter only when verified parent->child association resource exists', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'order_id',
                 operator: '$eq',
                 value: '{{ctx.view.inputArgs.filterByTk}}',
               },
@@ -796,6 +876,45 @@ test('auditPayload warns on child-side logical relation filter only when verifie
   const result = auditPayload({ payload, metadata: metadataWithVerifiedOrderItemsRelation, mode: VALIDATION_CASE_MODE });
   assert.equal(result.ok, true);
   assert.equal(result.warnings.some((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT'), true);
+  const relationWarning = result.warnings.find((item) => item.code === 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT');
+  assert.equal(relationWarning.details.matchedConditionPath, 'order_id');
+});
+
+test('auditPayload falls back to dotted targetKey suggestion when belongsTo metadata has no foreignKey', () => {
+  const payload = {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'team_memberships',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'team',
+                operator: '$eq',
+                value: '{{ctx.record.teamSlug}}',
+              },
+            ],
+          },
+        },
+      },
+    },
+  };
+
+  const blockedResult = auditPayload({ payload, metadata: metadataWithTargetKeyOnlyRelation, mode: VALIDATION_CASE_MODE });
+  assert.equal(blockedResult.ok, false);
+  const blocker = blockedResult.blockers.find((item) => item.code === 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH');
+  assert.ok(blocker);
+  assert.deepEqual(blocker.details.suggestedPaths, ['team.slug']);
+
+  payload.stepParams.tableSettings.dataScope.filter.items[0].path = 'team.slug';
+  const passedResult = auditPayload({ payload, metadata: metadataWithTargetKeyOnlyRelation, mode: VALIDATION_CASE_MODE });
+  assert.equal(passedResult.ok, true);
 });
 
 test('auditPayload warns and blocks popup relation tables that guess associationName from child belongsTo field', () => {
@@ -1315,6 +1434,34 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
           tableSettings: {
             pageSize: {
               pageSize: 20,
+            },
+          },
+        },
+      }),
+      metadata,
+    },
+    {
+      code: 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
+      payload: makePopupPageWithChildTab({
+        use: 'TableBlockModel',
+        stepParams: {
+          resourceSettings: {
+            init: {
+              collectionName: 'order_items',
+            },
+          },
+          tableSettings: {
+            dataScope: {
+              filter: {
+                logic: '$and',
+                items: [
+                  {
+                    path: 'order',
+                    operator: '$eq',
+                    value: '{{ctx.view.inputArgs.filterByTk}}',
+                  },
+                ],
+              },
             },
           },
         },

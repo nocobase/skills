@@ -13,6 +13,7 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
   'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
   'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
+  'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
   'EMPTY_DETAILS_BLOCK',
   'TAB_SLOT_USE_INVALID',
   'TAB_GRID_MISSING_OR_INVALID',
@@ -355,6 +356,7 @@ function normalizeCollectionField(field) {
     interface: field.interface || options.interface,
     target: field.target || options.target,
     foreignKey: field.foreignKey || options.foreignKey,
+    targetKey: field.targetKey || options.targetKey,
   };
 }
 
@@ -456,6 +458,38 @@ function isBelongsToLikeField(field) {
   return field.type === 'belongsTo' || field.interface === 'm2o';
 }
 
+function isScalarComparisonOperator(operator) {
+  return typeof operator === 'string' && operator !== '$exists' && operator !== '$notExists';
+}
+
+function getBelongsToScalarPathHints(field) {
+  if (!isBelongsToLikeField(field)) {
+    return null;
+  }
+
+  const foreignKey = typeof field.foreignKey === 'string' && field.foreignKey.trim()
+    ? field.foreignKey.trim()
+    : null;
+  const targetKey = typeof field.targetKey === 'string' && field.targetKey.trim()
+    ? field.targetKey.trim()
+    : null;
+  const suggestedPaths = [];
+  if (foreignKey) {
+    suggestedPaths.push(foreignKey);
+  }
+  if (targetKey) {
+    suggestedPaths.push(`${field.name}.${targetKey}`);
+  }
+
+  return {
+    associationField: field.name,
+    foreignKey,
+    targetCollection: field.target || null,
+    targetKey,
+    suggestedPaths: [...new Set(suggestedPaths)],
+  };
+}
+
 function findAssociationFieldByAssociationName(collectionMeta, associationName) {
   if (!collectionMeta || typeof associationName !== 'string') {
     return null;
@@ -496,10 +530,30 @@ function resolveFieldPathInMetadata(metadata, collectionName, fieldPath) {
   }
 
   let field = null;
+  let previousAssociationField = null;
   for (let index = 0; index < segments.length; index += 1) {
     const segment = segments[index];
     field = currentCollection.fieldsByName.get(segment) || null;
     if (!field) {
+      const expectedTargetKey = previousAssociationField?.targetKey;
+      if (
+        index === segments.length - 1
+        && typeof expectedTargetKey === 'string'
+        && expectedTargetKey.trim()
+        && expectedTargetKey.trim() === segment
+      ) {
+        return {
+          field: {
+            name: segment,
+            type: null,
+            interface: null,
+            target: null,
+            foreignKey: null,
+            targetKey: null,
+          },
+          collection: currentCollection,
+        };
+      }
       return null;
     }
     if (index === segments.length - 1) {
@@ -511,6 +565,7 @@ function resolveFieldPathInMetadata(metadata, collectionName, fieldPath) {
     if (!field.target) {
       return null;
     }
+    previousAssociationField = field;
     currentCollection = getCollectionMeta(metadata, field.target);
     if (!currentCollection) {
       return null;
@@ -971,11 +1026,16 @@ function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionNam
     ) {
       const collectionMeta = getCollectionMeta(metadata, initOptions.collectionName);
       const childRelationField = findAssociationFieldToTarget(collectionMeta, currentParentCollectionName);
+      const relationScalarPathHints = getBelongsToScalarPathHints(childRelationField);
       const parentCollectionMeta = getCollectionMeta(metadata, currentParentCollectionName);
       const parentAssociationField = findAssociationFieldToTarget(parentCollectionMeta, initOptions.collectionName);
-      const matchedCondition = childRelationField
+      const matchedCondition = relationScalarPathHints?.suggestedPaths?.length
         ? collectFilterConditions(dataScopeFilter).find(
-          (condition) => condition.path === childRelationField.name && usesPopupInputArgsFilterByTk(condition.value),
+          (condition) => (
+            isScalarComparisonOperator(condition.operator)
+            && relationScalarPathHints.suggestedPaths.includes(condition.path)
+            && usesPopupInputArgsFilterByTk(condition.value)
+          ),
         )
         : null;
 
@@ -987,6 +1047,8 @@ function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionNam
           parentCollectionName: currentParentCollectionName,
           relationField: childRelationField.name,
           targetCollectionName: childRelationField.target,
+          matchedConditionPath: matchedCondition.path,
+          scalarComparablePaths: relationScalarPathHints.suggestedPaths,
           suggestedProtocol: {
             associationName: `${currentParentCollectionName}.${parentAssociationField.name}`,
             sourceId: POPUP_INPUT_ARGS_FILTER_BY_TK,
@@ -1307,7 +1369,15 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
     }
 
     if (isCondition) {
-      if (collectionMeta && isSimpleFieldName(item.path) && !hasTemplateExpression(item.path) && !collectionMeta.fieldsByName.has(item.path)) {
+      const isSimplePath = isSimpleFieldName(item.path) && !hasTemplateExpression(item.path);
+      const directField = collectionMeta && isSimplePath
+        ? collectionMeta.fieldsByName.get(item.path) || null
+        : null;
+      const associationFromForeignKey = collectionMeta && isSimplePath
+        ? collectionMeta.associationsByForeignKey.get(item.path) || null
+        : null;
+
+      if (collectionMeta && isSimplePath && !directField && !associationFromForeignKey) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FIELD_PATH_NOT_FOUND',
@@ -1318,6 +1388,35 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
           details: {
             collectionName,
             fieldPath: item.path,
+          },
+        }));
+        return;
+      }
+
+      if (directField && isBelongsToLikeField(directField) && isScalarComparisonOperator(item.operator)) {
+        const scalarPathHints = getBelongsToScalarPathHints(directField);
+        const suggestedPaths = scalarPathHints?.suggestedPaths || [];
+        const suggestionMessage = suggestedPaths.length > 0
+          ? `；请改为可比较的标量路径，例如 ${suggestedPaths.map((value) => `"${value}"`).join(' 或 ')}。`
+          : '；当前 metadata 未提供 foreignKey 或 targetKey，不能继续猜字段名。';
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
+          message: `belongsTo 字段 "${item.path}" 不能直接搭配标量操作符 "${item.operator}"${suggestionMessage}`,
+          path: itemPath,
+          mode,
+          dedupeKey: `BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH:${collectionName}:${item.path}:${item.operator}`,
+          details: {
+            collectionName,
+            fieldPath: item.path,
+            operator: item.operator,
+            ...(scalarPathHints || {
+              associationField: directField.name,
+              foreignKey: null,
+              targetCollection: directField.target || null,
+              targetKey: null,
+              suggestedPaths: [],
+            }),
           },
         }));
       }
