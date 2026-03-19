@@ -522,8 +522,7 @@ V1 可以修改现有页面，但必须严格控制范围：
 3. 前置数据准备是默认步骤，不要把它写成依赖某个单独 skill 的特殊前置条件。
 4. 造数完成后，必须先做一次最小校验，确认主表和关键关系表都已经有数据，再进入 UI 搭建。
 5. 最终结果必须把“数据准备结果”和“UI 搭建结果”分开说明；如果页面建好了但数据没准备好，本次任务不能算完整通过。
-6. 具体造数基线、降级策略和输出要求见：
-   - [references/validation-data-preconditions.md](references/validation-data-preconditions.md)
+6. 具体 validation 判定规则、造数基线和用例目录，统一见文末的 `Validation 总览`。
 
 # 安全规则
 
@@ -545,7 +544,5 @@ V1 可以修改现有页面，但必须严格控制范围：
   [references/blocks/index.md](references/blocks/index.md)
 - 横切模式文档索引：
   [references/patterns/index.md](references/patterns/index.md)
-- validation 时的数据前置要求与造数基线：
-  [references/validation-data-preconditions.md](references/validation-data-preconditions.md)
-- validation 用例目录：
-  [references/validation-cases/index.md](references/validation-cases/index.md)
+- Validation 总览（判定规则、造数基线、用例目录）：
+  [references/validation.md](references/validation.md)
