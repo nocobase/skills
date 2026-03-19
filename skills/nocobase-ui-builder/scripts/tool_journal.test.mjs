@@ -17,6 +17,8 @@ import {
   startRun,
 } from './tool_journal.mjs';
 
+let artifactSequence = 0;
+
 function makeLogDir(testName) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `tool-journal-${testName}-`));
 }
@@ -32,6 +34,34 @@ function readJsonLines(filePath) {
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
+}
+
+function writeRawMcpArtifact(dir, {
+  status = 'ok',
+  callId,
+  execId,
+  payload,
+} = {}) {
+  artifactSequence += 1;
+  const resolvedCallId = callId ?? `call-${artifactSequence}`;
+  const filePath = path.join(dir, `artifact-${artifactSequence}-${status}.json`);
+  const artifact = {
+    type: 'mcp_tool_call_output',
+    call_id: resolvedCallId,
+    ...(execId ? { exec_id: execId } : {}),
+    output: {
+      content: payload === undefined
+        ? []
+        : [{ type: 'text', text: JSON.stringify(payload) }],
+      isError: status === 'error',
+    },
+  };
+  fs.writeFileSync(filePath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+  return {
+    filePath,
+    callId: resolvedCallId,
+    execId,
+  };
 }
 
 test('default run log directory points to codex state directory', () => {
@@ -69,6 +99,12 @@ test('tool-call, note, and finish-run append ordered records', () => {
     logDir,
     latestRunPath,
   });
+  const rawResult = writeRawMcpArtifact(logDir, {
+    status: 'ok',
+    callId: 'call-append-ok',
+    execId: 'exec-append-ok',
+    payload: { data: { results: [{ ok: true }] } },
+  });
 
   recordToolCall({
     logPath: started.logPath,
@@ -79,6 +115,10 @@ test('tool-call, note, and finish-run append ordered records', () => {
     args: {
       targetSignature: 'page.root',
       requestBody: { atomic: true },
+    },
+    rawEvidence: {
+      resultFile: rawResult.filePath,
+      execId: rawResult.execId,
     },
     result: {
       ok: true,
@@ -109,8 +149,33 @@ test('tool-call, note, and finish-run append ordered records', () => {
   assert.equal(records[1].tool, 'PostFlowmodels_mutate');
   assert.equal(records[1].args.targetSignature, 'page.root');
   assert.equal(records[1].args.requestBody.atomic, true);
+  assert.equal(records[1].rawEvidence.callId, 'call-append-ok');
+  assert.equal(records[1].rawEvidence.execId, 'exec-append-ok');
+  assert.equal(records[1].rawEvidence.resultFile, rawResult.filePath);
   assert.equal(records[1].result.summary.targetSignature, 'page.root');
   assert.equal(records[3].status, 'success');
+});
+
+test('mcp tool-call rejects free-text error records without raw artifact binding', () => {
+  const logDir = makeLogDir('reject-free-text');
+  const latestRunPath = makeLatestRunPath('reject-free-text');
+  const started = startRun({
+    task: 'Reject unverified failure records',
+    logDir,
+    latestRunPath,
+  });
+
+  assert.throws(
+    () => recordToolCall({
+      logPath: started.logPath,
+      tool: 'PostFlowmodels_mutate',
+      toolType: 'mcp',
+      status: 'error',
+      summary: 'manual failure note',
+      error: 'INVALID_FLOW_MODEL_SCHEMA',
+    }),
+    /requires error-file/,
+  );
 });
 
 test('phase, gate and cache-event append structured runtime records', () => {
@@ -217,6 +282,17 @@ test('cli smoke test writes a complete tool journal', () => {
       'ok',
       '--summary',
       'read grid',
+      '--call-id',
+      'call-cli-read-grid',
+      '--exec-id',
+      'exec-cli-read-grid',
+      '--result-file',
+      writeRawMcpArtifact(logDir, {
+        status: 'ok',
+        callId: 'call-cli-read-grid',
+        execId: 'exec-cli-read-grid',
+        payload: { data: { uid: 'grid-1' } },
+      }).filePath,
       '--result-json',
       '{"summary":{"targetSignature":"page.root","pageGroups":[]}}',
     ],
@@ -286,6 +362,8 @@ test('cli smoke test writes a complete tool journal', () => {
   assert.equal(records[2].tool, 'GetFlowmodels_findone');
   assert.equal(records[2].args.parentId, 'tabs-k7n4x9p2q5ra');
   assert.equal(records[2].args.targetSignature, 'page.root');
+  assert.equal(records[2].rawEvidence.callId, 'call-cli-read-grid');
+  assert.equal(records[2].rawEvidence.execId, 'exec-cli-read-grid');
   assert.equal(records[2].result.summary.targetSignature, 'page.root');
   assert.equal(records[3].type, 'gate');
   assert.equal(records[4].type, 'cache_event');

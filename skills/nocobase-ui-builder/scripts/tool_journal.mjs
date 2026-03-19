@@ -26,7 +26,7 @@ function usage() {
   return [
     'Usage:',
     '  node scripts/tool_journal.mjs start-run --task <task> [--title <title>] [--schemaUid <schemaUid>] [--log-dir <path>] [--latest-run-path <path>] [--metadata-json <json>]',
-    '  node scripts/tool_journal.mjs tool-call --log-path <path> --tool <name> [--tool-type <mcp|shell|node|other>] [--args-json <json>] [--status <ok|error|skipped>] [--summary <text>] [--result-json <json>] [--error <text>]',
+    '  node scripts/tool_journal.mjs tool-call --log-path <path> --tool <name> [--tool-type <mcp|shell|node|other>] [--args-json <json>] [--status <ok|error|skipped>] [--summary <text>] [--call-id <raw-call-id>] [--exec-id <raw-exec-id>] [--result-file <path>] [--error-file <path>] [--result-json <json>] [--error <text>]',
     '  node scripts/tool_journal.mjs note --log-path <path> --message <text> [--data-json <json>]',
     '  node scripts/tool_journal.mjs phase --log-path <path> --phase <name> --event <start|end> [--status <running|ok|error|skipped>] [--attributes-json <json>]',
     '  node scripts/tool_journal.mjs gate --log-path <path> --gate <name> --status <passed|failed|skipped> --reason-code <code> [--findings-json <json>] [--stopped-remaining-work <true|false>] [--data-json <json>]',
@@ -110,6 +110,112 @@ function parseOptionalJson(rawValue, label) {
   }
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeOptionalString(value, label) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  return normalizeNonEmpty(String(value), label);
+}
+
+function resolveExistingFile(filePath, label) {
+  const normalizedPath = normalizeNonEmpty(filePath, label);
+  const resolvedPath = path.resolve(normalizedPath);
+  let stats;
+  try {
+    stats = fs.statSync(resolvedPath);
+  } catch (error) {
+    throw new Error(`${label} "${resolvedPath}" does not exist`);
+  }
+  if (!stats.isFile()) {
+    throw new Error(`${label} "${resolvedPath}" must be a file`);
+  }
+  return resolvedPath;
+}
+
+function readArtifactJson(filePath, label) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    throw new Error(`${label} "${filePath}" must be valid JSON: ${error.message}`);
+  }
+}
+
+function extractArtifactRef(filePath, label) {
+  if (!filePath) {
+    return null;
+  }
+  const resolvedPath = resolveExistingFile(filePath, label);
+  const payload = readArtifactJson(resolvedPath, label);
+  return {
+    filePath: resolvedPath,
+    callId: normalizeOptionalString(payload.call_id ?? payload.callId, `${label} call_id`),
+    execId: normalizeOptionalString(payload.exec_id ?? payload.execId, `${label} exec_id`),
+  };
+}
+
+function coalesceUniqueStrings(values, label) {
+  const normalizedValues = values.filter(Boolean);
+  if (normalizedValues.length === 0) {
+    return undefined;
+  }
+  if (new Set(normalizedValues).size > 1) {
+    throw new Error(`${label} mismatch across raw evidence`);
+  }
+  return normalizedValues[0];
+}
+
+function normalizeRawEvidence({ toolType, status, rawEvidence }) {
+  const source = isPlainObject(rawEvidence) ? rawEvidence : {};
+  const resultArtifact = extractArtifactRef(source.resultFile, 'result-file');
+  const errorArtifact = extractArtifactRef(source.errorFile, 'error-file');
+
+  const callId = coalesceUniqueStrings([
+    normalizeOptionalString(source.callId, 'call-id'),
+    resultArtifact?.callId,
+    errorArtifact?.callId,
+  ], 'call id');
+
+  const execId = coalesceUniqueStrings([
+    normalizeOptionalString(source.execId, 'exec-id'),
+    resultArtifact?.execId,
+    errorArtifact?.execId,
+  ], 'exec id');
+
+  if (toolType === 'mcp' && status !== 'skipped') {
+    if (status === 'ok' && !resultArtifact) {
+      throw new Error('mcp tool-call with status "ok" requires result-file');
+    }
+    if (status === 'error' && !errorArtifact) {
+      throw new Error('mcp tool-call with status "error" requires error-file');
+    }
+    if (resultArtifact && !resultArtifact.callId) {
+      throw new Error('mcp result-file must contain top-level call_id');
+    }
+    if (errorArtifact && !errorArtifact.callId) {
+      throw new Error('mcp error-file must contain top-level call_id');
+    }
+    if (!callId) {
+      throw new Error('mcp tool-call requires raw call_id; provide --call-id or a result/error artifact with top-level call_id');
+    }
+  }
+
+  const hasEvidence = Boolean(callId || execId || resultArtifact || errorArtifact);
+  if (!hasEvidence) {
+    return undefined;
+  }
+
+  return {
+    callId,
+    execId,
+    resultFile: resultArtifact?.filePath,
+    errorFile: errorArtifact?.filePath,
+  };
+}
+
 function makeRunId() {
   const timestamp = nowIso().replace(/[-:.]/g, '').replace('T', '-').replace('Z', 'Z');
   const suffix = crypto.randomBytes(4).toString('hex');
@@ -185,12 +291,18 @@ export function recordToolCall({
   status = 'ok',
   summary,
   args,
+  rawEvidence,
   result,
   error,
 }) {
   const resolvedLogPath = resolveLogPath(logPath);
   const normalizedTool = normalizeNonEmpty(tool, 'tool');
   const runStarted = readRunStartedRecord(resolvedLogPath);
+  const normalizedRawEvidence = normalizeRawEvidence({
+    toolType,
+    status,
+    rawEvidence,
+  });
   const record = {
     type: 'tool_call',
     timestamp: nowIso(),
@@ -200,6 +312,7 @@ export function recordToolCall({
     status,
     summary: summary?.trim() || undefined,
     args,
+    rawEvidence: normalizedRawEvidence,
     result,
     error: error?.trim() || undefined,
   };
@@ -418,6 +531,12 @@ export async function runCli(argv = process.argv.slice(2)) {
         status: flags.status ?? 'ok',
         summary: flags.summary,
         args: parseOptionalJson(flags['args-json'], 'args-json'),
+        rawEvidence: {
+          callId: flags['call-id'],
+          execId: flags['exec-id'],
+          resultFile: flags['result-file'],
+          errorFile: flags['error-file'],
+        },
         result: parseOptionalJson(flags['result-json'], 'result-json'),
         error: flags.error,
       });

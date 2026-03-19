@@ -52,6 +52,10 @@ const DISCOVERY_TOOL_NAMES = new Set([
 ]);
 
 const GUARD_AUDIT_TOOL_NAME = 'flow_payload_guard.audit-payload';
+const ROUTE_READY_TOOL_NAMES = new Set([
+  'GetDesktoproutes_getaccessible',
+  'GetDesktoproutes_listaccessible',
+]);
 
 function usage() {
   return [
@@ -113,6 +117,23 @@ function resolveImprovementLogPath(explicitPath) {
 
 function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function normalizeToolName(toolName) {
+  if (typeof toolName !== 'string') {
+    return '';
+  }
+  const normalized = toolName.trim();
+  if (!normalized) {
+    return '';
+  }
+  const parts = normalized.split('__').filter(Boolean);
+  return parts.at(-1) ?? normalized;
+}
+
+function matchesToolName(recordOrToolName, expectedToolName) {
+  const actualToolName = typeof recordOrToolName === 'string' ? recordOrToolName : recordOrToolName?.tool;
+  return normalizeToolName(actualToolName) === expectedToolName;
 }
 
 export function loadJsonLines(filePath) {
@@ -247,7 +268,7 @@ function getExplicitTargetSignature(call) {
 }
 
 function getWeakReadTargetSignature(call) {
-  if (call.tool !== 'GetFlowmodels_findone') {
+  if (!matchesToolName(call, 'GetFlowmodels_findone')) {
     return null;
   }
   const parentId = call.args?.parentId ?? 'unknown-parent';
@@ -282,7 +303,7 @@ function detectRepeatedRuns(toolCalls) {
 }
 
 function countTool(toolCalls, toolName) {
-  return toolCalls.filter((record) => record.tool === toolName).length;
+  return toolCalls.filter((record) => matchesToolName(record, toolName)).length;
 }
 
 function buildFindoneTargetCounts(toolCalls) {
@@ -298,7 +319,7 @@ function buildFindoneTargetCounts(toolCalls) {
 }
 
 function getGuardAuditResult(call) {
-  if (call.tool !== GUARD_AUDIT_TOOL_NAME || !isPlainObject(call.result)) {
+  if (!matchesToolName(call, GUARD_AUDIT_TOOL_NAME) || !isPlainObject(call.result)) {
     return null;
   }
   return {
@@ -338,7 +359,7 @@ function buildGuardSummary(records) {
   let pendingRiskAccept = null;
 
   for (const record of records) {
-    if (record.type === 'tool_call' && record.tool === GUARD_AUDIT_TOOL_NAME) {
+    if (record.type === 'tool_call' && matchesToolName(record, GUARD_AUDIT_TOOL_NAME)) {
       const result = getGuardAuditResult(record);
       summary.hasGuardAudit = true;
       summary.auditCount += 1;
@@ -374,11 +395,11 @@ function buildGuardSummary(records) {
       continue;
     }
 
-    if (record.type === 'tool_call' && WRITE_SIDE_EFFECT_TOOLS.has(record.tool) && pendingBlockerAudit) {
+    if (record.type === 'tool_call' && WRITE_SIDE_EFFECT_TOOLS.has(normalizeToolName(record.tool)) && pendingBlockerAudit) {
       summary.violations.push({
         auditTimestamp: pendingBlockerAudit.timestamp,
         writeTimestamp: record.timestamp,
-        writeTool: record.tool,
+        writeTool: normalizeToolName(record.tool),
         blockerCodes: pendingBlockerAudit.blockerCodes,
         riskAcceptTimestamp: pendingRiskAccept?.timestamp,
         violationType: pendingRiskAccept ? 'risk_accept_without_reaudit' : 'write_after_blocker',
@@ -526,19 +547,17 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
 
   for (let index = 0; index < toolCalls.length; index += 1) {
     const writeCall = toolCalls[index];
-    if (!AUTO_MISMATCH_TOOLS.has(writeCall.tool)) {
+    if (!AUTO_MISMATCH_TOOLS.has(normalizeToolName(writeCall.tool))) {
       continue;
     }
 
     const writeTargetSignature = getExplicitTargetSignature(writeCall);
     if (!writeTargetSignature) {
-      if (writeCall.tool === 'PostFlowmodels_mutate') {
-        evidenceInsufficient.push(buildEvidenceInsufficientItem({
-          writeCall,
-          reasonCode: 'WRITE_TARGET_SIGNATURE_MISSING',
-          detail: 'PostFlowmodels_mutate 需要显式 args.targetSignature 才能参与自动 write-after-read 对账。',
-        }));
-      }
+      evidenceInsufficient.push(buildEvidenceInsufficientItem({
+        writeCall,
+        reasonCode: 'WRITE_TARGET_SIGNATURE_MISSING',
+        detail: `${writeCall.tool} 需要显式 args.targetSignature 才能参与自动 write-after-read 对账。`,
+      }));
       continue;
     }
 
@@ -546,10 +565,10 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
     let unsignedFindoneSeen = false;
     for (let cursor = index + 1; cursor < toolCalls.length; cursor += 1) {
       const candidate = toolCalls[cursor];
-      if (WRITE_SIDE_EFFECT_TOOLS.has(candidate.tool)) {
+      if (WRITE_SIDE_EFFECT_TOOLS.has(normalizeToolName(candidate.tool))) {
         break;
       }
-      if (candidate.tool !== 'GetFlowmodels_findone') {
+      if (!matchesToolName(candidate, 'GetFlowmodels_findone')) {
         continue;
       }
       const readTargetSignature = getExplicitTargetSignature(candidate);
@@ -570,6 +589,13 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
           targetSignature: writeTargetSignature,
           reasonCode: 'READBACK_TARGET_SIGNATURE_MISSING',
           detail: '后续存在 GetFlowmodels_findone，但没有显式 args.targetSignature，无法安全配对同目标 readback。',
+        }));
+      } else {
+        evidenceInsufficient.push(buildEvidenceInsufficientItem({
+          writeCall,
+          targetSignature: writeTargetSignature,
+          reasonCode: 'READBACK_MISSING',
+          detail: '在下一个 side-effect write 或 run 结束前，没有发现同目标 GetFlowmodels_findone readback。',
         }));
       }
       continue;
@@ -608,10 +634,10 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
     }
 
     mismatches.push({
-      writeTool: writeCall.tool,
+      writeTool: normalizeToolName(writeCall.tool),
       writeTimestamp: writeCall.timestamp,
       writeSummary: writeCall.summary,
-      readTool: readbackCall.tool,
+      readTool: normalizeToolName(readbackCall.tool),
       readbackTimestamp: readbackCall.timestamp,
       readbackSummary: readbackCall.summary,
       targetSignature: writeTargetSignature,
@@ -744,6 +770,19 @@ function buildGateSummaryRecords(records) {
   };
 }
 
+function buildRouteReadySummary(toolCalls, gateRecords) {
+  const createPageCount = toolCalls.filter((record) => matchesToolName(record, 'PostDesktoproutes_createv2')).length;
+  const routeReadCalls = toolCalls.filter((record) => ROUTE_READY_TOOL_NAMES.has(normalizeToolName(record.tool)));
+  const preOpenGateCount = gateRecords.filter((record) => record.gate === 'pre-open').length;
+
+  return {
+    createPageCount,
+    routeReadCount: routeReadCalls.length,
+    preOpenGateCount,
+    routeReadTools: [...new Set(routeReadCalls.map((record) => normalizeToolName(record.tool)))],
+  };
+}
+
 function buildOptimizationItems({
   toolCalls,
   hasWrites,
@@ -761,6 +800,7 @@ function buildOptimizationItems({
   cacheSummary,
   phaseSummary,
   gateRecords,
+  routeReadySummary,
 }) {
   const items = [];
   const schemaReadCount = countTool(toolCalls, 'GetFlowmodels_schema');
@@ -797,6 +837,19 @@ function buildOptimizationItems({
       reason: `本次出现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程。`,
       fasterPath: 'guard 报 blocker 后，默认先修 payload；只有确实接受风险时，才追加 risk-accept note 并重新审计后再写入。',
       evidence: guardSummary.violations.map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
+    });
+  }
+
+  if (routeReadySummary.createPageCount > 0 && (routeReadySummary.routeReadCount === 0 || routeReadySummary.preOpenGateCount === 0)) {
+    items.push({
+      priority: 'high',
+      title: '把 createV2 后的 route-ready 与首开 gate 补齐',
+      reason: 'createV2 只代表页面壳已写库，不代表新页面已经进入可首开验证状态。',
+      fasterPath: 'createV2 后先回读 accessible route tree，确认 page route 与隐藏 tab 已同步，再执行一次 pre-open gate；缺任一证据都不能把页面记为 success。',
+      evidence: [
+        routeReadySummary.routeReadCount === 0 ? '缺少 `GetDesktoproutes_getaccessible/listaccessible`' : null,
+        routeReadySummary.preOpenGateCount === 0 ? '缺少 `pre-open` gate' : null,
+      ].filter(Boolean),
     });
   }
 
@@ -969,13 +1022,13 @@ export function analyzeRun(records, sourceLogPath) {
     ? ((finishedAt ?? lastEventAt)?.getTime() ?? startedAt.getTime()) - startedAt.getTime()
     : null;
 
-  const firstWriteIndex = toolCalls.findIndex((record) => WRITE_SIDE_EFFECT_TOOLS.has(record.tool));
-  const firstDiscoveryIndex = toolCalls.findIndex((record) => DISCOVERY_TOOL_NAMES.has(record.tool));
+  const firstWriteIndex = toolCalls.findIndex((record) => WRITE_SIDE_EFFECT_TOOLS.has(normalizeToolName(record.tool)));
+  const firstDiscoveryIndex = toolCalls.findIndex((record) => DISCOVERY_TOOL_NAMES.has(normalizeToolName(record.tool)));
   const hasWrites = firstWriteIndex >= 0;
-  const hasSchemaBundle = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemabundle');
-  const hasSchemas = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemas');
+  const hasSchemaBundle = toolCalls.some((record) => matchesToolName(record, 'PostFlowmodels_schemabundle'));
+  const hasSchemas = toolCalls.some((record) => matchesToolName(record, 'PostFlowmodels_schemas'));
   const schemaReadCount = countTool(toolCalls, 'GetFlowmodels_schema');
-  const hasFindone = toolCalls.some((record) => record.tool === 'GetFlowmodels_findone');
+  const hasFindone = toolCalls.some((record) => matchesToolName(record, 'GetFlowmodels_findone'));
   const guardSummary = buildGuardSummary(records);
   const readbackAnalysis = buildPostWriteReadbackAnalysis(toolCalls);
   const readbackMismatches = readbackAnalysis.mismatches;
@@ -985,6 +1038,7 @@ export function analyzeRun(records, sourceLogPath) {
   const phaseSummary = buildPhaseSummary(records);
   const cacheSummary = buildCacheSummary(records);
   const gateSummary = buildGateSummaryRecords(records);
+  const routeReadySummary = buildRouteReadySummary(toolCalls, gateSummary.records);
 
   const suggestions = [];
   if (!finish) {
@@ -1037,6 +1091,12 @@ export function analyzeRun(records, sourceLogPath) {
   if (gateSummary.failed > 0) {
     suggestions.push(`本次有 ${gateSummary.failed} 个 gate 失败，建议确认失败后是否已经真正截停后续动作。`);
   }
+  if (routeReadySummary.createPageCount > 0 && routeReadySummary.routeReadCount === 0) {
+    suggestions.push('存在 `PostDesktoproutes_createv2`，但没有记录任何 accessible route 回读；建议在首开前先确认新 page 与隐藏 tab 已进入 route tree。');
+  }
+  if (routeReadySummary.createPageCount > 0 && routeReadySummary.preOpenGateCount === 0) {
+    suggestions.push('存在 `PostDesktoproutes_createv2`，但没有记录 `pre-open` gate；建议把“页面可首开、非空白、非卡骨架屏”作为独立阻断条件。');
+  }
   if (suggestions.length === 0) {
     suggestions.push('本次日志结构完整，可继续从失败率、重复调用和探测顺序三个角度优化。');
   }
@@ -1058,6 +1118,7 @@ export function analyzeRun(records, sourceLogPath) {
     cacheSummary,
     phaseSummary,
     gateRecords: gateSummary,
+    routeReadySummary,
   });
 
   return {

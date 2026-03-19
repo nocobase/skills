@@ -17,7 +17,7 @@ import {
   recordCacheEvent,
   recordGate,
   recordPhase,
-  recordToolCall,
+  recordToolCall as recordToolCallBase,
   startRun,
   finishRun,
   appendNote,
@@ -25,6 +25,72 @@ import {
 
 function makeTempDir(testName) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `tool-review-report-${testName}-`));
+}
+
+let rawArtifactSequence = 0;
+
+function writeRawMcpArtifact(logPath, {
+  status = 'ok',
+  callId,
+  execId,
+  payload,
+} = {}) {
+  rawArtifactSequence += 1;
+  const resolvedCallId = callId ?? `call-report-${rawArtifactSequence}`;
+  const resolvedExecId = execId ?? `exec-report-${rawArtifactSequence}`;
+  const artifactPath = path.join(
+    path.dirname(logPath),
+    `raw-mcp-${rawArtifactSequence}-${status}.json`,
+  );
+  const artifact = {
+    type: 'mcp_tool_call_output',
+    call_id: resolvedCallId,
+    exec_id: resolvedExecId,
+    output: {
+      content: payload === undefined
+        ? []
+        : [{ type: 'text', text: JSON.stringify(payload) }],
+      isError: status === 'error',
+    },
+  };
+  fs.writeFileSync(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+  return {
+    artifactPath,
+    callId: resolvedCallId,
+    execId: resolvedExecId,
+  };
+}
+
+function recordToolCall(params) {
+  if (params.toolType !== 'mcp' || params.status === 'skipped') {
+    return recordToolCallBase(params);
+  }
+
+  const status = params.status ?? 'ok';
+  const rawEvidence = { ...(params.rawEvidence ?? {}) };
+  const needsResultFile = status === 'ok' && !rawEvidence.resultFile;
+  const needsErrorFile = status === 'error' && !rawEvidence.errorFile;
+
+  if (needsResultFile || needsErrorFile) {
+    const artifact = writeRawMcpArtifact(params.logPath, {
+      status,
+      payload: status === 'ok'
+        ? (params.result ?? { ok: true })
+        : { error: params.error ?? params.summary ?? 'error' },
+    });
+    rawEvidence.execId ??= artifact.execId;
+    if (needsResultFile) {
+      rawEvidence.resultFile = artifact.artifactPath;
+    }
+    if (needsErrorFile) {
+      rawEvidence.errorFile = artifact.artifactPath;
+    }
+  }
+
+  return recordToolCallBase({
+    ...params,
+    rawEvidence,
+  });
 }
 
 test('default report directory points to codex state directory', () => {
@@ -168,6 +234,37 @@ test('analyzeRun generates improvement suggestions from tool call order', () => 
   assert.ok(summary.suggestions.some((item) => item.includes('`summary`')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('把探测步骤前置并批量化')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('payload guard')));
+});
+
+test('analyzeRun recognizes prefixed MCP tool names and flags missing route-ready evidence after createV2', () => {
+  const rootDir = makeTempDir('route-ready');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Create fresh page',
+    logDir,
+    latestRunPath,
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'mcp__nocobase__PostDesktoproutes_createv2',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'create page shell',
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'mcp__nocobase__GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'read page anchor',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.ok(summary.suggestions.some((item) => item.includes('accessible route 回读')));
+  assert.ok(summary.suggestions.some((item) => item.includes('`pre-open` gate')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('route-ready')));
 });
 
 test('analyzeRun summarizes phase, cache and gate telemetry', () => {
@@ -529,7 +626,7 @@ test('analyzeRun flags save/readback mismatches as a high-priority workflow issu
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('write 后 readback 不一致')));
 });
 
-test('analyzeRun does not generate automatic mismatches for legacy unsigned save/findone logs', () => {
+test('analyzeRun marks legacy unsigned save/findone logs as evidence_insufficient instead of mismatch', () => {
   const rootDir = makeTempDir('legacy-readback');
   const logDir = path.join(rootDir, 'logs');
   const latestRunPath = path.join(rootDir, 'latest-run.json');
@@ -567,7 +664,46 @@ test('analyzeRun does not generate automatic mismatches for legacy unsigned save
 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.equal(summary.readbackMismatches.length, 0);
-  assert.equal(summary.readbackEvidenceInsufficient.length, 0);
+  assert.equal(summary.readbackEvidenceInsufficient.length, 1);
+  assert.equal(summary.readbackEvidenceInsufficient[0].reasonCode, 'WRITE_TARGET_SIGNATURE_MISSING');
+});
+
+test('analyzeRun marks save and ensure without explicit targetSignature as evidence_insufficient', () => {
+  const rootDir = makeTempDir('save-ensure-missing-signature');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Save and ensure without target signature',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'save without explicit signature',
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_ensure',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'ensure without explicit signature',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.readbackMismatches.length, 0);
+  assert.deepEqual(
+    summary.readbackEvidenceInsufficient.map((item) => item.reasonCode),
+    ['WRITE_TARGET_SIGNATURE_MISSING', 'WRITE_TARGET_SIGNATURE_MISSING'],
+  );
+  assert.deepEqual(
+    summary.readbackEvidenceInsufficient.map((item) => item.writeTool),
+    ['PostFlowmodels_save', 'PostFlowmodels_ensure'],
+  );
 });
 
 test('analyzeRun marks mutate without explicit targetSignature as evidence_insufficient', () => {
@@ -593,6 +729,41 @@ test('analyzeRun marks mutate without explicit targetSignature as evidence_insuf
   assert.equal(summary.readbackMismatches.length, 0);
   assert.equal(summary.readbackEvidenceInsufficient.length, 1);
   assert.equal(summary.readbackEvidenceInsufficient[0].reasonCode, 'WRITE_TARGET_SIGNATURE_MISSING');
+});
+
+test('analyzeRun marks writes without follow-up readback as evidence_insufficient', () => {
+  const rootDir = makeTempDir('missing-readback');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Write without follow-up readback',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'save with target signature but no readback',
+    args: {
+      targetSignature: 'page.root',
+    },
+    result: {
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [],
+      },
+    },
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.readbackMismatches.length, 0);
+  assert.equal(summary.readbackEvidenceInsufficient.length, 1);
+  assert.equal(summary.readbackEvidenceInsufficient[0].reasonCode, 'READBACK_MISSING');
+  assert.equal(summary.readbackEvidenceInsufficient[0].targetSignature, 'page.root');
 });
 
 test('analyzeRun ignores non-structured risk-accept notes', () => {

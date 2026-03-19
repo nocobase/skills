@@ -183,16 +183,32 @@ export function summarizeNoiseMessages(messages) {
 }
 
 function baselineFilePath(stateDir, instanceFingerprint) {
+  const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
   return path.join(
     resolveNoiseBaselineDir(stateDir),
-    `${normalizeNonEmpty(instanceFingerprint, 'instance fingerprint')}.json`,
+    `${normalizedInstanceFingerprint}.json`,
   );
 }
 
+function normalizeNoiseBaselineInstanceFingerprint(value) {
+  const normalized = normalizeNonEmpty(value, 'instance fingerprint');
+  if (path.isAbsolute(normalized)) {
+    throw new Error('instance fingerprint must not be an absolute path');
+  }
+  if (normalized.includes('..')) {
+    throw new Error('instance fingerprint must not contain ".."');
+  }
+  if (normalized.includes('/') || normalized.includes('\\')) {
+    throw new Error('instance fingerprint must not contain path separators');
+  }
+  return normalized;
+}
+
 export function loadNoiseBaseline({ stateDir, instanceFingerprint }) {
+  const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
   return readJsonFile(baselineFilePath(stateDir, instanceFingerprint), {
     version: BASELINE_SCHEMA_VERSION,
-    instanceFingerprint,
+    instanceFingerprint: normalizedInstanceFingerprint,
     families: {},
   });
 }
@@ -257,7 +273,8 @@ export function recordNoiseRun({
   summaries,
   success = true,
 }) {
-  const baseline = loadNoiseBaseline({ stateDir, instanceFingerprint });
+  const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
+  const baseline = loadNoiseBaseline({ stateDir, instanceFingerprint: normalizedInstanceFingerprint });
   const now = new Date().toISOString();
 
   for (const summary of Array.isArray(summaries) ? summaries : []) {
@@ -294,7 +311,7 @@ export function recordNoiseRun({
     baseline.families[summary.familyId] = current;
   }
 
-  const targetPath = baselineFilePath(stateDir, instanceFingerprint);
+  const targetPath = baselineFilePath(stateDir, normalizedInstanceFingerprint);
   ensureDir(path.dirname(targetPath));
   writeJsonAtomic(targetPath, baseline);
   return baseline;
@@ -305,7 +322,8 @@ export function classifyNoiseMessages({
   instanceFingerprint,
   messages,
 }) {
-  const baseline = loadNoiseBaseline({ stateDir, instanceFingerprint });
+  const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
+  const baseline = loadNoiseBaseline({ stateDir, instanceFingerprint: normalizedInstanceFingerprint });
   const summaries = summarizeNoiseMessages(messages);
   return {
     summaries,

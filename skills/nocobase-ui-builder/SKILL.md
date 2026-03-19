@@ -101,19 +101,25 @@ V1 默认采用 schema-first 的渐进支持策略：
 规则：
 
 1. 保存 `start-run` 返回的 `logPath`，整个 skill 执行期间都复用它。
-2. 每次调用 MCP 工具后，都立即追加一条 `tool_call` 记录；如果调用失败，也必须记录，`status=error`。
+2. 每次调用 MCP 工具后，都立即把原始返回体保存到 `resultFile` / `errorFile`，再追加一条 `tool_call` 记录；如果调用失败，也必须记录，`status=error`。
 3. 每次调用本 skill 的本地辅助脚本后，也要追加一条 `tool_call` 记录，`toolType=node`。
 4. 在关键阶段之间可以追加 `note` 记录，说明当前判断、分支原因或发现的问题。
 5. 对关键路径阶段额外记录 `phase` / `gate` / `cache-event`，不要只写 note。
 6. 复盘时优先看 phase 耗时、stable cache 命中率和 gate 截停情况，而不是先假设“浏览器慢”。
 7. 在最终答复用户之前，必须写入 `run_finished` 记录。
+8. `tool_journal.mjs tool-call` 对 `toolType=mcp` 的 `ok/error` 记录会强制校验 raw evidence；不允许只靠 `--summary` / `--error` 自由文本补记失败。
 
 记录工具调用示例：
 
 - 成功：
-  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "PostFlowmodels_mutate" --tool-type mcp --args-json '{"targetSignature":"page.root","requestBody":{"atomic":true}}' --status ok --summary "创建表格区块" --result-json '{"summary":{"targetSignature":"page.root","pageGroups":[]}}'`
+  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "PostFlowmodels_mutate" --tool-type mcp --args-json '{"targetSignature":"page.root","requestBody":{"atomic":true}}' --status ok --summary "创建表格区块" --result-file "<post-flowmodels-mutate-result.json>" --result-json '{"summary":{"targetSignature":"page.root","pageGroups":[]}}'`
 - 失败：
-  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "GetFlowmodels_schema" --tool-type mcp --args-json '{"use":"TableBlockModel"}' --status error --error "unsupported-model-use"`
+  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "GetFlowmodels_schema" --tool-type mcp --args-json '{"use":"TableBlockModel"}' --status error --error-file "<get-flowmodels-schema-error.json>" --error "unsupported-model-use"`
+
+说明：
+
+- `result-file` / `error-file` 必须保存原始 MCP 返回体，至少要能从文件里追溯到 top-level `call_id`。
+- `exec_id` 如果当前工具面暴露出来，也一并通过 `--exec-id` 写入；但不能因为拿不到 `exec_id` 就退回到只写自由文本。
 
 自动 write-after-read 对账约束：
 
@@ -250,6 +256,8 @@ node scripts/flow_payload_guard.mjs audit-payload \
 以下 code 不允许通过 `risk_accept` 降级，哪怕在 note 里显式列出也必须继续保持 blocker：
 
 - `ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE`
+- `DOTTED_ASSOCIATION_DISPLAY_ASSOCIATION_PATH_MISMATCH`
+- `DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH`
 - `ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL`
 - `ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE`
 - `BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH`
@@ -257,6 +265,18 @@ node scripts/flow_payload_guard.mjs audit-payload \
 - `FORM_ACTION_MUST_USE_ACTIONS_SLOT`
 - `FORM_ITEM_FIELD_SUBMODEL_MISSING`
 - `FORM_SUBMIT_ACTION_MISSING`
+- `TABLE_COLLECTION_ACTION_SLOT_USE_INVALID`
+- `TABLE_RECORD_ACTION_SLOT_USE_INVALID`
+- `DETAILS_ACTION_SLOT_USE_INVALID`
+- `FILTER_FORM_ACTION_SLOT_USE_INVALID`
+- `POPUP_PAGE_USE_INVALID`
+- `POPUP_PAGE_USE_MISMATCH`
+- `TAB_SLOT_USE_INVALID`
+- `TAB_GRID_MISSING_OR_INVALID`
+- `TAB_GRID_ITEM_USE_INVALID`
+- `TAB_SUBTREE_UID_REUSED`
+- `REQUIRED_VISIBLE_TABS_MISSING`
+- `REQUIRED_TABS_TARGET_PAGE_MISSING`
 
 不要用自然语言口头说明代替 `risk_accept` note；复盘脚本只认结构化 note。
 如果同一个 draft 里同一个 blocker code 同时命中多个位置，当前 `--risk-accept <CODE>` 不会做模糊降级；先拆小 payload 或先修结构，再重新审计。
@@ -393,7 +413,7 @@ NocoBase `resourcer` 的关键实现细节：
 - 你创建的每个新区块 / 列 / 表单项 / 动作，都应通过 `node-uids` 批量生成
 - 即使这次只需要一个 uid，也统一传单元素数组给 `node-uids`
 - 必须使用规范逻辑路径；不要从自然语言描述里临时拼接节点路径
-- 如果本地注册表缺失且用户没有提供 `schemaUid`，立即停止并向用户索取 `schemaUid`
+- 如果当前是在从本地注册表解析已有页面，且注册表缺失而用户没有提供 `schemaUid`，立即停止并向用户索取 `schemaUid`
 
 规范逻辑路径模式：
 
@@ -579,7 +599,7 @@ V1 可以修改现有页面，但必须严格控制范围：
 - 绝不要提交实时探测已标记为内部或未解析的模型 use
 - 如果区块请求体没通过 schema 校验，报告结构化错误，不要靠猜 key 反复重试
 - 每次写入后都重新读取受影响模型
-- 本地页面注册表缺失时，绝不要靠猜 NocoBase 标题自动恢复；直接向用户索取 `schemaUid`
+- 当需要从本地页面注册表解析已有页面时，如果注册表缺失，绝不要靠猜 NocoBase 标题自动恢复；直接向用户索取 `schemaUid`
 - 不要为了让 uid 看起来更“漂亮”就重命名现有节点；一旦创建，必须保留现有 `uid`
 
 # 参考资料

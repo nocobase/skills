@@ -417,6 +417,26 @@ function resolveBlockUse(block) {
   return BLOCK_USE_BY_KIND[block.kind] || block.kind;
 }
 
+function compilePopup(popup, scope, artifact) {
+  if (!popup) {
+    return null;
+  }
+  return {
+    title: popup.title,
+    pageUse: popup.pageUse,
+    blocks: compileBlocks(popup.blocks, `${scope}.popup`, artifact),
+  };
+}
+
+function compileActions(actions, scope, artifact) {
+  return actions.map((action, index) => ({
+    ...action,
+    popup: action.popup
+      ? compilePopup(action.popup, `${scope}.actions[${index}]`, artifact)
+      : null,
+  }));
+}
+
 function compileBlocks(blocks, scope, artifact) {
   return blocks.map((block, index) => {
     collectRequiredUsesFromBlock(block, artifact.requiredUses);
@@ -442,8 +462,8 @@ function compileBlocks(blocks, scope, artifact) {
       title: block.title,
       collectionName: block.collectionName,
       fields: block.fields,
-      actions: block.actions,
-      popup: block.popup,
+      actions: compileActions(block.actions, `${scope}.blocks[${index}]`, artifact),
+      popup: compilePopup(block.popup, `${scope}.blocks[${index}]`, artifact),
       relationScope: block.relationScope,
       mode: block.mode,
     };

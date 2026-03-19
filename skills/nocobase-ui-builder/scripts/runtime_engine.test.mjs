@@ -12,6 +12,7 @@ import {
 } from './stable_cache.mjs';
 import {
   classifyNoiseMessages,
+  loadNoiseBaseline,
   matchNoiseFamily,
   recordNoiseRun,
   summarizeNoiseMessages,
@@ -183,6 +184,41 @@ test('noise baseline promotes repeated known warnings to baseline and keeps runt
   assert.equal(classified.blocking[0].familyId, 'runtime-exception');
 });
 
+test('noise baseline rejects unsafe instance fingerprint paths', () => {
+  const rootDir = makeTempDir('noise-baseline-invalid-fingerprint');
+
+  assert.throws(
+    () => recordNoiseRun({
+      stateDir: rootDir,
+      instanceFingerprint: '../escape',
+      runId: 'run-1',
+      sessionId: 'session-1',
+      summaries: summarizeNoiseMessages([
+        'Warning: React does not recognize the `overflowMode` prop on a DOM element.',
+      ]),
+      success: true,
+    }),
+    /must not contain ".."|must not contain path separators/,
+  );
+
+  assert.throws(
+    () => classifyNoiseMessages({
+      stateDir: rootDir,
+      instanceFingerprint: '../escape',
+      messages: ['TypeError: Cannot read properties of undefined'],
+    }),
+    /must not contain ".."|must not contain path separators/,
+  );
+
+  assert.throws(
+    () => loadNoiseBaseline({
+      stateDir: rootDir,
+      instanceFingerprint: '../escape',
+    }),
+    /must not contain ".."|must not contain path separators/,
+  );
+});
+
 test('spec normalization and compile derive guard requirements and readback contracts from primitives', () => {
   const normalized = normalizeBuildSpec({
     source: '构建客户工作台',
@@ -255,8 +291,8 @@ test('spec normalization defaults popup pages to ChildPageModel instead of gener
                 blocks: [
                   {
                     kind: 'Details',
-                    collectionName: 'orders',
-                    fields: ['order_no'],
+                    collectionName: 'order_items',
+                    fields: ['id'],
                   },
                 ],
               },
@@ -268,8 +304,16 @@ test('spec normalization defaults popup pages to ChildPageModel instead of gener
   });
 
   assert.equal(compiled.compileArtifact.requiredUses.includes('ChildPageModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('DetailsBlockModel'), true);
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].use, 'EditActionModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.pageUse, 'ChildPageModel');
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.blocks[0].use, 'DetailsBlockModel');
+  assert.equal(
+    compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.blocks[0].path,
+    '$.page.blocks[0].actions[0].popup.blocks[0]',
+  );
+  assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('order_items'), true);
+  assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('order_items.id'), true);
 });
 
 test('spec normalization maps Form.mode to the correct concrete form model and rejects unknown mode', () => {
