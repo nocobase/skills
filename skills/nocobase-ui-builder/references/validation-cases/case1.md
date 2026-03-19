@@ -4,6 +4,13 @@
 
 验证 `nocobase-ui-builder` 是否能基于当前 v2 页面壳与 `flowModels` 公共模型，搭建一个真实可用的订单管理主页面，而不是只创建空白区块壳。
 
+## 套件定位
+
+- 分层：`core-pass`
+- 预期结果：`pass`
+- 主责任：覆盖 `FilterFormBlockModel`、`TableBlockModel`、`CreateFormModel`、`EditFormModel`
+- 辅助覆盖：`table-column-rendering`、`popup-openview`
+
 ## 前置数据模型
 
 - `customers`: 客户，字段至少包含 `id`、`name`、`level`

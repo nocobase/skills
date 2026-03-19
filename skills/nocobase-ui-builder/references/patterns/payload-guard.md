@@ -60,7 +60,7 @@ node scripts/flow_payload_guard.mjs audit-payload \
   --payload-json '<draft-payload-json>' \
   --metadata-json '<normalized-metadata-json>' \
   --mode validation-case \
-  --requirements-json '{"requiredActions":[{"kind":"edit-record-popup","collectionName":"order_items"}],"requiredTabs":[{"pageUse":"RootPageModel","titles":["客户概览","联系人"],"requireBlockGrid":true}]}'
+  --requirements-json '{"requiredActions":[{"kind":"edit-record-popup","collectionName":"order_items","scope":"row-actions"}],"requiredTabs":[{"pageUse":"RootPageModel","titles":["客户概览","联系人"],"requireBlockGrid":true}]}'
 ```
 
 6. `--mode general` 只用于调试或检查未完成草稿，不替代最终落库前的严格审计

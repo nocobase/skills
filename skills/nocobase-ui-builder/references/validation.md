@@ -6,6 +6,31 @@
 
 validation 关注的是“页面和交互是否真实可用”，不是只看页面壳是否创建成功，也不是把所有开发态提示都机械地计入失败。
 
+## 套件结构
+
+validation case 现在按“覆盖矩阵 + 分层目标”维护，而不是只按业务标题堆用例。
+
+### 三层分组
+
+- `core-pass`
+  - 主干公共区块应尽量跑通，适合做日常回归。
+- `composite-pass`
+  - 多区块协同和多层上下文，允许局部暴露缺口，但不能退回成空壳页面。
+- `edge-detect`
+  - 边界场景与已知脆弱能力，目标是稳定复现和清晰归因，不是假装通过。
+
+### 覆盖策略
+
+- 每个公开 block family 至少有 1 个 primary case。
+- 每个主要复杂 pattern 至少有 1 个 primary case。
+- 每个 block / pattern 至少再有 1 个 secondary case 做回归补位。
+- 结构化编译链会优先按 `caseId / alias / request text` 命中 case registry，再生成对应的 `buildSpec / verifySpec / compileArtifact`。
+
+覆盖矩阵入口：
+
+- [validation-cases/index.md](validation-cases/index.md)
+- [validation-cases/coverage-matrix.md](validation-cases/coverage-matrix.md)
+
 ## 判定规则
 
 ### 基本原则
@@ -34,6 +59,7 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 - error boundary
 - 网络失败
 - 白屏或区块空白
+- 页面长时间停在骨架屏 / 首屏 skeleton 不消失
 - 关键动作不可用
 - 数据链路不通
 - 因 payload、schema、上下文或数据问题导致的页面行为错误
@@ -50,14 +76,19 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 处理顺序固定为：
 
 1. 先记录浏览器症状，确认是 `pre-open` 还是 `post-open`
+   - fresh page 首开为空白或卡骨架屏时，优先记为 `pre-open`
 2. 再读取 write-after-read / live tree，确认当前 flow model 真实结构
-3. 再去源码确认对应 runtime model 的渲染契约：
+3. 如果刚执行过 `createV2`，先补一次 route-ready 校验：
+   - page route 是否已进入 accessible route tree
+   - hidden tab route 是否已出现在 page children 中
+   - 没有这层证据时，不要把问题直接归到 payload
+4. 再去源码确认对应 runtime model 的渲染契约：
    - 读哪个 `subModels` slot
    - 读哪些 `stepParams`
    - 允许哪些 child model/use
    - popup/openView 的 `pageModelClass` 是否与 `subModels.page.use` 一致
-4. 用源码契约反查当前 readback 是否结构错误
-5. 只有当 readback 已满足源码契约时，才继续怀疑 case 数据或平台 runtime
+5. 用源码契约反查当前 readback 是否结构错误
+6. 只有当 readback 已满足源码契约时，才继续怀疑 case 数据或平台 runtime
 
 强制规则：
 
@@ -65,6 +96,7 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 2. 对结构型渲染问题，不要先补“多跑一次 smoke”或“多开一次浏览器”当改进建议。
 3. 如果源码已经证明当前 payload 违反固定结构契约，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
 4. 对动作区渲染问题，优先检查 slot 级 `allowedUses` 是否匹配；`DetailsBlockModel.actions`、`TableActionsColumnModel.actions`、`FilterFormBlockModel.actions`、`TableBlockModel.actions` 都不能把泛型 `ActionModel` 当成“结构正确”。
+5. 如果问题发生在 fresh page 首开，且尚未完成 route-ready 校验，优先把结论落在 skill 的 page-ready gate，而不是直接修改平台源码。
 
 ## 数据前置与造数
 
@@ -100,17 +132,17 @@ validation 不应该只验证“页面壳有没有搭起来”，还必须验证
 
 ## 用例目录
 
-| 用例 | 主题 |
-| --- | --- |
-| [validation-cases/case1.md](validation-cases/case1.md) | 订单中心主页面 |
-| [validation-cases/case2.md](validation-cases/case2.md) | 客户 360 工作台 |
-| [validation-cases/case3.md](validation-cases/case3.md) | 采购单与明细抽屉 |
-| [validation-cases/case4.md](validation-cases/case4.md) | 项目协同工作台 |
-| [validation-cases/case5.md](validation-cases/case5.md) | 审批详情与日志 |
-| [validation-cases/case6.md](validation-cases/case6.md) | 发票与回款 |
-| [validation-cases/case7.md](validation-cases/case7.md) | 组织树与下级部门 |
-| [validation-cases/case8.md](validation-cases/case8.md) | 项目成员与中间表 |
-| [validation-cases/case9.md](validation-cases/case9.md) | 多标签页 |
-| [validation-cases/case10.md](validation-cases/case10.md) | 嵌套弹窗链路 |
+| 用例 | 分层 | 预期结果 | 主题 |
+| --- | --- | --- | --- |
+| [validation-cases/case1.md](validation-cases/case1.md) | `core-pass` | `pass` | 订单中心主页面 |
+| [validation-cases/case2.md](validation-cases/case2.md) | `core-pass` | `pass` | 客户 360 工作台 |
+| [validation-cases/case3.md](validation-cases/case3.md) | `composite-pass` | `partial` | 采购单与明细抽屉 |
+| [validation-cases/case4.md](validation-cases/case4.md) | `core-pass` | `pass` | 项目协同工作台 |
+| [validation-cases/case5.md](validation-cases/case5.md) | `composite-pass` | `partial` | 审批处理台 |
+| [validation-cases/case6.md](validation-cases/case6.md) | `core-pass` | `pass` | 发票与回款 |
+| [validation-cases/case7.md](validation-cases/case7.md) | `edge-detect` | `partial` | 组织架构树页面 |
+| [validation-cases/case8.md](validation-cases/case8.md) | `edge-detect` | `blocker-expected` | 项目成员多对多管理 |
+| [validation-cases/case9.md](validation-cases/case9.md) | `edge-detect` | `partial` | 客户运营多标签工作台 |
+| [validation-cases/case10.md](validation-cases/case10.md) | `edge-detect` | `blocker-expected` | 嵌套弹窗链路 |
 
 这些用例既用于验证 skill 的真实可用性，也可以反向作为 block / pattern 文档的证据来源。

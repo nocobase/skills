@@ -4,6 +4,13 @@
 
 故意验证多层 drawer/dialog 链路、上下文传递和嵌套页面编排能力，判断当前 skill 与 NocoBase API 在复杂弹窗工作流下是否真正可用。
 
+## 套件定位
+
+- 分层：`edge-detect`
+- 预期结果：`blocker-expected`
+- 主责任：覆盖嵌套 popup、多层上下文传递、二层编辑对话框
+- 辅助覆盖：`relation-context`、`record-actions`、`table-column-rendering`
+
 ## 前置数据模型
 
 - `customers`: 客户，字段至少包含 `id`、`name`

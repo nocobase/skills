@@ -4,6 +4,13 @@
 
 验证主表 + 详情抽屉 + 关系明细子表的组合场景，尤其是弹窗中的关系数据区块是否能稳定挂接。
 
+## 套件定位
+
+- 分层：`composite-pass`
+- 预期结果：`partial`
+- 主责任：验证第一层 `view popup`、popup 内 `Details + relation table`
+- 辅助覆盖：`popup-openview`、`relation-context`
+
 ## 前置数据模型
 
 - `suppliers`: 供应商，字段至少包含 `id`、`name`、`code`

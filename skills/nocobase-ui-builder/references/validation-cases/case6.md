@@ -4,6 +4,13 @@
 
 验证一对多关系表格、多个弹窗入口、主表与详情混合编排的综合场景，作为主干可用性阶段的收尾用例。
 
+## 套件定位
+
+- 分层：`core-pass`
+- 预期结果：`pass`
+- 主责任：覆盖同页多个 popup action、`CreateFormModel`、`EditFormModel`
+- 辅助覆盖：`popup-openview`、`relation-context`
+
 ## 前置数据模型
 
 - `customers`: 客户，字段至少包含 `id`、`name`

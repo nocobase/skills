@@ -12,6 +12,8 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 - `PostDesktoproutes_createv2`
 - `PostDesktoproutes_destroyv2`
+- `GetDesktoproutes_getaccessible`
+- `GetDesktoproutes_listaccessible`
 - `GetFlowmodels_findone`
 - `GetFlowmodels_schema`
 - `PostFlowmodels_schemas`
@@ -51,7 +53,7 @@ V1 默认采用 schema-first 的渐进支持策略：
    - 编译粒度是 `Page / Tabs / Grid / Table / Details / Action / Popup / RelationScope / Form`
    - 不要为单个 case 现场手搓整棵 flowModels 树
 4. 强 gate
-   - write-after-read mismatch、pre-open blocker、mandatory stage failure 都应在 gate 失败时直接截停
+   - write-after-read mismatch、route-ready 缺失、pre-open blocker、mandatory stage failure 都应在 gate 失败时直接截停
    - 推荐复用 `scripts/gate_engine.mjs` 的通用判定，不要把“停在何处”散落到 prompt 里
 5. 阶段耗时画像
    - 每轮至少记录 `schema_discovery`、`stable_metadata`、`write`、`readback`、`browser_attach`、`smoke`
@@ -217,7 +219,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 10. `CreateFormModel` / `EditFormModel` 的表单动作必须挂在 block 级 `subModels.actions`；不要把 `FormSubmitActionModel` / `JSFormActionModel` 塞进 `FormGridModel.subModels.items`
 11. `FormItemModel` 不能只写 `fieldSettings.init.fieldPath`；必须显式补 `subModels.field.use=<当前 schema/fieldBinding 给出的 editable field model>`，否则运行时只有字段壳，没有稳定可编辑 renderer
 12. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
-13. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要同时覆盖 block 级 `actions` 和 `TableActionsColumnModel` 里的记录动作
+13. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要显式声明 `kind + collectionName + scope`，并同时覆盖 block 级 `actions`、`DetailsBlockModel.actions` 和 `TableActionsColumnModel` 里的记录动作
 14. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过结构化 `requirements.requiredTabs` 声明给 guard；每项至少包含 `titles`，可选补 `pageUse`、`pageSignature`，默认 `requireBlockGrid=true`
 15. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续同目标 `GetFlowmodels_findone` 的 write-after-read 结果为准
 16. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
@@ -245,7 +247,7 @@ node scripts/flow_payload_guard.mjs audit-payload \
   --payload-json '<draft-payload-json>' \
   --metadata-json '<normalized-metadata-json>' \
   --mode validation-case \
-  --requirements-json '{"requiredActions":[{"kind":"edit-record-popup","collectionName":"order_items"}]}'
+  --requirements-json '{"requiredActions":[{"kind":"edit-record-popup","collectionName":"order_items","scope":"row-actions"}]}'
 ```
 
 `audit-payload` 返回 blocker 时，默认立即停止写入。只有确实需要保留风险时，才允许追加一条 `risk_accept` note，并重新运行一次 `audit-payload`：
@@ -383,6 +385,13 @@ NocoBase `resourcer` 的关键实现细节：
 - 相同 `schemaUid` 但 `title` / `icon` / `parentId` 不同，会返回 `409`
 - 它不会补齐缺失的 `uiSchemas` 或 `flowModels`
 
+它也不代表“页面已经可首开验证”：
+
+- `createV2` 成功只说明 page route / hidden tab / uiSchema / flowModel anchor 已经写库
+- 不保证前端当前会话里的 accessible route tree 已同步到新页面
+- 不保证首开时 `FlowRoute -> RootPageModel` 已经拿到可渲染的 route children
+- validation / review / 后续自动化在没有 route-ready 证据前，不得把页面记为 `success`
+
 # Opaque UID 辅助脚本
 
 本 skill 使用本地辅助脚本 `scripts/opaque_uid.mjs` 生成 opaque 标识，避免依赖 NocoBase 源码内部实现。
@@ -453,11 +462,20 @@ NocoBase `resourcer` 的关键实现细节：
 3. 读取返回的 `schemaUid`
 4. 调用 `PostDesktoproutes_createv2`：
    - `requestBody: { schemaUid, title, parentId, icon }`
-5. 读取页面根节点：
+5. 立即做 route-ready 检查，至少满足其一：
+   - `GetDesktoproutes_getaccessible({ filterByTk: "<schemaUid>" })` 能读到新页面
+   - 或 `GetDesktoproutes_listaccessible({ tree: true })` 中能看到：
+     - `schemaUid=<schemaUid>` 的 page route
+     - `schemaUid=tabs-<schemaUid>` 的隐藏 tab 子 route
+6. 如果 route-ready 检查失败：
+   - 只能记为“page shell created but route not ready”
+   - 不得继续把页面标成已可打开
+   - 不得把后续浏览器首开失败归因成 payload 已成功
+7. 读取页面根节点：
    - `GetFlowmodels_findone({ parentId: schemaUid, subKey: "page", includeAsyncNode: true })`
-6. 读取默认页签网格：
+8. 读取默认页签网格：
    - `GetFlowmodels_findone({ parentId: "tabs-{schemaUid}", subKey: "grid", includeAsyncNode: true })`
-7. 返回已创建页面的信息，以及解析出的根节点/网格 uid
+9. 只有同时拿到 route-ready + page 根节点 + 默认 grid 锚点后，才能返回“ready for validation”
 
 ## 读取页面
 
@@ -591,11 +609,13 @@ V1 可以修改现有页面，但必须严格控制范围：
 4. 造数完成后，必须先做一次最小校验，确认主表和关键关系表都已经有数据，再进入 UI 搭建。
 5. 最终结果必须把“数据准备结果”和“UI 搭建结果”分开说明；如果页面建好了但数据没准备好，本次任务不能算完整通过。
 6. 具体 validation 判定规则、造数基线和用例目录，统一见文末的 `Validation 总览`。
+7. 对 fresh build，新页面在 `createV2` 后默认仍处于“待首开验证”状态；除非 route-ready 与 pre-open gate 都通过，否则不能写“页面已可打开”。
 
 # 安全规则
 
 - 同一个页面初始化流程里，绝不要把旧版 `desktopRoutes:create` 和 `PostDesktoproutes_createv2` 混用
 - 绝不要把 `PostDesktoproutes_createv2` 当修复接口使用
+- 绝不要把 `PostDesktoproutes_createv2` + flowModels 锚点存在，误报成“页面已可打开”
 - 绝不要提交实时探测已标记为内部或未解析的模型 use
 - 如果区块请求体没通过 schema 校验，报告结构化错误，不要靠猜 key 反复重试
 - 每次写入后都重新读取受影响模型

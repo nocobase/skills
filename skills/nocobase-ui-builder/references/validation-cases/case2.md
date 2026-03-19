@@ -4,6 +4,13 @@
 
 验证同一页面中多个关系数据区块并排存在时，`nocobase-ui-builder` 是否还能保持稳定的探测、定位和写入，而不是只适合单一区块场景。
 
+## 套件定位
+
+- 分层：`core-pass`
+- 预期结果：`pass`
+- 主责任：覆盖 `DetailsBlockModel` 与同页多个关系 `TableBlockModel`
+- 辅助覆盖：`relation-context`、`popup-openview`
+
 ## 前置数据模型
 
 - `customers`: 客户，字段至少包含 `id`、`name`、`owner_id`、`level`

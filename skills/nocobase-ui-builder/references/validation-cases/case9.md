@@ -4,6 +4,13 @@
 
 故意验证多标签页面能力，而不是只验证默认隐藏 tab 的主干路径，观察当前 skill 和 API 在多 tab 页面上的可用程度。
 
+## 套件定位
+
+- 分层：`edge-detect`
+- 预期结果：`partial`
+- 主责任：覆盖显式 visible tabs 与 tab-grid readback
+- 辅助覆盖：页面级 `requiredTabs`、write-after-read 对账
+
 ## 前置数据模型
 
 - `customers`: 客户，字段至少包含 `id`、`name`、`level`

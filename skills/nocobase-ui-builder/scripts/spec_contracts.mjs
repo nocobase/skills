@@ -11,6 +11,10 @@ import {
   normalizeFormMode,
   normalizePageUse,
 } from './model_contracts.mjs';
+import {
+  resolveValidationCase,
+  resolveValidationCaseDocPath,
+} from './validation_case_registry.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
@@ -20,13 +24,21 @@ const BLOCK_USE_BY_KIND = {
   Page: 'RootPageModel',
   Tabs: 'RootPageTabModel',
   Grid: 'BlockGridModel',
+  Filter: 'FilterFormBlockModel',
   Table: 'TableBlockModel',
   Details: 'DetailsBlockModel',
 };
 
 const ACTION_USE_BY_KIND = {
+  'create-popup': 'AddNewActionModel',
+  'view-record-popup': 'ViewActionModel',
   'edit-record-popup': 'EditActionModel',
+  'add-child-record-popup': 'AddChildActionModel',
+  'record-action': 'JSRecordActionModel',
 };
+
+const SUPPORTED_BLOCK_KINDS = new Set(['Filter', 'Table', 'Details', 'Form']);
+const SUPPORTED_REQUIRED_ACTION_SCOPES = new Set(['block-actions', 'row-actions', 'details-actions', 'either']);
 
 function resolveActionUse(kind) {
   const resolvedUse = ACTION_USE_BY_KIND[kind];
@@ -131,19 +143,29 @@ function normalizeSource(rawSource, fallbackText) {
   };
 }
 
-function normalizeAction(action, index) {
+function normalizeAction(action, index, label = 'actions') {
   if (!action || typeof action !== 'object') {
-    throw new Error(`actions[${index}] must be an object`);
+    throw new Error(`${label}[${index}] must be an object`);
   }
-  const kind = normalizeNonEmpty(action.kind, `actions[${index}].kind`);
+  const kind = normalizeNonEmpty(action.kind, `${label}[${index}].kind`);
   return {
     kind,
     label: typeof action.label === 'string' && action.label.trim() ? action.label.trim() : kind,
     use: resolveActionUse(kind),
     popup: action.popup && typeof action.popup === 'object'
-      ? normalizePopup(action.popup, `actions[${index}].popup`)
+      ? normalizePopup(action.popup, `${label}[${index}].popup`)
       : null,
   };
+}
+
+function normalizeActions(actions, label) {
+  if (actions == null) {
+    return [];
+  }
+  if (!Array.isArray(actions)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return actions.map((item, index) => normalizeAction(item, index, label));
 }
 
 function normalizePopup(popup, label) {
@@ -167,6 +189,9 @@ function normalizeBlock(block, index, label = 'blocks') {
     throw new Error(`${label}[${index}] must be an object`);
   }
   const kind = normalizeNonEmpty(block.kind, `${label}[${index}].kind`);
+  if (!SUPPORTED_BLOCK_KINDS.has(kind)) {
+    throw new Error(`${label}[${index}].kind must be one of ${[...SUPPORTED_BLOCK_KINDS].join(', ')}`);
+  }
   const normalized = {
     kind,
     title: typeof block.title === 'string' && block.title.trim() ? block.title.trim() : '',
@@ -174,9 +199,9 @@ function normalizeBlock(block, index, label = 'blocks') {
       ? block.collectionName.trim()
       : '',
     fields: sortUniqueStrings(block.fields),
-    actions: Array.isArray(block.actions)
-      ? block.actions.map((item, actionIndex) => normalizeAction(item, actionIndex))
-      : [],
+    actions: normalizeActions(block.actions, `${label}[${index}].actions`),
+    rowActions: normalizeActions(block.rowActions, `${label}[${index}].rowActions`),
+    blocks: normalizeBlocks(block.blocks, `${label}[${index}].blocks`),
     relationScope: block.relationScope && typeof block.relationScope === 'object'
       ? {
         sourceCollection: typeof block.relationScope.sourceCollection === 'string' ? block.relationScope.sourceCollection.trim() : '',
@@ -188,6 +213,11 @@ function normalizeBlock(block, index, label = 'blocks') {
       ? normalizePopup(block.popup, `${label}[${index}].popup`)
       : null,
     mode: typeof block.mode === 'string' && block.mode.trim() ? normalizeFormMode(block.mode, `${label}[${index}].mode`) : '',
+    targetCollectionName: typeof block.targetCollectionName === 'string' && block.targetCollectionName.trim()
+      ? block.targetCollectionName.trim()
+      : '',
+    targetBlock: typeof block.targetBlock === 'string' && block.targetBlock.trim() ? block.targetBlock.trim() : '',
+    treeTable: block.treeTable === true,
   };
 
   if (normalized.kind === 'Form') {
@@ -225,19 +255,82 @@ function normalizeTabs(tabs) {
   });
 }
 
-function deriveRequiredActions(layout) {
-  const actions = [];
-  for (const block of [...layout.blocks, ...layout.tabs.flatMap((tab) => tab.blocks)]) {
-    for (const action of block.actions) {
-      if (action.kind === 'edit-record-popup' && block.collectionName) {
+function normalizeRequiredActions(explicit) {
+  if (!Array.isArray(explicit) || explicit.length === 0) {
+    return [];
+  }
+  return explicit.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error(`requirements.requiredActions[${index}] must be an object`);
+    }
+    const kind = normalizeNonEmpty(entry.kind, `requirements.requiredActions[${index}].kind`);
+    resolveActionUse(kind);
+    const collectionName = normalizeNonEmpty(
+      entry.collectionName,
+      `requirements.requiredActions[${index}].collectionName`,
+    );
+    const scope = typeof entry.scope === 'string' && entry.scope.trim() ? entry.scope.trim() : 'either';
+    if (!SUPPORTED_REQUIRED_ACTION_SCOPES.has(scope)) {
+      throw new Error(`requirements.requiredActions[${index}].scope must be one of ${[...SUPPORTED_REQUIRED_ACTION_SCOPES].join(', ')}`);
+    }
+    return {
+      kind,
+      collectionName,
+      scope,
+    };
+  });
+}
+
+function dedupeRequiredActions(actions) {
+  const seen = new Set();
+  return actions.filter((action) => {
+    const key = `${action.kind}:${action.collectionName}:${action.scope}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function collectRequiredActionsFromBlocks(blocks, scope, actions) {
+  for (const block of blocks) {
+    const collectionName = block.collectionName;
+    if (collectionName) {
+      for (const action of block.actions) {
         actions.push({
-          kind: 'edit-record-popup',
-          collectionName: block.collectionName,
+          kind: action.kind,
+          collectionName,
+          scope,
         });
       }
+      if (block.kind === 'Table') {
+        for (const action of block.rowActions) {
+          actions.push({
+            kind: action.kind,
+            collectionName,
+            scope: 'row-actions',
+          });
+        }
+      }
+    }
+    if (block.blocks.length > 0) {
+      collectRequiredActionsFromBlocks(
+        block.blocks,
+        block.kind === 'Details' ? 'details-actions' : scope,
+        actions,
+      );
     }
   }
-  return actions;
+}
+
+function deriveRequiredActions(layout) {
+  const actions = [];
+  collectRequiredActionsFromBlocks(layout.blocks, 'block-actions', actions);
+  for (const tab of layout.tabs) {
+    collectRequiredActionsFromBlocks(tab.blocks, 'block-actions', actions);
+  }
+  return dedupeRequiredActions(actions);
 }
 
 function deriveRequiredTabs(layout, explicit) {
@@ -292,6 +385,10 @@ export function normalizeBuildSpec(input) {
     tabs: normalizeTabs(layoutInput.tabs),
   };
 
+  const validationCaseInput = input.validationCase && typeof input.validationCase === 'object'
+    ? input.validationCase
+    : {};
+
   return {
     version: BUILD_SPEC_VERSION,
     source,
@@ -313,7 +410,7 @@ export function normalizeBuildSpec(input) {
     requirements: {
       requiredTabs: deriveRequiredTabs(layout, requirementsInput.requiredTabs),
       requiredActions: Array.isArray(requirementsInput.requiredActions) && requirementsInput.requiredActions.length > 0
-        ? requirementsInput.requiredActions
+        ? normalizeRequiredActions(requirementsInput.requiredActions)
         : deriveRequiredActions(layout),
     },
     options: {
@@ -321,6 +418,38 @@ export function normalizeBuildSpec(input) {
         ? optionsInput.compileMode.trim()
         : DEFAULT_BUILD_COMPILE_MODE,
       allowLegacyFallback: Boolean(optionsInput.allowLegacyFallback),
+    },
+    validationCase: {
+      caseId: typeof validationCaseInput.caseId === 'string' ? validationCaseInput.caseId.trim() : '',
+      title: typeof validationCaseInput.title === 'string' ? validationCaseInput.title.trim() : '',
+      docPath: typeof validationCaseInput.docPath === 'string' ? validationCaseInput.docPath.trim() : '',
+      tier: typeof validationCaseInput.tier === 'string' ? validationCaseInput.tier.trim() : '',
+      expectedOutcome: typeof validationCaseInput.expectedOutcome === 'string'
+        ? validationCaseInput.expectedOutcome.trim()
+        : '',
+      coverage: {
+        blocks: sortUniqueStrings(validationCaseInput.coverage?.blocks),
+        patterns: sortUniqueStrings(validationCaseInput.coverage?.patterns),
+      },
+      resolution: validationCaseInput.resolution && typeof validationCaseInput.resolution === 'object'
+        ? {
+          matched: Boolean(validationCaseInput.resolution.matched),
+          matchedBy: typeof validationCaseInput.resolution.matchedBy === 'string'
+            ? validationCaseInput.resolution.matchedBy.trim()
+            : '',
+          matchedValue: typeof validationCaseInput.resolution.matchedValue === 'string'
+            ? validationCaseInput.resolution.matchedValue.trim()
+            : '',
+          fallbackReason: typeof validationCaseInput.resolution.fallbackReason === 'string'
+            ? validationCaseInput.resolution.fallbackReason.trim()
+            : '',
+        }
+        : {
+          matched: false,
+          matchedBy: '',
+          matchedValue: '',
+          fallbackReason: '',
+        },
     },
   };
 }
@@ -392,17 +521,51 @@ export function normalizeVerifySpec(input) {
   };
 }
 
+function resolveBlockUse(block) {
+  if (block.kind === 'Form') {
+    return getFormUseForMode(block.mode);
+  }
+  return BLOCK_USE_BY_KIND[block.kind] || block.kind;
+}
+
+function collectRequiredUsesFromAction(action, requiredUses) {
+  requiredUses.add(action.use || 'ActionModel');
+  if (action.popup) {
+    requiredUses.add(action.popup.pageUse);
+    requiredUses.add('BlockGridModel');
+  }
+}
+
 function collectRequiredUsesFromBlock(block, requiredUses) {
   requiredUses.add(resolveBlockUse(block));
+  if (block.kind === 'Filter') {
+    requiredUses.add('FilterFormGridModel');
+    requiredUses.add('FilterFormItemModel');
+    requiredUses.add('FilterFormSubmitActionModel');
+    requiredUses.add('FilterFormResetActionModel');
+  }
   if (block.kind === 'Table') {
     requiredUses.add('TableColumnModel');
+    if (block.rowActions.length > 0) {
+      requiredUses.add('TableActionsColumnModel');
+    }
+  }
+  if (block.kind === 'Details') {
+    requiredUses.add('DetailsGridModel');
+  }
+  if (block.kind === 'Form') {
+    requiredUses.add('FormGridModel');
+    requiredUses.add('FormItemModel');
+    requiredUses.add('FormSubmitActionModel');
   }
   for (const action of block.actions) {
-    requiredUses.add(action.use || 'ActionModel');
-    if (action.popup) {
-      requiredUses.add(action.popup.pageUse);
-      requiredUses.add('BlockGridModel');
-    }
+    collectRequiredUsesFromAction(action, requiredUses);
+  }
+  for (const action of block.rowActions) {
+    collectRequiredUsesFromAction(action, requiredUses);
+  }
+  for (const childBlock of block.blocks) {
+    collectRequiredUsesFromBlock(childBlock, requiredUses);
   }
   if (block.popup) {
     requiredUses.add(block.popup.pageUse);
@@ -410,11 +573,21 @@ function collectRequiredUsesFromBlock(block, requiredUses) {
   }
 }
 
-function resolveBlockUse(block) {
-  if (block.kind === 'Form') {
-    return getFormUseForMode(block.mode);
+function maybeAddVerifyHintForAction(action, hintScope, verifyHints, stageIdPrefix) {
+  if (!action.label) {
+    return;
   }
-  return BLOCK_USE_BY_KIND[block.kind] || block.kind;
+  const triggerKind = hintScope === 'row-actions'
+    ? 'click-row-action'
+    : 'click-action';
+  verifyHints.push({
+    stageId: `${stageIdPrefix}-${hintScope}-${action.kind}-${verifyHints.length + 1}`,
+    title: action.label,
+    action: {
+      kind: triggerKind,
+      text: action.label,
+    },
+  });
 }
 
 function compilePopup(popup, scope, artifact) {
@@ -428,13 +601,18 @@ function compilePopup(popup, scope, artifact) {
   };
 }
 
-function compileActions(actions, scope, artifact) {
-  return actions.map((action, index) => ({
-    ...action,
-    popup: action.popup
-      ? compilePopup(action.popup, `${scope}.actions[${index}]`, artifact)
-      : null,
-  }));
+function compileActions(actions, scope, artifact, actionScope) {
+  return actions.map((action, index) => {
+    maybeAddVerifyHintForAction(action, actionScope, artifact.verifyHints, scope.replaceAll('.', '-'));
+    return {
+      ...action,
+      scope: actionScope,
+      path: `${scope}.${actionScope}[${index}]`,
+      popup: action.popup
+        ? compilePopup(action.popup, `${scope}.${actionScope}[${index}]`, artifact)
+        : null,
+    };
+  });
 }
 
 function compileBlocks(blocks, scope, artifact) {
@@ -462,10 +640,25 @@ function compileBlocks(blocks, scope, artifact) {
       title: block.title,
       collectionName: block.collectionName,
       fields: block.fields,
-      actions: compileActions(block.actions, `${scope}.blocks[${index}]`, artifact),
+      actions: compileActions(
+        block.actions,
+        `${scope}.blocks[${index}]`,
+        artifact,
+        block.kind === 'Details' ? 'details-actions' : 'block-actions',
+      ),
+      rowActions: compileActions(
+        block.rowActions,
+        `${scope}.blocks[${index}]`,
+        artifact,
+        'row-actions',
+      ),
+      blocks: compileBlocks(block.blocks, `${scope}.blocks[${index}]`, artifact),
       popup: compilePopup(block.popup, `${scope}.blocks[${index}]`, artifact),
       relationScope: block.relationScope,
       mode: block.mode,
+      targetCollectionName: block.targetCollectionName,
+      targetBlock: block.targetBlock,
+      treeTable: block.treeTable,
     };
   });
 }
@@ -483,6 +676,13 @@ export function compileBuildSpec(input) {
       relations: [],
     },
     guardRequirements: buildSpec.requirements,
+    matchedCaseId: buildSpec.validationCase.caseId,
+    matchedCaseTitle: buildSpec.validationCase.title,
+    matchedCaseDocPath: buildSpec.validationCase.docPath,
+    tier: buildSpec.validationCase.tier,
+    expectedOutcome: buildSpec.validationCase.expectedOutcome,
+    coverage: buildSpec.validationCase.coverage,
+    registryResolution: buildSpec.validationCase.resolution,
     readbackContract: {
       requiredTabs: buildSpec.requirements.requiredTabs.map((item) => ({
         pageSignature: item.pageSignature ?? null,
@@ -495,6 +695,18 @@ export function compileBuildSpec(input) {
       requiredTopLevelUses: [],
     },
     verifyHints: [],
+    coverageStatus: [
+      ...buildSpec.validationCase.coverage.blocks.map((target) => ({
+        targetType: 'block',
+        target,
+        status: 'unverified',
+      })),
+      ...buildSpec.validationCase.coverage.patterns.map((target) => ({
+        targetType: 'pattern',
+        target,
+        status: 'unverified',
+      })),
+    ],
     issues: [],
     primitiveTree: null,
   };
@@ -546,8 +758,16 @@ export function compileBuildSpec(input) {
         relations: artifact.requiredMetadataRefs.relations,
       },
       guardRequirements: artifact.guardRequirements,
+      matchedCaseId: artifact.matchedCaseId,
+      matchedCaseTitle: artifact.matchedCaseTitle,
+      matchedCaseDocPath: artifact.matchedCaseDocPath,
+      tier: artifact.tier,
+      expectedOutcome: artifact.expectedOutcome,
+      coverage: artifact.coverage,
+      registryResolution: artifact.registryResolution,
       readbackContract: artifact.readbackContract,
       verifyHints: artifact.verifyHints,
+      coverageStatus: artifact.coverageStatus,
       issues: artifact.issues,
     },
   };
@@ -562,31 +782,68 @@ export function buildValidationSpecsForRun({
 }) {
   const requestText = normalizeNonEmpty(caseRequest, 'case request');
   const normalizedSessionId = normalizeNonEmpty(sessionId, 'session id');
+  const resolution = resolveValidationCase({
+    caseRequest: requestText,
+    baseSlug,
+  });
+  const resolvedCase = resolution.caseDefinition;
+  const validationCase = resolvedCase
+    ? {
+      caseId: resolvedCase.id,
+      title: resolvedCase.title,
+      docPath: resolveValidationCaseDocPath(resolvedCase),
+      tier: resolvedCase.tier,
+      expectedOutcome: resolvedCase.expectedOutcome,
+      coverage: resolvedCase.coverage,
+      resolution: {
+        matched: true,
+        matchedBy: resolution.matchedBy,
+        matchedValue: resolution.matchedValue,
+        fallbackReason: '',
+      },
+    }
+    : {
+      caseId: '',
+      title: '',
+      docPath: '',
+      tier: '',
+      expectedOutcome: '',
+      coverage: {
+        blocks: [],
+        patterns: [],
+      },
+      resolution: {
+        matched: false,
+        matchedBy: '',
+        matchedValue: '',
+        fallbackReason: resolution.fallbackReason || 'CASE_REGISTRY_UNMATCHED',
+      },
+    };
+
   const buildSpec = normalizeBuildSpec({
+    ...(resolvedCase?.buildSpecInput || {}),
     source: {
       kind: 'validation-request',
       text: requestText,
       sessionId: normalizedSessionId,
     },
     target: {
-      title: `${baseSlug || 'validation'} fresh build`,
+      ...(resolvedCase?.buildSpecInput?.target || {}),
+      title: resolvedCase?.buildSpecInput?.target?.title || resolvedCase?.title || `${baseSlug || 'validation'} fresh build`,
       buildPolicy: 'fresh',
       routeSegmentCandidate: normalizedSessionId,
       candidatePageUrl,
     },
-    layout: {
-      pageUse: 'RootPageModel',
-      blocks: [],
-      tabs: [],
-    },
-    requirements: {},
     options: {
       compileMode: DEFAULT_BUILD_COMPILE_MODE,
       allowLegacyFallback: false,
+      ...(resolvedCase?.buildSpecInput?.options || {}),
     },
+    validationCase,
   });
 
   const verifySpec = normalizeVerifySpec({
+    ...(resolvedCase?.verifySpecInput || {}),
     source: {
       kind: 'validation-request',
       text: requestText,
@@ -595,8 +852,11 @@ export function buildValidationSpecsForRun({
     entry: {
       candidatePageUrl,
       requiresAuth: true,
+      ...(resolvedCase?.verifySpecInput?.entry || {}),
+      candidatePageUrl,
+      requiresAuth: resolvedCase?.verifySpecInput?.entry?.requiresAuth !== false,
     },
-    preOpen: {
+    preOpen: resolvedCase?.verifySpecInput?.preOpen || {
       assertions: [
         {
           kind: 'page-reachable',
@@ -605,15 +865,21 @@ export function buildValidationSpecsForRun({
         },
       ],
     },
-    stages: [],
     gatePolicy: {
       stopOnBuildGateFailure: true,
       stopOnPreOpenBlocker: true,
       stopOnStageFailure: true,
+      ...(resolvedCase?.verifySpecInput?.gatePolicy || {}),
     },
   });
 
   const compiled = compileBuildSpec(buildSpec);
+  if (!resolution.matched) {
+    compiled.compileArtifact.issues.push({
+      code: 'CASE_REGISTRY_UNMATCHED',
+      message: `未能根据请求 "${requestText}" 匹配到结构化 validation case，已回退到 generic skeleton。`,
+    });
+  }
 
   return {
     buildSpec,

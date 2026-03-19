@@ -4,6 +4,13 @@
 
 故意验证树表、自关联关系和新增下级节点这类偏复杂的边界场景，评估当前 API 与 skill 是否真的能处理层级型业务数据。
 
+## 套件定位
+
+- 分层：`edge-detect`
+- 预期结果：`partial`
+- 主责任：覆盖 `tree-table`、自关联和 `add-child`
+- 辅助覆盖：`record-actions`
+
 ## 前置数据模型
 
 - `departments`: 部门，字段至少包含 `id`、`name`、`parent_id`、`manager_id`

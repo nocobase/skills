@@ -53,16 +53,19 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 
 - 用户只要单页时，默认隐藏 tab 即可，不必强造显式 tabs
 - 用户明确要求“多个可见标签”时，必须能区分默认隐藏 tab 与显式 tab
+- `createV2` 后必须额外确认 page route 与隐藏 tab 已进入 accessible route tree；仅有 flowModels 锚点不算 page ready
 - 每个 tab 的 block 都要挂到正确 grid，不能只创建 page 壳
 - `save` 之后必须做 write-after-read；至少核对 tab 数、tab 标题和每个 tab 的 grid 是否真的存在
 - 自动对账只在写操作与 `GetFlowmodels_findone` 都显式带同一个 `args.targetSignature`、且 `tool_call.result.summary` 已落下结构化摘要时成立
 - 如果 readback 只剩 page 壳或 `Add block`，即使 `save` 返回成功，也必须判成 `partial/failed`
+- fresh build 若首开前缺少 route-ready 证据，只能记为“page shell created”，不能记为“页面可打开”
 
 ## 常见陷阱
 
 - 把默认隐藏 tab 当成显式 tabs 能力
 - 写 block 时定位错了 page 根和 tab grid
 - 以为 `createV2` 会自动补齐显式 tabs
+- 以为 `createV2` + `GetFlowmodels_findone(page/grid)` 就足以证明页面首开可用
 - `save` 返回了 `tabCount` 就直接宣布成功，却没有看 write-after-read
 - 在显式 tabs 能力不足时，静默退回默认隐藏 tab 却不说明
 

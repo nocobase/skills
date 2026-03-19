@@ -48,6 +48,19 @@ const metadata = {
         { name: 'role', type: 'string', interface: 'select' },
       ],
     },
+    departments: {
+      titleField: 'name',
+      fields: [
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+    approval_requests: {
+      titleField: 'title',
+      fields: [
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+      ],
+    },
   },
 };
 
@@ -245,6 +258,230 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
                                   },
                                 },
                               ],
+                            },
+                          },
+                          actions: [
+                            {
+                              use: 'FormSubmitActionModel',
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function makeCreatePopupAction(collectionName = 'order_items', title = '新建记录') {
+  return {
+    use: 'AddNewActionModel',
+    stepParams: {
+      buttonSettings: {
+        general: {
+          title,
+        },
+      },
+      popupSettings: {
+        openView: {
+          mode: 'dialog',
+          collectionName,
+          pageModelClass: 'ChildPageModel',
+        },
+      },
+    },
+    subModels: {
+      page: {
+        use: 'ChildPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'ChildPageTabModel',
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [
+                      {
+                        use: 'CreateFormModel',
+                        stepParams: {
+                          resourceSettings: {
+                            init: {
+                              collectionName,
+                            },
+                          },
+                        },
+                        subModels: {
+                          grid: {
+                            use: 'FormGridModel',
+                            subModels: {
+                              items: [
+                                {
+                                  use: 'FormItemModel',
+                                  stepParams: {
+                                    fieldSettings: {
+                                      init: {
+                                        collectionName,
+                                        fieldPath: 'quantity',
+                                      },
+                                    },
+                                  },
+                                  subModels: {
+                                    field: {
+                                      use: 'InputFieldModel',
+                                    },
+                                  },
+                                },
+                              ],
+                            },
+                          },
+                          actions: [
+                            {
+                              use: 'FormSubmitActionModel',
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function makeViewRecordPopupAction(collectionName = 'order_items', title = '查看详情') {
+  return {
+    use: 'ViewActionModel',
+    stepParams: {
+      buttonSettings: {
+        general: {
+          title,
+        },
+      },
+      popupSettings: {
+        openView: {
+          mode: 'dialog',
+          collectionName,
+          pageModelClass: 'ChildPageModel',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+    },
+    subModels: {
+      page: {
+        use: 'ChildPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'ChildPageTabModel',
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [
+                      {
+                        use: 'DetailsBlockModel',
+                        stepParams: {
+                          resourceSettings: {
+                            init: {
+                              collectionName,
+                              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+                            },
+                          },
+                        },
+                        subModels: {
+                          grid: {
+                            use: 'DetailsGridModel',
+                            subModels: {
+                              items: [
+                                {
+                                  use: 'DetailsItemModel',
+                                  stepParams: {
+                                    fieldSettings: {
+                                      init: {
+                                        collectionName,
+                                        fieldPath: 'quantity',
+                                      },
+                                    },
+                                  },
+                                  subModels: {
+                                    field: {
+                                      use: 'DisplayTextFieldModel',
+                                    },
+                                  },
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function makeAddChildPopupAction(collectionName = 'departments', title = '新增下级部门') {
+  return {
+    use: 'AddChildActionModel',
+    stepParams: {
+      buttonSettings: {
+        general: {
+          title,
+        },
+      },
+      popupSettings: {
+        openView: {
+          mode: 'drawer',
+          collectionName,
+          pageModelClass: 'ChildPageModel',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+    },
+    subModels: {
+      page: {
+        use: 'ChildPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'ChildPageTabModel',
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [
+                      {
+                        use: 'CreateFormModel',
+                        stepParams: {
+                          resourceSettings: {
+                            init: {
+                              collectionName,
+                            },
+                          },
+                        },
+                        subModels: {
+                          grid: {
+                            use: 'FormGridModel',
+                            subModels: {
+                              items: [],
                             },
                           },
                           actions: [
@@ -1408,6 +1645,105 @@ test('auditPayload accepts declared edit-record-popup requirements when stable a
   });
 
   assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared create-popup requirements in block actions slot', () => {
+  const payload = makeActionTargetBlock('order_items', [makeCreatePopupAction('order_items', '新建订单项')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'create-popup',
+          collectionName: 'order_items',
+          scope: 'block-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_CREATE_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared view-record-popup requirements in row actions slot', () => {
+  const payload = makeRowActionTargetBlock('order_items', [makeViewRecordPopupAction('order_items')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'view-record-popup',
+          collectionName: 'order_items',
+          scope: 'row-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_VIEW_RECORD_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared add-child-record-popup requirements in row actions slot', () => {
+  const payload = makeRowActionTargetBlock('departments', [makeAddChildPopupAction('departments')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'add-child-record-popup',
+          collectionName: 'departments',
+          scope: 'row-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_ADD_CHILD_RECORD_POPUP_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload accepts declared record-action requirements in details actions slot', () => {
+  const payload = makeDetailsActionTargetBlock('approval_requests', [
+    {
+      use: 'JSRecordActionModel',
+      stepParams: {
+        buttonSettings: {
+          general: {
+            title: '通过',
+          },
+        },
+      },
+    },
+  ]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'record-action',
+          collectionName: 'approval_requests',
+          scope: 'details-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_RECORD_ACTION_MISSING'), false);
   assert.equal(result.ok, true);
 });
 

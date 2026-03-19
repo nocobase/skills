@@ -4,6 +4,13 @@
 
 故意验证多对多关系、中间表字段和关联选择弹窗的组合场景，评估当前 skill 和 API 在复杂关系数据块上的真实能力边界。
 
+## 套件定位
+
+- 分层：`edge-detect`
+- 预期结果：`blocker-expected`
+- 主责任：覆盖 `many-to-many-and-through`、through 中间表编辑
+- 辅助覆盖：`record-actions`、`relation-context`
+
 ## 前置数据模型
 
 - `projects`: 项目，字段至少包含 `id`、`name`、`status`

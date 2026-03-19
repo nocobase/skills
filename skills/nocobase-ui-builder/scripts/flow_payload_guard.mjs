@@ -84,6 +84,7 @@ const FILTER_FORM_ACTION_MODEL_USES = new Set([
 ]);
 const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel']);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
+const CREATE_FORM_MODEL_USES = new Set(['CreateFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
 const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'TableColumnModel',
@@ -264,6 +265,19 @@ function normalizeRequirementKind(value, label) {
   return normalizeNonEmpty(value, label).toLowerCase();
 }
 
+function normalizeRequiredActionScope(value, label) {
+  const normalized = typeof value === 'string' && value.trim() ? value.trim() : 'either';
+  if (
+    normalized !== 'block-actions'
+    && normalized !== 'row-actions'
+    && normalized !== 'details-actions'
+    && normalized !== 'either'
+  ) {
+    throw new Error(`${label} must be one of block-actions, row-actions, details-actions, either`);
+  }
+  return normalized;
+}
+
 function normalizeRequiredAction(entry, index) {
   if (!isPlainObject(entry)) {
     throw new Error(`requirements.requiredActions[${index}] must be an object`);
@@ -274,14 +288,22 @@ function normalizeRequiredAction(entry, index) {
     entry.collectionName,
     `requirements.requiredActions[${index}].collectionName`,
   );
+  const scope = normalizeRequiredActionScope(entry.scope, `requirements.requiredActions[${index}].scope`);
 
-  if (kind !== 'edit-record-popup') {
+  if (
+    kind !== 'create-popup'
+    && kind !== 'view-record-popup'
+    && kind !== 'edit-record-popup'
+    && kind !== 'add-child-record-popup'
+    && kind !== 'record-action'
+  ) {
     throw new Error(`Unsupported required action kind "${kind}"`);
   }
 
   return {
     kind,
     collectionName,
+    scope,
   };
 }
 
@@ -795,8 +817,14 @@ function subtreeReferencesCollection(node, collectionName) {
   return matched;
 }
 
-function hasEditRecordPopupAction(actionNode, collectionName) {
-  if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string' || !RECORD_ACTION_MODEL_USES.has(actionNode.use)) {
+function hasPopupActionWithRequirements(actionNode, {
+  collectionName,
+  titlePattern,
+  requireRecordContext,
+  requiredFormUses,
+  allowedActionUses,
+}) {
+  if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string' || !allowedActionUses.has(actionNode.use)) {
     return false;
   }
 
@@ -810,26 +838,69 @@ function hasEditRecordPopupAction(actionNode, collectionName) {
       (value) => typeof value === 'string'
         && (value.includes('{{ctx.record.id}}') || value.includes(POPUP_INPUT_ARGS_FILTER_BY_TK)),
     );
-  const mentionsEdit = /编辑|edit/i.test(title)
-    || /Edit/i.test(actionNode.use)
-    || strings.some((value) => typeof value === 'string' && /(编辑订单项|编辑|edit)/i.test(value));
+  const mentionsIntent = titlePattern.test(title)
+    || titlePattern.test(actionNode.use)
+    || strings.some((value) => typeof value === 'string' && titlePattern.test(value));
   const targetsCollection = openView?.collectionName === collectionName || subtreeReferencesCollection(pageNode, collectionName);
-  const hasEditForm = countUses(actionNode, EDIT_FORM_MODEL_USES) > 0;
+  const hasRequiredForm = requiredFormUses ? countUses(actionNode, requiredFormUses) > 0 : true;
 
-  return hasPopup && hasRecordContext && mentionsEdit && targetsCollection && hasEditForm;
+  return hasPopup
+    && (!requireRecordContext || hasRecordContext)
+    && mentionsIntent
+    && targetsCollection
+    && hasRequiredForm;
 }
 
-function hasEditRecordPopupActionInSubtree(node, collectionName) {
-  let matched = false;
-  walk(node, (child) => {
-    if (matched) {
-      return;
-    }
-    if (hasEditRecordPopupAction(child, collectionName)) {
-      matched = true;
-    }
-  });
-  return matched;
+function hasRequiredAction(actionNode, requirement, collectionName) {
+  if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string') {
+    return false;
+  }
+
+  if (requirement.kind === 'edit-record-popup') {
+    return hasPopupActionWithRequirements(actionNode, {
+      collectionName,
+      titlePattern: /(编辑订单项|编辑|edit)/i,
+      requireRecordContext: true,
+      requiredFormUses: EDIT_FORM_MODEL_USES,
+      allowedActionUses: RECORD_ACTION_MODEL_USES,
+    });
+  }
+
+  if (requirement.kind === 'view-record-popup') {
+    return hasPopupActionWithRequirements(actionNode, {
+      collectionName,
+      titlePattern: /(查看|详情|view)/i,
+      requireRecordContext: true,
+      requiredFormUses: null,
+      allowedActionUses: RECORD_ACTION_MODEL_USES,
+    }) && countUses(actionNode, BUSINESS_BLOCK_MODEL_USES) > 0;
+  }
+
+  if (requirement.kind === 'create-popup') {
+    return hasPopupActionWithRequirements(actionNode, {
+      collectionName,
+      titlePattern: /(新建|创建|添加|登记|create|add)/i,
+      requireRecordContext: false,
+      requiredFormUses: CREATE_FORM_MODEL_USES,
+      allowedActionUses: COLLECTION_ACTION_MODEL_USES,
+    });
+  }
+
+  if (requirement.kind === 'add-child-record-popup') {
+    return hasPopupActionWithRequirements(actionNode, {
+      collectionName,
+      titlePattern: /(新增下级|下级|addchild|add child|child)/i,
+      requireRecordContext: true,
+      requiredFormUses: CREATE_FORM_MODEL_USES,
+      allowedActionUses: RECORD_ACTION_MODEL_USES,
+    });
+  }
+
+  if (requirement.kind === 'record-action') {
+    return RECORD_ACTION_MODEL_USES.has(actionNode.use);
+  }
+
+  return false;
 }
 
 function findNestedRelationBlocks(pageNode, parentCollectionName) {
@@ -873,11 +944,93 @@ function findNestedRelationBlocks(pageNode, parentCollectionName) {
   return findings;
 }
 
-function inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, seen) {
+function getRequiredActionMissingCode(kind) {
+  if (kind === 'create-popup') {
+    return 'REQUIRED_CREATE_POPUP_ACTION_MISSING';
+  }
+  if (kind === 'view-record-popup') {
+    return 'REQUIRED_VIEW_RECORD_POPUP_ACTION_MISSING';
+  }
+  if (kind === 'add-child-record-popup') {
+    return 'REQUIRED_ADD_CHILD_RECORD_POPUP_ACTION_MISSING';
+  }
+  if (kind === 'record-action') {
+    return 'REQUIRED_RECORD_ACTION_MISSING';
+  }
+  return 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING';
+}
+
+function buildRequiredActionMissingMessage(kind, collectionName, scope) {
+  if (kind === 'create-popup') {
+    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的新建 popup 动作树，但当前未发现满足条件的 action/page/CreateForm 结构。`;
+  }
+  if (kind === 'view-record-popup') {
+    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的查看 popup 动作树，但当前未发现满足条件的 action/page/Details 结构。`;
+  }
+  if (kind === 'add-child-record-popup') {
+    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的新增下级 popup 动作树，但当前未发现满足条件的 action/page/CreateForm 结构。`;
+  }
+  if (kind === 'record-action') {
+    return `显式要求 ${collectionName} 在 ${scope} 提供 record action，但当前未发现满足条件的记录级动作。`;
+  }
+  return `显式要求 ${collectionName} 在 ${scope} 提供稳定的记录级编辑 popup 动作树，但当前未发现满足条件的 action/page/EditForm 结构。`;
+}
+
+function scopeMatchesRequirement(requirementScope, candidateScope) {
+  return requirementScope === 'either' || requirementScope === candidateScope;
+}
+
+function listActionSlotsForNode(node, pathValue) {
+  const slots = [];
+  if (!isPlainObject(node) || typeof node.use !== 'string') {
+    return slots;
+  }
+
+  if (node.use === 'TableBlockModel') {
+    slots.push({
+      scope: 'block-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
+    const columns = Array.isArray(node.subModels?.columns) ? node.subModels.columns : [];
+    columns.forEach((columnNode, columnIndex) => {
+      if (!isPlainObject(columnNode) || columnNode.use !== 'TableActionsColumnModel') {
+        return;
+      }
+      slots.push({
+        scope: 'row-actions',
+        path: `${pathValue}.subModels.columns[${columnIndex}].subModels.actions`,
+        actions: Array.isArray(columnNode.subModels?.actions) ? columnNode.subModels.actions : [],
+      });
+    });
+    return slots;
+  }
+
+  if (node.use === 'DetailsBlockModel') {
+    slots.push({
+      scope: 'details-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
+  }
+
+  return slots;
+}
+
+function inspectRequiredAction(payload, requirement, mode, blockers, seen) {
   let matchedBlockCount = 0;
 
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || !ACTION_HOST_MODEL_USES.has(node.use)) {
+      return;
+    }
+    if (requirement.scope === 'row-actions' && node.use !== 'TableBlockModel') {
+      return;
+    }
+    if (requirement.scope === 'details-actions' && node.use !== 'DetailsBlockModel') {
+      return;
+    }
+    if (requirement.scope === 'block-actions' && node.use !== 'TableBlockModel') {
       return;
     }
 
@@ -887,25 +1040,25 @@ function inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, se
     }
 
     matchedBlockCount += 1;
-    const directActions = Array.isArray(node.subModels?.actions) ? node.subModels.actions : [];
-    if (
-      directActions.some((actionNode) => hasEditRecordPopupAction(actionNode, collectionName))
-      || hasEditRecordPopupActionInSubtree(node.subModels, collectionName)
-    ) {
+    const relevantSlots = listActionSlotsForNode(node, pathValue)
+      .filter((slot) => scopeMatchesRequirement(requirement.scope, slot.scope));
+    if (relevantSlots.some((slot) => slot.actions.some((actionNode) => hasRequiredAction(actionNode, requirement, collectionName)))) {
       return;
     }
 
+    const blockerPath = relevantSlots[0]?.path || `${pathValue}.subModels.actions`;
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
-      code: 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING',
-      message: `显式要求 ${collectionName} 提供稳定的记录级编辑 popup 动作树，但当前未发现满足条件的 action/page/EditForm 结构。`,
-      path: `${pathValue}.subModels.actions`,
+      code: getRequiredActionMissingCode(requirement.kind),
+      message: buildRequiredActionMissingMessage(requirement.kind, collectionName, requirement.scope),
+      path: blockerPath,
       mode,
-      dedupeKey: `REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING:${pathValue}`,
+      dedupeKey: `${getRequiredActionMissingCode(requirement.kind)}:${pathValue}:${requirement.scope}`,
       details: {
         collectionName,
         requiredAction: requirement.kind,
-        actionCount: directActions.length,
+        actionScope: requirement.scope,
+        slotCount: relevantSlots.length,
       },
     }));
   });
@@ -930,9 +1083,7 @@ function inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, se
 
 function inspectDeclaredRequirements(payload, mode, requirements, blockers, seen) {
   for (const requirement of requirements.requiredActions) {
-    if (requirement.kind === 'edit-record-popup') {
-      inspectRequiredEditRecordPopup(payload, requirement, mode, blockers, seen);
-    }
+    inspectRequiredAction(payload, requirement, mode, blockers, seen);
   }
   for (const requirement of requirements.requiredTabs) {
     inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen);

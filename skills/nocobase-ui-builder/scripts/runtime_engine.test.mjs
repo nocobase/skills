@@ -272,6 +272,75 @@ test('spec normalization and compile derive guard requirements and readback cont
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].popup, null);
 });
 
+test('spec normalization supports filter blocks, row actions and nested details blocks', () => {
+  const compiled = compileBuildSpec({
+    source: '构建综合工作台',
+    target: {
+      title: '综合工作台',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Filter',
+          collectionName: 'orders',
+          fields: ['order_no', 'status'],
+        },
+        {
+          kind: 'Table',
+          collectionName: 'orders',
+          fields: ['order_no', 'customer.name'],
+          actions: [
+            {
+              kind: 'create-popup',
+              popup: {
+                blocks: [
+                  {
+                    kind: 'Form',
+                    mode: 'create',
+                    collectionName: 'orders',
+                    fields: ['order_no'],
+                  },
+                ],
+              },
+            },
+          ],
+          rowActions: [
+            {
+              kind: 'view-record-popup',
+              popup: {
+                blocks: [
+                  {
+                    kind: 'Details',
+                    collectionName: 'orders',
+                    fields: ['order_no'],
+                    blocks: [
+                      {
+                        kind: 'Table',
+                        collectionName: 'order_items',
+                        fields: ['quantity'],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(compiled.compileArtifact.requiredUses.includes('FilterFormBlockModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('FilterFormItemModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('TableActionsColumnModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('AddNewActionModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('ViewActionModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('CreateFormModel'), true);
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].use, 'ViewActionModel');
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].use, 'DetailsBlockModel');
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].blocks[0].use, 'TableBlockModel');
+});
+
 test('spec normalization defaults popup pages to ChildPageModel instead of generic PageModel', () => {
   const compiled = compileBuildSpec({
     source: '构建订单查看弹窗',
@@ -310,7 +379,7 @@ test('spec normalization defaults popup pages to ChildPageModel instead of gener
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.blocks[0].use, 'DetailsBlockModel');
   assert.equal(
     compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.blocks[0].path,
-    '$.page.blocks[0].actions[0].popup.blocks[0]',
+    '$.page.blocks[0].block-actions[0].popup.blocks[0]',
   );
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('order_items'), true);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('order_items.id'), true);
@@ -404,7 +473,7 @@ test('spec normalization rejects unsupported generic action kinds instead of sil
   }), /Unsupported action kind "custom-action"/);
 });
 
-test('validation run helper emits default BuildSpec and VerifySpec artifacts', () => {
+test('validation run helper resolves structured validation cases and emits coverage metadata', () => {
   const result = buildValidationSpecsForRun({
     caseRequest: '针对 case9 跑完整流程',
     sessionId: '20260319T075530-case9',
@@ -416,6 +485,24 @@ test('validation run helper emits default BuildSpec and VerifySpec artifacts', (
   assert.equal(result.buildSpec.target.buildPolicy, 'fresh');
   assert.equal(result.verifySpec.entry.requiresAuth, true);
   assert.equal(result.compileArtifact.compileMode, 'primitive-tree');
+  assert.equal(result.compileArtifact.matchedCaseId, 'case9');
+  assert.equal(result.compileArtifact.coverage.blocks.includes('RootPageTabModel'), true);
+  assert.equal(result.compileArtifact.readbackContract.requiredTabCount, 4);
+  assert.equal(result.compileArtifact.issues.length, 0);
+});
+
+test('validation run helper falls back to generic skeleton for unmatched requests', () => {
+  const result = buildValidationSpecsForRun({
+    caseRequest: '搭一个完全新的未知场景',
+    sessionId: '20260319T075530-custom',
+    baseSlug: 'unknown-demo',
+    candidatePageUrl: 'http://localhost:23000/admin/unknown-demo',
+    sessionDir: '/tmp/session',
+  });
+
+  assert.equal(result.compileArtifact.matchedCaseId, '');
+  assert.equal(result.compileArtifact.registryResolution.matched, false);
+  assert.equal(result.compileArtifact.issues[0].code, 'CASE_REGISTRY_UNMATCHED');
 });
 
 test('verify spec normalization preserves stages and pre-open assertions', () => {

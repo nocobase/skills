@@ -5,17 +5,29 @@ description: nocobase-ui-builder 的 validation 用例索引。
 
 # Validation Cases
 
-| 用例 | 主题 |
-| --- | --- |
-| [case1.md](case1.md) | 订单中心主页面 |
-| [case2.md](case2.md) | 客户 360 工作台 |
-| [case3.md](case3.md) | 采购单与明细抽屉 |
-| [case4.md](case4.md) | 项目协同工作台 |
-| [case5.md](case5.md) | 审批详情与日志 |
-| [case6.md](case6.md) | 发票与回款 |
-| [case7.md](case7.md) | 组织树与下级部门 |
-| [case8.md](case8.md) | 项目成员与中间表 |
-| [case9.md](case9.md) | 多标签页 |
-| [case10.md](case10.md) | 嵌套弹窗链路 |
+## 分层说明
+
+- `core-pass`: 主干 block family 的回归入口，应尽量稳定跑通。
+- `composite-pass`: 多区块/多层上下文协同，允许局部能力暴露缺口。
+- `edge-detect`: 边界 case，目标是稳定定位 blocker，不是假装通过。
+
+## 用例列表
+
+| 用例 | 分层 | 预期结果 | 主责任 |
+| --- | --- | --- | --- |
+| [case1.md](case1.md) | `core-pass` | `pass` | `FilterForm + Table + Create/Edit` 主干 happy path |
+| [case2.md](case2.md) | `core-pass` | `pass` | `Details + relation tables` |
+| [case3.md](case3.md) | `composite-pass` | `partial` | 第一层 `view popup` + popup 内关系表 |
+| [case4.md](case4.md) | `core-pass` | `pass` | 综合 CRUD 工作台与多区块协同 |
+| [case5.md](case5.md) | `composite-pass` | `partial` | `record actions` 与审批日志链路 |
+| [case6.md](case6.md) | `core-pass` | `pass` | 同页多个 popup action + 详情/关系表 |
+| [case7.md](case7.md) | `edge-detect` | `partial` | 树表、自关联、`add-child` |
+| [case8.md](case8.md) | `edge-detect` | `blocker-expected` | 多对多、through、中间表编辑 |
+| [case9.md](case9.md) | `edge-detect` | `partial` | 显式 visible tabs |
+| [case10.md](case10.md) | `edge-detect` | `blocker-expected` | 嵌套 popup、多层上下文传递 |
+
+## 覆盖矩阵
+
+- [coverage-matrix.md](coverage-matrix.md)
 
 这些用例既用于验证 skill 的真实可用性，也可以反向作为 block / pattern 文档的证据来源。

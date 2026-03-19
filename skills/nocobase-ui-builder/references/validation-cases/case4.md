@@ -4,6 +4,13 @@
 
 验证筛选区块、主表、详情弹窗、关联任务表和新增/编辑表单在同一个业务流里的协同能力。
 
+## 套件定位
+
+- 分层：`core-pass`
+- 预期结果：`pass`
+- 主责任：综合 CRUD 工作台，覆盖 `Filter + Table + Details + Create/Edit`
+- 辅助覆盖：`popup-openview`、`relation-context`
+
 ## 前置数据模型
 
 - `projects`: 项目，字段至少包含 `id`、`name`、`status`、`owner_id`、`start_date`、`end_date`

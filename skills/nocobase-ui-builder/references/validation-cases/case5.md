@@ -4,6 +4,13 @@
 
 验证详情区块、关系日志表格和记录级操作在一个审批业务场景中的组合能力，重点观察 record actions 是否足够实用。
 
+## 套件定位
+
+- 分层：`composite-pass`
+- 预期结果：`partial`
+- 主责任：覆盖 `record-actions` 与 `Details + relation table` 的审批链路
+- 辅助覆盖：`relation-context`
+
 ## 前置数据模型
 
 - `approval_requests`: 审批单，字段至少包含 `id`、`title`、`applicant_id`、`department_id`、`status`、`submitted_at`
