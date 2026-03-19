@@ -320,9 +320,37 @@ node scripts/opaque_uid.mjs node-uids \
               "subModels": {
                 "grid": {
                   "uid": "f2m7q4x9p3ta",
-                  "use": "FormGridModel"
+                  "use": "FormGridModel",
+                  "subModels": {
+                    "items": [
+                      {
+                        "uid": "f2m7q4x9p3tb",
+                        "use": "FormItemModel",
+                        "stepParams": {
+                          "fieldSettings": {
+                            "init": {
+                              "dataSourceKey": "main",
+                              "collectionName": "orders",
+                              "fieldPath": "order_no"
+                            }
+                          }
+                        },
+                        "subModels": {
+                          "field": {
+                            "uid": "f2m7q4x9p3tc",
+                            "use": "InputFieldModel"
+                          }
+                        }
+                      }
+                    ]
+                  }
                 },
-                "actions": []
+                "actions": [
+                  {
+                    "uid": "f2m7q4x9p3td",
+                    "use": "FormSubmitActionModel"
+                  }
+                ]
               }
             }
           }
@@ -339,6 +367,9 @@ node scripts/opaque_uid.mjs node-uids \
 - `CreateFormModel` 是公共模型
 - `FormBlockModel` 是内部模型，不能直接提交
 - 如果当前 `schemas` 已经展开到 `FormGridModel`、`FormItemModel`、字段渲染模型和 `FormSubmitActionModel`，就可以直接创建表单字段项和动作
+- `FormSubmitActionModel` / `JSFormActionModel` 放在 block 级 `subModels.actions`，不要放进 `FormGridModel.subModels.items`
+- `FormItemModel` 不能只写 `fieldSettings.init`；还要显式补 `subModels.field`
+- 上面的 `InputFieldModel` 只对应 input interface 示例；实际应以当前 `schema` 返回的 editable field candidates 为准
 - 只有当 `grid.items` 或 `field` 仍未解析时，才先创建表单壳，或读取样板页补齐结构
 
 ## 5. 新增编辑表单区块
@@ -388,9 +419,37 @@ node scripts/opaque_uid.mjs node-uids \
               "subModels": {
                 "grid": {
                   "uid": "g8p2w5n1q4za",
-                  "use": "FormGridModel"
+                  "use": "FormGridModel",
+                  "subModels": {
+                    "items": [
+                      {
+                        "uid": "g8p2w5n1q4zb",
+                        "use": "FormItemModel",
+                        "stepParams": {
+                          "fieldSettings": {
+                            "init": {
+                              "dataSourceKey": "main",
+                              "collectionName": "orders",
+                              "fieldPath": "status"
+                            }
+                          }
+                        },
+                        "subModels": {
+                          "field": {
+                            "uid": "g8p2w5n1q4zc",
+                            "use": "InputFieldModel"
+                          }
+                        }
+                      }
+                    ]
+                  }
                 },
-                "actions": []
+                "actions": [
+                  {
+                    "uid": "g8p2w5n1q4zd",
+                    "use": "FormSubmitActionModel"
+                  }
+                ]
               }
             }
           }
@@ -401,6 +460,13 @@ node scripts/opaque_uid.mjs node-uids \
   }
 }
 ```
+
+说明：
+
+- 编辑表单的 record context 要通过 `resourceSettings.init.filterByTk` 或等价稳定上下文显式传入
+- `FormSubmitActionModel` / `JSFormActionModel` 放在 `EditFormModel.subModels.actions`
+- `FormItemModel` 只写 `fieldSettings.init.fieldPath` 不够；缺了 `subModels.field` 时，运行时通常只剩字段壳
+- 上面的 `InputFieldModel` 仍然只是 input interface 示例；真实字段组件以当前 schema candidates 为准
 
 ## 6. 补齐缺失的对象子节点
 

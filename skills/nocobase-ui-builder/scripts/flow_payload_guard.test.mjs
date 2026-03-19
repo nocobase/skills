@@ -238,13 +238,20 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
                                       },
                                     },
                                   },
-                                },
-                                {
-                                  use: 'FormSubmitActionModel',
+                                  subModels: {
+                                    field: {
+                                      use: 'InputFieldModel',
+                                    },
+                                  },
                                 },
                               ],
                             },
                           },
+                          actions: [
+                            {
+                              use: 'FormSubmitActionModel',
+                            },
+                          ],
                         },
                       },
                     ],
@@ -255,6 +262,69 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
           ],
         },
       },
+    },
+  };
+}
+
+function makeEditFormBlock({
+  collectionName = 'order_items',
+  includeActions = true,
+  includeFieldSubModel = true,
+  putSubmitInGridItems = false,
+} = {}) {
+  const items = [
+    {
+      use: 'FormItemModel',
+      stepParams: {
+        fieldSettings: {
+          init: {
+            collectionName,
+            fieldPath: 'quantity',
+          },
+        },
+      },
+      ...(includeFieldSubModel
+        ? {
+            subModels: {
+              field: {
+                use: 'InputFieldModel',
+              },
+            },
+          }
+        : {}),
+    },
+  ];
+
+  if (putSubmitInGridItems) {
+    items.push({
+      use: 'FormSubmitActionModel',
+    });
+  }
+
+  return {
+    use: 'EditFormModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName,
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'FormGridModel',
+        subModels: {
+          items,
+        },
+      },
+      actions: includeActions
+        ? [
+            {
+              use: 'FormSubmitActionModel',
+            },
+          ]
+        : [],
     },
   };
 }
@@ -1199,6 +1269,59 @@ test('auditPayload accepts declared edit-record-popup requirements when stable a
   assert.equal(result.ok, true);
 });
 
+test('auditPayload blocks form actions placed inside FormGridModel items', () => {
+  const payload = makeEditFormBlock({
+    putSubmitInGridItems: true,
+    includeActions: false,
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'FORM_ACTION_MUST_USE_ACTIONS_SLOT'), true);
+});
+
+test('auditPayload blocks FormItemModel without editable field subModel', () => {
+  const payload = makeEditFormBlock({
+    includeFieldSubModel: false,
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'FORM_ITEM_FIELD_SUBMODEL_MISSING'), true);
+});
+
+test('auditPayload warns in general mode and blocks in validation mode when form submit action is missing', () => {
+  const payload = makeEditFormBlock({
+    includeActions: false,
+  });
+
+  const generalResult = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+  });
+  assert.equal(generalResult.ok, true);
+  assert.equal(generalResult.warnings.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), true);
+
+  const validationResult = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(validationResult.ok, false);
+  assert.equal(validationResult.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), true);
+});
+
 test('auditPayload blocks visible tabs with invalid tab slot use', () => {
   const payload = makeVisibleTabsPage({
     tabUse: 'RootPageModel',
@@ -1536,6 +1659,28 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
         },
       },
       metadata: metadataWithCustomerTitle,
+    },
+    {
+      code: 'FORM_ACTION_MUST_USE_ACTIONS_SLOT',
+      payload: makeEditFormBlock({
+        putSubmitInGridItems: true,
+        includeActions: false,
+      }),
+      metadata,
+    },
+    {
+      code: 'FORM_ITEM_FIELD_SUBMODEL_MISSING',
+      payload: makeEditFormBlock({
+        includeFieldSubModel: false,
+      }),
+      metadata,
+    },
+    {
+      code: 'FORM_SUBMIT_ACTION_MISSING',
+      payload: makeEditFormBlock({
+        includeActions: false,
+      }),
+      metadata,
     },
   ];
 

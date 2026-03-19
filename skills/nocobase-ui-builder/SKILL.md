@@ -199,11 +199,13 @@ V1 默认采用 schema-first 的渐进支持策略：
 7. `DetailsBlockModel` 不能只落空 grid；至少要有详情字段、动作或子业务区块之一
 8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；表格/详情要展示目标标题字段时，优先保留父 collection，并使用完整 dotted path，例如 `customer.name`。同时要显式补 `associationPathName` 为关系前缀，例如 `associationPathName=customer`；不要切换成 target collection + simple `fieldPath`
 9. child-side `belongsTo` 过滤不允许生成“裸 association + 标量操作符”，例如 `path=order` 搭配 `$eq`；必须先查 relation metadata，优先使用 `foreignKey`，否则使用 `<belongsToField>.<targetKey>`；两者都拿不到就保持 blocker，不猜字段名
-10. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
-11. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要同时覆盖 block 级 `actions` 和 `TableActionsColumnModel` 里的记录动作
-12. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过 `requirements.requiredTabs` 声明给 guard；仅有默认隐藏 tab 或只有 page 壳，不能算成功
-13. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续 `GetFlowmodels_findone` 的 write-after-read 结果为准
-14. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
+10. `CreateFormModel` / `EditFormModel` 的表单动作必须挂在 block 级 `subModels.actions`；不要把 `FormSubmitActionModel` / `JSFormActionModel` 塞进 `FormGridModel.subModels.items`
+11. `FormItemModel` 不能只写 `fieldSettings.init.fieldPath`；必须显式补 `subModels.field.use=<当前 schema/fieldBinding 给出的 editable field model>`，否则运行时只有字段壳，没有稳定可编辑 renderer
+12. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
+13. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要同时覆盖 block 级 `actions` 和 `TableActionsColumnModel` 里的记录动作
+14. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过 `requirements.requiredTabs` 声明给 guard；仅有默认隐藏 tab 或只有 page 壳，不能算成功
+15. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续 `GetFlowmodels_findone` 的 write-after-read 结果为准
+16. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
 
 命令示例：
 
@@ -241,6 +243,9 @@ node scripts/flow_payload_guard.mjs audit-payload \
 - `ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE`
 - `BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH`
 - `EMPTY_DETAILS_BLOCK`
+- `FORM_ACTION_MUST_USE_ACTIONS_SLOT`
+- `FORM_ITEM_FIELD_SUBMODEL_MISSING`
+- `FORM_SUBMIT_ACTION_MISSING`
 
 不要用自然语言口头说明代替 `risk_accept` note；复盘脚本只认结构化 note。
 如果同一个 draft 里同一个 blocker code 同时命中多个位置，当前 `--risk-accept <CODE>` 不会做模糊降级；先拆小 payload 或先修结构，再重新审计。

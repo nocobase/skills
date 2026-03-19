@@ -39,6 +39,8 @@
 8. “客户”列和“客户详情”都必须展示真实字段；只有列头或 drawer 标题、不显示任何客户字段值，不能算通过。
 9. 主表“客户”列优先使用父表上的完整 dotted path，例如 `customer.name`，并显式补 `associationPathName=customer`；不要拆成 target collection + `associationPathName` + simple `fieldPath`。
 10. 如果订单详情里的 `order_items` 表还没有已验证的 parent->child relation resource，允许保留 child-side 的逻辑 relation filter；不要为了“过 guard”伪造 `associationName`。同时，child-side filter 的路径必须来自 relation metadata，优先 `order_id`，否则 `order.<targetKey>`；不要写裸 `order`。
+11. “编辑订单项”对话框里的 `Quantity` / `Amount` 必须是真正可编辑的 form field，不接受只有标签、只读占位或空壳。
+12. 编辑表单的保存按钮必须挂在 `EditFormModel.subModels.actions` 对应的动作区，不接受把 `FormSubmitActionModel` 塞进 `FormGridModel.subModels.items` 后出现在字段区。
 
 执行要求：
 - 开始搭建 UI 之前，先准备并校验前置模拟数据，不要跳过这一步直接验证空页面。
@@ -50,6 +52,7 @@
 - 能完整验证至少两层 popup 链路的可行性
 - 至少能基于一笔真实订单样本说明第一层和第二层 popup 是否拿到了正确上下文
 - 能说明订单详情抽屉内订单项表格的挂载与动作情况
+- 能确认订单项编辑对话框中的 `Quantity` / `Amount` 是否可编辑，以及保存按钮是否出现在表单动作区
 - 能说明查看客户抽屉这条支线是否可行
 - 如果客户列为空、客户 drawer 为空，必须单独记录为失败或 warning，不能混入“链路已打通”
 - 如果 `order_items` 表用了 child-side 逻辑 relation filter，但能稳定命中当前订单的订单项，不应因为“没写 associationName”而被误判为失败

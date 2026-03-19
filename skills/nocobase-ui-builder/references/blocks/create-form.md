@@ -37,13 +37,20 @@ description: 新建表单壳、字段项、提交动作的分层完成标准。
 
 - `CreateFormModel`
 - `subModels.grid`
-- `FormSubmitActionModel`
+- `subModels.actions[*] = FormSubmitActionModel`
 
 真实可填写表单最低结构：
 
 - 上面的壳层
 - 至少一个 `FormItemModel`
+- 每个 `FormItemModel` 都显式补 `subModels.field`
+- `subModels.field.use` 必须来自当前 schema/field binding 暴露的 editable field candidates
 - 每个关键字段都有明确 field renderer 或字段项结构
+
+最小正确树提醒：
+
+- `FormSubmitActionModel` 放在 `CreateFormModel.subModels.actions`，不要放进 `FormGridModel.subModels.items`
+- `FormItemModel.stepParams.fieldSettings.init.fieldPath` 只负责字段绑定，不会自动替代 `subModels.field`
 
 ## 完成标准
 
@@ -56,6 +63,8 @@ description: 新建表单壳、字段项、提交动作的分层完成标准。
 - 只有 `CreateFormModel + grid + submit`，没有任何字段项
 - 提交动作存在，但没有说明它实际能提交什么数据
 - 父子关系依赖运行时赋值，但没有明确 assign rule 或上下文来源
+- `fieldPath` 正确，但 `FormItemModel.subModels.field` 缺失，结果只有字段壳或不可填写
+- `FormSubmitActionModel` 被塞进 `grid.items`，结果按钮位置错误
 
 ## 关联模式文档
 

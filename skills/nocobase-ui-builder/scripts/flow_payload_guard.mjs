@@ -17,6 +17,9 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
   'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
   'EMPTY_DETAILS_BLOCK',
+  'FORM_ACTION_MUST_USE_ACTIONS_SLOT',
+  'FORM_ITEM_FIELD_SUBMODEL_MISSING',
+  'FORM_SUBMIT_ACTION_MISSING',
   'TAB_SLOT_USE_INVALID',
   'TAB_GRID_MISSING_OR_INVALID',
   'TAB_GRID_ITEM_USE_INVALID',
@@ -37,6 +40,8 @@ const BUSINESS_BLOCK_MODEL_USES = new Set([
   'CreateFormModel',
   'EditFormModel',
 ]);
+const FORM_BLOCK_MODEL_USES = new Set(['CreateFormModel', 'EditFormModel']);
+const FORM_BLOCK_ACTION_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel']);
 const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel']);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
@@ -1180,6 +1185,81 @@ function hasMeaningfulDetailsContent(detailsBlock) {
   return hasContent;
 }
 
+function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !FORM_BLOCK_MODEL_USES.has(node.use)) {
+      return;
+    }
+
+    const actionNodes = Array.isArray(node.subModels?.actions) ? node.subModels.actions : [];
+    const gridItems = Array.isArray(node.subModels?.grid?.subModels?.items) ? node.subModels.grid.subModels.items : [];
+
+    gridItems.forEach((item, index) => {
+      if (!isPlainObject(item) || !FORM_BLOCK_ACTION_MODEL_USES.has(item.use)) {
+        return;
+      }
+
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'FORM_ACTION_MUST_USE_ACTIONS_SLOT',
+        message: `${node.use} 的表单动作必须挂在 subModels.actions，不能放进 FormGridModel.subModels.items；否则按钮会渲染到字段区或位置异常。`,
+        path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
+        mode,
+        dedupeKey: `FORM_ACTION_MUST_USE_ACTIONS_SLOT:${pathValue}:${index}`,
+        details: {
+          formUse: node.use,
+          actionUse: item.use,
+          expectedSlot: `${pathValue}.subModels.actions`,
+        },
+      }));
+    });
+
+    const hasSubmitLikeAction = actionNodes.some(
+      (actionNode) => isPlainObject(actionNode) && FORM_BLOCK_ACTION_MODEL_USES.has(actionNode.use),
+    );
+    if (!hasSubmitLikeAction) {
+      const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+      pushFinding(targetList, seen, createFinding({
+        severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+        code: 'FORM_SUBMIT_ACTION_MISSING',
+        message: `${node.use} 缺少稳定的表单动作；至少应在 subModels.actions 中放置 FormSubmitActionModel 或 JSFormActionModel。`,
+        path: `${pathValue}.subModels.actions`,
+        mode,
+        dedupeKey: `FORM_SUBMIT_ACTION_MISSING:${pathValue}`,
+        details: {
+          formUse: node.use,
+          actionCount: actionNodes.length,
+        },
+      }));
+    }
+
+    gridItems.forEach((item, index) => {
+      if (!isPlainObject(item) || item.use !== 'FormItemModel') {
+        return;
+      }
+
+      const fieldUse = typeof item.subModels?.field?.use === 'string' ? item.subModels.field.use.trim() : '';
+      if (fieldUse) {
+        return;
+      }
+
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'FORM_ITEM_FIELD_SUBMODEL_MISSING',
+        message: 'FormItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field，并使用当前 schema/field binding 给出的 editable field model。',
+        path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
+        mode,
+        dedupeKey: `FORM_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
+        details: {
+          formUse: node.use,
+          fieldPath: item.stepParams?.fieldSettings?.init?.fieldPath || null,
+          collectionName: item.stepParams?.fieldSettings?.init?.collectionName || null,
+        },
+      }));
+    });
+  });
+}
+
 function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'DetailsBlockModel') {
@@ -1852,6 +1932,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
+  inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
