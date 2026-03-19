@@ -29,6 +29,9 @@ import {
   evaluateStageGate,
   summarizeGateDecisions,
 } from './gate_engine.mjs';
+import {
+  summarizePayloadTree,
+} from './tree_summary.mjs';
 
 function makeTempDir(testName) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `runtime-engine-${testName}-`));
@@ -219,6 +222,14 @@ test('spec normalization and compile derive guard requirements and readback cont
   assert.equal(compiled.compileArtifact.requiredUses.includes('EditActionModel'), true);
   assert.deepEqual(compiled.compileArtifact.guardRequirements.requiredTabs[0].titles, ['客户概览', '跟进记录']);
   assert.equal(compiled.compileArtifact.guardRequirements.requiredActions[0].collectionName, 'customers');
+  assert.deepEqual(compiled.compileArtifact.readbackContract.requiredTabs, [
+    {
+      pageSignature: '$',
+      pageUse: 'RootPageModel',
+      titles: ['客户概览', '跟进记录'],
+      requireBlockGrid: true,
+    },
+  ]);
   assert.equal(compiled.compileArtifact.readbackContract.requiredTabCount, 2);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('customers'), true);
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].use, 'EditActionModel');
@@ -259,6 +270,72 @@ test('spec normalization defaults popup pages to ChildPageModel instead of gener
   assert.equal(compiled.compileArtifact.requiredUses.includes('ChildPageModel'), true);
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].use, 'EditActionModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.pageUse, 'ChildPageModel');
+});
+
+test('spec normalization maps Form.mode to the correct concrete form model and rejects unknown mode', () => {
+  const compiled = compileBuildSpec({
+    source: '构建编辑表单',
+    target: {
+      title: '编辑订单',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Form',
+          mode: 'edit',
+          collectionName: 'orders',
+          fields: ['status'],
+        },
+      ],
+    },
+  });
+
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].use, 'EditFormModel');
+  assert.throws(() => normalizeBuildSpec({
+    source: '构建未知表单',
+    target: {
+      title: '未知表单',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Form',
+          mode: 'preview',
+          collectionName: 'orders',
+        },
+      ],
+    },
+  }), /mode must be one of create, edit/);
+});
+
+test('spec normalization rejects popup tabs DSL for now', () => {
+  assert.throws(() => normalizeBuildSpec({
+    source: '构建多 tab popup',
+    target: {
+      title: '订单工作台',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Table',
+          collectionName: 'orders',
+          actions: [
+            {
+              kind: 'edit-record-popup',
+              popup: {
+                tabs: [
+                  {
+                    title: '详情',
+                    blocks: [],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  }), /tabs is not supported yet/);
 });
 
 test('spec normalization rejects unsupported generic action kinds instead of silently falling back to ActionModel', () => {
@@ -338,9 +415,45 @@ test('gate engine fails fast on guard blockers, readback mismatch and pre-open b
   assert.equal(buildDecision.reasonCode, 'GUARD_BLOCKERS');
 
   const mismatch = compareReadbackContract({
+    requiredTabs: [
+      {
+        pageSignature: '$',
+        pageUse: 'RootPageModel',
+        titles: ['客户概览'],
+        requireBlockGrid: true,
+      },
+    ],
     requiredVisibleTabs: ['客户概览'],
     requiredTabCount: 1,
   }, {
+    summary: summarizePayloadTree({
+      targetSignature: 'root.page',
+      payload: {
+        use: 'RootPageModel',
+        subModels: {
+          tabs: [
+            {
+              use: 'RootPageTabModel',
+              stepParams: {
+                pageTabSettings: {
+                  tab: {
+                    title: '联系人',
+                  },
+                },
+              },
+              subModels: {
+                grid: {
+                  use: 'BlockGridModel',
+                  subModels: {
+                    items: [],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    }),
     tabTitles: ['联系人'],
     tabCount: 1,
   });

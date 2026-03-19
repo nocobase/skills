@@ -4,6 +4,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  PAGE_MODEL_USES_SET,
+  PAGE_TAB_USES,
+  SUPPORTED_POPUP_PAGE_USES,
+  SUPPORTED_POPUP_PAGE_USES_SET,
+  getAllowedTabUsesForPage as getAllowedTabUsesForPageFromContracts,
+  normalizePageUse,
+} from './model_contracts.mjs';
+
 export const GENERAL_MODE = 'general';
 export const VALIDATION_CASE_MODE = 'validation-case';
 export const DEFAULT_AUDIT_MODE = VALIDATION_CASE_MODE;
@@ -36,8 +45,7 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
 
-const PAGE_MODEL_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
-const PAGE_TAB_MODEL_USES = new Set(['RootPageTabModel', 'PageTabModel', 'ChildPageTabModel']);
+const PAGE_TAB_MODEL_USES = new Set(PAGE_TAB_USES);
 const GRID_MODEL_USES = new Set(['BlockGridModel', 'FormGridModel']);
 const BUSINESS_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
@@ -291,17 +299,13 @@ function normalizeRequiredTab(entry, index) {
     throw new Error(`requirements.requiredTabs[${index}].titles must be a non-empty array`);
   }
 
-  const pageUse = entry.pageUse == null
-    ? null
-    : normalizeNonEmpty(entry.pageUse, `requirements.requiredTabs[${index}].pageUse`);
-
-  if (pageUse && !PAGE_MODEL_USES.has(pageUse)) {
-    throw new Error(`Unsupported required tab pageUse "${pageUse}"`);
-  }
-
   return {
-    pageUse,
+    pageSignature: entry.pageSignature == null ? null : normalizeNonEmpty(entry.pageSignature, `requirements.requiredTabs[${index}].pageSignature`),
+    pageUse: normalizePageUse(entry.pageUse, `requirements.requiredTabs[${index}].pageUse`, {
+      allowNull: true,
+    }),
     titles,
+    requireBlockGrid: entry.requireBlockGrid !== false,
   };
 }
 
@@ -720,16 +724,7 @@ function countUses(value, useSet) {
 }
 
 function getAllowedTabUsesForPage(pageUse) {
-  if (pageUse === 'RootPageModel') {
-    return new Set(['RootPageTabModel']);
-  }
-  if (pageUse === 'PageModel') {
-    return new Set(['PageTabModel']);
-  }
-  if (pageUse === 'ChildPageModel') {
-    return new Set(['PageTabModel', 'ChildPageTabModel']);
-  }
-  return PAGE_TAB_MODEL_USES;
+  return new Set(getAllowedTabUsesForPageFromContracts(pageUse));
 }
 
 function getTabTitle(tabNode) {
@@ -951,16 +946,57 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
     if (!isPlainObject(node) || !Array.isArray(node.subModels?.tabs)) {
       return;
     }
+    if (requirement.pageSignature && pathValue !== requirement.pageSignature) {
+      return;
+    }
     if (requirement.pageUse && node.use !== requirement.pageUse) {
       return;
     }
 
     matchedPageCount += 1;
-    const actualTitles = node.subModels.tabs
-      .map((tabNode) => getTabTitle(tabNode))
-      .filter(Boolean);
-    const missingTitles = requirement.titles.filter((title) => !actualTitles.includes(title));
+    const tabs = Array.isArray(node.subModels?.tabs) ? node.subModels.tabs : [];
+    const tabsByTitle = new Map();
+    tabs.forEach((tabNode, tabIndex) => {
+      const title = getTabTitle(tabNode);
+      if (!title || tabsByTitle.has(title)) {
+        return;
+      }
+      tabsByTitle.set(title, {
+        tabNode,
+        tabIndex,
+      });
+    });
+    const actualTitles = [...tabsByTitle.keys()];
+    const missingTitles = requirement.titles.filter((title) => !tabsByTitle.has(title));
     if (missingTitles.length === 0) {
+      if (!requirement.requireBlockGrid) {
+        return;
+      }
+
+      const titlesMissingGrid = requirement.titles.filter((title) => {
+        const matchedTab = tabsByTitle.get(title);
+        const gridNode = matchedTab?.tabNode?.subModels?.grid;
+        return !isPlainObject(gridNode) || gridNode.use !== 'BlockGridModel';
+      });
+      if (titlesMissingGrid.length === 0) {
+        return;
+      }
+
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'REQUIRED_VISIBLE_TABS_MISSING',
+        message: `显式要求的 tabs 已命中标题，但缺少稳定 BlockGridModel；受影响 tabs：${titlesMissingGrid.join('、')}。`,
+        path: `${pathValue}.subModels.tabs`,
+        mode,
+        dedupeKey: `REQUIRED_VISIBLE_TABS_MISSING:grid:${pathValue}:${titlesMissingGrid.join('|')}`,
+        details: {
+          pageUse: node.use || null,
+          pageSignature: pathValue,
+          requiredTitles: requirement.titles,
+          actualTitles,
+          titlesMissingGrid,
+        },
+      }));
       return;
     }
 
@@ -973,6 +1009,7 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
       dedupeKey: `REQUIRED_VISIBLE_TABS_MISSING:${pathValue}:${missingTitles.join('|')}`,
       details: {
         pageUse: node.use || null,
+        pageSignature: pathValue,
         requiredTitles: requirement.titles,
         actualTitles,
         missingTitles,
@@ -992,6 +1029,7 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
     mode,
     dedupeKey: `REQUIRED_TABS_TARGET_PAGE_MISSING:${requirement.pageUse || 'any'}:${requirement.titles.join('|')}`,
     details: {
+      pageSignature: requirement.pageSignature,
       pageUse: requirement.pageUse,
       requiredTitles: requirement.titles,
     },
@@ -1000,7 +1038,7 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
 
 function inspectTabTrees(payload, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
-    if (!isPlainObject(node) || !PAGE_MODEL_USES.has(node.use) || !Array.isArray(node.subModels?.tabs)) {
+    if (!isPlainObject(node) || !PAGE_MODEL_USES_SET.has(node.use) || !Array.isArray(node.subModels?.tabs)) {
       return;
     }
 
@@ -1426,11 +1464,11 @@ function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) 
 
     const declaredPageUse = typeof openView?.pageModelClass === 'string' ? openView.pageModelClass.trim() : '';
     const actualPageUse = isPlainObject(pageNode) && typeof pageNode.use === 'string' ? pageNode.use.trim() : '';
-    if (declaredPageUse && !PAGE_MODEL_USES.has(declaredPageUse)) {
+    if (declaredPageUse && !SUPPORTED_POPUP_PAGE_USES_SET.has(declaredPageUse)) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'POPUP_PAGE_USE_INVALID',
-        message: `popup/openView 的 pageModelClass 必须是 ${[...PAGE_MODEL_USES].join(' / ')} 之一。`,
+        message: `popup/openView 的 pageModelClass 必须是 ${SUPPORTED_POPUP_PAGE_USES.join(' / ')} 之一。`,
         path: `${pathValue}.stepParams.popupSettings.openView.pageModelClass`,
         mode,
         dedupeKey: `POPUP_PAGE_USE_INVALID:${pathValue}:declared:${declaredPageUse}`,
@@ -1441,11 +1479,11 @@ function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) 
         },
       }));
     }
-    if (pageNode && (!actualPageUse || !PAGE_MODEL_USES.has(actualPageUse))) {
+    if (pageNode && (!actualPageUse || !SUPPORTED_POPUP_PAGE_USES_SET.has(actualPageUse))) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'POPUP_PAGE_USE_INVALID',
-        message: `popup/openView 的 subModels.page 必须落成 ${[...PAGE_MODEL_USES].join(' / ')}，不能写成其他结构壳。`,
+        message: `popup/openView 的 subModels.page 必须落成 ${SUPPORTED_POPUP_PAGE_USES.join(' / ')}，不能写成其他结构壳。`,
         path: `${pathValue}.subModels.page`,
         mode,
         dedupeKey: `POPUP_PAGE_USE_INVALID:${pathValue}:actual:${actualPageUse || 'missing'}`,

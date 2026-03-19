@@ -26,7 +26,7 @@ export const DEFAULT_IMPROVEMENT_LOG_PATH = path.join(
   'improvement-log.jsonl',
 );
 
-const WRITE_TOOL_NAMES = new Set([
+const WRITE_SIDE_EFFECT_TOOLS = new Set([
   'PostDesktoproutes_createv2',
   'PostDesktoproutes_destroyv2',
   'PostFlowmodels_save',
@@ -36,6 +36,12 @@ const WRITE_TOOL_NAMES = new Set([
   'PostFlowmodels_destroy',
   'PostFlowmodels_attach',
   'PostFlowmodels_duplicate',
+]);
+
+const AUTO_MISMATCH_TOOLS = new Set([
+  'PostFlowmodels_save',
+  'PostFlowmodels_ensure',
+  'PostFlowmodels_mutate',
 ]);
 
 const DISCOVERY_TOOL_NAMES = new Set([
@@ -209,6 +215,10 @@ function isPlainObject(value) {
   return Object.prototype.toString.call(value) === '[object Object]';
 }
 
+function normalizeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function buildCountsByTool(toolCalls) {
   const counts = new Map();
   for (const call of toolCalls) {
@@ -228,7 +238,15 @@ function buildCountsByTool(toolCalls) {
     .sort((left, right) => right.total - left.total || left.tool.localeCompare(right.tool));
 }
 
-function getFindoneTargetSignature(call) {
+function normalizeTargetSignature(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function getExplicitTargetSignature(call) {
+  return normalizeTargetSignature(call.args?.targetSignature);
+}
+
+function getWeakReadTargetSignature(call) {
   if (call.tool !== 'GetFlowmodels_findone') {
     return null;
   }
@@ -243,7 +261,7 @@ function detectRepeatedRuns(toolCalls) {
   let currentLabel = null;
   let currentCount = 0;
   for (const call of toolCalls) {
-    const signature = getFindoneTargetSignature(call);
+    const signature = getWeakReadTargetSignature(call);
     const key = signature ? `${call.tool}::${signature}` : call.tool;
     const label = signature ? `${call.tool} (${signature})` : call.tool;
     if (key === currentKey) {
@@ -270,7 +288,7 @@ function countTool(toolCalls, toolName) {
 function buildFindoneTargetCounts(toolCalls) {
   const counts = new Map();
   for (const call of toolCalls) {
-    const signature = getFindoneTargetSignature(call);
+    const signature = getWeakReadTargetSignature(call);
     if (!signature) {
       continue;
     }
@@ -356,7 +374,7 @@ function buildGuardSummary(records) {
       continue;
     }
 
-    if (record.type === 'tool_call' && WRITE_TOOL_NAMES.has(record.tool) && pendingBlockerAudit) {
+    if (record.type === 'tool_call' && WRITE_SIDE_EFFECT_TOOLS.has(record.tool) && pendingBlockerAudit) {
       summary.violations.push({
         auditTimestamp: pendingBlockerAudit.timestamp,
         writeTimestamp: record.timestamp,
@@ -383,64 +401,208 @@ function normalizeStringList(value) {
     .map((item) => item.trim());
 }
 
-function buildPostWriteReadbackMismatches(toolCalls) {
+function getStructuredTreeSummary(call) {
+  const summary = call?.result?.summary;
+  return isPlainObject(summary) ? summary : null;
+}
+
+function buildPageGroupMap(summary) {
+  const map = new Map();
+  const pageGroups = Array.isArray(summary?.pageGroups) ? summary.pageGroups : [];
+  pageGroups.forEach((pageGroup) => {
+    if (!isPlainObject(pageGroup)) {
+      return;
+    }
+    const key = typeof pageGroup.pageSignature === 'string' && pageGroup.pageSignature.trim()
+      ? pageGroup.pageSignature.trim()
+      : null;
+    if (!key || map.has(key)) {
+      return;
+    }
+    map.set(key, pageGroup);
+  });
+  return map;
+}
+
+function compareStructuredSummaries(writeSummary, readSummary) {
+  const evidence = [];
+  const writePageGroups = buildPageGroupMap(writeSummary);
+  const readPageGroups = buildPageGroupMap(readSummary);
+
+  for (const [pageSignature, writePageGroup] of writePageGroups.entries()) {
+    const readPageGroup = readPageGroups.get(pageSignature);
+    if (!readPageGroup) {
+      evidence.push(`write.pageGroups[${pageSignature}] exists，readback missing`);
+      continue;
+    }
+
+    if (
+      typeof writePageGroup.pageUse === 'string'
+      && typeof readPageGroup.pageUse === 'string'
+      && writePageGroup.pageUse !== readPageGroup.pageUse
+    ) {
+      evidence.push(`page ${pageSignature} use write=${writePageGroup.pageUse}，readback=${readPageGroup.pageUse}`);
+    }
+
+    const writeTabCount = Number.isFinite(writePageGroup.tabCount) ? writePageGroup.tabCount : null;
+    const readTabCount = Number.isFinite(readPageGroup.tabCount) ? readPageGroup.tabCount : null;
+    if (writeTabCount !== null && readTabCount !== null && writeTabCount !== readTabCount) {
+      evidence.push(`page ${pageSignature} tabCount write=${writeTabCount}，readback=${readTabCount}`);
+    }
+
+    const writeTabTitles = normalizeStringList(writePageGroup.tabTitles);
+    const readTabTitles = normalizeStringList(readPageGroup.tabTitles);
+    if (
+      writeTabTitles.length > 0
+      && readTabTitles.length > 0
+      && JSON.stringify(writeTabTitles) !== JSON.stringify(readTabTitles)
+    ) {
+      evidence.push(`page ${pageSignature} tabTitles write=${writeTabTitles.join(' / ')}，readback=${readTabTitles.join(' / ')}`);
+    }
+
+    const readTabsByTitle = new Map();
+    normalizeArray(readPageGroup.tabs).forEach((tab, tabIndex) => {
+      const title = typeof tab?.title === 'string' && tab.title.trim() ? tab.title.trim() : `#${tabIndex}`;
+      if (!readTabsByTitle.has(title)) {
+        readTabsByTitle.set(title, tab);
+      }
+    });
+
+    normalizeArray(writePageGroup.tabs).forEach((tab, tabIndex) => {
+      const title = typeof tab?.title === 'string' && tab.title.trim() ? tab.title.trim() : `#${tabIndex}`;
+      const readTab = readTabsByTitle.get(title);
+      if (!readTab) {
+        evidence.push(`page ${pageSignature} tab ${title} exists，readback missing`);
+        return;
+      }
+      if (tab.hasBlockGrid !== readTab.hasBlockGrid) {
+        evidence.push(`page ${pageSignature} tab ${title} hasBlockGrid write=${String(tab.hasBlockGrid)}，readback=${String(readTab.hasBlockGrid)}`);
+      }
+    });
+  }
+
+  for (const [pageSignature] of readPageGroups.entries()) {
+    if (!writePageGroups.has(pageSignature)) {
+      evidence.push(`readback.pageGroups[${pageSignature}] exists，write missing`);
+    }
+  }
+
+  const writeTopLevelUses = normalizeStringList(writeSummary?.topLevelUses);
+  const readTopLevelUses = normalizeStringList(readSummary?.topLevelUses);
+  if (
+    writeTopLevelUses.length > 0
+    && readTopLevelUses.length > 0
+    && JSON.stringify(writeTopLevelUses) !== JSON.stringify(readTopLevelUses)
+  ) {
+    evidence.push(`write.topLevelUses=${writeTopLevelUses.join(' / ')}，readback.topLevelUses=${readTopLevelUses.join(' / ')}`);
+  }
+
+  return evidence;
+}
+
+function buildEvidenceInsufficientItem({
+  writeCall,
+  readbackCall = null,
+  targetSignature = null,
+  reasonCode,
+  detail,
+}) {
+  return {
+    writeTool: writeCall.tool,
+    writeTimestamp: writeCall.timestamp,
+    writeSummary: writeCall.summary,
+    readTool: readbackCall?.tool,
+    readbackTimestamp: readbackCall?.timestamp,
+    readbackSummary: readbackCall?.summary,
+    targetSignature,
+    reasonCode,
+    detail,
+  };
+}
+
+function buildPostWriteReadbackAnalysis(toolCalls) {
   const mismatches = [];
+  const evidenceInsufficient = [];
 
   for (let index = 0; index < toolCalls.length; index += 1) {
     const writeCall = toolCalls[index];
-    if (!WRITE_TOOL_NAMES.has(writeCall.tool) || !isPlainObject(writeCall.result)) {
+    if (!AUTO_MISMATCH_TOOLS.has(writeCall.tool)) {
+      continue;
+    }
+
+    const writeTargetSignature = getExplicitTargetSignature(writeCall);
+    if (!writeTargetSignature) {
+      if (writeCall.tool === 'PostFlowmodels_mutate') {
+        evidenceInsufficient.push(buildEvidenceInsufficientItem({
+          writeCall,
+          reasonCode: 'WRITE_TARGET_SIGNATURE_MISSING',
+          detail: 'PostFlowmodels_mutate 需要显式 args.targetSignature 才能参与自动 write-after-read 对账。',
+        }));
+      }
       continue;
     }
 
     let readbackCall = null;
+    let unsignedFindoneSeen = false;
     for (let cursor = index + 1; cursor < toolCalls.length; cursor += 1) {
       const candidate = toolCalls[cursor];
-      if (WRITE_TOOL_NAMES.has(candidate.tool)) {
+      if (WRITE_SIDE_EFFECT_TOOLS.has(candidate.tool)) {
         break;
       }
-      if (candidate.tool === 'GetFlowmodels_findone') {
+      if (candidate.tool !== 'GetFlowmodels_findone') {
+        continue;
+      }
+      const readTargetSignature = getExplicitTargetSignature(candidate);
+      if (!readTargetSignature) {
+        unsignedFindoneSeen = true;
+        continue;
+      }
+      if (readTargetSignature === writeTargetSignature) {
         readbackCall = candidate;
         break;
       }
     }
 
-    if (!readbackCall || !isPlainObject(readbackCall.result)) {
+    if (!readbackCall) {
+      if (unsignedFindoneSeen) {
+        evidenceInsufficient.push(buildEvidenceInsufficientItem({
+          writeCall,
+          targetSignature: writeTargetSignature,
+          reasonCode: 'READBACK_TARGET_SIGNATURE_MISSING',
+          detail: '后续存在 GetFlowmodels_findone，但没有显式 args.targetSignature，无法安全配对同目标 readback。',
+        }));
+      }
       continue;
     }
 
-    const evidence = [];
-    const writeTabCount = Number.isFinite(writeCall.result.tabCount) ? writeCall.result.tabCount : null;
-    const readbackTabCount = Number.isFinite(readbackCall.result.tabCount) ? readbackCall.result.tabCount : null;
-    if (writeTabCount !== null && readbackTabCount !== null && writeTabCount !== readbackTabCount) {
-      evidence.push(`write.tabCount=${writeTabCount}，readback.tabCount=${readbackTabCount}`);
+    const writeSummary = getStructuredTreeSummary(writeCall);
+    const readSummary = getStructuredTreeSummary(readbackCall);
+    if (!writeSummary || !readSummary) {
+      evidenceInsufficient.push(buildEvidenceInsufficientItem({
+        writeCall,
+        readbackCall,
+        targetSignature: writeTargetSignature,
+        reasonCode: 'SUMMARY_MISSING',
+        detail: 'write/readback 至少有一侧缺少 result.summary，无法进行结构化对账。',
+      }));
+      continue;
     }
 
-    const writeItemCount = Number.isFinite(writeCall.result.itemCount) ? writeCall.result.itemCount : null;
-    const readbackItemCount = Number.isFinite(readbackCall.result.itemCount) ? readbackCall.result.itemCount : null;
-    if (writeItemCount !== null && readbackItemCount !== null && writeItemCount !== readbackItemCount) {
-      evidence.push(`write.itemCount=${writeItemCount}，readback.itemCount=${readbackItemCount}`);
-    }
-
-    const writeTabTitles = normalizeStringList(writeCall.result.tabTitles);
-    const readbackTabTitles = normalizeStringList(readbackCall.result.tabTitles);
     if (
-      writeTabTitles.length > 0
-      && readbackTabTitles.length > 0
-      && JSON.stringify(writeTabTitles) !== JSON.stringify(readbackTabTitles)
+      normalizeTargetSignature(writeSummary.targetSignature) !== writeTargetSignature
+      || normalizeTargetSignature(readSummary.targetSignature) !== writeTargetSignature
     ) {
-      evidence.push(`write.tabTitles=${writeTabTitles.join(' / ')}，readback.tabTitles=${readbackTabTitles.join(' / ')}`);
+      evidenceInsufficient.push(buildEvidenceInsufficientItem({
+        writeCall,
+        readbackCall,
+        targetSignature: writeTargetSignature,
+        reasonCode: 'SUMMARY_TARGET_SIGNATURE_MISMATCH',
+        detail: 'result.summary.targetSignature 与 tool_call.args.targetSignature 不一致，无法确认对账目标。',
+      }));
+      continue;
     }
 
-    const writeTopLevelUses = normalizeStringList(writeCall.result.topLevelUses);
-    const readbackTopLevelUses = normalizeStringList(readbackCall.result.topLevelUses);
-    if (
-      writeTopLevelUses.length > 0
-      && readbackTopLevelUses.length > 0
-      && JSON.stringify(writeTopLevelUses) !== JSON.stringify(readbackTopLevelUses)
-    ) {
-      evidence.push(`write.topLevelUses=${writeTopLevelUses.join(' / ')}，readback.topLevelUses=${readbackTopLevelUses.join(' / ')}`);
-    }
-
+    const evidence = compareStructuredSummaries(writeSummary, readSummary);
     if (evidence.length === 0) {
       continue;
     }
@@ -452,11 +614,15 @@ function buildPostWriteReadbackMismatches(toolCalls) {
       readTool: readbackCall.tool,
       readbackTimestamp: readbackCall.timestamp,
       readbackSummary: readbackCall.summary,
+      targetSignature: writeTargetSignature,
       evidence,
     });
   }
 
-  return mismatches;
+  return {
+    mismatches,
+    evidenceInsufficient,
+  };
 }
 
 function buildPhaseSummary(records) {
@@ -589,6 +755,7 @@ function buildOptimizationItems({
   firstDiscoveryIndex,
   errors,
   readbackMismatches,
+  readbackEvidenceInsufficient,
   repeatedRuns,
   missingSummaryCount,
   cacheSummary,
@@ -640,6 +807,16 @@ function buildOptimizationItems({
       reason: `本次发现 ${readbackMismatches.length} 组写后回读矛盾，说明不能只看 save/mutate 的乐观返回值。`,
       fasterPath: '每次写入后立即做同目标 readback，并让 run_finished、review 文案和最终状态都以 readback 事实为准；发现计数或标题不一致时直接降级成 partial/failed。',
       evidence: readbackMismatches.flatMap((item) => item.evidence).slice(0, 4),
+    });
+  }
+
+  if (readbackEvidenceInsufficient.length > 0) {
+    items.push({
+      priority: 'medium',
+      title: '给自动对账补齐 targetSignature 和 summary',
+      reason: `本次有 ${readbackEvidenceInsufficient.length} 组写后对账证据不足，自动流程无法确认写入目标或结构快照。`,
+      fasterPath: '写操作与对应 GetFlowmodels_findone 都显式记录 args.targetSignature，并把结构化树摘要写入 result.summary；旧日志不要继续拿来做自动 mismatch。',
+      evidence: readbackEvidenceInsufficient.slice(0, 4).map((item) => `${item.writeTool}:${item.reasonCode}`),
     });
   }
 
@@ -792,7 +969,7 @@ export function analyzeRun(records, sourceLogPath) {
     ? ((finishedAt ?? lastEventAt)?.getTime() ?? startedAt.getTime()) - startedAt.getTime()
     : null;
 
-  const firstWriteIndex = toolCalls.findIndex((record) => WRITE_TOOL_NAMES.has(record.tool));
+  const firstWriteIndex = toolCalls.findIndex((record) => WRITE_SIDE_EFFECT_TOOLS.has(record.tool));
   const firstDiscoveryIndex = toolCalls.findIndex((record) => DISCOVERY_TOOL_NAMES.has(record.tool));
   const hasWrites = firstWriteIndex >= 0;
   const hasSchemaBundle = toolCalls.some((record) => record.tool === 'PostFlowmodels_schemabundle');
@@ -800,7 +977,9 @@ export function analyzeRun(records, sourceLogPath) {
   const schemaReadCount = countTool(toolCalls, 'GetFlowmodels_schema');
   const hasFindone = toolCalls.some((record) => record.tool === 'GetFlowmodels_findone');
   const guardSummary = buildGuardSummary(records);
-  const readbackMismatches = buildPostWriteReadbackMismatches(toolCalls);
+  const readbackAnalysis = buildPostWriteReadbackAnalysis(toolCalls);
+  const readbackMismatches = readbackAnalysis.mismatches;
+  const readbackEvidenceInsufficient = readbackAnalysis.evidenceInsufficient;
   const repeatedRuns = detectRepeatedRuns(toolCalls);
   const missingSummaryCount = toolCalls.filter((record) => !record.summary).length;
   const phaseSummary = buildPhaseSummary(records);
@@ -835,6 +1014,9 @@ export function analyzeRun(records, sourceLogPath) {
   if (readbackMismatches.length > 0) {
     suggestions.push(`发现 ${readbackMismatches.length} 组 write 后 readback 不一致，不能再把 save/mutate 的返回值当成最终成功依据。`);
   }
+  if (readbackEvidenceInsufficient.length > 0) {
+    suggestions.push(`有 ${readbackEvidenceInsufficient.length} 组写后对账证据不足；需要显式 args.targetSignature 和 result.summary 才能安全自动对账。`);
+  }
   if (hasWrites && firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1) {
     suggestions.push('首次探测发生在首次写操作之后，建议把探测顺序前置。');
   }
@@ -867,6 +1049,7 @@ export function analyzeRun(records, sourceLogPath) {
     hasFindone,
     guardSummary,
     readbackMismatches,
+    readbackEvidenceInsufficient,
     firstWriteIndex,
     firstDiscoveryIndex,
     errors,
@@ -901,6 +1084,7 @@ export function analyzeRun(records, sourceLogPath) {
     cacheSummary,
     gateSummary,
     readbackMismatches,
+    readbackEvidenceInsufficient,
     countsByTool: buildCountsByTool(toolCalls),
     suggestions,
     optimizationItems,
@@ -1049,6 +1233,7 @@ function renderMarkdownReport(summary) {
     readback.push(...summary.readbackMismatches.flatMap((item, index) => [
       `### ${index + 1}. ${item.writeTool} -> ${item.readTool}`,
       '',
+      ...(item.targetSignature ? [`- 目标签名：\`${item.targetSignature}\``] : []),
       `- 写入时间：${item.writeTimestamp ?? '未知'}`,
       `- 写入摘要：${item.writeSummary ?? '未提供'}`,
       `- 回读时间：${item.readbackTimestamp ?? '未知'}`,
@@ -1056,6 +1241,14 @@ function renderMarkdownReport(summary) {
       `- 证据：${item.evidence.join('；')}`,
       '',
     ]));
+  }
+  if (summary.readbackEvidenceInsufficient.length > 0) {
+    readback.push('### 证据不足');
+    readback.push('');
+    readback.push(...summary.readbackEvidenceInsufficient.map(
+      (item, index) => `- ${index + 1}. ${item.writeTool}${item.targetSignature ? ` (\`${item.targetSignature}\`)` : ''}: ${item.reasonCode}；${item.detail}`,
+    ));
+    readback.push('');
   }
 
   const suggestions = [
@@ -1283,6 +1476,7 @@ function renderHtmlReport(summary) {
     : summary.readbackMismatches.map((item, index) => `
       <section class="card">
         <h3>${index + 1}. ${escapeHtml(item.writeTool)} -&gt; ${escapeHtml(item.readTool)}</h3>
+        ${item.targetSignature ? `<p><strong>目标签名：</strong><code>${escapeHtml(item.targetSignature)}</code></p>` : ''}
         <p><strong>写入时间：</strong>${escapeHtml(item.writeTimestamp ?? '未知')}</p>
         <p><strong>写入摘要：</strong>${escapeHtml(item.writeSummary ?? '未提供')}</p>
         <p><strong>回读时间：</strong>${escapeHtml(item.readbackTimestamp ?? '未知')}</p>
@@ -1290,6 +1484,16 @@ function renderHtmlReport(summary) {
         <p><strong>证据：</strong>${escapeHtml(item.evidence.join('；'))}</p>
       </section>
     `).join('\n');
+  const readbackEvidenceInsufficientBlocks = summary.readbackEvidenceInsufficient.length === 0
+    ? ''
+    : `
+      <div class="card">
+        <h3>证据不足</h3>
+        <ul>
+          ${summary.readbackEvidenceInsufficient.map((item) => `<li>${escapeHtml(`${item.writeTool}${item.targetSignature ? ` (${item.targetSignature})` : ''}: ${item.reasonCode}；${item.detail}`)}</li>`).join('\n')}
+        </ul>
+      </div>
+    `;
   const optimizationBlocks = summary.optimizationItems.map((item, index) => `
       <section class="card">
         <h3>${index + 1}. [${escapeHtml(item.priority)}] ${escapeHtml(item.title)}</h3>
@@ -1477,6 +1681,7 @@ function renderHtmlReport(summary) {
 
     <h2>写后回读</h2>
     ${readbackBlocks}
+    ${readbackEvidenceInsufficientBlocks}
 
     <h2>可改进点</h2>
     <section class="card">

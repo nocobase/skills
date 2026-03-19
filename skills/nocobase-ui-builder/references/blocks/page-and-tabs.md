@@ -8,8 +8,8 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 ## 适用范围
 
 - `PostDesktoproutes_createv2`
-- `PageModel` / `RootPageModel`
-- `RootPageTabModel` / `PageTabModel`
+- `RootPageModel` / `PageModel` / `ChildPageModel`
+- `RootPageTabModel` / `PageTabModel` / `ChildPageTabModel`
 - tab 下的 `grid`
 
 典型目标：
@@ -31,6 +31,8 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 3. 当前任务是否真的要求“显式 tabs”，还是只需要默认隐藏 tab
 4. 如果显式 tabs / popup page tabs 仍有歧义，先明确是哪一层 page / tab / grid
 5. 写前就要确定写后 readback 要核对什么，不能等 `save` 返回 ok 再临时猜成功标准
+6. page / tab use 要按父 page 选择：`RootPageModel -> RootPageTabModel`，`PageModel -> RootPageTabModel | PageTabModel`，`ChildPageModel -> ChildPageTabModel`
+7. builder 当前只支持 `popup.pageUse + blocks`，不支持 `popup.tabs` / `popup.layout.tabs`
 
 ## 最小成功树
 
@@ -53,6 +55,7 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 - 用户明确要求“多个可见标签”时，必须能区分默认隐藏 tab 与显式 tab
 - 每个 tab 的 block 都要挂到正确 grid，不能只创建 page 壳
 - `save` 之后必须做 write-after-read；至少核对 tab 数、tab 标题和每个 tab 的 grid 是否真的存在
+- 自动对账只在写操作与 `GetFlowmodels_findone` 都显式带同一个 `args.targetSignature`、且 `tool_call.result.summary` 已落下结构化摘要时成立
 - 如果 readback 只剩 page 壳或 `Add block`，即使 `save` 返回成功，也必须判成 `partial/failed`
 
 ## 常见陷阱

@@ -76,8 +76,17 @@ test('tool-call, note, and finish-run append ordered records', () => {
     toolType: 'mcp',
     status: 'ok',
     summary: 'create table block',
-    args: { requestBody: { atomic: true } },
-    result: { ok: true },
+    args: {
+      targetSignature: 'page.root',
+      requestBody: { atomic: true },
+    },
+    result: {
+      ok: true,
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [],
+      },
+    },
   });
   appendNote({
     logPath: started.logPath,
@@ -98,7 +107,9 @@ test('tool-call, note, and finish-run append ordered records', () => {
     ['run_started', 'tool_call', 'note', 'run_finished'],
   );
   assert.equal(records[1].tool, 'PostFlowmodels_mutate');
+  assert.equal(records[1].args.targetSignature, 'page.root');
   assert.equal(records[1].args.requestBody.atomic, true);
+  assert.equal(records[1].result.summary.targetSignature, 'page.root');
   assert.equal(records[3].status, 'success');
 });
 
@@ -201,11 +212,13 @@ test('cli smoke test writes a complete tool journal', () => {
       '--tool-type',
       'mcp',
       '--args-json',
-      '{"parentId":"tabs-k7n4x9p2q5ra","subKey":"grid"}',
+      '{"parentId":"tabs-k7n4x9p2q5ra","subKey":"grid","targetSignature":"page.root"}',
       '--status',
       'ok',
       '--summary',
       'read grid',
+      '--result-json',
+      '{"summary":{"targetSignature":"page.root","pageGroups":[]}}',
     ],
     { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
   );
@@ -272,6 +285,8 @@ test('cli smoke test writes a complete tool journal', () => {
   assert.equal(records[1].type, 'phase');
   assert.equal(records[2].tool, 'GetFlowmodels_findone');
   assert.equal(records[2].args.parentId, 'tabs-k7n4x9p2q5ra');
+  assert.equal(records[2].args.targetSignature, 'page.root');
+  assert.equal(records[2].result.summary.targetSignature, 'page.root');
   assert.equal(records[3].type, 'gate');
   assert.equal(records[4].type, 'cache_event');
   assert.equal(records[5].type, 'run_finished');

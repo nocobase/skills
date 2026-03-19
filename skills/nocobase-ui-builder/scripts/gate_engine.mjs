@@ -2,6 +2,10 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
 function normalizeTitles(value) {
   return normalizeArray(value)
     .filter((item) => typeof item === 'string')
@@ -41,7 +45,105 @@ function collectAssertionFailures(assertions) {
     .map((item) => item.label || item.kind || 'assertion-failed');
 }
 
+function extractReadbackSummary(readbackResult) {
+  if (isPlainObject(readbackResult?.summary)) {
+    return readbackResult.summary;
+  }
+  if (!isPlainObject(readbackResult)) {
+    return null;
+  }
+  if (
+    Array.isArray(readbackResult.pageGroups)
+    || Object.prototype.hasOwnProperty.call(readbackResult, 'targetSignature')
+  ) {
+    return readbackResult;
+  }
+  return null;
+}
+
+function buildRequirementLabel(requirement, index) {
+  const parts = [`requiredTabs[${index}]`];
+  if (typeof requirement.pageSignature === 'string' && requirement.pageSignature.trim()) {
+    parts.push(`pageSignature=${requirement.pageSignature.trim()}`);
+  }
+  if (typeof requirement.pageUse === 'string' && requirement.pageUse.trim()) {
+    parts.push(`pageUse=${requirement.pageUse.trim()}`);
+  }
+  return parts.join(' ');
+}
+
+function compareStructuredRequiredTabs(requiredTabs, readbackSummary) {
+  const mismatches = [];
+  const pageGroups = normalizeArray(readbackSummary?.pageGroups).filter((item) => isPlainObject(item));
+
+  requiredTabs.forEach((requirement, index) => {
+    if (!isPlainObject(requirement)) {
+      return;
+    }
+
+    const requirementLabel = buildRequirementLabel(requirement, index);
+    const matchedPageGroups = pageGroups.filter((pageGroup) => {
+      if (typeof requirement.pageSignature === 'string' && requirement.pageSignature.trim()) {
+        return pageGroup.pageSignature === requirement.pageSignature.trim();
+      }
+      if (typeof requirement.pageUse === 'string' && requirement.pageUse.trim()) {
+        return pageGroup.pageUse === requirement.pageUse.trim();
+      }
+      return true;
+    });
+
+    if (matchedPageGroups.length === 0) {
+      mismatches.push(`${requirementLabel} target page missing`);
+      return;
+    }
+
+    matchedPageGroups.forEach((pageGroup) => {
+      const actualTitles = normalizeTitles(pageGroup.tabTitles);
+      const expectedTitles = normalizeTitles(requirement.titles);
+      const missingTitles = expectedTitles.filter((title) => !actualTitles.includes(title));
+      if (missingTitles.length > 0) {
+        mismatches.push(
+          `${requirementLabel} ${pageGroup.pageSignature ?? '$'} missing titles=${missingTitles.join(' / ')}`,
+        );
+      }
+
+      if (requirement.requireBlockGrid === false) {
+        return;
+      }
+
+      const tabs = normalizeArray(pageGroup.tabs);
+      const tabsByTitle = new Map();
+      tabs.forEach((tab, tabIndex) => {
+        const title = typeof tab?.title === 'string' ? tab.title.trim() : '';
+        const key = title || `#${tabIndex}`;
+        if (!tabsByTitle.has(key)) {
+          tabsByTitle.set(key, tab);
+        }
+      });
+
+      const titlesMissingGrid = expectedTitles.filter((title, titleIndex) => {
+        const matchedTab = tabsByTitle.get(title) ?? tabsByTitle.get(`#${titleIndex}`);
+        return matchedTab && matchedTab.hasBlockGrid !== true;
+      });
+
+      if (titlesMissingGrid.length > 0) {
+        mismatches.push(
+          `${requirementLabel} ${pageGroup.pageSignature ?? '$'} missing BlockGridModel for=${titlesMissingGrid.join(' / ')}`,
+        );
+      }
+    });
+  });
+
+  return mismatches;
+}
+
 export function compareReadbackContract(readbackContract = {}, readbackResult = {}) {
+  const structuredRequiredTabs = normalizeArray(readbackContract.requiredTabs).filter((item) => isPlainObject(item));
+  const readbackSummary = extractReadbackSummary(readbackResult);
+  if (readbackSummary && structuredRequiredTabs.length > 0) {
+    return compareStructuredRequiredTabs(structuredRequiredTabs, readbackSummary);
+  }
+
   const mismatches = [];
   const expectedTabs = normalizeTitles(readbackContract.requiredVisibleTabs);
   const actualTabs = normalizeTitles(readbackResult.tabTitles);

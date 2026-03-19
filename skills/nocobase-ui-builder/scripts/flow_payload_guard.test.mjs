@@ -114,7 +114,7 @@ function makePopupPageWithTable(filter) {
         subModels: {
           tabs: [
             {
-              use: 'PageTabModel',
+              use: 'ChildPageTabModel',
               subModels: {
                 grid: {
                   use: 'BlockGridModel',
@@ -207,7 +207,7 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
         subModels: {
           tabs: [
             {
-              use: 'PageTabModel',
+              use: 'ChildPageTabModel',
               subModels: {
                 grid: {
                   use: 'BlockGridModel',
@@ -512,7 +512,7 @@ test('extractRequiredMetadata collects collection refs, field refs, and popup ch
         subModels: {
           tabs: [
             {
-              use: 'PageTabModel',
+              use: 'ChildPageTabModel',
               subModels: {
                 grid: {
                   use: 'BlockGridModel',
@@ -815,7 +815,7 @@ test('auditPayload warns on empty popup grids in general mode and blocks in vali
         subModels: {
           tabs: [
             {
-              use: 'PageTabModel',
+              use: 'ChildPageTabModel',
               subModels: {
                 grid: {
                   use: 'BlockGridModel',
@@ -862,6 +862,32 @@ test('auditPayload accepts ChildPageTabModel as a valid popup tab subtree', () =
 
   const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_ACTION_MISSING_SUBTREE'), false);
+});
+
+test('auditPayload blocks ChildPageModel popup pages that still use PageTabModel', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [],
+          },
+        },
+      },
+    },
+  });
+  payload.subModels.page.subModels.tabs[0].use = 'PageTabModel';
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TAB_SLOT_USE_INVALID'), true);
 });
 
 test('auditPayload blocks popup actions whose pageModelClass and page subtree use do not match', () => {
@@ -1618,7 +1644,7 @@ test('auditPayload does not downgrade ambiguous riskAccept codes that match mult
         subModels: {
           tabs: [
             {
-              use: 'PageTabModel',
+              use: 'ChildPageTabModel',
               subModels: {
                 grid: {
                   use: 'BlockGridModel',

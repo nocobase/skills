@@ -111,9 +111,16 @@ V1 默认采用 schema-first 的渐进支持策略：
 记录工具调用示例：
 
 - 成功：
-  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "PostFlowmodels_mutate" --tool-type mcp --args-json '{"requestBody":{"atomic":true}}' --status ok --summary "创建表格区块"`
+  - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "PostFlowmodels_mutate" --tool-type mcp --args-json '{"targetSignature":"page.root","requestBody":{"atomic":true}}' --status ok --summary "创建表格区块" --result-json '{"summary":{"targetSignature":"page.root","pageGroups":[]}}'`
 - 失败：
   - `node scripts/tool_journal.mjs tool-call --log-path "<logPath>" --tool "GetFlowmodels_schema" --tool-type mcp --args-json '{"use":"TableBlockModel"}' --status error --error "unsupported-model-use"`
+
+自动 write-after-read 对账约束：
+
+- 只有 `PostFlowmodels_save`、`PostFlowmodels_ensure`、`PostFlowmodels_mutate` 会参与自动 mismatch 分析
+- 写操作与对应 `GetFlowmodels_findone` 都要显式记录同一个 `args.targetSignature`
+- 结构化树摘要统一写在 `tool_call.result.summary`
+- 没有 `targetSignature`，或 summary 无法确认同目标时，只能记为“证据不足”，不要硬报 mismatch
 
 记录阶段说明示例：
 
@@ -205,8 +212,8 @@ V1 默认采用 schema-first 的渐进支持策略：
 11. `FormItemModel` 不能只写 `fieldSettings.init.fieldPath`；必须显式补 `subModels.field.use=<当前 schema/fieldBinding 给出的 editable field model>`，否则运行时只有字段壳，没有稳定可编辑 renderer
 12. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
 13. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要同时覆盖 block 级 `actions` 和 `TableActionsColumnModel` 里的记录动作
-14. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过 `requirements.requiredTabs` 声明给 guard；仅有默认隐藏 tab 或只有 page 壳，不能算成功
-15. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续 `GetFlowmodels_findone` 的 write-after-read 结果为准
+14. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过结构化 `requirements.requiredTabs` 声明给 guard；每项至少包含 `titles`，可选补 `pageUse`、`pageSignature`，默认 `requireBlockGrid=true`
+15. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续同目标 `GetFlowmodels_findone` 的 write-after-read 结果为准
 16. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
 17. validation 阶段若出现结构型渲染问题，具体判定顺序与约束以 [references/validation.md](references/validation.md) 为准
 18. 对已被源码证实的结构型渲染问题，优先把结论沉淀为 `flow_payload_guard`、reference recipe 或 validation 文档约束；不要只增加一次运行时 smoke 作为补救
@@ -288,7 +295,7 @@ NocoBase `resourcer` 的关键实现细节：
 8. 通过当前会话可见的 collection / field MCP 工具补齐元数据，并整理成 `metadata-json`
 9. 运行 `flow_payload_guard.mjs audit-payload`
 10. 只有 `audit-payload` 没有 blocker，或已经通过结构化 `risk_accept` note 明确豁免后，才允许 `PostFlowmodels_save` / `PostFlowmodels_mutate`
-11. 每次写入后立刻执行一次同目标 `GetFlowmodels_findone` 做 write-after-read 对账；如果 readback 与 write 预期不一致，立即降级为 `partial/failed`，不要继续沿用 save 的乐观结论
+11. 每次写入后立刻执行一次同目标 `GetFlowmodels_findone` 做 write-after-read 对账；写操作与 readback 都要带同一个 `args.targetSignature`，如果 readback 与 write 预期不一致，立即降级为 `partial/failed`，不要继续沿用 save 的乐观结论
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
 
@@ -299,7 +306,7 @@ NocoBase `resourcer` 的关键实现细节：
 - 如果只是中途发现漏了一个目标 use，先补增量 `PostFlowmodels_schemas`，不要因为“怕漏掉”就连续追加多个 `GetFlowmodels_schema`。
 - 默认使用 `flow_payload_guard.mjs audit-payload --mode validation-case`；`--mode general` 仅用于调试或分析中间 draft，不能代替最终写前审计
 - `flow_payload_guard.audit-payload` 的结果必须记录到 tool journal；推荐把 `tool` 名写成 `flow_payload_guard.audit-payload`
-- 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`
+- 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`；优先把这份义务落在 `readbackContract.requiredTabs[*]`
 - `run_finished`、tool review 和最终答复都必须引用 write-after-read 事实；不能在 readback 为空时继续写“已落库完成”
 - 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次
 - 如果 write-after-read 之后的 validation 暴露了渲染异常，下一轮改进必须补一条“源码契约 -> payload 结构 -> guard/rule”链路说明，并回写到 validation / recipe 文档；不要只记录浏览器现象
@@ -512,7 +519,7 @@ NocoBase `resourcer` 的关键实现细节：
 
 V1 的边界不再由固定区块白名单决定，而由 schema-first 探测结果决定：
 
-- 页面骨架与页签层：`RootPageModel`、`PageModel`、`RootPageTabModel` / `PageTabModel`、`BlockGridModel` 等页面 / tab anchor 相关模型，可按当前 live tree 与 schema 做创建、读取和补丁
+- 页面骨架与页签层：`RootPageModel`、`PageModel`、`ChildPageModel`、`RootPageTabModel` / `PageTabModel` / `ChildPageTabModel`、`BlockGridModel` 等页面 / tab anchor 相关模型，可按当前 live tree 与 schema 做创建、读取和补丁
 - 常见公共区块：`FilterFormBlockModel`、`TableBlockModel`、`DetailsBlockModel`、`CreateFormModel`、`EditFormModel`
 - 常见动作与交互：`ActionModel` 及当前 `schemas` / `schema` 已明确展开的 record actions、popup/openView 相关动作树
 - 当当前 `schemas` / `schema` 已明确展开目标 slot 时，也允许直接创建这些稳定子树：
@@ -523,6 +530,13 @@ V1 的边界不再由固定区块白名单决定，而由 schema-first 探测结
   - 已在 schema 中明确列出的字段渲染模型
   - 已在 schema 中明确列出的详情字段项、关系区块、popup page / tab 子树
 - 实际可写范围始终以当前探测到的 `allowed uses`、具体 child schema 和 live tree 为准，不把支持范围硬编码成固定白名单
+
+page / tab 契约补充：
+
+- `RootPageModel -> RootPageTabModel`
+- `PageModel -> RootPageTabModel` 或 `PageTabModel`
+- `ChildPageModel -> ChildPageTabModel`
+- builder 目前支持 `popup.pageUse + blocks`，不支持 `popup.tabs` / `popup.layout.tabs` 这类显式 popup tabs DSL
 
 不要自由发挥去生成下面这些“当前 schema 文档尚未展开、或 live tree 尚未确认”的运行时子节点或内部模型：
 

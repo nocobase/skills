@@ -4,6 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  DEFAULT_POPUP_PAGE_USE,
+  getDefaultTabUseForPage,
+  getFormUseForMode,
+  normalizeFormMode,
+  normalizePageUse,
+} from './model_contracts.mjs';
+
 export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
 export const DEFAULT_BUILD_COMPILE_MODE = 'primitive-tree';
@@ -14,10 +22,7 @@ const BLOCK_USE_BY_KIND = {
   Grid: 'BlockGridModel',
   Table: 'TableBlockModel',
   Details: 'DetailsBlockModel',
-  Form: 'CreateFormModel',
 };
-
-const PAGE_MODEL_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
 
 const ACTION_USE_BY_KIND = {
   'edit-record-popup': 'EditActionModel',
@@ -29,14 +34,6 @@ function resolveActionUse(kind) {
     throw new Error(`Unsupported action kind "${kind}"`);
   }
   return resolvedUse;
-}
-
-function normalizePageUse(pageUse, label, fallbackValue = 'RootPageModel') {
-  const normalized = typeof pageUse === 'string' && pageUse.trim() ? pageUse.trim() : fallbackValue;
-  if (!PAGE_MODEL_USES.has(normalized)) {
-    throw new Error(`${label} must be one of ${[...PAGE_MODEL_USES].join(', ')}`);
-  }
-  return normalized;
 }
 
 function usage() {
@@ -153,9 +150,14 @@ function normalizePopup(popup, label) {
   if (!popup || typeof popup !== 'object') {
     throw new Error(`${label} must be an object`);
   }
+  if (popup.tabs !== undefined || popup.layout?.tabs !== undefined) {
+    throw new Error(`${label}.tabs is not supported yet; popup currently only supports pageUse + blocks`);
+  }
   return {
     title: typeof popup.title === 'string' && popup.title.trim() ? popup.title.trim() : '',
-    pageUse: normalizePageUse(popup.pageUse, `${label}.pageUse`, 'ChildPageModel'),
+    pageUse: normalizePageUse(popup.pageUse, `${label}.pageUse`, {
+      fallbackValue: DEFAULT_POPUP_PAGE_USE,
+    }),
     blocks: normalizeBlocks(popup.blocks, `${label}.blocks`),
   };
 }
@@ -185,11 +187,11 @@ function normalizeBlock(block, index, label = 'blocks') {
     popup: block.popup && typeof block.popup === 'object'
       ? normalizePopup(block.popup, `${label}[${index}].popup`)
       : null,
-    mode: typeof block.mode === 'string' && block.mode.trim() ? block.mode.trim() : '',
+    mode: typeof block.mode === 'string' && block.mode.trim() ? normalizeFormMode(block.mode, `${label}[${index}].mode`) : '',
   };
 
   if (normalized.kind === 'Form') {
-    normalized.mode = normalized.mode || 'create';
+    normalized.mode = normalizeFormMode(normalized.mode, `${label}[${index}].mode`);
   }
 
   return normalized;
@@ -244,9 +246,17 @@ function deriveRequiredTabs(layout, explicit) {
       if (!entry || typeof entry !== 'object') {
         throw new Error(`requirements.requiredTabs[${index}] must be an object`);
       }
+      const titles = sortUniqueStrings(entry.titles);
+      if (titles.length === 0) {
+        throw new Error(`requirements.requiredTabs[${index}].titles must not be empty`);
+      }
       return {
-        titles: sortUniqueStrings(entry.titles),
-        pageUse: normalizePageUse(entry.pageUse, `requirements.requiredTabs[${index}].pageUse`, 'RootPageModel'),
+        pageSignature: typeof entry.pageSignature === 'string' && entry.pageSignature.trim() ? entry.pageSignature.trim() : null,
+        titles,
+        pageUse: normalizePageUse(entry.pageUse, `requirements.requiredTabs[${index}].pageUse`, {
+          allowNull: true,
+        }),
+        requireBlockGrid: entry.requireBlockGrid !== false,
       };
     });
   }
@@ -255,8 +265,10 @@ function deriveRequiredTabs(layout, explicit) {
   }
   return [
     {
+      pageSignature: '$',
       titles: layout.tabs.map((tab) => tab.title),
       pageUse: layout.pageUse,
+      requireBlockGrid: true,
     },
   ];
 }
@@ -273,7 +285,9 @@ export function normalizeBuildSpec(input) {
   const optionsInput = input.options && typeof input.options === 'object' ? input.options : {};
 
   const layout = {
-    pageUse: normalizePageUse(layoutInput.pageUse, 'layout.pageUse', 'RootPageModel'),
+    pageUse: normalizePageUse(layoutInput.pageUse, 'layout.pageUse', {
+      fallbackValue: 'RootPageModel',
+    }),
     blocks: normalizeBlocks(layoutInput.blocks, 'layout.blocks'),
     tabs: normalizeTabs(layoutInput.tabs),
   };
@@ -379,7 +393,7 @@ export function normalizeVerifySpec(input) {
 }
 
 function collectRequiredUsesFromBlock(block, requiredUses) {
-  requiredUses.add(BLOCK_USE_BY_KIND[block.kind] || block.kind);
+  requiredUses.add(resolveBlockUse(block));
   if (block.kind === 'Table') {
     requiredUses.add('TableColumnModel');
   }
@@ -394,6 +408,13 @@ function collectRequiredUsesFromBlock(block, requiredUses) {
     requiredUses.add(block.popup.pageUse);
     requiredUses.add('BlockGridModel');
   }
+}
+
+function resolveBlockUse(block) {
+  if (block.kind === 'Form') {
+    return getFormUseForMode(block.mode);
+  }
+  return BLOCK_USE_BY_KIND[block.kind] || block.kind;
 }
 
 function compileBlocks(blocks, scope, artifact) {
@@ -417,7 +438,7 @@ function compileBlocks(blocks, scope, artifact) {
     return {
       path: `${scope}.blocks[${index}]`,
       kind: block.kind,
-      use: BLOCK_USE_BY_KIND[block.kind] || block.kind,
+      use: resolveBlockUse(block),
       title: block.title,
       collectionName: block.collectionName,
       fields: block.fields,
@@ -431,6 +452,7 @@ function compileBlocks(blocks, scope, artifact) {
 
 export function compileBuildSpec(input) {
   const buildSpec = normalizeBuildSpec(input);
+  const defaultTabUse = getDefaultTabUseForPage(buildSpec.layout.pageUse);
   const artifact = {
     compileMode: buildSpec.options.allowLegacyFallback ? 'primitive-tree' : DEFAULT_BUILD_COMPILE_MODE,
     payloadFragment: null,
@@ -442,6 +464,12 @@ export function compileBuildSpec(input) {
     },
     guardRequirements: buildSpec.requirements,
     readbackContract: {
+      requiredTabs: buildSpec.requirements.requiredTabs.map((item) => ({
+        pageSignature: item.pageSignature ?? null,
+        pageUse: item.pageUse ?? null,
+        titles: [...item.titles],
+        requireBlockGrid: item.requireBlockGrid !== false,
+      })),
       requiredVisibleTabs: buildSpec.requirements.requiredTabs.flatMap((item) => item.titles),
       requiredTabCount: buildSpec.requirements.requiredTabs[0]?.titles?.length ?? 0,
       requiredTopLevelUses: [],
@@ -458,7 +486,7 @@ export function compileBuildSpec(input) {
     title: buildSpec.target.title,
     blocks: compileBlocks(buildSpec.layout.blocks, '$.page', artifact),
     tabs: buildSpec.layout.tabs.map((tab, index) => {
-      artifact.requiredUses.add('RootPageTabModel');
+      artifact.requiredUses.add(defaultTabUse);
       artifact.requiredUses.add('BlockGridModel');
       artifact.verifyHints.push({
         stageId: `tab-${index + 1}`,
@@ -471,7 +499,7 @@ export function compileBuildSpec(input) {
       return {
         path: `$.page.tabs[${index}]`,
         kind: 'Tabs',
-        use: 'RootPageTabModel',
+        use: defaultTabUse,
         title: tab.title,
         blocks: compileBlocks(tab.blocks, `$.page.tabs[${index}]`, artifact),
       };
@@ -480,7 +508,7 @@ export function compileBuildSpec(input) {
 
   artifact.readbackContract.requiredTopLevelUses = sortUniqueStrings([
     ...tree.blocks.map((item) => item.use),
-    ...(tree.tabs.length > 0 ? ['RootPageTabModel'] : []),
+    ...(tree.tabs.length > 0 ? [defaultTabUse] : []),
   ]);
   artifact.payloadFragment = tree;
   artifact.primitiveTree = tree;

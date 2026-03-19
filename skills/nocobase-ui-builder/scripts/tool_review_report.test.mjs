@@ -464,9 +464,30 @@ test('analyzeRun flags save/readback mismatches as a high-priority workflow issu
     toolType: 'mcp',
     status: 'ok',
     summary: 'write visible tabs',
+    args: {
+      targetSignature: 'page.root',
+    },
     result: {
-      tabCount: 4,
-      tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [
+          {
+            pageSignature: '$',
+            pageUse: 'RootPageModel',
+            tabCount: 4,
+            tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+            tabs: [
+              { title: '客户概览', hasBlockGrid: true },
+              { title: '联系人', hasBlockGrid: true },
+              { title: '商机', hasBlockGrid: true },
+              { title: '跟进记录', hasBlockGrid: true },
+            ],
+          },
+        ],
+        tabCount: 4,
+        tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+        topLevelUses: ['RootPageTabModel'],
+      },
     },
   });
   recordToolCall({
@@ -478,19 +499,100 @@ test('analyzeRun flags save/readback mismatches as a high-priority workflow issu
     args: {
       parentId: 'wjsktwr1sdzp',
       subKey: 'page',
+      targetSignature: 'page.root',
     },
     result: {
       uid: 'ens_root_page',
-      tabCount: 0,
-      tabTitles: [],
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [
+          {
+            pageSignature: '$',
+            pageUse: 'RootPageModel',
+            tabCount: 0,
+            tabTitles: [],
+            tabs: [],
+          },
+        ],
+        tabCount: 0,
+        tabTitles: [],
+        topLevelUses: [],
+      },
     },
   });
 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.equal(summary.readbackMismatches.length, 1);
-  assert.ok(summary.readbackMismatches[0].evidence.some((item) => item.includes('tabCount=4')));
+  assert.equal(summary.readbackMismatches[0].targetSignature, 'page.root');
+  assert.ok(summary.readbackMismatches[0].evidence.some((item) => item.includes('page $ tabCount write=4')));
   assert.ok(summary.suggestions.some((item) => item.includes('write 后 readback 不一致')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('write 后 readback 不一致')));
+});
+
+test('analyzeRun does not generate automatic mismatches for legacy unsigned save/findone logs', () => {
+  const rootDir = makeTempDir('legacy-readback');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Legacy mismatch fallback',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'legacy save',
+    result: {
+      tabCount: 4,
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'legacy readback',
+    args: {
+      parentId: 'page-a',
+      subKey: 'page',
+    },
+    result: {
+      tabCount: 0,
+    },
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.readbackMismatches.length, 0);
+  assert.equal(summary.readbackEvidenceInsufficient.length, 0);
+});
+
+test('analyzeRun marks mutate without explicit targetSignature as evidence_insufficient', () => {
+  const rootDir = makeTempDir('mutate-missing-signature');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Mutate without target signature',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_mutate',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'mutate without explicit signature',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.readbackMismatches.length, 0);
+  assert.equal(summary.readbackEvidenceInsufficient.length, 1);
+  assert.equal(summary.readbackEvidenceInsufficient[0].reasonCode, 'WRITE_TARGET_SIGNATURE_MISSING');
 });
 
 test('analyzeRun ignores non-structured risk-accept notes', () => {
@@ -608,8 +710,24 @@ test('renderReport includes readback mismatch section', () => {
     toolType: 'mcp',
     status: 'ok',
     summary: 'save tabs',
+    args: {
+      targetSignature: 'page.root',
+    },
     result: {
-      tabCount: 4,
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [
+          {
+            pageSignature: '$',
+            pageUse: 'RootPageModel',
+            tabCount: 4,
+            tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+            tabs: [],
+          },
+        ],
+        tabCount: 4,
+        tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+      },
     },
   });
   recordToolCall({
@@ -621,9 +739,23 @@ test('renderReport includes readback mismatch section', () => {
     args: {
       parentId: 'page-a',
       subKey: 'page',
+      targetSignature: 'page.root',
     },
     result: {
-      tabCount: 0,
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [
+          {
+            pageSignature: '$',
+            pageUse: 'RootPageModel',
+            tabCount: 0,
+            tabTitles: [],
+            tabs: [],
+          },
+        ],
+        tabCount: 0,
+        tabTitles: [],
+      },
     },
   });
   finishRun({
@@ -641,7 +773,7 @@ test('renderReport includes readback mismatch section', () => {
   const markdown = fs.readFileSync(result.markdownPath, 'utf8');
 
   assert.match(markdown, /## 写后回读/);
-  assert.match(markdown, /write\.tabCount=4，readback\.tabCount=0/);
+  assert.match(markdown, /page \$ tabCount write=4，readback=0/);
 });
 
 test('cli render resolves latest-run manifest automatically', () => {

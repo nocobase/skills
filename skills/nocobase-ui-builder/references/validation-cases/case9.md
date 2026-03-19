@@ -37,8 +37,8 @@
 执行要求：
 - 开始搭建 UI 之前，先准备并校验前置模拟数据，不要跳过这一步直接验证空页面。
 - 最终结果里要单独交代每类业务数据的样本数量，以及多标签页面是否真的能读到这些数据。
-- `audit-payload` 时要显式声明 4 个可见 tab 标题要求：`客户概览`、`联系人`、`商机`、`跟进记录`。
-- `save` 后必须立即用 `GetFlowmodels_findone` 对账 tab 数、tab 标题和各 tab 的 grid；若 readback 不一致，必须直接判 `partial/failed`。
+- `audit-payload` 时要通过结构化 `requirements.requiredTabs` 显式声明 4 个可见 tab 标题要求：`客户概览`、`联系人`、`商机`、`跟进记录`，并要求 `requireBlockGrid=true`。
+- `save` 后必须立即用同目标 `GetFlowmodels_findone` 对账 tab 数、tab 标题和各 tab 的 grid；写操作与 readback 都要显式带同一个 `args.targetSignature`。若 readback 不一致，必须直接判 `partial/failed`。
 ```
 
 ## 最低验收标准
@@ -56,6 +56,7 @@
 
 - `RootPageModel` 或 `PageModel` 的 tabs 结构
 - `RootPageTabModel` / `PageTabModel` 与各自 `grid`
+- 如果目标页面最终落成 `ChildPageModel`，则 tab 应改为 `ChildPageTabModel`
 - 多 tab 页面下的 block 编排
 - page summary / tab summary 的必要性
 
