@@ -345,6 +345,26 @@ function makeActionTargetBlock(collectionName = 'order_items', actions = []) {
   };
 }
 
+function makeDetailsActionTargetBlock(collectionName = 'orders', actions = []) {
+  return {
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName,
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'DetailsGridModel',
+      },
+      actions,
+    },
+  };
+}
+
 function makeRowActionTargetBlock(collectionName = 'order_items', actions = []) {
   return {
     use: 'TableBlockModel',
@@ -364,6 +384,32 @@ function makeRowActionTargetBlock(collectionName = 'order_items', actions = []) 
           },
         },
       ],
+    },
+  };
+}
+
+function makeFilterFormBlock(actions = []) {
+  return {
+    use: 'FilterFormBlockModel',
+    stepParams: {
+      formFilterBlockModelSettings: {
+        layout: {
+          layout: 'horizontal',
+          colon: false,
+        },
+        defaultValues: {
+          value: [],
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'FilterFormGridModel',
+        subModels: {
+          items: [],
+        },
+      },
+      actions,
     },
   };
 }
@@ -818,6 +864,24 @@ test('auditPayload accepts ChildPageTabModel as a valid popup tab subtree', () =
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_ACTION_MISSING_SUBTREE'), false);
 });
 
+test('auditPayload blocks popup actions whose pageModelClass and page subtree use do not match', () => {
+  const payload = makePopupPageWithTable({
+    logic: '$and',
+    items: [
+      {
+        path: 'order_id',
+        operator: '$eq',
+        value: '{{ctx.view.inputArgs.filterByTk}}',
+      },
+    ],
+  });
+  payload.subModels.page.use = 'PageModel';
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'POPUP_PAGE_USE_MISMATCH'), true);
+});
+
 test('auditPayload blocks bare belongsTo child-side scalar filter and suggests metadata-derived scalar paths', () => {
   const payload = makePopupPageWithChildTab({
     use: 'TableBlockModel',
@@ -1206,6 +1270,58 @@ test('auditPayload warns and blocks empty details blocks', () => {
   assert.equal(validationResult.blockers.some((item) => item.code === 'EMPTY_DETAILS_BLOCK'), true);
 });
 
+test('auditPayload blocks generic ActionModel in TableBlockModel actions slot', () => {
+  const payload = makeActionTargetBlock('order_items', [{ use: 'ActionModel' }]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload blocks generic ActionModel in TableActionsColumnModel actions slot', () => {
+  const payload = makeRowActionTargetBlock('order_items', [{ use: 'ActionModel' }]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TABLE_RECORD_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload blocks generic ActionModel in DetailsBlockModel actions slot', () => {
+  const payload = makeDetailsActionTargetBlock('orders', [{ use: 'ActionModel' }]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'DETAILS_ACTION_SLOT_USE_INVALID'), true);
+});
+
+test('auditPayload blocks generic ActionModel in FilterFormBlockModel actions slot', () => {
+  const payload = makeFilterFormBlock([{ use: 'ActionModel' }]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_ACTION_SLOT_USE_INVALID'), true);
+});
+
 test('auditPayload blocks declared edit-record-popup requirements when target block has no stable edit action tree', () => {
   const payload = makeActionTargetBlock('order_items', []);
 
@@ -1227,8 +1343,8 @@ test('auditPayload blocks declared edit-record-popup requirements when target bl
   assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_EDIT_RECORD_POPUP_ACTION_MISSING'), true);
 });
 
-test('auditPayload accepts declared edit-record-popup requirements when stable action tree exists', () => {
-  const payload = makeActionTargetBlock('order_items', [makeEditRecordPopupAction('order_items')]);
+test('auditPayload accepts declared edit-record-popup requirements when stable action tree exists in DetailsBlockModel', () => {
+  const payload = makeDetailsActionTargetBlock('order_items', [makeEditRecordPopupAction('order_items')]);
 
   const result = auditPayload({
     payload,

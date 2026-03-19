@@ -87,6 +87,7 @@
 默认按 schema-first 执行：
 
 - 先看 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`
+- 看到动态 `actions` 槽位时，不要停在泛型 `ActionModel`；要继续按当前 block/pattern 文档把 use 收敛到对应 action family
 - 如果 `schemas` 已经给出具体 slot schema 和 allowed uses，就直接构造该子树
 - 如果 `schemas` 已经给出 popup/openView、关系区块、详情字段项、tab 子树等稳定结构，也可以直接构造，不必退回到“只建壳层”
 - 只有当目标 slot 仍停留在泛型节点或运行时未解析状态时，才回退到样板页或稳定壳层

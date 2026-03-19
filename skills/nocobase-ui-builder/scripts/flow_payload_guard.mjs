@@ -20,6 +20,12 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'FORM_ACTION_MUST_USE_ACTIONS_SLOT',
   'FORM_ITEM_FIELD_SUBMODEL_MISSING',
   'FORM_SUBMIT_ACTION_MISSING',
+  'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID',
+  'TABLE_RECORD_ACTION_SLOT_USE_INVALID',
+  'DETAILS_ACTION_SLOT_USE_INVALID',
+  'FILTER_FORM_ACTION_SLOT_USE_INVALID',
+  'POPUP_PAGE_USE_INVALID',
+  'POPUP_PAGE_USE_MISMATCH',
   'TAB_SLOT_USE_INVALID',
   'TAB_GRID_MISSING_OR_INVALID',
   'TAB_GRID_ITEM_USE_INVALID',
@@ -42,6 +48,32 @@ const BUSINESS_BLOCK_MODEL_USES = new Set([
 ]);
 const FORM_BLOCK_MODEL_USES = new Set(['CreateFormModel', 'EditFormModel']);
 const FORM_BLOCK_ACTION_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel']);
+const COLLECTION_ACTION_MODEL_USES = new Set([
+  'AddNewActionModel',
+  'BulkDeleteActionModel',
+  'ExpandCollapseActionModel',
+  'FilterActionModel',
+  'JSCollectionActionModel',
+  'LinkActionModel',
+  'PopupCollectionActionModel',
+  'RefreshActionModel',
+]);
+const RECORD_ACTION_MODEL_USES = new Set([
+  'AddChildActionModel',
+  'DeleteActionModel',
+  'EditActionModel',
+  'JSRecordActionModel',
+  'LinkActionModel',
+  'PopupCollectionActionModel',
+  'UpdateRecordActionModel',
+  'ViewActionModel',
+]);
+const FILTER_FORM_ACTION_MODEL_USES = new Set([
+  'FilterFormSubmitActionModel',
+  'FilterFormResetActionModel',
+  'FilterFormCollapseActionModel',
+  'FilterFormJSActionModel',
+]);
 const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel']);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
@@ -721,6 +753,38 @@ function pushStructuralUidOccurrence(occurrences, uid, use, pathValue) {
   occurrences.set(normalizedUid, list);
 }
 
+function inspectActionSlotUses({
+  hostNode,
+  slotPath,
+  allowedUses,
+  code,
+  message,
+  mode,
+  blockers,
+  seen,
+}) {
+  const actions = Array.isArray(hostNode) ? hostNode : (Array.isArray(hostNode?.subModels?.actions) ? hostNode.subModels.actions : []);
+  actions.forEach((actionNode, index) => {
+    const actionUse = isPlainObject(actionNode) && typeof actionNode.use === 'string' ? actionNode.use.trim() : '';
+    if (actionUse && allowedUses.has(actionUse)) {
+      return;
+    }
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code,
+      message,
+      path: `${slotPath}[${index}]`,
+      mode,
+      dedupeKey: `${code}:${slotPath}:${index}:${actionUse || 'missing'}`,
+      details: {
+        hostUse: isPlainObject(hostNode) ? hostNode.use || null : null,
+        actualUse: actionUse || null,
+        allowedUses: [...allowedUses],
+      },
+    }));
+  });
+}
+
 function subtreeReferencesCollection(node, collectionName) {
   let matched = false;
   walk(node, (child) => {
@@ -737,7 +801,7 @@ function subtreeReferencesCollection(node, collectionName) {
 }
 
 function hasEditRecordPopupAction(actionNode, collectionName) {
-  if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string' || !actionNode.use.endsWith('ActionModel')) {
+  if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string' || !RECORD_ACTION_MODEL_USES.has(actionNode.use)) {
     return false;
   }
 
@@ -1260,6 +1324,69 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
   });
 }
 
+function inspectActionSlots(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || typeof node.use !== 'string') {
+      return;
+    }
+
+    if (node.use === 'TableBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: COLLECTION_ACTION_MODEL_USES,
+        code: 'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID',
+        message: `TableBlockModel 的 actions 槽位只能放 ${[...COLLECTION_ACTION_MODEL_USES].join(' / ')}，不能回退成泛型 ActionModel 或 record action。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
+    if (node.use === 'TableActionsColumnModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: RECORD_ACTION_MODEL_USES,
+        code: 'TABLE_RECORD_ACTION_SLOT_USE_INVALID',
+        message: `TableActionsColumnModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
+    if (node.use === 'DetailsBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: RECORD_ACTION_MODEL_USES,
+        code: 'DETAILS_ACTION_SLOT_USE_INVALID',
+        message: `DetailsBlockModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
+    if (node.use === 'FilterFormBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: FILTER_FORM_ACTION_MODEL_USES,
+        code: 'FILTER_FORM_ACTION_SLOT_USE_INVALID',
+        message: `FilterFormBlockModel 的 actions 槽位只能放 filter-form action uses，不能回退成泛型 ActionModel。`,
+        mode,
+        blockers,
+        seen,
+      });
+    }
+  });
+}
+
 function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'DetailsBlockModel') {
@@ -1295,6 +1422,54 @@ function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) 
     const isPopupAction = isPlainObject(openView) || pageNode;
     if (!isPopupAction) {
       return;
+    }
+
+    const declaredPageUse = typeof openView?.pageModelClass === 'string' ? openView.pageModelClass.trim() : '';
+    const actualPageUse = isPlainObject(pageNode) && typeof pageNode.use === 'string' ? pageNode.use.trim() : '';
+    if (declaredPageUse && !PAGE_MODEL_USES.has(declaredPageUse)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'POPUP_PAGE_USE_INVALID',
+        message: `popup/openView 的 pageModelClass 必须是 ${[...PAGE_MODEL_USES].join(' / ')} 之一。`,
+        path: `${pathValue}.stepParams.popupSettings.openView.pageModelClass`,
+        mode,
+        dedupeKey: `POPUP_PAGE_USE_INVALID:${pathValue}:declared:${declaredPageUse}`,
+        details: {
+          actionUse: node.use,
+          declaredPageUse,
+          actualPageUse: actualPageUse || null,
+        },
+      }));
+    }
+    if (pageNode && (!actualPageUse || !PAGE_MODEL_USES.has(actualPageUse))) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'POPUP_PAGE_USE_INVALID',
+        message: `popup/openView 的 subModels.page 必须落成 ${[...PAGE_MODEL_USES].join(' / ')}，不能写成其他结构壳。`,
+        path: `${pathValue}.subModels.page`,
+        mode,
+        dedupeKey: `POPUP_PAGE_USE_INVALID:${pathValue}:actual:${actualPageUse || 'missing'}`,
+        details: {
+          actionUse: node.use,
+          declaredPageUse: declaredPageUse || null,
+          actualPageUse: actualPageUse || null,
+        },
+      }));
+    }
+    if (declaredPageUse && actualPageUse && declaredPageUse !== actualPageUse) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'POPUP_PAGE_USE_MISMATCH',
+        message: 'popup/openView 的 pageModelClass 与 subModels.page.use 必须严格一致，否则很容易出现按钮位置错乱、drawer/form 结构异常或上下文不通。',
+        path: `${pathValue}.subModels.page`,
+        mode,
+        dedupeKey: `POPUP_PAGE_USE_MISMATCH:${pathValue}:${declaredPageUse}:${actualPageUse}`,
+        details: {
+          actionUse: node.use,
+          declaredPageUse,
+          actualPageUse,
+        },
+      }));
     }
 
     const tabCount = pageNode ? countUses(pageNode, PAGE_TAB_MODEL_USES) : 0;
@@ -1933,6 +2108,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
+  inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);

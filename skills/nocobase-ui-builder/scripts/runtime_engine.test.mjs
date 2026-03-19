@@ -216,10 +216,71 @@ test('spec normalization and compile derive guard requirements and readback cont
 
   const compiled = compileBuildSpec(normalized);
   assert.equal(compiled.compileArtifact.requiredUses.includes('RootPageTabModel'), true);
+  assert.equal(compiled.compileArtifact.requiredUses.includes('EditActionModel'), true);
   assert.deepEqual(compiled.compileArtifact.guardRequirements.requiredTabs[0].titles, ['客户概览', '跟进记录']);
   assert.equal(compiled.compileArtifact.guardRequirements.requiredActions[0].collectionName, 'customers');
   assert.equal(compiled.compileArtifact.readbackContract.requiredTabCount, 2);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('customers'), true);
+  assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].use, 'EditActionModel');
+  assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].popup, null);
+});
+
+test('spec normalization defaults popup pages to ChildPageModel instead of generic PageModel', () => {
+  const compiled = compileBuildSpec({
+    source: '构建订单查看弹窗',
+    target: {
+      title: '订单工作台',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Table',
+          collectionName: 'orders',
+          fields: ['order_no'],
+          actions: [
+            {
+              kind: 'edit-record-popup',
+              popup: {
+                blocks: [
+                  {
+                    kind: 'Details',
+                    collectionName: 'orders',
+                    fields: ['order_no'],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(compiled.compileArtifact.requiredUses.includes('ChildPageModel'), true);
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].use, 'EditActionModel');
+  assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.pageUse, 'ChildPageModel');
+});
+
+test('spec normalization rejects unsupported generic action kinds instead of silently falling back to ActionModel', () => {
+  assert.throws(() => normalizeBuildSpec({
+    source: '构建未知动作',
+    target: {
+      title: '未知动作页面',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Table',
+          collectionName: 'orders',
+          actions: [
+            {
+              kind: 'custom-action',
+            },
+          ],
+        },
+      ],
+    },
+  }), /Unsupported action kind "custom-action"/);
 });
 
 test('validation run helper emits default BuildSpec and VerifySpec artifacts', () => {

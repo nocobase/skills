@@ -55,6 +55,7 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
    - 读哪个 `subModels` slot
    - 读哪些 `stepParams`
    - 允许哪些 child model/use
+   - popup/openView 的 `pageModelClass` 是否与 `subModels.page.use` 一致
 4. 用源码契约反查当前 readback 是否结构错误
 5. 只有当 readback 已满足源码契约时，才继续怀疑 case 数据或平台 runtime
 
@@ -63,6 +64,7 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 1. 浏览器 smoke 只负责确认现象，不负责给出根修复方案。
 2. 对结构型渲染问题，不要先补“多跑一次 smoke”或“多开一次浏览器”当改进建议。
 3. 如果源码已经证明当前 payload 违反固定结构契约，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
+4. 对动作区渲染问题，优先检查 slot 级 `allowedUses` 是否匹配；`DetailsBlockModel.actions`、`TableActionsColumnModel.actions`、`FilterFormBlockModel.actions`、`TableBlockModel.actions` 都不能把泛型 `ActionModel` 当成“结构正确”。
 
 ## 数据前置与造数
 

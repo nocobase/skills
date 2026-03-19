@@ -8,17 +8,36 @@ export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
 export const DEFAULT_BUILD_COMPILE_MODE = 'primitive-tree';
 
-const PAGE_USE_BY_KIND = {
+const BLOCK_USE_BY_KIND = {
   Page: 'RootPageModel',
   Tabs: 'RootPageTabModel',
   Grid: 'BlockGridModel',
   Table: 'TableBlockModel',
   Details: 'DetailsBlockModel',
-  Action: 'ActionModel',
-  Popup: 'PageModel',
-  RelationScope: 'ActionModel',
   Form: 'CreateFormModel',
 };
+
+const PAGE_MODEL_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
+
+const ACTION_USE_BY_KIND = {
+  'edit-record-popup': 'EditActionModel',
+};
+
+function resolveActionUse(kind) {
+  const resolvedUse = ACTION_USE_BY_KIND[kind];
+  if (!resolvedUse) {
+    throw new Error(`Unsupported action kind "${kind}"`);
+  }
+  return resolvedUse;
+}
+
+function normalizePageUse(pageUse, label, fallbackValue = 'RootPageModel') {
+  const normalized = typeof pageUse === 'string' && pageUse.trim() ? pageUse.trim() : fallbackValue;
+  if (!PAGE_MODEL_USES.has(normalized)) {
+    throw new Error(`${label} must be one of ${[...PAGE_MODEL_USES].join(', ')}`);
+  }
+  return normalized;
+}
 
 function usage() {
   return [
@@ -123,6 +142,7 @@ function normalizeAction(action, index) {
   return {
     kind,
     label: typeof action.label === 'string' && action.label.trim() ? action.label.trim() : kind,
+    use: resolveActionUse(kind),
     popup: action.popup && typeof action.popup === 'object'
       ? normalizePopup(action.popup, `actions[${index}].popup`)
       : null,
@@ -135,6 +155,7 @@ function normalizePopup(popup, label) {
   }
   return {
     title: typeof popup.title === 'string' && popup.title.trim() ? popup.title.trim() : '',
+    pageUse: normalizePageUse(popup.pageUse, `${label}.pageUse`, 'ChildPageModel'),
     blocks: normalizeBlocks(popup.blocks, `${label}.blocks`),
   };
 }
@@ -225,7 +246,7 @@ function deriveRequiredTabs(layout, explicit) {
       }
       return {
         titles: sortUniqueStrings(entry.titles),
-        pageUse: typeof entry.pageUse === 'string' && entry.pageUse.trim() ? entry.pageUse.trim() : 'RootPageModel',
+        pageUse: normalizePageUse(entry.pageUse, `requirements.requiredTabs[${index}].pageUse`, 'RootPageModel'),
       };
     });
   }
@@ -252,7 +273,7 @@ export function normalizeBuildSpec(input) {
   const optionsInput = input.options && typeof input.options === 'object' ? input.options : {};
 
   const layout = {
-    pageUse: typeof layoutInput.pageUse === 'string' && layoutInput.pageUse.trim() ? layoutInput.pageUse.trim() : 'RootPageModel',
+    pageUse: normalizePageUse(layoutInput.pageUse, 'layout.pageUse', 'RootPageModel'),
     blocks: normalizeBlocks(layoutInput.blocks, 'layout.blocks'),
     tabs: normalizeTabs(layoutInput.tabs),
   };
@@ -358,15 +379,19 @@ export function normalizeVerifySpec(input) {
 }
 
 function collectRequiredUsesFromBlock(block, requiredUses) {
-  requiredUses.add(PAGE_USE_BY_KIND[block.kind] || block.kind);
+  requiredUses.add(BLOCK_USE_BY_KIND[block.kind] || block.kind);
   if (block.kind === 'Table') {
     requiredUses.add('TableColumnModel');
   }
-  if (block.actions.length > 0) {
-    requiredUses.add('ActionModel');
+  for (const action of block.actions) {
+    requiredUses.add(action.use || 'ActionModel');
+    if (action.popup) {
+      requiredUses.add(action.popup.pageUse);
+      requiredUses.add('BlockGridModel');
+    }
   }
   if (block.popup) {
-    requiredUses.add('PageModel');
+    requiredUses.add(block.popup.pageUse);
     requiredUses.add('BlockGridModel');
   }
 }
@@ -392,7 +417,7 @@ function compileBlocks(blocks, scope, artifact) {
     return {
       path: `${scope}.blocks[${index}]`,
       kind: block.kind,
-      use: PAGE_USE_BY_KIND[block.kind] || block.kind,
+      use: BLOCK_USE_BY_KIND[block.kind] || block.kind,
       title: block.title,
       collectionName: block.collectionName,
       fields: block.fields,
