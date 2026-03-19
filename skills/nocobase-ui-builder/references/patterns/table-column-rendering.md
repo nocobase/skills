@@ -89,7 +89,8 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
     "fieldSettings": {
       "init": {
         "collectionName": "orders",
-        "fieldPath": "customer.name"
+        "fieldPath": "customer.name",
+        "associationPathName": "customer"
       }
     }
   },
@@ -100,7 +101,8 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
         "fieldSettings": {
           "init": {
             "collectionName": "orders",
-            "fieldPath": "customer.name"
+            "fieldPath": "customer.name",
+            "associationPathName": "customer"
           }
         }
       }
@@ -108,6 +110,9 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
   }
 }
 ```
+
+这里的 `associationPathName` 不是让你把绑定拆成 target collection + simple `fieldPath`。
+它只是告诉 runtime：这个 dotted path 依赖哪一段关联前缀，需要把对应 relation append 进来。
 
 不要改成下面这种拆分绑定：
 
@@ -166,6 +171,7 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - 只在 `tableColumnSettings.model.use` 里写 display model，却不创建实际 `subModels.field`
 - 因为 popup/action 更复杂，就先牺牲主列表的真实可见列
 - 把关联字段本身直接交给 `DisplayTextFieldModel(fieldPath=<relationField>)`，却没有验证实际可见值
+- 直接把 `customer.name` 当稳定路径使用，却漏掉 `associationPathName`
 - 直接把 `customer.name` 当稳定路径使用，而不核对元数据与 schema
 
 ## 关联文档

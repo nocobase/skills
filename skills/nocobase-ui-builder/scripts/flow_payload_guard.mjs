@@ -11,6 +11,8 @@ export const BLOCKER_EXIT_CODE = 2;
 
 const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
+  'DOTTED_ASSOCIATION_DISPLAY_ASSOCIATION_PATH_MISMATCH',
+  'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH',
   'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
   'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
   'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
@@ -573,6 +575,40 @@ function resolveFieldPathInMetadata(metadata, collectionName, fieldPath) {
   }
 
   return null;
+}
+
+function getExpectedAssociationPathName(metadata, collectionName, fieldPath) {
+  if (!collectionName || typeof fieldPath !== 'string') {
+    return null;
+  }
+  const segments = fieldPath
+    .split('.')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (segments.length < 2) {
+    return null;
+  }
+
+  let currentCollection = getCollectionMeta(metadata, collectionName);
+  if (!currentCollection) {
+    return null;
+  }
+
+  const associationSegments = [];
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const segment = segments[index];
+    const field = currentCollection.fieldsByName.get(segment) || null;
+    if (!field || !isAssociationField(field) || !field.target) {
+      return null;
+    }
+    associationSegments.push(segment);
+    currentCollection = getCollectionMeta(metadata, field.target);
+    if (!currentCollection) {
+      return null;
+    }
+  }
+
+  return associationSegments.join('.');
 }
 
 function collectFilterConditions(filter, results = []) {
@@ -1504,6 +1540,43 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
         }));
       }
       return;
+    }
+
+    const expectedAssociationPathName = !isSimpleBinding
+      ? getExpectedAssociationPathName(metadata, collectionName, fieldPath)
+      : null;
+    if (expectedAssociationPathName) {
+      const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+      if (!associationPathName) {
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH',
+          message: `父 collection 上的 dotted 关联展示字段 "${fieldPath}" 必须显式补 associationPathName="${expectedAssociationPathName}"，否则 runtime 可能拿不到关联 appends。`,
+          path: pathValue,
+          mode,
+          dedupeKey: `DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH:${collectionName}:${fieldPath}`,
+          details: {
+            collectionName,
+            fieldPath,
+            expectedAssociationPathName,
+          },
+        }));
+      } else if (associationPathName !== expectedAssociationPathName) {
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'DOTTED_ASSOCIATION_DISPLAY_ASSOCIATION_PATH_MISMATCH',
+          message: `父 collection 上的 dotted 关联展示字段 "${fieldPath}" 必须把 associationPathName 设为 "${expectedAssociationPathName}"，当前为 "${associationPathName}"。`,
+          path: pathValue,
+          mode,
+          dedupeKey: `DOTTED_ASSOCIATION_DISPLAY_ASSOCIATION_PATH_MISMATCH:${collectionName}:${fieldPath}:${associationPathName}`,
+          details: {
+            collectionName,
+            fieldPath,
+            associationPathName,
+            expectedAssociationPathName,
+          },
+        }));
+      }
     }
 
     const directField = resolvedFieldBinding.field;

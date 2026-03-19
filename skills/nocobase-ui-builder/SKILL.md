@@ -197,7 +197,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 5. popup / 详情里的“当前记录关联子表”只有在 parent->child relation resource 已被稳定 reference、live tree 或样板页证实时，才优先使用 `resourceSettings.init.associationName + sourceId`；未证实前允许保留 child-side 的逻辑 `dataScope.filter`
 6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；裸字段名和 `childCollection.belongsToField` 这种全限定写法都算未验证协议，如果没有稳定 reference 或 live tree 证明可用，默认保持 blocker
 7. `DetailsBlockModel` 不能只落空 grid；至少要有详情字段、动作或子业务区块之一
-8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；表格/详情要展示目标标题字段时，优先保留父 collection，并使用完整 dotted path，例如 `customer.name`
+8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；表格/详情要展示目标标题字段时，优先保留父 collection，并使用完整 dotted path，例如 `customer.name`。同时要显式补 `associationPathName` 为关系前缀，例如 `associationPathName=customer`；不要切换成 target collection + simple `fieldPath`
 9. child-side `belongsTo` 过滤不允许生成“裸 association + 标量操作符”，例如 `path=order` 搭配 `$eq`；必须先查 relation metadata，优先使用 `foreignKey`，否则使用 `<belongsToField>.<targetKey>`；两者都拿不到就保持 blocker，不猜字段名
 10. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
 11. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要同时覆盖 block 级 `actions` 和 `TableActionsColumnModel` 里的记录动作

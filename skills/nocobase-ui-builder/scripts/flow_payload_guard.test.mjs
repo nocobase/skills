@@ -1043,6 +1043,40 @@ test('auditPayload accepts dotted association display bindings on the parent col
         init: {
           collectionName: 'orders',
           fieldPath: 'customer.name',
+          associationPathName: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'DisplayTextFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer.name',
+              associationPathName: 'customer',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'FIELD_PATH_NOT_FOUND'), false);
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload warns and blocks dotted association display bindings without associationPathName', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
         },
       },
     },
@@ -1061,10 +1095,18 @@ test('auditPayload accepts dotted association display bindings on the parent col
     },
   };
 
-  const result = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
-  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE'), false);
-  assert.equal(result.blockers.some((item) => item.code === 'FIELD_PATH_NOT_FOUND'), false);
-  assert.equal(result.ok, true);
+  const generalResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: GENERAL_MODE });
+  assert.equal(
+    generalResult.warnings.some((item) => item.code === 'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH'),
+    true,
+  );
+
+  const validationResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH'),
+    true,
+  );
+  assert.equal(validationResult.ok, false);
 });
 
 test('auditPayload warns and blocks empty details blocks', () => {

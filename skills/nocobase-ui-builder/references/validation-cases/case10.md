@@ -37,7 +37,7 @@
 6. 如果嵌套 popup 的上下文无法稳定传递，请明确记录到底是哪一层 popup、哪一种动作、哪一个 model tree 出了问题。
 7. 不要把子表 `belongsTo(orders)` 的字段名直接当成 `associationName` 就报成功；如果 relation resource 协议未证实，应明确保留 blocker。
 8. “客户”列和“客户详情”都必须展示真实字段；只有列头或 drawer 标题、不显示任何客户字段值，不能算通过。
-9. 主表“客户”列优先使用父表上的完整 dotted path，例如 `customer.name`；不要拆成 target collection + `associationPathName` + simple `fieldPath`。
+9. 主表“客户”列优先使用父表上的完整 dotted path，例如 `customer.name`，并显式补 `associationPathName=customer`；不要拆成 target collection + `associationPathName` + simple `fieldPath`。
 10. 如果订单详情里的 `order_items` 表还没有已验证的 parent->child relation resource，允许保留 child-side 的逻辑 relation filter；不要为了“过 guard”伪造 `associationName`。同时，child-side filter 的路径必须来自 relation metadata，优先 `order_id`，否则 `order.<targetKey>`；不要写裸 `order`。
 
 执行要求：
