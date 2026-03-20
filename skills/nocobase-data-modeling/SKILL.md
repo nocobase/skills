@@ -39,9 +39,18 @@ Useful references:
 
 # Operational guidance
 
-- Preset fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy` may appear as explicit field payloads in collection creation requests. For `id`, follow the actual request shape used by collection manager flows, including interfaces such as `snowflakeId`, `uuid`, or `nanoid`.
+- Preset fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy` should follow the same request shape used by the real collection manager flow when the task is meant to validate realistic modeling or ACL behavior.
+- Unless the user explicitly asks for a different primary-key strategy or the table truly has unusual requirements, create `id` explicitly as a preset field instead of relying on implicit/default id generation.
+- For ordinary business tables, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy` are usually needed and should normally be created explicitly as preset fields too.
+- A reliable general create shape for such tables is:
+  - `template: "general"`
+  - `logging: true` when record history matters
+  - `autoGenId: false`
+  - explicit preset fields in `fields`: `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`
+- For `id`, follow the actual request shape used by collection manager flows, including interfaces such as `snowflakeId`, `uuid`, or `nanoid`.
 - `collections:create`, `collections:update`, and `collections/{collectionName}/fields:update` use direct request bodies. Do not add an extra `values` wrapper.
 - If a collection uses a custom primary key strategy, disable `autoGenId`, create the primary key field explicitly, and verify that the resulting collection metadata has the expected `filterTargetKey`.
+- Do not treat collection-level convenience flags as a substitute for the real preset-field payload when the goal is to mirror an actual business collection definition.
 - Prefer explicit relation payloads when relation behavior matters. Generated defaults are fine for ad hoc modeling, but they are harder to verify and reuse in automation.
 - If reverse behavior matters, pass `reverseField` explicitly instead of assuming the server will infer the right alias or UI schema.
 - On `collections:*`, `filterByTk` usually means collection name. On `collections/{collectionName}/fields:*`, it usually means the field name inside that collection. If names are unstable, use `filter` with the field `key`.
@@ -66,7 +75,7 @@ Useful references:
 # Verification checklist
 
 - Collection exists and has expected options.
-- Preset fields and primary-key strategy match the intended creation flow.
+- Preset fields are added only where they are actually needed, and the primary-key strategy matches the intended creation flow.
 - `filterTargetKey` and `titleField` match how the collection should be referenced in MCP queries and selectors.
 - Field exists with expected `type`, `interface`, and `uiSchema.title`.
 - Local option fields expose the expected labels and values in `uiSchema.enum`, not only a bare string array.
