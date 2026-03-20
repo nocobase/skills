@@ -186,6 +186,15 @@ node scripts/flow_payload_guard.mjs extract-required-metadata \
 补齐元数据后，再运行：
 
 ```bash
+node scripts/flow_payload_guard.mjs canonicalize-payload \
+  --payload-json '<draft-payload-json>' \
+  --metadata-json '<normalized-metadata-json>' \
+  --mode validation-case
+```
+
+然后再运行：
+
+```bash
 node scripts/flow_payload_guard.mjs audit-payload \
   --payload-json '<draft-payload-json>' \
   --metadata-json '<normalized-metadata-json>' \

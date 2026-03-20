@@ -187,6 +187,7 @@ test('renderReport writes markdown and html outputs from a log path', () => {
   assert.match(markdown, /阶段耗时画像/);
   assert.match(markdown, /Stable Cache 摘要/);
   assert.match(markdown, /Gate 摘要/);
+  assert.match(markdown, /缺少 `flow_payload_guard.canonicalize-payload`/);
   assert.match(markdown, /缺少 `flow_payload_guard.audit-payload`/);
   assert.match(markdown, /自动改进建议/);
   assert.match(html, /复盘报告/);
@@ -230,9 +231,11 @@ test('analyzeRun generates improvement suggestions from tool call order', () => 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.ok(summary.suggestions.some((item) => item.includes('PostFlowmodels_schemabundle')));
   assert.ok(summary.suggestions.some((item) => item.includes('首次探测发生在首次写操作之后')));
+  assert.ok(summary.suggestions.some((item) => item.includes('flow_payload_guard.canonicalize-payload')));
   assert.ok(summary.suggestions.some((item) => item.includes('flow_payload_guard.audit-payload')));
   assert.ok(summary.suggestions.some((item) => item.includes('`summary`')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('把探测步骤前置并批量化')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('canonicalize')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('payload guard')));
 });
 
@@ -429,6 +432,46 @@ test('analyzeRun detects writes after guard blockers without risk-accept', () =>
   assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 1);
   assert.ok(summary.suggestions.some((item) => item.includes('guard 已报 blocker')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('不要绕过 blocker 直接写入')));
+});
+
+test('analyzeRun flags createV2 after guard blockers as a dedicated violation', () => {
+  const rootDir = makeTempDir('guard-createv2-violation');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Guard violation before createV2',
+    logDir,
+    latestRunPath,
+  });
+
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'flow_payload_guard.audit-payload',
+    toolType: 'node',
+    status: 'ok',
+    summary: 'audit payload before createV2',
+    args: { mode: 'validation-case' },
+    result: {
+      ok: false,
+      mode: 'validation-case',
+      blockers: [{ code: 'FORM_SUBMIT_ACTION_MISSING' }],
+      warnings: [],
+      acceptedRiskCodes: [],
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostDesktoproutes_createv2',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'create page shell anyway',
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.guardSummary.createPageAfterBlockerCount, 1);
+  assert.ok(summary.suggestions.some((item) => item.includes('PostDesktoproutes_createv2')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('createV2')));
 });
 
 test('analyzeRun requires a re-audit after structured risk-accept before allowing writes', () => {

@@ -196,12 +196,14 @@ V1 默认采用 schema-first 的渐进支持策略：
 
 任何落库前都要先经过本地 payload 守卫。Prompt 只负责模式选择，脚本负责阻断高风险 payload。
 
-本 skill 使用 `scripts/flow_payload_guard.mjs` 提供 3 个命令：
+本 skill 使用 `scripts/flow_payload_guard.mjs` 提供 4 个命令：
 
 - `build-filter`
   - 生成唯一允许的 relation/dataScope condition 形状：`{ path, operator, value }`
 - `extract-required-metadata`
   - 从 draft payload 中提取 collection / field / popup context 校验所需的元数据需求
+- `canonicalize-payload`
+  - 在本地把可安全收敛的 legacy 结构、样本值和缺省骨架先归一化，避免把已知 blocker 直接送进审计或写入
 - `audit-payload`
   - 在写入前审计 draft payload，输出 `blockers` / `warnings`
 
@@ -225,6 +227,11 @@ V1 默认采用 schema-first 的渐进支持策略：
 16. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
 17. validation 阶段若出现结构型渲染问题，具体判定顺序与约束以 [references/validation.md](references/validation.md) 为准
 18. 对已被源码证实的结构型渲染问题，优先把结论沉淀为 `flow_payload_guard`、reference recipe 或 validation 文档约束；不要只增加一次运行时 smoke 作为补救
+19. 如果是从现有 live tree / 模板页克隆 payload，再落库前也要做一次 legacy filter canonicalize：把 `dataScope.filter.items[*]` 里的 `{ field, operator, value }` 收敛成 `{ path, operator, value }`，尤其要递归覆盖 popup/page 嵌套子树里的关系表；否则 write-after-read 可能直接退化成空 `BlockGridModel`
+20. template clone 路径也必须走完整的 `extract-required-metadata -> canonicalize-payload -> audit-payload -> write`；不能因为“只是 remap 样板页”就跳过 guard
+21. template clone 后如果出现以下任一信号，必须立即停止，不能直接 `save`：`EMPTY_TEMPLATE_TREE`、`FORM_SUBMIT_ACTION_DUPLICATED`、`FORM_BLOCK_EMPTY_GRID`、`FILTER_FORM_EMPTY_GRID`、`FIELD_MODEL_PAGE_SLOT_UNSUPPORTED`
+22. 通过模板 clone 得到的 `CreateFormModel` / `EditFormModel`，如果 `subModels.actions` 里出现多个 submit-like action，必须先去重；只保留有真实配置的那个，不能把空壳 submit 一起落库
+23. `*FieldModel` 不支持 `subModels.page`；如果样板页里出现这类结构，说明 clone/slot 判断已经偏离源码契约，先清理或阻断，再继续后续审计
 
 命令示例：
 
@@ -240,6 +247,23 @@ node scripts/flow_payload_guard.mjs build-filter \
 ```bash
 node scripts/flow_payload_guard.mjs extract-required-metadata \
   --payload-json '<draft-payload-json>'
+```
+
+如果 draft payload 里已经出现 dotted relation path，例如 `owner.nickname`、`department.name`、`operator.nickname`，只跑上面这一轮还不够。补齐第一批直接 collection metadata 之后，必须再跑一次带 metadata 的扩展提取，把关联目标 collection 一并拉进来，再进入 canonicalize / audit：
+
+```bash
+node scripts/flow_payload_guard.mjs extract-required-metadata \
+  --payload-json '<draft-payload-json>' \
+  --metadata-json '<partial-metadata-json>'
+```
+
+第二轮 `extract-required-metadata` 的目标不是重复统计，而是把 `fieldPath.associationTarget` 依赖显式暴露出来。否则 `owner.nickname` 这类 dotted path 会因为只拿到了 `projects` / `approval_requests` 的直接字段元数据，而在审计阶段被误判成 `FIELD_PATH_NOT_FOUND`，最终只创建 page shell，`BlockGridModel` 不会真正落库。
+
+```bash
+node scripts/flow_payload_guard.mjs canonicalize-payload \
+  --payload-json '<draft-payload-json>' \
+  --metadata-json '<normalized-metadata-json>' \
+  --mode validation-case
 ```
 
 ```bash
@@ -265,8 +289,14 @@ node scripts/flow_payload_guard.mjs audit-payload \
 - `BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH`
 - `EMPTY_DETAILS_BLOCK`
 - `FORM_ACTION_MUST_USE_ACTIONS_SLOT`
+- `FORM_BLOCK_EMPTY_GRID`
 - `FORM_ITEM_FIELD_SUBMODEL_MISSING`
+- `FORM_SUBMIT_ACTION_DUPLICATED`
 - `FORM_SUBMIT_ACTION_MISSING`
+- `FILTER_FORM_EMPTY_GRID`
+- `FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING`
+- `FILTER_FORM_ITEM_FILTERFIELD_MISSING`
+- `FIELD_MODEL_PAGE_SLOT_UNSUPPORTED`
 - `TABLE_COLLECTION_ACTION_SLOT_USE_INVALID`
 - `TABLE_RECORD_ACTION_SLOT_USE_INVALID`
 - `DETAILS_ACTION_SLOT_USE_INVALID`
@@ -313,11 +343,14 @@ NocoBase `resourcer` 的关键实现细节：
 4. 如果目标模型的 JSON Schema 或骨架仍有歧义，再对仍未消歧的具体 use 调用 `GetFlowmodels_schema`
 5. 每次变更前都用 `GetFlowmodels_findone` 读取线上页面树，作为该目标树本轮唯一的写前 live snapshot
 6. 在本地组装 draft payload；如果有 relation/dataScope condition，必须先用 `flow_payload_guard.mjs build-filter` 生成 condition 片段
-7. 用 `flow_payload_guard.mjs extract-required-metadata` 提取本轮 draft payload 依赖的元数据需求
-8. 通过当前会话可见的 collection / field MCP 工具补齐元数据，并整理成 `metadata-json`
-9. 运行 `flow_payload_guard.mjs audit-payload`
-10. 只有 `audit-payload` 没有 blocker，或已经通过结构化 `risk_accept` note 明确豁免后，才允许 `PostFlowmodels_save` / `PostFlowmodels_mutate`
-11. 每次写入后立刻执行一次同目标 `GetFlowmodels_findone` 做 write-after-read 对账；写操作与 readback 都要带同一个 `args.targetSignature`，如果 readback 与 write 预期不一致，立即降级为 `partial/failed`，不要继续沿用 save 的乐观结论
+   - 如果 draft 来自模板 clone，先用 `scripts/template_clone_helpers.mjs` 的 remap helper 做 UID remap，并检查 remap summary/issues；出现 `EMPTY_TEMPLATE_TREE` 时直接判定为无效模板，不进入写入阶段
+7. 先用 `flow_payload_guard.mjs extract-required-metadata` 提取本轮 draft payload 的第一批直接元数据需求
+8. 通过当前会话可见的 collection / field MCP 工具补齐第一批元数据，并整理成 `metadata-json`
+9. 如果 payload 中存在 dotted relation path 或裸 association 输入字段，再用 `extract-required-metadata --metadata-json <partial-metadata-json>` 做第二轮扩展提取，把关联目标 collection 一并补齐；看到 `collectionRefs[*].reason=fieldPath.associationTarget` 时，必须继续补元数据，不能直接进入审计
+10. 先运行 `flow_payload_guard.mjs canonicalize-payload`，把能自动归一化的问题先在本地收敛
+11. 再运行 `flow_payload_guard.mjs audit-payload`
+12. 只有 `audit-payload` 没有 blocker，或已经通过结构化 `risk_accept` note 明确豁免后，才允许 `PostFlowmodels_save` / `PostFlowmodels_mutate`
+13. 每次写入后立刻执行一次同目标 `GetFlowmodels_findone` 做 write-after-read 对账；写操作与 readback 都要带同一个 `args.targetSignature`，如果 readback 与 write 预期不一致，立即降级为 `partial/failed`，不要继续沿用 save 的乐观结论
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
 
@@ -326,8 +359,12 @@ NocoBase `resourcer` 的关键实现细节：
 - 同一写入阶段里，默认先把目标 use 尽量合并进一次 `PostFlowmodels_schemas`；不要把多个目标 use 分散成多次单模型深挖。
 - `GetFlowmodels_schema` 只用于 `schemas` 之后仍未消歧的具体 use；如果同一 use 需要再次读取，必须是为了核对不同 slot 形状、服务端返回前后不一致、或排查失败，并在日志里追加 `note` 说明原因。
 - 如果只是中途发现漏了一个目标 use，先补增量 `PostFlowmodels_schemas`，不要因为“怕漏掉”就连续追加多个 `GetFlowmodels_schema`。
+- 默认把 payload 流水线固定为 `extract-required-metadata -> 补直接 metadata -> extract-required-metadata(metadata) -> 补 transitive metadata -> canonicalize-payload -> audit-payload -> write`；不要跳过第二轮 metadata 扩展就直接把 dotted relation draft 送审
+- template clone 只是 payload 来源，不是特殊豁免路径；clone remap 后的 payload 也要进入同一条 guard 流水线
 - 默认使用 `flow_payload_guard.mjs audit-payload --mode validation-case`；`--mode general` 仅用于调试或分析中间 draft，不能代替最终写前审计
+- `flow_payload_guard.canonicalize-payload` 与 `flow_payload_guard.audit-payload` 的结果都要记录到 tool journal
 - `flow_payload_guard.audit-payload` 的结果必须记录到 tool journal；推荐把 `tool` 名写成 `flow_payload_guard.audit-payload`
+- 如果 clone helper 已经报出 `issues`，要把 `issues` 一并记入 tool journal；这类问题优先归类为模板源或 clone 路径失败，不要继续把 save 结果记成 success
 - 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`；优先把这份义务落在 `readbackContract.requiredTabs[*]`
 - `run_finished`、tool review 和最终答复都必须引用 write-after-read 事实；不能在 readback 为空时继续写“已落库完成”
 - 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次

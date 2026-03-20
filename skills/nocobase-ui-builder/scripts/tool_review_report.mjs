@@ -52,6 +52,7 @@ const DISCOVERY_TOOL_NAMES = new Set([
 ]);
 
 const GUARD_AUDIT_TOOL_NAME = 'flow_payload_guard.audit-payload';
+const GUARD_CANONICALIZE_TOOL_NAME = 'flow_payload_guard.canonicalize-payload';
 const ROUTE_READY_TOOL_NAMES = new Set([
   'GetDesktoproutes_getaccessible',
   'GetDesktoproutes_listaccessible',
@@ -346,19 +347,28 @@ function getRiskAcceptInfo(note) {
 
 function buildGuardSummary(records) {
   const summary = {
+    hasCanonicalize: false,
     hasGuardAudit: false,
+    canonicalizeCount: 0,
     auditCount: 0,
     blockerCount: 0,
     warningCount: 0,
     acceptedRiskCodeCount: 0,
     riskAcceptCount: 0,
     violations: [],
+    createPageAfterBlockerCount: 0,
   };
 
   let pendingBlockerAudit = null;
   let pendingRiskAccept = null;
 
   for (const record of records) {
+    if (record.type === 'tool_call' && matchesToolName(record, GUARD_CANONICALIZE_TOOL_NAME)) {
+      summary.hasCanonicalize = true;
+      summary.canonicalizeCount += 1;
+      continue;
+    }
+
     if (record.type === 'tool_call' && matchesToolName(record, GUARD_AUDIT_TOOL_NAME)) {
       const result = getGuardAuditResult(record);
       summary.hasGuardAudit = true;
@@ -410,6 +420,7 @@ function buildGuardSummary(records) {
   }
 
   summary.writeAfterBlockerWithoutRiskAcceptCount = summary.violations.length;
+  summary.createPageAfterBlockerCount = summary.violations.filter((item) => item.writeTool === 'PostDesktoproutes_createv2').length;
   return summary;
 }
 
@@ -830,6 +841,16 @@ function buildOptimizationItems({
     });
   }
 
+  if (hasWrites && !guardSummary.hasCanonicalize) {
+    items.push({
+      priority: 'high',
+      title: '把 canonicalize 放到 guard 审计前',
+      reason: '存在写操作，但没有记录任何 `flow_payload_guard.canonicalize-payload`；legacy 结构和样本值会直接进入 audit 或写入阶段。',
+      fasterPath: '统一采用 `extract-required-metadata -> canonicalize-payload -> audit-payload -> write` 流水线，让能自动收敛的问题先在本地归一化。',
+      evidence: ['缺少 `flow_payload_guard.canonicalize-payload`'],
+    });
+  }
+
   if (guardSummary.writeAfterBlockerWithoutRiskAcceptCount > 0) {
     items.push({
       priority: 'high',
@@ -837,6 +858,18 @@ function buildOptimizationItems({
       reason: `本次出现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程。`,
       fasterPath: 'guard 报 blocker 后，默认先修 payload；只有确实接受风险时，才追加 risk-accept note 并重新审计后再写入。',
       evidence: guardSummary.violations.map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
+    });
+  }
+
+  if (guardSummary.createPageAfterBlockerCount > 0) {
+    items.push({
+      priority: 'high',
+      title: '把 createV2 也纳入 guard 阻断',
+      reason: `本次有 ${guardSummary.createPageAfterBlockerCount} 次在 guard blocker 之后仍继续执行 \`PostDesktoproutes_createv2\`。`,
+      fasterPath: '不要把 page shell 创建当成“低风险探路”；guard 报 blocker 时，连 createV2 也必须暂停，先修 payload 或重新审计。',
+      evidence: guardSummary.violations
+        .filter((item) => item.writeTool === 'PostDesktoproutes_createv2')
+        .map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
     });
   }
 
@@ -1059,8 +1092,14 @@ export function analyzeRun(records, sourceLogPath) {
   if (hasWrites && !guardSummary.hasGuardAudit) {
     suggestions.push('存在写操作，但没有记录 `flow_payload_guard.audit-payload`，建议在首次写入前加一轮 payload 审计。');
   }
+  if (hasWrites && !guardSummary.hasCanonicalize) {
+    suggestions.push('存在写操作，但没有记录 `flow_payload_guard.canonicalize-payload`，建议先做一次本地归一化，再进入最终审计。');
+  }
   if (guardSummary.writeAfterBlockerWithoutRiskAcceptCount > 0) {
     suggestions.push(`发现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程，建议先修 payload 或显式记录 risk-accept。`);
+  }
+  if (guardSummary.createPageAfterBlockerCount > 0) {
+    suggestions.push(`发现 ${guardSummary.createPageAfterBlockerCount} 次在 guard blocker 后仍继续 \`PostDesktoproutes_createv2\`；page shell 创建也必须服从同一 guard gate。`);
   }
   if (guardSummary.riskAcceptCount > 0) {
     suggestions.push(`本次使用了 ${guardSummary.riskAcceptCount} 次 risk-accept，建议复盘这些豁免是否还能继续缩减。`);
@@ -1269,6 +1308,7 @@ function renderMarkdownReport(summary) {
   const guard = [
     '## Guard 摘要',
     '',
+    `- canonicalize 调用数：${summary.guardSummary.canonicalizeCount}`,
     `- 审计调用数：${summary.guardSummary.auditCount}`,
     `- blocker 总数：${summary.guardSummary.blockerCount}`,
     `- warning 总数：${summary.guardSummary.warningCount}`,
@@ -1730,6 +1770,7 @@ function renderHtmlReport(summary) {
 
     <h2>Guard 摘要</h2>
     <section class="stats">
+      <article class="card"><strong>canonicalize</strong><br>${summary.guardSummary.canonicalizeCount}</article>
       <article class="card"><strong>审计调用</strong><br>${summary.guardSummary.auditCount}</article>
       <article class="card"><strong>blocker</strong><br>${summary.guardSummary.blockerCount}</article>
       <article class="card"><strong>warning</strong><br>${summary.guardSummary.warningCount}</article>

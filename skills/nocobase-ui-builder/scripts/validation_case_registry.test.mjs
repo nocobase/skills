@@ -55,3 +55,49 @@ test('coverage matrices cover all public blocks and validation patterns', () => 
     assert.equal(Boolean(VALIDATION_CASE_REGISTRY.find((entry) => entry.id === item.primaryCaseId)), true);
   }
 });
+
+test('validation cases use association-friendly bindings for filter and form scenarios', () => {
+  const case1 = VALIDATION_CASE_REGISTRY.find((entry) => entry.id === 'case1');
+  const case4 = VALIDATION_CASE_REGISTRY.find((entry) => entry.id === 'case4');
+  const case5 = VALIDATION_CASE_REGISTRY.find((entry) => entry.id === 'case5');
+  const case6 = VALIDATION_CASE_REGISTRY.find((entry) => entry.id === 'case6');
+
+  assert.deepEqual(case1.buildSpecInput.layout.blocks[0].fields, ['order_no', 'customer.name', 'status', 'created_at']);
+  assert.deepEqual(
+    case1.buildSpecInput.layout.blocks[1].actions[0].popup.blocks[0].fields,
+    ['order_no', 'customer', 'status', 'total_amount'],
+  );
+
+  assert.deepEqual(case4.buildSpecInput.layout.blocks[0].fields, ['name', 'status', 'owner.nickname']);
+  assert.deepEqual(
+    case4.buildSpecInput.layout.blocks[1].fields,
+    ['name', 'status', 'owner.nickname', 'start_date', 'end_date'],
+  );
+  assert.equal(
+    case4.buildSpecInput.dataBindings.relations.some(
+      (item) => item.sourceCollection === 'projects' && item.targetCollection === 'users' && item.associationName === 'owner',
+    ),
+    true,
+  );
+
+  assert.deepEqual(case5.buildSpecInput.layout.blocks[0].fields, ['title', 'status', 'applicant.nickname', 'department.name']);
+  assert.deepEqual(
+    case5.buildSpecInput.layout.blocks[1].fields,
+    ['title', 'applicant.nickname', 'department.name', 'status', 'submitted_at'],
+  );
+  assert.equal(
+    case5.buildSpecInput.dataBindings.relations.some(
+      (item) => item.sourceCollection === 'approval_logs' && item.targetCollection === 'users' && item.associationName === 'operator',
+    ),
+    true,
+  );
+
+  assert.deepEqual(
+    case6.buildSpecInput.layout.blocks[0].actions[0].popup.blocks[0].fields,
+    ['invoice_no', 'customer', 'order', 'status', 'amount'],
+  );
+  assert.deepEqual(
+    case6.buildSpecInput.layout.blocks[0].rowActions[1].popup.blocks[0].fields,
+    ['invoice_no', 'customer.name', 'order.order_no', 'status', 'amount'],
+  );
+});

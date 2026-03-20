@@ -149,7 +149,7 @@ export const VALIDATION_CASE_REGISTRY = [
                       kind: 'Form',
                       mode: 'create',
                       collectionName: 'orders',
-                      fields: ['order_no', 'customer_id', 'status', 'total_amount'],
+                      fields: ['order_no', 'customer', 'status', 'total_amount'],
                     },
                   ],
                 },
@@ -433,13 +433,13 @@ export const VALIDATION_CASE_REGISTRY = [
             kind: 'Filter',
             title: '项目筛选',
             collectionName: 'projects',
-            fields: ['name', 'status', 'owner_id'],
+            fields: ['name', 'status', 'owner.nickname'],
           },
           {
             kind: 'Table',
             title: '项目列表',
             collectionName: 'projects',
-            fields: ['name', 'status', 'owner_id', 'start_date', 'end_date'],
+            fields: ['name', 'status', 'owner.nickname', 'start_date', 'end_date'],
             rowActions: [
               {
                 kind: 'view-record-popup',
@@ -450,13 +450,13 @@ export const VALIDATION_CASE_REGISTRY = [
                       kind: 'Details',
                       title: '项目详情',
                       collectionName: 'projects',
-                      fields: ['name', 'status', 'owner_id', 'start_date', 'end_date'],
+                      fields: ['name', 'status', 'owner.nickname', 'start_date', 'end_date'],
                       blocks: [
                         {
                           kind: 'Table',
                           title: '任务列表',
                           collectionName: 'tasks',
-                          fields: ['title', 'status', 'priority', 'assignee_id'],
+                          fields: ['title', 'status', 'priority', 'assignee.nickname'],
                           relationScope: {
                             sourceCollection: 'projects',
                             targetCollection: 'tasks',
@@ -472,7 +472,7 @@ export const VALIDATION_CASE_REGISTRY = [
                                     kind: 'Form',
                                     mode: 'create',
                                     collectionName: 'tasks',
-                                    fields: ['title', 'status', 'priority', 'assignee_id'],
+                                    fields: ['title', 'status', 'priority', 'assignee'],
                                   },
                                 ],
                               },
@@ -488,7 +488,7 @@ export const VALIDATION_CASE_REGISTRY = [
                                     kind: 'Form',
                                     mode: 'edit',
                                     collectionName: 'tasks',
-                                    fields: ['title', 'status', 'priority', 'assignee_id'],
+                                    fields: ['title', 'status', 'priority', 'assignee'],
                                   },
                                 ],
                               },
@@ -507,6 +507,7 @@ export const VALIDATION_CASE_REGISTRY = [
       dataBindings: {
         collections: ['projects', 'tasks', 'users'],
         relations: [
+          { sourceCollection: 'projects', targetCollection: 'users', associationName: 'owner' },
           { sourceCollection: 'tasks', targetCollection: 'projects', associationName: 'project' },
           { sourceCollection: 'tasks', targetCollection: 'users', associationName: 'assignee' },
         ],
@@ -553,13 +554,13 @@ export const VALIDATION_CASE_REGISTRY = [
             kind: 'Filter',
             title: '审批筛选',
             collectionName: 'approval_requests',
-            fields: ['title', 'status', 'applicant_id', 'department_id'],
+            fields: ['title', 'status', 'applicant.nickname', 'department.name'],
           },
           {
             kind: 'Table',
             title: '审批单列表',
             collectionName: 'approval_requests',
-            fields: ['title', 'applicant_id', 'department_id', 'status', 'submitted_at'],
+            fields: ['title', 'applicant.nickname', 'department.name', 'status', 'submitted_at'],
             rowActions: [
               {
                 kind: 'view-record-popup',
@@ -570,7 +571,7 @@ export const VALIDATION_CASE_REGISTRY = [
                       kind: 'Details',
                       title: '审批详情',
                       collectionName: 'approval_requests',
-                      fields: ['title', 'status', 'submitted_at'],
+                      fields: ['title', 'applicant.nickname', 'department.name', 'status', 'submitted_at'],
                       actions: [
                         {
                           kind: 'record-action',
@@ -586,7 +587,7 @@ export const VALIDATION_CASE_REGISTRY = [
                           kind: 'Table',
                           title: '审批日志',
                           collectionName: 'approval_logs',
-                          fields: ['operator_id', 'action', 'comment', 'created_at'],
+                          fields: ['operator.nickname', 'action', 'comment', 'created_at'],
                           relationScope: {
                             sourceCollection: 'approval_requests',
                             targetCollection: 'approval_logs',
@@ -608,6 +609,7 @@ export const VALIDATION_CASE_REGISTRY = [
           { sourceCollection: 'approval_requests', targetCollection: 'users', associationName: 'applicant' },
           { sourceCollection: 'approval_requests', targetCollection: 'departments', associationName: 'department' },
           { sourceCollection: 'approval_logs', targetCollection: 'approval_requests', associationName: 'approval_request' },
+          { sourceCollection: 'approval_logs', targetCollection: 'users', associationName: 'operator' },
         ],
       },
     },
@@ -663,7 +665,7 @@ export const VALIDATION_CASE_REGISTRY = [
                       kind: 'Form',
                       mode: 'create',
                       collectionName: 'invoices',
-                      fields: ['invoice_no', 'customer_id', 'order_id', 'status', 'amount'],
+                      fields: ['invoice_no', 'customer', 'order', 'status', 'amount'],
                     },
                   ],
                 },
@@ -693,7 +695,7 @@ export const VALIDATION_CASE_REGISTRY = [
                       kind: 'Details',
                       title: '发票详情',
                       collectionName: 'invoices',
-                      fields: ['invoice_no', 'status', 'amount'],
+                      fields: ['invoice_no', 'customer.name', 'order.order_no', 'status', 'amount'],
                       blocks: [
                         {
                           kind: 'Table',
@@ -925,7 +927,7 @@ export const VALIDATION_CASE_REGISTRY = [
                                     kind: 'Form',
                                     mode: 'create',
                                     collectionName: 'project_members',
-                                    fields: ['user_id', 'role', 'joined_at'],
+                                    fields: ['user', 'role', 'joined_at'],
                                   },
                                 ],
                               },

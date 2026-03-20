@@ -9,6 +9,7 @@ import {
   VALIDATION_CASE_MODE,
   auditPayload,
   buildFilterGroup,
+  canonicalizePayload,
   extractRequiredMetadata,
 } from './flow_payload_guard.mjs';
 
@@ -67,6 +68,15 @@ const metadata = {
 const metadataWithCustomerTitle = {
   collections: {
     ...metadata.collections,
+    orders: {
+      titleField: 'order_no',
+      fields: [
+        { name: 'order_no', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'customer_id', type: 'integer', interface: 'number' },
+        { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id', targetKey: 'id' },
+      ],
+    },
     customers: {
       titleField: 'name',
       fields: metadata.collections.customers.fields,
@@ -107,6 +117,49 @@ const metadataWithTargetKeyOnlyRelation = {
     },
   },
 };
+
+const metadataWithAssociationFilterTargetMissingTitleField = {
+  collections: {
+    projects: {
+      titleField: 'name',
+      fields: [
+        { name: 'name', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'owner', type: 'belongsTo', interface: 'm2o', target: 'users', foreignKey: 'owner_id', targetKey: 'id' },
+      ],
+    },
+    users: {
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+
+const metadataWithAssociationFormTargetFilterKeyOnly = {
+  collections: {
+    orders: {
+      titleField: 'order_no',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'order_no', type: 'string', interface: 'input' },
+        { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id', targetKey: 'id' },
+      ],
+    },
+    customers: {
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 function makePopupPageWithTable(filter) {
   return {
@@ -651,6 +704,81 @@ function makeFilterFormBlock(actions = []) {
   };
 }
 
+function makeFilterFormItem({
+  collectionName = 'orders',
+  fieldPath = 'status',
+  includeFieldSubModel = true,
+  includeFilterField = true,
+} = {}) {
+  return {
+    use: 'FilterFormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName,
+          fieldPath,
+        },
+      },
+      ...(includeFilterField
+        ? {
+            filterFormItemSettings: {
+              init: {
+                filterField: {
+                  name: fieldPath,
+                  interface: 'input',
+                  type: 'string',
+                },
+              },
+            },
+          }
+        : {}),
+    },
+    ...(includeFieldSubModel
+      ? {
+          subModels: {
+            field: {
+              use: 'InputFieldModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName,
+                    fieldPath,
+                  },
+                },
+              },
+            },
+          },
+        }
+      : {}),
+  };
+}
+
+function makeFilterFormBlockWithItems(items, actions = []) {
+  return {
+    use: 'FilterFormBlockModel',
+    stepParams: {
+      formFilterBlockModelSettings: {
+        layout: {
+          layout: 'horizontal',
+          colon: false,
+        },
+        defaultValues: {
+          value: [],
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'FilterFormGridModel',
+        subModels: {
+          items,
+        },
+      },
+      actions,
+    },
+  };
+}
+
 function makeVisibleTabsPage({
   pageUse = 'RootPageModel',
   pageUid = 'page-root',
@@ -805,6 +933,45 @@ test('extractRequiredMetadata collects collection refs, field refs, and popup ch
   ]);
 });
 
+test('extractRequiredMetadata expands transitive association target collections when metadata is provided', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'projects',
+          fieldPath: 'owner.nickname',
+        },
+      },
+    },
+  };
+
+  const result = extractRequiredMetadata({
+    payload,
+    metadata: {
+      collections: {
+        projects: {
+          titleField: 'name',
+          fields: [
+            { name: 'name', type: 'string', interface: 'input' },
+            { name: 'owner', type: 'belongsTo', interface: 'm2o', target: 'users', foreignKey: 'owner_id', targetKey: 'id' },
+          ],
+        },
+        users: {
+          titleField: 'nickname',
+          fields: [
+            { name: 'nickname', type: 'string', interface: 'input' },
+          ],
+        },
+      },
+    },
+  });
+
+  assert.equal(result.collectionRefs.some((item) => item.collectionName === 'projects'), true);
+  assert.equal(result.collectionRefs.some((item) => item.collectionName === 'users' && item.reason === 'fieldPath.associationTarget'), true);
+  assert.equal(result.fieldRefs.some((item) => item.collectionName === 'projects' && item.fieldPath === 'owner.nickname'), true);
+});
+
 test('auditPayload blocks malformed filter items that use field instead of path', () => {
   const payload = {
     use: 'TableBlockModel',
@@ -904,6 +1071,122 @@ test('auditPayload blocks foreign keys used as fieldPath', () => {
 
   const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(result.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), true);
+});
+
+test('auditPayload blocks foreign keys used as fieldPath even when physical foreign key metadata exists', () => {
+  const payload = {
+    use: 'FilterFormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer_id',
+        },
+      },
+      filterFormItemSettings: {
+        init: {
+          filterField: {
+            name: 'customer_id',
+            title: '客户',
+            interface: 'number',
+            type: 'integer',
+          },
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'NumberFieldModel',
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: GENERAL_MODE });
+  assert.equal(result.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), true);
+});
+
+test('auditPayload blocks association filter record select when target collection has no titleField', () => {
+  const payload = {
+    use: 'FilterFormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'projects',
+          fieldPath: 'owner',
+        },
+      },
+      filterFormItemSettings: {
+        init: {
+          filterField: {
+            name: 'owner',
+            title: '负责人',
+            interface: 'm2o',
+            type: 'belongsTo',
+          },
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'FilterFormRecordSelectFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'projects',
+              fieldPath: 'owner',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: metadataWithAssociationFilterTargetMissingTitleField,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(
+    result.blockers.some((item) => item.code === 'FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH'),
+    true,
+  );
+});
+
+test('auditPayload allows form association record select when target collection only exposes filterTargetKey', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'RecordSelectFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: metadataWithAssociationFormTargetFilterKeyOnly,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_DISPLAY_TARGET_UNRESOLVED'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH'), false);
 });
 
 test('auditPayload blocks when required collection metadata is missing', () => {
@@ -2154,10 +2437,146 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
       metadata,
     },
     {
+      code: 'FORM_BLOCK_EMPTY_GRID',
+      payload: {
+        use: 'EditFormModel',
+        stepParams: {
+          resourceSettings: {
+            init: {
+              collectionName: 'order_items',
+              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+            },
+          },
+        },
+        subModels: {
+          grid: {
+            use: 'FormGridModel',
+            subModels: {
+              items: [],
+            },
+          },
+          actions: [
+            {
+              use: 'FormSubmitActionModel',
+            },
+          ],
+        },
+      },
+      metadata,
+    },
+    {
+      code: 'FORM_SUBMIT_ACTION_DUPLICATED',
+      payload: {
+        use: 'EditFormModel',
+        stepParams: {
+          resourceSettings: {
+            init: {
+              collectionName: 'order_items',
+              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+            },
+          },
+        },
+        subModels: {
+          grid: {
+            use: 'FormGridModel',
+            subModels: {
+              items: [
+                {
+                  use: 'FormItemModel',
+                  stepParams: {
+                    fieldSettings: {
+                      init: {
+                        collectionName: 'order_items',
+                        fieldPath: 'quantity',
+                      },
+                    },
+                  },
+                  subModels: {
+                    field: {
+                      use: 'InputFieldModel',
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          actions: [
+            {
+              use: 'FormSubmitActionModel',
+              stepParams: {
+                buttonSettings: {
+                  general: {
+                    title: '保存',
+                  },
+                },
+              },
+            },
+            {
+              use: 'FormSubmitActionModel',
+              stepParams: {},
+            },
+          ],
+        },
+      },
+      metadata,
+    },
+    {
       code: 'FORM_SUBMIT_ACTION_MISSING',
       payload: makeEditFormBlock({
         includeActions: false,
       }),
+      metadata,
+    },
+    {
+      code: 'FILTER_FORM_EMPTY_GRID',
+      payload: makeFilterFormBlock([
+        {
+          use: 'FilterFormSubmitActionModel',
+        },
+      ]),
+      metadata,
+    },
+    {
+      code: 'FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING',
+      payload: makeFilterFormBlockWithItems([
+        makeFilterFormItem({
+          includeFieldSubModel: false,
+        }),
+      ]),
+      metadata,
+    },
+    {
+      code: 'FILTER_FORM_ITEM_FILTERFIELD_MISSING',
+      payload: makeFilterFormBlockWithItems([
+        makeFilterFormItem({
+          includeFilterField: false,
+        }),
+      ]),
+      metadata,
+    },
+    {
+      code: 'FIELD_MODEL_PAGE_SLOT_UNSUPPORTED',
+      payload: {
+        use: 'DetailsItemModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'status',
+            },
+          },
+        },
+        subModels: {
+          field: {
+            use: 'DisplayEnumFieldModel',
+            subModels: {
+              page: {
+                use: 'ChildPageModel',
+              },
+            },
+          },
+        },
+      },
       metadata,
     },
   ];
@@ -2178,6 +2597,542 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
       `${testCase.code} should still appear in blockers`,
     );
   }
+});
+
+test('canonicalizePayload rewrites legacy filter field to path', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                field: 'order_id',
+                operator: '$eq',
+                value: '{{ctx.view.inputArgs.filterByTk}}',
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  const condition = result.payload.subModels.page.subModels.tabs[0].subModels.grid.subModels.items[0].stepParams.tableSettings.dataScope.filter.items[0];
+  assert.equal(condition.path, 'order_id');
+  assert.equal(Object.hasOwn(condition, 'field'), false);
+  assert.equal(result.transforms.some((item) => item.code === 'FILTER_ITEM_FIELD_RENAMED_TO_PATH'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FILTER_ITEM_USES_FIELD_NOT_PATH'), false);
+});
+
+test('canonicalizePayload rewrites display foreignKey fieldPath to dotted association display binding', () => {
+  const payload = {
+    use: 'DetailsItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer_id',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'DisplayTextFieldModel',
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.fieldSettings.init.fieldPath, 'customer.name');
+  assert.equal(result.payload.stepParams.fieldSettings.init.associationPathName, 'customer');
+  assert.equal(result.transforms.some((item) => item.code === 'FOREIGN_KEY_FIELDPATH_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), false);
+});
+
+test('canonicalizePayload fills missing associationPathName for dotted association display bindings', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'DisplayTextFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer.name',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.fieldSettings.init.associationPathName, 'customer');
+  assert.equal(result.payload.subModels.field.stepParams.fieldSettings.init.associationPathName, 'customer');
+  assert.equal(result.transforms.some((item) => item.code === 'ASSOCIATION_PATHNAME_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH'), false);
+});
+
+test('canonicalizePayload fills missing associationPathName for dotted association filter bindings', () => {
+  const payload = {
+    use: 'FilterFormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
+        },
+      },
+      filterFormItemSettings: {
+        init: {
+          filterField: {
+            name: 'customer.name',
+            title: '客户名称',
+            interface: 'input',
+            type: 'string',
+          },
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'InputFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer.name',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.fieldSettings.init.associationPathName, 'customer');
+  assert.equal(result.payload.subModels.field.stepParams.fieldSettings.init.associationPathName, 'customer');
+  assert.equal(result.transforms.some((item) => item.code === 'ASSOCIATION_PATHNAME_CANONICALIZED'), true);
+});
+
+test('canonicalizePayload rewrites filter foreignKey fieldPath to association input binding', () => {
+  const payload = {
+    use: 'FilterFormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer_id',
+        },
+      },
+      filterFormItemSettings: {
+        init: {
+          filterField: {
+            name: 'customer_id',
+            title: '客户',
+            interface: 'number',
+            type: 'integer',
+          },
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'NumberFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer_id',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.fieldSettings.init.fieldPath, 'customer');
+  assert.equal(result.payload.stepParams.filterFormItemSettings.init.filterField.name, 'customer');
+  assert.equal(result.payload.stepParams.filterFormItemSettings.init.filterField.interface, 'm2o');
+  assert.equal(result.payload.subModels.field.use, 'FilterFormRecordSelectFieldModel');
+  assert.equal(result.payload.subModels.field.stepParams.fieldSettings.init.fieldPath, 'customer');
+  assert.equal(result.transforms.some((item) => item.code === 'FOREIGN_KEY_ASSOCIATION_INPUT_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), false);
+});
+
+test('canonicalizePayload rewrites form foreignKey fieldPath to association input binding', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer_id',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'NumberFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer_id',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.fieldSettings.init.fieldPath, 'customer');
+  assert.equal(result.payload.subModels.field.use, 'RecordSelectFieldModel');
+  assert.equal(result.payload.subModels.field.stepParams.fieldSettings.init.fieldPath, 'customer');
+  assert.equal(result.transforms.some((item) => item.code === 'FOREIGN_KEY_ASSOCIATION_INPUT_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), false);
+});
+
+test('canonicalizePayload fills form association record select title fallback when target collection has no titleField', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'RecordSelectFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithAssociationFormTargetFilterKeyOnly,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.props.titleField, 'name');
+  assert.equal(result.payload.stepParams.editItemSettings.titleField.titleField, 'name');
+  assert.equal(result.payload.subModels.field.props.titleField, 'name');
+  assert.deepEqual(result.payload.subModels.field.props.fieldNames, { label: 'name', value: 'id' });
+  assert.equal(result.transforms.some((item) => item.code === 'FORM_ASSOCIATION_TITLEFIELD_CANONICALIZED'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'FORM_ASSOCIATION_FIELDNAMES_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithAssociationFormTargetFilterKeyOnly,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.ok, true);
+});
+
+test('canonicalizePayload inserts missing submit action for form blocks', () => {
+  const payload = makeEditFormBlock({
+    includeActions: false,
+  });
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.subModels.actions.some((item) => item.use === 'FormSubmitActionModel'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'FORM_SUBMIT_ACTION_INSERTED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_MISSING'), false);
+});
+
+test('auditPayload blocks duplicate submit-like actions in form blocks', () => {
+  const payload = {
+    use: 'EditFormModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'order_items',
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'FormGridModel',
+        subModels: {
+          items: [
+            {
+              use: 'FormItemModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'order_items',
+                    fieldPath: 'quantity',
+                  },
+                },
+              },
+              subModels: {
+                field: {
+                  use: 'InputFieldModel',
+                },
+              },
+            },
+          ],
+        },
+      },
+      actions: [
+        {
+          use: 'FormSubmitActionModel',
+          stepParams: {
+            buttonSettings: {
+              general: {
+                title: '保存',
+              },
+            },
+          },
+        },
+        {
+          use: 'FormSubmitActionModel',
+          stepParams: {},
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'FORM_SUBMIT_ACTION_DUPLICATED'), true);
+});
+
+test('canonicalizePayload inserts default details item for empty details blocks', () => {
+  const payload = makeDetailsActionTargetBlock('orders');
+  delete payload.subModels.actions;
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  const items = result.payload.subModels.grid.subModels.items;
+  assert.equal(Array.isArray(items), true);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].stepParams.fieldSettings.init.fieldPath, 'order_no');
+  assert.equal(result.transforms.some((item) => item.code === 'DETAILS_BLOCK_DEFAULT_ITEM_INSERTED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'EMPTY_DETAILS_BLOCK'), false);
+});
+
+test('canonicalizePayload rewrites hardcoded popup and resource filterByTk inside popup context', () => {
+  const payload = cloneJson(makeViewRecordPopupAction('order_items'));
+  payload.stepParams.popupSettings.openView.filterByTk = 1;
+  payload.subModels.page.subModels.tabs[0].subModels.grid.subModels.items[0].stepParams.resourceSettings.init.filterByTk = 1;
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.popupSettings.openView.filterByTk, '{{ctx.record.id}}');
+  assert.equal(
+    result.payload.subModels.page.subModels.tabs[0].subModels.grid.subModels.items[0].stepParams.resourceSettings.init.filterByTk,
+    '{{ctx.view.inputArgs.filterByTk}}',
+  );
+  assert.equal(result.transforms.some((item) => item.code === 'POPUP_FILTER_BY_TK_CANONICALIZED'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'RESOURCE_FILTER_BY_TK_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'HARDCODED_FILTER_BY_TK'), false);
+});
+
+test('canonicalizePayload leaves unresolved hardcoded resource filterByTk outside popup context', () => {
+  const payload = makeDetailsActionTargetBlock('orders');
+  payload.stepParams.resourceSettings.init.filterByTk = 1;
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(
+    result.unresolved.some((item) => item.code === 'RESOURCE_FILTER_BY_TK_CONTEXT_UNRESOLVED'),
+    true,
+  );
+});
+
+test('auditPayload blocks empty filter forms and malformed filter form items', () => {
+  const emptyBlockResult = auditPayload({
+    payload: makeFilterFormBlock(),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(emptyBlockResult.blockers.some((item) => item.code === 'FILTER_FORM_EMPTY_GRID'), true);
+
+  const missingFieldModelResult = auditPayload({
+    payload: makeFilterFormBlockWithItems([
+      makeFilterFormItem({
+        includeFieldSubModel: false,
+      }),
+    ]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(missingFieldModelResult.blockers.some((item) => item.code === 'FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING'), true);
+
+  const missingFilterFieldResult = auditPayload({
+    payload: makeFilterFormBlockWithItems([
+      makeFilterFormItem({
+        includeFilterField: false,
+      }),
+    ]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(missingFilterFieldResult.blockers.some((item) => item.code === 'FILTER_FORM_ITEM_FILTERFIELD_MISSING'), true);
+});
+
+test('auditPayload blocks field models that carry unsupported page slots', () => {
+  const payload = {
+    use: 'DetailsItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'status',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'DisplayEnumFieldModel',
+        subModels: {
+          page: {
+            use: 'ChildPageModel',
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'FIELD_MODEL_PAGE_SLOT_UNSUPPORTED'), true);
 });
 
 test('build-filter CLI prints normalized JSON', () => {
@@ -2201,6 +3156,30 @@ test('build-filter CLI prints normalized JSON', () => {
   const result = JSON.parse(output);
   assert.equal(result.filter.items[0].path, 'customer');
   assert.equal(result.filter.items[0].operator, '$eq');
+});
+
+test('canonicalize-payload CLI prints normalized JSON', () => {
+  const payload = JSON.stringify(makeEditFormBlock({ includeActions: false }));
+  const output = execFileSync(
+    process.execPath,
+    [
+      SCRIPT_PATH,
+      'canonicalize-payload',
+      '--payload-json',
+      payload,
+      '--metadata-json',
+      JSON.stringify(metadata),
+      '--mode',
+      VALIDATION_CASE_MODE,
+    ],
+    {
+      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      encoding: 'utf8',
+    },
+  );
+  const result = JSON.parse(output);
+  assert.equal(result.payload.subModels.actions.some((item) => item.use === 'FormSubmitActionModel'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'FORM_SUBMIT_ACTION_INSERTED'), true);
 });
 
 test('audit-payload CLI exits with blocker code when payload is invalid', () => {
