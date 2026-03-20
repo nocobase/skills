@@ -25,6 +25,7 @@ const metadata = {
   collections: {
     orders: {
       titleField: 'order_no',
+      filterTargetKey: 'id',
       fields: [
         { name: 'order_no', type: 'string', interface: 'input' },
         { name: 'status', type: 'string', interface: 'select' },
@@ -38,6 +39,7 @@ const metadata = {
     },
     order_items: {
       titleField: 'id',
+      filterTargetKey: 'id',
       fields: [
         { name: 'quantity', type: 'integer', interface: 'number' },
         { name: 'order', type: 'belongsTo', interface: 'm2o', target: 'orders', foreignKey: 'order_id', targetKey: 'id' },
@@ -51,12 +53,14 @@ const metadata = {
     },
     departments: {
       titleField: 'name',
+      filterTargetKey: 'id',
       fields: [
         { name: 'name', type: 'string', interface: 'input' },
       ],
     },
     approval_requests: {
       titleField: 'title',
+      filterTargetKey: 'id',
       fields: [
         { name: 'title', type: 'string', interface: 'input' },
         { name: 'status', type: 'string', interface: 'select' },
@@ -70,6 +74,7 @@ const metadataWithCustomerTitle = {
     ...metadata.collections,
     orders: {
       titleField: 'order_no',
+      filterTargetKey: 'id',
       fields: [
         { name: 'order_no', type: 'string', interface: 'input' },
         { name: 'status', type: 'string', interface: 'select' },
@@ -89,6 +94,7 @@ const metadataWithVerifiedOrderItemsRelation = {
     ...metadata.collections,
     orders: {
       titleField: 'order_no',
+      filterTargetKey: 'id',
       fields: [
         { name: 'order_no', type: 'string', interface: 'input' },
         { name: 'status', type: 'string', interface: 'select' },
@@ -159,6 +165,114 @@ const metadataWithAssociationFormTargetFilterKeyOnly = {
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function makeOrdersFilterTableGrid({ filterManager } = {}) {
+  const payload = {
+    use: 'BlockGridModel',
+    subModels: {
+      items: [
+        {
+          uid: 'orders-filter-block',
+          use: 'FilterFormBlockModel',
+          subModels: {
+            grid: {
+              use: 'FilterFormGridModel',
+              subModels: {
+                items: [
+                  {
+                    uid: 'order-no-filter',
+                    use: 'FilterFormItemModel',
+                    stepParams: {
+                      fieldSettings: {
+                        init: {
+                          collectionName: 'orders',
+                          fieldPath: 'order_no',
+                        },
+                      },
+                      filterFormItemSettings: {
+                        init: {
+                          defaultTargetUid: 'orders-table',
+                          filterField: {
+                            name: 'order_no',
+                            title: '订单号',
+                            interface: 'input',
+                            type: 'string',
+                          },
+                        },
+                      },
+                    },
+                    subModels: {
+                      field: {
+                        use: 'InputFieldModel',
+                      },
+                    },
+                  },
+                  {
+                    uid: 'customer-filter',
+                    use: 'FilterFormItemModel',
+                    stepParams: {
+                      fieldSettings: {
+                        init: {
+                          collectionName: 'orders',
+                          fieldPath: 'customer',
+                        },
+                      },
+                      filterFormItemSettings: {
+                        init: {
+                          defaultTargetUid: 'orders-table',
+                          filterField: {
+                            name: 'customer',
+                            title: '客户',
+                            interface: 'm2o',
+                            type: 'belongsTo',
+                          },
+                        },
+                      },
+                    },
+                    subModels: {
+                      field: {
+                        use: 'FilterFormRecordSelectFieldModel',
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+            actions: [
+              {
+                use: 'FilterFormSubmitActionModel',
+              },
+              {
+                use: 'FilterFormResetActionModel',
+              },
+            ],
+          },
+        },
+        {
+          uid: 'orders-table',
+          use: 'TableBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: {
+                collectionName: 'orders',
+              },
+            },
+          },
+          subModels: {
+            columns: [],
+            actions: [],
+          },
+        },
+      ],
+    },
+  };
+
+  if (filterManager !== undefined) {
+    payload.filterManager = cloneJson(filterManager);
+  }
+
+  return payload;
 }
 
 function makePopupPageWithTable(filter) {
@@ -1240,6 +1354,33 @@ test('auditPayload blocks popup pages that depend on inputArgs but opener does n
 
   const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_CONTEXT_REFERENCE_WITHOUT_INPUT_ARG'), true);
+});
+
+test('auditPayload blocks popup actions when openView target collection lacks filterTargetKey', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+      detailsSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [],
+          },
+        },
+      },
+    },
+  });
+  payload.stepParams.popupSettings.openView.collectionName = 'project_members';
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'OPEN_VIEW_COLLECTION_FILTER_TARGET_KEY_MISSING'), true);
 });
 
 test('auditPayload blocks association display bindings when target collection has no title field', () => {
@@ -2871,6 +3012,74 @@ test('canonicalizePayload rewrites form foreignKey fieldPath to association inpu
     mode: VALIDATION_CASE_MODE,
   });
   assert.equal(auditResult.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), false);
+});
+
+test('canonicalizePayload fills missing BlockGridModel filterManager for filter-form to table bindings', () => {
+  const payload = makeOrdersFilterTableGrid();
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.deepEqual(result.payload.filterManager, [
+    {
+      filterId: 'customer-filter',
+      targetId: 'orders-table',
+      filterPaths: ['customer.id'],
+    },
+    {
+      filterId: 'order-no-filter',
+      targetId: 'orders-table',
+      filterPaths: ['order_no'],
+    },
+  ]);
+  assert.equal(result.transforms.some((item) => item.code === 'FILTER_MANAGER_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FILTER_MANAGER_MISSING'), false);
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_ITEM_UNBOUND'), false);
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FILTER_MANAGER_TARGET_MISSING'), false);
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED'), false);
+});
+
+test('auditPayload blocks filter-form grids that omit BlockGridModel filterManager', () => {
+  const result = auditPayload({
+    payload: makeOrdersFilterTableGrid(),
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_MANAGER_MISSING'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_ITEM_UNBOUND'), true);
+});
+
+test('auditPayload blocks filterManager entries whose filterPaths drift from runtime expectations', () => {
+  const result = auditPayload({
+    payload: makeOrdersFilterTableGrid({
+      filterManager: [
+        {
+          filterId: 'order-no-filter',
+          targetId: 'orders-table',
+          filterPaths: ['status'],
+        },
+        {
+          filterId: 'customer-filter',
+          targetId: 'orders-table',
+          filterPaths: ['customer.name'],
+        },
+      ],
+    }),
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED'), true);
 });
 
 test('canonicalizePayload fills form association record select title fallback when target collection has no titleField', () => {

@@ -336,9 +336,45 @@ test('spec normalization supports filter blocks, row actions and nested details 
   assert.equal(compiled.compileArtifact.requiredUses.includes('AddNewActionModel'), true);
   assert.equal(compiled.compileArtifact.requiredUses.includes('ViewActionModel'), true);
   assert.equal(compiled.compileArtifact.requiredUses.includes('CreateFormModel'), true);
+  assert.equal(compiled.compileArtifact.readbackContract.requireFilterManager, true);
+  assert.equal(compiled.compileArtifact.readbackContract.requiredFilterManagerEntryCount, 2);
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].use, 'ViewActionModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].use, 'DetailsBlockModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].blocks[0].use, 'TableBlockModel');
+});
+
+test('tree summary captures BlockGridModel filterManager bindings', () => {
+  const summary = summarizePayloadTree({
+    targetSignature: 'page.grid',
+    payload: {
+      use: 'BlockGridModel',
+      filterManager: [
+        {
+          filterId: 'customer-filter',
+          targetId: 'orders-table',
+          filterPaths: ['customer.id'],
+        },
+        {
+          filterId: 'order-no-filter',
+          targetId: 'orders-table',
+          filterPaths: ['order_no'],
+        },
+      ],
+      subModels: {
+        items: [
+          { use: 'FilterFormBlockModel' },
+          { use: 'TableBlockModel' },
+        ],
+      },
+    },
+  });
+
+  assert.deepEqual(summary.topLevelUses, ['FilterFormBlockModel', 'TableBlockModel']);
+  assert.equal(summary.filterManagerEntryCount, 2);
+  assert.deepEqual(summary.filterManagerBindings, [
+    'customer-filter->orders-table:customer.id',
+    'order-no-filter->orders-table:order_no',
+  ]);
 });
 
 test('spec normalization defaults popup pages to ChildPageModel instead of generic PageModel', () => {
@@ -589,6 +625,34 @@ test('gate engine fails fast on guard blockers, readback mismatch and pre-open b
     tabCount: 1,
   });
   assert.equal(mismatch.length, 1);
+
+  const filterMismatch = compareReadbackContract({
+    requireFilterManager: true,
+    requiredFilterManagerEntryCount: 2,
+  }, {
+    summary: summarizePayloadTree({
+      targetSignature: 'default-grid',
+      payload: {
+        use: 'BlockGridModel',
+        subModels: {
+          items: [
+            { use: 'FilterFormBlockModel' },
+            { use: 'TableBlockModel' },
+          ],
+        },
+        filterManager: [
+          {
+            filterId: 'order-no-filter',
+            targetId: 'orders-table',
+            filterPaths: ['order_no'],
+          },
+        ],
+      },
+    }),
+  });
+  assert.deepEqual(filterMismatch, [
+    'requiredFilterManagerEntryCount expected=2 actual=1',
+  ]);
 
   const preOpenDecision = evaluatePreOpenGate({
     reachable: true,

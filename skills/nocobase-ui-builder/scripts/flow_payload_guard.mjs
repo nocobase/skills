@@ -48,6 +48,10 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'TAB_SUBTREE_UID_REUSED',
   'REQUIRED_VISIBLE_TABS_MISSING',
   'REQUIRED_TABS_TARGET_PAGE_MISSING',
+  'FILTER_MANAGER_MISSING',
+  'FILTER_MANAGER_TARGET_MISSING',
+  'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
+  'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
 ]);
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
@@ -199,6 +203,15 @@ function parseArgs(argv) {
     index += 1;
   }
   return { command, flags };
+}
+
+function sortUniqueStrings(values) {
+  return [...new Set(
+    (Array.isArray(values) ? values : [])
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )].sort((left, right) => left.localeCompare(right));
 }
 
 function joinPath(basePath, segment) {
@@ -885,6 +898,128 @@ function getForeignKeyAssociationBinding(metadata, collectionName, foreignKey) {
     associationField,
     targetCollection: associationField.target,
     targetTitleField: targetCollectionMeta?.titleField || targetCollectionMeta?.filterTargetKey || null,
+  };
+}
+
+function normalizeFilterTargetKeyValue(value) {
+  if (Array.isArray(value)) {
+    return normalizeFilterTargetKeyValue(value[0]);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return null;
+}
+
+function getAssociationFilterTargetKey(metadata, associationField) {
+  if (!associationField?.target) {
+    return 'id';
+  }
+  const targetCollectionMeta = getCollectionMeta(metadata, associationField.target);
+  return (
+    normalizeFilterTargetKeyValue(targetCollectionMeta?.filterTargetKey)
+    || normalizeFilterTargetKeyValue(associationField.targetKey)
+    || 'id'
+  );
+}
+
+function resolveFilterManagerFilterPaths(metadata, collectionName, fieldPath) {
+  if (!collectionName || typeof fieldPath !== 'string') {
+    return null;
+  }
+  const normalizedFieldPath = fieldPath.trim();
+  if (!normalizedFieldPath || hasTemplateExpression(normalizedFieldPath)) {
+    return null;
+  }
+
+  const resolved = resolveFieldPathInMetadata(metadata, collectionName, normalizedFieldPath);
+  if (!resolved) {
+    return null;
+  }
+
+  if (isSimpleFieldName(normalizedFieldPath) && resolved.field?.target) {
+    return [`${normalizedFieldPath}.${getAssociationFilterTargetKey(metadata, resolved.field)}`];
+  }
+
+  return [normalizedFieldPath];
+}
+
+function normalizeFilterManagerConfigs(filterManager) {
+  if (!Array.isArray(filterManager)) {
+    return [];
+  }
+
+  return filterManager
+    .filter((item) => isPlainObject(item))
+    .map((item) => ({
+      filterId: typeof item.filterId === 'string' ? item.filterId.trim() : '',
+      targetId: typeof item.targetId === 'string' ? item.targetId.trim() : '',
+      filterPaths: sortUniqueStrings(item.filterPaths),
+    }))
+    .filter((item) => item.filterId && item.targetId && item.filterPaths.length > 0)
+    .sort((left, right) => (
+      left.filterId.localeCompare(right.filterId)
+      || left.targetId.localeCompare(right.targetId)
+      || JSON.stringify(left.filterPaths).localeCompare(JSON.stringify(right.filterPaths))
+    ));
+}
+
+function collectGridFilterManagerState(gridNode, pathValue, metadata) {
+  const directItems = Array.isArray(gridNode?.subModels?.items) ? gridNode.subModels.items : [];
+  const targetNodesByUid = new Map();
+  const filterItems = [];
+
+  directItems.forEach((itemNode, itemIndex) => {
+    if (!isPlainObject(itemNode) || typeof itemNode.use !== 'string') {
+      return;
+    }
+
+    if (FILTER_CONTAINER_MODEL_USES.has(itemNode.use) && typeof itemNode.uid === 'string' && itemNode.uid.trim()) {
+      targetNodesByUid.set(itemNode.uid.trim(), {
+        uid: itemNode.uid.trim(),
+        use: itemNode.use,
+        path: `${pathValue}.subModels.items[${itemIndex}]`,
+        collectionName: itemNode.stepParams?.resourceSettings?.init?.collectionName || null,
+      });
+    }
+
+    if (itemNode.use !== 'FilterFormBlockModel') {
+      return;
+    }
+
+    const filterFormItems = Array.isArray(itemNode?.subModels?.grid?.subModels?.items)
+      ? itemNode.subModels.grid.subModels.items
+      : [];
+
+    filterFormItems.forEach((filterItemNode, filterIndex) => {
+      if (!isPlainObject(filterItemNode) || filterItemNode.use !== 'FilterFormItemModel') {
+        return;
+      }
+
+      const itemPath = `${pathValue}.subModels.items[${itemIndex}].subModels.grid.subModels.items[${filterIndex}]`;
+      const filterId = typeof filterItemNode.uid === 'string' ? filterItemNode.uid.trim() : '';
+      const fieldInit = filterItemNode.stepParams?.fieldSettings?.init;
+      const defaultTargetUid = typeof filterItemNode.stepParams?.filterFormItemSettings?.init?.defaultTargetUid === 'string'
+        ? filterItemNode.stepParams.filterFormItemSettings.init.defaultTargetUid.trim()
+        : '';
+      const collectionName = fieldInit?.collectionName || null;
+      const fieldPath = typeof fieldInit?.fieldPath === 'string' ? fieldInit.fieldPath.trim() : '';
+
+      filterItems.push({
+        uid: filterId,
+        path: itemPath,
+        defaultTargetUid,
+        collectionName,
+        fieldPath,
+        expectedFilterPaths: resolveFilterManagerFilterPaths(metadata, collectionName, fieldPath),
+      });
+    });
+  });
+
+  return {
+    filterItems,
+    targetNodesByUid,
+    existingConfigs: normalizeFilterManagerConfigs(gridNode?.filterManager),
   };
 }
 
@@ -1818,6 +1953,179 @@ function inspectFilterFormBlocks(payload, mode, warnings, blockers, seen) {
   });
 }
 
+function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'BlockGridModel') {
+      return;
+    }
+
+    const {
+      filterItems,
+      targetNodesByUid,
+      existingConfigs,
+    } = collectGridFilterManagerState(node, pathValue, metadata);
+
+    if (filterItems.length === 0) {
+      return;
+    }
+
+    const configsByFilterId = new Map();
+    existingConfigs.forEach((config, configIndex) => {
+      const list = configsByFilterId.get(config.filterId) ?? [];
+      list.push({
+        ...config,
+        index: configIndex,
+      });
+      configsByFilterId.set(config.filterId, list);
+
+      if (!targetNodesByUid.has(config.targetId)) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_TARGET_MISSING',
+          message: `filterManager 引用了不存在或不可筛选的 targetId "${config.targetId}"。`,
+          path: `${pathValue}.filterManager[${configIndex}]`,
+          mode,
+          dedupeKey: `FILTER_MANAGER_TARGET_MISSING:config:${pathValue}:${config.filterId}:${config.targetId}`,
+          details: {
+            filterId: config.filterId,
+            targetId: config.targetId,
+            availableTargetIds: [...targetNodesByUid.keys()],
+          },
+        }));
+      }
+    });
+
+    const hasResolvableBinding = filterItems.some((item) => (
+      item.defaultTargetUid
+      && targetNodesByUid.has(item.defaultTargetUid)
+      && Array.isArray(item.expectedFilterPaths)
+      && item.expectedFilterPaths.length > 0
+    ));
+
+    if (hasResolvableBinding && existingConfigs.length === 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'FILTER_MANAGER_MISSING',
+        message: 'BlockGridModel 同时包含筛选区块与可筛选目标，但缺少顶层 filterManager 持久化配置。',
+        path: `${pathValue}.filterManager`,
+        mode,
+        dedupeKey: `FILTER_MANAGER_MISSING:${pathValue}`,
+        details: {
+          filterItemCount: filterItems.length,
+          availableTargetIds: [...targetNodesByUid.keys()],
+        },
+      }));
+    }
+
+    filterItems.forEach((item) => {
+      if (!item.defaultTargetUid) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
+          message: 'FilterFormItemModel 缺少 defaultTargetUid，无法建立稳定的筛选联动目标。',
+          path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
+          mode,
+          dedupeKey: `FILTER_MANAGER_FILTER_ITEM_UNBOUND:missing-target:${item.path}`,
+          details: {
+            filterId: item.uid || null,
+            fieldPath: item.fieldPath || null,
+          },
+        }));
+        return;
+      }
+
+      if (!targetNodesByUid.has(item.defaultTargetUid)) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_TARGET_MISSING',
+          message: `defaultTargetUid "${item.defaultTargetUid}" 在当前 BlockGridModel 中找不到对应的可筛选目标。`,
+          path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
+          mode,
+          dedupeKey: `FILTER_MANAGER_TARGET_MISSING:item:${item.path}:${item.defaultTargetUid}`,
+          details: {
+            filterId: item.uid || null,
+            defaultTargetUid: item.defaultTargetUid,
+            availableTargetIds: [...targetNodesByUid.keys()],
+          },
+        }));
+        return;
+      }
+
+      if (!Array.isArray(item.expectedFilterPaths) || item.expectedFilterPaths.length === 0) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
+          message: '当前 metadata 无法为筛选项解析稳定的 filterPaths，不能安全生成 filterManager。',
+          path: item.path,
+          mode,
+          dedupeKey: `FILTER_MANAGER_FILTER_PATH_UNRESOLVED:missing:${item.path}`,
+          details: {
+            filterId: item.uid || null,
+            collectionName: item.collectionName,
+            fieldPath: item.fieldPath,
+          },
+        }));
+        return;
+      }
+
+      const matchingConfigs = item.uid ? (configsByFilterId.get(item.uid) ?? []) : [];
+      if (matchingConfigs.length === 0) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
+          message: 'FilterFormItemModel 已声明 defaultTargetUid，但 filterManager 中没有对应的绑定配置。',
+          path: `${pathValue}.filterManager`,
+          mode,
+          dedupeKey: `FILTER_MANAGER_FILTER_ITEM_UNBOUND:config:${pathValue}:${item.uid || item.path}`,
+          details: {
+            filterId: item.uid || null,
+            defaultTargetUid: item.defaultTargetUid,
+            expectedFilterPaths: item.expectedFilterPaths,
+          },
+        }));
+        return;
+      }
+
+      const matchingTargetConfig = matchingConfigs.find((config) => config.targetId === item.defaultTargetUid);
+      if (!matchingTargetConfig) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_TARGET_MISSING',
+          message: 'filterManager 中存在该筛选项的配置，但没有连接到 defaultTargetUid 指向的目标区块。',
+          path: `${pathValue}.filterManager`,
+          mode,
+          dedupeKey: `FILTER_MANAGER_TARGET_MISSING:binding:${pathValue}:${item.uid}:${item.defaultTargetUid}`,
+          details: {
+            filterId: item.uid,
+            defaultTargetUid: item.defaultTargetUid,
+            actualTargetIds: matchingConfigs.map((config) => config.targetId),
+          },
+        }));
+        return;
+      }
+
+      const actualFilterPaths = sortUniqueStrings(matchingTargetConfig.filterPaths);
+      const expectedFilterPaths = sortUniqueStrings(item.expectedFilterPaths);
+      if (JSON.stringify(actualFilterPaths) !== JSON.stringify(expectedFilterPaths)) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
+          message: 'filterManager.filterPaths 与当前筛选项 fieldPath 推导结果不一致，查询动作可能无法命中目标数据。',
+          path: `${pathValue}.filterManager[${matchingTargetConfig.index}]`,
+          mode,
+          dedupeKey: `FILTER_MANAGER_FILTER_PATH_UNRESOLVED:mismatch:${pathValue}:${item.uid}`,
+          details: {
+            filterId: item.uid,
+            defaultTargetUid: item.defaultTargetUid,
+            expectedFilterPaths,
+            actualFilterPaths,
+          },
+        }));
+      }
+    });
+  });
+}
+
 function inspectActionSlots(payload, mode, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || typeof node.use !== 'string') {
@@ -1939,6 +2247,30 @@ function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) 
     const isPopupAction = isPlainObject(openView) || pageNode;
     if (!isPopupAction) {
       return;
+    }
+
+    const openViewCollectionName = typeof openView?.collectionName === 'string' ? openView.collectionName.trim() : '';
+    const usesFilterByTk = Object.hasOwn(openView || {}, 'filterByTk')
+      && openView?.filterByTk !== undefined
+      && openView?.filterByTk !== null
+      && String(openView.filterByTk).trim() !== '';
+    if (openViewCollectionName && usesFilterByTk) {
+      const openViewCollectionMeta = getCollectionMeta(metadata, openViewCollectionName);
+      if (openViewCollectionMeta && !openViewCollectionMeta.filterTargetKey) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'OPEN_VIEW_COLLECTION_FILTER_TARGET_KEY_MISSING',
+          message: 'popup/openView 在使用 filterByTk 时，目标 collection 必须声明 filterTargetKey；否则 runtime 会在解析记录操作或弹窗参数时直接报错。',
+          path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
+          mode,
+          dedupeKey: `OPEN_VIEW_COLLECTION_FILTER_TARGET_KEY_MISSING:${pathValue}:${openViewCollectionName}`,
+          details: {
+            actionUse: node.use,
+            collectionName: openViewCollectionName,
+            filterByTk: openView.filterByTk,
+          },
+        }));
+      }
     }
 
     const declaredPageUse = typeof openView?.pageModelClass === 'string' ? openView.pageModelClass.trim() : '';
@@ -2976,6 +3308,89 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
     }
   });
 
+  walk(workingPayload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'BlockGridModel') {
+      return;
+    }
+
+    const {
+      filterItems,
+      targetNodesByUid,
+      existingConfigs,
+    } = collectGridFilterManagerState(node, pathValue, normalizedMetadata);
+
+    if (filterItems.length === 0 || targetNodesByUid.size === 0) {
+      return;
+    }
+
+    const nextConfigs = [];
+    filterItems.forEach((item) => {
+      if (!item.defaultTargetUid) {
+        pushCanonicalizeItem(unresolved, unresolvedSeen, {
+          code: 'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
+          path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
+          message: 'FilterFormItemModel 缺少 defaultTargetUid，当前无法自动生成 filterManager 绑定。',
+          details: {
+            filterId: item.uid || null,
+            fieldPath: item.fieldPath || null,
+          },
+        });
+        return;
+      }
+
+      if (!targetNodesByUid.has(item.defaultTargetUid)) {
+        pushCanonicalizeItem(unresolved, unresolvedSeen, {
+          code: 'FILTER_MANAGER_TARGET_MISSING',
+          path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
+          message: `defaultTargetUid "${item.defaultTargetUid}" 在当前 BlockGridModel 中找不到可筛选目标，无法自动生成 filterManager。`,
+          details: {
+            filterId: item.uid || null,
+            defaultTargetUid: item.defaultTargetUid,
+            availableTargetIds: [...targetNodesByUid.keys()],
+          },
+        });
+        return;
+      }
+
+      if (!item.uid || !Array.isArray(item.expectedFilterPaths) || item.expectedFilterPaths.length === 0) {
+        pushCanonicalizeItem(unresolved, unresolvedSeen, {
+          code: 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
+          path: item.path,
+          message: '当前 metadata 无法为筛选项推导稳定的 filterPaths，自动生成 filterManager 已跳过该项。',
+          details: {
+            filterId: item.uid || null,
+            collectionName: item.collectionName,
+            fieldPath: item.fieldPath,
+          },
+        });
+        return;
+      }
+
+      nextConfigs.push({
+        filterId: item.uid,
+        targetId: item.defaultTargetUid,
+        filterPaths: item.expectedFilterPaths,
+      });
+    });
+
+    const normalizedNextConfigs = normalizeFilterManagerConfigs(nextConfigs);
+    if (
+      normalizedNextConfigs.length > 0
+      && JSON.stringify(existingConfigs) !== JSON.stringify(normalizedNextConfigs)
+    ) {
+      node.filterManager = normalizedNextConfigs;
+      pushCanonicalizeItem(transforms, transformSeen, {
+        code: 'FILTER_MANAGER_CANONICALIZED',
+        path: `${pathValue}.filterManager`,
+        message: '已为当前 BlockGridModel 自动补齐并归一化 filterManager。',
+        details: {
+          filterItemCount: filterItems.length,
+          connectionCount: normalizedNextConfigs.length,
+        },
+      });
+    }
+  });
+
   const requiredMetadata = extractRequiredMetadata({ payload: workingPayload });
   const missingCollections = [...new Set(
     requiredMetadata.collectionRefs
@@ -3175,6 +3590,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);
+  inspectFilterManagerBindings(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);

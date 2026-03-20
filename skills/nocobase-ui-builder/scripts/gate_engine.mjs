@@ -17,6 +17,10 @@ function uniqueList(items) {
   return [...new Set(items.filter(Boolean))];
 }
 
+function readNumericValue(value) {
+  return Number.isFinite(value) ? value : null;
+}
+
 function buildDecision({
   gate,
   status,
@@ -161,6 +165,20 @@ export function compareReadbackContract(readbackContract = {}, readbackResult = 
     const actualTabCount = Number.isFinite(readbackResult.tabCount) ? readbackResult.tabCount : null;
     if (actualTabCount !== readbackContract.requiredTabCount) {
       mismatches.push(`requiredTabCount expected=${readbackContract.requiredTabCount} actual=${actualTabCount}`);
+    }
+  }
+
+  const actualFilterManagerEntryCount = readNumericValue(
+    readbackSummary?.filterManagerEntryCount ?? readbackResult.filterManagerEntryCount,
+  );
+  if (readbackContract.requireFilterManager === true && (actualFilterManagerEntryCount ?? 0) <= 0) {
+    mismatches.push('requiredFilterManager expected=true actual=missing');
+  }
+  if (Number.isFinite(readbackContract.requiredFilterManagerEntryCount)) {
+    if (actualFilterManagerEntryCount !== readbackContract.requiredFilterManagerEntryCount) {
+      mismatches.push(
+        `requiredFilterManagerEntryCount expected=${readbackContract.requiredFilterManagerEntryCount} actual=${actualFilterManagerEntryCount}`,
+      );
     }
   }
 

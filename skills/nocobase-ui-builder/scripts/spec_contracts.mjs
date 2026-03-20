@@ -618,6 +618,10 @@ function compileActions(actions, scope, artifact, actionScope) {
 function compileBlocks(blocks, scope, artifact) {
   return blocks.map((block, index) => {
     collectRequiredUsesFromBlock(block, artifact.requiredUses);
+    if (block.kind === 'Filter') {
+      artifact.readbackContract.requireFilterManager = true;
+      artifact.readbackContract.requiredFilterManagerEntryCount += block.fields.length;
+    }
     if (block.collectionName) {
       artifact.requiredMetadataRefs.collections.add(block.collectionName);
     }
@@ -693,6 +697,8 @@ export function compileBuildSpec(input) {
       requiredVisibleTabs: buildSpec.requirements.requiredTabs.flatMap((item) => item.titles),
       requiredTabCount: buildSpec.requirements.requiredTabs[0]?.titles?.length ?? 0,
       requiredTopLevelUses: [],
+      requireFilterManager: false,
+      requiredFilterManagerEntryCount: 0,
     },
     verifyHints: [],
     coverageStatus: [

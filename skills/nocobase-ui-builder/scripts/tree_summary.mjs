@@ -19,6 +19,26 @@ function sortUniqueStrings(values) {
   )];
 }
 
+function normalizeFilterManagerConfigs(filterManager) {
+  if (!Array.isArray(filterManager)) {
+    return [];
+  }
+
+  return filterManager
+    .filter((item) => isPlainObject(item))
+    .map((item) => ({
+      filterId: normalizeString(item.filterId),
+      targetId: normalizeString(item.targetId),
+      filterPaths: sortUniqueStrings(item.filterPaths),
+    }))
+    .filter((item) => item.filterId && item.targetId && item.filterPaths.length > 0)
+    .sort((left, right) => (
+      left.filterId.localeCompare(right.filterId)
+      || left.targetId.localeCompare(right.targetId)
+      || JSON.stringify(left.filterPaths).localeCompare(JSON.stringify(right.filterPaths))
+    ));
+}
+
 function joinPath(basePath, segment) {
   if (typeof segment === 'number') {
     return `${basePath}[${segment}]`;
@@ -85,7 +105,16 @@ function summarizeTree(root, targetSignature) {
       (Array.isArray(root?.subModels?.tabs) ? root.subModels.tabs : [])
         .map((tabNode) => (isPlainObject(tabNode) && typeof tabNode.use === 'string' ? tabNode.use : '')),
     )
-    : [];
+    : (isPlainObject(root) && root.use === 'BlockGridModel'
+      ? sortUniqueStrings(
+        (Array.isArray(root?.subModels?.items) ? root.subModels.items : [])
+          .map((itemNode) => (isPlainObject(itemNode) && typeof itemNode.use === 'string' ? itemNode.use : '')),
+      )
+      : []);
+  const filterManagerConfigs = normalizeFilterManagerConfigs(root?.filterManager);
+  const filterManagerBindings = filterManagerConfigs.map(
+    (item) => `${item.filterId}->${item.targetId}:${item.filterPaths.join('|')}`,
+  );
 
   return {
     targetSignature: normalizeString(targetSignature) || null,
@@ -93,6 +122,8 @@ function summarizeTree(root, targetSignature) {
     tabCount: rootPageGroup?.tabCount ?? 0,
     tabTitles: rootPageGroup?.tabTitles ?? [],
     topLevelUses,
+    filterManagerEntryCount: filterManagerConfigs.length,
+    filterManagerBindings,
   };
 }
 
