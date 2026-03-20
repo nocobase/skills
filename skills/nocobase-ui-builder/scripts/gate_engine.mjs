@@ -13,8 +13,20 @@ function normalizeTitles(value) {
     .filter(Boolean);
 }
 
+function normalizeString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function uniqueList(items) {
   return [...new Set(items.filter(Boolean))];
+}
+
+function compareExpectedSubset(expectedItems, actualItems, label) {
+  const missingItems = uniqueList(expectedItems).filter((item) => !actualItems.includes(item));
+  if (missingItems.length === 0) {
+    return null;
+  }
+  return `${label} expected subset=${expectedItems.join(' / ')} actual=${actualItems.join(' / ')} missing=${missingItems.join(' / ')}`;
 }
 
 function readNumericValue(value) {
@@ -63,6 +75,98 @@ function extractReadbackSummary(readbackResult) {
     return readbackResult;
   }
   return null;
+}
+
+function extractStructuredSummary(value) {
+  if (isPlainObject(value?.summary)) {
+    return value.summary;
+  }
+  if (!isPlainObject(value)) {
+    return null;
+  }
+  if (
+    Array.isArray(value.pageGroups)
+    || Array.isArray(value.filterContainers)
+    || Object.prototype.hasOwnProperty.call(value, 'targetSignature')
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function buildPageGroupMap(summary) {
+  const pageGroups = normalizeArray(summary?.pageGroups).filter((item) => isPlainObject(item));
+  const pageGroupMap = new Map();
+  pageGroups.forEach((pageGroup) => {
+    const pageSignature = normalizeString(pageGroup.pageSignature);
+    if (!pageSignature || pageGroupMap.has(pageSignature)) {
+      return;
+    }
+    pageGroupMap.set(pageSignature, pageGroup);
+  });
+  return pageGroupMap;
+}
+
+function buildFilterContainerMap(summary) {
+  const map = new Map();
+  normalizeArray(summary?.filterContainers)
+    .filter((item) => isPlainObject(item))
+    .forEach((item) => {
+      const signature = normalizeString(item.blockSignature)
+        || (normalizeString(item.uid) ? `uid:${normalizeString(item.uid)}` : '')
+        || [normalizeString(item.path), normalizeString(item.use), normalizeString(item.collectionName)].filter(Boolean).join('|');
+      if (!signature || map.has(signature)) {
+        return;
+      }
+      map.set(signature, item);
+    });
+  return map;
+}
+
+function collectDuplicateTabMismatches(readbackSummary) {
+  const mismatches = [];
+  const pageGroups = normalizeArray(readbackSummary?.pageGroups).filter((item) => isPlainObject(item));
+  pageGroups.forEach((pageGroup) => {
+    const duplicateTitles = normalizeTitles(pageGroup.duplicateTabTitles);
+    if (duplicateTitles.length === 0) {
+      return;
+    }
+    mismatches.push(
+      `READBACK_DUPLICATE_TABS page=${normalizeString(pageGroup.pageSignature) || '$'} titles=${duplicateTitles.join(' / ')}`,
+    );
+  });
+  return mismatches;
+}
+
+function compareStructuredFilterContainers(writeSummary, readbackSummary) {
+  const mismatches = [];
+  const writeFilterContainers = buildFilterContainerMap(writeSummary);
+  const readbackFilterContainers = buildFilterContainerMap(readbackSummary);
+
+  for (const [signature, readbackItem] of readbackFilterContainers.entries()) {
+    const writeItem = writeFilterContainers.get(signature);
+    if (!writeItem) {
+      if (readbackItem.dataScopeNonEmpty) {
+        mismatches.push(
+          `READBACK_UNEXPECTED_FILTER_DRIFT block=${signature} write=missing readback=${readbackItem.dataScopeHash}`,
+        );
+      }
+      continue;
+    }
+
+    const writeHash = typeof writeItem.dataScopeHash === 'string' ? writeItem.dataScopeHash : null;
+    const readbackHash = typeof readbackItem.dataScopeHash === 'string' ? readbackItem.dataScopeHash : null;
+    const writeNonEmpty = writeItem.dataScopeNonEmpty === true;
+    const readbackNonEmpty = readbackItem.dataScopeNonEmpty === true;
+    if (writeNonEmpty === readbackNonEmpty && writeHash === readbackHash) {
+      continue;
+    }
+    mismatches.push(
+      `READBACK_UNEXPECTED_FILTER_DRIFT block=${signature} write=${writeHash || 'empty'} readback=${readbackHash || 'empty'}`,
+    );
+  }
+
+  return mismatches;
 }
 
 function buildRequirementLabel(requirement, index) {
@@ -141,14 +245,24 @@ function compareStructuredRequiredTabs(requiredTabs, readbackSummary) {
   return mismatches;
 }
 
-export function compareReadbackContract(readbackContract = {}, readbackResult = {}) {
+export function compareReadbackContract(readbackContract = {}, readbackResult = {}, writeResult = null) {
+  const writeSummary = extractStructuredSummary(writeResult);
   const structuredRequiredTabs = normalizeArray(readbackContract.requiredTabs).filter((item) => isPlainObject(item));
   const readbackSummary = extractReadbackSummary(readbackResult);
+  const structuralMismatches = readbackSummary
+    ? [
+      ...collectDuplicateTabMismatches(readbackSummary),
+      ...(writeSummary ? compareStructuredFilterContainers(writeSummary, readbackSummary) : []),
+    ]
+    : [];
   if (readbackSummary && structuredRequiredTabs.length > 0) {
-    return compareStructuredRequiredTabs(structuredRequiredTabs, readbackSummary);
+    return [
+      ...structuralMismatches,
+      ...compareStructuredRequiredTabs(structuredRequiredTabs, readbackSummary),
+    ];
   }
 
-  const mismatches = [];
+  const mismatches = [...structuralMismatches];
   const expectedTabs = normalizeTitles(readbackContract.requiredVisibleTabs);
   const actualTabs = normalizeTitles(readbackResult.tabTitles);
   if (expectedTabs.length > 0 && JSON.stringify(expectedTabs) !== JSON.stringify(actualTabs)) {
@@ -157,8 +271,11 @@ export function compareReadbackContract(readbackContract = {}, readbackResult = 
 
   const expectedUses = normalizeTitles(readbackContract.requiredTopLevelUses);
   const actualUses = normalizeTitles(readbackResult.topLevelUses);
-  if (expectedUses.length > 0 && JSON.stringify(expectedUses) !== JSON.stringify(actualUses)) {
-    mismatches.push(`requiredTopLevelUses expected=${expectedUses.join(' / ')} actual=${actualUses.join(' / ')}`);
+  const topLevelUsesMismatch = expectedUses.length > 0
+    ? compareExpectedSubset(expectedUses, actualUses, 'requiredTopLevelUses')
+    : null;
+  if (topLevelUsesMismatch) {
+    mismatches.push(topLevelUsesMismatch);
   }
 
   if (Number.isFinite(readbackContract.requiredTabCount)) {
@@ -183,6 +300,16 @@ export function compareReadbackContract(readbackContract = {}, readbackResult = 
   }
 
   return mismatches;
+}
+
+function resolveReadbackReasonCode(mismatches) {
+  if (mismatches.some((item) => typeof item === 'string' && item.startsWith('READBACK_DUPLICATE_TABS'))) {
+    return 'READBACK_DUPLICATE_TABS';
+  }
+  if (mismatches.some((item) => typeof item === 'string' && item.startsWith('READBACK_UNEXPECTED_FILTER_DRIFT'))) {
+    return 'READBACK_UNEXPECTED_FILTER_DRIFT';
+  }
+  return 'READBACK_CONTRACT_MISMATCH';
 }
 
 export function evaluateBuildGate({
@@ -212,12 +339,12 @@ export function evaluateBuildGate({
     });
   }
 
-  const mismatches = compareReadbackContract(readbackContract, readbackResult);
+  const mismatches = compareReadbackContract(readbackContract, readbackResult, writeResult);
   if (mismatches.length > 0) {
     return buildDecision({
       gate: 'build',
       status: 'failed',
-      reasonCode: 'READBACK_CONTRACT_MISMATCH',
+      reasonCode: resolveReadbackReasonCode(mismatches),
       findings: mismatches,
       stoppedRemainingWork: true,
     });

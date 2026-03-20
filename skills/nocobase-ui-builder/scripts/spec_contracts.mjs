@@ -39,6 +39,7 @@ const ACTION_USE_BY_KIND = {
 
 const SUPPORTED_BLOCK_KINDS = new Set(['Filter', 'Table', 'Details', 'Form']);
 const SUPPORTED_REQUIRED_ACTION_SCOPES = new Set(['block-actions', 'row-actions', 'details-actions', 'either']);
+const METADATA_TRUST_LEVELS = new Set(['live', 'stable', 'cache', 'artifact', 'unknown', 'not-required']);
 
 function resolveActionUse(kind) {
   const resolvedUse = ACTION_USE_BY_KIND[kind];
@@ -293,6 +294,78 @@ function dedupeRequiredActions(actions) {
   });
 }
 
+function normalizeMetadataTrustLevel(value, label, fallbackValue = null) {
+  if (value == null || value === '') {
+    return fallbackValue;
+  }
+  const normalized = normalizeNonEmpty(value, label);
+  if (!METADATA_TRUST_LEVELS.has(normalized)) {
+    throw new Error(`${label} must be one of ${[...METADATA_TRUST_LEVELS].join(', ')}`);
+  }
+  return normalized;
+}
+
+function normalizeExpectedFilterContracts(explicit) {
+  if (!Array.isArray(explicit) || explicit.length === 0) {
+    return [];
+  }
+  return explicit.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error(`requirements.expectedFilterContracts[${index}] must be an object`);
+    }
+    const use = entry.use == null ? null : normalizeNonEmpty(entry.use, `requirements.expectedFilterContracts[${index}].use`);
+    const collectionName = entry.collectionName == null
+      ? null
+      : normalizeNonEmpty(entry.collectionName, `requirements.expectedFilterContracts[${index}].collectionName`);
+    return {
+      use,
+      collectionName,
+      selectorKind: typeof entry.selectorKind === 'string' && entry.selectorKind.trim()
+        ? entry.selectorKind.trim()
+        : 'any',
+      dataScopeMode: typeof entry.dataScopeMode === 'string' && entry.dataScopeMode.trim()
+        ? entry.dataScopeMode.trim()
+        : 'any',
+      allowNonEmptyDataScope: entry.allowNonEmptyDataScope === true,
+      metadataTrust: normalizeMetadataTrustLevel(
+        entry.metadataTrust,
+        `requirements.expectedFilterContracts[${index}].metadataTrust`,
+        null,
+      ),
+    };
+  });
+}
+
+function hasRuntimeSensitiveAction(action) {
+  if (!action || typeof action !== 'object') {
+    return false;
+  }
+  if (
+    action.kind === 'view-record-popup'
+    || action.kind === 'edit-record-popup'
+    || action.kind === 'add-child-record-popup'
+  ) {
+    return true;
+  }
+  return Boolean(action.popup && hasRuntimeSensitiveBlocks(action.popup.blocks));
+}
+
+function hasRuntimeSensitiveBlocks(blocks) {
+  return blocks.some((block) => {
+    if (!block || typeof block !== 'object') {
+      return false;
+    }
+    if (block.blocks.length > 0 && hasRuntimeSensitiveBlocks(block.blocks)) {
+      return true;
+    }
+    if (block.popup && hasRuntimeSensitiveBlocks(block.popup.blocks)) {
+      return true;
+    }
+    return block.actions.some((action) => hasRuntimeSensitiveAction(action))
+      || block.rowActions.some((action) => hasRuntimeSensitiveAction(action));
+  });
+}
+
 function collectRequiredActionsFromBlocks(blocks, scope, actions) {
   for (const block of blocks) {
     const collectionName = block.collectionName;
@@ -376,6 +449,11 @@ export function normalizeBuildSpec(input) {
   const layoutInput = input.layout && typeof input.layout === 'object' ? input.layout : {};
   const requirementsInput = input.requirements && typeof input.requirements === 'object' ? input.requirements : {};
   const optionsInput = input.options && typeof input.options === 'object' ? input.options : {};
+  const metadataTrustInput = typeof requirementsInput.metadataTrust === 'string'
+    ? requirementsInput.metadataTrust
+    : (requirementsInput.metadataTrust && typeof requirementsInput.metadataTrust === 'object'
+      ? requirementsInput.metadataTrust
+      : null);
 
   const layout = {
     pageUse: normalizePageUse(layoutInput.pageUse, 'layout.pageUse', {
@@ -412,6 +490,14 @@ export function normalizeBuildSpec(input) {
       requiredActions: Array.isArray(requirementsInput.requiredActions) && requirementsInput.requiredActions.length > 0
         ? normalizeRequiredActions(requirementsInput.requiredActions)
         : deriveRequiredActions(layout),
+      expectedFilterContracts: normalizeExpectedFilterContracts(requirementsInput.expectedFilterContracts),
+      metadataTrust: {
+        runtimeSensitive: normalizeMetadataTrustLevel(
+          typeof metadataTrustInput === 'string' ? metadataTrustInput : metadataTrustInput?.runtimeSensitive,
+          'requirements.metadataTrust.runtimeSensitive',
+          null,
+        ),
+      },
     },
     options: {
       compileMode: typeof optionsInput.compileMode === 'string' && optionsInput.compileMode.trim()
@@ -590,6 +676,37 @@ function maybeAddVerifyHintForAction(action, hintScope, verifyHints, stageIdPref
   });
 }
 
+function buildDataScopeContract(block) {
+  if (block.relationScope) {
+    return {
+      mode: 'relation-derived',
+      relationScope: block.relationScope,
+    };
+  }
+  return {
+    mode: 'empty',
+    relationScope: null,
+  };
+}
+
+function buildSelectorContract() {
+  return {
+    kind: 'any',
+  };
+}
+
+function buildExpectedFilterContract(block, compiledBlock, selectorContract, dataScopeContract) {
+  return {
+    path: compiledBlock.path,
+    use: compiledBlock.use,
+    collectionName: compiledBlock.collectionName || null,
+    selectorKind: selectorContract.kind,
+    dataScopeMode: dataScopeContract.mode,
+    allowNonEmptyDataScope: dataScopeContract.mode !== 'empty',
+    metadataTrust: null,
+  };
+}
+
 function compilePopup(popup, scope, artifact) {
   if (!popup) {
     return null;
@@ -637,7 +754,9 @@ function compileBlocks(blocks, scope, artifact) {
         associationName: block.relationScope.associationName,
       });
     }
-    return {
+    const dataScopeContract = buildDataScopeContract(block);
+    const selectorContract = buildSelectorContract(block);
+    const compiledBlock = {
       path: `${scope}.blocks[${index}]`,
       kind: block.kind,
       use: resolveBlockUse(block),
@@ -663,13 +782,24 @@ function compileBlocks(blocks, scope, artifact) {
       targetCollectionName: block.targetCollectionName,
       targetBlock: block.targetBlock,
       treeTable: block.treeTable,
+      selectorContract,
+      dataScopeContract,
     };
+    artifact.guardRequirements.expectedFilterContracts.push(
+      buildExpectedFilterContract(block, compiledBlock, selectorContract, dataScopeContract),
+    );
+    return compiledBlock;
   });
 }
 
 export function compileBuildSpec(input) {
   const buildSpec = normalizeBuildSpec(input);
   const defaultTabUse = getDefaultTabUseForPage(buildSpec.layout.pageUse);
+  const runtimeSensitiveMetadataTrust = buildSpec.requirements.metadataTrust.runtimeSensitive
+    || (hasRuntimeSensitiveBlocks(buildSpec.layout.blocks)
+      || buildSpec.layout.tabs.some((tab) => hasRuntimeSensitiveBlocks(tab.blocks))
+      ? 'unknown'
+      : 'not-required');
   const artifact = {
     compileMode: buildSpec.options.allowLegacyFallback ? 'primitive-tree' : DEFAULT_BUILD_COMPILE_MODE,
     payloadFragment: null,
@@ -679,7 +809,13 @@ export function compileBuildSpec(input) {
       fields: new Set(),
       relations: [],
     },
-    guardRequirements: buildSpec.requirements,
+    guardRequirements: {
+      ...buildSpec.requirements,
+      expectedFilterContracts: [...buildSpec.requirements.expectedFilterContracts],
+      metadataTrust: {
+        runtimeSensitive: runtimeSensitiveMetadataTrust,
+      },
+    },
     matchedCaseId: buildSpec.validationCase.caseId,
     matchedCaseTitle: buildSpec.validationCase.title,
     matchedCaseDocPath: buildSpec.validationCase.docPath,

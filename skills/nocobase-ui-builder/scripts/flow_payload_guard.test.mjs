@@ -163,6 +163,42 @@ const metadataWithAssociationFormTargetFilterKeyOnly = {
   },
 };
 
+const metadataWithAssociationFormInvalidTitleField = {
+  collections: {
+    orders: metadataWithAssociationFormTargetFilterKeyOnly.collections.orders,
+    customers: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'name', type: 'string', interface: 'input' },
+      ],
+    },
+  },
+};
+
+const metadataWithAssociationFormMissingTargetFields = {
+  collections: {
+    orders: metadataWithAssociationFormTargetFilterKeyOnly.collections.orders,
+    customers: {
+      filterTargetKey: 'id',
+      fields: [],
+    },
+  },
+};
+
+const metadataWithAssociationFormBindingInterfaceMissing = {
+  collections: {
+    orders: metadataWithAssociationFormTargetFilterKeyOnly.collections.orders,
+    customers: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'name', type: 'string' },
+      ],
+    },
+  },
+};
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -1303,6 +1339,114 @@ test('auditPayload allows form association record select when target collection 
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH'), false);
 });
 
+test('auditPayload blocks form association record select when target titleField cannot be resolved', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'RecordSelectFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: metadataWithAssociationFormInvalidTitleField,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED'), true);
+});
+
+test('auditPayload blocks form association record select when target field metadata is missing', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'RecordSelectFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: metadataWithAssociationFormMissingTargetFields,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE'), true);
+});
+
+test('auditPayload blocks form association record select when target default binding cannot be inferred', () => {
+  const payload = {
+    use: 'FormItemModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'RecordSelectFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'customer',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: metadataWithAssociationFormBindingInterfaceMissing,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'ASSOCIATION_INPUT_DEFAULT_BINDING_UNRESOLVED'), true);
+});
+
 test('auditPayload blocks when required collection metadata is missing', () => {
   const payload = {
     use: 'FormItemModel',
@@ -1383,6 +1527,75 @@ test('auditPayload blocks popup actions when openView target collection lacks fi
   assert.equal(result.blockers.some((item) => item.code === 'OPEN_VIEW_COLLECTION_FILTER_TARGET_KEY_MISSING'), true);
 });
 
+test('auditPayload blocks popup actions that use runtime-sensitive filterByTk without live metadata trust', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [],
+          },
+        },
+      },
+    },
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      metadataTrust: {
+        runtimeSensitive: 'artifact',
+      },
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'METADATA_TRUST_INSUFFICIENT'), true);
+});
+
+test('auditPayload accepts popup actions that use runtime-sensitive filterByTk after metadata trust is upgraded to live', () => {
+  const payload = makePopupPageWithChildTab({
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+      tableSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [],
+          },
+        },
+      },
+    },
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      metadataTrust: {
+        runtimeSensitive: 'live',
+      },
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'METADATA_TRUST_INSUFFICIENT'), false);
+});
+
 test('auditPayload blocks association display bindings when target collection has no title field', () => {
   const payload = {
     use: 'DisplayTextFieldModel',
@@ -1426,6 +1639,133 @@ test('auditPayload warns and blocks direct DisplayTextFieldModel association bin
     validationResult.blockers.some((item) => item.code === 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL'),
     true,
   );
+});
+
+test('auditPayload allows runtime-legal non-empty dataScope on record details blocks', () => {
+  const payload = {
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+      detailsSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'order_no',
+                operator: '$notNull',
+                value: true,
+              },
+            ],
+          },
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'DetailsGridModel',
+        subModels: {
+          items: [
+            {
+              use: 'DetailsItemModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'orders',
+                    fieldPath: 'order_no',
+                  },
+                },
+              },
+              subModels: {
+                field: {
+                  use: 'DisplayTextFieldModel',
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+  assert.equal(result.ok, true);
+});
+
+test('auditPayload blocks filter containers when explicit selector contract mismatches runtime shape', () => {
+  const payload = {
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+          filterByTk: '{{ctx.record.id}}',
+        },
+      },
+      detailsSettings: {
+        dataScope: {
+          filter: {
+            logic: '$and',
+            items: [
+              {
+                path: 'order_no',
+                operator: '$notNull',
+                value: true,
+              },
+            ],
+          },
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'DetailsGridModel',
+        subModels: {
+          items: [
+            {
+              use: 'DetailsItemModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'orders',
+                    fieldPath: 'order_no',
+                  },
+                },
+              },
+              subModels: {
+                field: {
+                  use: 'DisplayTextFieldModel',
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      expectedFilterContracts: [
+        {
+          path: '$',
+          use: 'DetailsBlockModel',
+          collectionName: 'orders',
+          selectorKind: 'association-context',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_SELECTOR_CONTRACT_MISMATCH'), true);
 });
 
 test('auditPayload warns on hardcoded filterByTk in general mode and blocks in validation-case mode', () => {

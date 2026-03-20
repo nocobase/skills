@@ -258,6 +258,13 @@ test('spec normalization and compile derive guard requirements and readback cont
   assert.equal(compiled.compileArtifact.requiredUses.includes('EditActionModel'), true);
   assert.deepEqual(compiled.compileArtifact.guardRequirements.requiredTabs[0].titles, ['客户概览', '跟进记录']);
   assert.equal(compiled.compileArtifact.guardRequirements.requiredActions[0].collectionName, 'customers');
+  assert.equal(compiled.compileArtifact.guardRequirements.metadataTrust.runtimeSensitive, 'unknown');
+  assert.equal(
+    compiled.compileArtifact.guardRequirements.expectedFilterContracts.some(
+      (item) => item.use === 'TableBlockModel' && item.collectionName === 'customers' && item.dataScopeMode === 'empty',
+    ),
+    true,
+  );
   assert.deepEqual(compiled.compileArtifact.readbackContract.requiredTabs, [
     {
       pageSignature: '$',
@@ -269,6 +276,8 @@ test('spec normalization and compile derive guard requirements and readback cont
   assert.equal(compiled.compileArtifact.readbackContract.requiredTabCount, 2);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('customers'), true);
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].use, 'EditActionModel');
+  assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].selectorContract.kind, 'any');
+  assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].dataScopeContract.mode, 'empty');
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].popup, null);
 });
 
@@ -375,6 +384,92 @@ test('tree summary captures BlockGridModel filterManager bindings', () => {
     'customer-filter->orders-table:customer.id',
     'order-no-filter->orders-table:order_no',
   ]);
+  assert.equal(summary.filterContainers.length, 1);
+  assert.equal(summary.filterContainers[0].use, 'TableBlockModel');
+  assert.equal(summary.filterContainers[0].dataScopeNonEmpty, false);
+});
+
+test('tree summary captures duplicate tabs and filter container hashes', () => {
+  const summary = summarizePayloadTree({
+    targetSignature: 'page.root',
+    payload: {
+      use: 'RootPageModel',
+      subModels: {
+        tabs: [
+          {
+            use: 'RootPageTabModel',
+            stepParams: {
+              pageTabSettings: {
+                tab: {
+                  title: '客户概览',
+                },
+              },
+            },
+            subModels: {
+              grid: {
+                use: 'BlockGridModel',
+                subModels: {
+                  items: [
+                    {
+                      uid: 'customer-details',
+                      use: 'DetailsBlockModel',
+                      stepParams: {
+                        resourceSettings: {
+                          init: {
+                            collectionName: 'customers',
+                            filterByTk: '{{ctx.record.id}}',
+                          },
+                        },
+                        detailsSettings: {
+                          dataScope: {
+                            filter: {
+                              logic: '$and',
+                              items: [
+                                {
+                                  path: 'name',
+                                  operator: '$notNull',
+                                  value: true,
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            use: 'RootPageTabModel',
+            stepParams: {
+              pageTabSettings: {
+                tab: {
+                  title: '客户概览',
+                },
+              },
+            },
+            subModels: {
+              grid: {
+                use: 'BlockGridModel',
+                subModels: {
+                  items: [],
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  assert.deepEqual(summary.pageGroups[0].duplicateTabTitles, ['客户概览']);
+  assert.equal(summary.filterContainers.length, 1);
+  assert.equal(summary.filterContainers[0].blockSignature, 'uid:customer-details');
+  assert.equal(summary.filterContainers[0].hasFilterByTk, true);
+  assert.equal(summary.filterContainers[0].dataScopeNonEmpty, true);
+  assert.match(summary.filterContainers[0].dataScopeHash, /"\$notNull"/);
 });
 
 test('spec normalization defaults popup pages to ChildPageModel instead of generic PageModel', () => {
@@ -626,6 +721,13 @@ test('gate engine fails fast on guard blockers, readback mismatch and pre-open b
   });
   assert.equal(mismatch.length, 1);
 
+  const topLevelUsesSubsetMismatch = compareReadbackContract({
+    requiredTopLevelUses: ['DetailsBlockModel'],
+  }, {
+    topLevelUses: ['DetailsBlockModel', 'TableBlockModel'],
+  });
+  assert.deepEqual(topLevelUsesSubsetMismatch, []);
+
   const filterMismatch = compareReadbackContract({
     requireFilterManager: true,
     requiredFilterManagerEntryCount: 2,
@@ -653,6 +755,166 @@ test('gate engine fails fast on guard blockers, readback mismatch and pre-open b
   assert.deepEqual(filterMismatch, [
     'requiredFilterManagerEntryCount expected=2 actual=1',
   ]);
+
+  const writeSummary = summarizePayloadTree({
+    targetSignature: 'customer-details',
+    payload: {
+      use: 'BlockGridModel',
+      subModels: {
+        items: [
+          {
+            uid: 'customer-details',
+            use: 'DetailsBlockModel',
+            stepParams: {
+              resourceSettings: {
+                init: {
+                  collectionName: 'customers',
+                  filterByTk: '{{ctx.record.id}}',
+                },
+              },
+              detailsSettings: {
+                dataScope: {
+                  filter: {
+                    logic: '$and',
+                    items: [],
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+  const readbackSummary = summarizePayloadTree({
+    targetSignature: 'customer-details',
+    payload: {
+      use: 'BlockGridModel',
+      subModels: {
+        items: [
+          {
+            uid: 'customer-details',
+            use: 'DetailsBlockModel',
+            stepParams: {
+              resourceSettings: {
+                init: {
+                  collectionName: 'customers',
+                  filterByTk: '{{ctx.record.id}}',
+                },
+              },
+              detailsSettings: {
+                dataScope: {
+                  filter: {
+                    logic: '$and',
+                    items: [
+                      {
+                        path: 'name',
+                        operator: '$notNull',
+                        value: true,
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+  const filterDriftMismatch = compareReadbackContract({}, { summary: readbackSummary }, { summary: writeSummary });
+  assert.equal(
+    filterDriftMismatch.some((item) => item.startsWith('READBACK_UNEXPECTED_FILTER_DRIFT block=uid:customer-details')),
+    true,
+  );
+
+  const duplicateTabsDecision = evaluateBuildGate({
+    guardResult: {
+      blockers: [],
+    },
+    writeResult: {
+      ok: true,
+      summary: summarizePayloadTree({
+        targetSignature: 'page.root',
+        payload: {
+          use: 'RootPageModel',
+          subModels: {
+            tabs: [
+              {
+                use: 'RootPageTabModel',
+                stepParams: {
+                  pageTabSettings: {
+                    tab: {
+                      title: '客户概览',
+                    },
+                  },
+                },
+                subModels: {
+                  grid: {
+                    use: 'BlockGridModel',
+                    subModels: {
+                      items: [],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      }),
+    },
+    readbackContract: {},
+    readbackResult: {
+      summary: summarizePayloadTree({
+        targetSignature: 'page.root',
+        payload: {
+          use: 'RootPageModel',
+          subModels: {
+            tabs: [
+              {
+                use: 'RootPageTabModel',
+                stepParams: {
+                  pageTabSettings: {
+                    tab: {
+                      title: '客户概览',
+                    },
+                  },
+                },
+                subModels: {
+                  grid: {
+                    use: 'BlockGridModel',
+                    subModels: {
+                      items: [],
+                    },
+                  },
+                },
+              },
+              {
+                use: 'RootPageTabModel',
+                stepParams: {
+                  pageTabSettings: {
+                    tab: {
+                      title: '客户概览',
+                    },
+                  },
+                },
+                subModels: {
+                  grid: {
+                    use: 'BlockGridModel',
+                    subModels: {
+                      items: [],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      }),
+    },
+  });
+  assert.equal(duplicateTabsDecision.reasonCode, 'READBACK_DUPLICATE_TABS');
+  assert.equal(duplicateTabsDecision.findings[0].startsWith('READBACK_DUPLICATE_TABS'), true);
 
   const preOpenDecision = evaluatePreOpenGate({
     reachable: true,

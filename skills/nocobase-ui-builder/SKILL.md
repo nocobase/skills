@@ -54,6 +54,7 @@ V1 默认采用 schema-first 的渐进支持策略：
    - 不要为单个 case 现场手搓整棵 flowModels 树
 4. 强 gate
    - write-after-read mismatch、route-ready 缺失、pre-open blocker、mandatory stage failure 都应在 gate 失败时直接截停
+   - readback 对账除了 tab/filterManager 基线外，还要显式拦截 duplicate tabs 与 block 级 unexpected filter drift
    - 推荐复用 `scripts/gate_engine.mjs` 的通用判定，不要把“停在何处”散落到 prompt 里
 5. 阶段耗时画像
    - 每轮至少记录 `schema_discovery`、`stable_metadata`、`write`、`readback`、`browser_attach`、`smoke`
@@ -213,25 +214,29 @@ V1 默认采用 schema-first 的渐进支持策略：
 2. 不允许把 `foreignKey` 直接当成 `fieldPath`
 3. popup/openView 动作如果要落库，至少要有 `action + openView + page + tab + grid + business block`
 4. popup 子树如果依赖 `{{ctx.view.inputArgs.filterByTk}}`，动作层必须显式传 `filterByTk`
-5. popup / 详情里的“当前记录关联子表”只有在 parent->child relation resource 已被稳定 reference、live tree 或样板页证实时，才优先使用 `resourceSettings.init.associationName + sourceId`；未证实前允许保留 child-side 的逻辑 `dataScope.filter`
-6. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；裸字段名和 `childCollection.belongsToField` 这种全限定写法都算未验证协议，如果没有稳定 reference 或 live tree 证明可用，默认保持 blocker
-7. `DetailsBlockModel` 不能只落空 grid；至少要有详情字段、动作或子业务区块之一
-8. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；表格/详情要展示目标标题字段时，优先保留父 collection，并使用完整 dotted path，例如 `customer.name`。同时要显式补 `associationPathName` 为关系前缀，例如 `associationPathName=customer`；不要切换成 target collection + simple `fieldPath`
-9. child-side `belongsTo` 过滤不允许生成“裸 association + 标量操作符”，例如 `path=order` 搭配 `$eq`；必须先查 relation metadata，优先使用 `foreignKey`，否则使用 `<belongsToField>.<targetKey>`；两者都拿不到就保持 blocker，不猜字段名
-10. `CreateFormModel` / `EditFormModel` 的表单动作必须挂在 block 级 `subModels.actions`；不要把 `FormSubmitActionModel` / `JSFormActionModel` 塞进 `FormGridModel.subModels.items`
-11. `FormItemModel` 不能只写 `fieldSettings.init.fieldPath`；必须显式补 `subModels.field.use=<当前 schema/fieldBinding 给出的 editable field model>`，否则运行时只有字段壳，没有稳定可编辑 renderer
-12. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
-13. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要显式声明 `kind + collectionName + scope`，并同时覆盖 block 级 `actions`、`DetailsBlockModel.actions` 和 `TableActionsColumnModel` 里的记录动作
-14. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过结构化 `requirements.requiredTabs` 声明给 guard；每项至少包含 `titles`，可选补 `pageUse`、`pageSignature`，默认 `requireBlockGrid=true`
-15. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续同目标 `GetFlowmodels_findone` 的 write-after-read 结果为准
-16. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
-17. validation 阶段若出现结构型渲染问题，具体判定顺序与约束以 [references/validation.md](references/validation.md) 为准
-18. 对已被源码证实的结构型渲染问题，优先把结论沉淀为 `flow_payload_guard`、reference recipe 或 validation 文档约束；不要只增加一次运行时 smoke 作为补救
-19. 如果是从现有 live tree / 模板页克隆 payload，再落库前也要做一次 legacy filter canonicalize：把 `dataScope.filter.items[*]` 里的 `{ field, operator, value }` 收敛成 `{ path, operator, value }`，尤其要递归覆盖 popup/page 嵌套子树里的关系表；否则 write-after-read 可能直接退化成空 `BlockGridModel`
-20. template clone 路径也必须走完整的 `extract-required-metadata -> canonicalize-payload -> audit-payload -> write`；不能因为“只是 remap 样板页”就跳过 guard
-21. template clone 后如果出现以下任一信号，必须立即停止，不能直接 `save`：`EMPTY_TEMPLATE_TREE`、`FORM_SUBMIT_ACTION_DUPLICATED`、`FORM_BLOCK_EMPTY_GRID`、`FILTER_FORM_EMPTY_GRID`、`FIELD_MODEL_PAGE_SLOT_UNSUPPORTED`
-22. 通过模板 clone 得到的 `CreateFormModel` / `EditFormModel`，如果 `subModels.actions` 里出现多个 submit-like action，必须先去重；只保留有真实配置的那个，不能把空壳 submit 一起落库
-23. `*FieldModel` 不支持 `subModels.page`；如果样板页里出现这类结构，说明 clone/slot 判断已经偏离源码契约，先清理或阻断，再继续后续审计
+5. `SingleRecordResource` / `DetailsBlockModel` / `EditFormModel` 同时携带 `filterByTk` 与 `dataScope` 在源码层是允许的；guard 不能因为 non-empty `dataScope` 本身就拦截，只有在字段路径、selector 形态或 runtime 契约可被源码证明不成立时才 blocker
+6. 如果 compile artifact、上游 caller 或样板页已经明确某个 block 的 selector / dataScope 契约，要通过 `requirements.expectedFilterContracts` 把契约显式传给 `audit-payload`；它用于对齐 runtime selector contract，不是给 non-empty `dataScope` 开白名单
+7. popup/openView 一旦使用 `filterByTk`，就属于 runtime-sensitive selector；最终写前审计必须把 `requirements.metadataTrust.runtimeSensitive` 提升为 `live`。`artifact` / `cache` metadata 只能辅助草稿分析，不能作为最终放行依据
+8. popup / 详情里的“当前记录关联子表”只有在 parent->child relation resource 已被稳定 reference、live tree 或样板页证实时，才优先使用 `resourceSettings.init.associationName + sourceId`；未证实前允许保留 child-side 的逻辑 `dataScope.filter`
+9. `associationName` 不能只凭子表上指向父表的 `belongsTo` 字段名猜；裸字段名和 `childCollection.belongsToField` 这种全限定写法都算未验证协议，如果没有稳定 reference 或 live tree 证明可用，默认保持 blocker
+10. `DetailsBlockModel` 不能只落空 grid；至少要有详情字段、动作或子业务区块之一
+11. 关联字段不能默认直接写成 `DisplayTextFieldModel(fieldPath=<relationField>)`；表格/详情要展示目标标题字段时，优先保留父 collection，并使用完整 dotted path，例如 `customer.name`。同时要显式补 `associationPathName` 为关系前缀，例如 `associationPathName=customer`；不要切换成 target collection + simple `fieldPath`
+12. child-side `belongsTo` 过滤不允许生成“裸 association + 标量操作符”，例如 `path=order` 搭配 `$eq`；必须先查 relation metadata，优先使用 `foreignKey`，否则使用 `<belongsToField>.<targetKey>`；两者都拿不到就保持 blocker，不猜字段名
+13. `CreateFormModel` / `EditFormModel` 的表单动作必须挂在 block 级 `subModels.actions`；不要把 `FormSubmitActionModel` / `JSFormActionModel` 塞进 `FormGridModel.subModels.items`
+14. `FormItemModel` 不能只写 `fieldSettings.init.fieldPath`；必须显式补 `subModels.field.use=<当前 schema/fieldBinding 给出的 editable field model>`，否则运行时只有字段壳，没有稳定可编辑 renderer
+15. `CreateFormModel` / `RecordSelectFieldModel` 相关的关联输入要在写前复刻最小 runtime 契约：目标 collection 字段元数据必须完整，`titleField -> targetCollection.getField(label)` 必须可解析，目标字段还要能提供稳定 interface/default binding；缺任一节点就直接 blocker
+16. 默认使用 `--mode validation-case` 作为严格写前审计模式；`--mode general` 只用于调试或检查未完成草稿，不能替代最终落库 gate
+17. 如果上层任务显式要求某个动作能力或交互结果，例如“某个 collection 的表格必须有编辑对话框”，要通过 `audit-payload --requirements-json/--requirements-file` 把要求声明给 guard；`requiredActions` 需要显式声明 `kind + collectionName + scope`，并同时覆盖 block 级 `actions`、`DetailsBlockModel.actions` 和 `TableActionsColumnModel` 里的记录动作
+18. 用户显式要求“多个可见 tabs”时，要把 tabs 标题要求通过结构化 `requirements.requiredTabs` 声明给 guard；每项至少包含 `titles`，可选补 `pageUse`、`pageSignature`，默认 `requireBlockGrid=true`
+19. `PostFlowmodels_save` / `PostFlowmodels_mutate` 返回 ok 只代表“请求提交成功”；最终状态必须以后续同目标 `GetFlowmodels_findone` 的 write-after-read 结果为准
+20. through / 多对多中间表的 popup add/edit 动作，若尚未做浏览器 smoke，只能写成“模型树已落库，运行时未实测”，不能直接报“动作可用”
+21. validation 阶段若出现结构型渲染问题，具体判定顺序与约束以 [references/validation.md](references/validation.md) 为准
+22. 对已被源码证实的结构型渲染问题，优先把结论沉淀为 `flow_payload_guard`、reference recipe 或 validation 文档约束；不要只增加一次运行时 smoke 作为补救
+23. 如果是从现有 live tree / 模板页克隆 payload，再落库前也要做一次 legacy filter canonicalize：把 `dataScope.filter.items[*]` 里的 `{ field, operator, value }` 收敛成 `{ path, operator, value }`，尤其要递归覆盖 popup/page 嵌套子树里的关系表；否则 write-after-read 可能直接退化成空 `BlockGridModel`
+24. template clone 路径也必须走完整的 `extract-required-metadata -> canonicalize-payload -> audit-payload -> write`；不能因为“只是 remap 样板页”就跳过 guard
+25. template clone 后如果出现以下任一信号，必须立即停止，不能直接 `save`：`EMPTY_TEMPLATE_TREE`、`FORM_SUBMIT_ACTION_DUPLICATED`、`FORM_BLOCK_EMPTY_GRID`、`FILTER_FORM_EMPTY_GRID`、`FIELD_MODEL_PAGE_SLOT_UNSUPPORTED`
+26. 通过模板 clone 得到的 `CreateFormModel` / `EditFormModel`，如果 `subModels.actions` 里出现多个 submit-like action，必须先去重；只保留有真实配置的那个，不能把空壳 submit 一起落库
+27. `*FieldModel` 不支持 `subModels.page`；如果样板页里出现这类结构，说明 clone/slot 判断已经偏离源码契约，先清理或阻断，再继续后续审计
 
 命令示例：
 
@@ -351,6 +356,7 @@ NocoBase `resourcer` 的关键实现细节：
 11. 再运行 `flow_payload_guard.mjs audit-payload`
 12. 只有 `audit-payload` 没有 blocker，或已经通过结构化 `risk_accept` note 明确豁免后，才允许 `PostFlowmodels_save` / `PostFlowmodels_mutate`
 13. 每次写入后立刻执行一次同目标 `GetFlowmodels_findone` 做 write-after-read 对账；写操作与 readback 都要带同一个 `args.targetSignature`，如果 readback 与 write 预期不一致，立即降级为 `partial/failed`，不要继续沿用 save 的乐观结论
+14. write-after-read 结构摘要至少要覆盖：显式 tabs、duplicate tabs、filterManager、filter container 的 `filterByTk/dataScope` 摘要；readback 里一旦出现 unexpected filter drift，直接判失败
 
 用 `schemaBundle` 做紧凑的提示词初始化，用 `schemas` 拉取一批模型文档，用 `schema` 做单模型深挖。只要能探测，就绝不要猜请求体字段键、slot 名或模型 use。
 
@@ -365,7 +371,8 @@ NocoBase `resourcer` 的关键实现细节：
 - `flow_payload_guard.canonicalize-payload` 与 `flow_payload_guard.audit-payload` 的结果都要记录到 tool journal
 - `flow_payload_guard.audit-payload` 的结果必须记录到 tool journal；推荐把 `tool` 名写成 `flow_payload_guard.audit-payload`
 - 如果 clone helper 已经报出 `issues`，要把 `issues` 一并记入 tool journal；这类问题优先归类为模板源或 clone 路径失败，不要继续把 save 结果记成 success
-- 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`；优先把这份义务落在 `readbackContract.requiredTabs[*]`
+- 显式 tabs 场景至少对账：tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`，以及是否意外出现 duplicate tabs；优先把这份义务落在 `readbackContract.requiredTabs[*]`
+- 对带 selector/dataScope 的业务 block，write summary 与 readback summary 必须做 filter drift 对账；不能只看“页面还在”
 - `run_finished`、tool review 和最终答复都必须引用 write-after-read 事实；不能在 readback 为空时继续写“已落库完成”
 - 出现 blocker 时，不允许绕过 guard 直接写入；如果确实要保留风险，必须先写 `risk_accept` note，再重新审计一次
 - 如果 write-after-read 之后的 validation 暴露了渲染异常，下一轮改进必须补一条“源码契约 -> payload 结构 -> guard/rule”链路说明，并回写到 validation / recipe 文档；不要只记录浏览器现象

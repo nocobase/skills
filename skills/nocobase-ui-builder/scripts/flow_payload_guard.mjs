@@ -129,6 +129,26 @@ const INVALID_VISIBLE_TAB_ITEM_MODEL_USES = new Set([
   'BlockGridModel',
   'FormGridModel',
 ]);
+const METADATA_TRUST_LEVELS = new Set([
+  'live',
+  'stable',
+  'cache',
+  'artifact',
+  'unknown',
+  'not-required',
+]);
+const FILTER_CONTRACT_SELECTOR_KINDS = new Set([
+  'any',
+  'none',
+  'filterByTk',
+  'association-context',
+]);
+const FILTER_CONTRACT_DATASCOPE_MODES = new Set([
+  'any',
+  'empty',
+  'non-empty',
+  'relation-derived',
+]);
 
 function usage() {
   return [
@@ -379,11 +399,78 @@ function normalizeRequiredTab(entry, index) {
   };
 }
 
+function normalizeMetadataTrustLevel(value, label, { allowNull = false, fallbackValue = null } = {}) {
+  if (value == null || value === '') {
+    if (allowNull) {
+      return fallbackValue;
+    }
+    throw new Error(`${label} is required`);
+  }
+  const normalized = normalizeNonEmpty(value, label);
+  if (!METADATA_TRUST_LEVELS.has(normalized)) {
+    throw new Error(`${label} must be one of ${[...METADATA_TRUST_LEVELS].join(', ')}`);
+  }
+  return normalized;
+}
+
+function normalizeExpectedFilterContract(entry, index) {
+  if (!isPlainObject(entry)) {
+    throw new Error(`requirements.expectedFilterContracts[${index}] must be an object`);
+  }
+
+  const uid = entry.uid == null ? null : normalizeNonEmpty(entry.uid, `requirements.expectedFilterContracts[${index}].uid`);
+  const pathValue = entry.path == null ? null : normalizeNonEmpty(entry.path, `requirements.expectedFilterContracts[${index}].path`);
+  const use = entry.use == null ? null : normalizeNonEmpty(entry.use, `requirements.expectedFilterContracts[${index}].use`);
+  const collectionName = entry.collectionName == null
+    ? null
+    : normalizeNonEmpty(entry.collectionName, `requirements.expectedFilterContracts[${index}].collectionName`);
+  if (!uid && !pathValue && !use && !collectionName) {
+    throw new Error(`requirements.expectedFilterContracts[${index}] must declare at least one matcher: uid/path/use/collectionName`);
+  }
+
+  const selectorKind = entry.selectorKind == null
+    ? 'any'
+    : normalizeNonEmpty(entry.selectorKind, `requirements.expectedFilterContracts[${index}].selectorKind`);
+  if (!FILTER_CONTRACT_SELECTOR_KINDS.has(selectorKind)) {
+    throw new Error(`requirements.expectedFilterContracts[${index}].selectorKind must be one of ${[...FILTER_CONTRACT_SELECTOR_KINDS].join(', ')}`);
+  }
+
+  const dataScopeMode = entry.dataScopeMode == null
+    ? 'any'
+    : normalizeNonEmpty(entry.dataScopeMode, `requirements.expectedFilterContracts[${index}].dataScopeMode`);
+  if (!FILTER_CONTRACT_DATASCOPE_MODES.has(dataScopeMode)) {
+    throw new Error(`requirements.expectedFilterContracts[${index}].dataScopeMode must be one of ${[...FILTER_CONTRACT_DATASCOPE_MODES].join(', ')}`);
+  }
+
+  return {
+    uid,
+    path: pathValue,
+    use,
+    collectionName,
+    selectorKind,
+    dataScopeMode,
+    allowNonEmptyDataScope: entry.allowNonEmptyDataScope === true
+      || dataScopeMode === 'non-empty'
+      || dataScopeMode === 'relation-derived',
+    metadataTrust: entry.metadataTrust == null
+      ? null
+      : normalizeMetadataTrustLevel(
+        entry.metadataTrust,
+        `requirements.expectedFilterContracts[${index}].metadataTrust`,
+        { allowNull: true, fallbackValue: null },
+      ),
+  };
+}
+
 function normalizeRequirements(rawRequirements = {}) {
   if (rawRequirements == null) {
     return {
       requiredActions: [],
       requiredTabs: [],
+      expectedFilterContracts: [],
+      metadataTrust: {
+        runtimeSensitive: null,
+      },
     };
   }
   if (!isPlainObject(rawRequirements)) {
@@ -399,6 +486,36 @@ function normalizeRequirements(rawRequirements = {}) {
   if (rawRequiredTabs != null && !Array.isArray(rawRequiredTabs)) {
     throw new Error('requirements.requiredTabs must be an array');
   }
+  const rawExpectedFilterContracts = rawRequirements.expectedFilterContracts;
+  if (rawExpectedFilterContracts != null && !Array.isArray(rawExpectedFilterContracts)) {
+    throw new Error('requirements.expectedFilterContracts must be an array');
+  }
+  const rawMetadataTrust = rawRequirements.metadataTrust;
+  if (
+    rawMetadataTrust != null
+    && typeof rawMetadataTrust !== 'string'
+    && !isPlainObject(rawMetadataTrust)
+  ) {
+    throw new Error('requirements.metadataTrust must be a string or object');
+  }
+
+  const metadataTrust = typeof rawMetadataTrust === 'string'
+    ? {
+      runtimeSensitive: normalizeMetadataTrustLevel(
+        rawMetadataTrust,
+        'requirements.metadataTrust',
+        { allowNull: true, fallbackValue: null },
+      ),
+    }
+    : {
+      runtimeSensitive: rawMetadataTrust?.runtimeSensitive == null
+        ? null
+        : normalizeMetadataTrustLevel(
+          rawMetadataTrust.runtimeSensitive,
+          'requirements.metadataTrust.runtimeSensitive',
+          { allowNull: true, fallbackValue: null },
+        ),
+    };
 
   return {
     requiredActions: Array.isArray(rawRequiredActions)
@@ -407,6 +524,10 @@ function normalizeRequirements(rawRequirements = {}) {
     requiredTabs: Array.isArray(rawRequiredTabs)
       ? rawRequiredTabs.map((entry, index) => normalizeRequiredTab(entry, index))
       : [],
+    expectedFilterContracts: Array.isArray(rawExpectedFilterContracts)
+      ? rawExpectedFilterContracts.map((entry, index) => normalizeExpectedFilterContract(entry, index))
+      : [],
+    metadataTrust,
   };
 }
 
@@ -1040,6 +1161,148 @@ function collectFilterConditions(filter, results = []) {
     }
   }
   return results;
+}
+
+function getFilterContainerDataScopeFilter(node) {
+  return node?.stepParams?.tableSettings?.dataScope?.filter
+    || node?.stepParams?.detailsSettings?.dataScope?.filter
+    || node?.stepParams?.formSettings?.dataScope?.filter
+    || null;
+}
+
+function hasAssociationContextProtocol(initOptions) {
+  return Boolean(
+    typeof initOptions?.associationName === 'string'
+    && initOptions.associationName.trim()
+    && Object.hasOwn(initOptions, 'sourceId')
+    && initOptions.sourceId !== undefined
+    && initOptions.sourceId !== null
+    && String(initOptions.sourceId).trim() !== '',
+  );
+}
+
+function getFilterContainerSelectorKind(node) {
+  const initOptions = isPlainObject(node?.stepParams?.resourceSettings?.init)
+    ? node.stepParams.resourceSettings.init
+    : {};
+  if (hasAssociationContextProtocol(initOptions)) {
+    return 'association-context';
+  }
+  if (Object.hasOwn(initOptions, 'filterByTk') && initOptions.filterByTk !== undefined && initOptions.filterByTk !== null && String(initOptions.filterByTk).trim() !== '') {
+    return 'filterByTk';
+  }
+  return 'none';
+}
+
+function findMatchingExpectedFilterContract(node, pathValue, requirements) {
+  const contracts = Array.isArray(requirements?.expectedFilterContracts)
+    ? requirements.expectedFilterContracts
+    : [];
+  const uid = typeof node?.uid === 'string' && node.uid.trim() ? node.uid.trim() : null;
+  const use = typeof node?.use === 'string' && node.use.trim() ? node.use.trim() : null;
+  const collectionName = typeof node?.stepParams?.resourceSettings?.init?.collectionName === 'string'
+    && node.stepParams.resourceSettings.init.collectionName.trim()
+    ? node.stepParams.resourceSettings.init.collectionName.trim()
+    : null;
+
+  return contracts.find((contract) => {
+    if (!isPlainObject(contract)) {
+      return false;
+    }
+    if (contract.uid && contract.uid !== uid) {
+      return false;
+    }
+    if (contract.path && contract.path !== pathValue) {
+      return false;
+    }
+    if (contract.use && contract.use !== use) {
+      return false;
+    }
+    if (contract.collectionName && contract.collectionName !== collectionName) {
+      return false;
+    }
+    return true;
+  }) || null;
+}
+
+function getMetadataTrustLevelWeight(level) {
+  switch (level) {
+    case 'live':
+      return 6;
+    case 'stable':
+      return 5;
+    case 'cache':
+      return 4;
+    case 'artifact':
+      return 3;
+    case 'unknown':
+      return 2;
+    case 'not-required':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function isMetadataTrustSufficient(actualLevel, requiredLevel) {
+  if (!requiredLevel || requiredLevel === 'not-required') {
+    return true;
+  }
+  return getMetadataTrustLevelWeight(actualLevel) >= getMetadataTrustLevelWeight(requiredLevel);
+}
+
+function getAssociationInputFieldModelNode(node) {
+  if (node?.use === FORM_ASSOCIATION_FIELD_MODEL_USE) {
+    return node;
+  }
+  if (isPlainObject(node?.subModels?.field) && node.subModels.field.use === FORM_ASSOCIATION_FIELD_MODEL_USE) {
+    return node.subModels.field;
+  }
+  return null;
+}
+
+function getFirstNonEmptyString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function getAssociationInputRuntimeSelection({
+  node,
+  associationFieldModelNode,
+  fallback,
+  targetCollectionMeta,
+  targetKeyFallback,
+}) {
+  const explicitTitleField = getFirstNonEmptyString(
+    associationFieldModelNode?.props?.titleField,
+    associationFieldModelNode?.props?.fieldNames?.label,
+    node?.props?.titleField,
+    node?.stepParams?.editItemSettings?.titleField?.titleField,
+  );
+  const effectiveTitleField = getFirstNonEmptyString(
+    explicitTitleField,
+    targetCollectionMeta?.titleField,
+    fallback?.labelField,
+    normalizeFilterTargetKeyValue(targetCollectionMeta?.filterTargetKey),
+  );
+  const effectiveValueField = getFirstNonEmptyString(
+    associationFieldModelNode?.props?.fieldNames?.value,
+    targetKeyFallback,
+    normalizeFilterTargetKeyValue(targetCollectionMeta?.filterTargetKey),
+    'id',
+  );
+
+  return {
+    explicitTitleField,
+    effectiveTitleField,
+    effectiveValueField,
+    explicitFieldNamesLabel: getFirstNonEmptyString(associationFieldModelNode?.props?.fieldNames?.label),
+    explicitFieldNamesValue: getFirstNonEmptyString(associationFieldModelNode?.props?.fieldNames?.value),
+  };
 }
 
 function usesPopupInputArgsFilterByTk(value) {
@@ -2237,7 +2500,54 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
   });
 }
 
-function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) {
+function inspectFilterContainers(payload, metadata, mode, requirements, warnings, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !FILTER_CONTAINER_MODEL_USES.has(node.use)) {
+      return;
+    }
+
+    const expectedContract = findMatchingExpectedFilterContract(node, pathValue, requirements);
+    if (!expectedContract) {
+      return;
+    }
+
+    const selectorKind = getFilterContainerSelectorKind(node);
+    if (expectedContract.selectorKind && expectedContract.selectorKind !== 'any' && expectedContract.selectorKind !== selectorKind) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'FILTER_SELECTOR_CONTRACT_MISMATCH',
+        message: `当前区块的 selector 形态为 "${selectorKind}"，与声明契约要求的 "${expectedContract.selectorKind}" 不一致。`,
+        path: pathValue,
+        mode,
+        dedupeKey: `FILTER_SELECTOR_CONTRACT_MISMATCH:${pathValue}:${expectedContract.selectorKind}:${selectorKind}`,
+        details: {
+          use: node.use,
+          selectorKind,
+          expectedContract,
+        },
+      }));
+    }
+
+    if (!isMetadataTrustSufficient(requirements?.metadataTrust?.runtimeSensitive || null, expectedContract.metadataTrust)) {
+      const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+      pushFinding(targetList, seen, createFinding({
+        severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+        code: 'FILTER_CONTRACT_METADATA_TRUST_INSUFFICIENT',
+        message: '当前区块声明了 runtime-sensitive filter 契约，但 metadataTrust 还不够高，不能仅凭低可信 metadata 放行。',
+        path: pathValue,
+        mode,
+        dedupeKey: `FILTER_CONTRACT_METADATA_TRUST_INSUFFICIENT:${pathValue}:${expectedContract.metadataTrust}`,
+        details: {
+          use: node.use,
+          actualMetadataTrust: requirements?.metadataTrust?.runtimeSensitive || null,
+          expectedContract,
+        },
+      }));
+    }
+  });
+}
+
+function inspectPopupActions(payload, metadata, mode, requirements, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || typeof node.use !== 'string' || !node.use.endsWith('ActionModel')) {
       return;
@@ -2255,6 +2565,24 @@ function inspectPopupActions(payload, metadata, mode, warnings, blockers, seen) 
       && openView?.filterByTk !== null
       && String(openView.filterByTk).trim() !== '';
     if (openViewCollectionName && usesFilterByTk) {
+      const runtimeSensitiveTrust = requirements?.metadataTrust?.runtimeSensitive || null;
+      if (runtimeSensitiveTrust && runtimeSensitiveTrust !== 'live' && runtimeSensitiveTrust !== 'not-required') {
+        const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'METADATA_TRUST_INSUFFICIENT',
+          message: 'popup/openView 依赖 runtime-sensitive 的 filterByTk 解析时，不能只信 artifact/cache metadata；必须先拿到 live metadata。',
+          path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
+          mode,
+          dedupeKey: `METADATA_TRUST_INSUFFICIENT:${pathValue}:${runtimeSensitiveTrust}`,
+          details: {
+            actionUse: node.use,
+            collectionName: openViewCollectionName,
+            runtimeSensitiveTrust,
+          },
+        }));
+      }
+
       const openViewCollectionMeta = getCollectionMeta(metadata, openViewCollectionName);
       if (openViewCollectionMeta && !openViewCollectionMeta.filterTargetKey) {
         pushFinding(blockers, seen, createFinding({
@@ -2730,13 +3058,19 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
 
     const targetCollectionMeta = getCollectionMeta(metadata, directField.target);
     if (!targetCollectionMeta) {
-      pushFinding(warnings, seen, createFinding({
-        severity: 'warning',
-        code: 'ASSOCIATION_TARGET_METADATA_MISSING',
-        message: `关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 未提供元数据，无法校验显示字段。`,
+      const targetList = mode === VALIDATION_CASE_MODE
+        && (context.use === 'FormItemModel' || context.use === FORM_ASSOCIATION_FIELD_MODEL_USE)
+        ? blockers
+        : warnings;
+      pushFinding(targetList, seen, createFinding({
+        severity: targetList === blockers ? 'blocker' : 'warning',
+        code: targetList === blockers ? 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE' : 'ASSOCIATION_TARGET_METADATA_MISSING',
+        message: targetList === blockers
+          ? `表单关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 缺少 metadata，无法在写前验证 titleField/default binding 契约。`
+          : `关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 未提供元数据，无法校验显示字段。`,
         path: pathValue,
         mode,
-        dedupeKey: `ASSOCIATION_TARGET_METADATA_MISSING:${collectionName}:${fieldPath}`,
+        dedupeKey: `${targetList === blockers ? 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE' : 'ASSOCIATION_TARGET_METADATA_MISSING'}:${collectionName}:${fieldPath}`,
         details: {
           collectionName,
           fieldPath,
@@ -2809,6 +3143,126 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
           targetCollection: directField.target,
           titleField: targetCollectionMeta.titleField,
           filterTargetKey: targetCollectionMeta.filterTargetKey,
+        },
+      }));
+    }
+
+    if (context.use !== 'FormItemModel' && context.use !== FORM_ASSOCIATION_FIELD_MODEL_USE) {
+      return;
+    }
+
+    if (!Array.isArray(targetCollectionMeta.fields) || targetCollectionMeta.fields.length === 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE',
+        message: `表单关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 缺少字段元数据，无法模拟 titleField -> getField(label) -> default binding 这条 runtime 链路。`,
+        path: pathValue,
+        mode,
+        dedupeKey: `ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE:${collectionName}:${fieldPath}:${directField.target}`,
+        details: {
+          collectionName,
+          fieldPath,
+          targetCollection: directField.target,
+        },
+      }));
+      return;
+    }
+
+    const associationFieldModelNode = getAssociationInputFieldModelNode(node);
+    const titleFallback = getAssociationInputTitleFallback(metadata, collectionName, fieldPath);
+    const associationInputPath = context.use === FORM_ASSOCIATION_FIELD_MODEL_USE
+      ? pathValue
+      : `${pathValue}.subModels.field`;
+    const runtimeSelection = getAssociationInputRuntimeSelection({
+      node,
+      associationFieldModelNode,
+      fallback: titleFallback,
+      targetCollectionMeta,
+      targetKeyFallback: normalizeFilterTargetKeyValue(directField.targetKey),
+    });
+
+    if (
+      runtimeSelection.explicitTitleField
+      && runtimeSelection.explicitFieldNamesLabel
+      && runtimeSelection.explicitTitleField !== runtimeSelection.explicitFieldNamesLabel
+    ) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ASSOCIATION_INPUT_FIELDNAMES_LABEL_MISMATCH',
+        message: `关联输入字段 "${fieldPath}" 的 titleField 与 fieldNames.label 不一致，运行时可能在切换显示字段时重建出错误的 binding。`,
+        path: associationInputPath,
+        mode,
+        dedupeKey: `ASSOCIATION_INPUT_FIELDNAMES_LABEL_MISMATCH:${collectionName}:${fieldPath}`,
+        details: {
+          collectionName,
+          fieldPath,
+          targetCollection: directField.target,
+          titleField: runtimeSelection.explicitTitleField,
+          fieldNamesLabel: runtimeSelection.explicitFieldNamesLabel,
+        },
+      }));
+      return;
+    }
+
+    if (!runtimeSelection.effectiveTitleField || !isSimpleFieldName(runtimeSelection.effectiveTitleField)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED',
+        message: `关联输入字段 "${fieldPath}" 缺少可解析的目标标题字段；当前无法对齐 targetCollection.getField(label) 这条 runtime 契约。`,
+        path: associationInputPath,
+        mode,
+        dedupeKey: `ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED:${collectionName}:${fieldPath}:missing`,
+        details: {
+          collectionName,
+          fieldPath,
+          targetCollection: directField.target,
+          targetTitleField: targetCollectionMeta.titleField,
+          filterTargetKey: targetCollectionMeta.filterTargetKey,
+          fallback: titleFallback,
+        },
+      }));
+      return;
+    }
+
+    const runtimeLabelField = resolveFieldPathInMetadata(
+      metadata,
+      directField.target,
+      runtimeSelection.effectiveTitleField,
+    );
+    if (!runtimeLabelField || isAssociationField(runtimeLabelField.field)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED',
+        message: `关联输入字段 "${fieldPath}" 选择的标题字段 "${runtimeSelection.effectiveTitleField}" 无法在目标 collection "${directField.target}" 中稳定解析。`,
+        path: associationInputPath,
+        mode,
+        dedupeKey: `ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED:${collectionName}:${fieldPath}:${runtimeSelection.effectiveTitleField}`,
+        details: {
+          collectionName,
+          fieldPath,
+          targetCollection: directField.target,
+          effectiveTitleField: runtimeSelection.effectiveTitleField,
+          explicitTitleField: runtimeSelection.explicitTitleField,
+          fallback: titleFallback,
+        },
+      }));
+      return;
+    }
+
+    if (!runtimeLabelField.field.interface) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ASSOCIATION_INPUT_DEFAULT_BINDING_UNRESOLVED',
+        message: `关联输入字段 "${fieldPath}" 的标题字段 "${runtimeSelection.effectiveTitleField}" 缺少 interface，skill 无法提前判断 default binding。`,
+        path: associationInputPath,
+        mode,
+        dedupeKey: `ASSOCIATION_INPUT_DEFAULT_BINDING_UNRESOLVED:${collectionName}:${fieldPath}:${runtimeSelection.effectiveTitleField}`,
+        details: {
+          collectionName,
+          fieldPath,
+          targetCollection: directField.target,
+          effectiveTitleField: runtimeSelection.effectiveTitleField,
+          runtimeSelection,
         },
       }));
     }
@@ -3587,6 +4041,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
 
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
+  inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);
@@ -3594,7 +4049,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
-  inspectPopupActions(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
+  inspectPopupActions(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectDeclaredRequirements(payload, mode, normalizedRequirements, blockers, blockerSeen);
   if (mode === VALIDATION_CASE_MODE) {
