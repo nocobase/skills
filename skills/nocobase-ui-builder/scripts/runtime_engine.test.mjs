@@ -756,6 +756,45 @@ test('gate engine fails fast on guard blockers, readback mismatch and pre-open b
     'requiredFilterManagerEntryCount expected=2 actual=1',
   ]);
 
+  const structuredEnvelopeMismatch = compareReadbackContract({
+    requiredVisibleTabs: ['联系人'],
+    requiredTopLevelUses: ['RootPageTabModel'],
+    requiredTabCount: 1,
+    requiredFilterManagerEntryCount: 1,
+  }, {
+    ok: true,
+    data: {
+      summary: summarizePayloadTree({
+        targetSignature: 'page.root',
+        payload: {
+          use: 'RootPageModel',
+          subModels: {
+            tabs: [
+              {
+                use: 'RootPageTabModel',
+                stepParams: {
+                  pageTabSettings: {
+                    tab: {
+                      title: '联系人',
+                    },
+                  },
+                },
+              },
+            ],
+          },
+          filterManager: [
+            {
+              filterId: 'contact-filter',
+              targetId: 'contacts-table',
+              filterPaths: ['name'],
+            },
+          ],
+        },
+      }),
+    },
+  });
+  assert.deepEqual(structuredEnvelopeMismatch, []);
+
   const writeSummary = summarizePayloadTree({
     targetSignature: 'customer-details',
     payload: {

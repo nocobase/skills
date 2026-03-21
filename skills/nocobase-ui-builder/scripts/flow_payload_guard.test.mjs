@@ -69,6 +69,21 @@ const metadata = {
   },
 };
 
+const metadataWithCompositeProjectMembers = {
+  collections: {
+    ...metadata.collections,
+    project_members: {
+      titleField: 'role',
+      filterTargetKey: ['project_id', 'user_id'],
+      fields: [
+        { name: 'project_id', type: 'bigInt', interface: 'integer' },
+        { name: 'user_id', type: 'bigInt', interface: 'integer' },
+        { name: 'role', type: 'string', interface: 'select' },
+      ],
+    },
+  },
+};
+
 const metadataWithCustomerTitle = {
   collections: {
     ...metadata.collections,
@@ -3603,6 +3618,62 @@ test('canonicalizePayload rewrites hardcoded popup and resource filterByTk insid
     mode: VALIDATION_CASE_MODE,
   });
   assert.equal(auditResult.blockers.some((item) => item.code === 'HARDCODED_FILTER_BY_TK'), false);
+});
+
+test('canonicalizePayload rewrites legacy record popup filterByTk to composite record context template', () => {
+  const payload = cloneJson(makeEditRecordPopupAction('project_members'));
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCompositeProjectMembers,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.deepEqual(result.payload.stepParams.popupSettings.openView.filterByTk, {
+    project_id: '{{ctx.record.project_id}}',
+    user_id: '{{ctx.record.user_id}}',
+  });
+  assert.equal(result.transforms.some((item) => item.code === 'POPUP_FILTER_BY_TK_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata: metadataWithCompositeProjectMembers,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      metadataTrust: {
+        runtimeSensitive: 'live',
+      },
+    },
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'POPUP_FILTER_BY_TK_RUNTIME_METADATA_REQUIRED'), false);
+  assert.equal(auditResult.blockers.some((item) => item.code === 'POPUP_FILTER_BY_TK_TARGET_KEY_MISSING'), false);
+});
+
+test('canonicalizePayload keeps nested record popup on record context instead of ancestor popup inputArgs', () => {
+  const payload = cloneJson(
+    makePopupPageWithChildTab(
+      makeRowActionTargetBlock('project_members', [makeEditRecordPopupAction('project_members')]),
+    ),
+  );
+
+  const nestedAction = payload.subModels.page.subModels.tabs[0].subModels.grid.subModels.items[0]
+    .subModels.columns[0].subModels.actions[0];
+  nestedAction.stepParams.popupSettings.openView.filterByTk = '{{ctx.record.id}}';
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: metadataWithCompositeProjectMembers,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.deepEqual(
+    result.payload.subModels.page.subModels.tabs[0].subModels.grid.subModels.items[0]
+      .subModels.columns[0].subModels.actions[0].stepParams.popupSettings.openView.filterByTk,
+    {
+      project_id: '{{ctx.record.project_id}}',
+      user_id: '{{ctx.record.user_id}}',
+    },
+  );
 });
 
 test('canonicalizePayload leaves unresolved hardcoded resource filterByTk outside popup context', () => {

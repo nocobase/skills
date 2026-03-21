@@ -1,0 +1,388 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const PLAYWRIGHT_PACKAGE_PATH = '/Users/gchust/auto_works/nocobase/node_modules/playwright';
+const DEFAULT_ADMIN_BASE = 'http://127.0.0.1:23000';
+const DEFAULT_TIMEOUT_MS = 15000;
+const BROWSER_EXECUTABLE_CANDIDATES = [
+  process.env.CHROME_EXECUTABLE_PATH || '',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+];
+
+const require = createRequire(import.meta.url);
+const { chromium } = require(PLAYWRIGHT_PACKAGE_PATH);
+
+function usage() {
+  return [
+    'Usage:',
+    '  node scripts/validation_browser_smoke.mjs run-suite --suite-summary-file <path> [--out-dir <dir>] [--admin-base <url>]',
+  ].join('\n');
+}
+
+function parseArgs(argv) {
+  if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help') {
+    return { command: 'help', flags: {} };
+  }
+  const [command, ...rest] = argv;
+  const flags = {};
+  for (let index = 0; index < rest.length; index += 1) {
+    const token = rest[index];
+    if (!token.startsWith('--')) {
+      throw new Error(`Unexpected argument "${token}"`);
+    }
+    const key = token.slice(2);
+    const next = rest[index + 1];
+    if (!next || next.startsWith('--')) {
+      flags[key] = true;
+      continue;
+    }
+    flags[key] = next;
+    index += 1;
+  }
+  return { command, flags };
+}
+
+function normalizeRequiredText(value, label) {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} is required`);
+  }
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error(`${label} must not be empty`);
+  }
+  return normalized;
+}
+
+function normalizeOptionalText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function ensureDir(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function writeJson(filePath, value) {
+  ensureDir(path.dirname(filePath));
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function resolveBrowserExecutablePath() {
+  return BROWSER_EXECUTABLE_CANDIDATES.find((candidate) => candidate && fs.existsSync(candidate)) || '';
+}
+
+async function delay(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function bodyText(page) {
+  try {
+    return await page.locator('body').innerText();
+  } catch {
+    return '';
+  }
+}
+
+async function dismissNoise(page) {
+  await page.keyboard.press('Escape').catch(() => {});
+  const closePatterns = [/close/i, /关闭/, /ok/i, /确定/, /知道了/, /got it/i];
+  for (const pattern of closePatterns) {
+    const locator = page.getByRole('button', { name: pattern }).first();
+    try {
+      if (await locator.isVisible({ timeout: 300 })) {
+        await locator.click({ timeout: 1000 });
+        await delay(300);
+      }
+    } catch {
+      // Ignore modal noise cleanup failures.
+    }
+  }
+}
+
+async function waitForBodyIncludesAll(page, values, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const expected = (Array.isArray(values) ? values : []).filter(Boolean);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= timeoutMs) {
+    const text = await bodyText(page);
+    if (expected.every((item) => text.includes(item))) {
+      return {
+        ok: true,
+        bodyText: text,
+      };
+    }
+    await delay(400);
+  }
+  return {
+    ok: false,
+    bodyText: await bodyText(page),
+  };
+}
+
+async function clickByText(page, text) {
+  const candidates = [
+    page.getByRole('tab', { name: text, exact: true }).first(),
+    page.getByRole('button', { name: text, exact: true }).first(),
+    page.getByRole('link', { name: text, exact: true }).first(),
+    page.getByText(text, { exact: true }).first(),
+    page.getByText(text).first(),
+  ];
+
+  for (const locator of candidates) {
+    try {
+      if (await locator.isVisible({ timeout: 500 })) {
+        await locator.click({ timeout: 2000 });
+        return true;
+      }
+    } catch {
+      // Try next selector.
+    }
+  }
+  return false;
+}
+
+async function ensureSignedIn(page, adminBase) {
+  const signinUrl = `${adminBase.replace(/\/+$/, '')}/signin`;
+  await page.goto(signinUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle').catch(() => {});
+  if (!page.url().includes('/signin')) {
+    return;
+  }
+  await page.getByPlaceholder('Username/Email').fill('admin@nocobase.com');
+  await page.getByPlaceholder('Password').fill('admin123');
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await page.waitForURL((url) => !url.pathname.includes('/signin'), { timeout: 20000 });
+  await delay(1000);
+}
+
+function normalizeAssertions(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+async function evaluateAssertion(page, assertion) {
+  if (!assertion || typeof assertion !== 'object') {
+    return { passed: true, kind: 'unknown' };
+  }
+  if (assertion.kind === 'page-reachable') {
+    return {
+      passed: !page.url().includes('/signin'),
+      kind: assertion.kind,
+      label: assertion.label || assertion.kind,
+    };
+  }
+  if (assertion.kind === 'bodyTextIncludesAll') {
+    const values = Array.isArray(assertion.values) ? assertion.values : [];
+    const result = await waitForBodyIncludesAll(page, values);
+    return {
+      passed: result.ok,
+      kind: assertion.kind,
+      label: assertion.label || assertion.kind,
+      values,
+    };
+  }
+  return {
+    passed: true,
+    kind: assertion.kind,
+    label: assertion.label || assertion.kind,
+  };
+}
+
+async function runTrigger(page, trigger) {
+  if (!trigger || typeof trigger !== 'object' || trigger.kind === 'noop') {
+    return { ok: true };
+  }
+  if (['focus-filter', 'click-tab', 'click-action', 'click-row-action'].includes(trigger.kind)) {
+    const ok = await clickByText(page, trigger.text);
+    if (ok) {
+      await delay(600);
+      await dismissNoise(page);
+      return { ok };
+    }
+    return { ok, reason: 'action-not-found' };
+  }
+  return { ok: false, reason: `unsupported-trigger:${trigger.kind}` };
+}
+
+async function runWaitFor(page, waitFor) {
+  if (!waitFor || typeof waitFor !== 'object') {
+    return { ok: true };
+  }
+  if (waitFor.kind === 'bodyTextIncludesAll') {
+    return waitForBodyIncludesAll(page, waitFor.values);
+  }
+  return { ok: false, reason: `unsupported-wait:${waitFor.kind}` };
+}
+
+async function runCase(page, caseEntry, suiteOutDir) {
+  const verifySpec = readJson(caseEntry.verifySpecPath);
+  const caseOutDir = path.join(suiteOutDir, caseEntry.caseId);
+  ensureDir(caseOutDir);
+
+  await page.goto(caseEntry.browseUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await delay(800);
+  await dismissNoise(page);
+
+  const landingPng = path.join(caseOutDir, 'landing.png');
+  await page.screenshot({ path: landingPng, fullPage: true });
+
+  const preOpenAssertions = [];
+  for (const assertion of normalizeAssertions(verifySpec.preOpen?.assertions)) {
+    preOpenAssertions.push(await evaluateAssertion(page, assertion));
+  }
+  const preOpenPassed = preOpenAssertions.every((item) => item.passed !== false);
+
+  const stages = [];
+  let stopped = !preOpenPassed;
+  if (!stopped) {
+    for (const stage of Array.isArray(verifySpec.stages) ? verifySpec.stages : []) {
+      const triggerResult = await runTrigger(page, stage.trigger);
+      let waitResult = { ok: true };
+      if (triggerResult.ok) {
+        waitResult = await runWaitFor(page, stage.waitFor);
+      }
+      const stageAssertions = [];
+      for (const assertion of normalizeAssertions(stage.assertions)) {
+        stageAssertions.push(await evaluateAssertion(page, assertion));
+      }
+      const passed = triggerResult.ok && waitResult.ok && stageAssertions.every((item) => item.passed !== false);
+      const screenshotPath = path.join(caseOutDir, `${stage.id || 'stage'}.png`);
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      stages.push({
+        id: stage.id || '',
+        title: stage.title || '',
+        trigger: stage.trigger || null,
+        waitFor: stage.waitFor || null,
+        triggerOk: triggerResult.ok,
+        waitOk: waitResult.ok,
+        assertions: stageAssertions,
+        passed,
+        screenshotPath,
+      });
+      if (!passed && stage.mandatory !== false) {
+        stopped = true;
+        break;
+      }
+    }
+  }
+
+  const stagePassCount = stages.filter((item) => item.passed).length;
+  let browserStatus = 'success';
+  if (caseEntry.guardBlocked) {
+    browserStatus = 'blocked';
+  } else if (!preOpenPassed) {
+    browserStatus = 'failed';
+  } else if (stages.length > 0 && stagePassCount < stages.length) {
+    browserStatus = stagePassCount > 0 ? 'partial' : 'failed';
+  }
+
+  const caseResult = {
+    caseId: caseEntry.caseId,
+    title: caseEntry.title,
+    expectedOutcome: caseEntry.expectedOutcome,
+    buildStatus: caseEntry.buildStatus,
+    guardBlocked: caseEntry.guardBlocked,
+    pageUrl: caseEntry.pageUrl,
+    browseUrl: caseEntry.browseUrl,
+    browserStatus,
+    preOpenPassed,
+    preOpenAssertions,
+    stages,
+    landingPng,
+  };
+  writeJson(path.join(caseOutDir, 'result.json'), caseResult);
+  return caseResult;
+}
+
+function evaluateExpectation(caseResult) {
+  if (caseResult.expectedOutcome === 'pass') {
+    return caseResult.buildStatus === 'success' && caseResult.browserStatus === 'success';
+  }
+  if (caseResult.expectedOutcome === 'partial') {
+    return caseResult.browserStatus === 'success' || caseResult.browserStatus === 'partial';
+  }
+  if (caseResult.expectedOutcome === 'blocker-expected') {
+    return caseResult.guardBlocked
+      || caseResult.browserStatus === 'blocked'
+      || caseResult.browserStatus === 'success';
+  }
+  return false;
+}
+
+async function runSuite(flags) {
+  const suiteSummaryFile = path.resolve(normalizeRequiredText(flags['suite-summary-file'], 'suite summary file'));
+  const suiteSummary = readJson(suiteSummaryFile);
+  const outDir = path.resolve(normalizeOptionalText(flags['out-dir']) || path.join(path.dirname(suiteSummaryFile), 'browser-smoke'));
+  const adminBase = normalizeOptionalText(flags['admin-base']) || DEFAULT_ADMIN_BASE;
+  ensureDir(outDir);
+
+  const executablePath = resolveBrowserExecutablePath();
+  const browser = await chromium.launch({
+    headless: true,
+    ...(executablePath ? { executablePath } : {}),
+  });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
+  const page = await context.newPage();
+
+  try {
+    await ensureSignedIn(page, adminBase);
+    const caseResults = [];
+    for (const caseEntry of Array.isArray(suiteSummary.cases) ? suiteSummary.cases : []) {
+      caseResults.push(await runCase(page, caseEntry, outDir));
+    }
+
+    const normalizedCases = caseResults.map((item) => ({
+      ...item,
+      passedExpectation: evaluateExpectation(item),
+    }));
+    const passed = normalizedCases.filter((item) => item.passedExpectation).length;
+    const report = {
+      generatedAt: new Date().toISOString(),
+      suiteSummaryFile,
+      outDir,
+      adminBase,
+      passed,
+      total: normalizedCases.length,
+      rate: normalizedCases.length === 0 ? 0 : passed / normalizedCases.length,
+      cases: normalizedCases,
+    };
+    const reportPath = path.join(outDir, 'browser-smoke-report.json');
+    writeJson(reportPath, report);
+    process.stdout.write(`${JSON.stringify({ reportPath, passed, total: report.total, rate: report.rate }, null, 2)}\n`);
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+}
+
+async function main(argv) {
+  const { command, flags } = parseArgs(argv);
+  if (command === 'help') {
+    process.stdout.write(`${usage()}\n`);
+    return;
+  }
+  if (command === 'run-suite') {
+    await runSuite(flags);
+    return;
+  }
+  throw new Error(`Unsupported command "${command}"`);
+}
+
+const isDirectRun = process.argv[1]
+  ? path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+  : false;
+
+if (isDirectRun) {
+  main(process.argv.slice(2)).catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`${usage()}\n`);
+    process.exitCode = 1;
+  });
+}

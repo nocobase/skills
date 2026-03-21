@@ -62,17 +62,25 @@ function collectAssertionFailures(assertions) {
 }
 
 function extractReadbackSummary(readbackResult) {
-  if (isPlainObject(readbackResult?.summary)) {
-    return readbackResult.summary;
-  }
-  if (!isPlainObject(readbackResult)) {
-    return null;
-  }
-  if (
-    Array.isArray(readbackResult.pageGroups)
-    || Object.prototype.hasOwnProperty.call(readbackResult, 'targetSignature')
-  ) {
-    return readbackResult;
+  const queue = [readbackResult];
+  const visited = new Set();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!isPlainObject(current) || visited.has(current)) {
+      continue;
+    }
+    visited.add(current);
+
+    const structured = extractStructuredSummary(current);
+    if (structured) {
+      return structured;
+    }
+
+    ['data', 'body', 'result'].forEach((key) => {
+      if (isPlainObject(current[key])) {
+        queue.push(current[key]);
+      }
+    });
   }
   return null;
 }
@@ -264,13 +272,13 @@ export function compareReadbackContract(readbackContract = {}, readbackResult = 
 
   const mismatches = [...structuralMismatches];
   const expectedTabs = normalizeTitles(readbackContract.requiredVisibleTabs);
-  const actualTabs = normalizeTitles(readbackResult.tabTitles);
+  const actualTabs = normalizeTitles(readbackSummary?.tabTitles ?? readbackResult.tabTitles);
   if (expectedTabs.length > 0 && JSON.stringify(expectedTabs) !== JSON.stringify(actualTabs)) {
     mismatches.push(`requiredVisibleTabs expected=${expectedTabs.join(' / ')} actual=${actualTabs.join(' / ')}`);
   }
 
   const expectedUses = normalizeTitles(readbackContract.requiredTopLevelUses);
-  const actualUses = normalizeTitles(readbackResult.topLevelUses);
+  const actualUses = normalizeTitles(readbackSummary?.topLevelUses ?? readbackResult.topLevelUses);
   const topLevelUsesMismatch = expectedUses.length > 0
     ? compareExpectedSubset(expectedUses, actualUses, 'requiredTopLevelUses')
     : null;
@@ -279,7 +287,7 @@ export function compareReadbackContract(readbackContract = {}, readbackResult = 
   }
 
   if (Number.isFinite(readbackContract.requiredTabCount)) {
-    const actualTabCount = Number.isFinite(readbackResult.tabCount) ? readbackResult.tabCount : null;
+    const actualTabCount = readNumericValue(readbackSummary?.tabCount ?? readbackResult.tabCount);
     if (actualTabCount !== readbackContract.requiredTabCount) {
       mismatches.push(`requiredTabCount expected=${readbackContract.requiredTabCount} actual=${actualTabCount}`);
     }

@@ -613,6 +613,7 @@ function normalizeMetadata(rawMetadata = {}) {
   for (const [collectionName, rawCollection] of Object.entries(collections)) {
     const entry = isPlainObject(rawCollection) ? rawCollection : {};
     const options = isPlainObject(entry.options) ? entry.options : {};
+    const values = isPlainObject(entry.values) ? entry.values : {};
     const fields = Array.isArray(entry.fields)
       ? entry.fields.map(normalizeCollectionField).filter(Boolean)
       : [];
@@ -625,8 +626,8 @@ function normalizeMetadata(rawMetadata = {}) {
     }
     normalizedCollections[collectionName] = {
       name: collectionName,
-      titleField: entry.titleField || options.titleField || null,
-      filterTargetKey: entry.filterTargetKey || options.filterTargetKey || null,
+      titleField: entry.titleField || values.titleField || options.titleField || null,
+      filterTargetKey: entry.filterTargetKey ?? values.filterTargetKey ?? options.filterTargetKey ?? null,
       fields,
       fieldsByName,
       associationsByForeignKey,
@@ -1030,6 +1031,66 @@ function normalizeFilterTargetKeyValue(value) {
     return value.trim();
   }
   return null;
+}
+
+function normalizeFilterTargetKeyList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  const normalized = normalizeFilterTargetKeyValue(value);
+  return normalized ? [normalized] : [];
+}
+
+function normalizeRecordContextFilterExpression(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/\s+/g, '');
+}
+
+function buildRecordContextFilterByTk(metadata, collectionName) {
+  const collectionMeta = getCollectionMeta(metadata, collectionName);
+  const filterTargetKeys = normalizeFilterTargetKeyList(collectionMeta?.filterTargetKey);
+  if (filterTargetKeys.length === 0) {
+    return RECORD_CONTEXT_FILTER_BY_TK;
+  }
+  if (filterTargetKeys.length === 1) {
+    return `{{ctx.record.${filterTargetKeys[0]}}}`;
+  }
+  return Object.fromEntries(
+    filterTargetKeys.map((fieldName) => [fieldName, `{{ctx.record.${fieldName}}}`]),
+  );
+}
+
+function matchesRecordContextFilterByTk(value, expected) {
+  if (typeof expected === 'string') {
+    return (
+      typeof value === 'string'
+      && normalizeRecordContextFilterExpression(value) === normalizeRecordContextFilterExpression(expected)
+    );
+  }
+  if (!isPlainObject(value) || !isPlainObject(expected)) {
+    return false;
+  }
+  const actualKeys = Object.keys(value).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  if (JSON.stringify(actualKeys) !== JSON.stringify(expectedKeys)) {
+    return false;
+  }
+  return expectedKeys.every((fieldName) => (
+    normalizeRecordContextFilterExpression(value[fieldName])
+    === normalizeRecordContextFilterExpression(expected[fieldName])
+  ));
+}
+
+function isLegacyRecordIdFilterByTk(value) {
+  return (
+    typeof value === 'string'
+    && normalizeRecordContextFilterExpression(value) === RECORD_CONTEXT_FILTER_BY_TK
+  );
 }
 
 function getAssociationFilterTargetKey(metadata, associationField) {
@@ -3696,38 +3757,60 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
     }
 
     const openView = node.stepParams?.popupSettings?.openView;
-    if (isPlainObject(openView) && isHardcodedFilterValue(openView.filterByTk)) {
+    if (isPlainObject(openView)) {
       let replacement = null;
       let strategy = null;
-      if (context.ancestorPopupAction) {
+      const targetCollectionName = openView.collectionName || context.resourceCollectionName || null;
+      if (RECORD_ACTION_MODEL_USES.has(node.use)) {
+        replacement = buildRecordContextFilterByTk(metadata, targetCollectionName);
+        strategy = 'record-context';
+      } else if (context.ancestorPopupAction) {
         replacement = POPUP_INPUT_ARGS_FILTER_BY_TK;
         strategy = 'ancestor-popup-input-args';
-      } else if (RECORD_ACTION_MODEL_USES.has(node.use)) {
-        replacement = RECORD_CONTEXT_FILTER_BY_TK;
-        strategy = 'record-context';
       }
 
-      if (replacement) {
+      if (isHardcodedFilterValue(openView.filterByTk)) {
+        if (replacement) {
+          const previousValue = openView.filterByTk;
+          openView.filterByTk = replacement;
+          pushCanonicalizeItem(transforms, transformSeen, {
+            code: 'POPUP_FILTER_BY_TK_CANONICALIZED',
+            path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
+            message: `把硬编码 popup filterByTk "${String(previousValue)}" 归一化为模板变量。`,
+            details: {
+              from: previousValue,
+              to: replacement,
+              strategy,
+            },
+          });
+        } else {
+          pushCanonicalizeItem(unresolved, unresolvedSeen, {
+            code: 'POPUP_FILTER_BY_TK_CONTEXT_UNRESOLVED',
+            path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
+            message: 'popup/openView 的 filterByTk 是硬编码值，但当前上下文无法安全推断替换模板。',
+            details: {
+              actionUse: node.use,
+              value: openView.filterByTk,
+            },
+          });
+        }
+      } else if (
+        replacement
+        && RECORD_ACTION_MODEL_USES.has(node.use)
+        && isLegacyRecordIdFilterByTk(openView.filterByTk)
+        && !matchesRecordContextFilterByTk(openView.filterByTk, replacement)
+      ) {
         const previousValue = openView.filterByTk;
         openView.filterByTk = replacement;
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'POPUP_FILTER_BY_TK_CANONICALIZED',
           path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
-          message: `把硬编码 popup filterByTk "${String(previousValue)}" 归一化为模板变量。`,
+          message: '把 legacy popup filterByTk 收敛为当前 collection 的 record 上下文模板。',
           details: {
             from: previousValue,
             to: replacement,
             strategy,
-          },
-        });
-      } else {
-        pushCanonicalizeItem(unresolved, unresolvedSeen, {
-          code: 'POPUP_FILTER_BY_TK_CONTEXT_UNRESOLVED',
-          path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
-          message: 'popup/openView 的 filterByTk 是硬编码值，但当前上下文无法安全推断替换模板。',
-          details: {
-            actionUse: node.use,
-            value: openView.filterByTk,
+            collectionName: targetCollectionName,
           },
         });
       }
