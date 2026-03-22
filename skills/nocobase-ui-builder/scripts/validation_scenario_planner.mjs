@@ -508,6 +508,31 @@ function explicitCollectionSignals(requestText, collectionMeta) {
   return collectionKeywords(collectionMeta).filter((keyword) => containsText(requestText, keyword));
 }
 
+export function collectExplicitCollectionMatches(requestText, collectionsInventory) {
+  const normalizedRequest = normalizeText(requestText);
+  const normalizedCollections = normalizeCollectionsInventory(collectionsInventory);
+  return normalizedCollections.names
+    .map((name) => {
+      const collectionMeta = normalizedCollections.byName[name];
+      const signals = explicitCollectionSignals(normalizedRequest, collectionMeta);
+      if (signals.length === 0) {
+        return null;
+      }
+      return {
+        name: collectionMeta.name,
+        title: humanizeCollectionTitle(collectionMeta),
+        signals: sortUniqueStrings(signals),
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (right.signals.length !== left.signals.length) {
+        return right.signals.length - left.signals.length;
+      }
+      return left.name.localeCompare(right.name);
+    });
+}
+
 function extractQuotedTitle(requestText) {
   const patterns = [
     /标题为\s*['"]([^'"]+)['"]/i,
@@ -520,6 +545,188 @@ function extractQuotedTitle(requestText) {
     }
   }
   return '';
+}
+
+function parseCountToken(token) {
+  const normalized = normalizeText(token).replace(/\s+/g, '');
+  if (!normalized) {
+    return null;
+  }
+  if (/^\d+$/.test(normalized)) {
+    const value = Number.parseInt(normalized, 10);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  const singleDigitMap = new Map([
+    ['零', 0],
+    ['一', 1],
+    ['二', 2],
+    ['两', 2],
+    ['三', 3],
+    ['四', 4],
+    ['五', 5],
+    ['六', 6],
+    ['七', 7],
+    ['八', 8],
+    ['九', 9],
+  ]);
+  if (singleDigitMap.has(normalized)) {
+    return singleDigitMap.get(normalized);
+  }
+  if (normalized === '十') {
+    return 10;
+  }
+  const tensMatch = /^(?:(?<tens>[一二两三四五六七八九])?十(?<ones>[一二三四五六七八九])?)$/.exec(normalized);
+  if (!tensMatch?.groups) {
+    return null;
+  }
+  const tens = tensMatch.groups.tens ? (singleDigitMap.get(tensMatch.groups.tens) || 0) : 1;
+  const ones = tensMatch.groups.ones ? (singleDigitMap.get(tensMatch.groups.ones) || 0) : 0;
+  const value = (tens * 10) + ones;
+  return value > 0 ? value : null;
+}
+
+function detectRequestedPageCount(requestText) {
+  const patterns = [
+    /(?<count>\d+|[一二两三四五六七八九十]+)\s*(?:个|张)?\s*(?:复杂一点的|复杂的|不同的|独立的)?\s*(?:页面|page|pages|screen|screens)/i,
+    /(?:创建|生成|搭建|做|build)\s*(?<count>\d+|[一二两三四五六七八九十]+)\s*(?:个|张)?\s*(?:页面|page|pages|screen|screens)/i,
+  ];
+  for (const pattern of patterns) {
+    const matched = pattern.exec(requestText);
+    if (!matched?.groups?.count) {
+      continue;
+    }
+    const parsed = parseCountToken(matched.groups.count);
+    if (parsed && parsed > 1) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function sanitizeMultiPagePrefix(text) {
+  return normalizeText(text)
+    .replace(
+      /(?:请|帮我|需要|想要|使用|用)?\s*(?:创建|生成|搭建|做|build)?\s*(?:\d+|[一二两三四五六七八九十]+)\s*(?:个|张)?\s*(?:复杂一点的|复杂的|不同的|独立的)?\s*(?:页面|page|pages|screen|screens)\s*/ig,
+      '',
+    )
+    .replace(/^[：:，,；;\-\s]+|[：:，,；;\-\s]+$/g, '')
+    .trim();
+}
+
+function normalizePageSplitText(requestText) {
+  return normalizeText(requestText)
+    .replace(/\r\n?/g, '\n')
+    .replace(/([：:])\s*(第[一二两三四五六七八九十\d]+\s*页)/g, '$1\n$2')
+    .replace(/([：:])\s*((?:page|screen)\s*\d+)/ig, '$1\n$2')
+    .replace(/([：:])\s*([0-9]+[.)、．])/g, '$1\n$2')
+    .replace(/([：:])\s*([一二三四五六七八九十]+[、.．])/g, '$1\n$2')
+    .replace(/([。；;])\s*(第[一二两三四五六七八九十\d]+\s*页)/g, '$1\n$2')
+    .replace(/([。；;])\s*((?:page|screen)\s*\d+)/ig, '$1\n$2')
+    .replace(/([。；;])\s*([0-9]+[.)、．])/g, '$1\n$2')
+    .replace(/([。；;])\s*([一二三四五六七八九十]+[、.．])/g, '$1\n$2');
+}
+
+function extractPageSections(requestText) {
+  const normalized = normalizePageSplitText(requestText);
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const sectionStartPattern = /^(?:[-*]\s*)?(?<marker>第[一二两三四五六七八九十\d]+\s*页|(?:page|screen)\s*\d+|[0-9]+[.)、．]|[一二三四五六七八九十]+[、.．])\s*(?<body>.*)$/i;
+  const inlinePageLabelPattern = /^(?<marker>页面\s*[A-Za-z0-9一二三四五六七八九十]+)\s*[:：]\s*(?<body>.*)$/i;
+  const preface = [];
+  const sections = [];
+  let currentSection = null;
+
+  const pushCurrent = () => {
+    if (!currentSection) {
+      return;
+    }
+    const body = normalizeText(currentSection.bodyLines.join(' '));
+    if (body) {
+      sections.push({
+        marker: currentSection.marker,
+        body,
+      });
+    }
+    currentSection = null;
+  };
+
+  for (const line of lines) {
+    const markerMatch = sectionStartPattern.exec(line) || inlinePageLabelPattern.exec(line);
+    if (markerMatch?.groups) {
+      pushCurrent();
+      currentSection = {
+        marker: normalizeText(markerMatch.groups.marker),
+        bodyLines: markerMatch.groups.body ? [markerMatch.groups.body] : [],
+      };
+      continue;
+    }
+    if (currentSection) {
+      currentSection.bodyLines.push(line);
+      continue;
+    }
+    preface.push(line);
+  }
+  pushCurrent();
+
+  return {
+    preface: normalizeText(preface.join(' ')),
+    sections,
+  };
+}
+
+export function splitValidationRequestIntoPageSpecs({ caseRequest, collectionsInventory } = {}) {
+  const requestText = normalizeText(caseRequest);
+  const requestedPageCount = detectRequestedPageCount(requestText);
+  const { preface, sections } = extractPageSections(requestText);
+
+  if (sections.length <= 1 && !(requestedPageCount && requestedPageCount > 1)) {
+    return {
+      requestedPageCount: 1,
+      decompositionMode: 'single-page',
+      pageRequests: [{
+        pageId: 'page-1',
+        pageIndex: 1,
+        titleHint: extractQuotedTitle(requestText),
+        requestText,
+        explicitCollections: collectExplicitCollectionMatches(requestText, collectionsInventory).map((item) => item.name),
+      }],
+      blockers: [],
+    };
+  }
+
+  const sharedPrefix = sanitizeMultiPagePrefix(preface);
+  const pageRequests = sections.map((section, index) => {
+    const scopedRequestText = normalizeText([sharedPrefix, section.body].filter(Boolean).join('； ')) || section.body;
+    return {
+      pageId: `page-${index + 1}`,
+      pageIndex: index + 1,
+      titleHint: extractQuotedTitle(scopedRequestText),
+      requestText: scopedRequestText,
+      explicitCollections: collectExplicitCollectionMatches(scopedRequestText, collectionsInventory).map((item) => item.name),
+      marker: section.marker,
+    };
+  });
+
+  const blockers = [];
+  if ((requestedPageCount && pageRequests.length < requestedPageCount) || pageRequests.length === 0) {
+    blockers.push(makePlanningBlocker(
+      'MULTI_PAGE_REQUEST_PAGE_SPECS_UNRESOLVED',
+      `请求显式要求 ${requestedPageCount || '多'} 张页面，但当前只能拆出 ${pageRequests.length} 份 page-level spec，不能继续走单页 planner。`,
+      {
+        requestedPageCount: requestedPageCount || null,
+        resolvedPageCount: pageRequests.length,
+      },
+    ));
+  }
+
+  return {
+    requestedPageCount: requestedPageCount || pageRequests.length,
+    decompositionMode: pageRequests.length > 0 ? 'numbered-page-sections' : 'unresolved-multi-page',
+    pageRequests,
+    blockers,
+  };
 }
 
 function pickPrimaryBlockDefinition(requestText, availableUses) {
@@ -1436,6 +1643,8 @@ function buildScenarioSummary({
   title,
   selectionMode,
   collectionMeta,
+  explicitCollections,
+  primaryCollectionExplicit,
   primaryBlockDefinition,
   layout,
   inventoryMerge,
@@ -1515,6 +1724,8 @@ function buildScenarioSummary({
     selectionMode,
     plannerVersion: 'primitive-first-v2',
     targetCollections: collectionMeta ? [collectionMeta.name] : [],
+    explicitCollections: sortUniqueStrings(explicitCollections),
+    primaryCollectionExplicit: primaryCollectionExplicit === true,
     requestedFields,
     resolvedFields,
     primaryBlockType: effectivePrimaryBlock.use,
@@ -1546,7 +1757,9 @@ export function buildDynamicValidationScenario({
     collectionsInventory: inventoryMerge.instanceInventory.collections,
     primaryBlockDefinition: matchedPrimaryBlockDefinition || findPrimaryBlockDefinitionByUse('TableBlockModel'),
   });
-  const explicitCollectionRequested = Boolean(collectionResolution.scoreSummary?.explicitSignals?.length);
+  const explicitCollectionMatches = collectExplicitCollectionMatches(requestText, inventoryMerge.instanceInventory.collections);
+  const explicitCollectionNames = explicitCollectionMatches.map((item) => item.name);
+  const explicitCollectionRequested = explicitCollectionMatches.length > 0;
   let selectionMode = explicitCollectionRequested ? 'collection-first' : collectionResolution.selectionMode;
   let primaryBlockDefinition = matchedPrimaryBlockDefinition;
   const collectionMeta = collectionResolution.collectionMeta;
@@ -1721,6 +1934,8 @@ export function buildDynamicValidationScenario({
     title,
     selectionMode,
     collectionMeta,
+    explicitCollections: explicitCollectionNames,
+    primaryCollectionExplicit: explicitCollectionRequested,
     primaryBlockDefinition,
     layout,
     inventoryMerge,

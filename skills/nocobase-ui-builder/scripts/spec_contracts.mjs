@@ -11,7 +11,10 @@ import {
   normalizeFormMode,
   normalizePageUse,
 } from './model_contracts.mjs';
-import { buildDynamicValidationScenario } from './validation_scenario_planner.mjs';
+import {
+  buildDynamicValidationScenario,
+  splitValidationRequestIntoPageSpecs,
+} from './validation_scenario_planner.mjs';
 import { probeInstanceInventory } from './instance_inventory_probe.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
@@ -90,6 +93,10 @@ function normalizeNonEmpty(value, label) {
     throw new Error(`${label} must not be empty`);
   }
   return normalized;
+}
+
+function normalizeOptionalText(value) {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function parseJson(rawValue, label) {
@@ -495,6 +502,8 @@ function normalizeScenario(input) {
     selectionRationale: uniqueStrings(scenarioInput.selectionRationale),
     availableUses: sortUniqueStrings(scenarioInput.availableUses),
     targetCollections: sortUniqueStrings(scenarioInput.targetCollections),
+    explicitCollections: sortUniqueStrings(scenarioInput.explicitCollections),
+    primaryCollectionExplicit: scenarioInput.primaryCollectionExplicit === true,
     requestedFields: sortUniqueStrings(scenarioInput.requestedFields),
     resolvedFields: sortUniqueStrings(scenarioInput.resolvedFields),
     actionPlan,
@@ -1354,6 +1363,8 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     plannerVersion: artifact.plannerVersion,
     primaryBlockType: artifact.primaryBlockType,
     targetCollections: artifact.scenario.targetCollections,
+    explicitCollections: artifact.scenario.explicitCollections,
+    primaryCollectionExplicit: artifact.scenario.primaryCollectionExplicit === true,
     requestedFields: artifact.scenario.requestedFields,
     resolvedFields: artifact.scenario.resolvedFields,
     planningStatus: artifact.planningStatus,
@@ -1486,37 +1497,341 @@ export function compileBuildSpec(input) {
   };
 }
 
-export async function buildValidationSpecsForRun({
-  caseRequest,
-  sessionId,
-  baseSlug,
-  candidatePageUrl,
-  sessionDir,
-  randomSeed = '',
-  instanceInventory: instanceInventoryInput,
-}) {
-  const requestText = normalizeNonEmpty(caseRequest, 'case request');
-  const normalizedSessionId = normalizeNonEmpty(sessionId, 'session id');
+function mergeCatalogEntriesByUse(primaryCatalog, secondaryCatalog) {
+  const byUse = new Map();
+  for (const entry of Array.isArray(secondaryCatalog) ? secondaryCatalog : []) {
+    const use = normalizeOptionalText(entry?.use);
+    if (!use) {
+      continue;
+    }
+    byUse.set(use, entry);
+  }
+  for (const entry of Array.isArray(primaryCatalog) ? primaryCatalog : []) {
+    const use = normalizeOptionalText(entry?.use);
+    if (!use) {
+      continue;
+    }
+    byUse.set(use, entry);
+  }
+  return [...byUse.values()];
+}
 
-  const hasProvidedInventory = instanceInventoryInput && typeof instanceInventoryInput === 'object';
-  const shouldProbeInstance = !hasProvidedInventory
-    && process.env.NOCOBASE_DISABLE_INSTANCE_PROBE !== 'true'
+function mergeInstanceInventories(primaryValue, secondaryValue) {
+  const primary = primaryValue && typeof primaryValue === 'object' ? primaryValue : {};
+  const secondary = secondaryValue && typeof secondaryValue === 'object' ? secondaryValue : {};
+  const primaryFlowSchema = primary.flowSchema && typeof primary.flowSchema === 'object' ? primary.flowSchema : {};
+  const secondaryFlowSchema = secondary.flowSchema && typeof secondary.flowSchema === 'object' ? secondary.flowSchema : {};
+  const primaryCollections = primary.collections && typeof primary.collections === 'object' ? primary.collections : {};
+  const secondaryCollections = secondary.collections && typeof secondary.collections === 'object' ? secondary.collections : {};
+
+  const collectionNames = sortUniqueStrings([
+    ...(Array.isArray(primaryCollections.names) ? primaryCollections.names : []),
+    ...(Array.isArray(secondaryCollections.names) ? secondaryCollections.names : []),
+  ]);
+
+  return {
+    ...secondary,
+    ...primary,
+    detected: Boolean(primary.detected || secondary.detected),
+    apiBase: normalizeOptionalText(primary.apiBase) || normalizeOptionalText(secondary.apiBase),
+    adminBase: normalizeOptionalText(primary.adminBase) || normalizeOptionalText(secondary.adminBase),
+    appVersion: normalizeOptionalText(primary.appVersion) || normalizeOptionalText(secondary.appVersion),
+    enabledPlugins: sortUniqueStrings([
+      ...(Array.isArray(primary.enabledPlugins) ? primary.enabledPlugins : []),
+      ...(Array.isArray(secondary.enabledPlugins) ? secondary.enabledPlugins : []),
+    ]),
+    enabledPluginsDetected: Boolean(primary.enabledPluginsDetected || secondary.enabledPluginsDetected),
+    instanceFingerprint: normalizeOptionalText(primary.instanceFingerprint) || normalizeOptionalText(secondary.instanceFingerprint),
+    flowSchema: {
+      ...secondaryFlowSchema,
+      ...primaryFlowSchema,
+      detected: Boolean(primaryFlowSchema.detected || secondaryFlowSchema.detected),
+      rootPublicUses: sortUniqueStrings([
+        ...(Array.isArray(primaryFlowSchema.rootPublicUses) ? primaryFlowSchema.rootPublicUses : []),
+        ...(Array.isArray(secondaryFlowSchema.rootPublicUses) ? secondaryFlowSchema.rootPublicUses : []),
+      ]),
+      publicUseCatalog: mergeCatalogEntriesByUse(primaryFlowSchema.publicUseCatalog, secondaryFlowSchema.publicUseCatalog),
+      missingUses: sortUniqueStrings([
+        ...(Array.isArray(primaryFlowSchema.missingUses) ? primaryFlowSchema.missingUses : []),
+        ...(Array.isArray(secondaryFlowSchema.missingUses) ? secondaryFlowSchema.missingUses : []),
+      ]),
+      discoveryNotes: sortUniqueStrings([
+        ...(Array.isArray(primaryFlowSchema.discoveryNotes) ? primaryFlowSchema.discoveryNotes : []),
+        ...(Array.isArray(secondaryFlowSchema.discoveryNotes) ? secondaryFlowSchema.discoveryNotes : []),
+      ]),
+    },
+    collections: {
+      ...secondaryCollections,
+      ...primaryCollections,
+      detected: collectionNames.length > 0 && Boolean(primaryCollections.detected || secondaryCollections.detected),
+      names: collectionNames,
+      byName: Object.fromEntries(collectionNames.map((name) => [
+        name,
+        (primaryCollections.byName && typeof primaryCollections.byName === 'object' && primaryCollections.byName[name])
+          || (secondaryCollections.byName && typeof secondaryCollections.byName === 'object' && secondaryCollections.byName[name])
+          || { name },
+      ])),
+      discoveryNotes: sortUniqueStrings([
+        ...(Array.isArray(primaryCollections.discoveryNotes) ? primaryCollections.discoveryNotes : []),
+        ...(Array.isArray(secondaryCollections.discoveryNotes) ? secondaryCollections.discoveryNotes : []),
+      ]),
+    },
+    notes: sortUniqueStrings([
+      ...(Array.isArray(primary.notes) ? primary.notes : []),
+      ...(Array.isArray(secondary.notes) ? secondary.notes : []),
+    ]),
+    errors: sortUniqueStrings([
+      ...(Array.isArray(primary.errors) ? primary.errors : []),
+      ...(Array.isArray(secondary.errors) ? secondary.errors : []),
+    ]),
+    cache: primary.cache && typeof primary.cache === 'object'
+      ? primary.cache
+      : (secondary.cache && typeof secondary.cache === 'object' ? secondary.cache : {}),
+  };
+}
+
+function hasUsableCollectionsInventory(instanceInventory) {
+  const collections = instanceInventory?.collections;
+  const names = sortUniqueStrings(Array.isArray(collections?.names) ? collections.names : []);
+  return names.length > 0;
+}
+
+function canProbeValidationInstanceInventory() {
+  return process.env.NOCOBASE_DISABLE_INSTANCE_PROBE !== 'true'
     && (
       (typeof process.env.NOCOBASE_API_TOKEN === 'string' && process.env.NOCOBASE_API_TOKEN.trim())
       || process.env.NOCOBASE_ENABLE_INSTANCE_PROBE === 'true'
     );
-  const instanceInventory = hasProvidedInventory
-    ? instanceInventoryInput
-    : shouldProbeInstance
-      ? await probeInstanceInventory({
-        candidatePageUrl,
-        token: process.env.NOCOBASE_API_TOKEN || '',
-      })
-      : null;
+}
 
+async function resolveValidationInstanceInventory({
+  candidatePageUrl,
+  instanceInventoryInput,
+}) {
+  const hasProvidedInventory = instanceInventoryInput && typeof instanceInventoryInput === 'object';
+  if (hasProvidedInventory && hasUsableCollectionsInventory(instanceInventoryInput)) {
+    return {
+      ok: true,
+      instanceInventory: instanceInventoryInput,
+      source: 'provided',
+    };
+  }
+
+  const canProbe = canProbeValidationInstanceInventory();
+  const shouldProbe = !hasProvidedInventory || !hasUsableCollectionsInventory(instanceInventoryInput);
+  const probedInventory = shouldProbe && canProbe
+    ? await probeInstanceInventory({
+      candidatePageUrl,
+      token: process.env.NOCOBASE_API_TOKEN || '',
+    })
+    : null;
+  const mergedInventory = hasProvidedInventory
+    ? mergeInstanceInventories(instanceInventoryInput, probedInventory)
+    : probedInventory;
+
+  if (hasUsableCollectionsInventory(mergedInventory)) {
+    return {
+      ok: true,
+      instanceInventory: mergedInventory,
+      source: hasProvidedInventory ? (probedInventory ? 'provided+probed' : 'provided') : 'probed',
+    };
+  }
+
+  return {
+    ok: false,
+    instanceInventory: mergedInventory || (hasProvidedInventory ? instanceInventoryInput : null),
+    source: hasProvidedInventory ? 'provided-incomplete' : 'missing',
+    blocker: {
+      code: 'LIVE_COLLECTION_INVENTORY_REQUIRED',
+      message: '缺少 live collection inventory，当前请求不能继续进入 planner/build。',
+      details: {
+        candidatePageUrl: normalizeOptionalText(candidatePageUrl),
+        hasProvidedInventory,
+        canProbe,
+        probeDisabled: process.env.NOCOBASE_DISABLE_INSTANCE_PROBE === 'true',
+        hasApiToken: Boolean(typeof process.env.NOCOBASE_API_TOKEN === 'string' && process.env.NOCOBASE_API_TOKEN.trim()),
+      },
+    },
+  };
+}
+
+function buildBlockedScenario({
+  requestText,
+  sessionId,
+  candidatePageUrl,
+  instanceInventory,
+  blocker,
+  title = 'Validation blocked',
+  selectionMode = 'request-gate',
+}) {
+  return {
+    id: `${selectionMode}:${sessionId || 'session'}:${blocker.code.toLowerCase()}`,
+    title,
+    summary: blocker.message,
+    domainId: '',
+    domainLabel: '',
+    archetypeId: blocker.code.toLowerCase(),
+    archetypeLabel: blocker.code,
+    tier: 'request-gate',
+    expectedOutcome: 'blocker-expected',
+    requestedSignals: uniqueStrings([requestText]),
+    selectionRationale: [blocker.message],
+    availableUses: sortUniqueStrings([
+      ...(Array.isArray(instanceInventory?.flowSchema?.rootPublicUses) ? instanceInventory.flowSchema.rootPublicUses : []),
+    ]),
+    targetCollections: [],
+    explicitCollections: [],
+    primaryCollectionExplicit: false,
+    requestedFields: [],
+    resolvedFields: [],
+    actionPlan: [],
+    planningBlockers: [blocker],
+    plannedCoverage: {
+      blocks: [],
+      patterns: [],
+    },
+    creativeProgram: {
+      id: `${selectionMode}-blocked`,
+      strategy: selectionMode,
+      prompt: blocker.message,
+      selectionPolicy: 'blocked',
+      constraints: [blocker.code],
+      heuristics: [],
+      requiredPatterns: [],
+      optionalPatterns: [],
+      notes: [],
+    },
+    layoutCandidates: [],
+    selectedCandidateId: '',
+    sourceInventory: {
+      detected: false,
+      repoRoot: '',
+      publicModels: [],
+      publicTreeRoots: [],
+      expectedDescendantModels: [],
+      evidenceFiles: [],
+      publicUseCatalog: [],
+    },
+    instanceInventory: instanceInventory && typeof instanceInventory === 'object' ? instanceInventory : {},
+    randomPolicy: {
+      mode: 'deterministic',
+      seed: '',
+      seedSource: 'none',
+      sessionId,
+      candidatePageUrl: normalizeOptionalText(candidatePageUrl),
+    },
+    selectionMode,
+    plannerVersion: 'primitive-first-v2',
+    primaryBlockType: '',
+    planningStatus: 'blocked',
+    maxNestingDepth: 0,
+  };
+}
+
+function buildBlockedValidationSpecs({
+  requestText,
+  sessionId,
+  baseSlug,
+  candidatePageUrl,
+  sessionDir,
+  instanceInventory,
+  blocker,
+  issueCode,
+  issueMessage,
+  extraCompileArtifact = {},
+  extraResult = {},
+}) {
+  const scenario = buildBlockedScenario({
+    requestText,
+    sessionId,
+    candidatePageUrl,
+    instanceInventory,
+    blocker,
+    title: `${baseSlug || 'validation'} blocked`,
+  });
+  const buildSpec = normalizeBuildSpec({
+    source: {
+      kind: 'validation-request',
+      text: requestText,
+      sessionId,
+    },
+    target: {
+      title: `${baseSlug || 'validation'} blocked`,
+      buildPolicy: 'fresh',
+      routeSegmentCandidate: sessionId,
+      candidatePageUrl,
+    },
+    options: {
+      compileMode: DEFAULT_BUILD_COMPILE_MODE,
+      allowLegacyFallback: false,
+    },
+    dataBindings: {
+      collections: [],
+      relations: [],
+    },
+    requirements: {
+      allowedBusinessBlockUses: sortUniqueStrings([
+        ...(Array.isArray(instanceInventory?.flowSchema?.rootPublicUses) ? instanceInventory.flowSchema.rootPublicUses : []),
+      ]),
+    },
+    layout: {
+      pageUse: 'RootPageModel',
+      blocks: [],
+      tabs: [],
+    },
+    scenario,
+  });
+  const verifySpec = normalizeVerifySpec({
+    source: {
+      kind: 'validation-request',
+      text: requestText,
+      sessionId,
+    },
+    entry: {
+      candidatePageUrl,
+      requiresAuth: true,
+    },
+    gatePolicy: {
+      stopOnBuildGateFailure: true,
+      stopOnPreOpenBlocker: true,
+      stopOnStageFailure: true,
+    },
+  });
+  const compiled = compileBuildSpec(buildSpec);
+  return {
+    buildSpec,
+    verifySpec,
+    compileArtifact: {
+      ...compiled.compileArtifact,
+      issues: [
+        {
+          code: issueCode,
+          message: issueMessage,
+        },
+        ...compiled.compileArtifact.issues,
+      ],
+      context: {
+        sessionDir: sessionDir || '',
+      },
+      ...extraCompileArtifact,
+    },
+    ...extraResult,
+  };
+}
+
+function buildSingleValidationSpecs({
+  requestText,
+  sessionId,
+  baseSlug,
+  candidatePageUrl,
+  sessionDir,
+  randomSeed,
+  instanceInventory,
+  pageId = '',
+}) {
   const plannedScenario = buildDynamicValidationScenario({
     caseRequest: requestText,
-    sessionId: normalizedSessionId,
+    sessionId,
     baseSlug,
     candidatePageUrl,
     instanceInventory,
@@ -1543,13 +1858,13 @@ export async function buildValidationSpecsForRun({
     source: {
       kind: 'validation-request',
       text: requestText,
-      sessionId: normalizedSessionId,
+      sessionId,
     },
     target: {
       ...(plannedScenario.buildSpecInput?.target || {}),
       title: plannedScenario?.buildSpecInput?.target?.title || `${baseSlug || 'validation'} fresh build`,
       buildPolicy: 'fresh',
-      routeSegmentCandidate: normalizedSessionId,
+      routeSegmentCandidate: sessionId,
       candidatePageUrl,
     },
     options: {
@@ -1571,7 +1886,7 @@ export async function buildValidationSpecsForRun({
     source: {
       kind: 'validation-request',
       text: requestText,
-      sessionId: normalizedSessionId,
+      sessionId,
     },
     entry: {
       candidatePageUrl,
@@ -1608,13 +1923,156 @@ export async function buildValidationSpecsForRun({
   });
 
   return {
+    pageId,
+    pageRequest: requestText,
     buildSpec,
     verifySpec,
     compileArtifact: {
       ...compiled.compileArtifact,
       context: {
         sessionDir: sessionDir || '',
+        pageId,
       },
+    },
+  };
+}
+
+export async function buildValidationSpecsForRun({
+  caseRequest,
+  sessionId,
+  baseSlug,
+  candidatePageUrl,
+  sessionDir,
+  randomSeed = '',
+  instanceInventory: instanceInventoryInput,
+}) {
+  const requestText = normalizeNonEmpty(caseRequest, 'case request');
+  const normalizedSessionId = normalizeNonEmpty(sessionId, 'session id');
+  const inventoryResolution = await resolveValidationInstanceInventory({
+    candidatePageUrl,
+    instanceInventoryInput,
+  });
+  if (!inventoryResolution.ok) {
+    return buildBlockedValidationSpecs({
+      requestText,
+      sessionId: normalizedSessionId,
+      baseSlug,
+      candidatePageUrl,
+      sessionDir,
+      instanceInventory: inventoryResolution.instanceInventory,
+      blocker: inventoryResolution.blocker,
+      issueCode: 'LIVE_COLLECTION_INVENTORY_REQUIRED',
+      issueMessage: '缺少 live collection inventory，validation request 在 planner 前被阻断。',
+      extraResult: {
+        pageBuilds: [],
+        pageLevelPlan: {
+          requestedPageCount: 1,
+          decompositionMode: 'inventory-gated',
+          pageCount: 0,
+          blockers: [inventoryResolution.blocker],
+        },
+      },
+    });
+  }
+
+  const instanceInventory = inventoryResolution.instanceInventory;
+  const pageSpecPlan = splitValidationRequestIntoPageSpecs({
+    caseRequest: requestText,
+    collectionsInventory: instanceInventory?.collections,
+  });
+  if (Array.isArray(pageSpecPlan.blockers) && pageSpecPlan.blockers.length > 0) {
+    return buildBlockedValidationSpecs({
+      requestText,
+      sessionId: normalizedSessionId,
+      baseSlug,
+      candidatePageUrl,
+      sessionDir,
+      instanceInventory,
+      blocker: pageSpecPlan.blockers[0],
+      issueCode: pageSpecPlan.blockers[0].code,
+      issueMessage: pageSpecPlan.blockers[0].message,
+      extraResult: {
+        pageBuilds: [],
+        pageLevelPlan: {
+          requestedPageCount: pageSpecPlan.requestedPageCount,
+          decompositionMode: pageSpecPlan.decompositionMode,
+          pageCount: Array.isArray(pageSpecPlan.pageRequests) ? pageSpecPlan.pageRequests.length : 0,
+          blockers: pageSpecPlan.blockers,
+        },
+      },
+    });
+  }
+
+  if (Array.isArray(pageSpecPlan.pageRequests) && pageSpecPlan.pageRequests.length > 1) {
+    const pageBuilds = pageSpecPlan.pageRequests.map((pageRequest, index) => buildSingleValidationSpecs({
+      requestText: pageRequest.requestText,
+      sessionId: `${normalizedSessionId}-page-${index + 1}`,
+      baseSlug: Array.isArray(pageRequest.explicitCollections) && pageRequest.explicitCollections.length > 0
+        ? pageRequest.explicitCollections[0]
+        : `${baseSlug || 'validation'}-page-${index + 1}`,
+      candidatePageUrl,
+      sessionDir,
+      randomSeed,
+      instanceInventory,
+      pageId: pageRequest.pageId || `page-${index + 1}`,
+    }));
+    const multiPageBlocker = {
+      code: 'MULTI_PAGE_REQUEST_REQUIRES_PAGE_LEVEL_EXECUTION',
+      message: `请求已拆成 ${pageBuilds.length} 个页面规格，必须逐页执行 build，不能把聚合请求直接送入单页 builder。`,
+      details: {
+        pageCount: pageBuilds.length,
+        pageIds: pageBuilds.map((item, index) => item.compileArtifact?.scenarioId || `page-${index + 1}`),
+        splitMode: pageSpecPlan.decompositionMode,
+      },
+    };
+    return buildBlockedValidationSpecs({
+      requestText,
+      sessionId: normalizedSessionId,
+      baseSlug,
+      candidatePageUrl,
+      sessionDir,
+      instanceInventory,
+      blocker: multiPageBlocker,
+      issueCode: 'MULTI_PAGE_REQUEST_SPLIT_REQUIRED',
+      issueMessage: multiPageBlocker.message,
+      extraCompileArtifact: {
+        multiPageRequest: {
+          detected: true,
+          pageCount: pageBuilds.length,
+          splitMode: pageSpecPlan.decompositionMode,
+          pageTitles: pageBuilds.map((item) => item.buildSpec?.target?.title || ''),
+          pageScenarioIds: pageBuilds.map((item) => item.compileArtifact?.scenarioId || ''),
+        },
+      },
+      extraResult: {
+        pageBuilds,
+        pageLevelPlan: {
+          requestedPageCount: pageSpecPlan.requestedPageCount,
+          decompositionMode: pageSpecPlan.decompositionMode,
+          pageCount: pageBuilds.length,
+          blockers: [],
+        },
+      },
+    });
+  }
+
+  const singleBuild = buildSingleValidationSpecs({
+    requestText,
+    sessionId: normalizedSessionId,
+    baseSlug,
+    candidatePageUrl,
+    sessionDir,
+    randomSeed,
+    instanceInventory,
+  });
+  return {
+    ...singleBuild,
+    pageBuilds: [singleBuild],
+    pageLevelPlan: {
+      requestedPageCount: pageSpecPlan.requestedPageCount,
+      decompositionMode: pageSpecPlan.decompositionMode,
+      pageCount: 1,
+      blockers: [],
     },
   };
 }

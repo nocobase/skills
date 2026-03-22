@@ -68,6 +68,25 @@ function makePrimitiveFirstInventory() {
   };
 }
 
+function makeFlowOnlyInventory() {
+  return {
+    detected: true,
+    flowSchema: {
+      detected: true,
+      rootPublicUses: ['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel'],
+      publicUseCatalog: [],
+      missingUses: [],
+      discoveryNotes: [],
+    },
+    collections: {
+      detected: false,
+      names: [],
+      byName: {},
+      discoveryNotes: [],
+    },
+  };
+}
+
 test('stable cache supports memory hits, disk hits and targeted invalidation', () => {
   const rootDir = makeTempDir('stable-cache');
   let nowMs = Date.UTC(2026, 2, 19, 0, 0, 0);
@@ -707,30 +726,212 @@ test('validation run helper emits primitive-first ready specs when live inventor
   assert.equal(result.verifySpec.stages[0].trigger.text, '新建审批单');
 });
 
-test('validation run helper surfaces planning blockers when no collection inventory is available', async () => {
-  const previousProbe = process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
-  process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = 'true';
-  const result = await buildValidationSpecsForRun({
-    caseRequest: '搭一个完全新的未知场景',
-    sessionId: '20260319T075530-custom',
-    baseSlug: 'unknown-demo',
-    candidatePageUrl: 'http://localhost:23000/admin/unknown-demo',
-    sessionDir: '/tmp/session',
-    randomSeed: 'unknown-seed',
-  });
-  if (previousProbe === undefined) {
-    delete process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
-  } else {
-    process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = previousProbe;
-  }
+test('validation run helper probes missing collection inventory before planning when only flow schema inventory is provided', async () => {
+  const previousToken = process.env.NOCOBASE_API_TOKEN;
+  process.env.NOCOBASE_API_TOKEN = 'demo-token';
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('/api/app:getInfo')) {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ data: { version: '2.0.0' } });
+        },
+      };
+    }
+    if (String(url).endsWith('/api/pm:listEnabled')) {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ data: [] });
+        },
+      };
+    }
+    if (String(url).endsWith('/api/flowModels:schemaBundle')) {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            data: {
+              items: [
+                {
+                  use: 'BlockGridModel',
+                  subModelCatalog: {
+                    items: {
+                      type: 'array',
+                      candidates: [
+                        { use: 'TableBlockModel' },
+                        { use: 'DetailsBlockModel' },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          });
+        },
+      };
+    }
+    if (String(url).endsWith('/api/flowModels:schemas')) {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ data: [] });
+        },
+      };
+    }
+    if (String(url).includes('/api/collections:listMeta')) {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            data: [
+              {
+                name: 'approvals',
+                title: '审批单',
+                titleField: 'title',
+                fields: [
+                  { name: 'title', type: 'string', interface: 'input' },
+                  { name: 'status', type: 'string', interface: 'select' },
+                  { name: 'applicant', type: 'string', interface: 'input' },
+                ],
+              },
+            ],
+          });
+        },
+      };
+    }
+    return {
+      ok: false,
+      status: 404,
+      async text() {
+        return JSON.stringify({ errors: [{ message: 'not found' }] });
+      },
+    };
+  };
 
-  assert.equal(Boolean(result.compileArtifact.scenarioId), true);
-  assert.equal(result.compileArtifact.selectionMode, 'dynamic-exploration');
+  try {
+    const result = await buildValidationSpecsForRun({
+      caseRequest: '请生成 approvals 审批流程 validation 页面，展示 status applicant',
+      sessionId: '20260322T120000-approval-probe',
+      baseSlug: 'approvals',
+      candidatePageUrl: 'http://localhost:23000/admin/approvals-probe',
+      sessionDir: '/tmp/session',
+      randomSeed: 'approval-seed',
+      instanceInventory: makeFlowOnlyInventory(),
+    });
+
+    assert.equal(result.compileArtifact.planningStatus, 'ready');
+    assert.equal(result.compileArtifact.instanceInventory.collections.detected, true);
+    assert.deepEqual(result.compileArtifact.instanceInventory.collections.names, ['approvals']);
+    assert.deepEqual(result.compileArtifact.targetCollections, ['approvals']);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousToken === undefined) {
+      delete process.env.NOCOBASE_API_TOKEN;
+    } else {
+      process.env.NOCOBASE_API_TOKEN = previousToken;
+    }
+  }
+});
+
+test('validation run helper blocks before planning when collection inventory is missing and probing is unavailable', async () => {
+  const previousDisableProbe = process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
+  const previousToken = process.env.NOCOBASE_API_TOKEN;
+  process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = 'true';
+  delete process.env.NOCOBASE_API_TOKEN;
+
+  try {
+    const result = await buildValidationSpecsForRun({
+      caseRequest: '请生成 approvals 审批流程 validation 页面，展示 status applicant',
+      sessionId: '20260322T120000-approval-blocked',
+      baseSlug: 'approvals',
+      candidatePageUrl: 'http://localhost:23000/admin/approvals-blocked',
+      sessionDir: '/tmp/session',
+      randomSeed: 'approval-seed',
+      instanceInventory: makeFlowOnlyInventory(),
+    });
+
+    assert.equal(result.compileArtifact.planningStatus, 'blocked');
+    assert.equal(result.compileArtifact.issues[0].code, 'LIVE_COLLECTION_INVENTORY_REQUIRED');
+    assert.deepEqual(result.compileArtifact.targetCollections, []);
+    assert.equal(result.compileArtifact.layoutCandidates.length, 0);
+  } finally {
+    if (previousDisableProbe === undefined) {
+      delete process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
+    } else {
+      process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = previousDisableProbe;
+    }
+    if (previousToken === undefined) {
+      delete process.env.NOCOBASE_API_TOKEN;
+    } else {
+      process.env.NOCOBASE_API_TOKEN = previousToken;
+    }
+  }
+});
+
+test('validation run helper splits explicit multi-page requests into page-level specs and blocks aggregate build', async () => {
+  const result = await buildValidationSpecsForRun({
+    caseRequest: '基于 approvals 创建两个页面：1. 审批列表页，展示 status applicant，并带筛选；2. 审批详情页，展示 title status createdAt。',
+    sessionId: '20260322T120000-approval-multi',
+    baseSlug: 'approvals',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-multi',
+    sessionDir: '/tmp/session',
+    randomSeed: 'approval-seed',
+    instanceInventory: makePrimitiveFirstInventory(),
+  });
+
+  assert.equal(result.compileArtifact.issues[0].code, 'MULTI_PAGE_REQUEST_SPLIT_REQUIRED');
   assert.equal(result.compileArtifact.planningStatus, 'blocked');
-  assert.equal(result.compileArtifact.generatedCoverage.blocks.length, 0);
-  assert.equal(Array.isArray(result.compileArtifact.availableUses), true);
-  assert.equal(result.compileArtifact.issues[0].code, 'PRIMITIVE_FIRST_PLANNING_BLOCKED');
-  assert.equal(result.verifySpec.stages.length, 0);
+  assert.equal(result.compileArtifact.multiPageRequest.detected, true);
+  assert.equal(result.compileArtifact.multiPageRequest.pageCount, 2);
+  assert.equal(Array.isArray(result.pageBuilds), true);
+  assert.equal(result.pageBuilds.length, 2);
+  assert.deepEqual(result.pageBuilds[0].compileArtifact.targetCollections, ['approvals']);
+  assert.deepEqual(result.pageBuilds[1].compileArtifact.targetCollections, ['approvals']);
+  assert.equal(result.pageBuilds.every((item) => item.compileArtifact.planningStatus === 'ready'), true);
+});
+
+test('validation run helper blocks immediately when no collection inventory source is available at all', async () => {
+  const previousProbe = process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
+  const previousToken = process.env.NOCOBASE_API_TOKEN;
+  process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = 'true';
+  delete process.env.NOCOBASE_API_TOKEN;
+
+  try {
+    const result = await buildValidationSpecsForRun({
+      caseRequest: '搭一个完全新的未知场景',
+      sessionId: '20260319T075530-custom',
+      baseSlug: 'unknown-demo',
+      candidatePageUrl: 'http://localhost:23000/admin/unknown-demo',
+      sessionDir: '/tmp/session',
+      randomSeed: 'unknown-seed',
+    });
+
+    assert.equal(Boolean(result.compileArtifact.scenarioId), true);
+    assert.equal(result.compileArtifact.selectionMode, 'request-gate');
+    assert.equal(result.compileArtifact.planningStatus, 'blocked');
+    assert.equal(result.compileArtifact.generatedCoverage.blocks.length, 0);
+    assert.equal(Array.isArray(result.compileArtifact.availableUses), true);
+    assert.equal(result.compileArtifact.issues[0].code, 'LIVE_COLLECTION_INVENTORY_REQUIRED');
+    assert.equal(result.verifySpec.stages.length, 0);
+  } finally {
+    if (previousProbe === undefined) {
+      delete process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
+    } else {
+      process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = previousProbe;
+    }
+    if (previousToken === undefined) {
+      delete process.env.NOCOBASE_API_TOKEN;
+    } else {
+      process.env.NOCOBASE_API_TOKEN = previousToken;
+    }
+  }
 });
 
 test('verify spec normalization preserves stages and pre-open assertions', () => {

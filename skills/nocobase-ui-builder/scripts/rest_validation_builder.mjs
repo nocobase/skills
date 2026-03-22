@@ -10,6 +10,7 @@ import { VALIDATION_CASE_MODE, auditPayload, canonicalizePayload } from './flow_
 import { getDefaultTabUseForPage } from './model_contracts.mjs';
 import { validateReadbackContract } from './rest_template_clone_runner.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
+import { collectExplicitCollectionMatches } from './validation_scenario_planner.mjs';
 
 function usage() {
   return [
@@ -289,6 +290,105 @@ function buildCollectionsMetaIndex(collections) {
   return byName;
 }
 
+function buildCollectionsInventoryFromMeta(collections) {
+  const collectionIndex = buildCollectionsMetaIndex(collections);
+  const names = [...collectionIndex.keys()].sort((left, right) => left.localeCompare(right));
+  return {
+    detected: names.length > 0,
+    names,
+    byName: Object.fromEntries(names.map((name) => {
+      const collectionMeta = collectionIndex.get(name);
+      return [name, {
+        name,
+        title: normalizeOptionalText(collectionMeta?.title),
+        titleField: normalizeOptionalText(collectionMeta?.titleField),
+        fieldNames: Array.isArray(collectionMeta?.fieldNames) ? collectionMeta.fieldNames : [],
+        scalarFieldNames: Array.isArray(collectionMeta?.scalarFieldNames) ? collectionMeta.scalarFieldNames : [],
+        relationFields: Array.isArray(collectionMeta?.fields)
+          ? collectionMeta.fields
+            .filter((field) => isAssociationFieldMeta(field))
+            .map((field) => normalizeOptionalText(field?.name))
+            .filter(Boolean)
+          : [],
+      }];
+    })),
+    discoveryNotes: [],
+  };
+}
+
+function resolveExplicitPrimaryCollectionRequest({ buildSpec, compileArtifact, collectionsMeta }) {
+  const sourceText = normalizeOptionalText(buildSpec?.source?.text);
+  const artifactExplicitCollections = uniqueStrings(compileArtifact?.explicitCollections);
+  const scenarioExplicitCollections = uniqueStrings(buildSpec?.scenario?.explicitCollections);
+  const explicitCollectionNames = uniqueStrings([
+    ...artifactExplicitCollections,
+    ...scenarioExplicitCollections,
+  ]);
+  const primaryCollectionExplicit = compileArtifact?.primaryCollectionExplicit === true
+    || buildSpec?.scenario?.primaryCollectionExplicit === true
+    || explicitCollectionNames.length > 0;
+  if (!sourceText) {
+    return {
+      expectedCollectionName: primaryCollectionExplicit && explicitCollectionNames.length === 1
+        ? explicitCollectionNames[0]
+        : '',
+      explicitMatches: explicitCollectionNames.map((name) => ({ name, signals: [] })),
+      source: explicitCollectionNames.length > 0 ? 'artifact' : '',
+    };
+  }
+
+  const collectionsInventory = buildCollectionsInventoryFromMeta(collectionsMeta);
+  const explicitMatches = collectExplicitCollectionMatches(sourceText, collectionsInventory);
+  const explicitNames = uniqueStrings([
+    ...explicitMatches.map((item) => item.name),
+    ...explicitCollectionNames,
+  ]);
+  const dataBindingCollections = uniqueStrings(buildSpec?.dataBindings?.collections);
+  const scenarioCollections = uniqueStrings(buildSpec?.scenario?.targetCollections);
+  const compileCollections = uniqueStrings(compileArtifact?.targetCollections);
+
+  const bindingGroundedCollection = dataBindingCollections.find((name) => explicitNames.includes(name));
+  if (bindingGroundedCollection) {
+    return {
+      expectedCollectionName: bindingGroundedCollection,
+      explicitMatches,
+      source: 'dataBindings+request',
+    };
+  }
+
+  const scenarioGroundedCollection = scenarioCollections.find((name) => explicitNames.includes(name));
+  if (scenarioGroundedCollection) {
+    return {
+      expectedCollectionName: scenarioGroundedCollection,
+      explicitMatches,
+      source: 'scenario+request',
+    };
+  }
+
+  if (explicitMatches.length === 1) {
+    return {
+      expectedCollectionName: explicitMatches[0].name,
+      explicitMatches,
+      source: 'request',
+    };
+  }
+
+  const compileGroundedCollection = compileCollections.find((name) => explicitNames.includes(name));
+  if (compileGroundedCollection) {
+    return {
+      expectedCollectionName: compileGroundedCollection,
+      explicitMatches,
+      source: 'compile+request',
+    };
+  }
+
+  return {
+    expectedCollectionName: '',
+    explicitMatches,
+    source: '',
+  };
+}
+
 function isAssociationFieldMeta(fieldMeta) {
   const type = normalizeOptionalText(fieldMeta?.type).toLowerCase();
   const fieldInterface = normalizeOptionalText(fieldMeta?.interface).toLowerCase();
@@ -417,10 +517,25 @@ function resolveFilterFieldUse(fieldMeta) {
   return 'InputFieldModel';
 }
 
-function evaluateBuildPreflight({ buildSpec, compileArtifact, collectionsMeta }) {
+export function evaluateBuildPreflight({ buildSpec, compileArtifact, collectionsMeta }) {
   const blockers = [];
   const warnings = [];
   const collectionIndex = buildCollectionsMetaIndex(collectionsMeta);
+
+  const multiPageRequest = compileArtifact?.multiPageRequest && typeof compileArtifact.multiPageRequest === 'object'
+    ? compileArtifact.multiPageRequest
+    : null;
+  if (multiPageRequest?.detected && Number.isFinite(multiPageRequest.pageCount) && multiPageRequest.pageCount > 1) {
+    blockers.push({
+      code: 'PREFLIGHT_MULTI_PAGE_REQUEST_REQUIRES_PAGE_LEVEL_EXECUTION',
+      message: `预检失败：当前请求已拆成 ${multiPageRequest.pageCount} 个页面规格，必须逐页执行 fresh build。`,
+      details: {
+        pageCount: multiPageRequest.pageCount,
+        splitMode: normalizeOptionalText(multiPageRequest.splitMode),
+        pageTitles: Array.isArray(multiPageRequest.pageTitles) ? multiPageRequest.pageTitles : [],
+      },
+    });
+  }
 
   if (compileArtifact?.planningStatus === 'blocked') {
     for (const blocker of Array.isArray(compileArtifact.planningBlockers) ? compileArtifact.planningBlockers : []) {
@@ -493,6 +608,39 @@ function evaluateBuildPreflight({ buildSpec, compileArtifact, collectionsMeta })
       code: 'PREFLIGHT_PRIMARY_BLOCK_UNAVAILABLE',
       message: `预检失败：实例当前未公开 ${primaryBlockType}。`,
       details: { primaryBlockType },
+    });
+  }
+
+  const explicitCollectionRequest = resolveExplicitPrimaryCollectionRequest({
+    buildSpec,
+    compileArtifact,
+    collectionsMeta,
+  });
+  const targetCollections = uniqueStrings(compileArtifact?.targetCollections);
+  if (explicitCollectionRequest.expectedCollectionName && targetCollections.length === 0) {
+    blockers.push({
+      code: 'EXPLICIT_COLLECTION_TARGET_MISSING',
+      message: `预检失败：请求显式指定了主 collection "${explicitCollectionRequest.expectedCollectionName}"，但 compile artifact 没有任何 targetCollections。`,
+      details: {
+        expectedCollectionName: explicitCollectionRequest.expectedCollectionName,
+        source: explicitCollectionRequest.source,
+        explicitMatches: explicitCollectionRequest.explicitMatches,
+      },
+    });
+  } else if (
+    explicitCollectionRequest.expectedCollectionName
+    && targetCollections.length > 0
+    && !targetCollections.includes(explicitCollectionRequest.expectedCollectionName)
+  ) {
+    blockers.push({
+      code: 'EXPLICIT_COLLECTION_TARGET_MISMATCH',
+      message: `预检失败：请求显式指定主 collection "${explicitCollectionRequest.expectedCollectionName}"，但 compile artifact 指向了 ${targetCollections.join(', ')}。`,
+      details: {
+        expectedCollectionName: explicitCollectionRequest.expectedCollectionName,
+        actualTargetCollections: targetCollections,
+        source: explicitCollectionRequest.source,
+        explicitMatches: explicitCollectionRequest.explicitMatches,
+      },
     });
   }
 
@@ -1905,7 +2053,7 @@ function buildPagePayload({
   return root;
 }
 
-function selectBuildCandidate({ buildSpec, compileArtifact, collectionsMeta }) {
+export function selectBuildCandidate({ buildSpec, compileArtifact, collectionsMeta }) {
   const requestedSelectedCandidateId = normalizeOptionalText(compileArtifact?.selectedCandidateId) || 'selected-primary';
   const scenarioLayoutCandidates = Array.isArray(buildSpec?.scenario?.layoutCandidates)
     ? buildSpec.scenario.layoutCandidates

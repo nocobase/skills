@@ -52,10 +52,13 @@ V1 默认采用 schema-first 的渐进支持策略：
    - 先把需求归一化成 BuildSpec / VerifySpec，再通过 `scripts/spec_contracts.mjs` 编译成 primitive tree
    - 编译粒度是 `Page / Tabs / Grid / Table / Details / Action / Popup / RelationScope / Form`
    - 不要为单个 case 现场手搓整棵 flowModels 树
+   - 如果 `build-validation-specs` 识别出多页面请求并返回 `pageBuilds`，必须逐页执行这些 page-level spec；禁止把聚合请求继续当成单页 builder 输入
+   - planner 前必须确认 live collection inventory 已可用；如果返回 `LIVE_COLLECTION_INVENTORY_REQUIRED`，先补 inventory，再继续
 4. 强 gate
    - write-after-read mismatch、route-ready 缺失、pre-open blocker、mandatory stage failure 都应在 gate 失败时直接截停
    - readback 对账除了 tab/filterManager 基线外，还要显式拦截 duplicate tabs 与 block 级 unexpected filter drift
    - 推荐复用 `scripts/gate_engine.mjs` 的通用判定，不要把“停在何处”散落到 prompt 里
+   - 如果请求显式指定主 collection，而 compile artifact 的 `targetCollections` 为空或不匹配，必须在 `createV2/save` 前直接失败
 5. 阶段耗时画像
    - 每轮至少记录 `schema_discovery`、`stable_metadata`、`write`、`readback`、`browser_attach`、`smoke`
    - phase/gate/cache event 统一记入 `tool_journal`，最终由 `tool_review_report` 输出阶段画像、cache 摘要和 gate 摘要

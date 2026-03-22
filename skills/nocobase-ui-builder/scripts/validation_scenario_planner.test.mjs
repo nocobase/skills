@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildDynamicValidationScenario } from './validation_scenario_planner.mjs';
+import {
+  buildDynamicValidationScenario,
+  splitValidationRequestIntoPageSpecs,
+} from './validation_scenario_planner.mjs';
 
 function makeInstanceInventory() {
   return {
@@ -69,6 +72,8 @@ test('dynamic scenario planner uses collection-first deterministic planning when
   assert.equal(result.scenario.selectionMode, 'collection-first');
   assert.equal(result.scenario.primaryBlockType, 'TableBlockModel');
   assert.deepEqual(result.scenario.targetCollections, ['approvals']);
+  assert.deepEqual(result.scenario.explicitCollections, ['approvals']);
+  assert.equal(result.scenario.primaryCollectionExplicit, true);
   assert.deepEqual(result.scenario.requestedFields, ['status', 'applicant']);
   assert.deepEqual(result.scenario.resolvedFields, ['status', 'applicant']);
   assert.equal(result.scenario.planningStatus, 'ready');
@@ -123,4 +128,20 @@ test('dynamic scenario planner does not let runtime catalog blockers override ex
   assert.deepEqual(result.scenario.planningBlockers, []);
   assert.equal(result.buildSpecInput.layout.blocks[0].kind, 'Filter');
   assert.equal(result.buildSpecInput.layout.blocks[1].kind, 'Table');
+});
+
+test('page spec splitter decomposes numbered multi-page requests into page-level specs', () => {
+  const result = splitValidationRequestIntoPageSpecs({
+    caseRequest: '基于 approvals 创建两个页面：1. 审批列表页，展示 status applicant，并带筛选；2. 审批详情页，展示 title status createdAt。',
+    collectionsInventory: makeInstanceInventory().collections,
+  });
+
+  assert.equal(result.requestedPageCount, 2);
+  assert.equal(result.decompositionMode, 'numbered-page-sections');
+  assert.equal(result.blockers.length, 0);
+  assert.equal(result.pageRequests.length, 2);
+  assert.match(result.pageRequests[0].requestText, /审批列表页/);
+  assert.match(result.pageRequests[1].requestText, /审批详情页/);
+  assert.deepEqual(result.pageRequests[0].explicitCollections, ['approvals']);
+  assert.deepEqual(result.pageRequests[1].explicitCollections, ['approvals']);
 });
