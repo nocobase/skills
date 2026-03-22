@@ -105,6 +105,13 @@ test('dynamic scenario planner defaults to creative-first and emits five mixed r
   assert.equal(result.scenario.candidateFamilies['collection-workbench'].includes('collection'), true);
   assert.equal(result.scenario.candidateScores['analytics-mix'].score > 0, true);
   assert.equal(result.scenario.selectedCandidateId.length > 0, true);
+  assert.equal(Array.isArray(result.scenario.pagePlan.sections), true);
+  assert.equal(result.scenario.pagePlan.sections[0].role, 'controls');
+  assert.equal(result.scenario.layoutCandidates.every((item) => Array.isArray(item.pagePlan.sections)), true);
+  assert.equal(
+    result.scenario.layoutCandidates.find((item) => item.candidateId === 'tabbed-multi-surface')?.pagePlan?.tabs?.length,
+    3,
+  );
   assert.equal(result.buildSpecInput.layout.blocks[0].kind, 'Filter');
   assert.equal(['新建审批单', '编辑审批单'].includes(result.verifySpecInput.stages[0].trigger.text), true);
 });

@@ -827,6 +827,14 @@ test('validation run helper emits primitive-first ready specs when live inventor
   assert.equal(Array.isArray(result.compileArtifact.eligibleUses), true);
   assert.equal(typeof result.compileArtifact.candidateScores['keyword-anchor']?.score === 'number', true);
   assert.equal(typeof result.compileArtifact.candidateShape['tabbed-multi-surface'] === 'string', true);
+  assert.equal(typeof result.compileArtifact.pagePlan?.structureKind === 'string', true);
+  assert.equal(Array.isArray(result.compileArtifact.pagePlan?.sections), true);
+  assert.equal(
+    result.compileArtifact.pagePlan.sections.some((section) => section.role === 'primary')
+      || result.compileArtifact.pagePlan.tabs.some((tab) => tab.sections.some((section) => section.role === 'primary')),
+    true,
+  );
+  assert.equal(result.compileArtifact.candidateBuilds.every((item) => item.pagePlan && typeof item.pagePlan.structureKind === 'string'), true);
   assert.equal(result.compileArtifact.guardRequirements.allowedBusinessBlockUses.includes('TableBlockModel'), true);
   assert.equal(result.verifySpec.stages.length >= 1, true);
   assert.deepEqual(result.menuPlacement, {

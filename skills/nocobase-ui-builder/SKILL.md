@@ -72,6 +72,37 @@ V1 默认采用 schema-first 的渐进支持策略：
 4. 确认本地 Node 可用，以便运行 `scripts/opaque_uid.mjs`、`scripts/flow_payload_guard.mjs`。
 5. 默认按真实可用性标准执行：不仅要准备数据模型，还要准备可查询的数据样本；不要把“页面壳创建成功”当成任务完成。
 
+# 本地 Flow Schema 参考
+
+当前 skill 已内置一份当前实例的 `flowModels:schemas` 本地 snapshot：
+
+- 索引入口：[references/flow-schemas/index.md](references/flow-schemas/index.md)
+- 清单文件：`references/flow-schemas/manifest.json`
+- 逐 use 完整 schema：`references/flow-schemas/by-use/<UseName>.json`
+
+使用规则：
+
+1. 当你已经知道目标 `use`，或只是需要查看某个具体模型的 `jsonSchema`、`minimalExample`、`skeleton`、`commonPatterns`、`dynamicHints`、`stepParams` 结构时，先查本地 snapshot，不要先调 `PostFlowmodels_schemas`
+2. 先打开 `references/flow-schemas/index.md`，再通过 `manifest.json.filesByUse` 或 `by-use/<UseName>.json` 读取目标 schema
+3. 默认一次只打开一个目标 `use` 的 JSON；不要为了“保险”把 `manifest.json` 之外的大文件一次性展开到会话里
+4. 只有在本地 snapshot 缺少目标 `use`、目标模型与当前实例行为明显冲突、或当前任务涉及 snapshot 未覆盖的新模型时，才回退到 `PostFlowmodels_schemas` / `GetFlowmodels_schema`
+5. `PostFlowmodels_schemabundle` 仍保留给运行时 root block 发现与当前实例结构探测；本地 snapshot 主要用于减少 `flowModels:schemas` 请求
+
+# 页面优先编排
+
+默认先做页面结构规划，再做区块映射；不要一上来按 block catalog 倒推页面。
+
+- 页面结构参考：[references/page-first-planning.md](references/page-first-planning.md)
+- planner / compile 输出里如果已经有 `pagePlan`，后续 build、替换、review 都优先围绕 `pagePlan.sections[]` / `pagePlan.tabs[]` 工作
+
+硬规则：
+
+1. 先根据意图决定页面骨架：`focus-stack` / `split-workbench` / `multi-section-workbench` / `tabbed-workbench`
+2. 再把页面主体切成语义 section：`controls`、`primary`、`secondary`、`insight`、`extension`
+3. 每个 section 先定义职责与数据承载，再选 `Filter/Table/Details/Form/PublicUse/JSBlock`
+4. `JSBlockModel` 是 section 的实现手段，不是页面结构本身；只有在内置 block 不能承载 section 目标时才升级到 JS
+5. 页面结构设计阶段不要被具体 block 名称绑死；block 选择发生在 section 已稳定之后
+
 # 区块与模式文档入口
 
 当任务开始进入 block-level 搭建时，推荐按下面路径查阅 references，而不是把所有细节都从 `SKILL.md` 现推导：
@@ -93,10 +124,11 @@ V1 默认采用 schema-first 的渐进支持策略：
 1. 先从用户目标识别本轮涉及的区块 use 与横切场景
    - 例如：筛选区块、主表、详情区块、创建/编辑表单、page/tabs
    - 以及：表格列渲染、popup/openView、关系上下文、record actions、tree table、多对多/中间表
-2. 先打开 [references/blocks/index.md](references/blocks/index.md)
-3. 对每个目标区块，再打开对应 block 文档
-4. 然后按 block 文档里的“关联模式文档”继续打开 `references/patterns/*.md`
-5. 如果索引里还没有对应文档，退回本 skill 的通用 `schema-first` 规则继续执行，并在日志里追加 `note` 说明当前缺少专用文档
+2. 如果当前任务已经明确某个目标 `use`，或需要看具体 schema 结构，先打开 [references/flow-schemas/index.md](references/flow-schemas/index.md)
+3. 再打开 [references/blocks/index.md](references/blocks/index.md)
+4. 对每个目标区块，再打开对应 block 文档
+5. 然后按 block 文档里的“关联模式文档”继续打开 `references/patterns/*.md`
+6. 如果索引里还没有对应文档，退回本 skill 的通用 `schema-first` 规则继续执行，并在日志里追加 `note` 说明当前缺少专用文档
 
 这条路径是推荐入口，不是强制 gate；但以下场景优先走这条路径：
 

@@ -195,6 +195,287 @@ function buildDeleteAction(label) {
   };
 }
 
+const PAGE_PLAN_VERSION = 'page-first-v1';
+
+const INSIGHT_SECTION_BLOCK_USES = new Set([
+  'ChartBlockModel',
+  'GridCardBlockModel',
+  'ListBlockModel',
+  'MapBlockModel',
+]);
+
+const EXTENSION_SECTION_BLOCK_USES = new Set([
+  'JSBlockModel',
+  'MarkdownBlockModel',
+]);
+
+function resolvePlannedBlockUse(block) {
+  if (!block || typeof block !== 'object') {
+    return '';
+  }
+  if (block.kind === 'PublicUse') {
+    return normalizeText(block.use);
+  }
+  if (block.kind === 'Form') {
+    return block.mode === 'edit' ? 'EditFormModel' : 'CreateFormModel';
+  }
+  if (block.kind === 'Filter') {
+    return 'FilterFormBlockModel';
+  }
+  if (block.kind === 'Table') {
+    return 'TableBlockModel';
+  }
+  if (block.kind === 'Details') {
+    return 'DetailsBlockModel';
+  }
+  return normalizeText(block.kind);
+}
+
+function summarizePlannedBlock(block) {
+  const normalizedBlock = block && typeof block === 'object' ? block : {};
+  return {
+    use: resolvePlannedBlockUse(normalizedBlock),
+    kind: normalizeText(normalizedBlock.kind),
+    title: normalizeText(normalizedBlock.title),
+    collectionName: normalizeText(normalizedBlock.collectionName),
+    fieldCount: Array.isArray(normalizedBlock.fields) ? normalizedBlock.fields.length : 0,
+  };
+}
+
+function resolveSectionRoleForBlock(block, options = {}) {
+  const use = resolvePlannedBlockUse(block);
+  if (use === 'FilterFormBlockModel') {
+    return 'controls';
+  }
+  if (options.preferPrimary === true) {
+    return 'primary';
+  }
+  if (INSIGHT_SECTION_BLOCK_USES.has(use)) {
+    return 'insight';
+  }
+  if (EXTENSION_SECTION_BLOCK_USES.has(use)) {
+    return 'extension';
+  }
+  return 'secondary';
+}
+
+function resolveSectionIntent(role) {
+  switch (role) {
+    case 'controls':
+      return '收敛页面输入条件并控制主体内容。';
+    case 'primary':
+      return '承载页面主业务目标。';
+    case 'insight':
+      return '提供分析、指标或辅助洞察。';
+    case 'extension':
+      return '承载补充说明、自定义视图或扩展交互。';
+    default:
+      return '补充主体上下文与辅助信息。';
+  }
+}
+
+function resolveSectionTitle(role, block, fallbackIndex = 1) {
+  const blockTitle = normalizeText(block?.title);
+  switch (role) {
+    case 'controls':
+      return blockTitle || '顶部控制区';
+    case 'primary':
+      return blockTitle || '主体内容区';
+    case 'insight':
+      return blockTitle || `分析信息区 ${fallbackIndex}`;
+    case 'extension':
+      return blockTitle || `扩展内容区 ${fallbackIndex}`;
+    default:
+      return blockTitle || `辅助内容区 ${fallbackIndex}`;
+  }
+}
+
+function createInternalPagePlanSection({
+  sectionId,
+  role,
+  title,
+  area,
+  blocks = [],
+}) {
+  const normalizedBlocks = (Array.isArray(blocks) ? blocks : [])
+    .filter((block) => block && typeof block === 'object')
+    .map((block) => cloneJson(block));
+  return {
+    sectionId,
+    role,
+    title,
+    area,
+    intent: resolveSectionIntent(role),
+    blockUseHints: uniqueStrings(normalizedBlocks.map((block) => resolvePlannedBlockUse(block))),
+    blocks: normalizedBlocks,
+  };
+}
+
+function buildInternalPageSectionsFromBlocks(blocks, options = {}) {
+  const normalizedBlocks = (Array.isArray(blocks) ? blocks : [])
+    .filter((block) => block && typeof block === 'object');
+  const surfaceKind = normalizeText(options.surfaceKind) || 'root';
+  const surfaceId = normalizeText(options.surfaceId) || surfaceKind;
+  const sections = [];
+  let primaryAssigned = false;
+  let supportIndex = 0;
+
+  for (const block of normalizedBlocks) {
+    const role = resolveSectionRoleForBlock(block, {
+      preferPrimary: primaryAssigned === false && resolvePlannedBlockUse(block) !== 'FilterFormBlockModel',
+    });
+    if (role !== 'controls') {
+      primaryAssigned = true;
+      supportIndex += 1;
+    }
+    const sectionId = `${surfaceId}-${role}-${role === 'controls' ? sections.length + 1 : supportIndex}`;
+    sections.push(createInternalPagePlanSection({
+      sectionId,
+      role,
+      title: resolveSectionTitle(role, block, supportIndex),
+      area: role === 'controls' ? 'header' : (surfaceKind === 'tab' ? 'tab-body' : 'body'),
+      blocks: [block],
+    }));
+  }
+
+  return sections;
+}
+
+function derivePageStructureKind({ rootBlocks = [], tabs = [], structureKind }) {
+  const explicitKind = normalizeText(structureKind);
+  if (explicitKind) {
+    return explicitKind;
+  }
+  if (Array.isArray(tabs) && tabs.length > 0) {
+    return 'tabbed-workbench';
+  }
+  const contentCount = (Array.isArray(rootBlocks) ? rootBlocks : [])
+    .filter((block) => resolvePlannedBlockUse(block) !== 'FilterFormBlockModel')
+    .length;
+  if (contentCount >= 3) {
+    return 'multi-section-workbench';
+  }
+  if (contentCount === 2) {
+    return 'split-workbench';
+  }
+  return 'focus-stack';
+}
+
+function buildInternalPagePlanFromSurfaceBlocks({
+  title,
+  rootBlocks = [],
+  tabs = [],
+  structureKind = '',
+  designRationale = [],
+}) {
+  const normalizedRootBlocks = (Array.isArray(rootBlocks) ? rootBlocks : [])
+    .filter((block) => block && typeof block === 'object')
+    .map((block) => cloneJson(block));
+  const normalizedTabs = (Array.isArray(tabs) ? tabs : [])
+    .filter((tab) => tab && typeof tab === 'object')
+    .map((tab, index) => ({
+      tabId: normalizeText(tab.tabId) || `tab-${index + 1}`,
+      title: normalizeText(tab.title) || `标签 ${index + 1}`,
+      blocks: (Array.isArray(tab.blocks) ? tab.blocks : [])
+        .filter((block) => block && typeof block === 'object')
+        .map((block) => cloneJson(block)),
+    }))
+    .filter((tab) => tab.blocks.length > 0);
+
+  return {
+    version: PAGE_PLAN_VERSION,
+    title: normalizeText(title),
+    structureKind: derivePageStructureKind({
+      rootBlocks: normalizedRootBlocks,
+      tabs: normalizedTabs,
+      structureKind,
+    }),
+    designRationale: uniqueStrings(designRationale),
+    sections: buildInternalPageSectionsFromBlocks(normalizedRootBlocks, {
+      surfaceKind: 'root',
+      surfaceId: 'root',
+    }),
+    tabs: normalizedTabs.map((tab) => ({
+      tabId: tab.tabId,
+      title: tab.title,
+      sections: buildInternalPageSectionsFromBlocks(tab.blocks, {
+        surfaceKind: 'tab',
+        surfaceId: tab.tabId,
+      }),
+    })),
+  };
+}
+
+function serializePagePlanSection(section) {
+  const normalizedSection = section && typeof section === 'object' ? section : {};
+  const resolvedBlocks = (Array.isArray(normalizedSection.blocks) ? normalizedSection.blocks : [])
+    .map((block) => summarizePlannedBlock(block))
+    .filter((block) => block.use || block.kind || block.title || block.collectionName);
+  return {
+    sectionId: normalizeText(normalizedSection.sectionId),
+    role: normalizeText(normalizedSection.role),
+    title: normalizeText(normalizedSection.title),
+    area: normalizeText(normalizedSection.area),
+    intent: normalizeText(normalizedSection.intent),
+    blockUseHints: uniqueStrings(normalizedSection.blockUseHints),
+    resolvedBlockUses: uniqueStrings(resolvedBlocks.map((block) => block.use)),
+    resolvedBlocks,
+  };
+}
+
+function serializePagePlan(pagePlan) {
+  const normalizedPagePlan = pagePlan && typeof pagePlan === 'object' ? pagePlan : {};
+  return {
+    version: PAGE_PLAN_VERSION,
+    title: normalizeText(normalizedPagePlan.title),
+    structureKind: normalizeText(normalizedPagePlan.structureKind),
+    designRationale: uniqueStrings(normalizedPagePlan.designRationale),
+    sections: (Array.isArray(normalizedPagePlan.sections) ? normalizedPagePlan.sections : []).map((section) => serializePagePlanSection(section)),
+    tabs: (Array.isArray(normalizedPagePlan.tabs) ? normalizedPagePlan.tabs : []).map((tab) => ({
+      tabId: normalizeText(tab?.tabId),
+      title: normalizeText(tab?.title),
+      sections: (Array.isArray(tab?.sections) ? tab.sections : []).map((section) => serializePagePlanSection(section)),
+    })),
+  };
+}
+
+function materializeLayoutFromPagePlan(pagePlan) {
+  const normalizedPagePlan = pagePlan && typeof pagePlan === 'object' ? pagePlan : {};
+  const rootBlocks = (Array.isArray(normalizedPagePlan.sections) ? normalizedPagePlan.sections : [])
+    .flatMap((section) => (Array.isArray(section?.blocks) ? section.blocks : []))
+    .map((block) => cloneJson(block));
+  const tabs = (Array.isArray(normalizedPagePlan.tabs) ? normalizedPagePlan.tabs : [])
+    .map((tab) => ({
+      title: normalizeText(tab?.title),
+      blocks: (Array.isArray(tab?.sections) ? tab.sections : [])
+        .flatMap((section) => (Array.isArray(section?.blocks) ? section.blocks : []))
+        .map((block) => cloneJson(block)),
+    }))
+    .filter((tab) => tab.title && tab.blocks.length > 0);
+  return {
+    pageUse: 'RootPageModel',
+    blocks: rootBlocks,
+    tabs,
+  };
+}
+
+function buildSerializedPagePlanFromLayout({
+  title,
+  layout,
+  structureKind = '',
+  designRationale = [],
+}) {
+  const normalizedLayout = layout && typeof layout === 'object' ? layout : {};
+  const internalPagePlan = buildInternalPagePlanFromSurfaceBlocks({
+    title,
+    rootBlocks: Array.isArray(normalizedLayout.blocks) ? normalizedLayout.blocks : [],
+    tabs: Array.isArray(normalizedLayout.tabs) ? normalizedLayout.tabs : [],
+    structureKind,
+    designRationale,
+  });
+  return serializePagePlan(internalPagePlan);
+}
+
 const BASE_AVAILABLE_USES = [
   'RootPageModel',
   'ChildPageModel',
@@ -1355,17 +1636,6 @@ function resolveFilterFields(collectionMeta, fieldResolution) {
   return ordered.slice(0, 3);
 }
 
-function attachFilterBlockToLayout(layout, filterBlock) {
-  if (!filterBlock) {
-    return layout;
-  }
-  return {
-    pageUse: layout.pageUse,
-    blocks: [filterBlock, ...(Array.isArray(layout.blocks) ? layout.blocks : [])],
-    tabs: Array.isArray(layout.tabs) ? layout.tabs : [],
-  };
-}
-
 function createCreativeProgram({
   planningMode = DEFAULT_PLANNING_MODE,
   selectionMode,
@@ -1473,6 +1743,7 @@ function buildLayoutCandidate({
   planningBlockers,
   shape = '',
   families = [],
+  pagePlan = null,
   selected = false,
 }) {
   const clonedLayout = cloneJson(layout);
@@ -1497,6 +1768,14 @@ function buildLayoutCandidate({
     families: uniqueStrings(families),
     actionPlan: collectActionPlan(clonedLayout),
     plannedCoverage: buildCoverageFromLayout(clonedLayout),
+    pagePlan: pagePlan && typeof pagePlan === 'object'
+      ? cloneJson(pagePlan)
+      : buildSerializedPagePlanFromLayout({
+        title,
+        layout: clonedLayout,
+        structureKind: shape,
+        designRationale: selectionRationale,
+      }),
     layout: clonedLayout,
   };
 }
@@ -1723,12 +2002,8 @@ function buildPrimaryBlock({
   return null;
 }
 
-function finalizeLayout({ primaryBlock, companionBlocks, explicitPublicUses, collectionMeta, requestedTabs, availableUses }) {
+function buildExplicitPublicUseBlocks({ explicitPublicUses, collectionMeta, availableUses }) {
   const blocks = [];
-  if (primaryBlock) {
-    blocks.push(primaryBlock);
-  }
-
   const availableSet = new Set(uniqueStrings(availableUses));
   const collectionName = collectionMeta?.name || '';
   const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : '';
@@ -1742,34 +2017,34 @@ function finalizeLayout({ primaryBlock, companionBlocks, explicitPublicUses, col
       collectionName: COLLECTION_BOUND_PUBLIC_USES.has(use) ? collectionName : '',
     }));
   }
-  blocks.push(...companionBlocks);
+  return blocks;
+}
 
-  if (requestedTabs && blocks.length > 1) {
-    const [first, ...rest] = blocks;
-    return {
-      pageUse: 'RootPageModel',
-      blocks: [],
-      tabs: [
-        {
-          title: '主视图',
-          blocks: [first],
-        },
-        {
-          title: '操作面',
-          blocks: rest,
-        },
-      ],
-    };
-  }
-
+function createPlannedLayoutFromSurfaceBlocks({
+  title,
+  rootBlocks = [],
+  tabs = [],
+  structureKind = '',
+  designRationale = [],
+}) {
+  const internalPagePlan = buildInternalPagePlanFromSurfaceBlocks({
+    title,
+    rootBlocks,
+    tabs,
+    structureKind,
+    designRationale: uniqueStrings([
+      '先根据意图与页面骨架划分区域，再把具体区块挂到各区域。',
+      ...designRationale,
+    ]),
+  });
   return {
-    pageUse: 'RootPageModel',
-    blocks,
-    tabs: [],
+    pagePlan: serializePagePlan(internalPagePlan),
+    layout: materializeLayoutFromPagePlan(internalPagePlan),
   };
 }
 
 function createLayoutFromPrimary({
+  title,
   primaryBlockDefinition,
   collectionMeta,
   fields,
@@ -1807,15 +2082,49 @@ function createLayoutFromPrimary({
       maxDepth: maxNestingDepth,
     }));
   }
-  const baseLayout = finalizeLayout({
-    primaryBlock,
-    companionBlocks,
-    explicitPublicUses,
-    collectionMeta,
-    requestedTabs,
-    availableUses,
+  const rootBlocks = [
+    ...(filterBlock ? [filterBlock] : []),
+    ...(requestedTabs ? [] : [primaryBlock]),
+    ...buildExplicitPublicUseBlocks({
+      explicitPublicUses,
+      collectionMeta,
+      availableUses,
+    }),
+    ...companionBlocks,
+  ].filter(Boolean);
+  const tabs = requestedTabs
+    ? [
+      {
+        tabId: 'main-view',
+        title: '主视图',
+        blocks: [primaryBlock],
+      },
+      {
+        tabId: 'support-view',
+        title: '操作面',
+        blocks: [
+          ...buildExplicitPublicUseBlocks({
+            explicitPublicUses,
+            collectionMeta,
+            availableUses,
+          }),
+          ...companionBlocks,
+        ].filter(Boolean),
+      },
+    ].filter((tab) => tab.blocks.length > 0)
+    : [];
+  return createPlannedLayoutFromSurfaceBlocks({
+    title,
+    rootBlocks,
+    tabs,
+    structureKind: requestedTabs ? 'tabbed-workbench' : '',
+    designRationale: [
+      requestedTabs
+        ? '页面先拆成主视图与操作面两个 surface，再把主块与辅助块分别落位。'
+        : '页面先保留单页骨架，再把主块、辅助块和扩展块按区域落位。',
+      filterBlock ? '筛选能力固定落在根页面的控制区，而不是混入业务主体。' : '',
+    ],
   });
-  return attachFilterBlockToLayout(baseLayout, filterBlock);
 }
 
 function buildLayoutCandidates({
@@ -1841,6 +2150,7 @@ function buildLayoutCandidates({
     label,
     summary,
     layout,
+    pagePlan,
     primaryDefinition,
     rationale,
     selected = false,
@@ -1866,11 +2176,13 @@ function buildLayoutCandidates({
       selectionRationale: rationale,
       planningStatus,
       planningBlockers,
+      pagePlan,
       selected,
     }));
   };
 
-  const selectedLayout = createLayoutFromPrimary({
+  const selectedAssembly = createLayoutFromPrimary({
+    title,
     primaryBlockDefinition,
     collectionMeta,
     fields: resolvedFields,
@@ -1887,7 +2199,8 @@ function buildLayoutCandidates({
     score: 100,
     label: title,
     summary: `${normalizeText(title)} / 主方案`,
-    layout: selectedLayout,
+    layout: selectedAssembly?.layout || null,
+    pagePlan: selectedAssembly?.pagePlan || null,
     primaryDefinition: primaryBlockDefinition,
     rationale: [
       selectionMode === 'dynamic-exploration' ? '按公开 root block 候选稳定排序，选中第一名。' : '按显式 collection / intent 生成主方案。',
@@ -1897,23 +2210,26 @@ function buildLayoutCandidates({
   });
 
   if (collectionMeta && !operationIntent.requestedTabs) {
+    const tabbedAssembly = createLayoutFromPrimary({
+      title: `${title} 多标签`,
+      primaryBlockDefinition,
+      collectionMeta,
+      fields: resolvedFields,
+      operationIntent,
+      availableUses,
+      explicitPublicUses,
+      maxNestingDepth,
+      requestedTabs: true,
+      forceCompanionTable: true,
+      filterBlock,
+    });
     addCandidate({
       candidateId: 'tabbed-workbench',
       score: 88,
       label: `${title} 多标签`,
       summary: `${humanizeCollectionTitle(collectionMeta)} / 多标签工作台`,
-      layout: createLayoutFromPrimary({
-        primaryBlockDefinition,
-        collectionMeta,
-        fields: resolvedFields,
-        operationIntent,
-        availableUses,
-        explicitPublicUses,
-        maxNestingDepth,
-        requestedTabs: true,
-        forceCompanionTable: true,
-        filterBlock,
-      }),
+      layout: tabbedAssembly?.layout || null,
+      pagePlan: tabbedAssembly?.pagePlan || null,
       primaryDefinition: primaryBlockDefinition,
       rationale: [
         '保留主块语义，但拆成 workspace tabs，便于把操作台与主视图分离。',
@@ -1922,25 +2238,29 @@ function buildLayoutCandidates({
   }
 
   for (const alternate of Array.isArray(alternatePrimaryDefinitions) ? alternatePrimaryDefinitions : []) {
+    const alternateLabel = collectionMeta
+      ? `${humanizeCollectionTitle(collectionMeta)} ${alternate.titleSuffix}`
+      : `${title} ${alternate.titleSuffix}`;
+    const alternateAssembly = createLayoutFromPrimary({
+      title: alternateLabel,
+      primaryBlockDefinition: alternate,
+      collectionMeta,
+      fields: resolvedFields,
+      operationIntent,
+      availableUses,
+      explicitPublicUses,
+      maxNestingDepth,
+      requestedTabs: false,
+      forceCompanionTable: collectionMeta && alternate.use !== 'TableBlockModel',
+      filterBlock,
+    });
     addCandidate({
       candidateId: `alternate-${alternate.use}`,
       score: 72 - candidates.length,
-      label: collectionMeta
-        ? `${humanizeCollectionTitle(collectionMeta)} ${alternate.titleSuffix}`
-        : `${title} ${alternate.titleSuffix}`,
+      label: alternateLabel,
       summary: `${alternate.archetypeLabel} / 备选方案`,
-      layout: createLayoutFromPrimary({
-        primaryBlockDefinition: alternate,
-        collectionMeta,
-        fields: resolvedFields,
-        operationIntent,
-        availableUses,
-        explicitPublicUses,
-        maxNestingDepth,
-        requestedTabs: false,
-        forceCompanionTable: collectionMeta && alternate.use !== 'TableBlockModel',
-        filterBlock,
-      }),
+      layout: alternateAssembly?.layout || null,
+      pagePlan: alternateAssembly?.pagePlan || null,
       primaryDefinition: alternate,
       rationale: [
         `切换主块到 ${alternate.use}，用于验证另一种布局重心。`,
@@ -2361,6 +2681,7 @@ function buildScenarioSummary({
   creativeProgram,
   layoutCandidates,
   selectedCandidateId,
+  pagePlan,
   eligibleUses = [],
   discardedUses = [],
 }) {
@@ -2415,6 +2736,9 @@ function buildScenarioSummary({
     actionPlan.length > 0
       ? `已规划 ${actionPlan.length} 个操作节点，默认允许最多 ${maxNestingDepth} 层 popup/page 递归。`
       : '当前布局未规划额外操作节点。',
+    pagePlan?.structureKind
+      ? `页面先按 ${pagePlan.structureKind} 骨架划分区域，再把区块挂入各 section。`
+      : '当前页面仍按 layout 直接表示，没有额外 page plan 元信息。',
     eligibleUses.length > 0
       ? `可进入候选池的业务区块：${eligibleUses.join(', ')}。`
       : '当前没有可进入候选池的业务区块。',
@@ -2462,6 +2786,13 @@ function buildScenarioSummary({
     candidateScores,
     candidateFamilies,
     candidateShape,
+    pagePlan: pagePlan && typeof pagePlan === 'object'
+      ? cloneJson(pagePlan)
+      : buildSerializedPagePlanFromLayout({
+        title,
+        layout,
+        designRationale: selectionRationale,
+      }),
     sourceInventory: inventoryMerge.sourceInventory,
     instanceInventory: inventoryMerge.instanceInventory,
     randomPolicy: {
@@ -2473,7 +2804,7 @@ function buildScenarioSummary({
     },
     planningMode: planningMode || DEFAULT_PLANNING_MODE,
     selectionMode,
-    plannerVersion: 'primitive-first-v3',
+    plannerVersion: 'primitive-first-v4',
     targetCollections: collectionMeta ? [collectionMeta.name] : [],
     explicitCollections: sortUniqueStrings(explicitCollections),
     primaryCollectionExplicit: primaryCollectionExplicit === true,
@@ -2701,6 +3032,7 @@ function buildStableFirstValidationScenario({
     creativeProgram,
     layoutCandidates,
     selectedCandidateId: selectedCandidate?.candidateId || '',
+    pagePlan: selectedCandidate?.pagePlan || null,
     eligibleUses: uniqueStrings([
       ...inventoryMerge.availableUses.filter(isBusinessUse),
       ...STABLE_BUSINESS_BLOCK_USES,
@@ -3116,6 +3448,7 @@ function buildCreativeFirstValidationScenario({
     creativeProgram,
     layoutCandidates: normalizedLayoutCandidates,
     selectedCandidateId: selectedCandidate?.candidateId || '',
+    pagePlan: selectedCandidate?.pagePlan || null,
     eligibleUses,
     discardedUses,
   });

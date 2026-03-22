@@ -647,6 +647,54 @@ function normalizeLayoutShape(layoutInput, label = 'layout') {
   };
 }
 
+function normalizePagePlanSection(input, label) {
+  const normalizedInput = input && typeof input === 'object' ? input : {};
+  return {
+    sectionId: typeof normalizedInput.sectionId === 'string' ? normalizedInput.sectionId.trim() : '',
+    role: typeof normalizedInput.role === 'string' ? normalizedInput.role.trim() : '',
+    title: typeof normalizedInput.title === 'string' ? normalizedInput.title.trim() : '',
+    area: typeof normalizedInput.area === 'string' ? normalizedInput.area.trim() : '',
+    intent: typeof normalizedInput.intent === 'string' ? normalizedInput.intent.trim() : '',
+    blockUseHints: sortUniqueStrings(normalizedInput.blockUseHints),
+    resolvedBlockUses: sortUniqueStrings(normalizedInput.resolvedBlockUses),
+    resolvedBlocks: Array.isArray(normalizedInput.resolvedBlocks)
+      ? normalizedInput.resolvedBlocks
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => ({
+          use: typeof item.use === 'string' ? item.use.trim() : '',
+          kind: typeof item.kind === 'string' ? item.kind.trim() : '',
+          title: typeof item.title === 'string' ? item.title.trim() : '',
+          collectionName: typeof item.collectionName === 'string' ? item.collectionName.trim() : '',
+          fieldCount: Number.isFinite(item.fieldCount) ? item.fieldCount : 0,
+        }))
+      : [],
+  };
+}
+
+function normalizePagePlan(input, label = 'pagePlan') {
+  const normalizedInput = input && typeof input === 'object' ? input : {};
+  return {
+    version: typeof normalizedInput.version === 'string' ? normalizedInput.version.trim() : '',
+    title: typeof normalizedInput.title === 'string' ? normalizedInput.title.trim() : '',
+    structureKind: typeof normalizedInput.structureKind === 'string' ? normalizedInput.structureKind.trim() : '',
+    designRationale: uniqueStrings(normalizedInput.designRationale),
+    sections: Array.isArray(normalizedInput.sections)
+      ? normalizedInput.sections.map((section, index) => normalizePagePlanSection(section, `${label}.sections[${index}]`))
+      : [],
+    tabs: Array.isArray(normalizedInput.tabs)
+      ? normalizedInput.tabs
+        .filter((tab) => tab && typeof tab === 'object')
+        .map((tab, index) => ({
+          tabId: typeof tab.tabId === 'string' ? tab.tabId.trim() : '',
+          title: typeof tab.title === 'string' ? tab.title.trim() : '',
+          sections: Array.isArray(tab.sections)
+            ? tab.sections.map((section, sectionIndex) => normalizePagePlanSection(section, `${label}.tabs[${index}].sections[${sectionIndex}]`))
+            : [],
+        }))
+      : [],
+  };
+}
+
 function normalizeLayoutCandidate(entry, index) {
   if (!entry || typeof entry !== 'object') {
     throw new Error(`scenario.layoutCandidates[${index}] must be an object`);
@@ -675,6 +723,7 @@ function normalizeLayoutCandidate(entry, index) {
     families: sortUniqueStrings(entry.families),
     actionPlan: normalizeActionPlanInput(entry.actionPlan),
     plannedCoverage: normalizePlannedCoverageInput(entry.plannedCoverage),
+    pagePlan: normalizePagePlan(entry.pagePlan, `scenario.layoutCandidates[${index}].pagePlan`),
     layout: normalizeLayoutShape(entry.layout, `scenario.layoutCandidates[${index}].layout`),
   };
 }
@@ -748,6 +797,7 @@ function normalizeScenario(input) {
     candidateShape: scenarioInput.candidateShape && typeof scenarioInput.candidateShape === 'object'
       ? scenarioInput.candidateShape
       : {},
+    pagePlan: normalizePagePlan(scenarioInput.pagePlan, 'scenario.pagePlan'),
     sourceInventory: {
       detected: Boolean(sourceInventoryInput.detected),
       repoRoot: typeof sourceInventoryInput.repoRoot === 'string' ? sourceInventoryInput.repoRoot.trim() : '',
@@ -1729,6 +1779,7 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     candidateScores: artifact.scenario.candidateScores,
     candidateFamilies: artifact.scenario.candidateFamilies,
     candidateShape: artifact.scenario.candidateShape,
+    pagePlan: artifact.scenario.pagePlan,
     sourceInventory: artifact.scenario.sourceInventory,
     instanceInventory: artifact.scenario.instanceInventory,
     availableUses: artifact.scenario.availableUses,
@@ -1777,6 +1828,7 @@ export function compileBuildSpec(input) {
     summary: buildSpec.scenario.summary,
     score: null,
     selected: true,
+    pagePlan: buildSpec.scenario.pagePlan,
     layout: buildSpec.layout,
     compileArtifact: buildCompileArtifactPayload(artifact, buildSpec, {
       candidateId: selectedCandidateId,
@@ -1817,6 +1869,9 @@ export function compileBuildSpec(input) {
         ? candidate.plannedCoverage
         : buildSpec.scenario.plannedCoverage,
       actionPlan: candidate.actionPlan.length > 0 ? candidate.actionPlan : buildSpec.scenario.actionPlan,
+      pagePlan: candidate.pagePlan?.sections?.length || candidate.pagePlan?.tabs?.length
+        ? candidate.pagePlan
+        : buildSpec.scenario.pagePlan,
       selectedCandidateId: buildSpec.scenario.selectedCandidateId,
     };
     const candidateArtifact = compileLayoutVariant({
@@ -1833,6 +1888,7 @@ export function compileBuildSpec(input) {
       summary: candidate.summary,
       score: candidate.score,
       selected: candidate.candidateId === selectedCandidateId || candidate.selected === true,
+      pagePlan: candidateScenario.pagePlan,
       layout: candidate.layout,
       compileArtifact: buildCompileArtifactPayload(candidateArtifact, buildSpec, {
         candidateId: candidate.candidateId,
