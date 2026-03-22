@@ -101,6 +101,12 @@
 node scripts/opaque_uid.mjs reserve-page --title "Orders"
 ```
 
+如果你在多个 Codex session 并发工作，建议显式传同一 session 的 `sessionId`，避免本地 registry / latest-run / report 混到别的会话：
+
+```bash
+node scripts/opaque_uid.mjs reserve-page --title "Orders" --session-id "$NOCOBASE_UI_BUILDER_SESSION_ID"
+```
+
 辅助脚本输出示例：
 
 ```json

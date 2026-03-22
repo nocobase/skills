@@ -2,30 +2,25 @@
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_BUILDER_STATE_DIR, resolveSessionPaths } from './session_state.mjs';
+
 export const DEFAULT_RUN_LOG_DIR = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-builder',
+  DEFAULT_BUILDER_STATE_DIR,
   'tool-logs',
 );
 
 export const DEFAULT_LATEST_RUN_PATH = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-builder',
+  DEFAULT_BUILDER_STATE_DIR,
   'latest-run.json',
 );
 
 function usage() {
   return [
     'Usage:',
-    '  node scripts/tool_journal.mjs start-run --task <task> [--title <title>] [--schemaUid <schemaUid>] [--log-dir <path>] [--latest-run-path <path>] [--metadata-json <json>]',
+    '  node scripts/tool_journal.mjs start-run --task <task> [--title <title>] [--schemaUid <schemaUid>] [--session-id <id>] [--session-root <path>] [--log-dir <path>] [--latest-run-path <path>] [--metadata-json <json>]',
     '  node scripts/tool_journal.mjs tool-call --log-path <path> --tool <name> [--tool-type <mcp|shell|node|other>] [--args-json <json>] [--status <ok|error|skipped>] [--summary <text>] [--call-id <raw-call-id>] [--exec-id <raw-exec-id>] [--result-file <path>] [--error-file <path>] [--result-json <json>] [--error <text>]',
     '  node scripts/tool_journal.mjs note --log-path <path> --message <text> [--data-json <json>]',
     '  node scripts/tool_journal.mjs phase --log-path <path> --phase <name> --event <start|end> [--status <running|ok|error|skipped>] [--attributes-json <json>]',
@@ -66,7 +61,7 @@ function appendJsonLine(filePath, value) {
   fs.appendFileSync(filePath, `${JSON.stringify(value)}\n`, 'utf8');
 }
 
-function resolveLogDir(explicitPath) {
+function resolveLogDir(explicitPath, options = {}) {
   if (explicitPath) {
     return path.resolve(explicitPath);
   }
@@ -74,7 +69,7 @@ function resolveLogDir(explicitPath) {
   if (fromEnv && fromEnv.trim()) {
     return path.resolve(fromEnv.trim());
   }
-  return DEFAULT_RUN_LOG_DIR;
+  return resolveSessionPaths(options).runLogDir;
 }
 
 function resolveLogPath(explicitPath) {
@@ -88,7 +83,7 @@ function resolveLogPath(explicitPath) {
   throw new Error('log path is required');
 }
 
-export function resolveLatestRunPath(explicitPath) {
+export function resolveLatestRunPath(explicitPath, options = {}) {
   if (explicitPath) {
     return path.resolve(explicitPath);
   }
@@ -96,7 +91,7 @@ export function resolveLatestRunPath(explicitPath) {
   if (fromEnv && fromEnv.trim()) {
     return path.resolve(fromEnv.trim());
   }
-  return DEFAULT_LATEST_RUN_PATH;
+  return resolveSessionPaths(options).latestRunPath;
 }
 
 function parseOptionalJson(rawValue, label) {
@@ -246,12 +241,15 @@ export function startRun({
   task,
   title,
   schemaUid,
-  logDir = DEFAULT_RUN_LOG_DIR,
+  sessionId,
+  sessionRoot,
+  logDir,
   latestRunPath,
   metadata,
 }) {
   const normalizedTask = normalizeNonEmpty(task, 'task');
-  const resolvedLogDir = resolveLogDir(logDir);
+  const session = resolveSessionPaths({ sessionId, sessionRoot });
+  const resolvedLogDir = resolveLogDir(logDir, session);
   const runId = makeRunId();
   const logPath = buildRunLogPath(resolvedLogDir, runId);
   const startedAt = nowIso();
@@ -259,6 +257,7 @@ export function startRun({
     type: 'run_started',
     runId,
     startedAt,
+    sessionId: session.sessionId,
     task: normalizedTask,
     title: title?.trim() || undefined,
     schemaUid: schemaUid?.trim() || undefined,
@@ -269,13 +268,15 @@ export function startRun({
 
   const manifest = {
     runId,
+    sessionId: session.sessionId,
+    sessionRoot: session.sessionRoot,
     logPath,
     startedAt,
     task: normalizedTask,
     title: record.title,
     schemaUid: record.schemaUid,
   };
-  const resolvedLatestRunPath = resolveLatestRunPath(latestRunPath);
+  const resolvedLatestRunPath = resolveLatestRunPath(latestRunPath, session);
   writeJsonAtomic(resolvedLatestRunPath, manifest);
 
   return {
@@ -518,6 +519,8 @@ export async function runCli(argv = process.argv.slice(2)) {
         task: flags.task,
         title: flags.title,
         schemaUid: flags.schemaUid,
+        sessionId: flags['session-id'],
+        sessionRoot: flags['session-root'],
         logDir: flags['log-dir'],
         latestRunPath: flags['latest-run-path'],
         metadata: parseOptionalJson(flags['metadata-json'], 'metadata-json'),

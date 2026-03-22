@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { BLOCKER_EXIT_CODE, VALIDATION_CASE_MODE, auditPayload, canonicalizePayload, extractRequiredMetadata } from './flow_payload_guard.mjs';
 import { reservePage } from './opaque_uid.mjs';
+import { resolveSessionPaths } from './session_state.mjs';
 import { remapTemplateTreeToTarget, summarizeModelTree } from './template_clone_helpers.mjs';
 
 const PAGE_ROOT_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
@@ -39,7 +40,9 @@ function usage() {
     '    --case-id <caseId>',
     '    --title <page title>',
     '    --template-artifacts-dir <dir>',
-    '    --out-dir <dir>',
+    '    [--session-id <id>]',
+    '    [--session-root <path>]',
+    '    [--out-dir <dir>]',
     '    [--requirements-file <compile-artifact.json>]',
     '    [--url-base <http://127.0.0.1:23000 | http://127.0.0.1:23000/admin>]',
     '    [--icon <icon>]',
@@ -1090,7 +1093,12 @@ function validateReadbackContract(model, contract = {}) {
   };
 }
 
-function reserveFreshPageTitle({ title, registryPath }) {
+function reserveFreshPageTitle({
+  title,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
   const normalizedTitle = normalizeRequiredText(title, 'title');
   const timestampLabel = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
 
@@ -1101,6 +1109,8 @@ function reserveFreshPageTitle({ title, registryPath }) {
     const result = reservePage({
       title: candidateTitle,
       ...(registryPath ? { registryPath } : {}),
+      ...(sessionId ? { sessionId } : {}),
+      ...(sessionRoot ? { sessionRoot } : {}),
     });
     if (result.created) {
       return {
@@ -1136,11 +1146,15 @@ async function runBuild(flags) {
   const caseId = normalizeRequiredText(flags['case-id'], 'case id');
   const title = normalizeRequiredText(flags.title, 'title');
   const templateArtifactsDir = normalizeRequiredText(flags['template-artifacts-dir'], 'template artifacts dir');
-  const outDir = path.resolve(normalizeRequiredText(flags['out-dir'], 'out dir'));
+  const session = resolveSessionPaths({
+    sessionId: flags['session-id'],
+    sessionRoot: flags['session-root'],
+  });
+  const outDir = path.resolve(normalizeOptionalText(flags['out-dir']) || path.join(session.artifactDir, 'template-clone', caseId));
   const requirementsFile = normalizeOptionalText(flags['requirements-file']);
   const icon = normalizeOptionalText(flags.icon);
   const parentId = normalizeOptionalText(flags['parent-id']);
-  const registryPath = normalizeOptionalText(flags['registry-path']);
+  const registryPath = normalizeOptionalText(flags['registry-path']) || session.registryPath;
   const token = normalizeRequiredText(process.env.NOCOBASE_API_TOKEN, 'NOCOBASE_API_TOKEN');
   const { apiBase, adminBase } = normalizeUrlBase(flags['url-base'] || 'http://127.0.0.1:23000');
 
@@ -1156,15 +1170,21 @@ async function runBuild(flags) {
     sourceModel: templatePayload.payload,
     filePath: templateFilePath,
   });
-  const reservedPage = reserveFreshPageTitle({ title, registryPath });
-  const schemaUid = reservedPage.page.schemaUid;
+  const reservedPageWithSession = reserveFreshPageTitle({
+    title,
+    registryPath,
+    sessionId: session.sessionId,
+    sessionRoot: session.sessionRoot,
+  });
+  const schemaUid = reservedPageWithSession.page.schemaUid;
   const routeSegment = schemaUid;
   const pageUrl = buildPageUrl(adminBase, routeSegment);
 
   const summary = {
     caseId,
+    sessionId: session.sessionId,
     requestedTitle: title,
-    actualTitle: reservedPage.actualTitle,
+    actualTitle: reservedPageWithSession.actualTitle,
     schemaUid,
     routeSegment,
     pageUrl,
@@ -1185,7 +1205,7 @@ async function runBuild(flags) {
     apiBase,
     token,
     schemaUid,
-    title: reservedPage.actualTitle,
+    title: reservedPageWithSession.actualTitle,
     icon,
     parentId,
   });

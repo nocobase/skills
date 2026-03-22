@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { resolveSessionPaths } from './session_state.mjs';
+
 export const DEFAULT_RUNTIME_STATE_DIR = path.join(
   os.homedir(),
   '.codex',
@@ -38,12 +40,18 @@ export function resolveStableCacheDir(stateDir) {
   return path.join(resolveRuntimeStateDir(stateDir), 'stable-cache');
 }
 
-export function resolveNoiseBaselineDir(stateDir) {
-  return path.join(resolveRuntimeStateDir(stateDir), 'noise-baselines');
+export function resolveNoiseBaselineDir(stateDir, options = {}) {
+  if (stateDir || (process.env.NOCOBASE_UI_RUNTIME_STATE_DIR && process.env.NOCOBASE_UI_RUNTIME_STATE_DIR.trim())) {
+    return path.join(resolveRuntimeStateDir(stateDir), 'noise-baselines');
+  }
+  return resolveSessionPaths(options).noiseBaselineDir;
 }
 
-export function resolveTelemetryDir(stateDir) {
-  return path.join(resolveRuntimeStateDir(stateDir), 'telemetry');
+export function resolveTelemetryDir(stateDir, options = {}) {
+  if (stateDir || (process.env.NOCOBASE_UI_RUNTIME_STATE_DIR && process.env.NOCOBASE_UI_RUNTIME_STATE_DIR.trim())) {
+    return path.join(resolveRuntimeStateDir(stateDir), 'telemetry');
+  }
+  return resolveSessionPaths(options).telemetryDir;
 }
 
 export function sortUniqueStrings(values) {

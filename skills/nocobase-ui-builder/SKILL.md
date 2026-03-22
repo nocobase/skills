@@ -93,13 +93,15 @@ V1 默认采用 schema-first 的渐进支持策略：
 
 这个 skill 应该为每次执行生成一份独立的工具调用日志，方便事后复盘。这里的“日志”是 skill 级 best-effort 记录，不是平台底层自动拦截，所以必须严格按下面流程执行。
 
-- 默认日志目录：`~/.codex/state/nocobase-ui-builder/tool-logs`
-- 最近一次运行清单：`~/.codex/state/nocobase-ui-builder/latest-run.json`
+- 默认采用 session 隔离目录：`~/.codex/state/nocobase-ui-builder/sessions/<sessionId>/`
+- 默认日志目录：`~/.codex/state/nocobase-ui-builder/sessions/<sessionId>/tool-logs`
+- 最近一次运行清单：`~/.codex/state/nocobase-ui-builder/sessions/<sessionId>/latest-run.json`
 - 日志格式：每次执行一个独立的 `.jsonl` 文件，每行一个 JSON 事件
+- `sessionId` 默认会按当前 Codex 进程自动派生；如果你要跨多条命令稳定复用，也可以显式传 `--session-id` 或设置 `NOCOBASE_UI_BUILDER_SESSION_ID`
 
 开始任何探测或写操作之前，先初始化本次运行日志：
 
-- `node scripts/tool_journal.mjs start-run --task "<用户请求>" [--title "<title>"] [--schemaUid "<schemaUid>"]`
+- `node scripts/tool_journal.mjs start-run --task "<用户请求>" [--title "<title>"] [--schemaUid "<schemaUid>"] [--session-id "<sessionId>"]`
 
 规则：
 
@@ -144,14 +146,14 @@ V1 默认采用 schema-first 的渐进支持策略：
 
 每次这个 skill 执行完后，都应该自动进入复盘与改进步骤，不需要等用户额外要求。目标不是写长报告，而是快速找出“下一次怎样更直接、更少步骤地完成同样结果”。
 
-- 默认报告目录：`~/.codex/state/nocobase-ui-builder/reports`
-- 默认输入来源：最近一次运行清单 `~/.codex/state/nocobase-ui-builder/latest-run.json`
+- 默认报告目录：`~/.codex/state/nocobase-ui-builder/sessions/<sessionId>/reports`
+- 默认输入来源：最近一次运行清单 `~/.codex/state/nocobase-ui-builder/sessions/<sessionId>/latest-run.json`
 - 默认输出：
   - 一份 Markdown 复盘报告
   - 一份单文件 HTML 复盘报告
   - 一份 `*.improve.md`
   - 一份 `*.improve.json`
-  - 一份长期累积的 `~/.codex/state/nocobase-ui-builder/improvement-log.jsonl`
+  - 一份长期累积的 `~/.codex/state/nocobase-ui-builder/sessions/<sessionId>/improvement-log.jsonl`
 
 常用命令：
 
@@ -159,6 +161,8 @@ V1 默认采用 schema-first 的渐进支持策略：
   - `node scripts/tool_review_report.mjs render`
 - 基于指定日志生成双份报告：
   - `node scripts/tool_review_report.mjs render --log-path "<logPath>"`
+- 显式指定 session：
+  - `node scripts/tool_review_report.mjs render --session-id "<sessionId>"`
 - 只生成 Markdown：
   - `node scripts/tool_review_report.mjs render --log-path "<logPath>" --formats md`
 - 指定输出目录：

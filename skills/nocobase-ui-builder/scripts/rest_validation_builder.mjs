@@ -9,12 +9,15 @@ import { reservePage, stableOpaqueId } from './opaque_uid.mjs';
 import { VALIDATION_CASE_MODE, auditPayload, canonicalizePayload } from './flow_payload_guard.mjs';
 import { getDefaultTabUseForPage } from './model_contracts.mjs';
 import { validateReadbackContract } from './rest_template_clone_runner.mjs';
+import { resolveSessionPaths } from './session_state.mjs';
 
 function usage() {
   return [
     'Usage:',
     '  node scripts/rest_validation_builder.mjs build',
     '    --session-dir <dir>',
+    '    [--session-id <id>]',
+    '    [--session-root <path>]',
     '    [--out-dir <dir>]',
     '    [--url-base <http://127.0.0.1:23000 | http://127.0.0.1:23000/admin>]',
     '    [--icon <icon>]',
@@ -508,7 +511,12 @@ function evaluateBuildPreflight({ buildSpec, compileArtifact, collectionsMeta })
   };
 }
 
-function reserveFreshPageTitle({ title, registryPath }) {
+function reserveFreshPageTitle({
+  title,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
   const normalizedTitle = normalizeRequiredText(title, 'title');
   const timestampLabel = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -518,6 +526,8 @@ function reserveFreshPageTitle({ title, registryPath }) {
     const result = reservePage({
       title: candidateTitle,
       ...(registryPath ? { registryPath } : {}),
+      ...(sessionId ? { sessionId } : {}),
+      ...(sessionRoot ? { sessionRoot } : {}),
     });
     if (result.created) {
       return {
@@ -2038,10 +2048,14 @@ function determineFinalStatus({ routeReady, auditResult, saveError, readbackCont
 
 async function runBuild(flags) {
   const sessionDir = path.resolve(normalizeRequiredText(flags['session-dir'], 'session dir'));
+  const session = resolveSessionPaths({
+    sessionId: flags['session-id'],
+    sessionRoot: flags['session-root'],
+  });
   const outDir = path.resolve(normalizeOptionalText(flags['out-dir']) || path.join(sessionDir, 'rest-builder'));
   const icon = normalizeOptionalText(flags.icon);
   const parentId = normalizeOptionalText(flags['parent-id']);
-  const registryPath = normalizeOptionalText(flags['registry-path']);
+  const registryPath = normalizeOptionalText(flags['registry-path']) || session.registryPath;
   const token = normalizeRequiredText(process.env.NOCOBASE_API_TOKEN, 'NOCOBASE_API_TOKEN');
   const { apiBase, adminBase } = normalizeUrlBase(flags['url-base'] || 'http://127.0.0.1:23000');
 
@@ -2058,6 +2072,7 @@ async function runBuild(flags) {
   const summary = {
     sessionDir,
     outDir,
+    sessionId: session.sessionId,
     requestedTitle: buildSpec?.target?.title || '',
     actualTitle: '',
     schemaUid: '',
@@ -2135,7 +2150,12 @@ async function runBuild(flags) {
   writeJson(path.join(outDir, 'schema-bundle.json'), schemaBundleResp.raw);
   summary.artifactPaths.schemaBundle = path.join(outDir, 'schema-bundle.json');
 
-  const reservedPage = reserveFreshPageTitle({ title: effectiveBuildSpec?.target?.title || 'validation page', registryPath });
+  const reservedPage = reserveFreshPageTitle({
+    title: effectiveBuildSpec?.target?.title || 'validation page',
+    registryPath,
+    sessionId: session.sessionId,
+    sessionRoot: session.sessionRoot,
+  });
   const schemaUid = reservedPage.page.schemaUid;
   const routeSegment = schemaUid;
   const pageUrl = buildPageUrl(adminBase, routeSegment);

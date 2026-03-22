@@ -16,6 +16,7 @@ import {
   recordToolCall,
   startRun,
 } from './tool_journal.mjs';
+import { resolveSessionPaths } from './session_state.mjs';
 
 let artifactSequence = 0;
 
@@ -64,9 +65,25 @@ function writeRawMcpArtifact(dir, {
   };
 }
 
-test('default run log directory points to codex state directory', () => {
+test('legacy run log constants point to codex state directory', () => {
   assert.match(DEFAULT_RUN_LOG_DIR, /\.codex\/state\/nocobase-ui-builder\/tool-logs$/);
   assert.match(DEFAULT_LATEST_RUN_PATH, /\.codex\/state\/nocobase-ui-builder\/latest-run\.json$/);
+});
+
+test('start-run defaults to session-scoped log paths when session root is provided', () => {
+  const sessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tool-journal-session-root-'));
+  const started = startRun({
+    task: 'Create session scoped run',
+    sessionRoot,
+  });
+  const session = resolveSessionPaths({ sessionRoot });
+  const manifest = JSON.parse(fs.readFileSync(started.latestRunPath, 'utf8'));
+
+  assert.equal(started.sessionId, session.sessionId);
+  assert.equal(started.latestRunPath, session.latestRunPath);
+  assert.equal(path.dirname(started.logPath), session.runLogDir);
+  assert.equal(manifest.sessionRoot, session.sessionRoot);
+  assert.equal(manifest.logPath, started.logPath);
 });
 
 test('start-run creates a jsonl log with a run_started record', () => {
@@ -85,6 +102,7 @@ test('start-run creates a jsonl log with a run_started record', () => {
 
   assert.equal(records.length, 1);
   assert.equal(records[0].type, 'run_started');
+  assert.equal(records[0].sessionId, started.sessionId);
   assert.equal(records[0].task, 'Create orders page');
   assert.equal(records[0].title, 'Orders');
   assert.equal(records[0].schemaUid, 'k7n4x9p2q5ra');

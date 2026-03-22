@@ -78,8 +78,8 @@ export const KNOWN_NOISE_RULES = [
 function usage() {
   return [
     'Usage:',
-    '  node scripts/noise_baseline.mjs classify --instance-fingerprint <fingerprint> --messages-json <jsonArray> [--state-dir <dir>]',
-    '  node scripts/noise_baseline.mjs record --instance-fingerprint <fingerprint> --run-id <runId> --messages-json <jsonArray> [--session-id <sessionId>] [--stage <name>] [--success <true|false>] [--state-dir <dir>]',
+    '  node scripts/noise_baseline.mjs classify --instance-fingerprint <fingerprint> --messages-json <jsonArray> [--session-id <sessionId>] [--session-root <path>] [--state-dir <dir>]',
+    '  node scripts/noise_baseline.mjs record --instance-fingerprint <fingerprint> --run-id <runId> --messages-json <jsonArray> [--session-id <sessionId>] [--session-root <path>] [--stage <name>] [--success <true|false>] [--state-dir <dir>]',
   ].join('\n');
 }
 
@@ -182,10 +182,10 @@ export function summarizeNoiseMessages(messages) {
   return [...groups.values()].sort((left, right) => right.count - left.count || left.familyId.localeCompare(right.familyId));
 }
 
-function baselineFilePath(stateDir, instanceFingerprint) {
+function baselineFilePath(stateDir, instanceFingerprint, options = {}) {
   const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
   return path.join(
-    resolveNoiseBaselineDir(stateDir),
+    resolveNoiseBaselineDir(stateDir, options),
     `${normalizedInstanceFingerprint}.json`,
   );
 }
@@ -204,9 +204,9 @@ function normalizeNoiseBaselineInstanceFingerprint(value) {
   return normalized;
 }
 
-export function loadNoiseBaseline({ stateDir, instanceFingerprint }) {
+export function loadNoiseBaseline({ stateDir, instanceFingerprint, sessionId, sessionRoot }) {
   const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
-  return readJsonFile(baselineFilePath(stateDir, instanceFingerprint), {
+  return readJsonFile(baselineFilePath(stateDir, instanceFingerprint, { sessionId, sessionRoot }), {
     version: BASELINE_SCHEMA_VERSION,
     instanceFingerprint: normalizedInstanceFingerprint,
     families: {},
@@ -269,12 +269,18 @@ export function recordNoiseRun({
   instanceFingerprint,
   runId,
   sessionId,
+  sessionRoot,
   stage = 'pre-open',
   summaries,
   success = true,
 }) {
   const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
-  const baseline = loadNoiseBaseline({ stateDir, instanceFingerprint: normalizedInstanceFingerprint });
+  const baseline = loadNoiseBaseline({
+    stateDir,
+    instanceFingerprint: normalizedInstanceFingerprint,
+    sessionId,
+    sessionRoot,
+  });
   const now = new Date().toISOString();
 
   for (const summary of Array.isArray(summaries) ? summaries : []) {
@@ -311,7 +317,7 @@ export function recordNoiseRun({
     baseline.families[summary.familyId] = current;
   }
 
-  const targetPath = baselineFilePath(stateDir, normalizedInstanceFingerprint);
+  const targetPath = baselineFilePath(stateDir, normalizedInstanceFingerprint, { sessionId, sessionRoot });
   ensureDir(path.dirname(targetPath));
   writeJsonAtomic(targetPath, baseline);
   return baseline;
@@ -321,9 +327,16 @@ export function classifyNoiseMessages({
   stateDir,
   instanceFingerprint,
   messages,
+  sessionId,
+  sessionRoot,
 }) {
   const normalizedInstanceFingerprint = normalizeNoiseBaselineInstanceFingerprint(instanceFingerprint);
-  const baseline = loadNoiseBaseline({ stateDir, instanceFingerprint: normalizedInstanceFingerprint });
+  const baseline = loadNoiseBaseline({
+    stateDir,
+    instanceFingerprint: normalizedInstanceFingerprint,
+    sessionId,
+    sessionRoot,
+  });
   const summaries = summarizeNoiseMessages(messages);
   return {
     summaries,
@@ -347,6 +360,8 @@ function main() {
   }
 
   const stateDir = typeof flags['state-dir'] === 'string' ? flags['state-dir'] : undefined;
+  const sessionId = typeof flags['session-id'] === 'string' ? flags['session-id'] : '';
+  const sessionRoot = typeof flags['session-root'] === 'string' ? flags['session-root'] : '';
   const messages = parseJson(flags['messages-json'], 'messages-json');
 
   if (command === 'classify') {
@@ -354,6 +369,8 @@ function main() {
       stateDir,
       instanceFingerprint: flags['instance-fingerprint'],
       messages,
+      sessionId,
+      sessionRoot,
     }), null, 2));
     return;
   }
@@ -367,7 +384,8 @@ function main() {
       stateDir,
       instanceFingerprint: flags['instance-fingerprint'],
       runId: flags['run-id'],
-      sessionId: typeof flags['session-id'] === 'string' ? flags['session-id'] : '',
+      sessionId,
+      sessionRoot,
       stage: typeof flags.stage === 'string' ? flags.stage : 'pre-open',
       summaries,
       success: parseBooleanString(flags.success, true),

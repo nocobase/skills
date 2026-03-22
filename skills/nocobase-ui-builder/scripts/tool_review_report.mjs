@@ -1,28 +1,22 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_BUILDER_STATE_DIR, resolveSessionPaths } from './session_state.mjs';
 import {
   DEFAULT_LATEST_RUN_PATH,
   resolveLatestRunPath,
 } from './tool_journal.mjs';
 
 export const DEFAULT_REPORT_DIR = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-builder',
+  DEFAULT_BUILDER_STATE_DIR,
   'reports',
 );
 
 export const DEFAULT_IMPROVEMENT_LOG_PATH = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-builder',
+  DEFAULT_BUILDER_STATE_DIR,
   'improvement-log.jsonl',
 );
 
@@ -61,7 +55,7 @@ const ROUTE_READY_TOOL_NAMES = new Set([
 function usage() {
   return [
     'Usage:',
-    '  node scripts/tool_review_report.mjs render [--log-path <path>] [--latest-run-path <path>] [--out-dir <path>] [--basename <name>] [--formats <md|html|both>] [--improvement-log-path <path>]',
+    '  node scripts/tool_review_report.mjs render [--log-path <path>] [--latest-run-path <path>] [--session-id <id>] [--session-root <path>] [--out-dir <path>] [--basename <name>] [--formats <md|html|both>] [--improvement-log-path <path>]',
   ].join('\n');
 }
 
@@ -94,7 +88,7 @@ function appendJsonLine(filePath, value) {
   fs.appendFileSync(filePath, `${JSON.stringify(value)}\n`, 'utf8');
 }
 
-function resolveReportDir(explicitPath) {
+function resolveReportDir(explicitPath, options = {}) {
   if (explicitPath) {
     return path.resolve(explicitPath);
   }
@@ -102,10 +96,10 @@ function resolveReportDir(explicitPath) {
   if (fromEnv && fromEnv.trim()) {
     return path.resolve(fromEnv.trim());
   }
-  return DEFAULT_REPORT_DIR;
+  return resolveSessionPaths(options).reportDir;
 }
 
-function resolveImprovementLogPath(explicitPath) {
+function resolveImprovementLogPath(explicitPath, options = {}) {
   if (explicitPath) {
     return path.resolve(explicitPath);
   }
@@ -113,7 +107,7 @@ function resolveImprovementLogPath(explicitPath) {
   if (fromEnv && fromEnv.trim()) {
     return path.resolve(fromEnv.trim());
   }
-  return DEFAULT_IMPROVEMENT_LOG_PATH;
+  return resolveSessionPaths(options).improvementLogPath;
 }
 
 function readJsonFile(filePath) {
@@ -146,19 +140,31 @@ export function loadJsonLines(filePath) {
     .map((line) => JSON.parse(line));
 }
 
-export function resolveRunLogPath({ logPath, latestRunPath }) {
+export function resolveRunLogPath({
+  logPath,
+  latestRunPath,
+  sessionId,
+  sessionRoot,
+}) {
   if (logPath) {
     return path.resolve(logPath);
   }
-  const resolvedLatestRunPath = resolveLatestRunPath(latestRunPath);
-  if (!fs.existsSync(resolvedLatestRunPath)) {
+  const sessionOptions = { sessionId, sessionRoot };
+  const resolvedLatestRunPath = resolveLatestRunPath(latestRunPath, sessionOptions);
+  const fallbackLatestRunPath = DEFAULT_LATEST_RUN_PATH;
+  const manifestPath = fs.existsSync(resolvedLatestRunPath)
+    ? resolvedLatestRunPath
+    : (!latestRunPath && resolvedLatestRunPath !== fallbackLatestRunPath && fs.existsSync(fallbackLatestRunPath)
+      ? fallbackLatestRunPath
+      : '');
+  if (!manifestPath) {
     throw new Error(
       `Latest run manifest was not found at "${resolvedLatestRunPath}"; provide --log-path explicitly`,
     );
   }
-  const manifest = readJsonFile(resolvedLatestRunPath);
+  const manifest = readJsonFile(manifestPath);
   if (!manifest.logPath) {
-    throw new Error(`Latest run manifest "${resolvedLatestRunPath}" does not contain logPath`);
+    throw new Error(`Latest run manifest "${manifestPath}" does not contain logPath`);
   }
   return path.resolve(manifest.logPath);
 }
@@ -1823,16 +1829,19 @@ function renderHtmlReport(summary) {
 
 export function renderReport({
   logPath,
-  latestRunPath = DEFAULT_LATEST_RUN_PATH,
-  outDir = DEFAULT_REPORT_DIR,
+  latestRunPath,
+  sessionId,
+  sessionRoot,
+  outDir,
   basename,
   formats = 'both',
   improvementLogPath,
 }) {
-  const resolvedLogPath = resolveRunLogPath({ logPath, latestRunPath });
+  const sessionOptions = { sessionId, sessionRoot };
+  const resolvedLogPath = resolveRunLogPath({ logPath, latestRunPath, ...sessionOptions });
   const records = loadJsonLines(resolvedLogPath);
   const summary = analyzeRun(records, resolvedLogPath);
-  const resolvedOutDir = resolveReportDir(outDir);
+  const resolvedOutDir = resolveReportDir(outDir, sessionOptions);
   const base = basename?.trim() || path.basename(resolvedLogPath, path.extname(resolvedLogPath));
   const requestedFormats = normalizeNonEmpty(formats, 'formats');
   const writeMarkdown = requestedFormats === 'md' || requestedFormats === 'both';
@@ -1860,7 +1869,7 @@ export function renderReport({
 
   const improvementMarkdownPath = path.join(resolvedOutDir, `${base}.improve.md`);
   const improvementJsonPath = path.join(resolvedOutDir, `${base}.improve.json`);
-  const resolvedImprovementLogPath = resolveImprovementLogPath(improvementLogPath);
+  const resolvedImprovementLogPath = resolveImprovementLogPath(improvementLogPath, sessionOptions);
   const improvementSnapshot = buildImprovementSnapshot(summary, resolvedImprovementLogPath);
   writeTextFile(improvementMarkdownPath, `${renderImprovementMarkdown(summary)}\n`);
   writeTextFile(improvementJsonPath, `${JSON.stringify(improvementSnapshot, null, 2)}\n`);
@@ -1908,6 +1917,8 @@ export async function runCli(argv = process.argv.slice(2)) {
   const result = renderReport({
     logPath: flags['log-path'],
     latestRunPath: flags['latest-run-path'],
+    sessionId: flags['session-id'],
+    sessionRoot: flags['session-root'],
     outDir: flags['out-dir'],
     basename: flags.basename,
     formats: flags.formats ?? 'both',

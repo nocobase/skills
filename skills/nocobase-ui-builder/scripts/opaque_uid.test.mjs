@@ -21,8 +21,25 @@ function makeRegistryPath(testName) {
   return path.join(dir, 'pages.v1.json');
 }
 
-test('default registry path points to codex state directory', () => {
+test('legacy registry constant points to codex state directory', () => {
   assert.match(DEFAULT_REGISTRY_PATH, /\.codex\/state\/nocobase-ui-builder\/pages\.v1\.json$/);
+});
+
+test('default registry path is isolated by session root', () => {
+  const firstSessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'opaque-uid-session-a-'));
+  const secondSessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'opaque-uid-session-b-'));
+
+  const first = reservePage({ title: 'Users', sessionRoot: firstSessionRoot });
+  const second = reservePage({ title: 'Users', sessionRoot: secondSessionRoot });
+  const firstRegistry = loadRegistry(undefined, { sessionRoot: firstSessionRoot });
+  const secondRegistry = loadRegistry(undefined, { sessionRoot: secondSessionRoot });
+
+  assert.equal(first.created, true);
+  assert.equal(second.created, true);
+  assert.notEqual(first.registryPath, second.registryPath);
+  assert.notEqual(first.page.schemaUid, second.page.schemaUid);
+  assert.equal(firstRegistry.pages.length, 1);
+  assert.equal(secondRegistry.pages.length, 1);
 });
 
 test('reserve-page is idempotent for the same current title', () => {

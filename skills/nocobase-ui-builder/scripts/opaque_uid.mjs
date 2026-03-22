@@ -2,16 +2,14 @@
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_BUILDER_STATE_DIR, resolveSessionPaths } from './session_state.mjs';
+
 export const REGISTRY_VERSION = 1;
 export const DEFAULT_REGISTRY_PATH = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-builder',
+  DEFAULT_BUILDER_STATE_DIR,
   'pages.v1.json',
 );
 
@@ -23,9 +21,9 @@ const OPAQUE_UID_LENGTH = 12;
 function usage() {
   return [
     'Usage:',
-    '  node scripts/opaque_uid.mjs reserve-page --title <title> [--registry-path <path>]',
-    '  node scripts/opaque_uid.mjs rename-page --schemaUid <schemaUid> --title <title> [--registry-path <path>]',
-    '  node scripts/opaque_uid.mjs resolve-page (--title <title> | --schemaUid <schemaUid>) [--registry-path <path>]',
+    '  node scripts/opaque_uid.mjs reserve-page --title <title> [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
+    '  node scripts/opaque_uid.mjs rename-page --schemaUid <schemaUid> --title <title> [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
+    '  node scripts/opaque_uid.mjs resolve-page (--title <title> | --schemaUid <schemaUid>) [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
     '  node scripts/opaque_uid.mjs node-uids --page-schema-uid <schemaUid> --specs-json <jsonArray>',
   ].join('\n');
 }
@@ -45,7 +43,7 @@ function normalizeNonEmpty(value, label) {
   return normalized;
 }
 
-function resolveRegistryPath(explicitPath) {
+function resolveRegistryPath(explicitPath, options = {}) {
   if (explicitPath) {
     return path.resolve(explicitPath);
   }
@@ -53,7 +51,7 @@ function resolveRegistryPath(explicitPath) {
   if (fromEnv && fromEnv.trim()) {
     return path.resolve(fromEnv.trim());
   }
-  return DEFAULT_REGISTRY_PATH;
+  return resolveSessionPaths(options).registryPath;
 }
 
 function ensureParentDir(filePath) {
@@ -74,12 +72,13 @@ export function createEmptyRegistry() {
   };
 }
 
-export function loadRegistry(registryPath = DEFAULT_REGISTRY_PATH) {
-  if (!fs.existsSync(registryPath)) {
+export function loadRegistry(registryPath, options = {}) {
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, options);
+  if (!fs.existsSync(resolvedRegistryPath)) {
     return createEmptyRegistry();
   }
 
-  const raw = fs.readFileSync(registryPath, 'utf8');
+  const raw = fs.readFileSync(resolvedRegistryPath, 'utf8');
   const parsed = JSON.parse(raw);
 
   if (parsed.version !== REGISTRY_VERSION) {
@@ -173,14 +172,20 @@ function createPageSchemaUid(registry, logicalKey) {
   throw new Error('Unable to allocate a unique page schemaUid');
 }
 
-export function reservePage({ title, registryPath = DEFAULT_REGISTRY_PATH }) {
+export function reservePage({
+  title,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
   const normalizedTitle = normalizeNonEmpty(title, 'title');
-  const registry = loadRegistry(registryPath);
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, { sessionId, sessionRoot });
+  const registry = loadRegistry(resolvedRegistryPath);
   const existing = registry.pages.find((page) => page.title === normalizedTitle) ?? null;
   if (existing) {
     return {
       created: false,
-      registryPath,
+      registryPath: resolvedRegistryPath,
       page: existing,
     };
   }
@@ -191,19 +196,26 @@ export function reservePage({ title, registryPath = DEFAULT_REGISTRY_PATH }) {
   const schemaUid = createPageSchemaUid(registry, logicalKey);
   const page = buildPageRecord(normalizedTitle, logicalKey, schemaUid);
   registry.pages.push(page);
-  saveRegistry(registryPath, registry);
+  saveRegistry(resolvedRegistryPath, registry);
 
   return {
     created: true,
-    registryPath,
+    registryPath: resolvedRegistryPath,
     page,
   };
 }
 
-export function renamePage({ schemaUid, title, registryPath = DEFAULT_REGISTRY_PATH }) {
+export function renamePage({
+  schemaUid,
+  title,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
   const normalizedSchemaUid = normalizeNonEmpty(schemaUid, 'schemaUid');
   const normalizedTitle = normalizeNonEmpty(title, 'title');
-  const registry = loadRegistry(registryPath);
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, { sessionId, sessionRoot });
+  const registry = loadRegistry(resolvedRegistryPath);
   const page = findPageBySchemaUid(registry, normalizedSchemaUid);
   if (!page) {
     throw new Error(`Page "${normalizedSchemaUid}" was not found in the local registry`);
@@ -226,17 +238,24 @@ export function renamePage({ schemaUid, title, registryPath = DEFAULT_REGISTRY_P
   page.aliases = [...nextAliases].sort();
   page.updatedAt = nowIso();
 
-  saveRegistry(registryPath, registry);
+  saveRegistry(resolvedRegistryPath, registry);
 
   return {
     updated: true,
-    registryPath,
+    registryPath: resolvedRegistryPath,
     page,
   };
 }
 
-export function resolvePage({ title, schemaUid, registryPath = DEFAULT_REGISTRY_PATH }) {
-  const registry = loadRegistry(registryPath);
+export function resolvePage({
+  title,
+  schemaUid,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, { sessionId, sessionRoot });
+  const registry = loadRegistry(resolvedRegistryPath);
 
   if (schemaUid) {
     const normalizedSchemaUid = normalizeNonEmpty(schemaUid, 'schemaUid');
@@ -245,7 +264,7 @@ export function resolvePage({ title, schemaUid, registryPath = DEFAULT_REGISTRY_
       throw new Error(`Page "${normalizedSchemaUid}" was not found in the local registry`);
     }
     return {
-      registryPath,
+      registryPath: resolvedRegistryPath,
       page,
     };
   }
@@ -262,7 +281,7 @@ export function resolvePage({ title, schemaUid, registryPath = DEFAULT_REGISTRY_
   }
 
   return {
-    registryPath,
+    registryPath: resolvedRegistryPath,
     page: matches[0],
   };
 }
@@ -367,7 +386,11 @@ export async function runCli(argv = process.argv.slice(2)) {
     return;
   }
 
-  const registryPath = resolveRegistryPath(flags['registry-path']);
+  const sessionOptions = {
+    sessionId: flags['session-id'],
+    sessionRoot: flags['session-root'],
+  };
+  const registryPath = resolveRegistryPath(flags['registry-path'], sessionOptions);
   let result;
 
   switch (command) {
@@ -375,6 +398,7 @@ export async function runCli(argv = process.argv.slice(2)) {
       result = reservePage({
         title: flags.title,
         registryPath,
+        ...sessionOptions,
       });
       break;
     case 'rename-page':
@@ -382,6 +406,7 @@ export async function runCli(argv = process.argv.slice(2)) {
         schemaUid: flags.schemaUid,
         title: flags.title,
         registryPath,
+        ...sessionOptions,
       });
       break;
     case 'resolve-page':
@@ -389,6 +414,7 @@ export async function runCli(argv = process.argv.slice(2)) {
         title: flags.title,
         schemaUid: flags.schemaUid,
         registryPath,
+        ...sessionOptions,
       });
       break;
     case 'node-uids':

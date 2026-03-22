@@ -22,6 +22,7 @@ import {
   finishRun,
   appendNote,
 } from './tool_journal.mjs';
+import { resolveSessionPaths } from './session_state.mjs';
 
 function makeTempDir(testName) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `tool-review-report-${testName}-`));
@@ -93,10 +94,34 @@ function recordToolCall(params) {
   });
 }
 
-test('default report directory points to codex state directory', () => {
+test('legacy report constants point to codex state directory', () => {
   assert.match(DEFAULT_REPORT_DIR, /\.codex\/state\/nocobase-ui-builder\/reports$/);
   assert.match(DEFAULT_LATEST_RUN_PATH, /\.codex\/state\/nocobase-ui-builder\/latest-run\.json$/);
   assert.match(DEFAULT_IMPROVEMENT_LOG_PATH, /\.codex\/state\/nocobase-ui-builder\/improvement-log\.jsonl$/);
+});
+
+test('renderReport defaults to session-scoped report paths', () => {
+  const sessionRoot = makeTempDir('session-root');
+  const session = resolveSessionPaths({ sessionRoot });
+  const started = startRun({
+    task: 'Session scoped report',
+    sessionRoot,
+  });
+  finishRun({
+    logPath: started.logPath,
+    status: 'success',
+    summary: 'done',
+  });
+
+  const result = renderReport({
+    sessionRoot,
+    formats: 'md',
+  });
+
+  assert.equal(result.outDir, session.reportDir);
+  assert.equal(result.improvementLogPath, session.improvementLogPath);
+  assert.equal(result.logPath, started.logPath);
+  assert.equal(path.dirname(result.markdownPath), session.reportDir);
 });
 
 test('renderReport writes markdown and html outputs from a log path', () => {
