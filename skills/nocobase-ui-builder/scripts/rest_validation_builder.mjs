@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { reservePage, stableOpaqueId } from './opaque_uid.mjs';
 import { VALIDATION_CASE_MODE, auditPayload, canonicalizePayload } from './flow_payload_guard.mjs';
 import { getDefaultTabUseForPage } from './model_contracts.mjs';
-import { validateReadbackContract } from './rest_template_clone_runner.mjs';
+import { buildReadbackDriftReport, validateReadbackContract } from './rest_template_clone_runner.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
 import { collectExplicitCollectionMatches } from './validation_scenario_planner.mjs';
 
@@ -855,6 +855,7 @@ const COLLECTION_BOUND_PUBLIC_USES = new Set([
   'GridCardBlockModel',
   'ListBlockModel',
   'MapBlockModel',
+  'CommentsBlockModel',
 ]);
 
 function findFormItemCandidate(blockGridDoc, formUse) {
@@ -1363,7 +1364,7 @@ function patchDetailsBlock(detailsNode, {
   }
 }
 
-function buildPublicUseModel({ blockGridDoc, allocator, use, title, mainCollection }) {
+function buildPublicUseModel({ blockGridDoc, allocator, use, title, mainCollection, jsCode }) {
   const candidate = findRootCandidate(blockGridDoc, use);
   if (!candidate?.skeleton) {
     return null;
@@ -1385,6 +1386,18 @@ function buildPublicUseModel({ blockGridDoc, allocator, use, title, mainCollecti
     }
     node.stepParams.markdownBlockSettings.editMarkdown.content = `# ${title}\n\n- 本区块由 validation planner 按实例可用 blocks 自动选入。`;
   }
+  if (use === 'JSBlockModel' && normalizeOptionalText(jsCode)) {
+    if (!isPlainObject(node.stepParams)) {
+      node.stepParams = {};
+    }
+    if (!isPlainObject(node.stepParams.jsSettings)) {
+      node.stepParams.jsSettings = {};
+    }
+    node.stepParams.jsSettings.runJs = {
+      version: 'v2',
+      code: normalizeOptionalText(jsCode),
+    };
+  }
   return node;
 }
 
@@ -1394,6 +1407,7 @@ function findTableColumnCandidates(tableCandidate) {
     : [];
   return {
     fieldColumnCandidate: candidates.find((item) => item?.use === 'TableColumnModel') || null,
+    jsColumnCandidate: candidates.find((item) => item?.use === 'JSColumnModel') || null,
     actionsColumnCandidate: candidates.find((item) => item?.use === 'TableActionsColumnModel') || null,
   };
 }
@@ -1431,6 +1445,34 @@ function buildFieldColumnModel({ fieldColumnCandidate, allocator, collectionName
     collectionIndex,
   });
   return fieldColumn;
+}
+
+function buildJsColumnModel({ jsColumnCandidate, allocator, title, code, width }) {
+  const jsColumn = cloneCandidateSkeleton(jsColumnCandidate, 'JSColumnModel', allocator);
+  if (!isPlainObject(jsColumn.stepParams)) {
+    jsColumn.stepParams = {};
+  }
+  if (!isPlainObject(jsColumn.stepParams.tableColumnSettings)) {
+    jsColumn.stepParams.tableColumnSettings = {};
+  }
+  if (!isPlainObject(jsColumn.stepParams.tableColumnSettings.title)) {
+    jsColumn.stepParams.tableColumnSettings.title = {};
+  }
+  jsColumn.stepParams.tableColumnSettings.title.title = title || 'JS column';
+  if (Number.isFinite(width)) {
+    if (!isPlainObject(jsColumn.stepParams.tableColumnSettings.width)) {
+      jsColumn.stepParams.tableColumnSettings.width = {};
+    }
+    jsColumn.stepParams.tableColumnSettings.width.width = width;
+  }
+  if (!isPlainObject(jsColumn.stepParams.jsSettings)) {
+    jsColumn.stepParams.jsSettings = {};
+  }
+  jsColumn.stepParams.jsSettings.runJs = {
+    version: 'v2',
+    code: normalizeOptionalText(code) || '',
+  };
+  return jsColumn;
 }
 
 function patchDeleteActionAppearance(actionNode) {
@@ -1861,7 +1903,7 @@ function buildTableBlockModel({ blockSpec, blockGridDoc, allocator, collectionIn
   patchResourceCollectionName(tableNode, collectionName);
 
   const fieldPaths = normalizeFieldPaths(blockSpec.fields, firstScalarFieldPath(blockSpec.fields) || 'id');
-  const { fieldColumnCandidate, actionsColumnCandidate } = findTableColumnCandidates(tableCandidate);
+  const { fieldColumnCandidate, jsColumnCandidate, actionsColumnCandidate } = findTableColumnCandidates(tableCandidate);
   if (!fieldColumnCandidate?.skeleton) {
     throw new Error('schemaBundle missing TableColumnModel skeleton');
   }
@@ -1873,6 +1915,20 @@ function buildTableBlockModel({ blockSpec, blockGridDoc, allocator, collectionIn
     fieldPath,
     collectionIndex,
   }));
+
+  const jsColumns = Array.isArray(blockSpec.jsColumns) ? blockSpec.jsColumns : [];
+  if (jsColumns.length > 0) {
+    if (!jsColumnCandidate?.skeleton) {
+      throw new Error('schemaBundle missing JSColumnModel skeleton');
+    }
+    columns.push(...jsColumns.map((columnSpec, index) => buildJsColumnModel({
+      jsColumnCandidate,
+      allocator,
+      title: normalizeOptionalText(columnSpec?.title) || `JS Column ${index + 1}`,
+      code: normalizeOptionalText(columnSpec?.code),
+      width: Number.isFinite(columnSpec?.width) ? columnSpec.width : undefined,
+    })));
+  }
 
   const rowActionNodes = (Array.isArray(blockSpec.rowActions) ? blockSpec.rowActions : [])
     .map((actionSpec) => buildActionModel({
@@ -1947,6 +2003,7 @@ function buildBlockModelFromSpec({
       use: blockSpec.use.trim(),
       title: normalizeOptionalText(blockSpec.title),
       mainCollection: normalizeOptionalText(blockSpec.collectionName) || mainCollection,
+      jsCode: normalizeOptionalText(blockSpec.jsCode),
     });
   }
   if (blockSpec.kind === 'Table') {
@@ -2446,6 +2503,7 @@ async function runBuild(flags) {
   }
 
   let readbackResult = null;
+  let readbackDiffResult = null;
   let readbackContractResult = {
     ok: false,
     findings: [{
@@ -2468,6 +2526,9 @@ async function runBuild(flags) {
     });
     writeJson(path.join(outDir, 'readback.json'), readbackResult.raw);
     summary.artifactPaths.readback = path.join(outDir, 'readback.json');
+    readbackDiffResult = buildReadbackDriftReport(canonicalizeResult.payload, readbackResult.data);
+    writeJson(path.join(outDir, 'readback-diff.json'), readbackDiffResult);
+    summary.artifactPaths.readbackDiff = path.join(outDir, 'readback-diff.json');
     readbackContractResult = validateReadbackContract(readbackResult.data, effectiveCompileArtifact.readbackContract || {});
     writeJson(path.join(outDir, 'readback-contract.json'), readbackContractResult);
     summary.artifactPaths.readbackContract = path.join(outDir, 'readback-contract.json');
@@ -2487,6 +2548,9 @@ async function runBuild(flags) {
   }
   if (!readbackContractResult.ok) {
     summary.notes.push('readback contract 未全部通过。');
+  }
+  if (readbackDiffResult && !readbackDiffResult.ok) {
+    summary.notes.push(`readback diff 发现 ${readbackDiffResult.summary?.driftCount || readbackDiffResult.findings?.length || 0} 处 runtime-sensitive 漂移。`);
   }
 
   writeJson(path.join(outDir, 'summary.json'), summary);

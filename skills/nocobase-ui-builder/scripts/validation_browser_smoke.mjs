@@ -162,6 +162,25 @@ async function waitForBodyIncludesAll(page, values, timeoutMs = DEFAULT_TIMEOUT_
   };
 }
 
+async function waitForBodyIncludesAny(page, values, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const expected = (Array.isArray(values) ? values : []).filter(Boolean);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= timeoutMs) {
+    const text = await bodyText(page);
+    if (expected.some((item) => text.includes(item))) {
+      return {
+        ok: true,
+        bodyText: text,
+      };
+    }
+    await delay(400);
+  }
+  return {
+    ok: false,
+    bodyText: await bodyText(page),
+  };
+}
+
 async function clickByText(page, text) {
   const candidates = [
     page.getByRole('tab', { name: text, exact: true }).first(),
@@ -216,6 +235,16 @@ async function evaluateAssertion(page, assertion) {
   if (assertion.kind === 'bodyTextIncludesAll') {
     const values = Array.isArray(assertion.values) ? assertion.values : [];
     const result = await waitForBodyIncludesAll(page, values);
+    return {
+      passed: result.ok,
+      kind: assertion.kind,
+      label: assertion.label || assertion.kind,
+      values,
+    };
+  }
+  if (assertion.kind === 'bodyTextIncludesAny') {
+    const values = Array.isArray(assertion.values) ? assertion.values : [];
+    const result = await waitForBodyIncludesAny(page, values);
     return {
       passed: result.ok,
       kind: assertion.kind,

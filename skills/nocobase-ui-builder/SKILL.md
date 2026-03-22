@@ -75,6 +75,20 @@ V1 默认采用 schema-first 的渐进支持策略：
 
 当任务开始进入 block-level 搭建时，推荐按下面路径查阅 references，而不是把所有细节都从 `SKILL.md` 现推导：
 
+如果当前任务涉及 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSItemModel`、`JSActionModel` 或任何 `runJs` 代码生成，先走 JS Model 入口，不要先套普通 block 配方：
+
+1. 先打开 [references/js-models/index.md](references/js-models/index.md)
+2. 如果当前模型需要渲染，再打开 [references/js-models/rendering-contract.md](references/js-models/rendering-contract.md)
+3. 然后再打开具体模型文档
+
+硬规则：
+
+- 对需要渲染的 JS model，默认使用 `ctx.render()`。
+- 不要把 `ctx.element.innerHTML = ...` 当作默认推荐方案。
+- 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSItemModel` 的默认渲染范式。
+
+如果当前任务不是 JS Model，再按下面路径查阅：
+
 1. 先从用户目标识别本轮涉及的区块 use 与横切场景
    - 例如：筛选区块、主表、详情区块、创建/编辑表单、page/tabs
    - 以及：表格列渲染、popup/openView、关系上下文、record actions、tree table、多对多/中间表
@@ -245,7 +259,7 @@ V1 默认采用 schema-first 的渐进支持策略：
 26. 通过模板 clone 得到的 `CreateFormModel` / `EditFormModel`，如果 `subModels.actions` 里出现多个 submit-like action，必须先去重；只保留有真实配置的那个，不能把空壳 submit 一起落库
 27. `*FieldModel` 不支持 `subModels.page`；如果样板页里出现这类结构，说明 clone/slot 判断已经偏离源码契约，先清理或阻断，再继续后续审计
 28. 所有继承 `CollectionBlockModel` 的区块，落库前都必须显式具备 `stepParams.resourceSettings.init.dataSourceKey + collectionName`。目前已从源码证实至少包括：`MapBlockModel`、`ListBlockModel`、`GridCardBlockModel`、`CommentsBlockModel`。不能因为 schema manifest skeleton 没带 `resourceSettings` 就直接沿用空壳，否则 runtime 会在 `CollectionBlockModel.onInit` 读取 `params.dataSourceKey` 时直接报错并导致区块空白或整页卡骨架屏
-29. `FormItemModel` / `DetailsItemModel` 的 `subModels.field` 不应直接落具体 `InputFieldModel` / `DisplayTextFieldModel`。源码里的标准入口是 `use=FieldModel`，再通过 `stepParams.fieldBinding.use=<具体字段模型>` 指向目标组件；否则容易出现 `resolveUse circular reference` 之类的运行时结构告警
+29. `FormItemModel` 的 `subModels.field` 必须优先走 `use=FieldModel + stepParams.fieldBinding.use=<具体 editable field model>`；`DetailsItemModel` 也默认按同一 builder 约定生成，但如果 readback/平台把它改写成直接 display field model，要先记录为 runtime-sensitive 漂移，再结合 readback diff 和浏览器证据判断，而不是直接当成所有版本都必错的源码硬 blocker
 30. validation 如果捕获到 `TypeError` / `ReferenceError` / `Unhandled Rejection`，且栈落在 `BlockModel` / `FieldModel` / `FlowModelContext` / `resourceSettings` 读取链路，要优先按“flow model json 结构错误”处理，并把结论沉淀进 guard / recipe / validation 规则，而不是只记成一次性的 runtime 噪声
 
 命令示例：
@@ -701,6 +715,8 @@ validation 主入口现在默认不再优先命中任何固定 case。
 
 - API 生命周期、MCP 请求格式、路由/锚点映射、页面初始化规则：
   [references/ui-api-overview.md](references/ui-api-overview.md)
+- JS Model / RunJS 入口：
+  [references/js-models/index.md](references/js-models/index.md)
 - 具体区块请求体配方与 MCP 调用模式：
   [references/flow-model-recipes.md](references/flow-model-recipes.md)
 - 区块文档索引：

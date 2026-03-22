@@ -99,9 +99,12 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 1. `CollectionBlockModel` 派生区块缺少 `stepParams.resourceSettings.init.dataSourceKey / collectionName`
    - 典型症状：页面或区块卡骨架屏、Map/List/GridCard 一打开就空白
    - 已知至少影响：`MapBlockModel`、`ListBlockModel`、`GridCardBlockModel`、`CommentsBlockModel`
-2. `FormItemModel` / `DetailsItemModel` 直接把具体字段模型落到 `subModels.field.use`
-   - 源码期望入口其实是 `use=FieldModel`，再用 `stepParams.fieldBinding.use` 指向 `InputFieldModel` / `DisplayTextFieldModel` 等目标模型
+2. `FormItemModel` 直接把具体字段模型落到 `subModels.field.use`
+   - 当前 builder/runtime 的稳定入口是 `use=FieldModel`，再用 `stepParams.fieldBinding.use` 指向 `InputFieldModel` 等目标模型
    - 典型症状：`resolveUse circular reference`、字段子树行为不稳定
+3. `DetailsItemModel` 如果直接把具体 display field model 落到 `subModels.field.use`
+   - 当前应优先视为 builder/readback/runtime 形态漂移的高风险诊断，而不是先验认定为所有核心版本都不合法
+   - 需要结合 write payload、readback diff 与浏览器现象一起判断
 
 强制规则：
 

@@ -833,15 +833,415 @@ function collectScopeNodesForBinding(model, binding) {
     .map((tab) => tab.grid || tab.tab);
 }
 
+function isPageLikeUse(use) {
+  return normalizeOptionalText(use).endsWith('PageModel');
+}
+
+function isTabLikeUse(use) {
+  return normalizeOptionalText(use).endsWith('PageTabModel');
+}
+
+function collectScopeGridNode(scopeNode) {
+  if (!isPlainObject(scopeNode)) {
+    return null;
+  }
+  if (scopeNode.use === 'BlockGridModel') {
+    return scopeNode;
+  }
+  return isPlainObject(scopeNode?.subModels?.grid) ? scopeNode.subModels.grid : null;
+}
+
+function collectDirectBlockNodes(scopeNode) {
+  const gridNode = collectScopeGridNode(scopeNode);
+  return (Array.isArray(gridNode?.subModels?.items) ? gridNode.subModels.items : [])
+    .filter((item) => isPlainObject(item) && isBlockLikeUse(item.use));
+}
+
+function collectScopeTabDescriptors(scopeNode) {
+  return (Array.isArray(scopeNode?.subModels?.tabs) ? scopeNode.subModels.tabs : [])
+    .map((tabNode, index) => ({
+      index,
+      tabNode,
+      gridNode: collectScopeGridNode(tabNode),
+    }))
+    .filter((item) => isPlainObject(item.tabNode) && isTabLikeUse(item.tabNode.use));
+}
+
+function collectNestedBlockNodes(blockNode) {
+  return (Array.isArray(blockNode?.subModels?.grid?.subModels?.items) ? blockNode.subModels.grid.subModels.items : [])
+    .filter((item) => isPlainObject(item) && isBlockLikeUse(item.use));
+}
+
+function collectActionDescriptorsFromBlock(blockNode, blockPath) {
+  const descriptors = [];
+  const directActions = Array.isArray(blockNode?.subModels?.actions) ? blockNode.subModels.actions : [];
+  const directActionPath = blockNode?.use === 'DetailsBlockModel' ? 'details-actions' : 'block-actions';
+  directActions.forEach((actionNode, index) => {
+    if (!isPlainObject(actionNode)) {
+      return;
+    }
+    descriptors.push({
+      path: `${blockPath}.${directActionPath}[${index}]`,
+      node: actionNode,
+      scope: directActionPath,
+    });
+  });
+
+  if (blockNode?.use === 'TableBlockModel') {
+    const rowActionNodes = [];
+    const columns = Array.isArray(blockNode?.subModels?.columns) ? blockNode.subModels.columns : [];
+    columns.forEach((columnNode) => {
+      if (!isPlainObject(columnNode) || columnNode.use !== 'TableActionsColumnModel') {
+        return;
+      }
+      const actions = Array.isArray(columnNode?.subModels?.actions) ? columnNode.subModels.actions : [];
+      actions.forEach((actionNode) => {
+        if (isPlainObject(actionNode)) {
+          rowActionNodes.push(actionNode);
+        }
+      });
+    });
+    rowActionNodes.forEach((actionNode, index) => {
+      descriptors.push({
+        path: `${blockPath}.row-actions[${index}]`,
+        node: actionNode,
+        scope: 'row-actions',
+      });
+    });
+  }
+
+  return descriptors;
+}
+
+function collectDetailsBlockEvidenceFromBlocks(blockNodes) {
+  const detailsBlocks = [];
+  const visitBlocks = (items) => {
+    items.forEach((blockNode) => {
+      if (!isPlainObject(blockNode) || !isBlockLikeUse(blockNode.use)) {
+        return;
+      }
+      if (blockNode.use === 'DetailsBlockModel') {
+        const detailItems = (Array.isArray(blockNode?.subModels?.grid?.subModels?.items)
+          ? blockNode.subModels.grid.subModels.items
+          : [])
+          .filter((item) => isPlainObject(item) && item.use === 'DetailsItemModel');
+        detailsBlocks.push({
+          collectionName: normalizeOptionalText(blockNode?.stepParams?.resourceSettings?.init?.collectionName),
+          fieldPaths: uniqueStrings(detailItems.map((item) => normalizeOptionalText(item?.stepParams?.fieldSettings?.init?.fieldPath))),
+          itemCount: detailItems.length,
+          filterByTk: normalizeOptionalText(blockNode?.stepParams?.resourceSettings?.init?.filterByTk),
+        });
+      }
+      visitBlocks(collectNestedBlockNodes(blockNode));
+    });
+  };
+  visitBlocks(Array.isArray(blockNodes) ? blockNodes : []);
+  return detailsBlocks;
+}
+
+function collectScopeDetailsBlocks(scopeNode) {
+  const detailsBlocks = [
+    ...collectDetailsBlockEvidenceFromBlocks(collectDirectBlockNodes(scopeNode)),
+  ];
+  collectScopeTabDescriptors(scopeNode).forEach(({ tabNode }) => {
+    detailsBlocks.push(...collectScopeDetailsBlocks(tabNode));
+  });
+  return detailsBlocks;
+}
+
+function scopeHasRequiredBlockGrid(scopeNode) {
+  const directGridNode = collectScopeGridNode(scopeNode);
+  if (isPlainObject(directGridNode) && directGridNode.use === 'BlockGridModel') {
+    return true;
+  }
+  const tabDescriptors = collectScopeTabDescriptors(scopeNode);
+  if (tabDescriptors.length === 0) {
+    return false;
+  }
+  return tabDescriptors.every(({ gridNode }) => isPlainObject(gridNode) && gridNode.use === 'BlockGridModel');
+}
+
+function collectStructuredScopes(model) {
+  const scopes = [];
+
+  const visitBlocks = (blockNodes, scopePath) => {
+    blockNodes.forEach((blockNode, index) => {
+      if (!isPlainObject(blockNode) || !isBlockLikeUse(blockNode.use)) {
+        return;
+      }
+      const blockPath = `${scopePath}.blocks[${index}]`;
+      collectActionDescriptorsFromBlock(blockNode, blockPath).forEach((actionDescriptor) => {
+        const pageNode = isPlainObject(actionDescriptor.node?.subModels?.page) ? actionDescriptor.node.subModels.page : null;
+        if (!pageNode || !isPageLikeUse(pageNode.use)) {
+          return;
+        }
+        visitScope(pageNode, `${actionDescriptor.path}.popup.page`, 'popup-page', '');
+      });
+      const nestedBlocks = collectNestedBlockNodes(blockNode);
+      if (nestedBlocks.length > 0) {
+        visitBlocks(nestedBlocks, blockPath);
+      }
+    });
+  };
+
+  const visitScope = (scopeNode, scopePath, scopeKind, tabTitle) => {
+    if (!isPlainObject(scopeNode)) {
+      return;
+    }
+    const gridNode = collectScopeGridNode(scopeNode);
+    const directBlocks = collectDirectBlockNodes(scopeNode);
+    scopes.push({
+      scopePath,
+      scopeKind,
+      pageUse: normalizeOptionalText(scopeNode.use),
+      tabTitle: normalizeOptionalText(tabTitle),
+      node: scopeNode,
+      gridNode,
+      hasRequiredBlockGrid: scopeHasRequiredBlockGrid(scopeNode),
+      directBlocks,
+      blockUses: collectBlockUsesFromScope(gridNode || scopeNode),
+      detailsBlocks: collectScopeDetailsBlocks(scopeNode),
+      visibleTabTitles: collectVisibleTabTitles(scopeNode),
+    });
+    visitBlocks(directBlocks, scopePath);
+
+    const tabs = Array.isArray(scopeNode?.subModels?.tabs) ? scopeNode.subModels.tabs : [];
+    tabs.forEach((tabNode, index) => {
+      if (!isPlainObject(tabNode) || !isTabLikeUse(tabNode.use)) {
+        return;
+      }
+      visitScope(
+        tabNode,
+        `${scopePath}.tabs[${index}]`,
+        scopeKind === 'popup-page' || scopeKind === 'popup-tab' ? 'popup-tab' : 'root-tab',
+        normalizeOptionalText(tabNode?.stepParams?.pageTabSettings?.tab?.title),
+      );
+    });
+  };
+
+  if (isPageLikeUse(model?.use)) {
+    visitScope(model, '$.page', 'root-page', '');
+  } else if (isTabLikeUse(model?.use)) {
+    visitScope(model, '$.page.tabs[0]', 'root-tab', normalizeOptionalText(model?.stepParams?.pageTabSettings?.tab?.title));
+  }
+
+  return scopes;
+}
+
+function collectFieldHostSnapshots(model) {
+  const snapshots = new Map();
+
+  const visitBlocks = (blockNodes, scopePath) => {
+    blockNodes.forEach((blockNode, index) => {
+      if (!isPlainObject(blockNode) || !isBlockLikeUse(blockNode.use)) {
+        return;
+      }
+      const blockPath = `${scopePath}.blocks[${index}]`;
+      if (blockNode.use === 'DetailsBlockModel') {
+        const detailItems = Array.isArray(blockNode?.subModels?.grid?.subModels?.items) ? blockNode.subModels.grid.subModels.items : [];
+        detailItems.forEach((itemNode, itemIndex) => {
+          if (!isPlainObject(itemNode) || itemNode.use !== 'DetailsItemModel') {
+            return;
+          }
+          snapshots.set(`${blockPath}.details-items[${itemIndex}]`, {
+            hostUse: itemNode.use,
+            fieldUse: normalizeOptionalText(itemNode?.subModels?.field?.use),
+            bindingUse: normalizeOptionalText(itemNode?.subModels?.field?.stepParams?.fieldBinding?.use),
+            fieldPath: normalizeOptionalText(itemNode?.stepParams?.fieldSettings?.init?.fieldPath),
+            collectionName: normalizeOptionalText(itemNode?.stepParams?.fieldSettings?.init?.collectionName),
+          });
+        });
+      }
+      if (blockNode.use === 'CreateFormModel' || blockNode.use === 'EditFormModel') {
+        const formItems = Array.isArray(blockNode?.subModels?.grid?.subModels?.items) ? blockNode.subModels.grid.subModels.items : [];
+        formItems.forEach((itemNode, itemIndex) => {
+          if (!isPlainObject(itemNode) || itemNode.use !== 'FormItemModel') {
+            return;
+          }
+          snapshots.set(`${blockPath}.form-items[${itemIndex}]`, {
+            hostUse: itemNode.use,
+            fieldUse: normalizeOptionalText(itemNode?.subModels?.field?.use),
+            bindingUse: normalizeOptionalText(itemNode?.subModels?.field?.stepParams?.fieldBinding?.use),
+            fieldPath: normalizeOptionalText(itemNode?.stepParams?.fieldSettings?.init?.fieldPath),
+            collectionName: normalizeOptionalText(itemNode?.stepParams?.fieldSettings?.init?.collectionName),
+          });
+        });
+      }
+      if (blockNode.use === 'TableBlockModel') {
+        const columns = Array.isArray(blockNode?.subModels?.columns) ? blockNode.subModels.columns : [];
+        columns.forEach((columnNode, columnIndex) => {
+          if (!isPlainObject(columnNode) || columnNode.use !== 'TableColumnModel') {
+            return;
+          }
+          snapshots.set(`${blockPath}.columns[${columnIndex}]`, {
+            hostUse: columnNode.use,
+            fieldUse: normalizeOptionalText(columnNode?.subModels?.field?.use),
+            bindingUse: normalizeOptionalText(columnNode?.subModels?.field?.stepParams?.fieldBinding?.use),
+            fieldPath: normalizeOptionalText(columnNode?.stepParams?.fieldSettings?.init?.fieldPath),
+            collectionName: normalizeOptionalText(columnNode?.stepParams?.fieldSettings?.init?.collectionName),
+          });
+        });
+      }
+      collectActionDescriptorsFromBlock(blockNode, blockPath).forEach((actionDescriptor) => {
+        const pageNode = isPlainObject(actionDescriptor.node?.subModels?.page) ? actionDescriptor.node.subModels.page : null;
+        if (!pageNode || !isPageLikeUse(pageNode.use)) {
+          return;
+        }
+        visitScope(pageNode, `${actionDescriptor.path}.popup.page`, 'popup-page');
+      });
+      const nestedBlocks = collectNestedBlockNodes(blockNode);
+      if (nestedBlocks.length > 0) {
+        visitBlocks(nestedBlocks, blockPath);
+      }
+    });
+  };
+
+  const visitScope = (scopeNode, scopePath, scopeKind) => {
+    const directBlocks = collectDirectBlockNodes(scopeNode);
+    visitBlocks(directBlocks, scopePath);
+    const tabs = Array.isArray(scopeNode?.subModels?.tabs) ? scopeNode.subModels.tabs : [];
+    tabs.forEach((tabNode, index) => {
+      if (!isPlainObject(tabNode) || !isTabLikeUse(tabNode.use)) {
+        return;
+      }
+      visitScope(tabNode, `${scopePath}.tabs[${index}]`, scopeKind === 'popup-page' ? 'popup-tab' : 'root-tab');
+    });
+  };
+
+  if (isPageLikeUse(model?.use)) {
+    visitScope(model, '$.page', 'root-page');
+  }
+
+  return snapshots;
+}
+
+function compareStringLists(left, right) {
+  return JSON.stringify(uniqueStrings(left).sort((a, b) => a.localeCompare(b)))
+    === JSON.stringify(uniqueStrings(right).sort((a, b) => a.localeCompare(b)));
+}
+
+function buildReadbackDriftReport(writeModel, readbackModel) {
+  const findings = [];
+  const writeScopes = collectStructuredScopes(writeModel);
+  const readbackScopes = collectStructuredScopes(readbackModel);
+  const writePopupScopes = new Map(writeScopes
+    .filter((item) => item.scopeKind === 'popup-page' || item.scopeKind === 'popup-tab')
+    .map((item) => [item.scopePath, item]));
+  const readbackPopupScopes = new Map(readbackScopes
+    .filter((item) => item.scopeKind === 'popup-page' || item.scopeKind === 'popup-tab')
+    .map((item) => [item.scopePath, item]));
+
+  const popupScopePaths = uniqueStrings([...writePopupScopes.keys(), ...readbackPopupScopes.keys()]);
+  popupScopePaths.forEach((scopePath) => {
+    const writeScope = writePopupScopes.get(scopePath) || null;
+    const readbackScope = readbackPopupScopes.get(scopePath) || null;
+    if (!writeScope || !readbackScope) {
+      findings.push({
+        severity: 'warning',
+        code: 'READBACK_POPUP_SCOPE_DRIFT',
+        message: `popup scope "${scopePath}" 在 write/readback 之间不一致。`,
+        details: {
+          scopePath,
+          writePresent: Boolean(writeScope),
+          readbackPresent: Boolean(readbackScope),
+        },
+      });
+      return;
+    }
+    if (
+      writeScope.pageUse !== readbackScope.pageUse
+      || writeScope.tabTitle !== readbackScope.tabTitle
+      || !compareStringLists(writeScope.blockUses, readbackScope.blockUses)
+      || !compareStringLists(writeScope.visibleTabTitles, readbackScope.visibleTabTitles)
+    ) {
+      findings.push({
+        severity: 'warning',
+        code: 'READBACK_POPUP_SCOPE_DRIFT',
+        message: `popup scope "${scopePath}" 的结构在 readback 中发生漂移。`,
+        details: {
+          scopePath,
+          write: {
+            pageUse: writeScope.pageUse,
+            tabTitle: writeScope.tabTitle,
+            blockUses: writeScope.blockUses,
+            visibleTabTitles: writeScope.visibleTabTitles,
+          },
+          readback: {
+            pageUse: readbackScope.pageUse,
+            tabTitle: readbackScope.tabTitle,
+            blockUses: readbackScope.blockUses,
+            visibleTabTitles: readbackScope.visibleTabTitles,
+          },
+        },
+      });
+    }
+  });
+
+  const writeFields = collectFieldHostSnapshots(writeModel);
+  const readbackFields = collectFieldHostSnapshots(readbackModel);
+  const fieldPaths = uniqueStrings([...writeFields.keys(), ...readbackFields.keys()]);
+  fieldPaths.forEach((fieldPath) => {
+    const writeField = writeFields.get(fieldPath) || null;
+    const readbackField = readbackFields.get(fieldPath) || null;
+    if (!writeField || !readbackField) {
+      findings.push({
+        severity: 'warning',
+        code: 'READBACK_FIELD_MODEL_SHAPE_DRIFT',
+        message: `runtime-sensitive field host "${fieldPath}" 在 write/readback 之间不一致。`,
+        details: {
+          fieldPath,
+          writePresent: Boolean(writeField),
+          readbackPresent: Boolean(readbackField),
+        },
+      });
+      return;
+    }
+    if (
+      writeField.hostUse !== readbackField.hostUse
+      || writeField.fieldUse !== readbackField.fieldUse
+      || writeField.bindingUse !== readbackField.bindingUse
+      || writeField.collectionName !== readbackField.collectionName
+      || writeField.fieldPath !== readbackField.fieldPath
+    ) {
+      findings.push({
+        severity: 'warning',
+        code: 'READBACK_FIELD_MODEL_SHAPE_DRIFT',
+        message: `runtime-sensitive field host "${fieldPath}" 的 field 子树在 readback 中发生漂移。`,
+        details: {
+          fieldPath,
+          write: writeField,
+          readback: readbackField,
+        },
+      });
+    }
+  });
+
+  return {
+    ok: findings.length === 0,
+    findings,
+    summary: {
+      writePopupScopeCount: writePopupScopes.size,
+      readbackPopupScopeCount: readbackPopupScopes.size,
+      writeFieldSnapshotCount: writeFields.size,
+      readbackFieldSnapshotCount: readbackFields.size,
+      driftCount: findings.length,
+    },
+  };
+}
+
 function validateReadbackContract(model, contract = {}) {
   const findings = [];
   const topLevelUses = collectTopLevelUses(model);
   const visibleTabTitles = collectVisibleTabTitles(model);
   const tabDescriptors = collectTabDescriptors(model);
+  const structuredScopes = collectStructuredScopes(model);
+  const structuredScopeByPath = new Map(structuredScopes.map((item) => [item.scopePath, item]));
   const requiredTopLevelUses = Array.isArray(contract.requiredTopLevelUses) ? contract.requiredTopLevelUses : [];
   const requiredVisibleTabs = Array.isArray(contract.requiredVisibleTabs) ? contract.requiredVisibleTabs : [];
   const requiredTabCount = Number.isInteger(contract.requiredTabCount) ? contract.requiredTabCount : 0;
   const requiredTabs = Array.isArray(contract.requiredTabs) ? contract.requiredTabs : [];
+  const requiredScopes = Array.isArray(contract.requiredScopes) ? contract.requiredScopes : [];
+  const requiredDetailsBlocks = Array.isArray(contract.requiredDetailsBlocks) ? contract.requiredDetailsBlocks : [];
   const requireFilterManager = contract.requireFilterManager === true;
   const requiredFilterManagerEntryCount = Number.isInteger(contract.requiredFilterManagerEntryCount)
     ? contract.requiredFilterManagerEntryCount
@@ -1074,6 +1474,172 @@ function validateReadbackContract(model, contract = {}) {
     });
   });
 
+  requiredScopes.forEach((scopeRequirement, index) => {
+    if (!isPlainObject(scopeRequirement)) {
+      return;
+    }
+    const scopePath = normalizeOptionalText(scopeRequirement.scopePath);
+    if (!scopePath) {
+      return;
+    }
+    const matchedScope = structuredScopeByPath.get(scopePath) || null;
+    if (!matchedScope) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_SCOPE_MISSING',
+        message: `readback 缺少 scope "${scopePath}"`,
+        details: {
+          index,
+          scopePath,
+        },
+      });
+      return;
+    }
+    if (normalizeOptionalText(scopeRequirement.pageUse) && matchedScope.pageUse !== normalizeOptionalText(scopeRequirement.pageUse)) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_SCOPE_PAGE_USE_MISMATCH',
+        message: `scope "${scopePath}" 的 pageUse 不匹配`,
+        details: {
+          index,
+          scopePath,
+          expectedPageUse: normalizeOptionalText(scopeRequirement.pageUse),
+          actualPageUse: matchedScope.pageUse,
+        },
+      });
+    }
+    if (normalizeOptionalText(scopeRequirement.tabTitle) && matchedScope.tabTitle !== normalizeOptionalText(scopeRequirement.tabTitle)) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_SCOPE_TAB_TITLE_MISMATCH',
+        message: `scope "${scopePath}" 的 tabTitle 不匹配`,
+        details: {
+          index,
+          scopePath,
+          expectedTabTitle: normalizeOptionalText(scopeRequirement.tabTitle),
+          actualTabTitle: matchedScope.tabTitle,
+        },
+      });
+    }
+    if (scopeRequirement.requireBlockGrid !== false && matchedScope.hasRequiredBlockGrid !== true) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_SCOPE_BLOCK_GRID_MISSING',
+        message: `scope "${scopePath}" 缺少 BlockGridModel`,
+        details: {
+          index,
+          scopePath,
+        },
+      });
+    }
+    const requiredBlockUses = uniqueStrings(Array.isArray(scopeRequirement.requiredBlockUses) ? scopeRequirement.requiredBlockUses : []);
+    if (requiredBlockUses.length > 0) {
+      const missingBlockUses = requiredBlockUses.filter((use) => !matchedScope.blockUses.includes(use));
+      if (missingBlockUses.length > 0) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_SCOPE_BLOCK_USE_MISSING',
+          message: `scope "${scopePath}" 缺少 required block uses: ${missingBlockUses.join(', ')}`,
+          details: {
+            index,
+            scopePath,
+            requiredBlockUses,
+            actualBlockUses: matchedScope.blockUses,
+          },
+        });
+      }
+    }
+  });
+
+  requiredDetailsBlocks.forEach((detailsRequirement, index) => {
+    if (!isPlainObject(detailsRequirement)) {
+      return;
+    }
+    const scopePath = normalizeOptionalText(detailsRequirement.scopePath);
+    const matchedScope = structuredScopeByPath.get(scopePath) || null;
+    if (!matchedScope) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_DETAILS_BLOCK_MISSING',
+        message: `详情块所在 scope "${scopePath}" 不存在`,
+        details: {
+          index,
+          scopePath,
+        },
+      });
+      return;
+    }
+
+    const collectionName = normalizeOptionalText(detailsRequirement.collectionName);
+    const requiredFieldPaths = uniqueStrings(Array.isArray(detailsRequirement.fieldPaths) ? detailsRequirement.fieldPaths : []);
+    const matchingBlocks = matchedScope.detailsBlocks.filter((item) => item.collectionName === collectionName);
+    if (matchingBlocks.length === 0) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_DETAILS_BLOCK_MISSING',
+        message: `scope "${scopePath}" 中缺少 ${collectionName} 的 DetailsBlockModel`,
+        details: {
+          index,
+          scopePath,
+          collectionName,
+        },
+      });
+      return;
+    }
+
+    const matchingItemCountBlock = matchingBlocks.find((item) => item.itemCount >= Math.max(1, Number(detailsRequirement.minItemCount) || 1)) || null;
+    if (!matchingItemCountBlock) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_DETAILS_ITEM_COUNT_MISMATCH',
+        message: `scope "${scopePath}" 中的详情字段项数量不足`,
+        details: {
+          index,
+          scopePath,
+          collectionName,
+          expectedMinItemCount: Math.max(1, Number(detailsRequirement.minItemCount) || 1),
+          actualItemCounts: matchingBlocks.map((item) => item.itemCount),
+        },
+      });
+      return;
+    }
+
+    const matchingFieldBlock = matchingBlocks.find((item) => requiredFieldPaths.every((fieldPath) => item.fieldPaths.includes(fieldPath))) || null;
+    if (!matchingFieldBlock) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_DETAILS_FIELD_MISSING',
+        message: `scope "${scopePath}" 中的详情字段不完整`,
+        details: {
+          index,
+          scopePath,
+          collectionName,
+          requiredFieldPaths,
+          actualFieldPaths: matchingBlocks.flatMap((item) => item.fieldPaths),
+        },
+      });
+      return;
+    }
+
+    if (detailsRequirement.requireFilterByTkTemplate === true) {
+      const expectedFilterByTkTemplate = normalizeOptionalText(detailsRequirement.expectedFilterByTkTemplate);
+      if (matchingFieldBlock.filterByTk !== expectedFilterByTkTemplate) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_DETAILS_FILTER_BY_TK_MISMATCH',
+          message: `scope "${scopePath}" 中的详情块 filterByTk 不符合预期模板`,
+          details: {
+            index,
+            scopePath,
+            collectionName,
+            expectedFilterByTkTemplate,
+            actualFilterByTk: matchingFieldBlock.filterByTk || null,
+          },
+        });
+      }
+    }
+  });
+
   return {
     ok: findings.length === 0,
     findings,
@@ -1081,6 +1647,7 @@ function validateReadbackContract(model, contract = {}) {
       topLevelUses,
       visibleTabTitles,
       filterManagerEntryCount,
+      structuredScopeCount: structuredScopes.length,
       tabBlockUses: Object.fromEntries(
         tabDescriptors.map((tab) => [
           tab.title || `#${tab.index}`,
@@ -1467,6 +2034,7 @@ if (isDirectRun) {
 }
 
 export {
+  buildReadbackDriftReport,
   buildTemplatePriorityList,
   collectRequiredCollectionNames,
   normalizeUrlBase,

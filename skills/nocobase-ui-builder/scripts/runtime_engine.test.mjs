@@ -45,7 +45,7 @@ function makePrimitiveFirstInventory() {
     detected: true,
     flowSchema: {
       detected: true,
-      rootPublicUses: ['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel', 'JSBlockModel'],
+      rootPublicUses: ['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel', 'JSBlockModel', 'ChartBlockModel', 'GridCardBlockModel'],
       publicUseCatalog: [],
       missingUses: [],
       discoveryNotes: [],
@@ -321,6 +321,43 @@ test('spec normalization and compile derive guard requirements and readback cont
       requiredBlockUses: ['TableBlockModel', 'DetailsBlockModel'],
     },
   ]);
+  assert.deepEqual(compiled.compileArtifact.readbackContract.requiredScopes, [
+    {
+      scopePath: '$.page',
+      scopeKind: 'root-page',
+      pageUse: 'RootPageModel',
+      tabTitle: '',
+      requireBlockGrid: false,
+      requiredBlockUses: [],
+    },
+    {
+      scopePath: '$.page.tabs[0]',
+      scopeKind: 'root-tab',
+      pageUse: 'RootPageTabModel',
+      tabTitle: '客户概览',
+      requireBlockGrid: true,
+      requiredBlockUses: ['TableBlockModel'],
+    },
+    {
+      scopePath: '$.page.tabs[1]',
+      scopeKind: 'root-tab',
+      pageUse: 'RootPageTabModel',
+      tabTitle: '跟进记录',
+      requireBlockGrid: true,
+      requiredBlockUses: ['DetailsBlockModel'],
+    },
+  ]);
+  assert.deepEqual(compiled.compileArtifact.readbackContract.requiredDetailsBlocks, [
+    {
+      scopePath: '$.page.tabs[1]',
+      scopeKind: 'root-tab',
+      collectionName: 'activities',
+      fieldPaths: ['content'],
+      minItemCount: 1,
+      requireFilterByTkTemplate: false,
+      expectedFilterByTkTemplate: '{{ctx.view.inputArgs.filterByTk}}',
+    },
+  ]);
   assert.equal(compiled.compileArtifact.readbackContract.requiredTabCount, 2);
   assert.equal(compiled.compileArtifact.selectedCandidateId, 'selected-primary');
   assert.equal(compiled.compileArtifact.candidateBuilds.length, 1);
@@ -418,6 +455,26 @@ test('spec normalization supports filter blocks, row actions and nested details 
       collectionName: 'orders',
       filterFields: ['order_no', 'status'],
       targetUses: ['TableBlockModel'],
+    },
+  ]);
+  assert.equal(compiled.compileArtifact.readbackContract.requiredScopes.some((item) => item.scopePath === '$.page'), true);
+  assert.equal(
+    compiled.compileArtifact.readbackContract.requiredScopes.some(
+      (item) => item.scopePath === '$.page.blocks[1].row-actions[0].popup.page'
+        && item.scopeKind === 'popup-page'
+        && item.requiredBlockUses.includes('DetailsBlockModel'),
+    ),
+    true,
+  );
+  assert.deepEqual(compiled.compileArtifact.readbackContract.requiredDetailsBlocks, [
+    {
+      scopePath: '$.page.blocks[1].row-actions[0].popup.page',
+      scopeKind: 'popup-page',
+      collectionName: 'orders',
+      fieldPaths: ['order_no'],
+      minItemCount: 1,
+      requireFilterByTkTemplate: true,
+      expectedFilterByTkTemplate: '{{ctx.view.inputArgs.filterByTk}}',
     },
   ]);
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].use, 'ViewActionModel');
@@ -583,7 +640,7 @@ test('spec normalization defaults popup pages to ChildPageModel instead of gener
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.blocks[0].use, 'DetailsBlockModel');
   assert.equal(
     compiled.compileArtifact.primitiveTree.blocks[0].actions[0].popup.blocks[0].path,
-    '$.page.blocks[0].block-actions[0].popup.blocks[0]',
+    '$.page.blocks[0].block-actions[0].popup.page.blocks[0]',
   );
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('order_items'), true);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('order_items.id'), true);
@@ -712,18 +769,23 @@ test('validation run helper emits primitive-first ready specs when live inventor
   assert.equal(result.buildSpec.target.buildPolicy, 'fresh');
   assert.equal(result.verifySpec.entry.requiresAuth, true);
   assert.equal(result.compileArtifact.compileMode, 'primitive-tree');
-  assert.equal(result.compileArtifact.scenarioId, 'collection-first:approvals:single-table');
-  assert.equal(result.compileArtifact.selectionMode, 'collection-first');
-  assert.equal(result.compileArtifact.primaryBlockType, 'TableBlockModel');
+  assert.equal(result.compileArtifact.planningMode, 'creative-first');
+  assert.match(result.compileArtifact.scenarioId, /^creative-first:approvals:/);
+  assert.equal(result.compileArtifact.selectionMode, 'creative-first');
+  assert.equal(typeof result.compileArtifact.primaryBlockType === 'string' && result.compileArtifact.primaryBlockType.length > 0, true);
   assert.equal(result.compileArtifact.generatedCoverage.blocks.includes('TableBlockModel'), true);
   assert.equal(result.compileArtifact.generatedCoverage.patterns.includes('popup-openview'), true);
   assert.equal(result.compileArtifact.sourceInventory.detected === false || Array.isArray(result.compileArtifact.sourceInventory.publicTreeRoots), true);
   assert.equal(result.compileArtifact.issues[0].code, 'PRIMITIVE_FIRST_SCENARIO_GENERATED');
   assert.equal(result.compileArtifact.actionPlan.some((item) => item.kind === 'delete-record'), true);
   assert.equal(typeof result.compileArtifact.selectedCandidateId === 'string' && result.compileArtifact.selectedCandidateId.length > 0, true);
-  assert.equal(result.compileArtifact.candidateBuilds.length >= 1, true);
+  assert.equal(result.compileArtifact.layoutCandidates.length, 5);
+  assert.equal(result.compileArtifact.candidateBuilds.length, 5);
+  assert.equal(Array.isArray(result.compileArtifact.eligibleUses), true);
+  assert.equal(typeof result.compileArtifact.candidateScores['keyword-anchor']?.score === 'number', true);
+  assert.equal(typeof result.compileArtifact.candidateShape['tabbed-multi-surface'] === 'string', true);
   assert.equal(result.compileArtifact.guardRequirements.allowedBusinessBlockUses.includes('TableBlockModel'), true);
-  assert.equal(result.verifySpec.stages[0].trigger.text, '新建审批单');
+  assert.equal(result.verifySpec.stages.length >= 1, true);
 });
 
 test('validation run helper probes missing collection inventory before planning when only flow schema inventory is provided', async () => {

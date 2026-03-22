@@ -49,6 +49,30 @@ function makePlanningBlocker(code, message, details = {}) {
   };
 }
 
+function normalizePlanningMode(value, fallbackValue = DEFAULT_PLANNING_MODE) {
+  const normalized = normalizeText(value) || fallbackValue;
+  return SUPPORTED_PLANNING_MODES.has(normalized) ? normalized : fallbackValue;
+}
+
+function clampScore(value, min = 0, max = 100) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function useToReadableLabel(use) {
+  const normalized = normalizeText(use);
+  if (!normalized) {
+    return '区块';
+  }
+  return normalized
+    .replace(/Model$/, '')
+    .replace(/Block$/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim();
+}
+
 function buildPopup(blocks, title = '') {
   return {
     title,
@@ -185,11 +209,59 @@ const BASE_AVAILABLE_USES = [
   'JSBlockModel',
 ];
 
+const DEFAULT_PLANNING_MODE = 'creative-first';
+const SUPPORTED_PLANNING_MODES = new Set([
+  'creative-first',
+  'stable-first',
+]);
+
+const STABLE_BUSINESS_BLOCK_USES = [
+  'FilterFormBlockModel',
+  'TableBlockModel',
+  'DetailsBlockModel',
+  'CreateFormModel',
+  'EditFormModel',
+  'JSBlockModel',
+];
+
+const STRUCTURAL_OR_META_USES = new Set([
+  'RootPageModel',
+  'ChildPageModel',
+  'RootPageTabModel',
+  'BlockGridModel',
+  'ActionModel',
+]);
+
 const COLLECTION_BOUND_PUBLIC_USES = new Set([
   'GridCardBlockModel',
   'ListBlockModel',
   'MapBlockModel',
+  'CommentsBlockModel',
 ]);
+
+const ALWAYS_RUNTIME_SENSITIVE_PUBLIC_USES = {
+  CommentsBlockModel: {
+    contextRequirements: ['comment collection template'],
+    unresolvedReasons: ['comment-template-required'],
+  },
+  ReferenceBlockModel: {
+    contextRequirements: ['target block uid'],
+    unresolvedReasons: ['reference-target-required'],
+  },
+};
+
+const CREATIVE_PRIORITY_USES = [
+  'GridCardBlockModel',
+  'ChartBlockModel',
+  'ListBlockModel',
+  'JSBlockModel',
+  'MarkdownBlockModel',
+  'MapBlockModel',
+  'DetailsBlockModel',
+  'CreateFormModel',
+  'EditFormModel',
+  'TableBlockModel',
+];
 
 const PRIMARY_BLOCK_DEFINITIONS = [
   {
@@ -956,6 +1028,255 @@ function findPrimaryBlockDefinitionByUse(use) {
   return PRIMARY_BLOCK_DEFINITIONS.find((entry) => entry.use === use) || null;
 }
 
+function buildPrimaryBlockDefinition(use, publicUseCatalog = []) {
+  const normalizedUse = normalizeText(use);
+  if (!normalizedUse) {
+    return null;
+  }
+  const existing = findPrimaryBlockDefinitionByUse(normalizedUse);
+  if (existing) {
+    return existing;
+  }
+  const catalogByUse = new Map(
+    (Array.isArray(publicUseCatalog) ? publicUseCatalog : [])
+      .map((entry) => [normalizeText(entry?.use), entry]),
+  );
+  const catalogEntry = catalogByUse.get(normalizedUse);
+  const readableLabel = normalizeText(catalogEntry?.title) || useToReadableLabel(normalizedUse);
+  const slug = readableLabel
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || normalizedUse.toLowerCase();
+  return {
+    use: normalizedUse,
+    archetypeId: slug,
+    archetypeLabel: `${readableLabel} 主块页`,
+    keywords: [],
+    collectionRequired: COLLECTION_BOUND_PUBLIC_USES.has(normalizedUse),
+    titleSuffix: readableLabel,
+    kind: 'public-use',
+  };
+}
+
+function collectUseFamilies(use, catalogEntry = null) {
+  const normalizedUse = normalizeText(use);
+  const base = [];
+  if (normalizedUse === 'TableBlockModel') {
+    base.push('collection', 'table');
+  } else if (normalizedUse === 'DetailsBlockModel') {
+    base.push('collection', 'details');
+  } else if (normalizedUse === 'CreateFormModel' || normalizedUse === 'EditFormModel') {
+    base.push('collection', 'form');
+  } else if (normalizedUse === 'FilterFormBlockModel') {
+    base.push('collection', 'filter');
+  } else if (normalizedUse === 'GridCardBlockModel') {
+    base.push('collection', 'metrics');
+  } else if (normalizedUse === 'ListBlockModel') {
+    base.push('collection', 'feed');
+  } else if (normalizedUse === 'MapBlockModel') {
+    base.push('collection', 'geo');
+  } else if (normalizedUse === 'ChartBlockModel') {
+    base.push('analytics');
+  } else if (normalizedUse === 'MarkdownBlockModel') {
+    base.push('content', 'docs');
+  } else if (normalizedUse === 'JSBlockModel') {
+    base.push('content', 'custom');
+  } else if (normalizedUse === 'CommentsBlockModel') {
+    base.push('collection', 'collaboration');
+  }
+  return uniqueStrings([
+    ...base,
+    ...(Array.isArray(catalogEntry?.semanticTags) ? catalogEntry.semanticTags : []),
+    normalizedUse ? 'business-block' : '',
+  ]);
+}
+
+function buildUseDescriptor(use, publicUseCatalog = []) {
+  const normalizedUse = normalizeText(use);
+  if (!normalizedUse) {
+    return null;
+  }
+  const definition = buildPrimaryBlockDefinition(normalizedUse, publicUseCatalog);
+  const catalogByUse = new Map(
+    (Array.isArray(publicUseCatalog) ? publicUseCatalog : [])
+      .map((entry) => [normalizeText(entry?.use), entry]),
+  );
+  const catalogEntry = catalogByUse.get(normalizedUse) || null;
+  return {
+    ...definition,
+    catalogEntry,
+    families: collectUseFamilies(normalizedUse, catalogEntry),
+    label: normalizeText(catalogEntry?.title) || definition.titleSuffix || useToReadableLabel(normalizedUse),
+  };
+}
+
+function isBusinessUse(use) {
+  const normalizedUse = normalizeText(use);
+  return Boolean(normalizedUse) && !STRUCTURAL_OR_META_USES.has(normalizedUse);
+}
+
+function isCollectionBoundBusinessBlock(block) {
+  if (!block || typeof block !== 'object') {
+    return false;
+  }
+  if (block.kind === 'Filter') {
+    return false;
+  }
+  if (block.kind === 'Table' || block.kind === 'Details') {
+    return Boolean(normalizeText(block.collectionName));
+  }
+  if (block.kind === 'Form') {
+    return Boolean(normalizeText(block.collectionName));
+  }
+  if (block.kind === 'PublicUse') {
+    return Boolean(normalizeText(block.collectionName)) || COLLECTION_BOUND_PUBLIC_USES.has(normalizeText(block.use));
+  }
+  return false;
+}
+
+function layoutHasCollectionBoundBusinessBlock(layout) {
+  const visitBlocks = (items) => (Array.isArray(items) ? items : []).some((block) => {
+    if (isCollectionBoundBusinessBlock(block)) {
+      return true;
+    }
+    const popupBlocks = Array.isArray(block?.popup?.blocks) ? block.popup.blocks : [];
+    return visitBlocks(block?.blocks) || visitBlocks(popupBlocks);
+  });
+  return visitBlocks(layout?.blocks)
+    || (Array.isArray(layout?.tabs) ? layout.tabs.some((tab) => visitBlocks(tab.blocks)) : false);
+}
+
+function collectLayoutUses(layout) {
+  const uses = [];
+  const visitBlocks = (items) => {
+    for (const block of Array.isArray(items) ? items : []) {
+      if (!block || typeof block !== 'object') {
+        continue;
+      }
+      if (block.kind === 'Filter') {
+        uses.push('FilterFormBlockModel');
+      } else if (block.kind === 'Table') {
+        uses.push('TableBlockModel');
+      } else if (block.kind === 'Details') {
+        uses.push('DetailsBlockModel');
+      } else if (block.kind === 'Form') {
+        uses.push(block.mode === 'edit' ? 'EditFormModel' : 'CreateFormModel');
+      } else if (block.kind === 'PublicUse' && block.use) {
+        uses.push(block.use);
+      }
+      visitBlocks(block.blocks);
+      if (Array.isArray(block?.popup?.blocks)) {
+        visitBlocks(block.popup.blocks);
+      }
+    }
+  };
+  visitBlocks(layout?.blocks);
+  if (Array.isArray(layout?.tabs) && layout.tabs.length > 0) {
+    uses.push('RootPageTabModel');
+    for (const tab of layout.tabs) {
+      visitBlocks(tab.blocks);
+    }
+  }
+  return uniqueStrings(uses);
+}
+
+function collectCandidateFamiliesFromLayout(layout, publicUseCatalog = []) {
+  const families = new Set();
+  for (const use of collectLayoutUses(layout)) {
+    if (use === 'RootPageTabModel') {
+      families.add('workspace');
+      continue;
+    }
+    for (const family of collectUseFamilies(use, null)) {
+      families.add(family);
+    }
+    const descriptor = buildUseDescriptor(use, publicUseCatalog);
+    for (const family of Array.isArray(descriptor?.families) ? descriptor.families : []) {
+      families.add(family);
+    }
+  }
+  return [...families].sort((left, right) => left.localeCompare(right));
+}
+
+function buildCreativeUseInventory({
+  inventoryMerge,
+  collectionMeta,
+}) {
+  const catalogByUse = new Map(
+    (Array.isArray(inventoryMerge?.publicUseCatalog) ? inventoryMerge.publicUseCatalog : [])
+      .map((entry) => [normalizeText(entry?.use), entry]),
+  );
+  const candidateUses = uniqueStrings([
+    ...STABLE_BUSINESS_BLOCK_USES,
+    ...(Array.isArray(inventoryMerge?.instanceInventory?.flowSchema?.rootPublicUses)
+      ? inventoryMerge.instanceInventory.flowSchema.rootPublicUses
+      : []),
+  ]).filter(isBusinessUse);
+
+  const eligibleDescriptors = [];
+  const discardedUses = [];
+  for (const use of candidateUses) {
+    const descriptor = buildUseDescriptor(use, inventoryMerge.publicUseCatalog);
+    if (!descriptor) {
+      continue;
+    }
+    const catalogEntry = catalogByUse.get(use) || descriptor.catalogEntry || {};
+    const forcedHints = ALWAYS_RUNTIME_SENSITIVE_PUBLIC_USES[use] || {};
+    const contextRequirements = uniqueStrings([
+      ...(Array.isArray(catalogEntry?.contextRequirements) ? catalogEntry.contextRequirements : []),
+      ...(Array.isArray(forcedHints.contextRequirements) ? forcedHints.contextRequirements : []),
+    ]);
+    const unresolvedReasons = uniqueStrings([
+      ...(Array.isArray(catalogEntry?.unresolvedReasons) ? catalogEntry.unresolvedReasons : []),
+      ...(Array.isArray(forcedHints.unresolvedReasons) ? forcedHints.unresolvedReasons : []),
+    ]);
+    if (descriptor.collectionRequired && !collectionMeta) {
+      discardedUses.push({
+        use,
+        title: descriptor.label,
+        contextRequirements,
+        unresolvedReasons: uniqueStrings([...unresolvedReasons, 'collection-required']),
+        families: descriptor.families,
+      });
+      continue;
+    }
+    if (contextRequirements.length > 0 || unresolvedReasons.length > 0) {
+      discardedUses.push({
+        use,
+        title: descriptor.label,
+        contextRequirements,
+        unresolvedReasons,
+        families: descriptor.families,
+      });
+      continue;
+    }
+    eligibleDescriptors.push(descriptor);
+  }
+
+  eligibleDescriptors.sort((left, right) => {
+    const leftIndex = CREATIVE_PRIORITY_USES.indexOf(left.use);
+    const rightIndex = CREATIVE_PRIORITY_USES.indexOf(right.use);
+    const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+    const normalizedRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+    if (normalizedLeft !== normalizedRight) {
+      return normalizedLeft - normalizedRight;
+    }
+    return left.use.localeCompare(right.use);
+  });
+
+  return {
+    eligibleDescriptors,
+    eligibleUses: eligibleDescriptors.map((item) => item.use),
+    discardedUses,
+  };
+}
+
+function pickDescriptorByPredicate(descriptors, predicate, excludeUses = []) {
+  const excluded = new Set(uniqueStrings(excludeUses));
+  return (Array.isArray(descriptors) ? descriptors : [])
+    .find((descriptor) => !excluded.has(descriptor.use) && predicate(descriptor)) || null;
+}
+
 function resolveFilterFields(collectionMeta, fieldResolution) {
   const scalarFieldNames = Array.isArray(collectionMeta?.scalarFieldNames) && collectionMeta.scalarFieldNames.length > 0
     ? collectionMeta.scalarFieldNames
@@ -992,11 +1313,53 @@ function attachFilterBlockToLayout(layout, filterBlock) {
 }
 
 function createCreativeProgram({
+  planningMode = DEFAULT_PLANNING_MODE,
   selectionMode,
   operationIntent,
   inventoryMerge,
   collectionMeta,
 }) {
+  if (planningMode === 'creative-first') {
+    return {
+      id: 'creative-first-v1',
+      strategy: 'creative-first',
+      prompt: '在全部可稳定落库的业务区块里生成 5 个固定 recipe 候选，并按创意与语义平衡选中主方案。',
+      selectionPolicy: 'creative-and-semantic-balance',
+      constraints: uniqueStrings([
+        'fixed-five-candidates',
+        'all-eligible-business-blocks',
+        'runtime-sensitive-discarded',
+        operationIntent.requestedFilter ? 'filter-request-must-be-materialized' : '',
+        collectionMeta ? `collection:${collectionMeta.name}` : '',
+      ]),
+      heuristics: uniqueStrings([
+        'prefer-explicit-block-keyword-anchor',
+        'prefer-mixed-single-and-composite-recipes',
+        collectionMeta ? 'require-collection-bound-business-block' : '',
+        operationIntent.requestedTabs ? 'prefer-tabbed-multi-surface' : '',
+      ]),
+      requiredPatterns: uniqueStrings([
+        'keyword-anchor',
+        'collection-workbench',
+        'analytics-mix',
+        'content-control',
+        'tabbed-multi-surface',
+      ]),
+      optionalPatterns: uniqueStrings([
+        operationIntent.requestedFilter ? 'filter-form' : '',
+        operationIntent.view || operationIntent.edit ? 'record-actions' : '',
+        operationIntent.delete ? 'delete-confirm' : '',
+      ]),
+      notes: uniqueStrings([
+        inventoryMerge.instanceInventory.flowSchema.detected
+          ? `instance-root-uses:${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(',')}`
+          : '',
+        inventoryMerge.sourceInventory.detected
+          ? `source-root:${inventoryMerge.sourceInventory.repoRoot}`
+          : '',
+      ]),
+    };
+  }
   return {
     id: selectionMode === 'dynamic-exploration' ? 'dynamic-exploration-v1' : 'collection-first-v1',
     strategy: selectionMode,
@@ -1040,6 +1403,9 @@ function createCreativeProgram({
 function buildLayoutCandidate({
   candidateId,
   score,
+  semanticScore,
+  creativeScore,
+  stabilityScore,
   title,
   summary,
   layout,
@@ -1051,6 +1417,8 @@ function buildLayoutCandidate({
   selectionRationale,
   planningStatus,
   planningBlockers,
+  shape = '',
+  families = [],
   selected = false,
 }) {
   const clonedLayout = cloneJson(layout);
@@ -1059,6 +1427,9 @@ function buildLayoutCandidate({
     title,
     summary,
     score,
+    semanticScore: Number.isFinite(semanticScore) ? semanticScore : null,
+    creativeScore: Number.isFinite(creativeScore) ? creativeScore : null,
+    stabilityScore: Number.isFinite(stabilityScore) ? stabilityScore : null,
     selected,
     selectionMode,
     primaryBlockType: primaryBlockDefinition.use,
@@ -1068,6 +1439,8 @@ function buildLayoutCandidate({
     selectionRationale: uniqueStrings(selectionRationale),
     planningStatus,
     planningBlockers,
+    shape,
+    families: uniqueStrings(families),
     actionPlan: collectActionPlan(clonedLayout),
     plannedCoverage: buildCoverageFromLayout(clonedLayout),
     layout: clonedLayout,
@@ -1081,6 +1454,43 @@ function findExplicitPublicUses(requestText, availableUses, primaryBlockUse) {
     .filter((entry) => hasAnyKeyword(requestText, entry.keywords))
     .filter((entry) => availableSet.has(entry.use))
     .map((entry) => entry.use);
+}
+
+function resolveCreativeAnchorDescriptor({
+  requestText,
+  eligibleDescriptors,
+  publicUseCatalog,
+}) {
+  const eligibleUses = uniqueStrings((Array.isArray(eligibleDescriptors) ? eligibleDescriptors : []).map((item) => item.use));
+  const explicitPrimary = pickPrimaryBlockDefinition(requestText, eligibleUses);
+  if (explicitPrimary) {
+    return {
+      descriptor: buildUseDescriptor(explicitPrimary.use, publicUseCatalog),
+      explicit: true,
+      source: 'explicit-keyword',
+    };
+  }
+
+  const scoredDescriptors = (Array.isArray(eligibleDescriptors) ? eligibleDescriptors : [])
+    .map((descriptor) => ({
+      descriptor,
+      score: scoreCatalogEntry(requestText, descriptor.catalogEntry),
+    }))
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+      const leftIndex = CREATIVE_PRIORITY_USES.indexOf(left.descriptor.use);
+      const rightIndex = CREATIVE_PRIORITY_USES.indexOf(right.descriptor.use);
+      return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex)
+        - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex);
+    });
+  const selected = scoredDescriptors[0]?.descriptor || eligibleDescriptors[0] || null;
+  return {
+    descriptor: selected,
+    explicit: false,
+    source: scoredDescriptors[0]?.score > 0 ? 'semantic-rank' : 'creative-priority',
+  };
 }
 
 function buildDetailsActions({
@@ -1590,6 +2000,233 @@ function buildCoverageFromLayout(layout) {
   };
 }
 
+function cloneBlockOrNull(block) {
+  return block && typeof block === 'object' ? cloneJson(block) : null;
+}
+
+function createCreativeRootLayout({
+  filterBlock,
+  blocks = [],
+  tabs = [],
+}) {
+  const normalizedBlocks = [
+    ...(filterBlock ? [cloneJson(filterBlock)] : []),
+    ...blocks.filter(Boolean).map((block) => cloneJson(block)),
+  ];
+  return {
+    pageUse: 'RootPageModel',
+    blocks: normalizedBlocks,
+    tabs: cloneJson(tabs),
+  };
+}
+
+function finalizeCreativeLayout({
+  filterBlock,
+  blocks = [],
+  tabs = [],
+  collectionMeta,
+  collectionFallbackBlock,
+}) {
+  const normalizedBlocks = blocks.filter(Boolean).map((block) => cloneJson(block));
+  if (collectionMeta && !layoutHasCollectionBoundBusinessBlock({ blocks: normalizedBlocks, tabs })) {
+    const fallbackBlock = cloneBlockOrNull(collectionFallbackBlock);
+    if (fallbackBlock) {
+      normalizedBlocks.push(fallbackBlock);
+    }
+  }
+  return createCreativeRootLayout({
+    filterBlock,
+    blocks: normalizedBlocks,
+    tabs,
+  });
+}
+
+function buildCandidateScoreSummary({
+  layout,
+  families,
+  collectionMeta,
+  operationIntent,
+  explicitAnchorUse,
+}) {
+  const uses = collectLayoutUses(layout);
+  const publicUseCount = uses.filter((use) => ![
+    'FilterFormBlockModel',
+    'TableBlockModel',
+    'DetailsBlockModel',
+    'CreateFormModel',
+    'EditFormModel',
+    'RootPageTabModel',
+  ].includes(use)).length;
+  const tabCount = Array.isArray(layout?.tabs) ? layout.tabs.length : 0;
+  const actionPlan = collectActionPlan(layout);
+  const hasFilter = uses.includes('FilterFormBlockModel');
+  const hasCollectionBinding = collectionMeta ? layoutHasCollectionBoundBusinessBlock(layout) : true;
+  const hasExplicitAnchor = explicitAnchorUse ? uses.includes(explicitAnchorUse) : false;
+
+  const semanticScore = clampScore(
+    42
+    + (hasExplicitAnchor ? 24 : 0)
+    + (collectionMeta ? (hasCollectionBinding ? 18 : -20) : 0)
+    + (operationIntent?.requestedFilter && hasFilter ? 10 : 0)
+    + (actionPlan.length > 0 ? 6 : 0)
+    + (tabCount > 0 ? 4 : 0),
+  );
+  const creativeScore = clampScore(
+    28
+    + (publicUseCount * 16)
+    + (families.length * 6)
+    + (tabCount > 0 ? 14 : 0)
+    + (uses.length >= 3 ? 8 : 0),
+  );
+  const stabilityScore = clampScore(
+    92
+    - (publicUseCount * 9)
+    - (tabCount > 0 ? 10 : 0)
+    - Math.max(0, actionPlan.length - 2) * 4
+    + (hasCollectionBinding ? 4 : -12),
+  );
+  const score = clampScore(
+    (semanticScore * 0.45)
+    + (creativeScore * 0.35)
+    + (stabilityScore * 0.2)
+    + (hasExplicitAnchor ? 6 : 0),
+  );
+  return {
+    semanticScore,
+    creativeScore,
+    stabilityScore,
+    score,
+  };
+}
+
+function buildCreativeLayoutCandidate({
+  candidateId,
+  title,
+  summary,
+  layout,
+  selectionMode,
+  primaryBlockDefinition,
+  collectionMeta,
+  requestedFields,
+  resolvedFields,
+  selectionRationale,
+  planningStatus,
+  planningBlockers,
+  shape,
+  publicUseCatalog,
+  operationIntent,
+  explicitAnchorUse,
+  selected = false,
+}) {
+  const families = collectCandidateFamiliesFromLayout(layout, publicUseCatalog);
+  const scoreSummary = buildCandidateScoreSummary({
+    layout,
+    families,
+    collectionMeta,
+    operationIntent,
+    explicitAnchorUse,
+  });
+  return buildLayoutCandidate({
+    candidateId,
+    score: scoreSummary.score,
+    semanticScore: scoreSummary.semanticScore,
+    creativeScore: scoreSummary.creativeScore,
+    stabilityScore: scoreSummary.stabilityScore,
+    title,
+    summary,
+    layout,
+    selectionMode,
+    primaryBlockDefinition,
+    collectionMeta,
+    requestedFields,
+    resolvedFields,
+    selectionRationale,
+    planningStatus,
+    planningBlockers,
+    shape,
+    families,
+    selected,
+  });
+}
+
+function humanizeFieldLabel(fieldName) {
+  const normalized = normalizeText(fieldName);
+  if (!normalized) {
+    return '';
+  }
+  return normalized
+    .replaceAll('.', ' ')
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function findPrimaryPopupActionConfig(layout, popupAction) {
+  if (!popupAction?.label) {
+    return null;
+  }
+  const visitBlocks = (blocks, scope = 'block-actions') => {
+    for (const block of Array.isArray(blocks) ? blocks : []) {
+      if (!block || typeof block !== 'object') {
+        continue;
+      }
+      const scopedActions = [
+        ...((Array.isArray(block.actions) ? block.actions : []).map((action) => ({ action, scope: block.kind === 'Details' ? 'details-actions' : 'block-actions' }))),
+        ...((Array.isArray(block.rowActions) ? block.rowActions : []).map((action) => ({ action, scope: 'row-actions' }))),
+      ];
+      for (const { action, scope: actionScope } of scopedActions) {
+        if (!action || typeof action !== 'object') {
+          continue;
+        }
+        if (normalizeText(action.label) === popupAction.label && normalizeText(action.kind) === popupAction.kind && actionScope === popupAction.scope) {
+          return action;
+        }
+      }
+      const nested = visitBlocks(block.blocks, scope);
+      if (nested) {
+        return nested;
+      }
+      for (const action of [...(Array.isArray(block.actions) ? block.actions : []), ...(Array.isArray(block.rowActions) ? block.rowActions : [])]) {
+        const nestedPopup = visitBlocks(action?.popup?.blocks || [], 'block-actions');
+        if (nestedPopup) {
+          return nestedPopup;
+        }
+      }
+    }
+    return null;
+  };
+
+  const direct = visitBlocks(layout.blocks);
+  if (direct) {
+    return direct;
+  }
+  for (const tab of Array.isArray(layout.tabs) ? layout.tabs : []) {
+    const nested = visitBlocks(tab.blocks);
+    if (nested) {
+      return nested;
+    }
+  }
+  return null;
+}
+
+function collectPopupAssertionValues(actionConfig) {
+  const popupBlocks = Array.isArray(actionConfig?.popup?.blocks) ? actionConfig.popup.blocks : [];
+  const primaryBlock = popupBlocks.find((block) => (
+    block
+    && typeof block === 'object'
+    && Array.isArray(block.fields)
+    && block.fields.length > 0
+    && (block.kind === 'Details' || block.kind === 'Form' || block.kind === 'Table')
+  )) || null;
+  if (!primaryBlock) {
+    return [];
+  }
+  return uniqueStrings(
+    primaryBlock.fields
+      .slice(0, 2)
+      .flatMap((fieldName) => [normalizeText(fieldName), humanizeFieldLabel(fieldName)]),
+  );
+}
+
 function buildVerifySpecInput({ title, layout, actionPlan, planningStatus }) {
   const primaryTexts = [title];
   const firstVisibleBlock = Array.isArray(layout.blocks) && layout.blocks.length > 0
@@ -1622,6 +2259,8 @@ function buildVerifySpecInput({ title, layout, actionPlan, planningStatus }) {
   const popupAction = actionPlan.find((item) => item.kind !== 'delete-record' && item.popupBlockKinds.length > 0);
   if (popupAction?.label) {
     const waitText = popupAction.popupBlockKinds[0].replace(/Model$/, '');
+    const popupActionConfig = findPrimaryPopupActionConfig(layout, popupAction);
+    const popupAssertionValues = collectPopupAssertionValues(popupActionConfig);
     stages.push({
       id: 'primary-action',
       title: popupAction.label,
@@ -1630,6 +2269,16 @@ function buildVerifySpecInput({ title, layout, actionPlan, planningStatus }) {
         text: popupAction.label,
       },
       waitFor: { kind: 'bodyTextIncludesAll', values: [waitText] },
+      assertions: popupAssertionValues.length > 0
+        ? [
+          {
+            kind: 'bodyTextIncludesAny',
+            label: 'popup content should render at least one field label',
+            severity: 'blocking',
+            values: popupAssertionValues,
+          },
+        ]
+        : [],
     });
   }
 
@@ -1641,6 +2290,7 @@ function buildVerifySpecInput({ title, layout, actionPlan, planningStatus }) {
 
 function buildScenarioSummary({
   title,
+  planningMode,
   selectionMode,
   collectionMeta,
   explicitCollections,
@@ -1657,6 +2307,8 @@ function buildScenarioSummary({
   creativeProgram,
   layoutCandidates,
   selectedCandidateId,
+  eligibleUses = [],
+  discardedUses = [],
 }) {
   const effectivePrimaryBlock = primaryBlockDefinition || {
     use: '',
@@ -1665,13 +2317,38 @@ function buildScenarioSummary({
   };
   const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : '无集合';
   const coverage = buildCoverageFromLayout(layout);
+  const candidateScores = Object.fromEntries(
+    (Array.isArray(layoutCandidates) ? layoutCandidates : []).map((candidate) => [
+      candidate.candidateId,
+      {
+        score: Number.isFinite(candidate.score) ? candidate.score : null,
+        semanticScore: Number.isFinite(candidate.semanticScore) ? candidate.semanticScore : null,
+        creativeScore: Number.isFinite(candidate.creativeScore) ? candidate.creativeScore : null,
+        stabilityScore: Number.isFinite(candidate.stabilityScore) ? candidate.stabilityScore : null,
+      },
+    ]),
+  );
+  const candidateFamilies = Object.fromEntries(
+    (Array.isArray(layoutCandidates) ? layoutCandidates : []).map((candidate) => [
+      candidate.candidateId,
+      uniqueStrings(candidate.families),
+    ]),
+  );
+  const candidateShape = Object.fromEntries(
+    (Array.isArray(layoutCandidates) ? layoutCandidates : []).map((candidate) => [
+      candidate.candidateId,
+      normalizeText(candidate.shape),
+    ]),
+  );
   const scenarioId = [
-    selectionMode,
+    planningMode || selectionMode,
     collectionMeta?.name || 'no-collection',
-    effectivePrimaryBlock.archetypeId,
+    selectedCandidateId || effectivePrimaryBlock.archetypeId,
   ].join(':');
   const selectionRationale = [
-    `${selectionMode === 'collection-first' ? '显式集合优先' : '意图优先'}：优先锁定 collection 与字段，再规划区块和操作。`,
+    planningMode === 'creative-first'
+      ? '创意优先：先在全部可稳定落库的区块里生成候选，再按语义与创意平衡选主方案。'
+      : `${selectionMode === 'collection-first' ? '显式集合优先' : '意图优先'}：优先锁定 collection 与字段，再规划区块和操作。`,
     collectionMeta
       ? `主集合锁定为 ${collectionMeta.name}，展示名 ${collectionLabel}。`
       : '当前页面不依赖显式 collection，可直接使用公开 root block。',
@@ -1684,6 +2361,12 @@ function buildScenarioSummary({
     actionPlan.length > 0
       ? `已规划 ${actionPlan.length} 个操作节点，默认允许最多 ${maxNestingDepth} 层 popup/page 递归。`
       : '当前布局未规划额外操作节点。',
+    eligibleUses.length > 0
+      ? `可进入候选池的业务区块：${eligibleUses.join(', ')}。`
+      : '当前没有可进入候选池的业务区块。',
+    discardedUses.length > 0
+      ? `已丢弃 ${discardedUses.length} 个 runtime-sensitive 区块：${discardedUses.map((item) => item.use).join(', ')}。`
+      : '没有命中 runtime-sensitive discarded uses。',
     ...(inventoryMerge.instanceInventory.flowSchema.detected
       ? [`实例公开 root blocks: ${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(', ')}`]
       : []),
@@ -1703,15 +2386,28 @@ function buildScenarioSummary({
     domainLabel: '',
     archetypeId: effectivePrimaryBlock.archetypeId,
     archetypeLabel: effectivePrimaryBlock.archetypeLabel,
-    tier: selectionMode === 'dynamic-exploration' ? 'dynamic-exploration' : 'deterministic-intent',
+    tier: planningMode === 'creative-first'
+      ? 'creative-first'
+      : (selectionMode === 'dynamic-exploration' ? 'dynamic-exploration' : 'deterministic-intent'),
     expectedOutcome: planningStatus === 'blocked' ? 'blocker-expected' : 'pass',
     requestedSignals: uniqueStrings([title, collectionMeta?.name || '', ...requestedFields]).slice(0, 8),
     selectionRationale: uniqueStrings(selectionRationale),
     availableUses: inventoryMerge.availableUses,
+    eligibleUses: uniqueStrings(eligibleUses),
+    discardedUses: Array.isArray(discardedUses) ? discardedUses.map((item) => ({
+      use: normalizeText(item.use),
+      title: normalizeText(item.title),
+      contextRequirements: uniqueStrings(item.contextRequirements),
+      unresolvedReasons: uniqueStrings(item.unresolvedReasons),
+      families: uniqueStrings(item.families),
+    })) : [],
     plannedCoverage: coverage,
     creativeProgram,
     layoutCandidates,
     selectedCandidateId,
+    candidateScores,
+    candidateFamilies,
+    candidateShape,
     sourceInventory: inventoryMerge.sourceInventory,
     instanceInventory: inventoryMerge.instanceInventory,
     randomPolicy: {
@@ -1721,8 +2417,9 @@ function buildScenarioSummary({
       sessionId: '',
       candidatePageUrl: '',
     },
+    planningMode: planningMode || DEFAULT_PLANNING_MODE,
     selectionMode,
-    plannerVersion: 'primitive-first-v2',
+    plannerVersion: 'primitive-first-v3',
     targetCollections: collectionMeta ? [collectionMeta.name] : [],
     explicitCollections: sortUniqueStrings(explicitCollections),
     primaryCollectionExplicit: primaryCollectionExplicit === true,
@@ -1736,7 +2433,7 @@ function buildScenarioSummary({
   };
 }
 
-export function buildDynamicValidationScenario({
+function buildStableFirstValidationScenario({
   caseRequest,
   sessionId,
   baseSlug,
@@ -1925,6 +2622,7 @@ export function buildDynamicValidationScenario({
   };
   const actionPlan = selectedCandidate?.actionPlan || collectActionPlan(layout);
   const creativeProgram = createCreativeProgram({
+    planningMode: 'stable-first',
     selectionMode,
     operationIntent,
     inventoryMerge,
@@ -1932,6 +2630,7 @@ export function buildDynamicValidationScenario({
   });
   const scenario = buildScenarioSummary({
     title,
+    planningMode: 'stable-first',
     selectionMode,
     collectionMeta,
     explicitCollections: explicitCollectionNames,
@@ -1948,6 +2647,11 @@ export function buildDynamicValidationScenario({
     creativeProgram,
     layoutCandidates,
     selectedCandidateId: selectedCandidate?.candidateId || '',
+    eligibleUses: uniqueStrings([
+      ...inventoryMerge.availableUses.filter(isBusinessUse),
+      ...STABLE_BUSINESS_BLOCK_USES,
+    ]),
+    discardedUses: [],
   });
   scenario.randomPolicy.sessionId = normalizeText(sessionId);
   scenario.randomPolicy.candidatePageUrl = normalizeText(candidatePageUrl);
@@ -1978,4 +2682,427 @@ export function buildDynamicValidationScenario({
       planningStatus: finalPlanningStatus,
     }),
   };
+}
+
+function buildCreativeRecipeCandidates({
+  title,
+  collectionMeta,
+  requestedFields,
+  resolvedFields,
+  operationIntent,
+  filterBlock,
+  planningStatus,
+  planningBlockers,
+  inventoryMerge,
+  eligibleDescriptors,
+  anchorDescriptor,
+  explicitAnchorUse,
+}) {
+  const publicUseCatalog = inventoryMerge.publicUseCatalog;
+  const availableUses = inventoryMerge.availableUses;
+  const collectionDefinition = pickDescriptorByPredicate(
+    eligibleDescriptors,
+    (descriptor) => descriptor.collectionRequired && descriptor.use !== 'FilterFormBlockModel',
+  ) || buildUseDescriptor('TableBlockModel', publicUseCatalog);
+  const detailsDefinition = buildUseDescriptor('DetailsBlockModel', publicUseCatalog);
+  const formDefinition = buildUseDescriptor('CreateFormModel', publicUseCatalog);
+  const contentDefinition = pickDescriptorByPredicate(
+    eligibleDescriptors,
+    (descriptor) => descriptor.use !== anchorDescriptor?.use && descriptor.families.some((family) => ['content', 'docs', 'custom', 'template'].includes(family)),
+    [collectionDefinition?.use],
+  ) || pickDescriptorByPredicate(
+    eligibleDescriptors,
+    (descriptor) => descriptor.use !== anchorDescriptor?.use && descriptor.use !== collectionDefinition?.use,
+  ) || anchorDescriptor || collectionDefinition;
+  const visualDefinition = pickDescriptorByPredicate(
+    eligibleDescriptors,
+    (descriptor) => descriptor.use !== anchorDescriptor?.use && descriptor.families.some((family) => ['analytics', 'metrics', 'geo', 'feed'].includes(family)),
+    [collectionDefinition?.use, contentDefinition?.use],
+  ) || pickDescriptorByPredicate(
+    eligibleDescriptors,
+    (descriptor) => descriptor.use !== anchorDescriptor?.use,
+    [collectionDefinition?.use, contentDefinition?.use],
+  ) || anchorDescriptor || collectionDefinition;
+  const supportPublicDefinition = pickDescriptorByPredicate(
+    eligibleDescriptors,
+    (descriptor) => !descriptor.collectionRequired && ![
+      anchorDescriptor?.use,
+      contentDefinition?.use,
+      visualDefinition?.use,
+    ].includes(descriptor.use),
+  );
+
+  const buildBlock = (descriptor, fields = resolvedFields) => {
+    if (!descriptor) {
+      return null;
+    }
+    return buildPrimaryBlock({
+      primaryBlockDefinition: descriptor,
+      collectionMeta,
+      fields,
+      operationIntent,
+      availableUses,
+      depth: 0,
+      maxDepth: 3,
+    });
+  };
+
+  const collectionFallbackBlock = buildBlock(collectionDefinition, resolvedFields);
+  const anchorBlock = buildBlock(anchorDescriptor, resolvedFields);
+  const contentBlock = buildBlock(contentDefinition, resolvedFields);
+  const visualBlock = buildBlock(visualDefinition, resolvedFields);
+  const supportPublicBlock = buildBlock(supportPublicDefinition, resolvedFields);
+  const detailsBlock = buildBlock(detailsDefinition, resolvedFields);
+  const formBlock = buildBlock(formDefinition, resolvedFields);
+  const supportTableBlock = collectionMeta
+    ? buildCompanionTable({
+      collectionMeta,
+      fields: resolvedFields,
+      operationIntent,
+      depth: 0,
+      maxDepth: 3,
+    })
+    : null;
+
+  const candidates = [
+    {
+      candidateId: 'keyword-anchor',
+      shape: 'single-main',
+      primaryDefinition: anchorDescriptor || collectionDefinition,
+      selectionRationale: uniqueStrings([
+        explicitAnchorUse
+          ? `请求显式命中了 ${explicitAnchorUse}，先把它作为 anchor 主块。`
+          : '未命中显式 block 关键词时，按语义与创意优先级选择 anchor 主块。',
+        collectionMeta && anchorDescriptor && !anchorDescriptor.collectionRequired
+          ? '主块不是 collection block，已自动补一个 collection-bound 业务块保证可落库。'
+          : '',
+      ]),
+      layout: finalizeCreativeLayout({
+        filterBlock,
+        blocks: [anchorBlock],
+        collectionMeta,
+        collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
+      }),
+      title,
+      summary: `${normalizeText(title)} / 关键词锚点方案`,
+    },
+    {
+      candidateId: 'content-control',
+      shape: 'single-main',
+      primaryDefinition: contentDefinition || anchorDescriptor || collectionDefinition,
+      selectionRationale: uniqueStrings([
+        '内容/控制型单主块候选，优先给页面一个更鲜明的视觉重心。',
+        collectionMeta && contentDefinition && !contentDefinition.collectionRequired
+          ? '显式 collection 请求下补充 collection-bound 业务块，避免只有内容块。'
+          : '',
+      ]),
+      layout: finalizeCreativeLayout({
+        filterBlock,
+        blocks: [contentBlock],
+        collectionMeta,
+        collectionFallbackBlock: detailsBlock || supportTableBlock || collectionFallbackBlock,
+      }),
+      title: `${title} 内容控制`,
+      summary: `${normalizeText(title)} / 单主块内容控制`,
+    },
+    {
+      candidateId: 'collection-workbench',
+      shape: 'multi-block',
+      primaryDefinition: collectionDefinition,
+      selectionRationale: [
+        '围绕 collection 组织成工作台，保留业务主块，同时补操作或说明区块。',
+      ],
+      layout: finalizeCreativeLayout({
+        filterBlock,
+        blocks: [
+          collectionFallbackBlock,
+          detailsBlock || formBlock,
+          supportPublicBlock,
+        ],
+        collectionMeta,
+        collectionFallbackBlock,
+      }),
+      title: `${title} 工作台`,
+      summary: `${normalizeText(title)} / collection workbench`,
+    },
+    {
+      candidateId: 'analytics-mix',
+      shape: 'multi-block',
+      primaryDefinition: visualDefinition || anchorDescriptor || collectionDefinition,
+      selectionRationale: [
+        '用分析/指标/可视化区块拉开页面调性，再用 collection 业务块托底。',
+      ],
+      layout: finalizeCreativeLayout({
+        filterBlock,
+        blocks: [
+          visualBlock,
+          supportTableBlock || collectionFallbackBlock,
+          supportPublicBlock,
+        ],
+        collectionMeta,
+        collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
+      }),
+      title: `${title} 分析混合`,
+      summary: `${normalizeText(title)} / analytics mix`,
+    },
+    {
+      candidateId: 'tabbed-multi-surface',
+      shape: 'tabbed-multi-surface',
+      primaryDefinition: anchorDescriptor || collectionDefinition,
+      selectionRationale: [
+        '把主视图、记录面和控制面拆到 tabs，优先追求结构层次与可探索性。',
+      ],
+      layout: finalizeCreativeLayout({
+        filterBlock,
+        blocks: [],
+        tabs: [
+          {
+            title: '主视图',
+            blocks: [anchorBlock || visualBlock].filter(Boolean).map((block) => cloneJson(block)),
+          },
+          {
+            title: '记录面',
+            blocks: [supportTableBlock || collectionFallbackBlock].filter(Boolean).map((block) => cloneJson(block)),
+          },
+          {
+            title: '控制面',
+            blocks: [contentBlock || detailsBlock || formBlock].filter(Boolean).map((block) => cloneJson(block)),
+          },
+        ],
+        collectionMeta,
+        collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
+      }),
+      title: `${title} 多界面`,
+      summary: `${normalizeText(title)} / tabbed multi surface`,
+    },
+  ];
+
+  return candidates.map((candidate) => buildCreativeLayoutCandidate({
+    candidateId: candidate.candidateId,
+    title: candidate.title,
+    summary: candidate.summary,
+    layout: candidate.layout,
+    selectionMode: 'creative-first',
+    primaryBlockDefinition: candidate.primaryDefinition || anchorDescriptor || collectionDefinition,
+    collectionMeta,
+    requestedFields,
+    resolvedFields,
+    selectionRationale: candidate.selectionRationale,
+    planningStatus,
+    planningBlockers,
+    shape: candidate.shape,
+    publicUseCatalog,
+    operationIntent,
+    explicitAnchorUse,
+    selected: false,
+  }));
+}
+
+function buildCreativeFirstValidationScenario({
+  caseRequest,
+  sessionId,
+  baseSlug,
+  candidatePageUrl,
+  instanceInventory,
+} = {}) {
+  const requestText = normalizeText(caseRequest);
+  const baseSlugText = normalizeText(baseSlug);
+  const explicitTitle = extractQuotedTitle(requestText);
+  const inventoryMerge = mergeAvailableUsesWithInventories({
+    baseUses: BASE_AVAILABLE_USES,
+    instanceInventory,
+  });
+  const explicitCollectionMatches = collectExplicitCollectionMatches(requestText, inventoryMerge.instanceInventory.collections);
+  const explicitCollectionNames = explicitCollectionMatches.map((item) => item.name);
+  const explicitCollectionRequested = explicitCollectionMatches.length > 0;
+  const collectionResolution = resolvePrimaryCollection({
+    requestText,
+    baseSlug: baseSlugText,
+    collectionsInventory: inventoryMerge.instanceInventory.collections,
+    primaryBlockDefinition: findPrimaryBlockDefinitionByUse('TableBlockModel'),
+  });
+  const collectionMeta = collectionResolution.collectionMeta;
+  const fieldResolution = collectionMeta
+    ? resolveFieldsForCollection(requestText, collectionMeta)
+    : { requestedFields: [], resolvedFields: [] };
+  const operationIntent = resolveOperationIntent(requestText, '');
+  const { eligibleDescriptors, eligibleUses, discardedUses } = buildCreativeUseInventory({
+    inventoryMerge,
+    collectionMeta,
+  });
+  const anchorResolution = resolveCreativeAnchorDescriptor({
+    requestText,
+    eligibleDescriptors,
+    publicUseCatalog: inventoryMerge.publicUseCatalog,
+  });
+  const anchorDescriptor = anchorResolution.descriptor;
+  const explicitAnchorUse = anchorResolution.explicit ? anchorDescriptor?.use || '' : '';
+  const planningBlockers = [];
+
+  if (!anchorDescriptor) {
+    planningBlockers.push(makePlanningBlocker(
+      'PRIMARY_BLOCK_UNRESOLVED',
+      'creative-first 未找到可稳定落库的 anchor 区块，无法生成候选布局。',
+      {
+        requestedText: requestText,
+        eligibleUses,
+        discardedUses: discardedUses.map((item) => item.use),
+      },
+    ));
+  }
+
+  if (collectionMeta && fieldResolution.requestedFields.length > 0 && fieldResolution.resolvedFields.length === 0) {
+    planningBlockers.push(makePlanningBlocker(
+      'REQUESTED_FIELDS_UNRESOLVED',
+      `请求中显式提到了字段，但 ${collectionMeta.name} 的 live metadata 未解析到对应字段。`,
+      {
+        collectionName: collectionMeta.name,
+      },
+    ));
+  }
+
+  if (operationIntent.requestedFilter && !collectionMeta) {
+    planningBlockers.push(makePlanningBlocker(
+      'FILTER_COLLECTION_UNRESOLVED',
+      '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。',
+      {
+        requestedText: requestText,
+      },
+    ));
+  }
+
+  const filterFields = collectionMeta ? resolveFilterFields(collectionMeta, fieldResolution) : [];
+  if (operationIntent.requestedFilter && collectionMeta && filterFields.length === 0) {
+    planningBlockers.push(makePlanningBlocker(
+      'FILTER_FIELDS_UNRESOLVED',
+      `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
+      {
+        collectionName: collectionMeta.name,
+      },
+    ));
+  }
+
+  const title = explicitTitle || (
+    collectionMeta
+      ? `${humanizeCollectionTitle(collectionMeta)} 创意工作台`
+      : `Creative ${anchorDescriptor?.titleSuffix || 'workspace'}`
+  );
+  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilter && collectionMeta
+    ? buildFilterBlock({
+      title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
+      collectionName: collectionMeta.name,
+      fields: filterFields,
+    })
+    : null;
+  const planningStatus = planningBlockers.length > 0 ? 'blocked' : 'ready';
+  const layoutCandidates = planningStatus === 'ready'
+    ? buildCreativeRecipeCandidates({
+      title,
+      collectionMeta,
+      requestedFields: fieldResolution.requestedFields,
+      resolvedFields: fieldResolution.resolvedFields,
+      operationIntent,
+      filterBlock,
+      planningStatus,
+      planningBlockers,
+      inventoryMerge,
+      eligibleDescriptors,
+      anchorDescriptor,
+      explicitAnchorUse,
+    }).slice(0, 5)
+    : [];
+
+  const selectedCandidatePool = explicitAnchorUse
+    ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).includes(explicitAnchorUse))
+    : layoutCandidates;
+  const selectedCandidate = [...selectedCandidatePool]
+    .sort((left, right) => {
+      if ((right.score || 0) !== (left.score || 0)) {
+        return (right.score || 0) - (left.score || 0);
+      }
+      return left.candidateId.localeCompare(right.candidateId);
+    })[0] || null;
+  const normalizedLayoutCandidates = layoutCandidates.map((candidate) => ({
+    ...candidate,
+    selected: Boolean(selectedCandidate && candidate.candidateId === selectedCandidate.candidateId),
+  }));
+  const finalPrimaryDefinition = buildPrimaryBlockDefinition(
+    selectedCandidate?.primaryBlockType || anchorDescriptor?.use || '',
+    inventoryMerge.publicUseCatalog,
+  ) || anchorDescriptor || buildPrimaryBlockDefinition('TableBlockModel', inventoryMerge.publicUseCatalog);
+  const layout = selectedCandidate?.layout || {
+    pageUse: 'RootPageModel',
+    blocks: [],
+    tabs: [],
+  };
+  const actionPlan = selectedCandidate?.actionPlan || collectActionPlan(layout);
+  const creativeProgram = createCreativeProgram({
+    planningMode: 'creative-first',
+    selectionMode: 'creative-first',
+    operationIntent,
+    inventoryMerge,
+    collectionMeta,
+  });
+  const scenario = buildScenarioSummary({
+    title,
+    planningMode: 'creative-first',
+    selectionMode: 'creative-first',
+    collectionMeta,
+    explicitCollections: explicitCollectionNames,
+    primaryCollectionExplicit: explicitCollectionRequested,
+    primaryBlockDefinition: finalPrimaryDefinition,
+    layout,
+    inventoryMerge,
+    requestedFields: fieldResolution.requestedFields,
+    resolvedFields: fieldResolution.resolvedFields,
+    actionPlan,
+    planningStatus,
+    planningBlockers,
+    maxNestingDepth: 3,
+    creativeProgram,
+    layoutCandidates: normalizedLayoutCandidates,
+    selectedCandidateId: selectedCandidate?.candidateId || '',
+    eligibleUses,
+    discardedUses,
+  });
+  scenario.randomPolicy.sessionId = normalizeText(sessionId);
+  scenario.randomPolicy.candidatePageUrl = normalizeText(candidatePageUrl);
+
+  return {
+    scenario,
+    buildSpecInput: {
+      target: {
+        title,
+      },
+      layout,
+      dataBindings: {
+        collections: collectionMeta ? [collectionMeta.name] : [],
+        relations: [],
+      },
+      requirements: {
+        metadataTrust: 'unknown',
+      },
+      options: {
+        compileMode: 'primitive-tree',
+        allowLegacyFallback: false,
+      },
+    },
+    verifySpecInput: buildVerifySpecInput({
+      title,
+      layout,
+      actionPlan,
+      planningStatus,
+    }),
+  };
+}
+
+export function buildDynamicValidationScenario({
+  planningMode = DEFAULT_PLANNING_MODE,
+  ...input
+} = {}) {
+  const normalizedPlanningMode = normalizePlanningMode(planningMode, DEFAULT_PLANNING_MODE);
+  if (normalizedPlanningMode === 'stable-first') {
+    return buildStableFirstValidationScenario(input);
+  }
+  return buildCreativeFirstValidationScenario(input);
 }

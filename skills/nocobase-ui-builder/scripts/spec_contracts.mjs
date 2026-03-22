@@ -402,6 +402,21 @@ function normalizePlannedCoverageInput(input) {
   };
 }
 
+function normalizeDiscardedUsesInput(items) {
+  return Array.isArray(items)
+    ? items
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        use: typeof item.use === 'string' ? item.use.trim() : '',
+        title: typeof item.title === 'string' ? item.title.trim() : '',
+        contextRequirements: sortUniqueStrings(item.contextRequirements),
+        unresolvedReasons: sortUniqueStrings(item.unresolvedReasons),
+        families: sortUniqueStrings(item.families),
+      }))
+      .filter((item) => item.use)
+    : [];
+}
+
 function normalizeCreativeProgram(input) {
   const creativeProgramInput = input && typeof input === 'object' ? input : {};
   return {
@@ -442,6 +457,9 @@ function normalizeLayoutCandidate(entry, index) {
     title: typeof entry.title === 'string' ? entry.title.trim() : '',
     summary: typeof entry.summary === 'string' ? entry.summary.trim() : '',
     score: Number.isFinite(entry.score) ? entry.score : null,
+    semanticScore: Number.isFinite(entry.semanticScore) ? entry.semanticScore : null,
+    creativeScore: Number.isFinite(entry.creativeScore) ? entry.creativeScore : null,
+    stabilityScore: Number.isFinite(entry.stabilityScore) ? entry.stabilityScore : null,
     selected: entry.selected === true,
     selectionMode: typeof entry.selectionMode === 'string' ? entry.selectionMode.trim() : '',
     primaryBlockType: typeof entry.primaryBlockType === 'string' ? entry.primaryBlockType.trim() : '',
@@ -451,6 +469,8 @@ function normalizeLayoutCandidate(entry, index) {
     selectionRationale: uniqueStrings(entry.selectionRationale),
     planningStatus: typeof entry.planningStatus === 'string' ? entry.planningStatus.trim() : '',
     planningBlockers: normalizePlanningBlockersInput(entry.planningBlockers),
+    shape: typeof entry.shape === 'string' ? entry.shape.trim() : '',
+    families: sortUniqueStrings(entry.families),
     actionPlan: normalizeActionPlanInput(entry.actionPlan),
     plannedCoverage: normalizePlannedCoverageInput(entry.plannedCoverage),
     layout: normalizeLayoutShape(entry.layout, `scenario.layoutCandidates[${index}].layout`),
@@ -493,6 +513,9 @@ function normalizeScenario(input) {
     archetypeLabel: typeof scenarioInput.archetypeLabel === 'string' ? scenarioInput.archetypeLabel.trim() : '',
     tier: typeof scenarioInput.tier === 'string' ? scenarioInput.tier.trim() : '',
     expectedOutcome: typeof scenarioInput.expectedOutcome === 'string' ? scenarioInput.expectedOutcome.trim() : '',
+    planningMode: typeof scenarioInput.planningMode === 'string' && scenarioInput.planningMode.trim()
+      ? scenarioInput.planningMode.trim()
+      : 'creative-first',
     selectionMode: typeof scenarioInput.selectionMode === 'string' ? scenarioInput.selectionMode.trim() : '',
     plannerVersion: typeof scenarioInput.plannerVersion === 'string' ? scenarioInput.plannerVersion.trim() : '',
     primaryBlockType: typeof scenarioInput.primaryBlockType === 'string' ? scenarioInput.primaryBlockType.trim() : '',
@@ -501,6 +524,8 @@ function normalizeScenario(input) {
     requestedSignals: uniqueStrings(scenarioInput.requestedSignals),
     selectionRationale: uniqueStrings(scenarioInput.selectionRationale),
     availableUses: sortUniqueStrings(scenarioInput.availableUses),
+    eligibleUses: sortUniqueStrings(scenarioInput.eligibleUses),
+    discardedUses: normalizeDiscardedUsesInput(scenarioInput.discardedUses),
     targetCollections: sortUniqueStrings(scenarioInput.targetCollections),
     explicitCollections: sortUniqueStrings(scenarioInput.explicitCollections),
     primaryCollectionExplicit: scenarioInput.primaryCollectionExplicit === true,
@@ -512,6 +537,15 @@ function normalizeScenario(input) {
     creativeProgram: normalizeCreativeProgram(scenarioInput.creativeProgram),
     layoutCandidates,
     selectedCandidateId,
+    candidateScores: scenarioInput.candidateScores && typeof scenarioInput.candidateScores === 'object'
+      ? scenarioInput.candidateScores
+      : {},
+    candidateFamilies: scenarioInput.candidateFamilies && typeof scenarioInput.candidateFamilies === 'object'
+      ? scenarioInput.candidateFamilies
+      : {},
+    candidateShape: scenarioInput.candidateShape && typeof scenarioInput.candidateShape === 'object'
+      ? scenarioInput.candidateShape
+      : {},
     sourceInventory: {
       detected: Boolean(sourceInventoryInput.detected),
       repoRoot: typeof sourceInventoryInput.repoRoot === 'string' ? sourceInventoryInput.repoRoot.trim() : '',
@@ -1126,19 +1160,88 @@ function buildRequiredFilterBinding(block, compiledBlock, context, targetUses) {
   };
 }
 
+function collectScopedBlockUses(compiledBlocks) {
+  const uses = new Set();
+  const visit = (items) => {
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      if (typeof item.use === 'string' && item.use.trim()) {
+        uses.add(item.use.trim());
+      }
+      visit(item.blocks);
+    }
+  };
+  visit(compiledBlocks);
+  return [...uses].sort((left, right) => left.localeCompare(right));
+}
+
+function pushReadbackRequiredScope(artifact, descriptor) {
+  if (!descriptor || typeof descriptor !== 'object') {
+    return;
+  }
+  const scopePath = normalizeOptionalText(descriptor.scopePath);
+  if (!scopePath) {
+    return;
+  }
+  artifact.readbackContract.requiredScopes.push({
+    scopePath,
+    scopeKind: normalizeOptionalText(descriptor.scopeKind),
+    pageUse: normalizeOptionalText(descriptor.pageUse),
+    tabTitle: normalizeOptionalText(descriptor.tabTitle),
+    requireBlockGrid: descriptor.requireBlockGrid !== false,
+    requiredBlockUses: sortUniqueStrings(descriptor.requiredBlockUses),
+  });
+}
+
+function pushReadbackRequiredDetailsBlock(artifact, descriptor) {
+  if (!descriptor || typeof descriptor !== 'object') {
+    return;
+  }
+  const scopePath = normalizeOptionalText(descriptor.scopePath);
+  const collectionName = normalizeOptionalText(descriptor.collectionName);
+  const fieldPaths = sortUniqueStrings(descriptor.fieldPaths);
+  if (!scopePath || !collectionName || fieldPaths.length === 0) {
+    return;
+  }
+  artifact.readbackContract.requiredDetailsBlocks.push({
+    scopePath,
+    scopeKind: normalizeOptionalText(descriptor.scopeKind),
+    collectionName,
+    fieldPaths,
+    minItemCount: Number.isFinite(descriptor.minItemCount)
+      ? Math.max(1, Number(descriptor.minItemCount))
+      : fieldPaths.length,
+    requireFilterByTkTemplate: descriptor.requireFilterByTkTemplate === true,
+    expectedFilterByTkTemplate: normalizeOptionalText(descriptor.expectedFilterByTkTemplate),
+  });
+}
+
 function compilePopup(popup, scope, artifact, context) {
   if (!popup) {
     return null;
   }
   const popupContext = {
-    pageSignature: `${scope}.popup`,
+    pageSignature: `${scope}.popup.page`,
     pageUse: popup.pageUse,
     tabTitle: context?.tabTitle || '',
+    scopePath: `${scope}.popup.page`,
+    scopeKind: 'popup-page',
   };
+  const compiledBlocks = compileBlocks(popup.blocks, `${scope}.popup.page`, artifact, popupContext);
+  pushReadbackRequiredScope(artifact, {
+    scopePath: popupContext.scopePath,
+    scopeKind: popupContext.scopeKind,
+    pageUse: popup.pageUse,
+    tabTitle: '',
+    requireBlockGrid: true,
+    requiredBlockUses: collectScopedBlockUses(compiledBlocks),
+  });
   return {
     title: popup.title,
     pageUse: popup.pageUse,
-    blocks: compileBlocks(popup.blocks, `${scope}.popup`, artifact, popupContext),
+    blocks: compiledBlocks,
   };
 }
 
@@ -1224,6 +1327,17 @@ function compileBlocks(blocks, scope, artifact, context) {
         buildRequiredFilterBinding(block, compiledBlock, context, targetUses),
       );
     }
+    if (block.kind === 'Details') {
+      pushReadbackRequiredDetailsBlock(artifact, {
+        scopePath: context.scopePath || context.pageSignature || '$.page',
+        scopeKind: context.scopeKind || 'root-page',
+        collectionName: block.collectionName || compiledBlock.collectionName,
+        fieldPaths: compiledBlock.fields,
+        minItemCount: compiledBlock.fields.length,
+        requireFilterByTkTemplate: String(context.scopeKind || '').startsWith('popup'),
+        expectedFilterByTkTemplate: '{{ctx.view.inputArgs.filterByTk}}',
+      });
+    }
     return compiledBlock;
   });
 }
@@ -1268,6 +1382,8 @@ function createArtifactState(buildSpec, scenarioLike, runtimeSensitiveMetadataTr
         requireBlockGrid: item.requireBlockGrid !== false,
         requiredBlockUses: sortUniqueStrings(item.requiredBlockUses),
       })),
+      requiredScopes: [],
+      requiredDetailsBlocks: [],
       requiredVisibleTabs: requirements.requiredTabs.flatMap((item) => item.titles),
       requiredTabCount: requirements.requiredTabs.reduce((count, item) => count + item.titles.length, 0),
       requiredTopLevelUses: [],
@@ -1305,6 +1421,8 @@ function compileLayoutVariant({
       pageSignature: '$',
       pageUse: layout.pageUse,
       tabTitle: '',
+      scopePath: '$.page',
+      scopeKind: 'root-page',
     }),
     tabs: layout.tabs.map((tab, index) => {
       artifact.requiredUses.add(defaultTabUse);
@@ -1326,10 +1444,31 @@ function compileLayoutVariant({
           pageSignature: `$.page.tabs[${index}]`,
           pageUse: defaultTabUse,
           tabTitle: tab.title,
+          scopePath: `$.page.tabs[${index}]`,
+          scopeKind: 'root-tab',
         }),
       };
     }),
   };
+
+  pushReadbackRequiredScope(artifact, {
+    scopePath: '$.page',
+    scopeKind: 'root-page',
+    pageUse: layout.pageUse,
+    tabTitle: '',
+    requireBlockGrid: false,
+    requiredBlockUses: collectScopedBlockUses(tree.blocks),
+  });
+  tree.tabs.forEach((tab, index) => {
+    pushReadbackRequiredScope(artifact, {
+      scopePath: `$.page.tabs[${index}]`,
+      scopeKind: 'root-tab',
+      pageUse: defaultTabUse,
+      tabTitle: tab.title,
+      requireBlockGrid: true,
+      requiredBlockUses: collectScopedBlockUses(tab.blocks),
+    });
+  });
 
   artifact.readbackContract.requiredTopLevelUses = sortUniqueStrings([
     ...tree.blocks.map((item) => item.use),
@@ -1359,6 +1498,7 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     domainLabel: artifact.scenario.domainLabel,
     archetypeId: artifact.scenario.archetypeId,
     archetypeLabel: artifact.scenario.archetypeLabel,
+    planningMode: artifact.scenario.planningMode,
     selectionMode: artifact.selectionMode,
     plannerVersion: artifact.plannerVersion,
     primaryBlockType: artifact.primaryBlockType,
@@ -1367,6 +1507,8 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     primaryCollectionExplicit: artifact.scenario.primaryCollectionExplicit === true,
     requestedFields: artifact.scenario.requestedFields,
     resolvedFields: artifact.scenario.resolvedFields,
+    eligibleUses: artifact.scenario.eligibleUses,
+    discardedUses: artifact.scenario.discardedUses,
     planningStatus: artifact.planningStatus,
     planningBlockers: artifact.planningBlockers,
     maxNestingDepth: artifact.maxNestingDepth,
@@ -1375,6 +1517,9 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     creativeProgram: artifact.scenario.creativeProgram,
     layoutCandidates: artifact.scenario.layoutCandidates,
     selectedCandidateId: artifact.scenario.selectedCandidateId,
+    candidateScores: artifact.scenario.candidateScores,
+    candidateFamilies: artifact.scenario.candidateFamilies,
+    candidateShape: artifact.scenario.candidateShape,
     sourceInventory: artifact.scenario.sourceInventory,
     instanceInventory: artifact.scenario.instanceInventory,
     availableUses: artifact.scenario.availableUses,
@@ -1674,11 +1819,14 @@ function buildBlockedScenario({
     archetypeLabel: blocker.code,
     tier: 'request-gate',
     expectedOutcome: 'blocker-expected',
+    planningMode: 'creative-first',
     requestedSignals: uniqueStrings([requestText]),
     selectionRationale: [blocker.message],
     availableUses: sortUniqueStrings([
       ...(Array.isArray(instanceInventory?.flowSchema?.rootPublicUses) ? instanceInventory.flowSchema.rootPublicUses : []),
     ]),
+    eligibleUses: [],
+    discardedUses: [],
     targetCollections: [],
     explicitCollections: [],
     primaryCollectionExplicit: false,
@@ -1703,6 +1851,9 @@ function buildBlockedScenario({
     },
     layoutCandidates: [],
     selectedCandidateId: '',
+    candidateScores: {},
+    candidateFamilies: {},
+    candidateShape: {},
     sourceInventory: {
       detected: false,
       repoRoot: '',
@@ -1827,6 +1978,7 @@ function buildSingleValidationSpecs({
   sessionDir,
   randomSeed,
   instanceInventory,
+  planningMode,
   pageId = '',
 }) {
   const plannedScenario = buildDynamicValidationScenario({
@@ -1836,6 +1988,7 @@ function buildSingleValidationSpecs({
     candidatePageUrl,
     instanceInventory,
     randomSeed,
+    planningMode,
   });
 
   const allowedBusinessBlockUses = sortUniqueStrings([
@@ -1945,6 +2098,7 @@ export async function buildValidationSpecsForRun({
   sessionDir,
   randomSeed = '',
   instanceInventory: instanceInventoryInput,
+  planningMode,
 }) {
   const requestText = normalizeNonEmpty(caseRequest, 'case request');
   const normalizedSessionId = normalizeNonEmpty(sessionId, 'session id');
@@ -2014,6 +2168,7 @@ export async function buildValidationSpecsForRun({
       sessionDir,
       randomSeed,
       instanceInventory,
+      planningMode,
       pageId: pageRequest.pageId || `page-${index + 1}`,
     }));
     const multiPageBlocker = {
@@ -2064,6 +2219,7 @@ export async function buildValidationSpecsForRun({
     sessionDir,
     randomSeed,
     instanceInventory,
+    planningMode,
   });
   return {
     ...singleBuild,

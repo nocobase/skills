@@ -13,6 +13,8 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - 详情内关系表
 - popup page 内的子表
 
+如果当前列是 `JSColumnModel`，先读 [../js-models/js-column.md](../js-models/js-column.md) 和 [../js-models/rendering-contract.md](../js-models/rendering-contract.md)。本文默认处理的是普通 `TableColumnModel + subModels.field` 数据列，不替代 RunJS 自定义列文档。
+
 它解决的问题是：
 
 - 列壳已创建，但页面不显示真实值

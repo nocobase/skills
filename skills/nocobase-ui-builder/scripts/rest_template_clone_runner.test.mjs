@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  buildReadbackDriftReport,
   detectCloneTarget,
   discoverTemplatePayloadFile,
   normalizeFilterItemFieldModelUses,
@@ -167,6 +168,33 @@ test('validateReadbackContract checks visible tabs and filterManager entry count
                   {
                     uid: 'contact-details',
                     use: 'DetailsBlockModel',
+                    stepParams: {
+                      resourceSettings: {
+                        init: {
+                          collectionName: 'contacts',
+                        },
+                      },
+                    },
+                    subModels: {
+                      grid: {
+                        use: 'DetailsGridModel',
+                        subModels: {
+                          items: [
+                            {
+                              use: 'DetailsItemModel',
+                              stepParams: {
+                                fieldSettings: {
+                                  init: {
+                                    collectionName: 'contacts',
+                                    fieldPath: 'nickname',
+                                  },
+                                },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
                   },
                 ],
               },
@@ -202,12 +230,251 @@ test('validateReadbackContract checks visible tabs and filterManager entry count
         targetUses: ['TableBlockModel'],
       },
     ],
+    requiredScopes: [
+      {
+        scopePath: '$.page',
+        scopeKind: 'root-page',
+        pageUse: 'RootPageModel',
+        tabTitle: '',
+        requireBlockGrid: false,
+        requiredBlockUses: [],
+      },
+      {
+        scopePath: '$.page.tabs[1]',
+        scopeKind: 'root-tab',
+        pageUse: 'RootPageTabModel',
+        tabTitle: '联系人',
+        requireBlockGrid: true,
+        requiredBlockUses: ['DetailsBlockModel'],
+      },
+    ],
+    requiredDetailsBlocks: [
+      {
+        scopePath: '$.page.tabs[1]',
+        scopeKind: 'root-tab',
+        collectionName: 'contacts',
+        fieldPaths: ['nickname'],
+        minItemCount: 1,
+        requireFilterByTkTemplate: false,
+        expectedFilterByTkTemplate: '{{ctx.view.inputArgs.filterByTk}}',
+      },
+    ],
   });
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.findings, []);
   assert.deepEqual(result.summary.tabBlockUses['客户概览'], ['FilterFormBlockModel', 'TableBlockModel']);
   assert.equal(result.summary.filterManagerBindings.includes('customer-name-filter->customers-table:name'), true);
+});
+
+test('validateReadbackContract detects missing popup scope and details field drift', () => {
+  const popupPageModel = {
+    use: 'RootPageModel',
+    subModels: {
+      tabs: [
+        {
+          use: 'RootPageTabModel',
+          stepParams: {
+            pageTabSettings: {
+              tab: {
+                title: '客户概览',
+              },
+            },
+          },
+          subModels: {
+            grid: {
+              use: 'BlockGridModel',
+              subModels: {
+                items: [
+                  {
+                    use: 'TableBlockModel',
+                    subModels: {
+                      columns: [
+                        {
+                          use: 'TableActionsColumnModel',
+                          subModels: {
+                            actions: [
+                              {
+                                use: 'ViewActionModel',
+                                subModels: {
+                                  page: {
+                                    use: 'ChildPageModel',
+                                    subModels: {
+                                      tabs: [
+                                        {
+                                          use: 'ChildPageTabModel',
+                                          stepParams: {
+                                            pageTabSettings: {
+                                              tab: {
+                                                title: '任务详情',
+                                              },
+                                            },
+                                          },
+                                          subModels: {
+                                            grid: {
+                                              use: 'BlockGridModel',
+                                              subModels: {
+                                                items: [
+                                                  {
+                                                    use: 'DetailsBlockModel',
+                                                    stepParams: {
+                                                      resourceSettings: {
+                                                        init: {
+                                                          collectionName: 'task',
+                                                          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+                                                        },
+                                                      },
+                                                    },
+                                                    subModels: {
+                                                      grid: {
+                                                        use: 'DetailsGridModel',
+                                                        subModels: {
+                                                          items: [
+                                                            {
+                                                              use: 'DetailsItemModel',
+                                                              stepParams: {
+                                                                fieldSettings: {
+                                                                  init: {
+                                                                    collectionName: 'task',
+                                                                    fieldPath: 'subject',
+                                                                  },
+                                                                },
+                                                              },
+                                                            },
+                                                          ],
+                                                        },
+                                                      },
+                                                    },
+                                                  },
+                                                ],
+                                              },
+                                            },
+                                          },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const result = validateReadbackContract(popupPageModel, {
+    requiredScopes: [
+      {
+        scopePath: '$.page.tabs[0].blocks[0].row-actions[0].popup.page',
+        scopeKind: 'popup-page',
+        pageUse: 'ChildPageModel',
+        tabTitle: '',
+        requireBlockGrid: true,
+        requiredBlockUses: ['DetailsBlockModel'],
+      },
+    ],
+    requiredDetailsBlocks: [
+      {
+        scopePath: '$.page.tabs[0].blocks[0].row-actions[0].popup.page',
+        scopeKind: 'popup-page',
+        collectionName: 'task',
+        fieldPaths: ['subject', 'status'],
+        minItemCount: 2,
+        requireFilterByTkTemplate: true,
+        expectedFilterByTkTemplate: '{{ctx.view.inputArgs.filterByTk}}',
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((item) => item.code === 'READBACK_DETAILS_ITEM_COUNT_MISMATCH'), true);
+});
+
+test('buildReadbackDriftReport reports runtime-sensitive field shape drift', () => {
+  const writeModel = {
+    use: 'RootPageModel',
+    subModels: {
+      tabs: [
+        {
+          use: 'RootPageTabModel',
+          stepParams: {
+            pageTabSettings: {
+              tab: {
+                title: '任务',
+              },
+            },
+          },
+          subModels: {
+            grid: {
+              use: 'BlockGridModel',
+              subModels: {
+                items: [
+                  {
+                    use: 'DetailsBlockModel',
+                    stepParams: {
+                      resourceSettings: {
+                        init: {
+                          collectionName: 'task',
+                        },
+                      },
+                    },
+                    subModels: {
+                      grid: {
+                        use: 'DetailsGridModel',
+                        subModels: {
+                          items: [
+                            {
+                              use: 'DetailsItemModel',
+                              stepParams: {
+                                fieldSettings: {
+                                  init: {
+                                    collectionName: 'task',
+                                    fieldPath: 'subject',
+                                  },
+                                },
+                              },
+                              subModels: {
+                                field: {
+                                  use: 'FieldModel',
+                                  stepParams: {
+                                    fieldBinding: {
+                                      use: 'DisplayTextFieldModel',
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const readbackModel = structuredClone(writeModel);
+  readbackModel.subModels.tabs[0].subModels.grid.subModels.items[0].subModels.grid.subModels.items[0].subModels.field.use = 'DisplayTextFieldModel';
+  delete readbackModel.subModels.tabs[0].subModels.grid.subModels.items[0].subModels.grid.subModels.items[0].subModels.field.stepParams.fieldBinding;
+
+  const result = buildReadbackDriftReport(writeModel, readbackModel);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((item) => item.code === 'READBACK_FIELD_MODEL_SHAPE_DRIFT'), true);
 });
 
 test('normalizeFilterItemFieldModelUses rewrites association selector to scalar input when fieldPath resolves to scalar', () => {

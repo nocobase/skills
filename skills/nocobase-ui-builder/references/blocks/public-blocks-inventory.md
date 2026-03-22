@@ -349,7 +349,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 **skill 改进建议**
 
 - 文档：
-  - 增加 `references/blocks/js-block.md`：写清 stepParams 路径与“不要模板化 code”的约束。
+  - 增加 `references/js-models/js-block.md`：写清 stepParams 路径与“不要模板化 code”的约束，并把默认渲染方式统一为 `ctx.render(...)`。
 - Guard：
   - 把 `JSBlockModel` 加入 `BUSINESS_BLOCK_MODEL_USES` fallback（当前 guard 常量缺失会影响 EMPTY_POPUP_GRID 等判定）。
   - 对缺失 code 的 JSBlockModel 给 warning，并可选补一个极简默认代码（例如 `ctx.render('<div/>')`）。
@@ -520,4 +520,3 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
   - 继续保持 actions slot allowed uses 校验（已有）。
 - Contracts/recipes：
   - `scripts/spec_contracts.mjs` 的 Table required uses 建议默认包含 `TableActionsColumnModel`（对齐 UI 默认）。
-

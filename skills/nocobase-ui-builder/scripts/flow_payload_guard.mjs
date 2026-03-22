@@ -3013,10 +3013,10 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
       if (fieldUse === 'FieldModel' && bindingUse) {
         return;
       }
-      pushFinding(blockers, seen, createFinding({
-        severity: 'blocker',
+      pushFinding(warnings, seen, createFinding({
+        severity: 'warning',
         code: 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID',
-        message: 'DetailsItemModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 display field model。直接落具体 FieldModel use 会触发 resolveUse circular reference 等 runtime warning。',
+        message: 'DetailsItemModel.subModels.field 当前建议统一走 FieldModel + stepParams.fieldBinding.use 入口；直接落具体 display field model 仍可能造成 builder/readback/runtime 形态不一致，应视为高风险诊断而非当前源码硬 blocker。',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
@@ -4261,7 +4261,19 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           },
           subModels: {
             field: {
-              use: 'DisplayTextFieldModel',
+              use: 'FieldModel',
+              stepParams: {
+                fieldBinding: {
+                  use: 'DisplayTextFieldModel',
+                },
+                fieldSettings: {
+                  init: {
+                    collectionName: displayBinding.collectionName,
+                    fieldPath: displayBinding.fieldPath,
+                    ...(displayBinding.associationPathName ? { associationPathName: displayBinding.associationPathName } : {}),
+                  },
+                },
+              },
             },
           },
         });

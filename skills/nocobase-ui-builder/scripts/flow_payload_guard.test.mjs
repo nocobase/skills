@@ -83,6 +83,14 @@ function makeFieldBindingSubModel({ use, init }) {
   };
 }
 
+function makeCollectionResourceInit(collectionName, extra = {}) {
+  return {
+    dataSourceKey: 'main',
+    collectionName,
+    ...extra,
+  };
+}
+
 const metadataWithCompositeProjectMembers = {
   collections: {
     ...metadata.collections,
@@ -240,6 +248,11 @@ function makeOrdersFilterTableGrid({ filterManager } = {}) {
         {
           uid: 'orders-filter-block',
           use: 'FilterFormBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: makeCollectionResourceInit('orders'),
+            },
+          },
           subModels: {
             grid: {
               use: 'FilterFormGridModel',
@@ -319,9 +332,7 @@ function makeOrdersFilterTableGrid({ filterManager } = {}) {
           use: 'TableBlockModel',
           stepParams: {
             resourceSettings: {
-              init: {
-                collectionName: 'orders',
-              },
+              init: makeCollectionResourceInit('orders'),
             },
           },
           subModels: {
@@ -369,9 +380,7 @@ function makePopupPageWithTable(filter) {
                         use: 'TableBlockModel',
                         stepParams: {
                           resourceSettings: {
-                            init: {
-                              collectionName: 'project_members',
-                            },
+                            init: makeCollectionResourceInit('project_members'),
                           },
                           tableSettings: {
                             dataScope: {
@@ -393,6 +402,21 @@ function makePopupPageWithTable(filter) {
 }
 
 function makePopupPageWithChildTab(tableBlock) {
+  const normalizedTableBlock = cloneJson(tableBlock);
+  const resourceInit = normalizedTableBlock?.stepParams?.resourceSettings?.init;
+  if (
+    resourceInit
+    && typeof resourceInit === 'object'
+    && typeof resourceInit.collectionName === 'string'
+    && resourceInit.collectionName.trim()
+    && !(typeof resourceInit.dataSourceKey === 'string' && resourceInit.dataSourceKey.trim())
+  ) {
+    normalizedTableBlock.stepParams.resourceSettings.init = makeCollectionResourceInit(
+      resourceInit.collectionName,
+      resourceInit,
+    );
+  }
+
   return {
     use: 'ViewActionModel',
     stepParams: {
@@ -416,7 +440,7 @@ function makePopupPageWithChildTab(tableBlock) {
                 grid: {
                   use: 'BlockGridModel',
                   subModels: {
-                    items: [tableBlock],
+                    items: [normalizedTableBlock],
                   },
                 },
               },
@@ -462,10 +486,9 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
                         use: 'EditFormModel',
                         stepParams: {
                           resourceSettings: {
-                            init: {
-                              collectionName,
+                            init: makeCollectionResourceInit(collectionName, {
                               filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
-                            },
+                            }),
                           },
                         },
                         subModels: {
@@ -484,9 +507,13 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
                                     },
                                   },
                                   subModels: {
-                                    field: {
+                                    field: makeFieldBindingSubModel({
                                       use: 'InputFieldModel',
-                                    },
+                                      init: {
+                                        collectionName,
+                                        fieldPath: 'quantity',
+                                      },
+                                    }),
                                   },
                                 },
                               ],
@@ -544,9 +571,7 @@ function makeCreatePopupAction(collectionName = 'order_items', title = '新建�
                         use: 'CreateFormModel',
                         stepParams: {
                           resourceSettings: {
-                            init: {
-                              collectionName,
-                            },
+                            init: makeCollectionResourceInit(collectionName),
                           },
                         },
                         subModels: {
@@ -565,9 +590,13 @@ function makeCreatePopupAction(collectionName = 'order_items', title = '新建�
                                     },
                                   },
                                   subModels: {
-                                    field: {
+                                    field: makeFieldBindingSubModel({
                                       use: 'InputFieldModel',
-                                    },
+                                      init: {
+                                        collectionName,
+                                        fieldPath: 'quantity',
+                                      },
+                                    }),
                                   },
                                 },
                               ],
@@ -626,10 +655,9 @@ function makeViewRecordPopupAction(collectionName = 'order_items', title = '查�
                         use: 'DetailsBlockModel',
                         stepParams: {
                           resourceSettings: {
-                            init: {
-                              collectionName,
+                            init: makeCollectionResourceInit(collectionName, {
                               filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
-                            },
+                            }),
                           },
                         },
                         subModels: {
@@ -648,9 +676,13 @@ function makeViewRecordPopupAction(collectionName = 'order_items', title = '查�
                                     },
                                   },
                                   subModels: {
-                                    field: {
+                                    field: makeFieldBindingSubModel({
                                       use: 'DisplayTextFieldModel',
-                                    },
+                                      init: {
+                                        collectionName,
+                                        fieldPath: 'quantity',
+                                      },
+                                    }),
                                   },
                                 },
                               ],
@@ -704,9 +736,7 @@ function makeAddChildPopupAction(collectionName = 'departments', title = '新增
                         use: 'CreateFormModel',
                         stepParams: {
                           resourceSettings: {
-                            init: {
-                              collectionName,
-                            },
+                            init: makeCollectionResourceInit(collectionName),
                           },
                         },
                         subModels: {
@@ -768,9 +798,13 @@ function makeEditFormBlock({
       ...(includeFieldSubModel
         ? {
             subModels: {
-              field: {
+              field: makeFieldBindingSubModel({
                 use: 'InputFieldModel',
-              },
+                init: {
+                  collectionName,
+                  fieldPath: 'quantity',
+                },
+              }),
             },
           }
         : {}),
@@ -787,10 +821,9 @@ function makeEditFormBlock({
     use: 'EditFormModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName,
+        init: makeCollectionResourceInit(collectionName, {
           filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -816,9 +849,7 @@ function makeActionTargetBlock(collectionName = 'order_items', actions = []) {
     use: 'TableBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName,
-        },
+        init: makeCollectionResourceInit(collectionName),
       },
     },
     subModels: {
@@ -832,10 +863,9 @@ function makeDetailsActionTargetBlock(collectionName = 'orders', actions = []) {
     use: 'DetailsBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName,
+        init: makeCollectionResourceInit(collectionName, {
           filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -852,9 +882,7 @@ function makeRowActionTargetBlock(collectionName = 'order_items', actions = []) 
     use: 'TableBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName,
-        },
+        init: makeCollectionResourceInit(collectionName),
       },
     },
     subModels: {
@@ -874,6 +902,9 @@ function makeFilterFormBlock(actions = []) {
   return {
     use: 'FilterFormBlockModel',
     stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit('orders'),
+      },
       formFilterBlockModelSettings: {
         layout: {
           layout: 'horizontal',
@@ -949,6 +980,9 @@ function makeFilterFormBlockWithItems(items, actions = []) {
   return {
     use: 'FilterFormBlockModel',
     stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit('orders'),
+      },
       formFilterBlockModelSettings: {
         layout: {
           layout: 'horizontal',
@@ -1006,9 +1040,7 @@ function makeVisibleTabsPage({
                   use: itemUse,
                   stepParams: {
                     resourceSettings: {
-                      init: {
-                        collectionName: 'orders',
-                      },
+                      init: makeCollectionResourceInit('orders'),
                     },
                   },
                 },
@@ -1169,9 +1201,7 @@ test('auditPayload blocks malformed filter items that use field instead of path'
     use: 'TableBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'orders',
-        },
+        init: makeCollectionResourceInit('orders'),
       },
       tableSettings: {
         dataScope: {
@@ -1688,10 +1718,9 @@ test('auditPayload allows runtime-legal non-empty dataScope on record details bl
     use: 'DetailsBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'orders',
+        init: makeCollectionResourceInit('orders', {
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
       detailsSettings: {
         dataScope: {
@@ -1815,10 +1844,9 @@ test('auditPayload warns on hardcoded filterByTk in general mode and blocks in v
     use: 'DetailsBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'orders',
+        init: makeCollectionResourceInit('orders', {
           filterByTk: 6,
-        },
+        }),
       },
       detailsSettings: {
         dataScope: {
@@ -2088,9 +2116,7 @@ test('auditPayload falls back to dotted targetKey suggestion when belongsTo meta
     use: 'TableBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'team_memberships',
-        },
+        init: makeCollectionResourceInit('team_memberships'),
       },
       tableSettings: {
         dataScope: {
@@ -2186,9 +2212,7 @@ test('auditPayload warns and blocks split association display bindings that swit
     use: 'TableBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'orders',
-        },
+        init: makeCollectionResourceInit('orders'),
       },
     },
     subModels: {
@@ -2305,10 +2329,9 @@ test('auditPayload warns and blocks empty details blocks', () => {
     use: 'DetailsBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'customers',
+        init: makeCollectionResourceInit('customers', {
           filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -2837,9 +2860,7 @@ test('auditPayload can downgrade blocker with riskAccept', () => {
     use: 'TableBlockModel',
     stepParams: {
       resourceSettings: {
-        init: {
-          collectionName: 'orders',
-        },
+        init: makeCollectionResourceInit('orders'),
       },
       tableSettings: {
         dataScope: {
@@ -3711,6 +3732,8 @@ test('canonicalizePayload inserts default details item for empty details blocks'
   assert.equal(Array.isArray(items), true);
   assert.equal(items.length, 1);
   assert.equal(items[0].stepParams.fieldSettings.init.fieldPath, 'order_no');
+  assert.equal(items[0].subModels.field.use, 'FieldModel');
+  assert.equal(items[0].subModels.field.stepParams.fieldBinding.use, 'DisplayTextFieldModel');
   assert.equal(result.transforms.some((item) => item.code === 'DETAILS_BLOCK_DEFAULT_ITEM_INSERTED'), true);
 
   const auditResult = auditPayload({
@@ -3719,6 +3742,62 @@ test('canonicalizePayload inserts default details item for empty details blocks'
     mode: VALIDATION_CASE_MODE,
   });
   assert.equal(auditResult.blockers.some((item) => item.code === 'EMPTY_DETAILS_BLOCK'), false);
+});
+
+test('auditPayload warns instead of blocking on direct details field model entry', () => {
+  const payload = {
+    use: 'DetailsBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+        },
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'DetailsGridModel',
+        subModels: {
+          items: [
+            {
+              use: 'DetailsItemModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'orders',
+                    fieldPath: 'status',
+                  },
+                },
+              },
+              subModels: {
+                field: {
+                  use: 'DisplayTextFieldModel',
+                  stepParams: {
+                    fieldSettings: {
+                      init: {
+                        collectionName: 'orders',
+                        fieldPath: 'status',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID'), false);
+  assert.equal(result.warnings.some((item) => item.code === 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID'), true);
 });
 
 test('canonicalizePayload rewrites hardcoded popup and resource filterByTk inside popup context', () => {
