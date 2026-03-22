@@ -237,6 +237,9 @@ V1 默认采用 schema-first 的渐进支持策略：
 25. template clone 后如果出现以下任一信号，必须立即停止，不能直接 `save`：`EMPTY_TEMPLATE_TREE`、`FORM_SUBMIT_ACTION_DUPLICATED`、`FORM_BLOCK_EMPTY_GRID`、`FILTER_FORM_EMPTY_GRID`、`FIELD_MODEL_PAGE_SLOT_UNSUPPORTED`
 26. 通过模板 clone 得到的 `CreateFormModel` / `EditFormModel`，如果 `subModels.actions` 里出现多个 submit-like action，必须先去重；只保留有真实配置的那个，不能把空壳 submit 一起落库
 27. `*FieldModel` 不支持 `subModels.page`；如果样板页里出现这类结构，说明 clone/slot 判断已经偏离源码契约，先清理或阻断，再继续后续审计
+28. 所有继承 `CollectionBlockModel` 的区块，落库前都必须显式具备 `stepParams.resourceSettings.init.dataSourceKey + collectionName`。目前已从源码证实至少包括：`MapBlockModel`、`ListBlockModel`、`GridCardBlockModel`、`CommentsBlockModel`。不能因为 schema manifest skeleton 没带 `resourceSettings` 就直接沿用空壳，否则 runtime 会在 `CollectionBlockModel.onInit` 读取 `params.dataSourceKey` 时直接报错并导致区块空白或整页卡骨架屏
+29. `FormItemModel` / `DetailsItemModel` 的 `subModels.field` 不应直接落具体 `InputFieldModel` / `DisplayTextFieldModel`。源码里的标准入口是 `use=FieldModel`，再通过 `stepParams.fieldBinding.use=<具体字段模型>` 指向目标组件；否则容易出现 `resolveUse circular reference` 之类的运行时结构告警
+30. validation 如果捕获到 `TypeError` / `ReferenceError` / `Unhandled Rejection`，且栈落在 `BlockModel` / `FieldModel` / `FlowModelContext` / `resourceSettings` 读取链路，要优先按“flow model json 结构错误”处理，并把结论沉淀进 guard / recipe / validation 规则，而不是只记成一次性的 runtime 噪声
 
 命令示例：
 
@@ -642,7 +645,7 @@ V1 可以修改现有页面，但必须严格控制范围：
 
 # 默认严格模式
 
-这个 skill 默认按真实可用性标准执行。无论是在跑 `references/validation-cases/` 里的用例，还是在做实际页面交付，都遵循下面的规则：
+这个 skill 默认按真实可用性标准执行。无论是在做 dynamic validation，还是在做实际页面交付，都遵循下面的规则：
 
 1. 页面搭出来不等于任务完成，还必须验证页面在存在业务数据时是否真的可用。
 2. 执行顺序必须是：
@@ -654,6 +657,27 @@ V1 可以修改现有页面，但必须严格控制范围：
 5. 最终结果必须把“数据准备结果”和“UI 搭建结果”分开说明；如果页面建好了但数据没准备好，本次任务不能算完整通过。
 6. 具体 validation 判定规则、造数基线和用例目录，统一见文末的 `Validation 总览`。
 7. 对 fresh build，新页面在 `createV2` 后默认仍处于“待首开验证”状态；除非 route-ready 与 pre-open gate 都通过，否则不能写“页面已可打开”。
+
+# 动态 validation 入口
+
+validation 主入口现在默认不再优先命中任何固定 case。
+
+新的默认路径是：
+
+1. 先从请求文本 / slug 识别业务领域
+2. 再生成更贴近真实业务的信息架构与页面原型
+3. 再按高多样性策略组合区块、动作、popup、tabs 与关系表
+4. 再做实例感知的公开区块扩展（推荐路径，不依赖本地源码）：
+   - 通过 `PostFlowmodels_schemabundle`（`uses=['BlockGridModel']`）得到实例真实可用的 root blocks/use 候选清单
+   - 再用 `PostFlowmodels_schemas`（`uses=<root blocks>`）拉回 `dynamicHints / contextRequirements` 等信息辅助语义匹配
+   - 只有当无法探测实例清单、且显式配置 `NOCOBASE_SOURCE_ROOT` 时，才回退到源码 inventory 的 `publicTreeRoots`
+5. 最后把 `scenarioId / domain / archetype / generatedCoverage / randomPolicy / instanceInventory / sourceInventory` 写进 compile artifact
+
+实例清单获取（通过 NocoBase MCP）：
+
+- 用 `PostFlowmodels_schemabundle` 请求 `uses=['BlockGridModel']`，从返回的 `BlockGridModel.subModelCatalog.items.candidates[].use` 提取“实例真实可用的 root blocks/use”
+- 用 `PostFlowmodels_schemas` 请求 `uses=<root blocks>`，把返回的 `dynamicHints` 归一化为 `semanticTags/contextRequirements`，供 planner 做语义匹配和区块落位
+- 这份 `instanceInventory` 需要写入 `compileArtifact.instanceInventory`，并同步进入 `buildSpec.requirements.allowedBusinessBlockUses`（让 payload guard 以实例真实可用区块为准，避免误判为空壳）
 
 # 安全规则
 
@@ -676,5 +700,7 @@ V1 可以修改现有页面，但必须严格控制范围：
   [references/blocks/index.md](references/blocks/index.md)
 - 横切模式文档索引：
   [references/patterns/index.md](references/patterns/index.md)
+- 动态 validation 场景生成规则：
+  [references/validation-scenarios.md](references/validation-scenarios.md)
 - Validation 总览（判定规则、造数基线、用例目录）：
   [references/validation.md](references/validation.md)

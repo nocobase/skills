@@ -20,10 +20,10 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - 不同字段类型该选哪个 display field model
 - `customer.name` 这类关联路径列为什么容易不稳
 
-优先参考：
+优先参考动态场景：
 
-- [case1](../validation-cases/case1.md)
-- [case10](../validation-cases/case10.md)
+- 订单履约主表工作台
+- 多标签业务工作台里的主表或关系表
 
 ## 决策规则
 

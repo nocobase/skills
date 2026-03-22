@@ -1,35 +1,39 @@
 # Validation 总览
 
-`nocobase-ui-builder` 的 validation 文档在这里统一收口。先读本页，再按需要进入具体 case。
+`nocobase-ui-builder` 的 validation 关注“页面和交互是否真实可用”，不是只看页面壳是否创建成功。
+
+默认入口统一走动态场景规划，先识别业务领域，再决定页面原型和区块组合。详细规则见 [validation-scenarios.md](validation-scenarios.md)。
 
 ## 目标
 
-validation 关注的是“页面和交互是否真实可用”，不是只看页面壳是否创建成功，也不是把所有开发态提示都机械地计入失败。
+- 同一个 validation 请求不再总是复用同一套固定区块模板
+- 不同业务默认生成不同页面结构，而不是把所有页面都压成“筛选 + 表格 + 弹窗”
+- 把 tabs、详情联动、关系表、record actions、树形结构和源码公开区块纳入主路径
 
-## 套件结构
+## 动态规划规则
 
-validation case 现在按“覆盖矩阵 + 分层目标”维护，而不是只按业务标题堆用例。
+validation 默认按下面链路生成：
 
-### 三层分组
-
-- `core-pass`
-  - 主干公共区块应尽量跑通，适合做日常回归。
-- `composite-pass`
-  - 多区块协同和多层上下文，允许局部暴露缺口，但不能退回成空壳页面。
-- `edge-detect`
-  - 边界场景与已知脆弱能力，目标是稳定复现和清晰归因，不是假装通过。
-
-### 覆盖策略
-
-- 每个公开 block family 至少有 1 个 primary case。
-- 每个主要复杂 pattern 至少有 1 个 primary case。
-- 每个 block / pattern 至少再有 1 个 secondary case 做回归补位。
-- 结构化编译链会优先按 `caseId / alias / request text` 命中 case registry，再生成对应的 `buildSpec / verifySpec / compileArtifact`。
-
-覆盖矩阵入口：
-
-- [validation-cases/index.md](validation-cases/index.md)
-- [validation-cases/coverage-matrix.md](validation-cases/coverage-matrix.md)
+1. 业务语义识别：
+   - 订单履约
+   - 客户增长
+   - 项目交付
+   - 审批运营
+   - 组织运营
+2. 页面原型选择：
+   - 主表工作台
+   - 360 详情工作台
+   - 多标签业务工作台
+   - 审批处理台
+   - 树形运维页面
+3. 区块组合：
+   - 主干 block 由 `Filter / Table / Details / Form / popup / record actions` 组成
+   - 扩展 block 优先从运行实例的 flow schema manifest 中选（实例感知）
+     - 通过 `PostFlowmodels_schemabundle`（`uses=['BlockGridModel']`）的候选清单得到“实例真实可用的 root blocks”
+     - 再用 `PostFlowmodels_schemas`（`uses=<root blocks>`）拉回动态 hints（contextRequirements 等）辅助语义匹配
+   - 只有当无法探测实例清单、且显式配置 `NOCOBASE_SOURCE_ROOT` 时，才回退到源码 inventory 的 `publicTreeRoots`
+4. 结果落库：
+   - `compileArtifact.json` 会记录 `scenarioId / selectedUses / generatedCoverage / instanceInventory / sourceInventory`
 
 ## 判定规则
 
@@ -90,6 +94,15 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 5. 用源码契约反查当前 readback 是否结构错误
 6. 只有当 readback 已满足源码契约时，才继续怀疑 case 数据或平台 runtime
 
+特别注意两类已被源码证实的高频结构错误：
+
+1. `CollectionBlockModel` 派生区块缺少 `stepParams.resourceSettings.init.dataSourceKey / collectionName`
+   - 典型症状：页面或区块卡骨架屏、Map/List/GridCard 一打开就空白
+   - 已知至少影响：`MapBlockModel`、`ListBlockModel`、`GridCardBlockModel`、`CommentsBlockModel`
+2. `FormItemModel` / `DetailsItemModel` 直接把具体字段模型落到 `subModels.field.use`
+   - 源码期望入口其实是 `use=FieldModel`，再用 `stepParams.fieldBinding.use` 指向 `InputFieldModel` / `DisplayTextFieldModel` 等目标模型
+   - 典型症状：`resolveUse circular reference`、字段子树行为不稳定
+
 强制规则：
 
 1. 浏览器 smoke 只负责确认现象，不负责给出根修复方案。
@@ -97,6 +110,7 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 3. 如果源码已经证明当前 payload 违反固定结构契约，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
 4. 对动作区渲染问题，优先检查 slot 级 `allowedUses` 是否匹配；`DetailsBlockModel.actions`、`TableActionsColumnModel.actions`、`FilterFormBlockModel.actions`、`TableBlockModel.actions` 都不能把泛型 `ActionModel` 当成“结构正确”。
 5. 如果问题发生在 fresh page 首开，且尚未完成 route-ready 校验，优先把结论落在 skill 的 page-ready gate，而不是直接修改平台源码。
+6. browser smoke 不得在点击合法 action 后立即发送 `Escape` 或通用“关闭弹窗”动作，否则会把刚打开的 drawer/dialog 当成噪声误关，导致 validation 结论失真。
 
 ## 数据前置与造数
 
@@ -130,19 +144,12 @@ validation 不应该只验证“页面壳有没有搭起来”，还必须验证
 - 如果 UI 已创建但没有完成造数或造数校验，这次 validation 应视为未完整完成。
 - 如果因为系统能力、权限限制或当前实现缺口导致未能造数，必须明确指出具体阻塞点。
 
-## 用例目录
+## 动态场景目录
 
-| 用例 | 分层 | 预期结果 | 主题 |
-| --- | --- | --- | --- |
-| [validation-cases/case1.md](validation-cases/case1.md) | `core-pass` | `pass` | 订单中心主页面 |
-| [validation-cases/case2.md](validation-cases/case2.md) | `core-pass` | `pass` | 客户 360 工作台 |
-| [validation-cases/case3.md](validation-cases/case3.md) | `composite-pass` | `partial` | 采购单与明细抽屉 |
-| [validation-cases/case4.md](validation-cases/case4.md) | `core-pass` | `pass` | 项目协同工作台 |
-| [validation-cases/case5.md](validation-cases/case5.md) | `composite-pass` | `partial` | 审批处理台 |
-| [validation-cases/case6.md](validation-cases/case6.md) | `core-pass` | `pass` | 发票与回款 |
-| [validation-cases/case7.md](validation-cases/case7.md) | `edge-detect` | `partial` | 组织架构树页面 |
-| [validation-cases/case8.md](validation-cases/case8.md) | `edge-detect` | `blocker-expected` | 项目成员多对多管理 |
-| [validation-cases/case9.md](validation-cases/case9.md) | `edge-detect` | `partial` | 客户运营多标签工作台 |
-| [validation-cases/case10.md](validation-cases/case10.md) | `edge-detect` | `blocker-expected` | 嵌套弹窗链路 |
-
-这些用例既用于验证 skill 的真实可用性，也可以反向作为 block / pattern 文档的证据来源。
+| 业务领域 | 常见页面原型 | 常见区块差异 |
+| --- | --- | --- |
+| 订单履约 | 主表工作台 / 多标签工作台 | 筛选、主表、详情联动、经营分析、地图视图 |
+| 客户增长 | 360 工作台 / 多标签工作台 | 客户详情、联系人/商机/跟进、评论流、引用区块 |
+| 项目交付 | 多标签工作台 / 主表工作台 | 项目总览、任务/迭代/风险、评论流、指标卡 |
+| 审批运营 | 审批处理台 / 360 工作台 | 待处理主表、审批日志、record actions、快捷处理 |
+| 组织运营 | 树形运维页面 | tree table、新增下级、组织说明、地图或运维面板 |

@@ -20,6 +20,7 @@ export const STABLE_CACHE_KINDS = new Set([
   'schemas',
   'collectionFields',
   'relationMetadata',
+  'flowSchemaInventory',
 ]);
 
 export const DEFAULT_TTL_MS_BY_KIND = {
@@ -27,6 +28,7 @@ export const DEFAULT_TTL_MS_BY_KIND = {
   schemas: 24 * 60 * 60 * 1000,
   collectionFields: 10 * 60 * 1000,
   relationMetadata: 10 * 60 * 1000,
+  flowSchemaInventory: 24 * 60 * 60 * 1000,
 };
 
 const MEMORY_CACHE = globalThis.__NOCOBASE_UI_STABLE_CACHE__

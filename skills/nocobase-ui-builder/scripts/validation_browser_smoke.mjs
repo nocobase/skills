@@ -13,6 +13,26 @@ const BROWSER_EXECUTABLE_CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
 ];
+const NON_BLOCKING_RUNTIME_PATTERNS = [
+  /^Warning: \[antd:/,
+  /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/,
+  /^Failed to load resource: the server responded with a status of 401 \(Unauthorized\)$/,
+  /^AxiosError$/,
+  /^Critical dependency:/,
+  /^Should not import the named export/,
+  /^quill Overwriting/,
+  /^\[NocoBase\] @nocobase\/plugin-mobile is deprecated/,
+  /^FlowEngine: Model class with name '.+' is already registered and will be overwritten\.$/,
+  /^FlowEngine: resolveUse circular reference detected on '.+'\.$/,
+  /^Action 'openView' is already registered\. It will be overwritten\.$/,
+  /^Error calling global variable function for key: \$env /,
+];
+const BLOCKING_RUNTIME_PATTERNS = [
+  /ReferenceError:/,
+  /TypeError:/,
+  /Unhandled Rejection/i,
+  /Cannot read properties of undefined/,
+];
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(PLAYWRIGHT_PACKAGE_PATH);
@@ -77,6 +97,22 @@ function writeJson(filePath, value) {
 
 function resolveBrowserExecutablePath() {
   return BROWSER_EXECUTABLE_CANDIDATES.find((candidate) => candidate && fs.existsSync(candidate)) || '';
+}
+
+function isNonBlockingRuntimeMessage(message) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text) {
+    return true;
+  }
+  return NON_BLOCKING_RUNTIME_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function isBlockingRuntimeMessage(message) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text || isNonBlockingRuntimeMessage(text)) {
+    return false;
+  }
+  return BLOCKING_RUNTIME_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 async function delay(ms) {
@@ -202,7 +238,6 @@ async function runTrigger(page, trigger) {
     const ok = await clickByText(page, trigger.text);
     if (ok) {
       await delay(600);
-      await dismissNoise(page);
       return { ok };
     }
     return { ok, reason: 'action-not-found' };
@@ -224,81 +259,115 @@ async function runCase(page, caseEntry, suiteOutDir) {
   const verifySpec = readJson(caseEntry.verifySpecPath);
   const caseOutDir = path.join(suiteOutDir, caseEntry.caseId);
   ensureDir(caseOutDir);
-
-  await page.goto(caseEntry.browseUrl, { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await delay(800);
-  await dismissNoise(page);
-
-  const landingPng = path.join(caseOutDir, 'landing.png');
-  await page.screenshot({ path: landingPng, fullPage: true });
-
-  const preOpenAssertions = [];
-  for (const assertion of normalizeAssertions(verifySpec.preOpen?.assertions)) {
-    preOpenAssertions.push(await evaluateAssertion(page, assertion));
-  }
-  const preOpenPassed = preOpenAssertions.every((item) => item.passed !== false);
-
-  const stages = [];
-  let stopped = !preOpenPassed;
-  if (!stopped) {
-    for (const stage of Array.isArray(verifySpec.stages) ? verifySpec.stages : []) {
-      const triggerResult = await runTrigger(page, stage.trigger);
-      let waitResult = { ok: true };
-      if (triggerResult.ok) {
-        waitResult = await runWaitFor(page, stage.waitFor);
-      }
-      const stageAssertions = [];
-      for (const assertion of normalizeAssertions(stage.assertions)) {
-        stageAssertions.push(await evaluateAssertion(page, assertion));
-      }
-      const passed = triggerResult.ok && waitResult.ok && stageAssertions.every((item) => item.passed !== false);
-      const screenshotPath = path.join(caseOutDir, `${stage.id || 'stage'}.png`);
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-      stages.push({
-        id: stage.id || '',
-        title: stage.title || '',
-        trigger: stage.trigger || null,
-        waitFor: stage.waitFor || null,
-        triggerOk: triggerResult.ok,
-        waitOk: waitResult.ok,
-        assertions: stageAssertions,
-        passed,
-        screenshotPath,
+  const runtimeErrors = [];
+  const onPageError = (error) => {
+    const message = error?.stack || error?.message || String(error);
+    if (isBlockingRuntimeMessage(message)) {
+      runtimeErrors.push({
+        source: 'pageerror',
+        message,
       });
-      if (!passed && stage.mandatory !== false) {
-        stopped = true;
-        break;
+    }
+  };
+  const onConsole = (msg) => {
+    const type = msg.type();
+    if (type !== 'error' && type !== 'warning') {
+      return;
+    }
+    const message = msg.text();
+    if (isBlockingRuntimeMessage(message)) {
+      runtimeErrors.push({
+        source: `console:${type}`,
+        message,
+      });
+    }
+  };
+  page.on('pageerror', onPageError);
+  page.on('console', onConsole);
+
+  try {
+    await page.goto(caseEntry.browseUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await delay(800);
+    await dismissNoise(page);
+
+    const landingPng = path.join(caseOutDir, 'landing.png');
+    await page.screenshot({ path: landingPng, fullPage: true });
+
+    const preOpenAssertions = [];
+    for (const assertion of normalizeAssertions(verifySpec.preOpen?.assertions)) {
+      preOpenAssertions.push(await evaluateAssertion(page, assertion));
+    }
+    const preOpenPassed = preOpenAssertions.every((item) => item.passed !== false);
+
+    const stages = [];
+    let stopped = !preOpenPassed;
+    if (!stopped) {
+      for (const stage of Array.isArray(verifySpec.stages) ? verifySpec.stages : []) {
+        const triggerResult = await runTrigger(page, stage.trigger);
+        let waitResult = { ok: true };
+        if (triggerResult.ok) {
+          waitResult = await runWaitFor(page, stage.waitFor);
+        }
+        const stageAssertions = [];
+        for (const assertion of normalizeAssertions(stage.assertions)) {
+          stageAssertions.push(await evaluateAssertion(page, assertion));
+        }
+        const passed = triggerResult.ok && waitResult.ok && stageAssertions.every((item) => item.passed !== false);
+        const screenshotPath = path.join(caseOutDir, `${stage.id || 'stage'}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        stages.push({
+          id: stage.id || '',
+          title: stage.title || '',
+          trigger: stage.trigger || null,
+          waitFor: stage.waitFor || null,
+          triggerOk: triggerResult.ok,
+          waitOk: waitResult.ok,
+          assertions: stageAssertions,
+          passed,
+          screenshotPath,
+        });
+        if (!passed && stage.mandatory !== false) {
+          stopped = true;
+          break;
+        }
       }
     }
-  }
 
-  const stagePassCount = stages.filter((item) => item.passed).length;
-  let browserStatus = 'success';
-  if (caseEntry.guardBlocked) {
-    browserStatus = 'blocked';
-  } else if (!preOpenPassed) {
-    browserStatus = 'failed';
-  } else if (stages.length > 0 && stagePassCount < stages.length) {
-    browserStatus = stagePassCount > 0 ? 'partial' : 'failed';
-  }
+    const stagePassCount = stages.filter((item) => item.passed).length;
+    let browserStatus = 'success';
+    if (caseEntry.guardBlocked) {
+      browserStatus = 'blocked';
+    } else if (!preOpenPassed) {
+      browserStatus = 'failed';
+    } else if (stages.length > 0 && stagePassCount < stages.length) {
+      browserStatus = stagePassCount > 0 ? 'partial' : 'failed';
+    }
+    if (runtimeErrors.length > 0 && browserStatus !== 'blocked') {
+      browserStatus = 'failed';
+    }
 
-  const caseResult = {
-    caseId: caseEntry.caseId,
-    title: caseEntry.title,
-    expectedOutcome: caseEntry.expectedOutcome,
-    buildStatus: caseEntry.buildStatus,
-    guardBlocked: caseEntry.guardBlocked,
-    pageUrl: caseEntry.pageUrl,
-    browseUrl: caseEntry.browseUrl,
-    browserStatus,
-    preOpenPassed,
-    preOpenAssertions,
-    stages,
-    landingPng,
-  };
-  writeJson(path.join(caseOutDir, 'result.json'), caseResult);
-  return caseResult;
+    const caseResult = {
+      caseId: caseEntry.caseId,
+      title: caseEntry.title,
+      expectedOutcome: caseEntry.expectedOutcome,
+      buildStatus: caseEntry.buildStatus,
+      guardBlocked: caseEntry.guardBlocked,
+      pageUrl: caseEntry.pageUrl,
+      browseUrl: caseEntry.browseUrl,
+      browserStatus,
+      preOpenPassed,
+      preOpenAssertions,
+      stages,
+      landingPng,
+      runtimeErrors,
+    };
+    writeJson(path.join(caseOutDir, 'result.json'), caseResult);
+    return caseResult;
+  } finally {
+    page.off('pageerror', onPageError);
+    page.off('console', onConsole);
+  }
 }
 
 function evaluateExpectation(caseResult) {

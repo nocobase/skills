@@ -19,10 +19,11 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 - 显式可见 tabs
 - popup page / ChildPage 中的 tabs
 
-优先参考用例：
+优先参考动态场景：
 
-- [case9](../validation-cases/case9.md)
-- [case10](../validation-cases/case10.md)
+- 多标签业务工作台
+- 协作 / 分析 / 地图这类扩展 tab 视图
+- popup page / ChildPage 下的局部页面结构
 
 ## 写前必查
 

@@ -356,8 +356,8 @@ function loadCompileArtifact(filePath) {
       guardRequirements: {},
       readbackContract: {},
       requiredCollections: [],
-      matchedCaseId: '',
-      matchedCaseTitle: '',
+      scenarioId: '',
+      scenarioTitle: '',
     };
   }
   const raw = readJson(filePath);
@@ -366,8 +366,8 @@ function loadCompileArtifact(filePath) {
     guardRequirements: isPlainObject(raw.guardRequirements) ? raw.guardRequirements : {},
     readbackContract: isPlainObject(raw.readbackContract) ? raw.readbackContract : {},
     requiredCollections: Array.isArray(raw.requiredMetadataRefs?.collections) ? raw.requiredMetadataRefs.collections : [],
-    matchedCaseId: normalizeOptionalText(raw.matchedCaseId),
-    matchedCaseTitle: normalizeOptionalText(raw.matchedCaseTitle),
+    scenarioId: normalizeOptionalText(raw.scenarioId),
+    scenarioTitle: normalizeOptionalText(raw.scenarioTitle),
   };
 }
 
@@ -736,18 +736,121 @@ function collectVisibleTabTitles(model) {
   );
 }
 
+function isBlockLikeUse(use) {
+  const normalized = normalizeOptionalText(use);
+  return normalized.endsWith('BlockModel')
+    || normalized === 'CreateFormModel'
+    || normalized === 'EditFormModel';
+}
+
+function collectTabDescriptors(model) {
+  return (Array.isArray(model?.subModels?.tabs) ? model.subModels.tabs : [])
+    .map((tab, index) => ({
+      index,
+      title: normalizeOptionalText(tab?.stepParams?.pageTabSettings?.tab?.title),
+      tab,
+      grid: isPlainObject(tab?.subModels?.grid) ? tab.subModels.grid : null,
+    }));
+}
+
+function collectBlockUsesFromScope(scopeNode) {
+  const blockUses = [];
+  walkModel(scopeNode, (node) => {
+    if (!isPlainObject(node)) {
+      return;
+    }
+    const use = normalizeOptionalText(node.use);
+    if (!isBlockLikeUse(use)) {
+      return;
+    }
+    blockUses.push(use);
+  });
+  return uniqueStrings(blockUses).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeFilterManagerConfigs(filterManager) {
+  if (!Array.isArray(filterManager)) {
+    return [];
+  }
+  return filterManager
+    .filter((item) => isPlainObject(item))
+    .map((item) => ({
+      filterId: normalizeOptionalText(item.filterId),
+      targetId: normalizeOptionalText(item.targetId),
+      filterPaths: uniqueStrings(Array.isArray(item.filterPaths) ? item.filterPaths : []),
+    }))
+    .filter((item) => item.filterId && item.targetId && item.filterPaths.length > 0);
+}
+
+function collectFilterBindingEvidence(scopeNode) {
+  const filterItems = [];
+  const targetBlocks = new Map();
+  const filterManagerConfigs = [];
+
+  walkModel(scopeNode, (node) => {
+    if (!isPlainObject(node)) {
+      return;
+    }
+    const use = normalizeOptionalText(node.use);
+    const uid = normalizeOptionalText(node.uid);
+    if (isBlockLikeUse(use) && uid) {
+      targetBlocks.set(uid, use);
+    }
+    if (use === 'FilterFormItemModel') {
+      filterItems.push({
+        uid,
+        collectionName: normalizeOptionalText(node?.stepParams?.fieldSettings?.init?.collectionName),
+        fieldPath: normalizeOptionalText(node?.stepParams?.fieldSettings?.init?.fieldPath),
+        defaultTargetUid: normalizeOptionalText(node?.stepParams?.filterFormItemSettings?.init?.defaultTargetUid),
+      });
+    }
+    if (Array.isArray(node.filterManager)) {
+      filterManagerConfigs.push(...normalizeFilterManagerConfigs(node.filterManager));
+    }
+  });
+
+  return {
+    filterItems,
+    targetBlocks,
+    filterManagerConfigs,
+  };
+}
+
+function matchesFilterField(filterPaths, fieldName) {
+  return filterPaths.some((item) => item === fieldName || item.startsWith(`${fieldName}.`));
+}
+
+function collectScopeNodesForBinding(model, binding) {
+  const tabTitle = normalizeOptionalText(binding?.tabTitle);
+  if (!tabTitle) {
+    return [model];
+  }
+  return collectTabDescriptors(model)
+    .filter((tab) => tab.title === tabTitle)
+    .map((tab) => tab.grid || tab.tab);
+}
+
 function validateReadbackContract(model, contract = {}) {
   const findings = [];
   const topLevelUses = collectTopLevelUses(model);
   const visibleTabTitles = collectVisibleTabTitles(model);
+  const tabDescriptors = collectTabDescriptors(model);
   const requiredTopLevelUses = Array.isArray(contract.requiredTopLevelUses) ? contract.requiredTopLevelUses : [];
   const requiredVisibleTabs = Array.isArray(contract.requiredVisibleTabs) ? contract.requiredVisibleTabs : [];
   const requiredTabCount = Number.isInteger(contract.requiredTabCount) ? contract.requiredTabCount : 0;
+  const requiredTabs = Array.isArray(contract.requiredTabs) ? contract.requiredTabs : [];
   const requireFilterManager = contract.requireFilterManager === true;
   const requiredFilterManagerEntryCount = Number.isInteger(contract.requiredFilterManagerEntryCount)
     ? contract.requiredFilterManagerEntryCount
     : 0;
-  const filterManagerEntryCount = Array.isArray(model?.filterManager) ? model.filterManager.length : 0;
+  const requiredFilterBindings = Array.isArray(contract.requiredFilterBindings) ? contract.requiredFilterBindings : [];
+  const allScopeNodes = tabDescriptors.length > 0
+    ? tabDescriptors.map((item) => item.grid || item.tab)
+    : [model];
+  const filterManagerEntryCount = allScopeNodes.reduce(
+    (count, scopeNode) => count + collectFilterBindingEvidence(scopeNode).filterManagerConfigs.length,
+    0,
+  );
 
   for (const requiredUse of requiredTopLevelUses) {
     if (!topLevelUses.includes(requiredUse)) {
@@ -777,6 +880,79 @@ function validateReadbackContract(model, contract = {}) {
     }
   }
 
+  requiredTabs.forEach((requirement, index) => {
+    if (!isPlainObject(requirement)) {
+      return;
+    }
+    if (requirement.pageUse && normalizeOptionalText(model?.use) && normalizeOptionalText(model.use) !== requirement.pageUse) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_REQUIRED_TAB_PAGE_USE_MISMATCH',
+        message: `readback pageUse 为 "${normalizeOptionalText(model.use)}"，期望 "${requirement.pageUse}"`,
+        details: {
+          index,
+          expectedPageUse: requirement.pageUse,
+          actualPageUse: normalizeOptionalText(model.use),
+        },
+      });
+    }
+
+    const expectedTitles = Array.isArray(requirement.titles) ? requirement.titles : [];
+    const matchedTabs = tabDescriptors.filter((tab) => expectedTitles.includes(tab.title));
+    if (expectedTitles.length > 0 && matchedTabs.length !== expectedTitles.length) {
+      const missingTitles = expectedTitles.filter((title) => !matchedTabs.some((tab) => tab.title === title));
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_REQUIRED_TAB_MISSING',
+        message: `readback 缺少 requiredTabs 指定的 tab: ${missingTitles.join(', ')}`,
+        details: {
+          index,
+          missingTitles,
+          visibleTabTitles,
+        },
+      });
+      return;
+    }
+
+    if (requirement.requireBlockGrid !== false) {
+      const missingGridTitles = matchedTabs
+        .filter((tab) => !isPlainObject(tab.grid) || tab.grid.use !== 'BlockGridModel')
+        .map((tab) => tab.title || `#${tab.index}`);
+      if (missingGridTitles.length > 0) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_REQUIRED_TAB_BLOCK_GRID_MISSING',
+          message: `readback tab 缺少 BlockGridModel: ${missingGridTitles.join(', ')}`,
+          details: {
+            index,
+            missingGridTitles,
+          },
+        });
+      }
+    }
+
+    const requiredBlockUses = Array.isArray(requirement.requiredBlockUses) ? requirement.requiredBlockUses : [];
+    if (requiredBlockUses.length > 0) {
+      const actualBlockUses = uniqueStrings(
+        matchedTabs.flatMap((tab) => collectBlockUsesFromScope(tab.grid || tab.tab)),
+      ).sort((left, right) => left.localeCompare(right));
+      const missingBlockUses = requiredBlockUses.filter((use) => !actualBlockUses.includes(use));
+      if (missingBlockUses.length > 0) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_REQUIRED_TAB_BLOCK_USE_MISSING',
+          message: `readback tab 缺少 required block uses: ${missingBlockUses.join(', ')}`,
+          details: {
+            index,
+            expectedTitles,
+            requiredBlockUses,
+            actualBlockUses,
+          },
+        });
+      }
+    }
+  });
+
   if (requiredTabCount > 0 && visibleTabTitles.length !== requiredTabCount) {
     findings.push({
       severity: 'blocker',
@@ -802,6 +978,99 @@ function validateReadbackContract(model, contract = {}) {
     });
   }
 
+  requiredFilterBindings.forEach((binding, index) => {
+    if (!isPlainObject(binding)) {
+      return;
+    }
+    const scopeNodes = collectScopeNodesForBinding(model, binding).filter(Boolean);
+    if (scopeNodes.length === 0) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_FILTER_SCOPE_MISSING',
+        message: `readback 缺少筛选绑定所在作用域，tab="${normalizeOptionalText(binding.tabTitle) || '$root'}"`,
+        details: {
+          index,
+          binding,
+        },
+      });
+      return;
+    }
+
+    const evidence = scopeNodes.reduce((acc, scopeNode) => {
+      const current = collectFilterBindingEvidence(scopeNode);
+      acc.filterItems.push(...current.filterItems);
+      current.targetBlocks.forEach((use, uid) => acc.targetBlocks.set(uid, use));
+      acc.filterManagerConfigs.push(...current.filterManagerConfigs);
+      return acc;
+    }, {
+      filterItems: [],
+      targetBlocks: new Map(),
+      filterManagerConfigs: [],
+    });
+
+    const collectionName = normalizeOptionalText(binding.collectionName);
+    const expectedTargetUses = uniqueStrings(Array.isArray(binding.targetUses) ? binding.targetUses : []);
+    const filterFields = uniqueStrings(Array.isArray(binding.filterFields) ? binding.filterFields : []);
+
+    filterFields.forEach((fieldName) => {
+      const matchedItem = evidence.filterItems.find((item) => (
+        item.fieldPath === fieldName
+        && (!collectionName || item.collectionName === collectionName)
+      ));
+      if (!matchedItem) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_FILTER_ITEM_MISSING',
+          message: `readback 缺少筛选项 ${collectionName ? `${collectionName}.` : ''}${fieldName}`,
+          details: {
+            index,
+            fieldName,
+            collectionName,
+          },
+        });
+        return;
+      }
+
+      const targetUse = matchedItem.defaultTargetUid
+        ? evidence.targetBlocks.get(matchedItem.defaultTargetUid) || ''
+        : '';
+      if (expectedTargetUses.length > 0 && (!targetUse || !expectedTargetUses.includes(targetUse))) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_FILTER_TARGET_MISMATCH',
+          message: `readback 筛选项 ${fieldName} 没有连接到期望 target use`,
+          details: {
+            index,
+            fieldName,
+            expectedTargetUses,
+            actualTargetUse: targetUse || null,
+            defaultTargetUid: matchedItem.defaultTargetUid || null,
+          },
+        });
+      }
+
+      const matchedConfig = evidence.filterManagerConfigs.find((config) => (
+        config.filterId === matchedItem.uid
+        && config.targetId === matchedItem.defaultTargetUid
+        && matchesFilterField(config.filterPaths, fieldName)
+      ));
+      if (!matchedConfig) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_FILTER_BINDING_MISSING',
+          message: `readback filterManager 未找到 ${fieldName} 的稳定绑定`,
+          details: {
+            index,
+            fieldName,
+            filterItemUid: matchedItem.uid || null,
+            targetUid: matchedItem.defaultTargetUid || null,
+            availableBindings: evidence.filterManagerConfigs,
+          },
+        });
+      }
+    });
+  });
+
   return {
     ok: findings.length === 0,
     findings,
@@ -809,6 +1078,14 @@ function validateReadbackContract(model, contract = {}) {
       topLevelUses,
       visibleTabTitles,
       filterManagerEntryCount,
+      tabBlockUses: Object.fromEntries(
+        tabDescriptors.map((tab) => [
+          tab.title || `#${tab.index}`,
+          collectBlockUsesFromScope(tab.grid || tab.tab),
+        ]),
+      ),
+      filterManagerBindings: allScopeNodes.flatMap((scopeNode) => collectFilterBindingEvidence(scopeNode).filterManagerConfigs)
+        .map((config) => `${config.filterId}->${config.targetId}:${config.filterPaths.join('|')}`),
     },
   };
 }
@@ -891,9 +1168,9 @@ async function runBuild(flags) {
     schemaUid,
     routeSegment,
     pageUrl,
+    scenarioId: compileArtifact.scenarioId,
+    scenarioTitle: compileArtifact.scenarioTitle,
     cloneTarget,
-    matchedCaseId: compileArtifact.matchedCaseId,
-    matchedCaseTitle: compileArtifact.matchedCaseTitle,
     status: 'failed',
     notes: [],
     artifactPaths: {},

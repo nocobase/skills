@@ -89,6 +89,7 @@ test('validateReadbackContract checks visible tabs and filterManager entry count
     subModels: {
       tabs: [
         {
+          uid: 'tab-overview',
           use: 'RootPageTabModel',
           stepParams: {
             pageTabSettings: {
@@ -97,8 +98,59 @@ test('validateReadbackContract checks visible tabs and filterManager entry count
               },
             },
           },
+          subModels: {
+            grid: {
+              use: 'BlockGridModel',
+              filterManager: [
+                {
+                  filterId: 'customer-name-filter',
+                  targetId: 'customers-table',
+                  filterPaths: ['name'],
+                },
+              ],
+              subModels: {
+                items: [
+                  {
+                    uid: 'customers-filter',
+                    use: 'FilterFormBlockModel',
+                    subModels: {
+                      grid: {
+                        use: 'FilterFormGridModel',
+                        subModels: {
+                          items: [
+                            {
+                              uid: 'customer-name-filter',
+                              use: 'FilterFormItemModel',
+                              stepParams: {
+                                fieldSettings: {
+                                  init: {
+                                    collectionName: 'customers',
+                                    fieldPath: 'name',
+                                  },
+                                },
+                                filterFormItemSettings: {
+                                  init: {
+                                    defaultTargetUid: 'customers-table',
+                                  },
+                                },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                  {
+                    uid: 'customers-table',
+                    use: 'TableBlockModel',
+                  },
+                ],
+              },
+            },
+          },
         },
         {
+          uid: 'tab-contacts',
           use: 'RootPageTabModel',
           stepParams: {
             pageTabSettings: {
@@ -107,13 +159,22 @@ test('validateReadbackContract checks visible tabs and filterManager entry count
               },
             },
           },
+          subModels: {
+            grid: {
+              use: 'BlockGridModel',
+              subModels: {
+                items: [
+                  {
+                    uid: 'contact-details',
+                    use: 'DetailsBlockModel',
+                  },
+                ],
+              },
+            },
+          },
         },
       ],
     },
-    filterManager: [
-      { filterId: 'a', targetId: 'x', filterPaths: ['name'] },
-      { filterId: 'b', targetId: 'x', filterPaths: ['status'] },
-    ],
   };
 
   const result = validateReadbackContract(model, {
@@ -121,11 +182,32 @@ test('validateReadbackContract checks visible tabs and filterManager entry count
     requiredVisibleTabs: ['客户概览', '联系人'],
     requiredTabCount: 2,
     requireFilterManager: true,
-    requiredFilterManagerEntryCount: 2,
+    requiredFilterManagerEntryCount: 1,
+    requiredTabs: [
+      {
+        pageSignature: '$',
+        pageUse: 'RootPageModel',
+        titles: ['客户概览', '联系人'],
+        requireBlockGrid: true,
+        requiredBlockUses: ['FilterFormBlockModel', 'TableBlockModel', 'DetailsBlockModel'],
+      },
+    ],
+    requiredFilterBindings: [
+      {
+        pageSignature: '$',
+        pageUse: 'RootPageModel',
+        tabTitle: '客户概览',
+        collectionName: 'customers',
+        filterFields: ['name'],
+        targetUses: ['TableBlockModel'],
+      },
+    ],
   });
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.findings, []);
+  assert.deepEqual(result.summary.tabBlockUses['客户概览'], ['FilterFormBlockModel', 'TableBlockModel']);
+  assert.equal(result.summary.filterManagerBindings.includes('customer-name-filter->customers-table:name'), true);
 });
 
 test('normalizeFilterItemFieldModelUses rewrites association selector to scalar input when fieldPath resolves to scalar', () => {

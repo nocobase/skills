@@ -40,6 +40,34 @@ function makeTempDir(testName) {
 
 const STABLE_CACHE_CLI_PATH = fileURLToPath(new URL('./stable_cache.mjs', import.meta.url));
 
+function makePrimitiveFirstInventory() {
+  return {
+    detected: true,
+    flowSchema: {
+      detected: true,
+      rootPublicUses: ['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel', 'JSBlockModel'],
+      publicUseCatalog: [],
+      missingUses: [],
+      discoveryNotes: [],
+    },
+    collections: {
+      detected: true,
+      names: ['approvals'],
+      byName: {
+        approvals: {
+          name: 'approvals',
+          title: '审批单',
+          titleField: 'title',
+          fieldNames: ['title', 'status', 'applicant', 'createdAt'],
+          scalarFieldNames: ['title', 'status', 'applicant', 'createdAt'],
+          relationFields: [],
+        },
+      },
+      discoveryNotes: [],
+    },
+  };
+}
+
 test('stable cache supports memory hits, disk hits and targeted invalidation', () => {
   const rootDir = makeTempDir('stable-cache');
   let nowMs = Date.UTC(2026, 2, 19, 0, 0, 0);
@@ -271,9 +299,12 @@ test('spec normalization and compile derive guard requirements and readback cont
       pageUse: 'RootPageModel',
       titles: ['客户概览', '跟进记录'],
       requireBlockGrid: true,
+      requiredBlockUses: ['TableBlockModel', 'DetailsBlockModel'],
     },
   ]);
   assert.equal(compiled.compileArtifact.readbackContract.requiredTabCount, 2);
+  assert.equal(compiled.compileArtifact.selectedCandidateId, 'selected-primary');
+  assert.equal(compiled.compileArtifact.candidateBuilds.length, 1);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.collections.includes('customers'), true);
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].use, 'EditActionModel');
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].selectorContract.kind, 'any');
@@ -347,6 +378,29 @@ test('spec normalization supports filter blocks, row actions and nested details 
   assert.equal(compiled.compileArtifact.requiredUses.includes('CreateFormModel'), true);
   assert.equal(compiled.compileArtifact.readbackContract.requireFilterManager, true);
   assert.equal(compiled.compileArtifact.readbackContract.requiredFilterManagerEntryCount, 2);
+  assert.deepEqual(compiled.compileArtifact.guardRequirements.requiredFilters, [
+    {
+      path: '$.page.blocks[0]',
+      pageSignature: '$',
+      pageUse: 'RootPageModel',
+      tabTitle: '',
+      collectionName: 'orders',
+      fields: ['order_no', 'status'],
+      targetUses: ['TableBlockModel'],
+    },
+  ]);
+  assert.deepEqual(compiled.compileArtifact.readbackContract.requiredFilterBindings, [
+    {
+      pageSignature: '$',
+      pageUse: 'RootPageModel',
+      tabTitle: '',
+      filterPath: '$.page.blocks[0]',
+      filterUse: 'FilterFormBlockModel',
+      collectionName: 'orders',
+      filterFields: ['order_no', 'status'],
+      targetUses: ['TableBlockModel'],
+    },
+  ]);
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].use, 'ViewActionModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].use, 'DetailsBlockModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].blocks[0].use, 'TableBlockModel');
@@ -604,36 +658,79 @@ test('spec normalization rejects unsupported generic action kinds instead of sil
   }), /Unsupported action kind "custom-action"/);
 });
 
-test('validation run helper resolves structured validation cases and emits coverage metadata', () => {
-  const result = buildValidationSpecsForRun({
-    caseRequest: '针对 case9 跑完整流程',
-    sessionId: '20260319T075530-case9',
-    baseSlug: 'case9',
-    candidatePageUrl: 'http://localhost:23000/admin/case9-20260319',
+test('spec normalization supports source-exposed public block uses', () => {
+  const compiled = compileBuildSpec({
+    source: '生成图表看板',
+    target: {
+      title: '图表看板',
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'PublicUse',
+          use: 'ChartBlockModel',
+          title: '趋势图',
+        },
+      ],
+    },
+  });
+
+  assert.equal(compiled.compileArtifact.requiredUses.includes('ChartBlockModel'), true);
+  assert.equal(compiled.compileArtifact.generatedCoverage.blocks.includes('ChartBlockModel'), true);
+});
+
+test('validation run helper emits primitive-first ready specs when live inventory is provided', async () => {
+  const result = await buildValidationSpecsForRun({
+    caseRequest: '请生成 approvals 审批流程 validation 页面，展示 status applicant',
+    sessionId: '20260319T075530-approval',
+    baseSlug: 'approvals',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-20260319',
     sessionDir: '/tmp/session',
+    randomSeed: 'approval-seed',
+    instanceInventory: makePrimitiveFirstInventory(),
   });
 
   assert.equal(result.buildSpec.target.buildPolicy, 'fresh');
   assert.equal(result.verifySpec.entry.requiresAuth, true);
   assert.equal(result.compileArtifact.compileMode, 'primitive-tree');
-  assert.equal(result.compileArtifact.matchedCaseId, 'case9');
-  assert.equal(result.compileArtifact.coverage.blocks.includes('RootPageTabModel'), true);
-  assert.equal(result.compileArtifact.readbackContract.requiredTabCount, 4);
-  assert.equal(result.compileArtifact.issues.length, 0);
+  assert.equal(result.compileArtifact.scenarioId, 'collection-first:approvals:single-table');
+  assert.equal(result.compileArtifact.selectionMode, 'collection-first');
+  assert.equal(result.compileArtifact.primaryBlockType, 'TableBlockModel');
+  assert.equal(result.compileArtifact.generatedCoverage.blocks.includes('TableBlockModel'), true);
+  assert.equal(result.compileArtifact.generatedCoverage.patterns.includes('popup-openview'), true);
+  assert.equal(result.compileArtifact.sourceInventory.detected === false || Array.isArray(result.compileArtifact.sourceInventory.publicTreeRoots), true);
+  assert.equal(result.compileArtifact.issues[0].code, 'PRIMITIVE_FIRST_SCENARIO_GENERATED');
+  assert.equal(result.compileArtifact.actionPlan.some((item) => item.kind === 'delete-record'), true);
+  assert.equal(typeof result.compileArtifact.selectedCandidateId === 'string' && result.compileArtifact.selectedCandidateId.length > 0, true);
+  assert.equal(result.compileArtifact.candidateBuilds.length >= 1, true);
+  assert.equal(result.compileArtifact.guardRequirements.allowedBusinessBlockUses.includes('TableBlockModel'), true);
+  assert.equal(result.verifySpec.stages[0].trigger.text, '新建审批单');
 });
 
-test('validation run helper falls back to generic skeleton for unmatched requests', () => {
-  const result = buildValidationSpecsForRun({
+test('validation run helper surfaces planning blockers when no collection inventory is available', async () => {
+  const previousProbe = process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
+  process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = 'true';
+  const result = await buildValidationSpecsForRun({
     caseRequest: '搭一个完全新的未知场景',
     sessionId: '20260319T075530-custom',
     baseSlug: 'unknown-demo',
     candidatePageUrl: 'http://localhost:23000/admin/unknown-demo',
     sessionDir: '/tmp/session',
+    randomSeed: 'unknown-seed',
   });
+  if (previousProbe === undefined) {
+    delete process.env.NOCOBASE_DISABLE_INSTANCE_PROBE;
+  } else {
+    process.env.NOCOBASE_DISABLE_INSTANCE_PROBE = previousProbe;
+  }
 
-  assert.equal(result.compileArtifact.matchedCaseId, '');
-  assert.equal(result.compileArtifact.registryResolution.matched, false);
-  assert.equal(result.compileArtifact.issues[0].code, 'CASE_REGISTRY_UNMATCHED');
+  assert.equal(Boolean(result.compileArtifact.scenarioId), true);
+  assert.equal(result.compileArtifact.selectionMode, 'dynamic-exploration');
+  assert.equal(result.compileArtifact.planningStatus, 'blocked');
+  assert.equal(result.compileArtifact.generatedCoverage.blocks.length, 0);
+  assert.equal(Array.isArray(result.compileArtifact.availableUses), true);
+  assert.equal(result.compileArtifact.issues[0].code, 'PRIMITIVE_FIRST_PLANNING_BLOCKED');
+  assert.equal(result.verifySpec.stages.length, 0);
 });
 
 test('verify spec normalization preserves stages and pre-open assertions', () => {

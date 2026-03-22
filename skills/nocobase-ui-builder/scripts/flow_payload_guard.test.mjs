@@ -69,6 +69,20 @@ const metadata = {
   },
 };
 
+function makeFieldBindingSubModel({ use, init }) {
+  return {
+    use: 'FieldModel',
+    stepParams: {
+      fieldBinding: {
+        use,
+      },
+      fieldSettings: {
+        init,
+      },
+    },
+  };
+}
+
 const metadataWithCompositeProjectMembers = {
   collections: {
     ...metadata.collections,
@@ -715,6 +729,19 @@ function makeAddChildPopupAction(collectionName = 'departments', title = '新增
               },
             },
           ],
+        },
+      },
+    },
+  };
+}
+
+function makeDeleteRecordAction(title = '删除记录') {
+  return {
+    use: 'DeleteActionModel',
+    stepParams: {
+      buttonSettings: {
+        general: {
+          title,
         },
       },
     },
@@ -2178,18 +2205,14 @@ test('auditPayload warns and blocks split association display bindings that swit
             },
           },
           subModels: {
-            field: {
+            field: makeFieldBindingSubModel({
               use: 'DisplayTextFieldModel',
-              stepParams: {
-                fieldSettings: {
-                  init: {
-                    collectionName: 'customers',
-                    fieldPath: 'name',
-                    associationPathName: 'customer',
-                  },
-                },
+              init: {
+                collectionName: 'customers',
+                fieldPath: 'name',
+                associationPathName: 'customer',
               },
-            },
+            }),
           },
         },
       ],
@@ -2224,18 +2247,14 @@ test('auditPayload accepts dotted association display bindings on the parent col
       },
     },
     subModels: {
-      field: {
+      field: makeFieldBindingSubModel({
         use: 'DisplayTextFieldModel',
-        stepParams: {
-          fieldSettings: {
-            init: {
-              collectionName: 'orders',
-              fieldPath: 'customer.name',
-              associationPathName: 'customer',
-            },
-          },
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
+          associationPathName: 'customer',
         },
-      },
+      }),
     },
   };
 
@@ -2257,17 +2276,13 @@ test('auditPayload warns and blocks dotted association display bindings without 
       },
     },
     subModels: {
-      field: {
+      field: makeFieldBindingSubModel({
         use: 'DisplayTextFieldModel',
-        stepParams: {
-          fieldSettings: {
-            init: {
-              collectionName: 'orders',
-              fieldPath: 'customer.name',
-            },
-          },
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
         },
-      },
+      }),
     },
   };
 
@@ -2493,6 +2508,50 @@ test('auditPayload accepts declared add-child-record-popup requirements in row a
   assert.equal(result.ok, true);
 });
 
+test('auditPayload blocks declared delete-record requirements when row actions slot has no stable delete action', () => {
+  const payload = makeRowActionTargetBlock('order_items', []);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'delete-record',
+          collectionName: 'order_items',
+          scope: 'row-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_DELETE_RECORD_ACTION_MISSING'), true);
+});
+
+test('auditPayload accepts declared delete-record requirements in row actions slot', () => {
+  const payload = makeRowActionTargetBlock('order_items', [makeDeleteRecordAction('删除订单项')]);
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: GENERAL_MODE,
+    requirements: {
+      requiredActions: [
+        {
+          kind: 'delete-record',
+          collectionName: 'order_items',
+          scope: 'row-actions',
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_DELETE_RECORD_ACTION_MISSING'), false);
+  assert.equal(result.ok, true);
+});
+
 test('auditPayload accepts declared record-action requirements in details actions slot', () => {
   const payload = makeDetailsActionTargetBlock('approval_requests', [
     {
@@ -2555,6 +2614,79 @@ test('auditPayload blocks FormItemModel without editable field subModel', () => 
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'FORM_ITEM_FIELD_SUBMODEL_MISSING'), true);
+});
+
+test('auditPayload blocks TableColumnModel without display field subModel', () => {
+  const payload = {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+    },
+    subModels: {
+      columns: [
+        {
+          use: 'TableColumnModel',
+          stepParams: {
+            fieldSettings: {
+              init: {
+                collectionName: 'orders',
+                fieldPath: 'order_no',
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_FIELD_SUBMODEL_MISSING'), true);
+});
+
+test('auditPayload blocks TableColumnModel with direct display field model instead of FieldModel binding entry', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'status',
+        },
+      },
+    },
+    subModels: {
+      field: {
+        use: 'DisplayTextFieldModel',
+        stepParams: {
+          fieldSettings: {
+            init: {
+              collectionName: 'orders',
+              fieldPath: 'status',
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID'), true);
 });
 
 test('auditPayload warns in general mode and blocks in validation mode when form submit action is missing', () => {
@@ -3188,17 +3320,13 @@ test('canonicalizePayload fills missing associationPathName for dotted associati
       },
     },
     subModels: {
-      field: {
+      field: makeFieldBindingSubModel({
         use: 'DisplayTextFieldModel',
-        stepParams: {
-          fieldSettings: {
-            init: {
-              collectionName: 'orders',
-              fieldPath: 'customer.name',
-            },
-          },
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
         },
-      },
+      }),
     },
   };
 

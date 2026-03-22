@@ -34,6 +34,8 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'FORM_SUBMIT_ACTION_MISSING',
   'FILTER_FORM_EMPTY_GRID',
   'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID',
+  'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID',
+  'TABLE_COLUMN_FIELD_SUBMODEL_MISSING',
   'TABLE_RECORD_ACTION_SLOT_USE_INVALID',
   'DETAILS_ACTION_SLOT_USE_INVALID',
   'FILTER_FORM_ACTION_SLOT_USE_INVALID',
@@ -48,6 +50,9 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'TAB_SUBTREE_UID_REUSED',
   'REQUIRED_VISIBLE_TABS_MISSING',
   'REQUIRED_TABS_TARGET_PAGE_MISSING',
+  'REQUIRED_FILTER_SCOPE_MISSING',
+  'REQUIRED_FILTER_FIELDS_MISSING',
+  'REQUIRED_FILTER_TARGET_USE_MISMATCH',
   'FILTER_MANAGER_MISSING',
   'FILTER_MANAGER_TARGET_MISSING',
   'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
@@ -58,6 +63,7 @@ const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
 const RECORD_CONTEXT_FILTER_BY_TK = '{{ctx.record.id}}';
 
 const PAGE_TAB_MODEL_USES = new Set(PAGE_TAB_USES);
+const REQUIRED_FILTER_SCOPE_USES = [...PAGE_MODEL_USES_SET, ...PAGE_TAB_MODEL_USES];
 const GRID_MODEL_USES = new Set(['BlockGridModel', 'FormGridModel']);
 const BUSINESS_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
@@ -65,7 +71,43 @@ const BUSINESS_BLOCK_MODEL_USES = new Set([
   'DetailsBlockModel',
   'CreateFormModel',
   'EditFormModel',
+  // Common public blocks. Validation runs should pass allowedBusinessBlockUses from
+  // the live instance schema inventory; this is a lightweight fallback only.
+  'ActionPanelBlockModel',
+  'ChartBlockModel',
+  'CommentsBlockModel',
+  'GridCardBlockModel',
+  'IframeBlockModel',
+  'ListBlockModel',
+  'MapBlockModel',
+  'JSBlockModel',
+  'MarkdownBlockModel',
+  'ReferenceBlockModel',
 ]);
+
+function resolveBusinessBlockUses(requirements) {
+  const declared = Array.isArray(requirements?.allowedBusinessBlockUses)
+    ? requirements.allowedBusinessBlockUses
+    : [];
+  if (declared.length === 0) {
+    return BUSINESS_BLOCK_MODEL_USES;
+  }
+  const set = new Set(
+    declared
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+  // Ensure core business blocks are always considered blocks for EMPTY_POPUP_GRID etc.
+  [
+    'FilterFormBlockModel',
+    'TableBlockModel',
+    'DetailsBlockModel',
+    'CreateFormModel',
+    'EditFormModel',
+  ].forEach((use) => set.add(use));
+  return set;
+}
 const FORM_BLOCK_MODEL_USES = new Set(['CreateFormModel', 'EditFormModel']);
 const FORM_BLOCK_ACTION_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel']);
 const COLLECTION_ACTION_MODEL_USES = new Set([
@@ -98,6 +140,17 @@ const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel'])
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const CREATE_FORM_MODEL_USES = new Set(['CreateFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
+const COLLECTION_RESOURCE_BLOCK_MODEL_USES = new Set([
+  'FilterFormBlockModel',
+  'TableBlockModel',
+  'DetailsBlockModel',
+  'CreateFormModel',
+  'EditFormModel',
+  'GridCardBlockModel',
+  'ListBlockModel',
+  'MapBlockModel',
+  'CommentsBlockModel',
+]);
 const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'TableColumnModel',
   'FilterFormItemModel',
@@ -175,6 +228,10 @@ function normalizeNonEmpty(value, label) {
     throw new Error(`${label} must not be empty`);
   }
   return normalized;
+}
+
+function normalizeOptionalText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
 function parseJson(rawValue, label) {
@@ -362,6 +419,7 @@ function normalizeRequiredAction(entry, index) {
     kind !== 'create-popup'
     && kind !== 'view-record-popup'
     && kind !== 'edit-record-popup'
+    && kind !== 'delete-record'
     && kind !== 'add-child-record-popup'
     && kind !== 'record-action'
   ) {
@@ -396,6 +454,41 @@ function normalizeRequiredTab(entry, index) {
     }),
     titles,
     requireBlockGrid: entry.requireBlockGrid !== false,
+  };
+}
+
+function normalizeRequiredFilter(entry, index) {
+  if (!isPlainObject(entry)) {
+    throw new Error(`requirements.requiredFilters[${index}] must be an object`);
+  }
+
+  return {
+    path: entry.path == null ? null : normalizeNonEmpty(entry.path, `requirements.requiredFilters[${index}].path`),
+    pageSignature: entry.pageSignature == null
+      ? null
+      : normalizeNonEmpty(entry.pageSignature, `requirements.requiredFilters[${index}].pageSignature`),
+    pageUse: normalizePageUse(entry.pageUse, `requirements.requiredFilters[${index}].pageUse`, {
+      allowNull: true,
+      supportedUses: REQUIRED_FILTER_SCOPE_USES,
+    }),
+    tabTitle: typeof entry.tabTitle === 'string' && entry.tabTitle.trim()
+      ? entry.tabTitle.trim()
+      : '',
+    collectionName: typeof entry.collectionName === 'string' && entry.collectionName.trim()
+      ? entry.collectionName.trim()
+      : '',
+    fields: [...new Set(
+      (Array.isArray(entry.fields) ? entry.fields : [])
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    )],
+    targetUses: [...new Set(
+      (Array.isArray(entry.targetUses) ? entry.targetUses : [])
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    )],
   };
 }
 
@@ -467,7 +560,9 @@ function normalizeRequirements(rawRequirements = {}) {
     return {
       requiredActions: [],
       requiredTabs: [],
+      requiredFilters: [],
       expectedFilterContracts: [],
+      allowedBusinessBlockUses: [],
       metadataTrust: {
         runtimeSensitive: null,
       },
@@ -486,9 +581,17 @@ function normalizeRequirements(rawRequirements = {}) {
   if (rawRequiredTabs != null && !Array.isArray(rawRequiredTabs)) {
     throw new Error('requirements.requiredTabs must be an array');
   }
+  const rawRequiredFilters = rawRequirements.requiredFilters;
+  if (rawRequiredFilters != null && !Array.isArray(rawRequiredFilters)) {
+    throw new Error('requirements.requiredFilters must be an array');
+  }
   const rawExpectedFilterContracts = rawRequirements.expectedFilterContracts;
   if (rawExpectedFilterContracts != null && !Array.isArray(rawExpectedFilterContracts)) {
     throw new Error('requirements.expectedFilterContracts must be an array');
+  }
+  const rawAllowedBusinessBlockUses = rawRequirements.allowedBusinessBlockUses;
+  if (rawAllowedBusinessBlockUses != null && !Array.isArray(rawAllowedBusinessBlockUses)) {
+    throw new Error('requirements.allowedBusinessBlockUses must be an array');
   }
   const rawMetadataTrust = rawRequirements.metadataTrust;
   if (
@@ -524,9 +627,18 @@ function normalizeRequirements(rawRequirements = {}) {
     requiredTabs: Array.isArray(rawRequiredTabs)
       ? rawRequiredTabs.map((entry, index) => normalizeRequiredTab(entry, index))
       : [],
+    requiredFilters: Array.isArray(rawRequiredFilters)
+      ? rawRequiredFilters.map((entry, index) => normalizeRequiredFilter(entry, index))
+      : [],
     expectedFilterContracts: Array.isArray(rawExpectedFilterContracts)
       ? rawExpectedFilterContracts.map((entry, index) => normalizeExpectedFilterContract(entry, index))
       : [],
+    allowedBusinessBlockUses: [...new Set(
+      (Array.isArray(rawAllowedBusinessBlockUses) ? rawAllowedBusinessBlockUses : [])
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    )],
     metadataTrust,
   };
 }
@@ -1524,7 +1636,7 @@ function hasPopupActionWithRequirements(actionNode, {
     && hasRequiredForm;
 }
 
-function hasRequiredAction(actionNode, requirement, collectionName) {
+function hasRequiredAction(actionNode, requirement, collectionName, businessBlockUses) {
   if (!isPlainObject(actionNode) || typeof actionNode.use !== 'string') {
     return false;
   }
@@ -1546,7 +1658,7 @@ function hasRequiredAction(actionNode, requirement, collectionName) {
       requireRecordContext: true,
       requiredFormUses: null,
       allowedActionUses: RECORD_ACTION_MODEL_USES,
-    }) && countUses(actionNode, BUSINESS_BLOCK_MODEL_USES) > 0;
+    }) && countUses(actionNode, businessBlockUses) > 0;
   }
 
   if (requirement.kind === 'create-popup') {
@@ -1567,6 +1679,10 @@ function hasRequiredAction(actionNode, requirement, collectionName) {
       requiredFormUses: CREATE_FORM_MODEL_USES,
       allowedActionUses: RECORD_ACTION_MODEL_USES,
     });
+  }
+
+  if (requirement.kind === 'delete-record') {
+    return actionNode.use === 'DeleteActionModel';
   }
 
   if (requirement.kind === 'record-action') {
@@ -1627,6 +1743,9 @@ function getRequiredActionMissingCode(kind) {
   if (kind === 'add-child-record-popup') {
     return 'REQUIRED_ADD_CHILD_RECORD_POPUP_ACTION_MISSING';
   }
+  if (kind === 'delete-record') {
+    return 'REQUIRED_DELETE_RECORD_ACTION_MISSING';
+  }
   if (kind === 'record-action') {
     return 'REQUIRED_RECORD_ACTION_MISSING';
   }
@@ -1642,6 +1761,9 @@ function buildRequiredActionMissingMessage(kind, collectionName, scope) {
   }
   if (kind === 'add-child-record-popup') {
     return `显式要求 ${collectionName} 在 ${scope} 提供稳定的新增下级 popup 动作树，但当前未发现满足条件的 action/page/CreateForm 结构。`;
+  }
+  if (kind === 'delete-record') {
+    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的删除动作，但当前未发现 DeleteActionModel。`;
   }
   if (kind === 'record-action') {
     return `显式要求 ${collectionName} 在 ${scope} 提供 record action，但当前未发现满足条件的记录级动作。`;
@@ -1690,7 +1812,7 @@ function listActionSlotsForNode(node, pathValue) {
   return slots;
 }
 
-function inspectRequiredAction(payload, requirement, mode, blockers, seen) {
+function inspectRequiredAction(payload, requirement, mode, blockers, seen, businessBlockUses) {
   let matchedBlockCount = 0;
 
   walk(payload, (node, pathValue) => {
@@ -1715,7 +1837,7 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen) {
     matchedBlockCount += 1;
     const relevantSlots = listActionSlotsForNode(node, pathValue)
       .filter((slot) => scopeMatchesRequirement(requirement.scope, slot.scope));
-    if (relevantSlots.some((slot) => slot.actions.some((actionNode) => hasRequiredAction(actionNode, requirement, collectionName)))) {
+    if (relevantSlots.some((slot) => slot.actions.some((actionNode) => hasRequiredAction(actionNode, requirement, collectionName, businessBlockUses)))) {
       return;
     }
 
@@ -1754,13 +1876,15 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen) {
   }));
 }
 
-function inspectDeclaredRequirements(payload, mode, requirements, blockers, seen) {
+function inspectDeclaredRequirements(payload, metadata, mode, requirements, blockers, seen) {
+  const businessBlockUses = resolveBusinessBlockUses(requirements);
   for (const requirement of requirements.requiredActions) {
-    inspectRequiredAction(payload, requirement, mode, blockers, seen);
+    inspectRequiredAction(payload, requirement, mode, blockers, seen, businessBlockUses);
   }
   for (const requirement of requirements.requiredTabs) {
     inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen);
   }
+  inspectRequiredFilters(payload, metadata, mode, requirements, blockers, seen);
 }
 
 function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) {
@@ -1858,6 +1982,275 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
       requiredTitles: requirement.titles,
     },
   }));
+}
+
+function extractTabIndexFromPageSignature(pageSignature) {
+  if (typeof pageSignature !== 'string' || !pageSignature.trim()) {
+    return null;
+  }
+  const match = pageSignature.match(/\.tabs\[(\d+)\](?:$|\.)/);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function collectRequiredFilterScopeDescriptors(payload) {
+  const descriptors = [];
+
+  if (isPlainObject(payload) && payload.use === 'BlockGridModel') {
+    descriptors.push({
+      kind: 'root-grid',
+      pageUse: null,
+      tabUse: null,
+      tabTitle: '',
+      tabIndex: null,
+      gridNode: payload,
+      gridPath: '$',
+    });
+  }
+
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !PAGE_MODEL_USES_SET.has(node.use) || !Array.isArray(node.subModels?.tabs)) {
+      return;
+    }
+
+    node.subModels.tabs.forEach((tabNode, tabIndex) => {
+      if (!isPlainObject(tabNode)) {
+        return;
+      }
+      const gridNode = isPlainObject(tabNode.subModels?.grid) && tabNode.subModels.grid.use === 'BlockGridModel'
+        ? tabNode.subModels.grid
+        : null;
+      if (!gridNode) {
+        return;
+      }
+      descriptors.push({
+        kind: 'tab',
+        pageUse: normalizeOptionalText(node.use),
+        tabUse: normalizeOptionalText(tabNode.use),
+        tabTitle: getTabTitle(tabNode),
+        tabIndex,
+        gridNode,
+        gridPath: `${pathValue}.subModels.tabs[${tabIndex}].subModels.grid`,
+      });
+    });
+  });
+
+  return descriptors;
+}
+
+function matchesRequiredFilterScope(scopeDescriptor, requirement) {
+  if (!isPlainObject(scopeDescriptor)) {
+    return false;
+  }
+
+  const relaxTabTitleMatch = Boolean(
+    requirement.tabTitle
+    && requirement.pageUse
+    && PAGE_MODEL_USES_SET.has(requirement.pageUse),
+  );
+  const expectedTabIndex = extractTabIndexFromPageSignature(requirement.pageSignature);
+  if (expectedTabIndex != null) {
+    if (scopeDescriptor.kind !== 'tab' || scopeDescriptor.tabIndex !== expectedTabIndex) {
+      return false;
+    }
+  } else if (requirement.tabTitle && scopeDescriptor.kind !== 'tab') {
+    return false;
+  }
+
+  if (requirement.tabTitle && !relaxTabTitleMatch && scopeDescriptor.tabTitle !== requirement.tabTitle) {
+    return false;
+  }
+
+  if (requirement.pageUse) {
+    const candidateUses = sortUniqueStrings([scopeDescriptor.pageUse, scopeDescriptor.tabUse]);
+    if (!candidateUses.includes(requirement.pageUse)) {
+      return false;
+    }
+  }
+
+  if (
+    !requirement.tabTitle
+    && expectedTabIndex == null
+    && requirement.pageSignature === '$'
+    && scopeDescriptor.kind === 'tab'
+    && !requirement.pageUse
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function listRequiredFilterScopeLabels(scopeDescriptors) {
+  return scopeDescriptors.map((scopeDescriptor) => {
+    if (!isPlainObject(scopeDescriptor)) {
+      return '$unknown';
+    }
+    if (scopeDescriptor.kind === 'root-grid') {
+      return '$root';
+    }
+    return scopeDescriptor.tabTitle || `tab#${scopeDescriptor.tabIndex ?? '?'}`;
+  });
+}
+
+function listAvailableRequiredFilterFields(filterItems) {
+  return sortUniqueStrings(filterItems.map((item) => {
+    const collectionName = normalizeOptionalText(item?.collectionName);
+    const fieldPath = normalizeOptionalText(item?.fieldPath);
+    if (!fieldPath) {
+      return '';
+    }
+    return collectionName ? `${collectionName}.${fieldPath}` : fieldPath;
+  }));
+}
+
+function evaluateRequiredFilterScope(scopeDescriptor, requirement, metadata) {
+  const state = collectGridFilterManagerState(scopeDescriptor.gridNode, scopeDescriptor.gridPath, metadata);
+  const collectionName = normalizeOptionalText(requirement.collectionName);
+  const requiredFields = sortUniqueStrings(requirement.fields);
+  const expectedTargetUses = sortUniqueStrings(requirement.targetUses);
+  const availableTargetUses = sortUniqueStrings(
+    [...state.targetNodesByUid.values()].map((item) => normalizeOptionalText(item?.use)),
+  );
+  const missingFields = [];
+  const targetUseMismatches = [];
+  let matchedFieldCount = 0;
+
+  requiredFields.forEach((fieldName) => {
+    const matches = state.filterItems.filter((item) => (
+      item.fieldPath === fieldName
+      && (!collectionName || item.collectionName === collectionName)
+    ));
+    if (matches.length === 0) {
+      missingFields.push(fieldName);
+      return;
+    }
+
+    matchedFieldCount += 1;
+    if (expectedTargetUses.length === 0) {
+      return;
+    }
+
+    const matchingTargetItem = matches.find((item) => {
+      if (!item.defaultTargetUid || !state.targetNodesByUid.has(item.defaultTargetUid)) {
+        return false;
+      }
+      const targetNode = state.targetNodesByUid.get(item.defaultTargetUid);
+      return expectedTargetUses.includes(normalizeOptionalText(targetNode?.use));
+    }) || matches[0];
+
+    const actualTargetUse = matchingTargetItem?.defaultTargetUid && state.targetNodesByUid.has(matchingTargetItem.defaultTargetUid)
+      ? normalizeOptionalText(state.targetNodesByUid.get(matchingTargetItem.defaultTargetUid)?.use)
+      : '';
+    if (!actualTargetUse || !expectedTargetUses.includes(actualTargetUse)) {
+      targetUseMismatches.push({
+        fieldName,
+        actualTargetUse: actualTargetUse || null,
+        defaultTargetUid: matchingTargetItem?.defaultTargetUid || null,
+      });
+    }
+  });
+
+  return {
+    ok: missingFields.length === 0 && targetUseMismatches.length === 0,
+    hasFilterItems: state.filterItems.length > 0,
+    matchedFieldCount,
+    missingFields,
+    targetUseMismatches,
+    availableFilterFields: listAvailableRequiredFilterFields(state.filterItems),
+    availableTargetUses,
+    scopeLabel: scopeDescriptor.kind === 'root-grid'
+      ? '$root'
+      : (scopeDescriptor.tabTitle || `tab#${scopeDescriptor.tabIndex ?? '?'}`),
+  };
+}
+
+function compareRequiredFilterScopeEvaluations(left, right) {
+  return (
+    left.result.missingFields.length - right.result.missingFields.length
+    || left.result.targetUseMismatches.length - right.result.targetUseMismatches.length
+    || right.result.matchedFieldCount - left.result.matchedFieldCount
+    || left.result.scopeLabel.localeCompare(right.result.scopeLabel)
+  );
+}
+
+function inspectRequiredFilters(payload, metadata, mode, requirements, blockers, seen) {
+  if (!Array.isArray(requirements.requiredFilters) || requirements.requiredFilters.length === 0) {
+    return;
+  }
+
+  const scopeDescriptors = collectRequiredFilterScopeDescriptors(payload);
+  requirements.requiredFilters.forEach((requirement, index) => {
+    const matchingScopes = scopeDescriptors.filter((scopeDescriptor) => matchesRequiredFilterScope(scopeDescriptor, requirement));
+    if (matchingScopes.length === 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'REQUIRED_FILTER_SCOPE_MISSING',
+        message: '显式要求存在筛选区块，但 payload 中未找到匹配的 filter scope。',
+        path: '$',
+        mode,
+        dedupeKey: `REQUIRED_FILTER_SCOPE_MISSING:${requirement.pageSignature || '$'}:${requirement.tabTitle || '$root'}:${requirement.collectionName || '*'}`,
+        details: {
+          index,
+          requirement,
+          availableScopes: listRequiredFilterScopeLabels(scopeDescriptors),
+        },
+      }));
+      return;
+    }
+
+    const evaluations = matchingScopes
+      .map((scopeDescriptor) => ({
+        scopeDescriptor,
+        result: evaluateRequiredFilterScope(scopeDescriptor, requirement, metadata),
+      }))
+      .sort(compareRequiredFilterScopeEvaluations);
+
+    if (evaluations.some((item) => item.result.ok)) {
+      return;
+    }
+
+    const best = evaluations[0];
+    if (best.result.missingFields.length > 0 || (!best.result.hasFilterItems && requirement.fields.length === 0)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'REQUIRED_FILTER_FIELDS_MISSING',
+        message: best.result.hasFilterItems
+          ? `显式要求的筛选字段未完整落入 scope "${best.result.scopeLabel}"。`
+          : `显式要求存在筛选区块，但 scope "${best.result.scopeLabel}" 下没有任何筛选字段。`,
+        path: best.scopeDescriptor.gridPath,
+        mode,
+        dedupeKey: `REQUIRED_FILTER_FIELDS_MISSING:${best.scopeDescriptor.gridPath}:${(requirement.fields || []).join('|')}:${requirement.collectionName || '*'}`,
+        details: {
+          index,
+          requirement,
+          missingFields: best.result.missingFields,
+          availableFilterFields: best.result.availableFilterFields,
+          scopeLabel: best.result.scopeLabel,
+        },
+      }));
+      return;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'REQUIRED_FILTER_TARGET_USE_MISMATCH',
+      message: `显式要求的筛选项已存在，但没有连接到 scope "${best.result.scopeLabel}" 中期望的目标区块 use。`,
+      path: best.scopeDescriptor.gridPath,
+      mode,
+      dedupeKey: `REQUIRED_FILTER_TARGET_USE_MISMATCH:${best.scopeDescriptor.gridPath}:${(requirement.targetUses || []).join('|')}`,
+      details: {
+        index,
+        requirement,
+        targetUseMismatches: best.result.targetUseMismatches,
+        availableTargetUses: best.result.availableTargetUses,
+        scopeLabel: best.result.scopeLabel,
+      },
+    }));
+  });
 }
 
 function inspectTabTrees(payload, mode, warnings, blockers, seen) {
@@ -2198,21 +2591,41 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       }
 
       const fieldUse = typeof item.subModels?.field?.use === 'string' ? item.subModels.field.use.trim() : '';
-      if (fieldUse) {
+      if (!fieldUse) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'FORM_ITEM_FIELD_SUBMODEL_MISSING',
+          message: 'FormItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field，并使用当前 schema/field binding 给出的 editable field model。',
+          path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
+          mode,
+          dedupeKey: `FORM_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
+          details: {
+            formUse: node.use,
+            fieldPath: item.stepParams?.fieldSettings?.init?.fieldPath || null,
+            collectionName: item.stepParams?.fieldSettings?.init?.collectionName || null,
+          },
+        }));
+        return;
+      }
+
+      const bindingUse = typeof item.subModels?.field?.stepParams?.fieldBinding?.use === 'string'
+        ? item.subModels.field.stepParams.fieldBinding.use.trim()
+        : '';
+      if (fieldUse === 'FieldModel' && bindingUse) {
         return;
       }
 
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
-        code: 'FORM_ITEM_FIELD_SUBMODEL_MISSING',
-        message: 'FormItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field，并使用当前 schema/field binding 给出的 editable field model。',
-        path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
+        code: 'FORM_ITEM_FIELD_BINDING_ENTRY_INVALID',
+        message: 'FormItemModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 editable field model。直接落具体 FieldModel use 会触发 resolveUse circular reference 等 runtime 问题。',
+        path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
-        dedupeKey: `FORM_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
+        dedupeKey: `FORM_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
         details: {
           formUse: node.use,
-          fieldPath: item.stepParams?.fieldSettings?.init?.fieldPath || null,
-          collectionName: item.stepParams?.fieldSettings?.init?.collectionName || null,
+          fieldUse,
+          bindingUse: bindingUse || null,
         },
       }));
     });
@@ -2450,6 +2863,37 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
   });
 }
 
+function inspectCollectionResourceContracts(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || !COLLECTION_RESOURCE_BLOCK_MODEL_USES.has(node.use)) {
+      return;
+    }
+
+    const init = isPlainObject(node.stepParams?.resourceSettings?.init)
+      ? node.stepParams.resourceSettings.init
+      : null;
+    const dataSourceKey = typeof init?.dataSourceKey === 'string' ? init.dataSourceKey.trim() : '';
+    const collectionName = typeof init?.collectionName === 'string' ? init.collectionName.trim() : '';
+    if (dataSourceKey && collectionName) {
+      return;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING',
+      message: `${node.use} 缺少完整的 stepParams.resourceSettings.init.dataSourceKey / collectionName。源码里的 CollectionBlockModel.onInit 会直接读取这两个值；缺失时常见症状就是 runtime TypeError、区块空白或整页卡骨架屏。`,
+      path: `${pathValue}.stepParams.resourceSettings.init`,
+      mode,
+      dedupeKey: `COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING:${pathValue}`,
+      details: {
+        blockUse: node.use,
+        dataSourceKey: dataSourceKey || null,
+        collectionName: collectionName || null,
+      },
+    }));
+  });
+}
+
 function inspectActionSlots(payload, mode, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || typeof node.use !== 'string') {
@@ -2542,6 +2986,47 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
       return;
     }
 
+    const gridItems = Array.isArray(node.subModels?.grid?.subModels?.items) ? node.subModels.grid.subModels.items : [];
+    gridItems.forEach((item, index) => {
+      if (!isPlainObject(item) || item.use !== 'DetailsItemModel') {
+        return;
+      }
+      const fieldUse = typeof item.subModels?.field?.use === 'string' ? item.subModels.field.use.trim() : '';
+      if (!fieldUse) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'DETAILS_ITEM_FIELD_SUBMODEL_MISSING',
+          message: 'DetailsItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field。否则运行时在 titleField 等逻辑里会直接访问 ctx.model.subModels.field 导致 TypeError。',
+          path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
+          mode,
+          dedupeKey: `DETAILS_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
+          details: {
+            fieldPath: item.stepParams?.fieldSettings?.init?.fieldPath || null,
+            collectionName: item.stepParams?.fieldSettings?.init?.collectionName || null,
+          },
+        }));
+        return;
+      }
+      const bindingUse = typeof item.subModels?.field?.stepParams?.fieldBinding?.use === 'string'
+        ? item.subModels.field.stepParams.fieldBinding.use.trim()
+        : '';
+      if (fieldUse === 'FieldModel' && bindingUse) {
+        return;
+      }
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID',
+        message: 'DetailsItemModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 display field model。直接落具体 FieldModel use 会触发 resolveUse circular reference 等 runtime warning。',
+        path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
+        mode,
+        dedupeKey: `DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
+        details: {
+          fieldUse,
+          bindingUse: bindingUse || null,
+        },
+      }));
+    });
+
     if (hasMeaningfulDetailsContent(node)) {
       return;
     }
@@ -2556,6 +3041,51 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
       dedupeKey: `EMPTY_DETAILS_BLOCK:${pathValue}`,
       details: {
         collectionName: node.stepParams?.resourceSettings?.init?.collectionName || null,
+      },
+    }));
+  });
+}
+
+function inspectTableBlocks(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'TableColumnModel') {
+      return;
+    }
+
+    const fieldUse = typeof node.subModels?.field?.use === 'string' ? node.subModels.field.use.trim() : '';
+    if (!fieldUse) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'TABLE_COLUMN_FIELD_SUBMODEL_MISSING',
+        message: 'TableColumnModel 不能只写 fieldSettings.init；必须显式补 subModels.field。运行时渲染单元格与快速编辑都会直接读取这一层子模型。',
+        path: pathValue,
+        mode,
+        dedupeKey: `TABLE_COLUMN_FIELD_SUBMODEL_MISSING:${pathValue}`,
+        details: {
+          fieldPath: node.stepParams?.fieldSettings?.init?.fieldPath || null,
+          collectionName: node.stepParams?.fieldSettings?.init?.collectionName || null,
+        },
+      }));
+      return;
+    }
+
+    const bindingUse = typeof node.subModels?.field?.stepParams?.fieldBinding?.use === 'string'
+      ? node.subModels.field.stepParams.fieldBinding.use.trim()
+      : '';
+    if (fieldUse === 'FieldModel' && bindingUse) {
+      return;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID',
+      message: 'TableColumnModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 display field model。直接落具体 Display*FieldModel use 会让 builder/runtime 结构不一致。',
+      path: `${pathValue}.subModels.field`,
+      mode,
+      dedupeKey: `TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID:${pathValue}`,
+      details: {
+        fieldUse,
+        bindingUse: bindingUse || null,
       },
     }));
   });
@@ -2609,6 +3139,7 @@ function inspectFilterContainers(payload, metadata, mode, requirements, warnings
 }
 
 function inspectPopupActions(payload, metadata, mode, requirements, warnings, blockers, seen) {
+  const businessUses = resolveBusinessBlockUses(requirements);
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || typeof node.use !== 'string' || !node.use.endsWith('ActionModel')) {
       return;
@@ -2712,7 +3243,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
 
     const tabCount = pageNode ? countUses(pageNode, PAGE_TAB_MODEL_USES) : 0;
     const gridCount = pageNode ? countUses(pageNode, GRID_MODEL_USES) : 0;
-    const blockCount = pageNode ? countUses(pageNode, BUSINESS_BLOCK_MODEL_USES) : 0;
+    const blockCount = pageNode ? countUses(pageNode, businessUses) : 0;
     if (!pageNode || tabCount === 0 || gridCount === 0) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
@@ -4126,15 +4657,17 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
+  inspectCollectionResourceContracts(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);
+  inspectTableBlocks(payload, mode, blockers, blockerSeen);
   inspectFilterManagerBindings(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
-  inspectDeclaredRequirements(payload, mode, normalizedRequirements, blockers, blockerSeen);
+  inspectDeclaredRequirements(payload, normalizedMetadata, mode, normalizedRequirements, blockers, blockerSeen);
   if (mode === VALIDATION_CASE_MODE) {
     inspectHardcodedFilterByTk(payload, mode, blockers, blockerSeen);
   } else {

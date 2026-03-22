@@ -18,11 +18,11 @@ description: 新建表单壳、字段项、提交动作的分层完成标准。
 - 详情页中的新增关系记录表单
 - popup page 内的创建表单
 
-优先参考用例：
+优先参考动态场景：
 
-- [case1](../validation-cases/case1.md)
-- [case4](../validation-cases/case4.md)
-- [case6](../validation-cases/case6.md)
+- 订单履约 / 项目交付的主表工作台新建弹窗
+- 详情区块里的关系记录新建链路
+- 组织树页面里的“新增下级”表单
 
 ## 写前必查
 

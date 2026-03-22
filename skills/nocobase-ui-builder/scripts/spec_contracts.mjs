@@ -11,10 +11,8 @@ import {
   normalizeFormMode,
   normalizePageUse,
 } from './model_contracts.mjs';
-import {
-  resolveValidationCase,
-  resolveValidationCaseDocPath,
-} from './validation_case_registry.mjs';
+import { buildDynamicValidationScenario } from './validation_scenario_planner.mjs';
+import { probeInstanceInventory } from './instance_inventory_probe.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
@@ -33,11 +31,12 @@ const ACTION_USE_BY_KIND = {
   'create-popup': 'AddNewActionModel',
   'view-record-popup': 'ViewActionModel',
   'edit-record-popup': 'EditActionModel',
+  'delete-record': 'DeleteActionModel',
   'add-child-record-popup': 'AddChildActionModel',
   'record-action': 'JSRecordActionModel',
 };
 
-const SUPPORTED_BLOCK_KINDS = new Set(['Filter', 'Table', 'Details', 'Form']);
+const SUPPORTED_BLOCK_KINDS = new Set(['Filter', 'Table', 'Details', 'Form', 'PublicUse']);
 const SUPPORTED_REQUIRED_ACTION_SCOPES = new Set(['block-actions', 'row-actions', 'details-actions', 'either']);
 const METADATA_TRUST_LEVELS = new Set(['live', 'stable', 'cache', 'artifact', 'unknown', 'not-required']);
 
@@ -55,7 +54,7 @@ function usage() {
     '  node scripts/spec_contracts.mjs normalize-build-spec (--input-json <json> | --input-file <path>)',
     '  node scripts/spec_contracts.mjs normalize-verify-spec (--input-json <json> | --input-file <path>)',
     '  node scripts/spec_contracts.mjs compile-build-spec (--input-json <json> | --input-file <path>)',
-    '  node scripts/spec_contracts.mjs build-validation-specs --case-request <text> --session-id <id> --candidate-page-url <url> [--base-slug <slug>] [--session-dir <path>]',
+    '  node scripts/spec_contracts.mjs build-validation-specs --case-request <text> --session-id <id> --candidate-page-url <url> [--base-slug <slug>] [--session-dir <path>] [--random-seed <seed>] [--instance-inventory-file <path> | --instance-inventory-json <json>]',
   ].join('\n');
 }
 
@@ -111,7 +110,23 @@ function readJsonInput(jsonValue, filePath, label) {
   throw new Error(`${label} input is required`);
 }
 
+function readOptionalJsonInput(jsonValue, filePath, label) {
+  if (!jsonValue && !filePath) {
+    return null;
+  }
+  return readJsonInput(jsonValue, filePath, label);
+}
+
 function sortUniqueStrings(values) {
+  return [...new Set(
+    (Array.isArray(values) ? values : [])
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )];
+}
+
+function uniqueStrings(values) {
   return [...new Set(
     (Array.isArray(values) ? values : [])
       .filter((item) => typeof item === 'string')
@@ -189,12 +204,19 @@ function normalizeBlock(block, index, label = 'blocks') {
   if (!block || typeof block !== 'object') {
     throw new Error(`${label}[${index}] must be an object`);
   }
-  const kind = normalizeNonEmpty(block.kind, `${label}[${index}].kind`);
+  const explicitUse = typeof block.use === 'string' && block.use.trim() ? block.use.trim() : '';
+  const kind = explicitUse
+    ? (typeof block.kind === 'string' && block.kind.trim() ? block.kind.trim() : 'PublicUse')
+    : normalizeNonEmpty(block.kind, `${label}[${index}].kind`);
   if (!SUPPORTED_BLOCK_KINDS.has(kind)) {
     throw new Error(`${label}[${index}].kind must be one of ${[...SUPPORTED_BLOCK_KINDS].join(', ')}`);
   }
+  if (kind === 'PublicUse' && !explicitUse) {
+    throw new Error(`${label}[${index}].use is required when kind=PublicUse`);
+  }
   const normalized = {
     kind,
+    use: explicitUse,
     title: typeof block.title === 'string' && block.title.trim() ? block.title.trim() : '',
     collectionName: typeof block.collectionName === 'string' && block.collectionName.trim()
       ? block.collectionName.trim()
@@ -238,20 +260,20 @@ function normalizeBlocks(blocks, label = 'blocks') {
   return blocks.map((item, index) => normalizeBlock(item, index, label));
 }
 
-function normalizeTabs(tabs) {
+function normalizeTabs(tabs, label = 'layout.tabs') {
   if (tabs == null) {
     return [];
   }
   if (!Array.isArray(tabs)) {
-    throw new Error('layout.tabs must be an array');
+    throw new Error(`${label} must be an array`);
   }
   return tabs.map((tab, index) => {
     if (!tab || typeof tab !== 'object') {
-      throw new Error(`layout.tabs[${index}] must be an object`);
+      throw new Error(`${label}[${index}] must be an object`);
     }
     return {
-      title: normalizeNonEmpty(tab.title, `layout.tabs[${index}].title`),
-      blocks: normalizeBlocks(tab.blocks, `layout.tabs[${index}].blocks`),
+      title: normalizeNonEmpty(tab.title, `${label}[${index}].title`),
+      blocks: normalizeBlocks(tab.blocks, `${label}[${index}].blocks`),
     };
   });
 }
@@ -336,6 +358,247 @@ function normalizeExpectedFilterContracts(explicit) {
   });
 }
 
+function normalizePlanningBlockersInput(items) {
+  return Array.isArray(items)
+    ? items
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        code: typeof item.code === 'string' ? item.code.trim() : '',
+        message: typeof item.message === 'string' ? item.message.trim() : '',
+        details: item.details && typeof item.details === 'object' ? item.details : {},
+      }))
+      .filter((item) => item.code || item.message)
+    : [];
+}
+
+function normalizeActionPlanInput(items) {
+  return Array.isArray(items)
+    ? items
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        hostPath: typeof item.hostPath === 'string' ? item.hostPath.trim() : '',
+        hostUse: typeof item.hostUse === 'string' ? item.hostUse.trim() : '',
+        scope: typeof item.scope === 'string' ? item.scope.trim() : '',
+        kind: typeof item.kind === 'string' ? item.kind.trim() : '',
+        label: typeof item.label === 'string' ? item.label.trim() : '',
+        popupDepth: Number.isFinite(item.popupDepth) ? item.popupDepth : 0,
+        popupBlockKinds: sortUniqueStrings(item.popupBlockKinds),
+      }))
+    : [];
+}
+
+function normalizePlannedCoverageInput(input) {
+  const plannedCoverageInput = input && typeof input === 'object' ? input : {};
+  return {
+    blocks: sortUniqueStrings(plannedCoverageInput.blocks),
+    patterns: sortUniqueStrings(plannedCoverageInput.patterns),
+  };
+}
+
+function normalizeCreativeProgram(input) {
+  const creativeProgramInput = input && typeof input === 'object' ? input : {};
+  return {
+    id: typeof creativeProgramInput.id === 'string' ? creativeProgramInput.id.trim() : '',
+    strategy: typeof creativeProgramInput.strategy === 'string' ? creativeProgramInput.strategy.trim() : '',
+    prompt: typeof creativeProgramInput.prompt === 'string' ? creativeProgramInput.prompt.trim() : '',
+    selectionPolicy: typeof creativeProgramInput.selectionPolicy === 'string'
+      ? creativeProgramInput.selectionPolicy.trim()
+      : '',
+    constraints: uniqueStrings(creativeProgramInput.constraints),
+    heuristics: uniqueStrings(creativeProgramInput.heuristics),
+    requiredPatterns: uniqueStrings(creativeProgramInput.requiredPatterns),
+    optionalPatterns: uniqueStrings(creativeProgramInput.optionalPatterns),
+    notes: uniqueStrings(creativeProgramInput.notes),
+  };
+}
+
+function normalizeLayoutShape(layoutInput, label = 'layout') {
+  const normalizedLayoutInput = layoutInput && typeof layoutInput === 'object' ? layoutInput : {};
+  return {
+    pageUse: normalizePageUse(normalizedLayoutInput.pageUse, `${label}.pageUse`, {
+      fallbackValue: 'RootPageModel',
+    }),
+    blocks: normalizeBlocks(normalizedLayoutInput.blocks, `${label}.blocks`),
+    tabs: normalizeTabs(normalizedLayoutInput.tabs, `${label}.tabs`),
+  };
+}
+
+function normalizeLayoutCandidate(entry, index) {
+  if (!entry || typeof entry !== 'object') {
+    throw new Error(`scenario.layoutCandidates[${index}] must be an object`);
+  }
+  const candidateId = typeof entry.candidateId === 'string' && entry.candidateId.trim()
+    ? entry.candidateId.trim()
+    : `candidate-${index + 1}`;
+  return {
+    candidateId,
+    title: typeof entry.title === 'string' ? entry.title.trim() : '',
+    summary: typeof entry.summary === 'string' ? entry.summary.trim() : '',
+    score: Number.isFinite(entry.score) ? entry.score : null,
+    selected: entry.selected === true,
+    selectionMode: typeof entry.selectionMode === 'string' ? entry.selectionMode.trim() : '',
+    primaryBlockType: typeof entry.primaryBlockType === 'string' ? entry.primaryBlockType.trim() : '',
+    targetCollections: sortUniqueStrings(entry.targetCollections),
+    requestedFields: sortUniqueStrings(entry.requestedFields),
+    resolvedFields: sortUniqueStrings(entry.resolvedFields),
+    selectionRationale: uniqueStrings(entry.selectionRationale),
+    planningStatus: typeof entry.planningStatus === 'string' ? entry.planningStatus.trim() : '',
+    planningBlockers: normalizePlanningBlockersInput(entry.planningBlockers),
+    actionPlan: normalizeActionPlanInput(entry.actionPlan),
+    plannedCoverage: normalizePlannedCoverageInput(entry.plannedCoverage),
+    layout: normalizeLayoutShape(entry.layout, `scenario.layoutCandidates[${index}].layout`),
+  };
+}
+
+function normalizeScenario(input) {
+  const scenarioInput = input && typeof input === 'object' ? input : {};
+  const randomPolicyInput = scenarioInput.randomPolicy && typeof scenarioInput.randomPolicy === 'object'
+    ? scenarioInput.randomPolicy
+    : {};
+  const sourceInventoryInput = scenarioInput.sourceInventory && typeof scenarioInput.sourceInventory === 'object'
+    ? scenarioInput.sourceInventory
+    : {};
+  const instanceInventoryInput = scenarioInput.instanceInventory && typeof scenarioInput.instanceInventory === 'object'
+    ? scenarioInput.instanceInventory
+    : {};
+  const instanceFlowSchemaInput = instanceInventoryInput.flowSchema && typeof instanceInventoryInput.flowSchema === 'object'
+    ? instanceInventoryInput.flowSchema
+    : {};
+  const instanceCollectionsInput = instanceInventoryInput.collections && typeof instanceInventoryInput.collections === 'object'
+    ? instanceInventoryInput.collections
+    : {};
+  const planningBlockers = normalizePlanningBlockersInput(scenarioInput.planningBlockers);
+  const actionPlan = normalizeActionPlanInput(scenarioInput.actionPlan);
+  const layoutCandidates = Array.isArray(scenarioInput.layoutCandidates)
+    ? scenarioInput.layoutCandidates.map((item, index) => normalizeLayoutCandidate(item, index))
+    : [];
+  const selectedCandidateId = typeof scenarioInput.selectedCandidateId === 'string' && scenarioInput.selectedCandidateId.trim()
+    ? scenarioInput.selectedCandidateId.trim()
+    : (layoutCandidates.find((item) => item.selected)?.candidateId || layoutCandidates[0]?.candidateId || '');
+
+  return {
+    id: typeof scenarioInput.id === 'string' ? scenarioInput.id.trim() : '',
+    title: typeof scenarioInput.title === 'string' ? scenarioInput.title.trim() : '',
+    summary: typeof scenarioInput.summary === 'string' ? scenarioInput.summary.trim() : '',
+    domainId: typeof scenarioInput.domainId === 'string' ? scenarioInput.domainId.trim() : '',
+    domainLabel: typeof scenarioInput.domainLabel === 'string' ? scenarioInput.domainLabel.trim() : '',
+    archetypeId: typeof scenarioInput.archetypeId === 'string' ? scenarioInput.archetypeId.trim() : '',
+    archetypeLabel: typeof scenarioInput.archetypeLabel === 'string' ? scenarioInput.archetypeLabel.trim() : '',
+    tier: typeof scenarioInput.tier === 'string' ? scenarioInput.tier.trim() : '',
+    expectedOutcome: typeof scenarioInput.expectedOutcome === 'string' ? scenarioInput.expectedOutcome.trim() : '',
+    selectionMode: typeof scenarioInput.selectionMode === 'string' ? scenarioInput.selectionMode.trim() : '',
+    plannerVersion: typeof scenarioInput.plannerVersion === 'string' ? scenarioInput.plannerVersion.trim() : '',
+    primaryBlockType: typeof scenarioInput.primaryBlockType === 'string' ? scenarioInput.primaryBlockType.trim() : '',
+    planningStatus: typeof scenarioInput.planningStatus === 'string' ? scenarioInput.planningStatus.trim() : '',
+    maxNestingDepth: Number.isFinite(scenarioInput.maxNestingDepth) ? scenarioInput.maxNestingDepth : 0,
+    requestedSignals: uniqueStrings(scenarioInput.requestedSignals),
+    selectionRationale: uniqueStrings(scenarioInput.selectionRationale),
+    availableUses: sortUniqueStrings(scenarioInput.availableUses),
+    targetCollections: sortUniqueStrings(scenarioInput.targetCollections),
+    requestedFields: sortUniqueStrings(scenarioInput.requestedFields),
+    resolvedFields: sortUniqueStrings(scenarioInput.resolvedFields),
+    actionPlan,
+    planningBlockers,
+    plannedCoverage: normalizePlannedCoverageInput(scenarioInput.plannedCoverage),
+    creativeProgram: normalizeCreativeProgram(scenarioInput.creativeProgram),
+    layoutCandidates,
+    selectedCandidateId,
+    sourceInventory: {
+      detected: Boolean(sourceInventoryInput.detected),
+      repoRoot: typeof sourceInventoryInput.repoRoot === 'string' ? sourceInventoryInput.repoRoot.trim() : '',
+      publicModels: sortUniqueStrings(sourceInventoryInput.publicModels),
+      publicTreeRoots: sortUniqueStrings(sourceInventoryInput.publicTreeRoots),
+      expectedDescendantModels: sortUniqueStrings(sourceInventoryInput.expectedDescendantModels),
+      evidenceFiles: sortUniqueStrings(sourceInventoryInput.evidenceFiles),
+      publicUseCatalog: Array.isArray(sourceInventoryInput.publicUseCatalog)
+        ? sourceInventoryInput.publicUseCatalog
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => ({
+            use: typeof item.use === 'string' ? item.use.trim() : '',
+            title: typeof item.title === 'string' ? item.title.trim() : '',
+            filePath: typeof item.filePath === 'string' ? item.filePath.trim() : '',
+            hintKinds: sortUniqueStrings(item.hintKinds),
+            hintPaths: sortUniqueStrings(item.hintPaths),
+            hintMessages: sortUniqueStrings(item.hintMessages),
+            contextRequirements: sortUniqueStrings(item.contextRequirements),
+            unresolvedReasons: sortUniqueStrings(item.unresolvedReasons),
+            semanticTags: sortUniqueStrings(item.semanticTags),
+          }))
+          .filter((item) => item.use)
+        : [],
+    },
+    instanceInventory: {
+      detected: Boolean(instanceInventoryInput.detected),
+      apiBase: typeof instanceInventoryInput.apiBase === 'string' ? instanceInventoryInput.apiBase.trim() : '',
+      adminBase: typeof instanceInventoryInput.adminBase === 'string' ? instanceInventoryInput.adminBase.trim() : '',
+      appVersion: typeof instanceInventoryInput.appVersion === 'string' ? instanceInventoryInput.appVersion.trim() : '',
+      enabledPlugins: sortUniqueStrings(instanceInventoryInput.enabledPlugins),
+      enabledPluginsDetected: Boolean(instanceInventoryInput.enabledPluginsDetected),
+      instanceFingerprint: typeof instanceInventoryInput.instanceFingerprint === 'string'
+        ? instanceInventoryInput.instanceFingerprint.trim()
+        : '',
+      flowSchema: {
+        detected: Boolean(instanceFlowSchemaInput.detected),
+        rootPublicUses: sortUniqueStrings(instanceFlowSchemaInput.rootPublicUses),
+        missingUses: sortUniqueStrings(instanceFlowSchemaInput.missingUses),
+        discoveryNotes: sortUniqueStrings(instanceFlowSchemaInput.discoveryNotes),
+        publicUseCatalog: Array.isArray(instanceFlowSchemaInput.publicUseCatalog)
+          ? instanceFlowSchemaInput.publicUseCatalog
+            .filter((item) => item && typeof item === 'object')
+            .map((item) => ({
+              use: typeof item.use === 'string' ? item.use.trim() : '',
+              title: typeof item.title === 'string' ? item.title.trim() : '',
+              hintKinds: sortUniqueStrings(item.hintKinds),
+              hintPaths: sortUniqueStrings(item.hintPaths),
+              hintMessages: sortUniqueStrings(item.hintMessages),
+              contextRequirements: sortUniqueStrings(item.contextRequirements),
+              unresolvedReasons: sortUniqueStrings(item.unresolvedReasons),
+              semanticTags: sortUniqueStrings(item.semanticTags),
+            }))
+            .filter((item) => item.use)
+          : [],
+      },
+      collections: {
+        detected: Boolean(instanceCollectionsInput.detected),
+        names: sortUniqueStrings(instanceCollectionsInput.names),
+        byName: Object.fromEntries(
+          sortUniqueStrings(instanceCollectionsInput.names).map((name) => {
+            const raw = instanceCollectionsInput.byName && typeof instanceCollectionsInput.byName === 'object'
+              ? instanceCollectionsInput.byName[name]
+              : {};
+            return [name, {
+              name,
+              title: typeof raw?.title === 'string' ? raw.title.trim() : '',
+              titleField: typeof raw?.titleField === 'string' ? raw.titleField.trim() : '',
+              origin: typeof raw?.origin === 'string' ? raw.origin.trim() : '',
+              template: typeof raw?.template === 'string' ? raw.template.trim() : '',
+              tree: typeof raw?.tree === 'string' ? raw.tree.trim() : '',
+              fieldNames: sortUniqueStrings(raw?.fieldNames),
+              scalarFieldNames: sortUniqueStrings(raw?.scalarFieldNames),
+              relationFields: sortUniqueStrings(raw?.relationFields),
+            }];
+          }),
+        ),
+        discoveryNotes: sortUniqueStrings(instanceCollectionsInput.discoveryNotes),
+      },
+      notes: sortUniqueStrings(instanceInventoryInput.notes),
+      errors: sortUniqueStrings(instanceInventoryInput.errors),
+      cache: instanceInventoryInput.cache && typeof instanceInventoryInput.cache === 'object'
+        ? instanceInventoryInput.cache
+        : {},
+    },
+    randomPolicy: {
+      mode: typeof randomPolicyInput.mode === 'string' ? randomPolicyInput.mode.trim() : '',
+      seed: typeof randomPolicyInput.seed === 'string' ? randomPolicyInput.seed.trim() : '',
+      seedSource: typeof randomPolicyInput.seedSource === 'string' ? randomPolicyInput.seedSource.trim() : '',
+      sessionId: typeof randomPolicyInput.sessionId === 'string' ? randomPolicyInput.sessionId.trim() : '',
+      candidatePageUrl: typeof randomPolicyInput.candidatePageUrl === 'string'
+        ? randomPolicyInput.candidatePageUrl.trim()
+        : '',
+    },
+  };
+}
+
 function hasRuntimeSensitiveAction(action) {
   if (!action || typeof action !== 'object') {
     return false;
@@ -406,7 +669,39 @@ function deriveRequiredActions(layout) {
   return dedupeRequiredActions(actions);
 }
 
+function collectBlockUsesFromBlocks(blocks) {
+  const uses = [];
+  const visit = (items) => {
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+      uses.push(resolveBlockUse(item));
+      if (Array.isArray(item.blocks) && item.blocks.length > 0) {
+        visit(item.blocks);
+      }
+      if (item.popup?.blocks && Array.isArray(item.popup.blocks) && item.popup.blocks.length > 0) {
+        visit(item.popup.blocks);
+      }
+    }
+  };
+  visit(blocks);
+  return sortUniqueStrings(uses);
+}
+
+function buildTabBlockUseMap(layout) {
+  const map = new Map();
+  for (const tab of Array.isArray(layout?.tabs) ? layout.tabs : []) {
+    if (!tab?.title) {
+      continue;
+    }
+    map.set(tab.title, collectBlockUsesFromBlocks(tab.blocks));
+  }
+  return map;
+}
+
 function deriveRequiredTabs(layout, explicit) {
+  const tabBlockUseMap = buildTabBlockUseMap(layout);
   if (Array.isArray(explicit) && explicit.length > 0) {
     return explicit.map((entry, index) => {
       if (!entry || typeof entry !== 'object') {
@@ -423,6 +718,9 @@ function deriveRequiredTabs(layout, explicit) {
           allowNull: true,
         }),
         requireBlockGrid: entry.requireBlockGrid !== false,
+        requiredBlockUses: Array.isArray(entry.requiredBlockUses) && entry.requiredBlockUses.length > 0
+          ? sortUniqueStrings(entry.requiredBlockUses)
+          : sortUniqueStrings(titles.flatMap((title) => tabBlockUseMap.get(title) || [])),
       };
     });
   }
@@ -435,8 +733,37 @@ function deriveRequiredTabs(layout, explicit) {
       titles: layout.tabs.map((tab) => tab.title),
       pageUse: layout.pageUse,
       requireBlockGrid: true,
+      requiredBlockUses: sortUniqueStrings(layout.tabs.flatMap((tab) => tabBlockUseMap.get(tab.title) || [])),
     },
   ];
+}
+
+function normalizeRequiredFilters(explicit) {
+  if (!Array.isArray(explicit) || explicit.length === 0) {
+    return [];
+  }
+  return explicit.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error(`requirements.requiredFilters[${index}] must be an object`);
+    }
+    return {
+      path: entry.path == null ? null : normalizeNonEmpty(entry.path, `requirements.requiredFilters[${index}].path`),
+      pageSignature: entry.pageSignature == null
+        ? null
+        : normalizeNonEmpty(entry.pageSignature, `requirements.requiredFilters[${index}].pageSignature`),
+      pageUse: normalizePageUse(entry.pageUse, `requirements.requiredFilters[${index}].pageUse`, {
+        allowNull: true,
+      }),
+      tabTitle: typeof entry.tabTitle === 'string' && entry.tabTitle.trim()
+        ? entry.tabTitle.trim()
+        : '',
+      collectionName: typeof entry.collectionName === 'string' && entry.collectionName.trim()
+        ? entry.collectionName.trim()
+        : '',
+      fields: sortUniqueStrings(entry.fields),
+      targetUses: sortUniqueStrings(entry.targetUses),
+    };
+  });
 }
 
 export function normalizeBuildSpec(input) {
@@ -455,17 +782,9 @@ export function normalizeBuildSpec(input) {
       ? requirementsInput.metadataTrust
       : null);
 
-  const layout = {
-    pageUse: normalizePageUse(layoutInput.pageUse, 'layout.pageUse', {
-      fallbackValue: 'RootPageModel',
-    }),
-    blocks: normalizeBlocks(layoutInput.blocks, 'layout.blocks'),
-    tabs: normalizeTabs(layoutInput.tabs),
-  };
+  const layout = normalizeLayoutShape(layoutInput, 'layout');
 
-  const validationCaseInput = input.validationCase && typeof input.validationCase === 'object'
-    ? input.validationCase
-    : {};
+  const scenario = normalizeScenario(input.scenario);
 
   return {
     version: BUILD_SPEC_VERSION,
@@ -490,7 +809,9 @@ export function normalizeBuildSpec(input) {
       requiredActions: Array.isArray(requirementsInput.requiredActions) && requirementsInput.requiredActions.length > 0
         ? normalizeRequiredActions(requirementsInput.requiredActions)
         : deriveRequiredActions(layout),
+      requiredFilters: normalizeRequiredFilters(requirementsInput.requiredFilters),
       expectedFilterContracts: normalizeExpectedFilterContracts(requirementsInput.expectedFilterContracts),
+      allowedBusinessBlockUses: sortUniqueStrings(requirementsInput.allowedBusinessBlockUses),
       metadataTrust: {
         runtimeSensitive: normalizeMetadataTrustLevel(
           typeof metadataTrustInput === 'string' ? metadataTrustInput : metadataTrustInput?.runtimeSensitive,
@@ -505,38 +826,7 @@ export function normalizeBuildSpec(input) {
         : DEFAULT_BUILD_COMPILE_MODE,
       allowLegacyFallback: Boolean(optionsInput.allowLegacyFallback),
     },
-    validationCase: {
-      caseId: typeof validationCaseInput.caseId === 'string' ? validationCaseInput.caseId.trim() : '',
-      title: typeof validationCaseInput.title === 'string' ? validationCaseInput.title.trim() : '',
-      docPath: typeof validationCaseInput.docPath === 'string' ? validationCaseInput.docPath.trim() : '',
-      tier: typeof validationCaseInput.tier === 'string' ? validationCaseInput.tier.trim() : '',
-      expectedOutcome: typeof validationCaseInput.expectedOutcome === 'string'
-        ? validationCaseInput.expectedOutcome.trim()
-        : '',
-      coverage: {
-        blocks: sortUniqueStrings(validationCaseInput.coverage?.blocks),
-        patterns: sortUniqueStrings(validationCaseInput.coverage?.patterns),
-      },
-      resolution: validationCaseInput.resolution && typeof validationCaseInput.resolution === 'object'
-        ? {
-          matched: Boolean(validationCaseInput.resolution.matched),
-          matchedBy: typeof validationCaseInput.resolution.matchedBy === 'string'
-            ? validationCaseInput.resolution.matchedBy.trim()
-            : '',
-          matchedValue: typeof validationCaseInput.resolution.matchedValue === 'string'
-            ? validationCaseInput.resolution.matchedValue.trim()
-            : '',
-          fallbackReason: typeof validationCaseInput.resolution.fallbackReason === 'string'
-            ? validationCaseInput.resolution.fallbackReason.trim()
-            : '',
-        }
-        : {
-          matched: false,
-          matchedBy: '',
-          matchedValue: '',
-          fallbackReason: '',
-        },
-    },
+    scenario,
   };
 }
 
@@ -608,6 +898,9 @@ export function normalizeVerifySpec(input) {
 }
 
 function resolveBlockUse(block) {
+  if (block.use) {
+    return block.use;
+  }
   if (block.kind === 'Form') {
     return getFormUseForMode(block.mode);
   }
@@ -622,8 +915,91 @@ function collectRequiredUsesFromAction(action, requiredUses) {
   }
 }
 
+function buildGeneratedCoverageFromTree(tree) {
+  const blockUses = new Set();
+  const patterns = new Set();
+
+  const visitPopup = (popup) => {
+    if (!popup || typeof popup !== 'object') {
+      return;
+    }
+    patterns.add('popup-openview');
+    compileBlockList(popup.blocks);
+  };
+
+  const visitBlock = (block) => {
+    if (!block || typeof block !== 'object') {
+      return;
+    }
+    if (block.use) {
+      blockUses.add(block.use);
+    }
+    if (block.relationScope) {
+      patterns.add('relation-context');
+    }
+    if (block.treeTable) {
+      patterns.add('tree-table');
+    }
+    for (const action of Array.isArray(block.actions) ? block.actions : []) {
+      if (action.kind === 'record-action') {
+        patterns.add('record-actions');
+      }
+      if (action.popup) {
+        visitPopup(action.popup);
+      }
+    }
+    for (const action of Array.isArray(block.rowActions) ? block.rowActions : []) {
+      if (action.kind === 'record-action' || action.kind === 'add-child-record-popup') {
+        patterns.add('record-actions');
+      }
+      if (action.popup) {
+        visitPopup(action.popup);
+      }
+    }
+    compileBlockList(block.blocks);
+  };
+
+  const compileBlockList = (blocks) => {
+    for (const block of Array.isArray(blocks) ? blocks : []) {
+      visitBlock(block);
+    }
+  };
+
+  compileBlockList(tree.blocks);
+  if (Array.isArray(tree.tabs) && tree.tabs.length > 0) {
+    blockUses.add('RootPageTabModel');
+    patterns.add('workspace-tabs');
+    for (const tab of tree.tabs) {
+      compileBlockList(tab.blocks);
+    }
+  }
+
+  return {
+    blocks: sortUniqueStrings([...blockUses]),
+    patterns: sortUniqueStrings([...patterns]),
+  };
+}
+
+function buildCoverageStatusEntries(generatedCoverage) {
+  return [
+    ...generatedCoverage.blocks.map((target) => ({
+      targetType: 'block',
+      target,
+      status: 'planned',
+    })),
+    ...generatedCoverage.patterns.map((target) => ({
+      targetType: 'pattern',
+      target,
+      status: 'planned',
+    })),
+  ];
+}
+
 function collectRequiredUsesFromBlock(block, requiredUses) {
   requiredUses.add(resolveBlockUse(block));
+  if (block.kind === 'PublicUse') {
+    return;
+  }
   if (block.kind === 'Filter') {
     requiredUses.add('FilterFormGridModel');
     requiredUses.add('FilterFormItemModel');
@@ -707,18 +1083,57 @@ function buildExpectedFilterContract(block, compiledBlock, selectorContract, dat
   };
 }
 
-function compilePopup(popup, scope, artifact) {
-  if (!popup) {
-    return null;
-  }
+function deriveFilterTargetUses(blocks, currentIndex, collectionName) {
+  const directTargets = (Array.isArray(blocks) ? blocks : [])
+    .filter((candidate, candidateIndex) => candidateIndex !== currentIndex)
+    .filter((candidate) => candidate && typeof candidate === 'object' && candidate.kind !== 'Filter')
+    .filter((candidate) => !collectionName || !candidate.collectionName || candidate.collectionName === collectionName)
+    .map((candidate) => resolveBlockUse(candidate));
+  return sortUniqueStrings(directTargets);
+}
+
+function buildRequiredFilterDescriptor(block, compiledBlock, context, targetUses) {
   return {
-    title: popup.title,
-    pageUse: popup.pageUse,
-    blocks: compileBlocks(popup.blocks, `${scope}.popup`, artifact),
+    path: compiledBlock.path,
+    pageSignature: context.pageSignature || '$',
+    pageUse: context.pageUse || null,
+    tabTitle: context.tabTitle || '',
+    collectionName: block.collectionName || null,
+    fields: [...compiledBlock.fields],
+    targetUses: sortUniqueStrings(targetUses),
   };
 }
 
-function compileActions(actions, scope, artifact, actionScope) {
+function buildRequiredFilterBinding(block, compiledBlock, context, targetUses) {
+  return {
+    pageSignature: context.pageSignature || '$',
+    pageUse: context.pageUse || null,
+    tabTitle: context.tabTitle || '',
+    filterPath: compiledBlock.path,
+    filterUse: compiledBlock.use,
+    collectionName: block.collectionName || null,
+    filterFields: [...compiledBlock.fields],
+    targetUses: sortUniqueStrings(targetUses),
+  };
+}
+
+function compilePopup(popup, scope, artifact, context) {
+  if (!popup) {
+    return null;
+  }
+  const popupContext = {
+    pageSignature: `${scope}.popup`,
+    pageUse: popup.pageUse,
+    tabTitle: context?.tabTitle || '',
+  };
+  return {
+    title: popup.title,
+    pageUse: popup.pageUse,
+    blocks: compileBlocks(popup.blocks, `${scope}.popup`, artifact, popupContext),
+  };
+}
+
+function compileActions(actions, scope, artifact, actionScope, context) {
   return actions.map((action, index) => {
     maybeAddVerifyHintForAction(action, actionScope, artifact.verifyHints, scope.replaceAll('.', '-'));
     return {
@@ -726,13 +1141,13 @@ function compileActions(actions, scope, artifact, actionScope) {
       scope: actionScope,
       path: `${scope}.${actionScope}[${index}]`,
       popup: action.popup
-        ? compilePopup(action.popup, `${scope}.${actionScope}[${index}]`, artifact)
+        ? compilePopup(action.popup, `${scope}.${actionScope}[${index}]`, artifact, context)
         : null,
     };
   });
 }
 
-function compileBlocks(blocks, scope, artifact) {
+function compileBlocks(blocks, scope, artifact, context) {
   return blocks.map((block, index) => {
     collectRequiredUsesFromBlock(block, artifact.requiredUses);
     if (block.kind === 'Filter') {
@@ -768,16 +1183,19 @@ function compileBlocks(blocks, scope, artifact) {
         `${scope}.blocks[${index}]`,
         artifact,
         block.kind === 'Details' ? 'details-actions' : 'block-actions',
+        context,
       ),
       rowActions: compileActions(
         block.rowActions,
         `${scope}.blocks[${index}]`,
         artifact,
         'row-actions',
+        context,
       ),
-      blocks: compileBlocks(block.blocks, `${scope}.blocks[${index}]`, artifact),
-      popup: compilePopup(block.popup, `${scope}.blocks[${index}]`, artifact),
+      blocks: compileBlocks(block.blocks, `${scope}.blocks[${index}]`, artifact, context),
+      popup: compilePopup(block.popup, `${scope}.blocks[${index}]`, artifact, context),
       relationScope: block.relationScope,
+      explicitUse: block.use,
       mode: block.mode,
       targetCollectionName: block.targetCollectionName,
       targetBlock: block.targetBlock,
@@ -788,78 +1206,98 @@ function compileBlocks(blocks, scope, artifact) {
     artifact.guardRequirements.expectedFilterContracts.push(
       buildExpectedFilterContract(block, compiledBlock, selectorContract, dataScopeContract),
     );
+    if (block.kind === 'Filter') {
+      const targetUses = deriveFilterTargetUses(blocks, index, block.collectionName);
+      artifact.guardRequirements.requiredFilters.push(
+        buildRequiredFilterDescriptor(block, compiledBlock, context, targetUses),
+      );
+      artifact.readbackContract.requiredFilterBindings.push(
+        buildRequiredFilterBinding(block, compiledBlock, context, targetUses),
+      );
+    }
     return compiledBlock;
   });
 }
 
-export function compileBuildSpec(input) {
-  const buildSpec = normalizeBuildSpec(input);
-  const defaultTabUse = getDefaultTabUseForPage(buildSpec.layout.pageUse);
-  const runtimeSensitiveMetadataTrust = buildSpec.requirements.metadataTrust.runtimeSensitive
-    || (hasRuntimeSensitiveBlocks(buildSpec.layout.blocks)
-      || buildSpec.layout.tabs.some((tab) => hasRuntimeSensitiveBlocks(tab.blocks))
-      ? 'unknown'
-      : 'not-required');
-  const artifact = {
+function createArtifactState(buildSpec, scenarioLike, runtimeSensitiveMetadataTrust, requirements) {
+  return {
     compileMode: buildSpec.options.allowLegacyFallback ? 'primitive-tree' : DEFAULT_BUILD_COMPILE_MODE,
     payloadFragment: null,
-    requiredUses: new Set([buildSpec.layout.pageUse]),
+    requiredUses: new Set([requirements.layoutPageUse]),
     requiredMetadataRefs: {
       collections: new Set(buildSpec.dataBindings.collections),
       fields: new Set(),
       relations: [],
     },
     guardRequirements: {
-      ...buildSpec.requirements,
-      expectedFilterContracts: [...buildSpec.requirements.expectedFilterContracts],
+      ...requirements,
+      requiredFilters: [...requirements.requiredFilters],
+      expectedFilterContracts: [...requirements.expectedFilterContracts],
       metadataTrust: {
         runtimeSensitive: runtimeSensitiveMetadataTrust,
       },
     },
-    matchedCaseId: buildSpec.validationCase.caseId,
-    matchedCaseTitle: buildSpec.validationCase.title,
-    matchedCaseDocPath: buildSpec.validationCase.docPath,
-    tier: buildSpec.validationCase.tier,
-    expectedOutcome: buildSpec.validationCase.expectedOutcome,
-    coverage: buildSpec.validationCase.coverage,
-    registryResolution: buildSpec.validationCase.resolution,
+    scenario: scenarioLike,
+    tier: scenarioLike.tier,
+    expectedOutcome: scenarioLike.expectedOutcome,
+    selectionMode: scenarioLike.selectionMode,
+    plannerVersion: scenarioLike.plannerVersion,
+    primaryBlockType: scenarioLike.primaryBlockType,
+    planningStatus: scenarioLike.planningStatus,
+    planningBlockers: scenarioLike.planningBlockers,
+    maxNestingDepth: scenarioLike.maxNestingDepth,
+    coverage: {
+      blocks: scenarioLike.plannedCoverage.blocks,
+      patterns: scenarioLike.plannedCoverage.patterns,
+    },
+    actionPlan: scenarioLike.actionPlan,
     readbackContract: {
-      requiredTabs: buildSpec.requirements.requiredTabs.map((item) => ({
+      requiredTabs: requirements.requiredTabs.map((item) => ({
         pageSignature: item.pageSignature ?? null,
         pageUse: item.pageUse ?? null,
         titles: [...item.titles],
         requireBlockGrid: item.requireBlockGrid !== false,
+        requiredBlockUses: sortUniqueStrings(item.requiredBlockUses),
       })),
-      requiredVisibleTabs: buildSpec.requirements.requiredTabs.flatMap((item) => item.titles),
-      requiredTabCount: buildSpec.requirements.requiredTabs[0]?.titles?.length ?? 0,
+      requiredVisibleTabs: requirements.requiredTabs.flatMap((item) => item.titles),
+      requiredTabCount: requirements.requiredTabs.reduce((count, item) => count + item.titles.length, 0),
       requiredTopLevelUses: [],
       requireFilterManager: false,
       requiredFilterManagerEntryCount: 0,
+      requiredFilterBindings: [],
     },
     verifyHints: [],
-    coverageStatus: [
-      ...buildSpec.validationCase.coverage.blocks.map((target) => ({
-        targetType: 'block',
-        target,
-        status: 'unverified',
-      })),
-      ...buildSpec.validationCase.coverage.patterns.map((target) => ({
-        targetType: 'pattern',
-        target,
-        status: 'unverified',
-      })),
-    ],
+    coverageStatus: [],
     issues: [],
     primitiveTree: null,
   };
+}
+
+function compileLayoutVariant({
+  buildSpec,
+  layout,
+  targetTitle,
+  scenarioLike,
+  runtimeSensitiveMetadataTrust,
+  requirements,
+}) {
+  const defaultTabUse = getDefaultTabUseForPage(layout.pageUse);
+  const artifact = createArtifactState(buildSpec, scenarioLike, runtimeSensitiveMetadataTrust, {
+    ...requirements,
+    layoutPageUse: layout.pageUse,
+  });
 
   const tree = {
     path: '$.page',
     kind: 'Page',
-    use: buildSpec.layout.pageUse,
-    title: buildSpec.target.title,
-    blocks: compileBlocks(buildSpec.layout.blocks, '$.page', artifact),
-    tabs: buildSpec.layout.tabs.map((tab, index) => {
+    use: layout.pageUse,
+    title: targetTitle,
+    blocks: compileBlocks(layout.blocks, '$.page', artifact, {
+      pageSignature: '$',
+      pageUse: layout.pageUse,
+      tabTitle: '',
+    }),
+    tabs: layout.tabs.map((tab, index) => {
       artifact.requiredUses.add(defaultTabUse);
       artifact.requiredUses.add('BlockGridModel');
       artifact.verifyHints.push({
@@ -875,7 +1313,11 @@ export function compileBuildSpec(input) {
         kind: 'Tabs',
         use: defaultTabUse,
         title: tab.title,
-        blocks: compileBlocks(tab.blocks, `$.page.tabs[${index}]`, artifact),
+        blocks: compileBlocks(tab.blocks, `$.page.tabs[${index}]`, artifact, {
+          pageSignature: `$.page.tabs[${index}]`,
+          pageUse: defaultTabUse,
+          tabTitle: tab.title,
+        }),
       };
     }),
   };
@@ -884,94 +1326,228 @@ export function compileBuildSpec(input) {
     ...tree.blocks.map((item) => item.use),
     ...(tree.tabs.length > 0 ? [defaultTabUse] : []),
   ]);
+  const generatedCoverage = buildGeneratedCoverageFromTree(tree);
   artifact.payloadFragment = tree;
   artifact.primitiveTree = tree;
+  artifact.generatedCoverage = generatedCoverage;
+  artifact.coverageStatus = buildCoverageStatusEntries(generatedCoverage);
+  if (artifact.coverage.blocks.length === 0 && artifact.coverage.patterns.length === 0) {
+    artifact.coverage = generatedCoverage;
+  }
 
+  return artifact;
+}
+
+function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
   return {
-    buildSpec,
-    compileArtifact: {
-      compileMode: artifact.compileMode,
-      payloadFragment: artifact.payloadFragment,
-      primitiveTree: artifact.primitiveTree,
-      requiredUses: sortUniqueStrings([...artifact.requiredUses]),
-      requiredMetadataRefs: {
-        collections: sortUniqueStrings([...artifact.requiredMetadataRefs.collections]),
-        fields: sortUniqueStrings([...artifact.requiredMetadataRefs.fields]),
-        relations: artifact.requiredMetadataRefs.relations,
-      },
-      guardRequirements: artifact.guardRequirements,
-      matchedCaseId: artifact.matchedCaseId,
-      matchedCaseTitle: artifact.matchedCaseTitle,
-      matchedCaseDocPath: artifact.matchedCaseDocPath,
-      tier: artifact.tier,
-      expectedOutcome: artifact.expectedOutcome,
-      coverage: artifact.coverage,
-      registryResolution: artifact.registryResolution,
-      readbackContract: artifact.readbackContract,
-      verifyHints: artifact.verifyHints,
-      coverageStatus: artifact.coverageStatus,
-      issues: artifact.issues,
+    compileMode: artifact.compileMode,
+    payloadFragment: artifact.payloadFragment,
+    primitiveTree: artifact.primitiveTree,
+    scenarioId: artifact.scenario.id,
+    scenarioTitle: artifact.scenario.title,
+    scenarioSummary: artifact.scenario.summary,
+    domainId: artifact.scenario.domainId,
+    domainLabel: artifact.scenario.domainLabel,
+    archetypeId: artifact.scenario.archetypeId,
+    archetypeLabel: artifact.scenario.archetypeLabel,
+    selectionMode: artifact.selectionMode,
+    plannerVersion: artifact.plannerVersion,
+    primaryBlockType: artifact.primaryBlockType,
+    targetCollections: artifact.scenario.targetCollections,
+    requestedFields: artifact.scenario.requestedFields,
+    resolvedFields: artifact.scenario.resolvedFields,
+    planningStatus: artifact.planningStatus,
+    planningBlockers: artifact.planningBlockers,
+    maxNestingDepth: artifact.maxNestingDepth,
+    actionPlan: artifact.actionPlan,
+    selectionRationale: artifact.scenario.selectionRationale,
+    creativeProgram: artifact.scenario.creativeProgram,
+    layoutCandidates: artifact.scenario.layoutCandidates,
+    selectedCandidateId: artifact.scenario.selectedCandidateId,
+    sourceInventory: artifact.scenario.sourceInventory,
+    instanceInventory: artifact.scenario.instanceInventory,
+    availableUses: artifact.scenario.availableUses,
+    selectedUses: artifact.generatedCoverage.blocks,
+    generatedCoverage: artifact.generatedCoverage,
+    randomPolicy: artifact.scenario.randomPolicy,
+    requiredUses: sortUniqueStrings([...artifact.requiredUses]),
+    requiredMetadataRefs: {
+      collections: sortUniqueStrings([...artifact.requiredMetadataRefs.collections]),
+      fields: sortUniqueStrings([...artifact.requiredMetadataRefs.fields]),
+      relations: artifact.requiredMetadataRefs.relations,
     },
+    guardRequirements: artifact.guardRequirements,
+    tier: artifact.tier,
+    expectedOutcome: artifact.expectedOutcome,
+    coverage: artifact.coverage,
+    readbackContract: artifact.readbackContract,
+    verifyHints: artifact.verifyHints,
+    coverageStatus: artifact.coverageStatus,
+    issues: artifact.issues,
+    ...extras,
   };
 }
 
-export function buildValidationSpecsForRun({
+export function compileBuildSpec(input) {
+  const buildSpec = normalizeBuildSpec(input);
+  const runtimeSensitiveMetadataTrust = buildSpec.requirements.metadataTrust.runtimeSensitive
+    || (hasRuntimeSensitiveBlocks(buildSpec.layout.blocks)
+      || buildSpec.layout.tabs.some((tab) => hasRuntimeSensitiveBlocks(tab.blocks))
+      ? 'unknown'
+      : 'not-required');
+  const artifact = compileLayoutVariant({
+    buildSpec,
+    layout: buildSpec.layout,
+    targetTitle: buildSpec.target.title,
+    scenarioLike: buildSpec.scenario,
+    runtimeSensitiveMetadataTrust,
+    requirements: buildSpec.requirements,
+  });
+
+  const selectedCandidateId = buildSpec.scenario.selectedCandidateId || 'selected-primary';
+  const candidateBuildMap = new Map();
+  const primaryCandidateBuild = {
+    candidateId: selectedCandidateId,
+    title: buildSpec.scenario.title || buildSpec.target.title,
+    summary: buildSpec.scenario.summary,
+    score: null,
+    selected: true,
+    layout: buildSpec.layout,
+    compileArtifact: buildCompileArtifactPayload(artifact, buildSpec, {
+      candidateId: selectedCandidateId,
+    }),
+  };
+  candidateBuildMap.set(primaryCandidateBuild.candidateId, primaryCandidateBuild);
+
+  for (const candidate of buildSpec.scenario.layoutCandidates) {
+    const candidateRequirements = {
+      ...buildSpec.requirements,
+      requiredTabs: deriveRequiredTabs(candidate.layout, []),
+      requiredActions: deriveRequiredActions(candidate.layout),
+      requiredFilters: normalizeRequiredFilters(buildSpec.requirements.requiredFilters),
+    };
+    const candidateScenario = {
+      ...buildSpec.scenario,
+      title: candidate.title || buildSpec.scenario.title,
+      summary: candidate.summary || buildSpec.scenario.summary,
+      selectionMode: candidate.selectionMode || buildSpec.scenario.selectionMode,
+      primaryBlockType: candidate.primaryBlockType || buildSpec.scenario.primaryBlockType,
+      targetCollections: candidate.targetCollections.length > 0
+        ? candidate.targetCollections
+        : buildSpec.scenario.targetCollections,
+      requestedFields: candidate.requestedFields.length > 0
+        ? candidate.requestedFields
+        : buildSpec.scenario.requestedFields,
+      resolvedFields: candidate.resolvedFields.length > 0
+        ? candidate.resolvedFields
+        : buildSpec.scenario.resolvedFields,
+      selectionRationale: candidate.selectionRationale.length > 0
+        ? candidate.selectionRationale
+        : buildSpec.scenario.selectionRationale,
+      planningStatus: candidate.planningStatus || buildSpec.scenario.planningStatus,
+      planningBlockers: candidate.planningBlockers.length > 0
+        ? candidate.planningBlockers
+        : buildSpec.scenario.planningBlockers,
+      plannedCoverage: (candidate.plannedCoverage.blocks.length > 0 || candidate.plannedCoverage.patterns.length > 0)
+        ? candidate.plannedCoverage
+        : buildSpec.scenario.plannedCoverage,
+      actionPlan: candidate.actionPlan.length > 0 ? candidate.actionPlan : buildSpec.scenario.actionPlan,
+      selectedCandidateId: buildSpec.scenario.selectedCandidateId,
+    };
+    const candidateArtifact = compileLayoutVariant({
+      buildSpec,
+      layout: candidate.layout,
+      targetTitle: candidate.title || buildSpec.target.title,
+      scenarioLike: candidateScenario,
+      runtimeSensitiveMetadataTrust,
+      requirements: candidateRequirements,
+    });
+    candidateBuildMap.set(candidate.candidateId, {
+      candidateId: candidate.candidateId,
+      title: candidate.title,
+      summary: candidate.summary,
+      score: candidate.score,
+      selected: candidate.candidateId === selectedCandidateId || candidate.selected === true,
+      layout: candidate.layout,
+      compileArtifact: buildCompileArtifactPayload(candidateArtifact, buildSpec, {
+        candidateId: candidate.candidateId,
+      }),
+    });
+  }
+
+  const candidateBuilds = Array.from(candidateBuildMap.values());
+
+  return {
+    buildSpec,
+    compileArtifact: buildCompileArtifactPayload(artifact, buildSpec, {
+      candidateBuilds,
+      selectedCandidateId,
+    }),
+  };
+}
+
+export async function buildValidationSpecsForRun({
   caseRequest,
   sessionId,
   baseSlug,
   candidatePageUrl,
   sessionDir,
+  randomSeed = '',
+  instanceInventory: instanceInventoryInput,
 }) {
   const requestText = normalizeNonEmpty(caseRequest, 'case request');
   const normalizedSessionId = normalizeNonEmpty(sessionId, 'session id');
-  const resolution = resolveValidationCase({
+
+  const hasProvidedInventory = instanceInventoryInput && typeof instanceInventoryInput === 'object';
+  const shouldProbeInstance = !hasProvidedInventory
+    && process.env.NOCOBASE_DISABLE_INSTANCE_PROBE !== 'true'
+    && (
+      (typeof process.env.NOCOBASE_API_TOKEN === 'string' && process.env.NOCOBASE_API_TOKEN.trim())
+      || process.env.NOCOBASE_ENABLE_INSTANCE_PROBE === 'true'
+    );
+  const instanceInventory = hasProvidedInventory
+    ? instanceInventoryInput
+    : shouldProbeInstance
+      ? await probeInstanceInventory({
+        candidatePageUrl,
+        token: process.env.NOCOBASE_API_TOKEN || '',
+      })
+      : null;
+
+  const plannedScenario = buildDynamicValidationScenario({
     caseRequest: requestText,
+    sessionId: normalizedSessionId,
     baseSlug,
+    candidatePageUrl,
+    instanceInventory,
+    randomSeed,
   });
-  const resolvedCase = resolution.caseDefinition;
-  const validationCase = resolvedCase
-    ? {
-      caseId: resolvedCase.id,
-      title: resolvedCase.title,
-      docPath: resolveValidationCaseDocPath(resolvedCase),
-      tier: resolvedCase.tier,
-      expectedOutcome: resolvedCase.expectedOutcome,
-      coverage: resolvedCase.coverage,
-      resolution: {
-        matched: true,
-        matchedBy: resolution.matchedBy,
-        matchedValue: resolution.matchedValue,
-        fallbackReason: '',
-      },
-    }
-    : {
-      caseId: '',
-      title: '',
-      docPath: '',
-      tier: '',
-      expectedOutcome: '',
-      coverage: {
-        blocks: [],
-        patterns: [],
-      },
-      resolution: {
-        matched: false,
-        matchedBy: '',
-        matchedValue: '',
-        fallbackReason: resolution.fallbackReason || 'CASE_REGISTRY_UNMATCHED',
-      },
-    };
+
+  const allowedBusinessBlockUses = sortUniqueStrings([
+    'FilterFormBlockModel',
+    'TableBlockModel',
+    'DetailsBlockModel',
+    'CreateFormModel',
+    'EditFormModel',
+    ...(Array.isArray(instanceInventory?.flowSchema?.rootPublicUses) ? instanceInventory.flowSchema.rootPublicUses : []),
+    ...(Array.isArray(plannedScenario?.scenario?.sourceInventory?.publicModels)
+      ? plannedScenario.scenario.sourceInventory.publicModels
+      : []),
+    ...(Array.isArray(plannedScenario?.scenario?.sourceInventory?.publicTreeRoots)
+      ? plannedScenario.scenario.sourceInventory.publicTreeRoots
+      : []),
+  ]);
 
   const buildSpec = normalizeBuildSpec({
-    ...(resolvedCase?.buildSpecInput || {}),
+    ...(plannedScenario.buildSpecInput || {}),
     source: {
       kind: 'validation-request',
       text: requestText,
       sessionId: normalizedSessionId,
     },
     target: {
-      ...(resolvedCase?.buildSpecInput?.target || {}),
-      title: resolvedCase?.buildSpecInput?.target?.title || resolvedCase?.title || `${baseSlug || 'validation'} fresh build`,
+      ...(plannedScenario.buildSpecInput?.target || {}),
+      title: plannedScenario?.buildSpecInput?.target?.title || `${baseSlug || 'validation'} fresh build`,
       buildPolicy: 'fresh',
       routeSegmentCandidate: normalizedSessionId,
       candidatePageUrl,
@@ -979,13 +1555,19 @@ export function buildValidationSpecsForRun({
     options: {
       compileMode: DEFAULT_BUILD_COMPILE_MODE,
       allowLegacyFallback: false,
-      ...(resolvedCase?.buildSpecInput?.options || {}),
+      ...(plannedScenario?.buildSpecInput?.options || {}),
     },
-    validationCase,
+    dataBindings: plannedScenario?.buildSpecInput?.dataBindings || {},
+    requirements: {
+      ...(plannedScenario?.buildSpecInput?.requirements || {}),
+      allowedBusinessBlockUses,
+    },
+    layout: plannedScenario?.buildSpecInput?.layout || {},
+    scenario: plannedScenario.scenario,
   });
 
   const verifySpec = normalizeVerifySpec({
-    ...(resolvedCase?.verifySpecInput || {}),
+    ...(plannedScenario?.verifySpecInput || {}),
     source: {
       kind: 'validation-request',
       text: requestText,
@@ -994,11 +1576,11 @@ export function buildValidationSpecsForRun({
     entry: {
       candidatePageUrl,
       requiresAuth: true,
-      ...(resolvedCase?.verifySpecInput?.entry || {}),
+      ...(plannedScenario?.verifySpecInput?.entry || {}),
       candidatePageUrl,
-      requiresAuth: resolvedCase?.verifySpecInput?.entry?.requiresAuth !== false,
+      requiresAuth: plannedScenario?.verifySpecInput?.entry?.requiresAuth !== false,
     },
-    preOpen: resolvedCase?.verifySpecInput?.preOpen || {
+    preOpen: plannedScenario?.verifySpecInput?.preOpen || {
       assertions: [
         {
           kind: 'page-reachable',
@@ -1011,17 +1593,19 @@ export function buildValidationSpecsForRun({
       stopOnBuildGateFailure: true,
       stopOnPreOpenBlocker: true,
       stopOnStageFailure: true,
-      ...(resolvedCase?.verifySpecInput?.gatePolicy || {}),
+      ...(plannedScenario?.verifySpecInput?.gatePolicy || {}),
     },
   });
 
   const compiled = compileBuildSpec(buildSpec);
-  if (!resolution.matched) {
-    compiled.compileArtifact.issues.push({
-      code: 'CASE_REGISTRY_UNMATCHED',
-      message: `未能根据请求 "${requestText}" 匹配到结构化 validation case，已回退到 generic skeleton。`,
-    });
-  }
+  compiled.compileArtifact.issues.push({
+    code: plannedScenario.scenario.planningStatus === 'blocked'
+      ? 'PRIMITIVE_FIRST_PLANNING_BLOCKED'
+      : 'PRIMITIVE_FIRST_SCENARIO_GENERATED',
+    message: plannedScenario.scenario.planningStatus === 'blocked'
+      ? `已基于请求 "${requestText}" 进入 Primitive-first 规划，但当前规划被阻断：${plannedScenario.scenario.planningBlockers.map((item) => item.code).join(', ') || 'unknown blocker'}。`
+      : `已基于请求 "${requestText}" 生成 Primitive-first 场景 ${plannedScenario.scenario.id}，默认先锁定 collection/fields，再规划区块与操作。`,
+  });
 
   return {
     buildSpec,
@@ -1035,7 +1619,7 @@ export function buildValidationSpecsForRun({
   };
 }
 
-function main() {
+async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2));
 
   if (command === 'help') {
@@ -1062,12 +1646,19 @@ function main() {
     if (typeof flags['case-request'] !== 'string' || typeof flags['session-id'] !== 'string' || typeof flags['candidate-page-url'] !== 'string') {
       throw new Error('--case-request, --session-id and --candidate-page-url are required');
     }
-    console.log(JSON.stringify(buildValidationSpecsForRun({
+    const instanceInventory = readOptionalJsonInput(
+      flags['instance-inventory-json'],
+      flags['instance-inventory-file'],
+      'instance inventory',
+    );
+    console.log(JSON.stringify(await buildValidationSpecsForRun({
       caseRequest: flags['case-request'],
       sessionId: flags['session-id'],
       baseSlug: typeof flags['base-slug'] === 'string' ? flags['base-slug'] : 'validation',
       candidatePageUrl: flags['candidate-page-url'],
       sessionDir: typeof flags['session-dir'] === 'string' ? flags['session-dir'] : '',
+      randomSeed: typeof flags['random-seed'] === 'string' ? flags['random-seed'] : '',
+      instanceInventory,
     }), null, 2));
     return;
   }
@@ -1080,10 +1671,8 @@ const isDirectRun = process.argv[1]
   : false;
 
 if (isDirectRun) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  }
+  });
 }
