@@ -1,0 +1,145 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "b0f21f6d0e5558cf873a",
+  "ownerUses": [
+    "TableActionsColumnModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "TableActionsColumnModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "tableColumnSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "title": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "tooltip": {
+                "type": "object",
+                "properties": {
+                  "tooltip": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "width": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "aclCheck": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "quickEdit": {
+                "type": "object",
+                "properties": {
+                  "editable": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "model": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "sorter": {
+                "type": "object",
+                "properties": {
+                  "sorter": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "fixed": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "fieldNames": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {},
+            "xFlowGraphSlotRef": {
+              "ownerUse": "TableActionsColumnModel",
+              "slot": "actions",
+              "slotRef": "catalogs/TableActionsColumnModel.actions.json",
+              "slotType": "array",
+              "shape": "items.anyOf",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/TableActionsColumnModel.b0f21f6d0e5558cf873a.json"
+}

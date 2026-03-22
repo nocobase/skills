@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "661a269ef394064f506c",
+  "ownerUses": [
+    "LineStringFieldModel"
+  ],
+  "value": {
+    "uid": "todo-linestringfieldmodel",
+    "use": "LineStringFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/LineStringFieldModel.661a269ef394064f506c.json"
+}

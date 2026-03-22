@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "LineStringFieldModel",
+  "title": "Line string",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "a547524d",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/LineStringFieldModel.a152b1e68ffa6400e93c.json",
+      "hash": "a152b1e68ffa6400e93c"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/LineStringFieldModel.75608bdbd68e7094a4da.json",
+      "hash": "75608bdbd68e7094a4da"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/LineStringFieldModel.661a269ef394064f506c.json",
+      "hash": "661a269ef394064f506c"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c5278884a116d7f671ce",
+  "ownerUses": [
+    "ColorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-colorfieldmodel",
+    "use": "ColorFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/ColorFieldModel.c5278884a116d7f671ce.json"
+}

@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "GridCardBlockModel",
+  "slot": "actions",
+  "slotType": "array",
+  "shape": "opaque",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": [
+        "uid",
+        "use"
+      ],
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "use": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "candidates": []
+}

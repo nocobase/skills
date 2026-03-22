@@ -1,0 +1,145 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "GridCardItemModel",
+  "title": "Grid card item",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "15d12678",
+  "dynamicHints": [
+    {
+      "kind": "manual-schema-required",
+      "path": "GridCardItemModel.subModels.grid",
+      "message": "Grid card details grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardItemModel.subModels.grid.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardItemModel.subModels.grid.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardItemModel.subModels.grid.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardItemModel.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/GridCardItemModel.c27d35d111dc0198dd79.json",
+      "hash": "c27d35d111dc0198dd79"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/GridCardItemModel.3d7a677fa25e2456cbd2.json",
+      "hash": "3d7a677fa25e2456cbd2"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/GridCardItemModel.98dd97211550143f032c.json",
+      "hash": "98dd97211550143f032c"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "grid": {
+        "slotRef": "catalogs/GridCardItemModel.grid.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "grid": [
+      "DetailsGridModel"
+    ]
+  }
+}

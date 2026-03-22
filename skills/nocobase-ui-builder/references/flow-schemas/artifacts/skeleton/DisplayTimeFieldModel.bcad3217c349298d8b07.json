@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "bcad3217c349298d8b07",
+  "ownerUses": [
+    "DisplayTimeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaytimefieldmodel",
+    "use": "DisplayTimeFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayTimeFieldModel.bcad3217c349298d8b07.json"
+}

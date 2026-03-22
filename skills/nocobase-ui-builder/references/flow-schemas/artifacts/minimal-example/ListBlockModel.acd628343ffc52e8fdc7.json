@@ -1,0 +1,40 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "acd628343ffc52e8fdc7",
+  "ownerUses": [
+    "ListBlockModel"
+  ],
+  "value": {
+    "uid": "list-users",
+    "use": "ListBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "listSettings": {
+        "pageSize": {
+          "pageSize": 20
+        }
+      }
+    },
+    "subModels": {
+      "item": {
+        "xFlowGraphModelRef": {
+          "use": "ListItemModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/ListItemModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ListItemModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ListBlockModel.acd628343ffc52e8fdc7.json"
+}

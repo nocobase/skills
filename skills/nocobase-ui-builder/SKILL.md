@@ -1,7 +1,7 @@
 ---
 name: nocobase-ui-builder
 description: 通过 MCP 构建和更新 NocoBase Modern page (v2) UI。用户要创建页面，或通过 desktopRoutes v2 与 flowModels MCP 工具修改现有页面区块时使用。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, scripts/tool_review_report.mjs, scripts/spec_contracts.mjs, and scripts/menu_placement_runtime.mjs
+allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, scripts/tool_review_report.mjs, scripts/spec_contracts.mjs, scripts/menu_placement_runtime.mjs, and scripts/flow_schema_graph.mjs
 ---
 
 # 目标
@@ -74,19 +74,24 @@ V1 默认采用 schema-first 的渐进支持策略：
 
 # 本地 Flow Schema 参考
 
-当前 skill 已内置一份当前实例的 `flowModels:schemas` 本地 snapshot：
+当前 skill 已内置一份当前实例的 `flowModels:schemas` 本地 graph 参考：
 
 - 索引入口：[references/flow-schemas/index.md](references/flow-schemas/index.md)
 - 清单文件：`references/flow-schemas/manifest.json`
-- 逐 use 完整 schema：`references/flow-schemas/by-use/<UseName>.json`
+- 模型文件：`references/flow-schemas/models/<UseName>.json`
+- 槽位目录：`references/flow-schemas/catalogs/<OwnerUse>.<slot>.json`
+- 具体 artifact：`references/flow-schemas/artifacts/<kind>/<UseName>.<hash>.json`
 
 使用规则：
 
-1. 当你已经知道目标 `use`，或只是需要查看某个具体模型的 `jsonSchema`、`minimalExample`、`skeleton`、`commonPatterns`、`dynamicHints`、`stepParams` 结构时，先查本地 snapshot，不要先调 `PostFlowmodels_schemas`
-2. 先打开 `references/flow-schemas/index.md`，再通过 `manifest.json.filesByUse` 或 `by-use/<UseName>.json` 读取目标 schema
-3. 默认一次只打开一个目标 `use` 的 JSON；不要为了“保险”把 `manifest.json` 之外的大文件一次性展开到会话里
-4. 只有在本地 snapshot 缺少目标 `use`、目标模型与当前实例行为明显冲突、或当前任务涉及 snapshot 未覆盖的新模型时，才回退到 `PostFlowmodels_schemas` / `GetFlowmodels_schema`
-5. `PostFlowmodels_schemabundle` 仍保留给运行时 root block 发现与当前实例结构探测；本地 snapshot 主要用于减少 `flowModels:schemas` 请求
+1. 当你已经知道目标 `use`，或只是需要查看某个具体模型的 `jsonSchema`、`minimalExample`、`skeleton`、`commonPatterns`、`dynamicHints`、`stepParams` 结构时，先查本地 graph，不要先调 `PostFlowmodels_schemas`
+2. 先打开 `references/flow-schemas/index.md`，再通过 `manifest.json.modelsByUse` 读取 `models/<UseName>.json`
+3. 如果要看某个 `subModels.<slot>` 能接什么，打开 `catalogs/<OwnerUse>.<slot>.json`
+4. 只有在确实需要具体 `jsonSchema` / `minimalExample` / `skeleton` 内容时，才按 `artifactRef` 继续读取对应 artifact；默认不要直接扫整个 `artifacts/`
+5. 如果要沿某条路径继续下钻，优先运行 `node scripts/flow_schema_graph.mjs hydrate-branch --graph-dir references/flow-schemas --root-use <UseName> --path <slot/use/...>`
+6. `materialize-use` 只作为单模型 stitched 视图 / 调试出口，不把它当成旧版 raw snapshot 的字节级替代
+7. 只有在本地 graph 缺少目标 `use`、目标模型与当前实例行为明显冲突、或当前任务涉及本地 graph 未覆盖的新模型时，才回退到 `PostFlowmodels_schemas` / `GetFlowmodels_schema`
+8. `PostFlowmodels_schemabundle` 仍保留给运行时 root block 发现与当前实例结构探测；本地 graph 主要用于减少 `flowModels:schemas` 请求
 
 # 页面优先编排
 

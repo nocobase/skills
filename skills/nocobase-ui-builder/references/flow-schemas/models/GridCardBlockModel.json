@@ -1,0 +1,229 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "GridCardBlockModel",
+  "title": "Grid card block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "a2cd55bf",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardBlockModel.subModels.actions",
+      "message": "Grid card actions depend on runtime collection-action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "collection action registry"
+        ],
+        "unresolvedReason": "runtime-grid-card-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "GridCardBlockModel.subModels.item",
+      "message": "Grid card item layout.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "item",
+          "type": "object",
+          "allowedUses": [
+            "GridCardItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "GridCardBlockModel.subModels.item.subModels.grid",
+      "message": "Grid card details grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardBlockModel.subModels.item.subModels.grid.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardBlockModel.subModels.item.subModels.grid.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardBlockModel.subModels.item.subModels.grid.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "GridCardBlockModel.subModels.item.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [
+    {
+      "title": "Basic grid card block",
+      "snippet": {
+        "use": "GridCardBlockModel",
+        "stepParams": {
+          "resourceSettings": {
+            "init": {
+              "dataSourceKey": "main",
+              "collectionName": "users"
+            }
+          },
+          "GridCardSettings": {
+            "columnCount": {
+              "xs": 1,
+              "md": 2,
+              "lg": 3,
+              "xxl": 4
+            },
+            "rowCount": {
+              "rowCount": 3
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Associated records in popup/new scene",
+      "description": "Use associationName + sourceId when the block should load records through a parent relation.",
+      "snippet": {
+        "use": "GridCardBlockModel",
+        "stepParams": {
+          "resourceSettings": {
+            "init": {
+              "dataSourceKey": "main",
+              "collectionName": "roles",
+              "associationName": "users.roles",
+              "sourceId": "{{ctx.view.inputArgs.sourceId}}"
+            }
+          },
+          "GridCardSettings": {
+            "columnCount": {
+              "xs": 1,
+              "md": 2,
+              "lg": 3,
+              "xxl": 4
+            }
+          }
+        }
+      }
+    }
+  ],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/GridCardBlockModel.58411c08a92ec543511c.json",
+      "hash": "58411c08a92ec543511c"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/GridCardBlockModel.92ae6f96a2992a5ab67c.json",
+      "hash": "92ae6f96a2992a5ab67c"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/GridCardBlockModel.476aedd7095311e3985d.json",
+      "hash": "476aedd7095311e3985d"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "item": {
+        "slotRef": "catalogs/GridCardBlockModel.item.json"
+      },
+      "actions": {
+        "slotRef": "catalogs/GridCardBlockModel.actions.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "item": [
+      "GridCardItemModel"
+    ],
+    "actions": []
+  }
+}

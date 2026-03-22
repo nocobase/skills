@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayTextFieldModel",
+  "title": "Display Text Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "287b1cc2",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayTextFieldModel.70ac7e5895a22fc30498.json",
+      "hash": "70ac7e5895a22fc30498"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayTextFieldModel.2b2517c1e97e113eb9c6.json",
+      "hash": "2b2517c1e97e113eb9c6"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayTextFieldModel.12e92f63e7d4f0e1d6b5.json",
+      "hash": "12e92f63e7d4f0e1d6b5"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

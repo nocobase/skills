@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "41ab9ba2a933455c7017",
+  "ownerUses": [
+    "DisplayURLFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayurlfieldmodel",
+    "use": "DisplayURLFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayURLFieldModel.41ab9ba2a933455c7017.json"
+}

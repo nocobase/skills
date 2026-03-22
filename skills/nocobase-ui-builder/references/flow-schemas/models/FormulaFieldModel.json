@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FormulaFieldModel",
+  "title": "Formula",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "08580cc8",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FormulaFieldModel.5e50e3e1c20097a34419.json",
+      "hash": "5e50e3e1c20097a34419"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FormulaFieldModel.a342c97a525871641888.json",
+      "hash": "a342c97a525871641888"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FormulaFieldModel.99d7e39ad7e0e6ddcdef.json",
+      "hash": "99d7e39ad7e0e6ddcdef"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

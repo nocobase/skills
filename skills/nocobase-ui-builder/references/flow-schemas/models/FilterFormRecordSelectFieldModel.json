@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormRecordSelectFieldModel",
+  "title": "Filter Form Record Select Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "2b1fd788",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormRecordSelectFieldModel.9c37d4647320242e9a9b.json",
+      "hash": "9c37d4647320242e9a9b"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormRecordSelectFieldModel.fe58c7db63684416262d.json",
+      "hash": "fe58c7db63684416262d"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormRecordSelectFieldModel.d88a6ba8caa76545921a.json",
+      "hash": "d88a6ba8caa76545921a"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

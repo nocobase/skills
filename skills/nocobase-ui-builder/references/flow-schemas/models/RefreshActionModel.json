@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "RefreshActionModel",
+  "title": "Refresh action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "a6012ffe",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/RefreshActionModel.662d0862e113631b2a39.json",
+      "hash": "662d0862e113631b2a39"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/RefreshActionModel.a65229bfe838269430c8.json",
+      "hash": "a65229bfe838269430c8"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/RefreshActionModel.b08858ff293fa5be6514.json",
+      "hash": "b08858ff293fa5be6514"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

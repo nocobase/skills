@@ -1,0 +1,314 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DetailsGridModel",
+  "title": "Details grid",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "c5e28a99",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "DetailsGridModel.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "DetailsGridModel.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "DetailsGridModel.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "DetailsGridModel.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [
+    {
+      "title": "Single row with one column",
+      "description": "Use one row with a single 24-column slot when the grid only needs one child model.",
+      "snippet": {
+        "use": "DetailsGridModel",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "rowMain": [
+                  [
+                    "details-grid-minimal-item-1"
+                  ]
+                ]
+              },
+              "sizes": {
+                "rowMain": [
+                  24
+                ]
+              },
+              "rowOrder": [
+                "rowMain"
+              ]
+            }
+          }
+        },
+        "subModels": {
+          "items": [
+            {
+              "uid": "details-grid-minimal-item-1",
+              "use": "DetailsItemModel"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Two rows with 2 + 3 columns",
+      "description": "The first row has 2 columns and the second row has 3 columns with equal widths.",
+      "snippet": {
+        "use": "DetailsGridModel",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "rowTop": [
+                  [
+                    "details-grid-standard-item-1"
+                  ],
+                  [
+                    "details-grid-standard-item-2"
+                  ]
+                ],
+                "rowBottom": [
+                  [
+                    "details-grid-standard-item-3"
+                  ],
+                  [
+                    "details-grid-standard-item-4"
+                  ],
+                  [
+                    "details-grid-standard-item-5"
+                  ]
+                ]
+              },
+              "sizes": {
+                "rowTop": [
+                  12,
+                  12
+                ],
+                "rowBottom": [
+                  8,
+                  8,
+                  8
+                ]
+              },
+              "rowOrder": [
+                "rowTop",
+                "rowBottom"
+              ]
+            }
+          }
+        },
+        "subModels": {
+          "items": [
+            {
+              "uid": "details-grid-standard-item-1",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-standard-item-2",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-standard-item-3",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-standard-item-4",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-standard-item-5",
+              "use": "DetailsItemModel"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Two rows with custom column sizes",
+      "description": "Use sizes to express non-equal column widths while keeping the rows definition stable.",
+      "snippet": {
+        "use": "DetailsGridModel",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "rowTop": [
+                  [
+                    "details-grid-sizes-item-1"
+                  ],
+                  [
+                    "details-grid-sizes-item-2"
+                  ]
+                ],
+                "rowBottom": [
+                  [
+                    "details-grid-sizes-item-3"
+                  ],
+                  [
+                    "details-grid-sizes-item-4"
+                  ],
+                  [
+                    "details-grid-sizes-item-5"
+                  ]
+                ]
+              },
+              "sizes": {
+                "rowTop": [
+                  8,
+                  16
+                ],
+                "rowBottom": [
+                  6,
+                  10,
+                  8
+                ]
+              },
+              "rowOrder": [
+                "rowTop",
+                "rowBottom"
+              ]
+            }
+          }
+        },
+        "subModels": {
+          "items": [
+            {
+              "uid": "details-grid-sizes-item-1",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-sizes-item-2",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-sizes-item-3",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-sizes-item-4",
+              "use": "DetailsItemModel"
+            },
+            {
+              "uid": "details-grid-sizes-item-5",
+              "use": "DetailsItemModel"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DetailsGridModel.d1f6c9d490b6c7e6432e.json",
+      "hash": "d1f6c9d490b6c7e6432e"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DetailsGridModel.6e51df7d38cb5642dfd1.json",
+      "hash": "6e51df7d38cb5642dfd1"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DetailsGridModel.154cd901e4e4c3dcf35c.json",
+      "hash": "154cd901e4e4c3dcf35c"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "items": {
+        "slotRef": "catalogs/DetailsGridModel.items.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "items": [
+      "DetailsItemModel"
+    ]
+  }
+}

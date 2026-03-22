@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "NumberFieldModel",
+  "title": "Number Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "f9c0bf68",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/NumberFieldModel.9e156d6c3e6221db3ee7.json",
+      "hash": "9e156d6c3e6221db3ee7"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/NumberFieldModel.96ed28fafb72dae779f8.json",
+      "hash": "96ed28fafb72dae779f8"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/NumberFieldModel.c637a220d3ec7dee395b.json",
+      "hash": "c637a220d3ec7dee395b"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

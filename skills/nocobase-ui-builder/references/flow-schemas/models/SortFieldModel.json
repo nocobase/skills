@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "SortFieldModel",
+  "title": "Sort",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "e8de8e74",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/SortFieldModel.a09092c47af3888a9d90.json",
+      "hash": "a09092c47af3888a9d90"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/SortFieldModel.f382158a09f5d54a7cef.json",
+      "hash": "f382158a09f5d54a7cef"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/SortFieldModel.369b6523a9272a996c59.json",
+      "hash": "369b6523a9272a996c59"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

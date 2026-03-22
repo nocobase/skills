@@ -1,0 +1,46 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "582ec23e264d6e5b111b",
+  "ownerUses": [
+    "BlockGridModel"
+  ],
+  "value": {
+    "uid": "block-grid-grid",
+    "use": "BlockGridModel",
+    "stepParams": {
+      "gridSettings": {
+        "grid": {
+          "rows": {
+            "rowMain": [
+              [
+                "block-grid-minimal-item-1"
+              ]
+            ]
+          },
+          "sizes": {
+            "rowMain": [
+              24
+            ]
+          },
+          "rowOrder": [
+            "rowMain"
+          ]
+        }
+      }
+    },
+    "subModels": {
+      "items": [
+        {
+          "xFlowGraphModelRef": {
+            "use": "CreateFormModel",
+            "artifact": "minimalExample",
+            "modelRef": "models/CreateFormModel.json"
+          }
+        }
+      ]
+    }
+  },
+  "relativePath": "artifacts/minimal-example/BlockGridModel.582ec23e264d6e5b111b.json"
+}

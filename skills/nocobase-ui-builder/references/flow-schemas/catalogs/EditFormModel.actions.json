@@ -1,0 +1,47 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "EditFormModel",
+  "slot": "actions",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "FormSubmitActionModel",
+      "title": "Form submit action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/FormSubmitActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FormSubmitActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSFormActionModel",
+      "title": "JS form action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/JSFormActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSFormActionModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

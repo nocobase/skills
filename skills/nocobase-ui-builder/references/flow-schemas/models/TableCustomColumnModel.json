@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "TableCustomColumnModel",
+  "title": "Table custom column",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "3d0f8e67",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/TableCustomColumnModel.a3e6c10e90351b57965d.json",
+      "hash": "a3e6c10e90351b57965d"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/TableCustomColumnModel.69a0408dff73ae2ff04a.json",
+      "hash": "69a0408dff73ae2ff04a"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/TableCustomColumnModel.2a465fc3c9ae9aaeddb0.json",
+      "hash": "2a465fc3c9ae9aaeddb0"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

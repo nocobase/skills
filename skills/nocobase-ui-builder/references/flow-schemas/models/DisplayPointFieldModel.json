@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayPointFieldModel",
+  "title": "Display point",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "a5d35324",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayPointFieldModel.05bf267cd6d3c24521c1.json",
+      "hash": "05bf267cd6d3c24521c1"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayPointFieldModel.78fea0d468115aa10f2e.json",
+      "hash": "78fea0d468115aa10f2e"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayPointFieldModel.2d21ca8d39ae48e65393.json",
+      "hash": "2d21ca8d39ae48e65393"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

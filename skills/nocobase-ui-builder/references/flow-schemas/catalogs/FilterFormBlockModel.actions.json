@@ -1,0 +1,79 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "FilterFormBlockModel",
+  "slot": "actions",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "FilterFormSubmitActionModel",
+      "title": "Filter form submit action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/FilterFormSubmitActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormSubmitActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterFormResetActionModel",
+      "title": "Filter form reset action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/FilterFormResetActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormResetActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterFormCollapseActionModel",
+      "title": "Filter form collapse action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/FilterFormCollapseActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormCollapseActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterFormJSActionModel",
+      "title": "Filter form JS action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/FilterFormJSActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormJSActionModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

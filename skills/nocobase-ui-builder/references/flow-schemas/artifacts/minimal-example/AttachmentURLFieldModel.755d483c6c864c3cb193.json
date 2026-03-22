@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "755d483c6c864c3cb193",
+  "ownerUses": [
+    "AttachmentURLFieldModel"
+  ],
+  "value": {
+    "uid": "todo-attachment-url-field-model",
+    "use": "AttachmentURLFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/AttachmentURLFieldModel.755d483c6c864c3cb193.json"
+}

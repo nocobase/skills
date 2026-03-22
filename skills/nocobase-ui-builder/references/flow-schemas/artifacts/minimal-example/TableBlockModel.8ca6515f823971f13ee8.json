@@ -1,0 +1,40 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "8ca6515f823971f13ee8",
+  "ownerUses": [
+    "TableBlockModel"
+  ],
+  "value": {
+    "uid": "table-block-users",
+    "use": "TableBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "tableSettings": {
+        "pageSize": {
+          "pageSize": 20
+        },
+        "showRowNumbers": {
+          "showIndex": true
+        },
+        "dataScope": {
+          "filter": {
+            "logic": "$and",
+            "items": []
+          }
+        }
+      }
+    },
+    "subModels": {
+      "columns": [],
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/TableBlockModel.8ca6515f823971f13ee8.json"
+}

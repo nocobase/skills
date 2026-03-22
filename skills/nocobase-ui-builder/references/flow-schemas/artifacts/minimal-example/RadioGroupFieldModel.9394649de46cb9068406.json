@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "9394649de46cb9068406",
+  "ownerUses": [
+    "RadioGroupFieldModel"
+  ],
+  "value": {
+    "uid": "todo-radiogroupfieldmodel",
+    "use": "RadioGroupFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/RadioGroupFieldModel.9394649de46cb9068406.json"
+}

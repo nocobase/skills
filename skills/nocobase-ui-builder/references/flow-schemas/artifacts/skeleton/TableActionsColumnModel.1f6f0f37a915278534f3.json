@@ -1,0 +1,24 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "1f6f0f37a915278534f3",
+  "ownerUses": [
+    "TableActionsColumnModel"
+  ],
+  "value": {
+    "uid": "todo-actions-column-uid",
+    "use": "TableActionsColumnModel",
+    "stepParams": {
+      "tableColumnSettings": {
+        "title": {
+          "title": "Actions"
+        }
+      }
+    },
+    "subModels": {
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/TableActionsColumnModel.1f6f0f37a915278534f3.json"
+}

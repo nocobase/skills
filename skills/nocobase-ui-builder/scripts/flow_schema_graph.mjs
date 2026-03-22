@@ -12,6 +12,24 @@ export const ARTIFACT_KIND_DIR = {
   skeleton: 'skeleton',
   examples: 'examples',
 };
+export const DEFAULT_ENTRY_USES = [
+  'PageModel',
+  'RootPageModel',
+  'RootPageTabModel',
+  'PageTabModel',
+  'BlockGridModel',
+  'FilterFormBlockModel',
+  'TableBlockModel',
+  'DetailsBlockModel',
+  'CreateFormModel',
+  'EditFormModel',
+  'ActionModel',
+  'JSBlockModel',
+  'JSColumnModel',
+  'JSFieldModel',
+  'JSItemModel',
+  'JSActionModel',
+];
 
 function normalizeNonEmptyString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -84,8 +102,8 @@ function catalogFileName(ownerUse, slot) {
   return `catalogs/${ownerUse}.${slot}.json`;
 }
 
-function artifactFileName(kind, hash) {
-  return `artifacts/${ARTIFACT_KIND_DIR[kind]}/${hash}.json`;
+function artifactFileName(kind, ownerUse, hash) {
+  return `artifacts/${ARTIFACT_KIND_DIR[kind]}/${ownerUse}.${hash}.json`;
 }
 
 function getDirectSubModelSlots(schema) {
@@ -391,20 +409,22 @@ function createArtifactRegistry() {
 
 function registerArtifact(registry, { kind, ownerUse, value }) {
   const hash = hashJson({ kind, value });
-  const relativePath = artifactFileName(kind, hash);
-  const existing = registry.get(relativePath);
+  const artifactKey = `${kind}:${hash}`;
+  const existing = registry.get(artifactKey);
   if (existing) {
     existing.ownerUses = uniqueStrings([...existing.ownerUses, ownerUse]);
     return {
-      artifactRef: relativePath,
+      artifactRef: existing.relativePath,
       hash,
     };
   }
-  registry.set(relativePath, {
+  const relativePath = artifactFileName(kind, ownerUse, hash);
+  registry.set(artifactKey, {
     format: FLOW_SCHEMA_GRAPH_VERSION,
     kind: 'artifact',
     artifactKind: kind,
     hash,
+    relativePath,
     ownerUses: [ownerUse],
     value,
   });
@@ -499,6 +519,11 @@ export function createFlowSchemaGraph({ docsByUse, sourceManifest }) {
     };
   }
 
+  const entryUses = uniqueStrings([
+    ...(sourceManifest?.meta?.seedUses ?? []),
+    ...DEFAULT_ENTRY_USES,
+  ]).filter((use) => uses.includes(use));
+
   const manifest = {
     meta: {
       source: sourceManifest?.meta?.source ?? 'flowModels:schemas',
@@ -509,7 +534,7 @@ export function createFlowSchemaGraph({ docsByUse, sourceManifest }) {
       appVersion: sourceManifest?.meta?.appVersion ?? '',
       enabledPlugins: sourceManifest?.meta?.enabledPlugins ?? [],
       seedUses: sourceManifest?.meta?.seedUses ?? ['BlockGridModel', 'PageModel'],
-      entryUses: sourceManifest?.meta?.seedUses ?? ['BlockGridModel', 'PageModel'],
+      entryUses,
       useCount: uses.length,
       uses,
     },
@@ -535,7 +560,9 @@ export function createFlowSchemaGraph({ docsByUse, sourceManifest }) {
     manifest,
     modelsByUse,
     catalogsByFile,
-    artifactsByFile: Object.fromEntries(artifactRegistry.entries()),
+    artifactsByFile: Object.fromEntries(
+      [...artifactRegistry.values()].map((artifact) => [artifact.relativePath, artifact]),
+    ),
   };
 }
 
@@ -555,10 +582,10 @@ description: 当前实例的 flowModels:schemas graph/ref 参考。先定 use，
 - [manifest.json](manifest.json)
 - \`models/<UseName>.json\`
 - \`catalogs/<OwnerUse>.<slot>.json\`
-- \`artifacts/json-schema/<hash>.json\`
-- \`artifacts/minimal-example/<hash>.json\`
-- \`artifacts/skeleton/<hash>.json\`
-- \`artifacts/examples/<hash>.json\`
+- \`artifacts/json-schema/<UseName>.<hash>.json\`
+- \`artifacts/minimal-example/<UseName>.<hash>.json\`
+- \`artifacts/skeleton/<UseName>.<hash>.json\`
+- \`artifacts/examples/<UseName>.<hash>.json\`
 
 当前 snapshot 要点：
 
@@ -627,6 +654,30 @@ export function buildFlowSchemaGraph({ sourceDir, outDir }) {
   };
 }
 
+function collectArtifactFiles(graphDir) {
+  const files = [];
+  const rootDir = path.join(graphDir, 'artifacts');
+  if (!fs.existsSync(rootDir)) {
+    return files;
+  }
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const nextPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(nextPath);
+        continue;
+      }
+      if (entry.isFile() && nextPath.endsWith('.json')) {
+        files.push(nextPath);
+      }
+    }
+  }
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
 export function loadFlowSchemaGraph(graphDir) {
   const manifest = readJson(path.join(graphDir, 'manifest.json'));
   return {
@@ -679,6 +730,43 @@ export function materializeUse(graphDir, use) {
         resolveSlotCatalog(graphDir, model.use, slot),
       ]),
     ),
+  };
+}
+
+export function rewriteArtifactNames(graphDir) {
+  const { manifest } = loadFlowSchemaGraph(graphDir);
+  const artifactRefMap = new Map();
+  const artifactFiles = collectArtifactFiles(graphDir);
+
+  for (const filePath of artifactFiles) {
+    const relativePath = path.relative(graphDir, filePath);
+    const artifact = readJson(filePath);
+    const ownerUse = normalizeNonEmptyString(artifact.ownerUses?.[0]) || 'SharedArtifact';
+    const newRelativePath = artifactFileName(artifact.artifactKind, ownerUse, artifact.hash);
+    artifact.relativePath = newRelativePath;
+    artifactRefMap.set(relativePath, newRelativePath);
+    writeJson(path.join(graphDir, newRelativePath), artifact);
+    if (newRelativePath !== relativePath) {
+      fs.rmSync(filePath, { force: true });
+    }
+  }
+
+  for (const use of Object.keys(manifest.modelsByUse).sort((left, right) => left.localeCompare(right))) {
+    const modelPath = path.join(graphDir, manifest.modelsByUse[use]);
+    const model = readJson(modelPath);
+    for (const key of ['jsonSchema', 'minimalExample', 'skeleton', 'examples']) {
+      const oldRef = model.refs?.[key]?.artifactRef;
+      const newRef = artifactRefMap.get(oldRef);
+      if (newRef) {
+        model.refs[key].artifactRef = newRef;
+      }
+    }
+    writeJson(modelPath, model);
+  }
+
+  return {
+    renamedCount: [...artifactRefMap.entries()].filter(([before, after]) => before !== after).length,
+    artifactCount: artifactRefMap.size,
   };
 }
 
@@ -770,6 +858,9 @@ function runCli(argv) {
       return;
     case 'hydrate-branch':
       printJson(hydrateBranch(options['graph-dir'], options['root-use'], options.path));
+      return;
+    case 'rewrite-artifact-names':
+      printJson(rewriteArtifactNames(options['graph-dir']));
       return;
     default:
       throw new Error(`Unsupported command: ${command}`);

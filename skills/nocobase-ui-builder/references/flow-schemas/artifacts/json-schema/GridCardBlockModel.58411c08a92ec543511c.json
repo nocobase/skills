@@ -1,0 +1,410 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "58411c08a92ec543511c",
+  "ownerUses": [
+    "GridCardBlockModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "GridCardBlockModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "resourceSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "associationName": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  },
+                  "filterByTk": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "required": [
+                  "dataSourceKey",
+                  "collectionName"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "resourceSettings2": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "GridCardSettings": {
+            "type": "object",
+            "properties": {
+              "columnCount": {
+                "type": "object",
+                "properties": {
+                  "xs": {
+                    "type": "number"
+                  },
+                  "sm": {
+                    "type": "number"
+                  },
+                  "md": {
+                    "type": "number"
+                  },
+                  "lg": {
+                    "type": "number"
+                  },
+                  "xl": {
+                    "type": "number"
+                  },
+                  "xxl": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "rowCount": {
+                "type": "object",
+                "properties": {
+                  "rowCount": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "dataScope": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "$id": "https://nocobase.dev/schemas/plugin-block-grid-card/generic-filter.json",
+                    "definitions": {
+                      "filterCondition": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "value": {},
+                          "noValue": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "logic"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "items"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "filterGroup": {
+                        "type": "object",
+                        "properties": {
+                          "logic": {
+                            "type": "string",
+                            "enum": [
+                              "$and",
+                              "$or"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-block-grid-card/generic-filter.json#/definitions/filterCondition"
+                                },
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-block-grid-card/generic-filter.json#/definitions/filterGroup"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "logic",
+                          "items"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "path"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "operator"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "noValue"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "type": "object",
+                    "properties": {
+                      "logic": {
+                        "type": "string",
+                        "enum": [
+                          "$and",
+                          "$or"
+                        ]
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-block-grid-card/generic-filter.json#/definitions/filterCondition"
+                            },
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-block-grid-card/generic-filter.json#/definitions/filterGroup"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "logic",
+                      "items"
+                    ],
+                    "additionalProperties": true,
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "path"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "operator"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "value"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "noValue"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "defaultSorting": {
+                "type": "object",
+                "properties": {
+                  "sort": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "field": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "asc",
+                            "desc"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "field",
+                        "direction"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "layout": {
+                "type": "object",
+                "properties": {
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "vertical",
+                      "horizontal"
+                    ]
+                  },
+                  "labelAlign": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  },
+                  "labelWidth": {
+                    "type": [
+                      "number",
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "labelWrap": {
+                    "type": "boolean"
+                  },
+                  "colon": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "layout"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "GridCardBlockModel",
+              "slot": "item",
+              "slotRef": "catalogs/GridCardBlockModel.item.json",
+              "slotType": "object",
+              "shape": "direct",
+              "defaultUses": [
+                "GridCardItemModel"
+              ]
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "uid",
+                "use"
+              ],
+              "properties": {
+                "uid": {
+                  "type": "string"
+                },
+                "use": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "xFlowGraphSlotRef": {
+              "ownerUse": "GridCardBlockModel",
+              "slot": "actions",
+              "slotRef": "catalogs/GridCardBlockModel.actions.json",
+              "slotType": "array",
+              "shape": "opaque",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/GridCardBlockModel.58411c08a92ec543511c.json"
+}

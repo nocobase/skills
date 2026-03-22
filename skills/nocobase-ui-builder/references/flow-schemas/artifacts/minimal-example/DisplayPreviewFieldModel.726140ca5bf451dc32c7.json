@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "726140ca5bf451dc32c7",
+  "ownerUses": [
+    "DisplayPreviewFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaypreviewfieldmodel",
+    "use": "DisplayPreviewFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayPreviewFieldModel.726140ca5bf451dc32c7.json"
+}

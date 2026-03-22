@@ -1,0 +1,93 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FormAssociationItemModel",
+  "title": "Form association item",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "41879559",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "FormAssociationItemModel.subModels.field",
+      "message": "FormAssociationItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "association title field",
+          "target collection bindings"
+        ],
+        "unresolvedReason": "runtime-form-association-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FormAssociationItemModel.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FormAssociationItemModel.d210ceb43abc72dc299f.json",
+      "hash": "d210ceb43abc72dc299f"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FormAssociationItemModel.c206fe953e9717f3e103.json",
+      "hash": "c206fe953e9717f3e103"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FormAssociationItemModel.ecccbe0a4f408b1e6673.json",
+      "hash": "ecccbe0a4f408b1e6673"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "field": {
+        "slotRef": "catalogs/FormAssociationItemModel.field.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "field": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "b08858ff293fa5be6514",
+  "ownerUses": [
+    "RefreshActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "RefreshActionModel"
+  },
+  "relativePath": "artifacts/skeleton/RefreshActionModel.b08858ff293fa5be6514.json"
+}

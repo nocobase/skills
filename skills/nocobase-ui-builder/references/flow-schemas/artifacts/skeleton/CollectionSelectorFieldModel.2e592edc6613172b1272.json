@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2e592edc6613172b1272",
+  "ownerUses": [
+    "CollectionSelectorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-collectionselectorfieldmodel",
+    "use": "CollectionSelectorFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/CollectionSelectorFieldModel.2e592edc6613172b1272.json"
+}

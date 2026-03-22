@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "fc1df9bde1b0f4978927",
+  "ownerUses": [
+    "FilterFormCustomFieldModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "FilterFormCustomFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/FilterFormCustomFieldModel.fc1df9bde1b0f4978927.json"
+}

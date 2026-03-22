@@ -1,0 +1,49 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "FilterFormGridModel",
+  "slot": "items",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [
+    "FilterFormItemModel"
+  ],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "FilterFormItemModel",
+      "title": "Filter form item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/FilterFormItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormItemModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterFormCustomFieldModel",
+      "title": "Filter form custom field item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/FilterFormCustomFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormCustomFieldModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSActionModel",
+  "title": "JS action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "ab49311e",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSActionModel.8979ce0d1bec900e95f2.json",
+      "hash": "8979ce0d1bec900e95f2"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSActionModel.6692f2e5c0243d866c7e.json",
+      "hash": "6692f2e5c0243d866c7e"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSActionModel.149559372d551200b96f.json",
+      "hash": "149559372d551200b96f"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

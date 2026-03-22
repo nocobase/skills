@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CodeFieldModel",
+  "title": "Code",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "9db77b27",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CodeFieldModel.d9f4b59ba1ce72d11a75.json",
+      "hash": "d9f4b59ba1ce72d11a75"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CodeFieldModel.dbcde2540d512238c7de.json",
+      "hash": "dbcde2540d512238c7de"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CodeFieldModel.4d542d3f69a85a65c59b.json",
+      "hash": "4d542d3f69a85a65c59b"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

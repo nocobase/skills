@@ -1,0 +1,188 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "FilterFormItemModel",
+  "slot": "field",
+  "slotType": "object",
+  "shape": "anyOf",
+  "defaultUses": [],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "InputFieldModel",
+      "title": "Input Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/InputFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/InputFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "NumberFieldModel",
+      "title": "Number Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/NumberFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/NumberFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PercentFieldModel",
+      "title": "Percent Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/PercentFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PercentFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "TimeFieldModel",
+      "title": "Time Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/TimeFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TimeFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "SelectFieldModel",
+      "title": "Select Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 4,
+      "modelRef": "models/SelectFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/SelectFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateOnlyFilterFieldModel",
+      "title": "Date Only Filter Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 5,
+      "modelRef": "models/DateOnlyFilterFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateOnlyFilterFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateTimeNoTzFilterFieldModel",
+      "title": "Date Time No Tz Filter Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 6,
+      "modelRef": "models/DateTimeNoTzFilterFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateTimeNoTzFilterFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateTimeTzFilterFieldModel",
+      "title": "Date Time Tz Filter Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 7,
+      "modelRef": "models/DateTimeTzFilterFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateTimeTzFilterFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterFormRecordSelectFieldModel",
+      "title": "Filter Form Record Select Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 8,
+      "modelRef": "models/FilterFormRecordSelectFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormRecordSelectFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateTimeFilterFieldModel",
+      "title": "Date Time Filter Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 9,
+      "modelRef": "models/DateTimeFilterFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateTimeFilterFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CheckboxFieldModel",
+      "title": "Checkbox Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 10,
+      "modelRef": "models/CheckboxFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CheckboxFieldModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

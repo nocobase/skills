@@ -1,0 +1,96 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DetailsItemModel",
+  "title": "Details item",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "cfd7a174",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "DetailsItemModel.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "DetailsItemModel.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DetailsItemModel.c66ff59990e38a1a0826.json",
+      "hash": "c66ff59990e38a1a0826"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DetailsItemModel.5848b1612e26a7e8d359.json",
+      "hash": "5848b1612e26a7e8d359"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DetailsItemModel.c931451cef70e936d1c3.json",
+      "hash": "c931451cef70e936d1c3"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "field": {
+        "slotRef": "catalogs/DetailsItemModel.field.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "field": []
+  }
+}

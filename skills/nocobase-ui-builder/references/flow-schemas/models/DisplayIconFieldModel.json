@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayIconFieldModel",
+  "title": "Display Icon Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "fd56dff6",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayIconFieldModel.18082ed71bb12f77e26d.json",
+      "hash": "18082ed71bb12f77e26d"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayIconFieldModel.d71c9ff385c13cc58b3c.json",
+      "hash": "d71c9ff385c13cc58b3c"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayIconFieldModel.16d14df0926703bac2c3.json",
+      "hash": "16d14df0926703bac2c3"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

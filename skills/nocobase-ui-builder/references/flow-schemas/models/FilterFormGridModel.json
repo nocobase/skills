@@ -1,0 +1,316 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormGridModel",
+  "title": "Filter form grid",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "fcd204fe",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormGridModel.subModels.items",
+      "message": "Filter form items depend on filter-target blocks and runtime filter field factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormItemModel",
+            "FilterFormCustomFieldModel"
+          ]
+        },
+        "contextRequirements": [
+          "target block registry",
+          "filter field factories"
+        ],
+        "unresolvedReason": "runtime-filter-form-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormGridModel.subModels.items",
+      "message": "Filter form items are resolved from runtime filter field registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormItemModel",
+            "FilterFormCustomFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormGridModel.subModels.items.subModels.field",
+      "message": "FilterFormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "filter target block",
+          "filter operator bindings",
+          "field metadata"
+        ],
+        "unresolvedReason": "runtime-filter-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormGridModel.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "InputFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "TimeFieldModel",
+            "SelectFieldModel",
+            "DateOnlyFilterFieldModel",
+            "DateTimeNoTzFilterFieldModel",
+            "DateTimeTzFilterFieldModel",
+            "FilterFormRecordSelectFieldModel",
+            "DateTimeFilterFieldModel",
+            "CheckboxFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "FilterFormGridModel.subModels.items.stepParams.formItemSettings.fieldSettings",
+      "message": "Custom filter field settings depend on runtime field-model registries and operator metadata.",
+      "x-flow": {
+        "contextRequirements": [
+          "field model registry",
+          "custom operator registry"
+        ],
+        "unresolvedReason": "runtime-filter-form-custom-field-settings"
+      }
+    }
+  ],
+  "commonPatterns": [
+    {
+      "title": "Single row with one column",
+      "description": "Use one row with a single 24-column slot when the grid only needs one child model.",
+      "snippet": {
+        "use": "FilterFormGridModel",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "rowMain": [
+                  [
+                    "filter-form-grid-minimal-item-1"
+                  ]
+                ]
+              },
+              "sizes": {
+                "rowMain": [
+                  24
+                ]
+              },
+              "rowOrder": [
+                "rowMain"
+              ]
+            }
+          }
+        },
+        "subModels": {
+          "items": [
+            {
+              "uid": "filter-form-grid-minimal-item-1",
+              "use": "FilterFormItemModel"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Two rows with 2 + 3 columns",
+      "description": "The first row has 2 columns and the second row has 3 columns with equal widths.",
+      "snippet": {
+        "use": "FilterFormGridModel",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "rowTop": [
+                  [
+                    "filter-form-grid-standard-item-1"
+                  ],
+                  [
+                    "filter-form-grid-standard-item-2"
+                  ]
+                ],
+                "rowBottom": [
+                  [
+                    "filter-form-grid-standard-item-3"
+                  ],
+                  [
+                    "filter-form-grid-standard-item-4"
+                  ],
+                  [
+                    "filter-form-grid-standard-item-5"
+                  ]
+                ]
+              },
+              "sizes": {
+                "rowTop": [
+                  12,
+                  12
+                ],
+                "rowBottom": [
+                  8,
+                  8,
+                  8
+                ]
+              },
+              "rowOrder": [
+                "rowTop",
+                "rowBottom"
+              ]
+            }
+          }
+        },
+        "subModels": {
+          "items": [
+            {
+              "uid": "filter-form-grid-standard-item-1",
+              "use": "FilterFormItemModel"
+            },
+            {
+              "uid": "filter-form-grid-standard-item-2",
+              "use": "FilterFormCustomFieldModel"
+            },
+            {
+              "uid": "filter-form-grid-standard-item-3",
+              "use": "FilterFormItemModel"
+            },
+            {
+              "uid": "filter-form-grid-standard-item-4",
+              "use": "FilterFormCustomFieldModel"
+            },
+            {
+              "uid": "filter-form-grid-standard-item-5",
+              "use": "FilterFormItemModel"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Two rows with custom column sizes",
+      "description": "Use sizes to express non-equal column widths while keeping the rows definition stable.",
+      "snippet": {
+        "use": "FilterFormGridModel",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "rowTop": [
+                  [
+                    "filter-form-grid-sizes-item-1"
+                  ],
+                  [
+                    "filter-form-grid-sizes-item-2"
+                  ]
+                ],
+                "rowBottom": [
+                  [
+                    "filter-form-grid-sizes-item-3"
+                  ],
+                  [
+                    "filter-form-grid-sizes-item-4"
+                  ],
+                  [
+                    "filter-form-grid-sizes-item-5"
+                  ]
+                ]
+              },
+              "sizes": {
+                "rowTop": [
+                  8,
+                  16
+                ],
+                "rowBottom": [
+                  6,
+                  10,
+                  8
+                ]
+              },
+              "rowOrder": [
+                "rowTop",
+                "rowBottom"
+              ]
+            }
+          }
+        },
+        "subModels": {
+          "items": [
+            {
+              "uid": "filter-form-grid-sizes-item-1",
+              "use": "FilterFormItemModel"
+            },
+            {
+              "uid": "filter-form-grid-sizes-item-2",
+              "use": "FilterFormCustomFieldModel"
+            },
+            {
+              "uid": "filter-form-grid-sizes-item-3",
+              "use": "FilterFormItemModel"
+            },
+            {
+              "uid": "filter-form-grid-sizes-item-4",
+              "use": "FilterFormCustomFieldModel"
+            },
+            {
+              "uid": "filter-form-grid-sizes-item-5",
+              "use": "FilterFormItemModel"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormGridModel.9268c741069cea74f91f.json",
+      "hash": "9268c741069cea74f91f"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormGridModel.a17319a1030dad5260e8.json",
+      "hash": "a17319a1030dad5260e8"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormGridModel.2c0b886f3c8fb7589f53.json",
+      "hash": "2c0b886f3c8fb7589f53"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "items": {
+        "slotRef": "catalogs/FilterFormGridModel.items.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "items": [
+      "FilterFormItemModel"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayColorFieldModel",
+  "title": "Display Color Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "5ab357f0",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayColorFieldModel.778f64a1089c3233f7eb.json",
+      "hash": "778f64a1089c3233f7eb"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayColorFieldModel.c4cb5fb42a9640c921df.json",
+      "hash": "c4cb5fb42a9640c921df"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayColorFieldModel.32980faab8fce2921fb9.json",
+      "hash": "32980faab8fce2921fb9"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

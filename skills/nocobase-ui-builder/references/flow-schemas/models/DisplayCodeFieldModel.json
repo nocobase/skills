@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayCodeFieldModel",
+  "title": "Display code",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "3bbb73bf",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayCodeFieldModel.deba682d990e498b717a.json",
+      "hash": "deba682d990e498b717a"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayCodeFieldModel.69aeef6229bde6925be4.json",
+      "hash": "69aeef6229bde6925be4"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayCodeFieldModel.92d4be70f1175b3e221c.json",
+      "hash": "92d4be70f1175b3e221c"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

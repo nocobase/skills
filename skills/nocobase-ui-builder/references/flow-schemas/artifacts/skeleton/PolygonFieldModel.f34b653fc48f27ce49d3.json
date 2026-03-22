@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "f34b653fc48f27ce49d3",
+  "ownerUses": [
+    "PolygonFieldModel"
+  ],
+  "value": {
+    "uid": "todo-polygonfieldmodel",
+    "use": "PolygonFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/PolygonFieldModel.f34b653fc48f27ce49d3.json"
+}

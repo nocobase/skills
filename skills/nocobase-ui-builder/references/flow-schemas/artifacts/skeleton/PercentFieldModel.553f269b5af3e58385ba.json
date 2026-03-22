@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "553f269b5af3e58385ba",
+  "ownerUses": [
+    "PercentFieldModel"
+  ],
+  "value": {
+    "uid": "todo-percentfieldmodel",
+    "use": "PercentFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/PercentFieldModel.553f269b5af3e58385ba.json"
+}

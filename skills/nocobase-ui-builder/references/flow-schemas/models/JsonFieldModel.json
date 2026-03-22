@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JsonFieldModel",
+  "title": "JSON Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "e822cae9",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JsonFieldModel.260300d6557afa55c0f9.json",
+      "hash": "260300d6557afa55c0f9"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JsonFieldModel.fcf4d5298706a2178790.json",
+      "hash": "fcf4d5298706a2178790"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JsonFieldModel.9977f1a60e522d5a7814.json",
+      "hash": "9977f1a60e522d5a7814"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

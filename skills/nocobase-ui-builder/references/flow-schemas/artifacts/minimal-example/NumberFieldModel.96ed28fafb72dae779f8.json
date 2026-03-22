@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "96ed28fafb72dae779f8",
+  "ownerUses": [
+    "NumberFieldModel"
+  ],
+  "value": {
+    "uid": "todo-numberfieldmodel",
+    "use": "NumberFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/NumberFieldModel.96ed28fafb72dae779f8.json"
+}

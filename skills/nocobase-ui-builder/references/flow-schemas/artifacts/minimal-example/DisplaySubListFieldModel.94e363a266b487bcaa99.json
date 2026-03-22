@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "94e363a266b487bcaa99",
+  "ownerUses": [
+    "DisplaySubListFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaysublistfieldmodel",
+    "use": "DisplaySubListFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplaySubListFieldModel.94e363a266b487bcaa99.json"
+}

@@ -65,11 +65,12 @@
 任何写操作之前，都按以下顺序读取探测文档：
 
 1. `PostFlowmodels_schemabundle`
-2. 如果目标 `use` 已知，先查 [flow-schemas/index.md](flow-schemas/index.md) 与本地 `by-use/<UseName>.json`
-3. 只有本地 snapshot 缺少目标 `use`、或本地 schema 与当前实例行为明显冲突时，才补 `PostFlowmodels_schemas`
-4. 如果中途新增了目标 use，且本地 snapshot 里仍没有，再补一次增量 `PostFlowmodels_schemas`
-5. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
-6. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照，作为本轮默认唯一的写前 snapshot
+2. 如果目标 `use` 已知，先查 [flow-schemas/index.md](flow-schemas/index.md) 与本地 `models/<UseName>.json`
+3. 如果要看某个 `subModels.<slot>` 的候选 use，再补读 `catalogs/<OwnerUse>.<slot>.json`
+4. 只有本地 graph 缺少目标 `use`、或本地 schema 与当前实例行为明显冲突时，才补 `PostFlowmodels_schemas`
+5. 如果中途新增了目标 use，且本地 graph 里仍没有，再补一次增量 `PostFlowmodels_schemas`
+6. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
+7. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照，作为本轮默认唯一的写前 snapshot
 
 推荐的 `schemaBundle` 请求起点：
 
@@ -93,12 +94,14 @@
 
 补充规则：
 
-- 如果只是想看某个具体 `use` 的 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`、`commonPatterns` 或 `stepParams` 结构，默认先读本地 `flow-schemas/by-use/<UseName>.json`
+- 如果只是想看某个具体 `use` 的 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`、`commonPatterns` 或 `stepParams` 结构，默认先读本地 `flow-schemas/models/<UseName>.json`
+- `models/<UseName>.json` 只保留 metadata + refs；需要具体结构时，再按里面的 `artifactRef` 继续读 `artifacts/`
+- 如果要按某条模型路径继续下钻，优先用 `node scripts/flow_schema_graph.mjs hydrate-branch --graph-dir references/flow-schemas --root-use <UseName> --path <slot/use/...>`，而不是一次性把多个 artifact 展开到会话里
 - 同一写入阶段里，优先把目标 use 合并进一次 `PostFlowmodels_schemas`；只有发现遗漏 use 时，才补一次增量 `PostFlowmodels_schemas`。
 - `GetFlowmodels_schema` 只作为 `schemas` 之后仍未消歧的兜底，不要把多个目标 use 直接拆成多次单模型深挖。
 - 对同一目标 live tree，默认只做一次写前 `GetFlowmodels_findone` 和一次写后 `GetFlowmodels_findone`；如果额外读取，必须能说明是目标树切换、校验不同子树、返回不一致，或失败排查。
 - 不要为了“保险起见”连续重复读取同一个 grid/page；如果只是目标 use 变多了，先补 `PostFlowmodels_schemas`。
-- 不要一次性把 `flow-schemas/by-use/` 下的多个大 JSON 展开到会话里；默认一轮只读取当前任务相关的单个 `use`
+- 不要一次性把 `flow-schemas/artifacts/` 下的多个大 JSON 展开到会话里；默认一轮只读取当前任务相关的单个 `use` 和必要的 1 到 2 个 catalog / artifact
 
 探测结果里重点关注：
 

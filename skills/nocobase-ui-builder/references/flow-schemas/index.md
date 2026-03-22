@@ -1,49 +1,50 @@
 ---
-title: Flow Schema Snapshot 索引
-description: 当前实例的 flowModels:schemas 本地 snapshot。优先按 use 打开单个 JSON，减少 PostFlowmodels_schemas 请求。
+title: Flow Schema Graph 索引
+description: 当前实例的 flowModels:schemas graph/ref 参考。先定 use，再读 model、slot catalog 和必要 artifact。
 ---
 
-# Flow Schema Snapshot 索引
+# Flow Schema Graph 索引
 
-这份目录保存的是当前实例的 `flowModels:schemas` 本地 snapshot，供 `nocobase-ui-builder` 优先查阅。
+这份目录保存的是当前实例 `flowModels:schemas` 的 graph/ref 版本，不再把整棵递归 schema 直接内嵌到单个文件里。
 
 文件结构：
 
 - [manifest.json](manifest.json)
-- `by-use/<UseName>.json`
-
-说明：
-
-- `by-use/*.json` 保留完整 schema 文档，但为了控制仓库体积，采用 minified JSON 形态保存
-- 日常查阅时依赖文件名和 `manifest.json.filesByUse` 精确定位，不要把整个目录展开阅读
+- `models/<UseName>.json`
+- `catalogs/<OwnerUse>.<slot>.json`
+- `artifacts/json-schema/<UseName>.<hash>.json`
+- `artifacts/minimal-example/<UseName>.<hash>.json`
+- `artifacts/skeleton/<UseName>.<hash>.json`
+- `artifacts/examples/<UseName>.<hash>.json`
 
 当前 snapshot 要点：
 
 - 来源：`flowModels:schemas`
-- 形态：按 `use` 拆分的完整 JSON 文档
-- 作用：减少 `PostFlowmodels_schemas` 请求；让 agent 能直接按文件定位具体 flow model schema
+- 形态：`model + slot catalog + artifact`
+- 作用：减少 `PostFlowmodels_schemas` 请求，并让 agent 能按需沿 ref 查具体模型，而不是一次性吃下整棵递归树
 
 ## 推荐用法
 
-1. 先打开 [manifest.json](manifest.json)，查看 `meta.uses` 和 `filesByUse`
-2. 定位目标 `use`
-3. 只打开对应的 `by-use/<UseName>.json`
-4. 只有本地缺少目标 `use`、或本地 schema 与当前实例明显冲突时，才回退到 `PostFlowmodels_schemas` / `GetFlowmodels_schema`
+1. 先打开 [manifest.json](manifest.json)，确认目标 `use`
+2. 读取 `models/<UseName>.json`
+3. 如果要看某个 `subModels.<slot>` 能接什么，再打开 `catalogs/<OwnerUse>.<slot>.json`
+4. 只有在确实要看具体 JSON Schema 或 skeleton 细节时，再按 `artifactRef` 继续读对应 artifact
+5. 如果要沿某条路径继续下钻，优先用 `scripts/flow_schema_graph.mjs hydrate-branch`
 
 ## 强规则
 
-- 不要一次性展开整个 `by-use/` 目录或多个大 JSON 文件
-- 默认一次只读取当前任务相关的 1 到 2 个 `use`
-- `PostFlowmodels_schemabundle` 仍用于运行时 root block 发现；本地 snapshot 主要替代 `flowModels:schemas` 的常规查阅
-- 这份 snapshot 是“当前快照”，不是任意实例的实时真相
+- 不要一次性展开整个 `artifacts/json-schema/` 或多个大 artifact
+- 默认一轮只读取当前任务相关的 1 到 2 个 model 文件，以及必要的 1 到 2 个 catalog / artifact
+- `PostFlowmodels_schemabundle` 仍用于运行时 root block 发现；本地 graph 主要替代 `flowModels:schemas` 的常规查阅
+- `materialize-use` / `hydrate-branch` 输出的是 graph 拼装视图，不要求字节级等同旧版 raw snapshot
 
 ## 常见入口 use
 
+- `BlockGridModel`
 - `PageModel`
 - `RootPageModel`
 - `RootPageTabModel`
 - `PageTabModel`
-- `BlockGridModel`
 - `FilterFormBlockModel`
 - `TableBlockModel`
 - `DetailsBlockModel`

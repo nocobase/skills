@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormCollapseActionModel",
+  "title": "Filter form collapse action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "4ae76998",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormCollapseActionModel.a586f665f74ab45d21b3.json",
+      "hash": "a586f665f74ab45d21b3"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormCollapseActionModel.5375c985c4309a4080ea.json",
+      "hash": "5375c985c4309a4080ea"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormCollapseActionModel.ad8c73277a6dd0df616f.json",
+      "hash": "ad8c73277a6dd0df616f"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "611bf311f711a6a0a117",
+  "ownerUses": [
+    "DateTimeFilterFieldModel"
+  ],
+  "value": {
+    "uid": "todo-datetimefilterfieldmodel",
+    "use": "DateTimeFilterFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DateTimeFilterFieldModel.611bf311f711a6a0a117.json"
+}

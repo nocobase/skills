@@ -17,11 +17,12 @@
 
 ## 1. 初始化探测
 
-如果当前任务已经明确目标 `use`，或只是要核对某个模型的详细结构，先读本地 snapshot：
+如果当前任务已经明确目标 `use`，或只是要核对某个模型的详细结构，先读本地 graph：
 
 - 索引：[flow-schemas/index.md](flow-schemas/index.md)
 - 清单：`flow-schemas/manifest.json`
-- 目标 schema：`flow-schemas/by-use/<UseName>.json`
+- 目标 model：`flow-schemas/models/<UseName>.json`
+- 目标 slot：`flow-schemas/catalogs/<OwnerUse>.<slot>.json`
 
 先抓取紧凑的 bundle：
 
@@ -66,7 +67,9 @@
 
 执行规则：
 
-- 本地 snapshot 已覆盖目标 `use` 时，优先直接读取 `flow-schemas/by-use/<UseName>.json`，不要为了“看一下结构”就先调 `PostFlowmodels_schemas`
+- 本地 graph 已覆盖目标 `use` 时，优先直接读取 `flow-schemas/models/<UseName>.json`，不要为了“看一下结构”就先调 `PostFlowmodels_schemas`
+- `models/<UseName>.json` 只保留 metadata + refs；真正的 `jsonSchema` / `minimalExample` / `skeleton` 细节按 `artifactRef` 再读
+- 如果要沿着 `subModels.<slot>` 继续下钻，优先读 `catalogs/<OwnerUse>.<slot>.json`，或直接运行 `node scripts/flow_schema_graph.mjs hydrate-branch --graph-dir references/flow-schemas --root-use <UseName> --path <slot/use/...>`
 - 先把本阶段目标 use 尽量收敛进一次 `PostFlowmodels_schemas`
 - 如果中途新增了目标 use，先补一次增量 `PostFlowmodels_schemas`
 - 只有 `schemas` 之后仍不能确定时，再针对具体 use 调 `GetFlowmodels_schema`

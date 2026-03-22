@@ -1,0 +1,17 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "27df1f6d7488cede10a0",
+  "ownerUses": [
+    "FormGridModel"
+  ],
+  "value": {
+    "uid": "todo-form-grid-uid",
+    "use": "FormGridModel",
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/FormGridModel.27df1f6d7488cede10a0.json"
+}

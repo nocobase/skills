@@ -1,0 +1,318 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "4d9279a4607c696ac264",
+  "ownerUses": [
+    "FilterActionModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "FilterActionModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "buttonSettings": {
+            "type": "object",
+            "properties": {
+              "general": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "tooltip": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "primary",
+                      "dashed",
+                      "link",
+                      "text"
+                    ]
+                  },
+                  "danger": {
+                    "type": "boolean"
+                  },
+                  "icon": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "linkageRules": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "filterSettings": {
+            "type": "object",
+            "properties": {
+              "position": {
+                "type": "object",
+                "properties": {
+                  "position": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "filterableFieldNames": {
+                "type": "object",
+                "properties": {
+                  "filterableFieldNames": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "defaultFilter": {
+                "type": "object",
+                "properties": {
+                  "defaultFilter": {
+                    "$id": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json",
+                    "definitions": {
+                      "filterCondition": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "value": {},
+                          "noValue": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "logic"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "items"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "filterGroup": {
+                        "type": "object",
+                        "properties": {
+                          "logic": {
+                            "type": "string",
+                            "enum": [
+                              "$and",
+                              "$or"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterCondition"
+                                },
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterGroup"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "logic",
+                          "items"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "path"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "operator"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "noValue"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "type": "object",
+                    "properties": {
+                      "logic": {
+                        "type": "string",
+                        "enum": [
+                          "$and",
+                          "$or"
+                        ]
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterCondition"
+                            },
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterGroup"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "logic",
+                      "items"
+                    ],
+                    "additionalProperties": true,
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "path"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "operator"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "value"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "noValue"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "submitSettings": {
+            "type": "object",
+            "properties": {
+              "submit": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/FilterActionModel.4d9279a4607c696ac264.json"
+}

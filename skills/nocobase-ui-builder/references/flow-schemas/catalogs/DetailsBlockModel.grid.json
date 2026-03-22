@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "DetailsBlockModel",
+  "slot": "grid",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "DetailsGridModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "DetailsGridModel",
+      "title": "Details grid",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/DetailsGridModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DetailsGridModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

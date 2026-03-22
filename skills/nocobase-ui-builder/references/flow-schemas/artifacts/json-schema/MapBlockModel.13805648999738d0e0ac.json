@@ -1,0 +1,342 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "13805648999738d0e0ac",
+  "ownerUses": [
+    "MapBlockModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "MapBlockModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "createMapBlock": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "mapField": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "marker": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "addAppends": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "dataScope": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "$id": "https://nocobase.dev/schemas/plugin-map/generic-filter.json",
+                    "definitions": {
+                      "filterCondition": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "value": {},
+                          "noValue": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "logic"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "items"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "filterGroup": {
+                        "type": "object",
+                        "properties": {
+                          "logic": {
+                            "type": "string",
+                            "enum": [
+                              "$and",
+                              "$or"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-map/generic-filter.json#/definitions/filterCondition"
+                                },
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-map/generic-filter.json#/definitions/filterGroup"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "logic",
+                          "items"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "path"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "operator"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "noValue"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "type": "object",
+                    "properties": {
+                      "logic": {
+                        "type": "string",
+                        "enum": [
+                          "$and",
+                          "$or"
+                        ]
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-map/generic-filter.json#/definitions/filterCondition"
+                            },
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-map/generic-filter.json#/definitions/filterGroup"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "logic",
+                      "items"
+                    ],
+                    "additionalProperties": true,
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "path"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "operator"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "value"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "noValue"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "lineSort": {
+                "type": "object",
+                "properties": {
+                  "sort": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "field": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "asc",
+                            "desc"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "field",
+                        "direction"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "mapZoom": {
+                "type": "object",
+                "properties": {
+                  "zoom": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "properties": {
+          "popupSettings": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "const": "popupSettings"
+              },
+              "steps": {
+                "type": "object",
+                "properties": {
+                  "openView": {
+                    "type": "object",
+                    "properties": {
+                      "use": {
+                        "const": "openView"
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "uid",
+                "use"
+              ],
+              "properties": {
+                "uid": {
+                  "type": "string"
+                },
+                "use": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "xFlowGraphSlotRef": {
+              "ownerUse": "MapBlockModel",
+              "slot": "actions",
+              "slotRef": "catalogs/MapBlockModel.actions.json",
+              "slotType": "array",
+              "shape": "opaque",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/MapBlockModel.13805648999738d0e0ac.json"
+}

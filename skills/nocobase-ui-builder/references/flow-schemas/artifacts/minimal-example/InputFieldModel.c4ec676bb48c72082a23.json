@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "c4ec676bb48c72082a23",
+  "ownerUses": [
+    "InputFieldModel"
+  ],
+  "value": {
+    "uid": "todo-inputfieldmodel",
+    "use": "InputFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/InputFieldModel.c4ec676bb48c72082a23.json"
+}

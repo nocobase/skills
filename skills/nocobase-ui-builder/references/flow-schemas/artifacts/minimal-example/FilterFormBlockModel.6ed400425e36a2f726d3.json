@@ -1,0 +1,38 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "6ed400425e36a2f726d3",
+  "ownerUses": [
+    "FilterFormBlockModel"
+  ],
+  "value": {
+    "uid": "filter-form-users",
+    "use": "FilterFormBlockModel",
+    "stepParams": {
+      "formFilterBlockModelSettings": {
+        "layout": {
+          "layout": "horizontal",
+          "colon": false
+        },
+        "defaultValues": {
+          "value": []
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "FilterFormGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/FilterFormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "FilterFormGridModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/FilterFormBlockModel.6ed400425e36a2f726d3.json"
+}

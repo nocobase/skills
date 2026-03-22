@@ -1,0 +1,35 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "86fff7e084357aeda3d6",
+  "ownerUses": [
+    "SubFormFieldModel"
+  ],
+  "value": {
+    "uid": "todo-subformfieldmodel",
+    "use": "SubFormFieldModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "profile"
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "FormGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/FormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "FormGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/SubFormFieldModel.86fff7e084357aeda3d6.json"
+}

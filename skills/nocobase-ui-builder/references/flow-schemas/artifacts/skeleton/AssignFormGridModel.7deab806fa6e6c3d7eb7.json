@@ -1,0 +1,17 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "7deab806fa6e6c3d7eb7",
+  "ownerUses": [
+    "AssignFormGridModel"
+  ],
+  "value": {
+    "uid": "todo-assign-form-grid-uid",
+    "use": "AssignFormGridModel",
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/AssignFormGridModel.7deab806fa6e6c3d7eb7.json"
+}

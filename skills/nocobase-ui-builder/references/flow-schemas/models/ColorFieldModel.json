@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ColorFieldModel",
+  "title": "Color Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "b80433ee",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ColorFieldModel.eb4d919abbc1e266932a.json",
+      "hash": "eb4d919abbc1e266932a"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ColorFieldModel.7183c472b252ddd239b9.json",
+      "hash": "7183c472b252ddd239b9"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ColorFieldModel.c5278884a116d7f671ce.json",
+      "hash": "c5278884a116d7f671ce"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

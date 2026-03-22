@@ -1,0 +1,196 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "08e84dbdd4d893027277",
+  "ownerUses": [
+    "ActionModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "ActionModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "buttonSettings": {
+            "type": "object",
+            "properties": {
+              "general": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "tooltip": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "primary",
+                      "dashed",
+                      "link",
+                      "text"
+                    ]
+                  },
+                  "danger": {
+                    "type": "boolean"
+                  },
+                  "icon": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "linkageRules": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "buttonAclSettings": {
+            "type": "object",
+            "properties": {
+              "aclCheck": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "paginationChange": {
+            "type": "object",
+            "properties": {
+              "aclCheckRefresh": {
+                "type": "object",
+                "properties": {
+                  "strategy": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "formItem"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "linkageRulesRefresh": {
+                "type": "object",
+                "properties": {
+                  "actionName": {
+                    "type": "string"
+                  },
+                  "flowKey": {
+                    "type": "string"
+                  },
+                  "stepKey": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "actionName",
+                  "flowKey"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "properties": {
+          "buttonSettings": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "const": "buttonSettings"
+              },
+              "steps": {
+                "type": "object",
+                "properties": {
+                  "general": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "linkageRules": {
+                    "type": "object",
+                    "properties": {
+                      "use": {
+                        "const": "actionLinkageRules"
+                      }
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/ActionModel.08e84dbdd4d893027277.json"
+}

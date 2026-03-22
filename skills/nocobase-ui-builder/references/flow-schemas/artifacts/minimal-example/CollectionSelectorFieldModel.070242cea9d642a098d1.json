@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "070242cea9d642a098d1",
+  "ownerUses": [
+    "CollectionSelectorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-collectionselectorfieldmodel",
+    "use": "CollectionSelectorFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/CollectionSelectorFieldModel.070242cea9d642a098d1.json"
+}

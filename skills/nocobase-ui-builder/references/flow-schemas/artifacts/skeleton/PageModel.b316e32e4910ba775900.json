@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "b316e32e4910ba775900",
+  "ownerUses": [
+    "PageModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "PageModel",
+    "stepParams": {
+      "pageSettings": {
+        "general": {
+          "title": "Page title",
+          "displayTitle": true,
+          "enableTabs": false
+        }
+      }
+    },
+    "subModels": {
+      "tabs": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/PageModel.b316e32e4910ba775900.json"
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2bb4822bd692773f888d",
+  "ownerUses": [
+    "TimeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-timefieldmodel",
+    "use": "TimeFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/TimeFieldModel.2bb4822bd692773f888d.json"
+}

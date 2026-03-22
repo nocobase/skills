@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "b382257dad004133c8f8",
+  "ownerUses": [
+    "ChildPageTabModel"
+  ],
+  "value": {
+    "uid": "popup-child-page-tab",
+    "use": "ChildPageTabModel",
+    "stepParams": {
+      "pageTabSettings": {
+        "tab": {
+          "title": "Popup"
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "BlockGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/BlockGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "BlockGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ChildPageTabModel.b382257dad004133c8f8.json"
+}

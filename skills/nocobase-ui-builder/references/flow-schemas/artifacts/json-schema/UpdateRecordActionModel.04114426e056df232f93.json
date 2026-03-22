@@ -1,0 +1,125 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "04114426e056df232f93",
+  "ownerUses": [
+    "UpdateRecordActionModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "UpdateRecordActionModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "assignSettings": {
+            "type": "object",
+            "properties": {
+              "confirm": {
+                "type": "object",
+                "properties": {
+                  "enable": {
+                    "type": "boolean"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "assignFieldValues": {
+                "type": "object",
+                "properties": {
+                  "assignedValues": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "apply": {
+            "type": "object",
+            "properties": {
+              "apply": {
+                "type": "object",
+                "properties": {
+                  "assignedValues": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "requestConfig": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "assignForm": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "UpdateRecordActionModel",
+              "slot": "assignForm",
+              "slotRef": "catalogs/UpdateRecordActionModel.assignForm.json",
+              "slotType": "object",
+              "shape": "direct",
+              "defaultUses": [
+                "AssignFormModel"
+              ]
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/UpdateRecordActionModel.04114426e056df232f93.json"
+}

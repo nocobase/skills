@@ -1,0 +1,17 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "f74587702ad19df769e6",
+  "ownerUses": [
+    "BlockGridModel"
+  ],
+  "value": {
+    "uid": "todo-grid-uid",
+    "use": "BlockGridModel",
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/BlockGridModel.f74587702ad19df769e6.json"
+}

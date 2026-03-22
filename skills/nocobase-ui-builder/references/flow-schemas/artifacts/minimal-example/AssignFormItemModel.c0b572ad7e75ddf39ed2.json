@@ -1,0 +1,32 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "c0b572ad7e75ddf39ed2",
+  "ownerUses": [
+    "AssignFormItemModel"
+  ],
+  "value": {
+    "uid": "todo-assign-item-uid",
+    "use": "AssignFormItemModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "nickname"
+        },
+        "assignValue": {
+          "value": "Alice"
+        }
+      },
+      "editItemSettings": {
+        "showLabel": {
+          "showLabel": true
+        }
+      }
+    },
+    "subModels": {}
+  },
+  "relativePath": "artifacts/minimal-example/AssignFormItemModel.c0b572ad7e75ddf39ed2.json"
+}

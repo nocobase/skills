@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "PointFieldModel",
+  "title": "Point",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "d7791e40",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/PointFieldModel.c290d8eb0c0c50567c53.json",
+      "hash": "c290d8eb0c0c50567c53"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/PointFieldModel.4751ff87ae4a76908be9.json",
+      "hash": "4751ff87ae4a76908be9"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/PointFieldModel.8775281cee375b9905e6.json",
+      "hash": "8775281cee375b9905e6"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "a0007168e182e955c414",
+  "ownerUses": [
+    "DisplayPercentFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaypercentfieldmodel",
+    "use": "DisplayPercentFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayPercentFieldModel.a0007168e182e955c414.json"
+}

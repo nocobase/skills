@@ -1,0 +1,70 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ChartBlockModel",
+  "title": "Chart block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "653a3b04",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "ChartBlockModel.stepParams.chartSettings.configure.query",
+      "message": "Chart query configuration depends on runtime collections, query builders, and optional SQL editors.",
+      "x-flow": {
+        "contextRequirements": [
+          "collection metadata",
+          "query builder",
+          "optional SQL resource"
+        ],
+        "unresolvedReason": "runtime-chart-query-config",
+        "recommendedFallback": {
+          "mode": "builder"
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "ChartBlockModel.stepParams.chartSettings.configure.chart",
+      "message": "Chart option builders and event scripts depend on runtime chart builders and RunJS execution.",
+      "x-flow": {
+        "contextRequirements": [
+          "chart builder",
+          "RunJS"
+        ],
+        "unresolvedReason": "runtime-chart-option-builder",
+        "recommendedFallback": {
+          "option": {
+            "mode": "basic"
+          }
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ChartBlockModel.675955b9fed25c6ebb60.json",
+      "hash": "675955b9fed25c6ebb60"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ChartBlockModel.76ba91110ab6a33e2237.json",
+      "hash": "76ba91110ab6a33e2237"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ChartBlockModel.2efbb1495cc1d455e346.json",
+      "hash": "2efbb1495cc1d455e346"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "96a5a31a8412225e7696",
+  "ownerUses": [
+    "CommentItemModel"
+  ],
+  "value": {
+    "uid": "comment-item-1",
+    "use": "CommentItemModel"
+  },
+  "relativePath": "artifacts/minimal-example/CommentItemModel.96a5a31a8412225e7696.json"
+}

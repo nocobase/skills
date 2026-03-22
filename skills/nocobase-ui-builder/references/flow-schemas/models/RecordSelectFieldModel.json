@@ -1,0 +1,79 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "RecordSelectFieldModel",
+  "title": "Record Select Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "0dabeb65",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "RecordSelectFieldModel.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/RecordSelectFieldModel.14ad0481c159632a4948.json",
+      "hash": "14ad0481c159632a4948"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/RecordSelectFieldModel.6008921a5095db706166.json",
+      "hash": "6008921a5095db706166"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/RecordSelectFieldModel.6cb99bd53d09d6287524.json",
+      "hash": "6cb99bd53d09d6287524"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "field": {
+        "slotRef": "catalogs/RecordSelectFieldModel.field.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "field": [
+      "DisplayTextFieldModel"
+    ]
+  }
+}

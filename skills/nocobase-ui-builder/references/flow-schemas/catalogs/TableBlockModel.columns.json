@@ -1,0 +1,79 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "TableBlockModel",
+  "slot": "columns",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "TableColumnModel",
+      "title": "Table column",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/TableColumnModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TableColumnModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "TableActionsColumnModel",
+      "title": "Table actions column",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/TableActionsColumnModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TableActionsColumnModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSColumnModel",
+      "title": "JS column",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/JSColumnModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSColumnModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "TableCustomColumnModel",
+      "title": "Table custom column",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/TableCustomColumnModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TableCustomColumnModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

@@ -7,9 +7,11 @@ import assert from 'node:assert/strict';
 import {
   buildFlowSchemaGraph,
   hydrateBranch,
+  loadFlowSchemaGraph,
   materializeUse,
   resolveModel,
   resolveSlotCatalog,
+  rewriteArtifactNames,
 } from './flow_schema_graph.mjs';
 
 function makeTempDir(prefix) {
@@ -192,7 +194,8 @@ test('buildFlowSchemaGraph rewrites raw snapshot into model/catalog/artifact gra
 
   const parentModel = resolveModel(outDir, 'ParentModel');
   assert.equal(parentModel.refs.jsonSchema.artifactRef.startsWith('artifacts/json-schema/'), true);
-  assert.deepEqual(Object.keys(parentModel.refs.slots), ['actions', 'grid']);
+  assert.match(parentModel.refs.jsonSchema.artifactRef, /ParentModel\.[a-z0-9]+\.json$/);
+  assert.deepEqual(Object.keys(parentModel.refs.slots), ['grid', 'actions']);
 
   const parentGrid = resolveSlotCatalog(outDir, 'ParentModel', 'grid');
   assert.equal(parentGrid.shape, 'direct');
@@ -208,22 +211,20 @@ test('buildFlowSchemaGraph rewrites raw snapshot into model/catalog/artifact gra
   const branch = hydrateBranch(outDir, 'ParentModel', 'grid/GridModel/items/FieldModel');
   assert.equal(branch.hops.length, 2);
   assert.equal(branch.leafModel.use, 'FieldModel');
+
+  const rewriteSummary = rewriteArtifactNames(outDir);
+  assert.equal(rewriteSummary.renamedCount, 0);
 });
 
-test('buildFlowSchemaGraph can rebuild current real flow-schemas snapshot and expose common models through graph refs', () => {
-  const sourceDir = path.join(codex.cwd, 'skills/nocobase-ui-builder/references/flow-schemas');
-  const outDir = makeTempDir('nb-flow-graph-real');
+test('generated repo graph exposes common models through refs and branch hydration', () => {
+  const graphDir = path.join(process.cwd(), 'skills/nocobase-ui-builder/references/flow-schemas');
+  const graph = loadFlowSchemaGraph(graphDir);
 
-  const summary = buildFlowSchemaGraph({
-    sourceDir,
-    outDir,
-  });
+  assert.equal(graph.manifest.meta.format, 'flow-schema-graph/v2');
+  assert.equal(graph.manifest.meta.useCount >= 100, true);
+  assert.equal(typeof graph.manifest.modelsByUse.TableBlockModel === 'string', true);
 
-  assert.equal(summary.modelCount >= 100, true);
-  assert.equal(summary.catalogCount > 20, true);
-  assert.equal(summary.artifactCount > summary.modelCount, true);
-
-  const tableModel = materializeUse(outDir, 'TableBlockModel');
+  const tableModel = materializeUse(graphDir, 'TableBlockModel');
   assert.equal(tableModel.use, 'TableBlockModel');
   assert.equal(tableModel.jsonSchema.properties.subModels.properties.columns.xFlowGraphSlotRef.slot, 'columns');
   assert.deepEqual(
@@ -231,11 +232,11 @@ test('buildFlowSchemaGraph can rebuild current real flow-schemas snapshot and ex
     ['TableColumnModel', 'TableActionsColumnModel', 'JSColumnModel', 'TableCustomColumnModel'],
   );
 
-  const detailsModel = materializeUse(outDir, 'DetailsBlockModel');
+  const detailsModel = materializeUse(graphDir, 'DetailsBlockModel');
   assert.equal(detailsModel.jsonSchema.properties.subModels.properties.grid.xFlowGraphSlotRef.slot, 'grid');
   assert.equal(detailsModel.slots.actions.candidates.some((item) => item.use === 'ViewActionModel'), true);
 
-  const createFormBranch = hydrateBranch(outDir, 'CreateFormModel', 'grid/FormGridModel/items/FormItemModel');
+  const createFormBranch = hydrateBranch(graphDir, 'CreateFormModel', 'grid/FormGridModel/items/FormItemModel');
   assert.equal(createFormBranch.leafModel.use, 'FormItemModel');
   assert.equal(createFormBranch.hops[0].slot, 'grid');
   assert.equal(createFormBranch.hops[1].slot, 'items');

@@ -1,0 +1,24 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "b16ae5fd9d317396d108",
+  "ownerUses": [
+    "ActionPanelBlockModel"
+  ],
+  "value": {
+    "uid": "action-panel-tools",
+    "use": "ActionPanelBlockModel",
+    "stepParams": {
+      "actionPanelBlockSetting": {
+        "layout": {
+          "layout": "grid"
+        }
+      }
+    },
+    "subModels": {
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ActionPanelBlockModel.b16ae5fd9d317396d108.json"
+}

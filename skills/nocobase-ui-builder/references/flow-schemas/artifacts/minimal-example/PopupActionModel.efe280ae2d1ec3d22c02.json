@@ -1,0 +1,41 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "efe280ae2d1ec3d22c02",
+  "ownerUses": [
+    "PopupActionModel"
+  ],
+  "value": {
+    "uid": "popup-action-example",
+    "use": "PopupActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Popup",
+          "type": "default"
+        }
+      },
+      "popupSettings": {
+        "openView": {
+          "mode": "drawer",
+          "size": "medium",
+          "pageModelClass": "ChildPageModel"
+        }
+      }
+    },
+    "subModels": {
+      "page": {
+        "xFlowGraphModelRef": {
+          "use": "ChildPageModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/ChildPageModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ChildPageModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/PopupActionModel.efe280ae2d1ec3d22c02.json"
+}

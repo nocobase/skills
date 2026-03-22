@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "db575e5d63775f8874ec",
+  "ownerUses": [
+    "RichTextFieldModel"
+  ],
+  "value": {
+    "uid": "todo-richtextfieldmodel",
+    "use": "RichTextFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/RichTextFieldModel.db575e5d63775f8874ec.json"
+}

@@ -1,0 +1,43 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "b94a0f51cd48c7cd0c51",
+  "ownerUses": [
+    "EditActionModel"
+  ],
+  "value": {
+    "uid": "todo-edit-action-uid",
+    "use": "EditActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Edit",
+          "type": "default"
+        }
+      },
+      "popupSettings": {
+        "openView": {
+          "mode": "drawer",
+          "size": "medium",
+          "pageModelClass": "ChildPageModel",
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      }
+    },
+    "subModels": {
+      "page": {
+        "xFlowGraphModelRef": {
+          "use": "ChildPageModel",
+          "artifact": "skeleton",
+          "modelRef": "models/ChildPageModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ChildPageModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/EditActionModel.b94a0f51cd48c7cd0c51.json"
+}

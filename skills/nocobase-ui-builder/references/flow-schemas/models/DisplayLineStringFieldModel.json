@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayLineStringFieldModel",
+  "title": "Display line string",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "003e8be9",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayLineStringFieldModel.61599ae9006f12ca7c65.json",
+      "hash": "61599ae9006f12ca7c65"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayLineStringFieldModel.cf835415eb596ca76960.json",
+      "hash": "cf835415eb596ca76960"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayLineStringFieldModel.5d114fe280ccfcfdad8b.json",
+      "hash": "5d114fe280ccfcfdad8b"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

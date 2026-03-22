@@ -1,0 +1,57 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CommentsBlockModel",
+  "title": "Comments block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "a1db5372",
+  "dynamicHints": [
+    {
+      "kind": "manual-schema-required",
+      "path": "CommentsBlockModel.subModels.items",
+      "message": "Comment item renderers.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "CommentItemModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CommentsBlockModel.20be42267b92b8ba1f2b.json",
+      "hash": "20be42267b92b8ba1f2b"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CommentsBlockModel.48be75c665efcedbefa2.json",
+      "hash": "48be75c665efcedbefa2"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CommentsBlockModel.044838a21341692f502b.json",
+      "hash": "044838a21341692f502b"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "items": {
+        "slotRef": "catalogs/CommentsBlockModel.items.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "items": []
+  }
+}

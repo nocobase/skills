@@ -1,0 +1,27 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "663616ca64b6fb522911",
+  "ownerUses": [
+    "ActionPanelBlockModel"
+  ],
+  "value": {
+    "uid": "todo-action-panel-block-uid",
+    "use": "ActionPanelBlockModel",
+    "stepParams": {
+      "actionPanelBlockSetting": {
+        "layout": {
+          "layout": "grid"
+        },
+        "ellipsis": {
+          "ellipsis": true
+        }
+      }
+    },
+    "subModels": {
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/ActionPanelBlockModel.663616ca64b6fb522911.json"
+}

@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "de9714ff197064acf691",
+  "ownerUses": [
+    "RootPageModel"
+  ],
+  "value": {
+    "uid": "root-page-users",
+    "use": "RootPageModel",
+    "stepParams": {
+      "pageSettings": {
+        "general": {
+          "title": "Users",
+          "displayTitle": true,
+          "enableTabs": false
+        }
+      }
+    },
+    "subModels": {
+      "tabs": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/RootPageModel.de9714ff197064acf691.json"
+}
