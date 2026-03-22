@@ -65,8 +65,3 @@ ctx.element.innerHTML = '<div>...</div>';
 
 - 要加载外部库：回看 [runjs-overview.md](runjs-overview.md)
 - 需要更明确的渲染规则：回看 [rendering-contract.md](rendering-contract.md)
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/blocks/other-blocks/js-block.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/render.md`

@@ -1,0 +1,161 @@
+---
+title: 运行日志与复盘
+description: nocobase-ui-builder 的 run log、phase/gate/cache、review 报告与自动改进闭环。
+---
+
+# 运行日志与复盘
+
+这个文档是 `nocobase-ui-builder` 的运行治理入口。顶层 `SKILL.md` 只保留“要做日志与复盘”，具体路径、命令、事件类型、报告要求都以这里为准。
+
+## 什么时候读
+
+- 本轮存在任何探测或写操作
+- 需要记录 phase/gate/cache
+- 需要做 write-after-read 对账
+- 需要生成 review / improve 报告
+- 需要解释为什么本轮是 `success` / `partial` / `failed`
+
+## 默认目录
+
+- 默认会按当前 session 自动解析运行目录；通常不需要手动指定。
+- 需要固定 session root 时，可显式传 `--session-id`，或设置 `NOCOBASE_UI_BUILDER_SESSION_ID` / `NOCOBASE_UI_BUILDER_SESSION_ROOT`。
+- 需要整体迁移 state 目录时，可设置 `NOCOBASE_UI_BUILDER_STATE_DIR`。
+
+`sessionId` 默认按当前 Codex 进程派生；需要跨多条命令稳定复用时，可显式传 `--session-id` 或设置 `NOCOBASE_UI_BUILDER_SESSION_ID`。
+
+## 默认阶段
+
+每轮至少记录这些阶段：
+
+- `schema_discovery`
+- `stable_metadata`
+- `write`
+- `readback`
+- `browser_attach`
+- `smoke`
+
+如果本轮没有进入浏览器验证，`browser_attach` / `smoke` 可以记为 `skipped`，不要假装它们不存在。
+
+## 运行时优化基线
+
+### 稳定信息缓存
+
+- 只缓存稳定结果：`schemaBundle`、`schemas`、collection fields、relation metadata
+- 不缓存 live tree、write 后 readback、页面运行时结果
+- 优先复用 `scripts/stable_cache.mjs`
+
+### 平台噪声基线
+
+- React invalid prop、deprecated、重复注册、FlowEngine circular warning 优先归到 baseline
+- 真正的 runtime exception 继续保持 blocking
+- 优先复用 `scripts/noise_baseline.mjs`
+
+### 契约归一化与 gate
+
+- 能编译成 BuildSpec / VerifySpec 时，优先经 `scripts/spec_contracts.mjs`
+- gate 判断优先复用 `scripts/gate_engine.mjs`
+- 停止条件不要散落在 prompt 自由文本里
+
+## tool_journal
+
+开始任何探测或写操作前，先初始化本轮日志：
+
+```bash
+node scripts/tool_journal.mjs start-run \
+  --task "<用户请求>" \
+  [--title "<title>"] \
+  [--schemaUid "<schemaUid>"] \
+  [--session-id "<sessionId>"]
+```
+
+最低要求：
+
+1. 保存 `start-run` 返回的 `logPath`
+2. 每次 MCP 调用后立即记录 `tool_call`
+3. 每次本地脚本调用后也记录 `tool_call`
+4. 关键分支判断写 `note`
+5. 关键阶段写 `phase`
+6. gate 结果写 `gate`
+7. cache 命中/失效写 `cache-event`
+8. 最终必须写 `run_finished`
+
+## tool_call 记录要求
+
+- `toolType=mcp` 的 `ok/error` 记录必须附 raw evidence
+- `result-file` / `error-file` 至少能追溯到 top-level `call_id`
+- 若工具面提供 `exec_id`，一并写入
+- 不允许只靠自由文本 `summary` / `error` 冒充证据
+
+对会参与 write-after-read 对账的调用：
+
+- `PostFlowmodels_save`
+- `PostFlowmodels_ensure`
+- `PostFlowmodels_mutate`
+- 配套同目标 `GetFlowmodels_findone`
+
+都要显式写同一个 `args.targetSignature`。
+
+## write-after-read 结论
+
+默认以后续 readback 为准，不以下列信号直接报成功：
+
+- `save` / `mutate` 返回 `ok`
+- `createV2` 成功
+- flow model anchor 存在
+
+结构化摘要至少应覆盖：
+
+- 目标 page / tab / grid 是否存在
+- 显式 tabs 与 duplicate tabs
+- `filterManager`
+- selector / `filterByTk` / `dataScope` 摘要
+- block 是否真正挂到预期 slot
+
+readback mismatch 时，默认降级为 `partial` 或 `failed`。
+
+## tool_review_report
+
+每轮结束后默认都执行一次：
+
+```bash
+node scripts/tool_review_report.mjs render
+```
+
+或显式指定日志：
+
+```bash
+node scripts/tool_review_report.mjs render --log-path "<logPath>"
+```
+
+报告至少应包含：
+
+- 运行摘要：任务、runId、状态、耗时、目标页面信息
+- 工具统计：调用次数、失败次数、跳过次数
+- 失败调用：失败工具、错误摘要、关键参数
+- Guard 摘要：`audit-payload` 调用次数、blocker/warning、risk-accept
+- 时间线：`tool_call`、`note`、`phase`、`gate`
+- 可改进点：下次怎样更快达到同样结果
+
+## improve 提炼原则
+
+优先提炼 1 到 3 条“能缩短路径”的建议，重点看：
+
+1. 探测是否过晚或过碎
+2. 是否存在重复读取 / 连续重复调用
+3. 是否有失败后靠猜参数重试
+4. 是否可以把相邻写操作压缩进一次 `PostFlowmodels_mutate`
+5. 是否缺少可复用的最小成功模板
+6. validation 问题能否沉淀回 guard / recipe / reference，而不是停留在一次性口头经验
+
+## 最终汇报规则
+
+最终答复默认至少拆开这些事实：
+
+- page shell 是否已创建
+- route-ready 是否完成
+- write-after-read 是否匹配
+- validation 是否完成
+- 数据前置是否完成
+- 报告路径和 improve 路径
+
+没有 readback 或 route-ready 时，不要写“已落库完成”或“页面已可打开”。

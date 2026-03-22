@@ -99,11 +99,27 @@ All NocoBase API operations are now available through MCP tools.
 
 After `nocobase-mcp-setup` is complete, `nocobase-ui-builder` uses MCP tools generated from the NocoBase Swagger documents.
 
-The workflow is:
+The default operating model is:
 
-1. Discover page/block schemas through `flowModels` MCP tools.
-2. Create or inspect the page shell with `desktopRoutes` v2 MCP tools.
-3. Save, mutate, move, or destroy blocks through `flowModels` MCP tools.
+1. Plan the page first, then map sections to blocks.
+2. Prefer local flow schema graph + schema-first probing before writing.
+3. Guard every draft payload before `save` / `mutate`.
+4. Treat route-ready and write-after-read as separate gates.
+5. Run validation and review against real usability when the task requires delivery-grade confidence.
+
+Inside the skill, treat the following files as canonical docs:
+
+- `skills/nocobase-ui-builder/SKILL.md` - entrypoint and hard gates
+- `skills/nocobase-ui-builder/references/index.md` - task router
+- `skills/nocobase-ui-builder/references/ui-api-overview.md` - lifecycle / read-write contract
+- `skills/nocobase-ui-builder/references/validation.md` - validation contract
+- `skills/nocobase-ui-builder/references/ops-and-review.md` - tool log / report / improve loop
+
+To keep the docs slim over time, run:
+
+```bash
+node skills/nocobase-ui-builder/scripts/check_docs_contract.mjs
+```
 
 Example prompt:
 

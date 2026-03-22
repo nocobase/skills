@@ -1,6 +1,6 @@
 ---
 title: 公共区块清单与结构盲点
-description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRoots，并逐区块列出仅靠 schema-first 难以推断的结构细节与 skill 改进建议。
+description: 汇总可通过 Add block 添加的 public root blocks，并逐区块列出仅靠 schema-first 难以推断的结构细节与 skill 改进建议。
 ---
 
 # 公共区块清单与结构盲点
@@ -10,15 +10,11 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 1. 源码里“Add block 可添加”的区块根（`BlockModel` / `CollectionBlockModel` / `DataBlockModel` 的子类）有哪些？
 2. 对每个可添加区块，哪些结构细节如果只依赖当前 `nocobase-ui-builder` skill 与 schema-first 探测，仍然很容易猜错，必须结合源码或 manifest 才能稳定生成“UI Editor 里能创建出来”的 flow model 结构？
 
-## 提取方式与清单
+## 清单
 
-清单来源：读取 NocoBase 源码中的 flow schema manifests（而不是猜测 UI 菜单），提取 `publicTreeRoots`。
+本清单整理的是已知可通过 Add block 添加的 public root blocks，作为静态参考使用。
 
-- 提取脚本：
-  - `/Users/gchust/auto_works/nocobase-skills/skills/nocobase-ui-builder/scripts/source_inventory_catalog.mjs`
-  - `collectNocobaseSourceInventory({ repoRoot: '/Users/gchust/auto_works/nocobase' }).publicTreeRoots`
-
-当前从 `/Users/gchust/auto_works/nocobase` 提取到的 `publicTreeRoots` 共 15 个：
+当前记录的 `publicTreeRoots` 共 15 个：
 
 - `ActionPanelBlockModel`
 - `ChartBlockModel`
@@ -53,8 +49,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-workbench/src/client/models/ActionPanelBlockModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-workbench/src/server/flow-schema-manifests/index.ts`
+- `packages/plugins/@nocobase/plugin-block-workbench/src/client/models/ActionPanelBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-workbench/src/server/flow-schema-manifests/index.ts`
 
 **难以只靠 skill 推断的结构点**
 
@@ -86,7 +82,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-data-visualization/src/client/flow/models/ChartBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-data-visualization/src/client/flow/models/ChartBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -100,7 +96,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-data-visualization/src/server/flow-schema-manifests/index.ts`
+- `packages/plugins/@nocobase/plugin-data-visualization/src/server/flow-schema-manifests/index.ts`
 
 **skill 改进建议**
 
@@ -123,7 +119,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-comments/src/client/models/CommentsBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-comments/src/client/models/CommentsBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -132,8 +128,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-comments/src/client/models/CommentList.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-comments/src/client/models/CommentsBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-comments/src/client/models/CommentList.tsx`
+- `packages/plugins/@nocobase/plugin-comments/src/client/models/CommentsBlockModel.tsx`
 
 **skill 改进建议**
 
@@ -154,7 +150,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/form/CreateFormModel.tsx`
+- `packages/core/client/src/flow/models/blocks/form/CreateFormModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -182,8 +178,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/details/DetailsBlockModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/base/CollectionBlockModel.tsx`（resourceSettings.init handler）
+- `packages/core/client/src/flow/models/blocks/details/DetailsBlockModel.tsx`
+- `packages/core/client/src/flow/models/base/CollectionBlockModel.tsx`（resourceSettings.init handler）
 
 **难以只靠 skill 推断的结构点**
 
@@ -196,8 +192,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/base/CollectionBlockModel.tsx`（defineChildren）
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/details/DetailsBlockModel.tsx`（renderConfigureActions afterSubModelInit）
+- `packages/core/client/src/flow/models/base/CollectionBlockModel.tsx`（defineChildren）
+- `packages/core/client/src/flow/models/blocks/details/DetailsBlockModel.tsx`（renderConfigureActions afterSubModelInit）
 
 **skill 改进建议**
 
@@ -218,7 +214,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/form/EditFormModel.tsx`
+- `packages/core/client/src/flow/models/blocks/form/EditFormModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -243,7 +239,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/filter-form/FilterFormBlockModel.tsx`
+- `packages/core/client/src/flow/models/blocks/filter-form/FilterFormBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -274,9 +270,9 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-grid-card/src/client/models/GridCardBlockModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-grid-card/src/client/models/GridCardItemModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-grid-card/src/server/flow-schema-manifests/index.ts`
+- `packages/plugins/@nocobase/plugin-block-grid-card/src/client/models/GridCardBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-grid-card/src/client/models/GridCardItemModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-grid-card/src/server/flow-schema-manifests/index.ts`
 
 **难以只靠 skill 推断的结构点**
 
@@ -302,7 +298,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-iframe/src/client/models/IframeBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-iframe/src/client/models/IframeBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -316,8 +312,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-iframe/src/client/models/IframeBlockModel.tsx`（beforeParamsSave）
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-iframe/src/server/flow-schema-manifests/index.ts`（dynamicHints）
+- `packages/plugins/@nocobase/plugin-block-iframe/src/client/models/IframeBlockModel.tsx`（beforeParamsSave）
+- `packages/plugins/@nocobase/plugin-block-iframe/src/server/flow-schema-manifests/index.ts`（dynamicHints）
 
 **skill 改进建议**
 
@@ -337,7 +333,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/js-block/JSBlock.tsx`
+- `packages/core/client/src/flow/models/blocks/js-block/JSBlock.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -367,9 +363,9 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-list/src/client/models/ListBlockModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-list/src/client/models/ListItemModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-list/src/server/flow-schema-manifests/index.ts`
+- `packages/plugins/@nocobase/plugin-block-list/src/client/models/ListBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-list/src/client/models/ListItemModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-list/src/server/flow-schema-manifests/index.ts`
 
 **难以只靠 skill 推断的结构点**
 
@@ -392,7 +388,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-map/src/client/models/MapBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-map/src/client/models/MapBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -406,9 +402,9 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-map/src/client/models/MapBlockModel.tsx`（onInit）
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-map/src/client/models/MapActionGroupModel.tsx`（allowed uses）
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-map/src/server/flow-schema-manifests/index.ts`（dynamicHints）
+- `packages/plugins/@nocobase/plugin-map/src/client/models/MapBlockModel.tsx`（onInit）
+- `packages/plugins/@nocobase/plugin-map/src/client/models/MapActionGroupModel.tsx`（allowed uses）
+- `packages/plugins/@nocobase/plugin-map/src/server/flow-schema-manifests/index.ts`（dynamicHints）
 
 **skill 改进建议**
 
@@ -428,7 +424,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-markdown/src/client/models/MarkdownBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-block-markdown/src/client/models/MarkdownBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -442,8 +438,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/flows/editMarkdownFlow.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-block-markdown/src/server/flow-schema-manifests/index.ts`
+- `packages/core/client/src/flow/flows/editMarkdownFlow.tsx`
+- `packages/plugins/@nocobase/plugin-block-markdown/src/server/flow-schema-manifests/index.ts`
 
 **skill 改进建议**
 
@@ -462,7 +458,7 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-ui-templates/src/client/models/ReferenceBlockModel.tsx`
+- `packages/plugins/@nocobase/plugin-ui-templates/src/client/models/ReferenceBlockModel.tsx`
 
 **难以只靠 skill 推断的结构点**
 
@@ -475,8 +471,8 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-ui-templates/src/server/flow-schema-manifests/index.ts`（required targetUid）
-- `/Users/gchust/auto_works/nocobase/packages/plugins/@nocobase/plugin-ui-templates/src/client/models/ReferenceBlockModel.tsx`（target resolution / scoped engine）
+- `packages/plugins/@nocobase/plugin-ui-templates/src/server/flow-schema-manifests/index.ts`（required targetUid）
+- `packages/plugins/@nocobase/plugin-ui-templates/src/client/models/ReferenceBlockModel.tsx`（target resolution / scoped engine）
 
 **skill 改进建议**
 
@@ -499,9 +495,9 @@ description: 从 NocoBase 源码提取可通过 Add block 添加的 publicTreeRo
 
 证据：
 
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/table/TableBlockModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/blocks/table/TableActionsColumnModel.tsx`
-- `/Users/gchust/auto_works/nocobase/packages/core/client/src/flow/models/base/CollectionBlockModel.tsx`（Associated records 菜单模板）
+- `packages/core/client/src/flow/models/blocks/table/TableBlockModel.tsx`
+- `packages/core/client/src/flow/models/blocks/table/TableActionsColumnModel.tsx`
+- `packages/core/client/src/flow/models/base/CollectionBlockModel.tsx`（Associated records 菜单模板）
 
 **难以只靠 skill 推断的结构点**
 

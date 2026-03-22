@@ -43,15 +43,3 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSItemModel、
 | `JSFieldModel` | 字段位置自定义渲染 | `ctx.value` `ctx.record` `ctx.render` | `ctx.render(...)` |
 | `JSItemModel` | 表单里无字段绑定的自定义项 | `ctx.form` `ctx.blockModel` `ctx.render` | `ctx.render(...)` |
 | `JSActionModel` | 按钮点击逻辑 | `ctx.record` / `ctx.resource` / `ctx.form` | 执行逻辑，不以渲染为主 |
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/runjs.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/index.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/render.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/element.md`
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/blocks/other-blocks/js-block.md`
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/fields/specific/js-column.md`
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/fields/specific/js-field.md`
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/fields/specific/js-item.md`
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/actions/types/js-action.md`

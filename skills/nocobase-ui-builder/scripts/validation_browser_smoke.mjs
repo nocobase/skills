@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
-const PLAYWRIGHT_PACKAGE_PATH = '/Users/gchust/auto_works/nocobase/node_modules/playwright';
 const DEFAULT_ADMIN_BASE = 'http://127.0.0.1:23000';
 const DEFAULT_TIMEOUT_MS = 15000;
 const BROWSER_EXECUTABLE_CANDIDATES = [
@@ -34,8 +33,7 @@ const BLOCKING_RUNTIME_PATTERNS = [
   /Cannot read properties of undefined/,
 ];
 
-const require = createRequire(import.meta.url);
-const { chromium } = require(PLAYWRIGHT_PACKAGE_PATH);
+const scriptRequire = createRequire(import.meta.url);
 
 function usage() {
   return [
@@ -80,6 +78,62 @@ function normalizeRequiredText(value, label) {
 
 function normalizeOptionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function buildCwdRequire(cwd) {
+  const resolvedCwd = path.resolve(normalizeOptionalText(cwd) || process.cwd());
+  return createRequire(path.join(resolvedCwd, '__validation_browser_smoke__.cjs'));
+}
+
+export function resolvePlaywrightLoader({
+  env = process.env,
+  cwd = process.cwd(),
+  cwdRequire,
+  baseRequire = scriptRequire,
+} = {}) {
+  const explicitPath = normalizeOptionalText(env?.PLAYWRIGHT_PACKAGE_PATH);
+  if (explicitPath) {
+    const resolvedExplicitPath = path.isAbsolute(explicitPath)
+      ? explicitPath
+      : path.resolve(normalizeOptionalText(cwd) || process.cwd(), explicitPath);
+    return {
+      source: 'env',
+      request: resolvedExplicitPath,
+      requireFn: baseRequire,
+    };
+  }
+
+  const effectiveCwdRequire = cwdRequire || buildCwdRequire(cwd);
+  try {
+    effectiveCwdRequire.resolve('playwright');
+    return {
+      source: 'cwd',
+      request: 'playwright',
+      requireFn: effectiveCwdRequire,
+    };
+  } catch {
+    // Fall through to script-level resolution.
+  }
+
+  try {
+    baseRequire.resolve('playwright');
+    return {
+      source: 'script',
+      request: 'playwright',
+      requireFn: baseRequire,
+    };
+  } catch {
+    throw new Error('Unable to resolve "playwright". Install it in the current environment or set PLAYWRIGHT_PACKAGE_PATH.');
+  }
+}
+
+export function loadChromium(options = {}) {
+  const loader = resolvePlaywrightLoader(options);
+  const moduleExports = loader.requireFn(loader.request);
+  if (!moduleExports?.chromium) {
+    throw new Error(`Resolved Playwright from ${loader.source}, but "chromium" export is missing.`);
+  }
+  return moduleExports.chromium;
 }
 
 function ensureDir(dirPath) {
@@ -422,6 +476,7 @@ async function runSuite(flags) {
   ensureDir(outDir);
 
   const executablePath = resolveBrowserExecutablePath();
+  const chromium = loadChromium();
   const browser = await chromium.launch({
     headless: true,
     ...(executablePath ? { executablePath } : {}),

@@ -62,8 +62,3 @@ ctx.element.innerHTML = `<a>查看详情</a>`;
 ```
 
 如果需要点击交互，也优先通过 `ctx.render()` 渲染 JSX / HTML，再在必要场景下补事件逻辑。
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/fields/specific/js-field.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/render.md`

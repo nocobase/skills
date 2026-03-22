@@ -4,6 +4,14 @@
 
 默认入口统一走动态场景规划，先识别业务领域，再决定页面原型和区块组合。详细规则见 [validation-scenarios.md](validation-scenarios.md)。
 
+开始 validation 前，先确认：
+
+- 总入口见 [index.md](index.md)
+- API / route-ready / readback 规则见 [ui-api-overview.md](ui-api-overview.md)
+- 日志与 review / improve 规则见 [ops-and-review.md](ops-and-review.md)
+
+`validation-data-preconditions.md` 现在只是兼容入口；数据前置规则已经合并到本文档。
+
 ## 目标
 
 - 同一个 validation 请求不再总是复用同一套固定区块模板
@@ -31,9 +39,8 @@ validation 默认按下面链路生成：
    - 扩展 block 优先从运行实例的 flow schema manifest 中选（实例感知）
      - 通过 `PostFlowmodels_schemabundle`（`uses=['BlockGridModel']`）的候选清单得到“实例真实可用的 root blocks”
      - 再用 `PostFlowmodels_schemas`（`uses=<root blocks>`）拉回动态 hints（contextRequirements 等）辅助语义匹配
-   - 只有当无法探测实例清单、且显式配置 `NOCOBASE_SOURCE_ROOT` 时，才回退到源码 inventory 的 `publicTreeRoots`
 4. 结果落库：
-   - `compileArtifact.json` 会记录 `scenarioId / selectedUses / generatedCoverage / instanceInventory / sourceInventory`
+   - `compileArtifact.json` 会记录 `scenarioId / selectedUses / generatedCoverage / instanceInventory`
 
 ## 判定规则
 

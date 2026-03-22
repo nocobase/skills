@@ -83,8 +83,3 @@ ctx.element.innerHTML = '<div>...</div>';
 const value = ctx.record?.status || '-';
 ctx.render(`<span>${value}</span>`);
 ```
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/render.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/element.md`

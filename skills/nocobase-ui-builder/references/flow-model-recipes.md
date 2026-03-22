@@ -4,13 +4,13 @@
 
 这些 recipe 是常见起手式，不构成完整支持白名单。只要当前 `schemas` / `schema` 已明确展开其他公共模型、动作树或子槽位，也可以沿用同样的 `schema-first + mutate/save` 模式继续扩展。
 
-以下所有配方都默认你已经先运行 `tool_journal.mjs start-run`，并会在每次工具调用后追加 `tool_call` 记录。完成后默认执行 `tool_review_report.mjs render`，输出复盘报告和自动改进清单。
+开始前先确认 3 件事：
 
-写入前的一条硬规则：
+1. 总入口和文档路由见 [index.md](index.md)
+2. 日志、phase/gate、review/improve 规则见 [ops-and-review.md](ops-and-review.md)
+3. draft payload 不能直接落库；必须先经过 [patterns/payload-guard.md](patterns/payload-guard.md)
 
-- draft payload 不直接落库；必须先经过 [patterns/payload-guard.md](patterns/payload-guard.md)
-
-这个文件负责“起手式”和“通用配方”，不是每一种区块细节的全集。进入具体区块后，继续查：
+这个文件只负责“起手式”和“通用 recipe”，不是每一种区块细节的全集。进入具体区块后，继续查：
 
 - 区块索引：[blocks/index.md](blocks/index.md)
 - 模式索引：[patterns/index.md](patterns/index.md)

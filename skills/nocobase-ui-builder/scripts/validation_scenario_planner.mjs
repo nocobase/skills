@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import { collectNocobaseSourceInventory } from './source_inventory_catalog.mjs';
-
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -749,19 +747,6 @@ function normalizeInstanceInventory(value) {
   };
 }
 
-function normalizeSourceInventory(value) {
-  const inventory = value && typeof value === 'object' ? value : {};
-  return {
-    detected: Boolean(inventory.detected),
-    repoRoot: normalizeText(inventory.repoRoot),
-    publicModels: uniqueStrings(inventory.publicModels),
-    publicTreeRoots: uniqueStrings(inventory.publicTreeRoots),
-    expectedDescendantModels: uniqueStrings(inventory.expectedDescendantModels),
-    evidenceFiles: uniqueStrings(inventory.evidenceFiles),
-    publicUseCatalog: Array.isArray(inventory.publicUseCatalog) ? inventory.publicUseCatalog : [],
-  };
-}
-
 function mergePublicUseCatalog(catalogs) {
   const merged = new Map();
   for (const catalog of Array.isArray(catalogs) ? catalogs : []) {
@@ -804,37 +789,14 @@ function mergePublicUseCatalog(catalogs) {
 
 function mergeAvailableUsesWithInventories({ baseUses, instanceInventory }) {
   const normalizedInstance = normalizeInstanceInventory(instanceInventory);
-
-  const sourceRoot = normalizeText(process.env.NOCOBASE_SOURCE_ROOT || '');
-  const sourceInventoryRaw = sourceRoot
-    ? collectNocobaseSourceInventory({ repoRoot: sourceRoot })
-    : {
-      detected: false,
-      repoRoot: sourceRoot,
-      publicModels: [],
-      publicTreeRoots: [],
-      expectedDescendantModels: [],
-      evidenceFiles: [],
-      publicUseCatalog: [],
-    };
-  const normalizedSourceInventory = normalizeSourceInventory(sourceInventoryRaw);
   return {
     availableUses: sortUniqueStrings([
       ...baseUses,
       ...normalizedInstance.flowSchema.rootPublicUses,
-      ...normalizedSourceInventory.publicModels,
-      ...normalizedSourceInventory.publicTreeRoots,
     ]),
-    rootPublicUses: sortUniqueStrings([
-      ...normalizedInstance.flowSchema.rootPublicUses,
-      ...normalizedSourceInventory.publicTreeRoots,
-    ]),
-    publicUseCatalog: mergePublicUseCatalog([
-      normalizedInstance.flowSchema.publicUseCatalog,
-      normalizedSourceInventory.publicUseCatalog,
-    ]),
+    rootPublicUses: sortUniqueStrings([...normalizedInstance.flowSchema.rootPublicUses]),
+    publicUseCatalog: mergePublicUseCatalog([normalizedInstance.flowSchema.publicUseCatalog]),
     instanceInventory: normalizedInstance,
-    sourceInventory: normalizedSourceInventory,
   };
 }
 
@@ -1678,9 +1640,6 @@ function createCreativeProgram({
         inventoryMerge.instanceInventory.flowSchema.detected
           ? `instance-root-uses:${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(',')}`
           : '',
-        inventoryMerge.sourceInventory.detected
-          ? `source-root:${inventoryMerge.sourceInventory.repoRoot}`
-          : '',
       ]),
     };
   }
@@ -1716,9 +1675,6 @@ function createCreativeProgram({
     notes: uniqueStrings([
       inventoryMerge.instanceInventory.flowSchema.detected
         ? `instance-root-uses:${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(',')}`
-        : '',
-      inventoryMerge.sourceInventory.detected
-        ? `source-root:${inventoryMerge.sourceInventory.repoRoot}`
         : '',
     ]),
   };
@@ -2748,9 +2704,6 @@ function buildScenarioSummary({
     ...(inventoryMerge.instanceInventory.flowSchema.detected
       ? [`实例公开 root blocks: ${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(', ')}`]
       : []),
-    ...(inventoryMerge.sourceInventory.detected
-      ? [`源码 inventory: ${inventoryMerge.sourceInventory.repoRoot}`]
-      : []),
     ...(planningBlockers.length > 0
       ? planningBlockers.map((item) => `${item.code}: ${item.message}`)
       : []),
@@ -2793,7 +2746,6 @@ function buildScenarioSummary({
         layout,
         designRationale: selectionRationale,
       }),
-    sourceInventory: inventoryMerge.sourceInventory,
     instanceInventory: inventoryMerge.instanceInventory,
     randomPolicy: {
       mode: 'deterministic',

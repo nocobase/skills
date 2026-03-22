@@ -61,7 +61,3 @@ await ctx.openView(ctx.model.uid + '-open', {
 
 - 如果动作是打开 popup / openView：继续看 `../patterns/popup-openview.md`
 - 如果动作里还要写渲染代码：再回看 [rendering-contract.md](rendering-contract.md)
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/actions/types/js-action.md`

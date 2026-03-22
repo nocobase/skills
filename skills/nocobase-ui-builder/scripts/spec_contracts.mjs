@@ -733,9 +733,6 @@ function normalizeScenario(input) {
   const randomPolicyInput = scenarioInput.randomPolicy && typeof scenarioInput.randomPolicy === 'object'
     ? scenarioInput.randomPolicy
     : {};
-  const sourceInventoryInput = scenarioInput.sourceInventory && typeof scenarioInput.sourceInventory === 'object'
-    ? scenarioInput.sourceInventory
-    : {};
   const instanceInventoryInput = scenarioInput.instanceInventory && typeof scenarioInput.instanceInventory === 'object'
     ? scenarioInput.instanceInventory
     : {};
@@ -798,30 +795,6 @@ function normalizeScenario(input) {
       ? scenarioInput.candidateShape
       : {},
     pagePlan: normalizePagePlan(scenarioInput.pagePlan, 'scenario.pagePlan'),
-    sourceInventory: {
-      detected: Boolean(sourceInventoryInput.detected),
-      repoRoot: typeof sourceInventoryInput.repoRoot === 'string' ? sourceInventoryInput.repoRoot.trim() : '',
-      publicModels: sortUniqueStrings(sourceInventoryInput.publicModels),
-      publicTreeRoots: sortUniqueStrings(sourceInventoryInput.publicTreeRoots),
-      expectedDescendantModels: sortUniqueStrings(sourceInventoryInput.expectedDescendantModels),
-      evidenceFiles: sortUniqueStrings(sourceInventoryInput.evidenceFiles),
-      publicUseCatalog: Array.isArray(sourceInventoryInput.publicUseCatalog)
-        ? sourceInventoryInput.publicUseCatalog
-          .filter((item) => item && typeof item === 'object')
-          .map((item) => ({
-            use: typeof item.use === 'string' ? item.use.trim() : '',
-            title: typeof item.title === 'string' ? item.title.trim() : '',
-            filePath: typeof item.filePath === 'string' ? item.filePath.trim() : '',
-            hintKinds: sortUniqueStrings(item.hintKinds),
-            hintPaths: sortUniqueStrings(item.hintPaths),
-            hintMessages: sortUniqueStrings(item.hintMessages),
-            contextRequirements: sortUniqueStrings(item.contextRequirements),
-            unresolvedReasons: sortUniqueStrings(item.unresolvedReasons),
-            semanticTags: sortUniqueStrings(item.semanticTags),
-          }))
-          .filter((item) => item.use)
-        : [],
-    },
     instanceInventory: {
       detected: Boolean(instanceInventoryInput.detected),
       apiBase: typeof instanceInventoryInput.apiBase === 'string' ? instanceInventoryInput.apiBase.trim() : '',
@@ -1780,7 +1753,6 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     candidateFamilies: artifact.scenario.candidateFamilies,
     candidateShape: artifact.scenario.candidateShape,
     pagePlan: artifact.scenario.pagePlan,
-    sourceInventory: artifact.scenario.sourceInventory,
     instanceInventory: artifact.scenario.instanceInventory,
     availableUses: artifact.scenario.availableUses,
     selectedUses: artifact.generatedCoverage.blocks,
@@ -2119,15 +2091,6 @@ function buildBlockedScenario({
     candidateScores: {},
     candidateFamilies: {},
     candidateShape: {},
-    sourceInventory: {
-      detected: false,
-      repoRoot: '',
-      publicModels: [],
-      publicTreeRoots: [],
-      expectedDescendantModels: [],
-      evidenceFiles: [],
-      publicUseCatalog: [],
-    },
     instanceInventory: instanceInventory && typeof instanceInventory === 'object' ? instanceInventory : {},
     randomPolicy: {
       mode: 'deterministic',
@@ -2267,12 +2230,6 @@ function buildSingleValidationSpecs({
     'CreateFormModel',
     'EditFormModel',
     ...(Array.isArray(instanceInventory?.flowSchema?.rootPublicUses) ? instanceInventory.flowSchema.rootPublicUses : []),
-    ...(Array.isArray(plannedScenario?.scenario?.sourceInventory?.publicModels)
-      ? plannedScenario.scenario.sourceInventory.publicModels
-      : []),
-    ...(Array.isArray(plannedScenario?.scenario?.sourceInventory?.publicTreeRoots)
-      ? plannedScenario.scenario.sourceInventory.publicTreeRoots
-      : []),
   ]);
 
   const buildSpec = normalizeBuildSpec({

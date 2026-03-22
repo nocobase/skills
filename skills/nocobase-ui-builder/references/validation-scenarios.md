@@ -27,7 +27,6 @@ validation 默认走动态场景规划，不再依赖固定 case registry。
    - 通过 `PostFlowmodels_schemabundle`（`uses=['BlockGridModel']`）拿到实例真实可用的 root blocks 候选清单
    - 再用 `PostFlowmodels_schemas`（`uses=<root blocks>`）拉回这些区块的 `dynamicHints / contextRequirements / unresolvedReason` 等信息
    - 选块会同时看业务领域、页面原型、请求关键词，以及上述动态 hints 的语义标签
-   - 只有当无法探测实例清单、且显式配置 `NOCOBASE_SOURCE_ROOT` 时，才回退到源码 inventory 的 `publicTreeRoots`
 
 ## 实例清单来源（MCP）
 
@@ -58,10 +57,8 @@ validation 默认走动态场景规划，不再依赖固定 case registry。
 - `generatedCoverage`
 - `randomPolicy`
 - `instanceInventory`
-- `sourceInventory`（可选）
 
 其中 `instanceInventory.flowSchema.publicUseCatalog` 会记录实例里抽出的 public root block 语义摘要，供复盘和后续调优使用。
-当同时开启源码 inventory 时，`sourceInventory.publicUseCatalog` 可作为补充证据，但不应作为“是否可用”的最终依据。
 
 这些字段会写进 `compileArtifact.json`，并由 `nocobase-ui-validation-review` 直接展示。
 

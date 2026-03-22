@@ -1,21 +1,33 @@
 # UI API 概览
 
-本 reference 说明如何通过 Swagger 生成的 MCP 工具构建 NocoBase Modern page (v2) UI。
+这个文档是 `nocobase-ui-builder` 的 API / lifecycle 事实源，覆盖工具映射、请求格式、schema-first 探测、页面生命周期、写入策略与 readback。
 
-在按本 reference 执行任何 MCP 调用前，先按 `SKILL.md` 中“执行日志”章节初始化 `tool_journal.mjs`，并在每次工具调用后追加日志记录。任务结束后，默认都要执行一次 `tool_review_report.mjs render`，生成复盘与自动改进产物。
+日志、phase/gate、review/improve 看 [ops-and-review.md](ops-and-review.md)；block/pattern 细节看 [blocks/index.md](blocks/index.md) 和 [patterns/index.md](patterns/index.md)。
 
-这个文件只覆盖 API 生命周期、请求格式、探测顺序与读写节奏。区块级细节不要继续堆在这里，按下面入口查阅：
+## 1. 先读本地 graph，再读运行时 schema
 
-- 区块入口：[blocks/index.md](blocks/index.md)
-- 横切模式入口：[patterns/index.md](patterns/index.md)
+如果只是要核对某个模型 / slot 结构，优先读：
 
-## 1. MCP 工具映射
+- [flow-schemas/index.md](flow-schemas/index.md)
+- `flow-schemas/manifest.json`
+- `flow-schemas/models/<UseName>.json`
+- `flow-schemas/catalogs/<OwnerUse>.<slot>.json`
 
-当前这组 UI API 相关工具名通常为：
+只有以下情况才回退到运行时 schema 工具：
+
+- 本地 graph 缺少目标 `use`
+- 本地 graph 与当前实例行为明显冲突
+- 当前任务涉及 graph 未覆盖的新模型或新插件结构
+
+`PostFlowmodels_schemabundle` 仍保留给 root block 发现与当前实例结构探测；本地 graph 主要替代常规 `flowModels:schemas` 查阅。
+
+## 2. MCP 工具映射
 
 - `PostDesktoproutes_createv2` -> `POST /desktopRoutes:createV2`
 - `PostDesktoproutes_destroyv2` -> `POST /desktopRoutes:destroyV2`
 - `PostDesktoproutes_updateorcreate` -> `POST /desktopRoutes:updateOrCreate`
+- `GetDesktoproutes_getaccessible` -> `GET /desktopRoutes:getAccessible`
+- `GetDesktoproutes_listaccessible` -> `GET /desktopRoutes:listAccessible`
 - `GetFlowmodels_findone` -> `GET /flowModels:findOne`
 - `GetFlowmodels_schema` -> `GET /flowModels:schema`
 - `PostFlowmodels_schemas` -> `POST /flowModels:schemas`
@@ -28,13 +40,11 @@
 - `PostFlowmodels_attach` -> `POST /flowModels:attach`
 - `PostFlowmodels_duplicate` -> `POST /flowModels:duplicate`
 
-调用 MCP 时要使用精确的工具名，不要传 REST 路径。
+调用 MCP 时只用精确工具名，不要传 REST 路径。
 
-如果当前会话里暴露出来的工具名不同，以实际 MCP 工具列表为准，但不要把 REST 路径直接当成工具名调用。
+## 3. 请求格式
 
-## 2. 请求格式规则
-
-使用 query 参数的工具，会暴露为 MCP 顶层参数：
+query 参数工具暴露成 MCP 顶层参数，例如：
 
 ```json
 {
@@ -44,7 +54,7 @@
 }
 ```
 
-使用请求体的工具，会暴露一个 `requestBody` 字段：
+请求体工具暴露 `requestBody`，不要再套 `values`：
 
 ```json
 {
@@ -54,78 +64,48 @@
 }
 ```
 
-关键点：
+强规则：
 
 - 不要发送 `requestBody: { "values": ... }`
-- 要把原始 HTTP JSON 请求体直接放进 `requestBody`
-- NocoBase `resourcer` 会在内部把该 POST 请求体包装到 `ctx.action.params.values`
+- 原始 HTTP JSON 请求体直接放进 `requestBody`
+- NocoBase `resourcer` 会在内部包装到 `ctx.action.params.values`
 
-## 3. 先探测，再写入
+## 4. schema-first 探测顺序
 
-任何写操作之前，都按以下顺序读取探测文档：
+任何写操作前都遵循下面顺序：
 
-1. `PostFlowmodels_schemabundle`
-2. 如果目标 `use` 已知，先查 [flow-schemas/index.md](flow-schemas/index.md) 与本地 `models/<UseName>.json`
-3. 如果要看某个 `subModels.<slot>` 的候选 use，再补读 `catalogs/<OwnerUse>.<slot>.json`
-4. 只有本地 graph 缺少目标 `use`、或本地 schema 与当前实例行为明显冲突时，才补 `PostFlowmodels_schemas`
-5. 如果中途新增了目标 use，且本地 graph 里仍没有，再补一次增量 `PostFlowmodels_schemas`
-6. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
-7. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照，作为本轮默认唯一的写前 snapshot
+1. 先读本地 graph
+2. `PostFlowmodels_schemabundle`
+3. 收敛本轮目标 public `use`
+4. 用一次 `PostFlowmodels_schemas` 拉齐目标 `use`
+5. 中途发现漏掉的 `use` 时，补一次增量 `PostFlowmodels_schemas`
+6. 只有仍未消歧时，才调用 `GetFlowmodels_schema`
+7. 对当前目标树做一次写前 `GetFlowmodels_findone`
 
-推荐的 `schemaBundle` 请求起点：
+常见 `schemaBundle` 起手式：
 
 ```json
 {
   "requestBody": {
-    "uses": [
-      "PageModel",
-      "FilterFormBlockModel",
-      "TableBlockModel",
-      "DetailsBlockModel",
-      "CreateFormModel",
-      "EditFormModel",
-      "ActionModel"
-    ]
+    "uses": ["PageModel", "FilterFormBlockModel", "TableBlockModel", "DetailsBlockModel", "CreateFormModel", "EditFormModel", "ActionModel"]
   }
 }
 ```
 
-这个 `uses` 列表是常见起点，不是固定白名单。本次任务如果还涉及 tab、popup、关系区块、引用区块或其他公共模型，应按任务动态追加。
+这个 `uses` 列表不是白名单；本轮涉及 tab、popup、关系区块、引用区块或 JS/public blocks 时按任务追加。
 
-补充规则：
+## 5. live snapshot 读取节奏
 
-- 如果只是想看某个具体 `use` 的 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`、`commonPatterns` 或 `stepParams` 结构，默认先读本地 `flow-schemas/models/<UseName>.json`
-- `models/<UseName>.json` 只保留 metadata + refs；需要具体结构时，再按里面的 `artifactRef` 继续读 `artifacts/`
-- 如果要按某条模型路径继续下钻，优先用 `node scripts/flow_schema_graph.mjs hydrate-branch --graph-dir references/flow-schemas --root-use <UseName> --path <slot/use/...>`，而不是一次性把多个 artifact 展开到会话里
-- 同一写入阶段里，优先把目标 use 合并进一次 `PostFlowmodels_schemas`；只有发现遗漏 use 时，才补一次增量 `PostFlowmodels_schemas`。
-- `GetFlowmodels_schema` 只作为 `schemas` 之后仍未消歧的兜底，不要把多个目标 use 直接拆成多次单模型深挖。
-- 对同一目标 live tree，默认只做一次写前 `GetFlowmodels_findone` 和一次写后 `GetFlowmodels_findone`；如果额外读取，必须能说明是目标树切换、校验不同子树、返回不一致，或失败排查。
-- 不要为了“保险起见”连续重复读取同一个 grid/page；如果只是目标 use 变多了，先补 `PostFlowmodels_schemas`。
-- 不要一次性把 `flow-schemas/artifacts/` 下的多个大 JSON 展开到会话里；默认一轮只读取当前任务相关的单个 `use` 和必要的 1 到 2 个 catalog / artifact
+对同一目标 live tree，默认只保留两次 `GetFlowmodels_findone`：
 
-探测结果里重点关注：
+1. 写前一次：当前阶段唯一基线
+2. 写后一次：确认结果是否真正落库
 
-- `minimalExample`
-- `skeleton`
-- `jsonSchema`
-- `commonPatterns`
-- `dynamicHints`
+只有目标树切换、核对不同子树、服务端返回与 live tree 不一致、或当前在排查失败时，才允许额外读取。不要因为“保险起见”反复读同一个 page/grid。
 
-判定规则：
+## 6. 页面初始化生命周期
 
-- 如果 `dynamicHints` 出现，但同一 slot 已经有更具体的 `jsonSchema`、具体 child schema、allowed uses 或最小示例，就按这些更具体的信息构造
-- 只有当目标 slot 仍停留在泛型 / 未解析状态时，才不要从零开始凭空构造那个子树
-- 默认不要先读样板页；只有当 schema-first 仍不足，或 schema 与当前实例 live tree 明显不一致时，才读取样板页作为 fallback
-- 默认保持“写前一次、写后一次”的 live snapshot 节奏；额外读取时要在日志里说明为什么默认节奏不足
-
-如果当前任务已经进入某个具体区块或复杂模式，不要只停留在本总览文档；继续转到：
-
-- 区块文档：[blocks/index.md](blocks/index.md)
-- 横切模式文档：[patterns/index.md](patterns/index.md)
-
-## 4. 页面初始化生命周期
-
-用 `PostDesktoproutes_createv2` 创建页面壳：
+`PostDesktoproutes_createv2` 用来初始化 Modern page (v2) 页面壳：
 
 ```json
 {
@@ -138,58 +118,35 @@
 }
 ```
 
-`schemaUid` 可以是 opaque 值。在这个 skill 里，优先通过 `scripts/opaque_uid.mjs reserve-page` 预留，不要手写语义化值。
+`schemaUid` 默认通过 [opaque-uid.md](opaque-uid.md) 的 `reserve-page` 生成，不要手写语义化值。
 
-关键补充：
+它会创建或保证以下对象存在：
 
-- `createV2.requestBody.parentId` 是 desktop route id，不是页面 `schemaUid`
-- 如果需要把多个 Modern page 放到同一个菜单组，先用 `PostDesktoproutes_updateorcreate` 创建或复用一个 `type=group` 的 desktop route，再把它的 route id 传给 `createV2.parentId`
-- `group` 菜单允许通过旧 desktopRoutes 路由接口维护；Modern page 壳本身仍然只能通过 `PostDesktoproutes_createv2`
+- page route
+- `tabs-{schemaUid}` 隐藏默认 tab route
+- 对应 `uiSchemas` FlowRoute 壳
+- `{schemaUid} -> page` flow model 根节点
+- `tabs-{schemaUid} -> grid` 默认 grid 根节点
 
-创建或复用 group 的典型请求：
+关键约束：
 
-```json
-{
-  "filterKeys": ["schemaUid"],
-  "requestBody": {
-    "type": "group",
-    "schemaUid": "g7n4x9p2q5ra",
-    "title": "Approval Center",
-    "parentId": null
-  }
-}
-```
+- 相同 `schemaUid + title + icon + parentId` 时具备幂等性
+- 相同 `schemaUid` 但关键字段不同会返回 `409`
+- 它不是修复接口
+- 它不代表页面已经可打开
 
-这个操作会创建或保证以下对象存在：
+## 7. route-ready
 
-- 带 `schemaUid` 的页面路由
-- `schemaUid = tabs-{schemaUid}` 的隐藏默认页签路由
-- `x-component = FlowRoute` 的 `uiSchemas` 根节点
-- 挂在父节点 `{schemaUid}` 下、`subKey = page`、`use = RootPageModel` 的 `flowModels` object child
-- 挂在父节点 `tabs-{schemaUid}` 下、`subKey = grid`、`use = BlockGridModel` 的 `flowModels` object child
+`createV2` 成功后，至少还要满足其一，才算 route-ready：
 
-当页面 `schemaUid = k7n4x9p2q5ra` 时：
+- `GetDesktoproutes_getaccessible({ filterByTk: "<schemaUid>" })` 能读到新页面
+- `GetDesktoproutes_listaccessible({ tree: true })` 中能看到 page route 和 `tabs-{schemaUid}` 子 route
 
-- 页面路由 schema uid: `k7n4x9p2q5ra`
-- 菜单 schema uid: `menu-k7n4x9p2q5ra`
-- 默认隐藏页签路由 schema uid: `tabs-k7n4x9p2q5ra`
-- 默认隐藏页签 schema name: `tab-k7n4x9p2q5ra`
+没有 route-ready 证据时，只能报 `page shell created`，不能报 `ready` 或 `payload already works`。
 
-只有以下关键字段完全一致时，`PostDesktoproutes_createv2` 才具备幂等性：
+`PostDesktoproutes_updateorcreate` 只在页面路由本身需要 update-or-create 时使用；它不是 `createV2` 的替代品，也不替代 page/grid anchor 的生命周期检查。
 
-- `schemaUid`
-- `title`
-- `icon`
-- `parentId`
-
-行为如下：
-
-- 值完全相同：返回现有页面 / defaultTab
-- 同一个 `schemaUid` 但值不同：返回 `409`
-
-不要把 `createV2` 当成修复接口。
-
-## 5. 读取页面
+## 8. 读取页面
 
 读取页面根节点：
 
@@ -201,7 +158,7 @@
 }
 ```
 
-读取默认页签网格：
+读取默认页签 grid：
 
 ```json
 {
@@ -211,21 +168,33 @@
 }
 ```
 
-如果是可见页签或自定义页签，就使用明确的 `tabSchemaUid` 去读取对应 `grid`。
+显式 tab 场景下，使用明确的 `tabSchemaUid` 读取对应 `grid`。
 
-## 6. 写入策略
+## 9. 写入策略与 readback
 
-默认写入策略如下：
+- 多步事务、`$ref` 串联、可重试 upsert：优先 `PostFlowmodels_mutate`
+- 单个已知模型/树且已有实时快照：优先 `PostFlowmodels_save`
+- object child 缺失且 schema 已证明本应存在：才用 `PostFlowmodels_ensure`
+- 排序只用 `PostFlowmodels_move`
+- 删除已知子树只用 `PostFlowmodels_destroy`
+- `PostFlowmodels_duplicate` 是遗留接口；确实需要复制时，优先考虑 `mutate + duplicate`
 
-- 事务性创建 / 更新序列优先使用 `PostFlowmodels_mutate`
-- 在保留实时快照的前提下，回写单个已知模型 / 树时优先使用 `PostFlowmodels_save`
-- 只有当探测结果表明某个 object child 本应存在但当前缺失时，才使用 `PostFlowmodels_ensure`
-- 兄弟节点排序调整只使用 `PostFlowmodels_move`
-- 删除单个已知子树 uid 时只使用 `PostFlowmodels_destroy`
+以下写操作成功后，都必须立刻做同目标 readback：
 
-`PostFlowmodels_duplicate` 是遗留且非确定性的接口。只有在确实需要复制时，才优先考虑用 `PostFlowmodels_mutate` 配合 `duplicate` 操作和显式 `targetUid`。
+- `PostFlowmodels_save`
+- `PostFlowmodels_ensure`
+- `PostFlowmodels_mutate`
 
-## 7. 删除页面
+对账规则：
+
+- 以后续同目标 `GetFlowmodels_findone` 为准
+- `ok` 只代表请求提交成功，不代表最终状态
+- 显式 tabs 至少对账 tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`
+- selector/dataScope 至少对账 `filterByTk` / `dataScope` 是否漂移
+
+readback mismatch 时，默认降级为 `partial` 或 `failed`。
+
+## 10. 删除页面
 
 使用 `PostDesktoproutes_destroyv2`：
 
@@ -237,10 +206,8 @@
 }
 ```
 
-该操作会删除：
+可选校验：
 
-- 页面路由及其子路由
-- 页面对应的 `uiSchemas` FlowRoute 壳
-- 通过 destroy hooks 清理 page 和 default-tab 的 flow model anchors
-
-该接口是幂等的；即便页面已经不存在，也仍会返回 `{ "ok": true }`。
+- page route 已不存在
+- `parentId={schemaUid}, subKey=page` 返回 `null`
+- `parentId=tabs-{schemaUid}, subKey=grid` 返回 `null`

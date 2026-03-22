@@ -77,8 +77,3 @@ return value;
 - 本文解决 `JSColumnModel` 自定义 RunJS 列
 
 不要把两者混成同一种列渲染逻辑。
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/fields/specific/js-column.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/render.md`

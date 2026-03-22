@@ -47,8 +47,3 @@ ctx.element.innerHTML = '<div>Preview</div>';
 
 - 需要字段值同步但不占字段槽位：`JSItemModel`
 - 需要读写某个字段值本身：`JSFieldModel`
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/fields/specific/js-item.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/context/render.md`

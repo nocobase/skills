@@ -78,8 +78,3 @@ return value;
 
 - `ctx.element` 只作为容器概念或特例说明保留
 - `return value` 不能替代渲染动作
-
-## 来源
-
-- `~/auto_works/nocobase/docs/docs/cn/interface-builder/runjs.md`
-- `~/auto_works/nocobase/docs/docs/cn/runjs/index.md`
