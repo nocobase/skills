@@ -171,4 +171,19 @@ test('page spec splitter decomposes numbered multi-page requests into page-level
   assert.match(result.pageRequests[1].requestText, /审批详情页/);
   assert.deepEqual(result.pageRequests[0].explicitCollections, ['approvals']);
   assert.deepEqual(result.pageRequests[1].explicitCollections, ['approvals']);
+  assert.equal(result.systemIntent, false);
+  assert.equal(result.groupTitleHint, '审批单');
+});
+
+test('page spec splitter marks system-level single-page requests for grouped menu placement', () => {
+  const result = splitValidationRequestIntoPageSpecs({
+    caseRequest: '基于 approvals 创建一个审批工作台，展示 status applicant，并带筛选。',
+    collectionsInventory: makeInstanceInventory().collections,
+  });
+
+  assert.equal(result.requestedPageCount, 1);
+  assert.equal(result.decompositionMode, 'single-page');
+  assert.equal(result.systemIntent, true);
+  assert.equal(result.groupTitleHint, '审批工作台');
+  assert.equal(result.pageRequests.length, 1);
 });

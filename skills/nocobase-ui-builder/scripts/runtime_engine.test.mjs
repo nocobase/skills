@@ -301,6 +301,14 @@ test('spec normalization and compile derive guard requirements and readback cont
   });
 
   const compiled = compileBuildSpec(normalized);
+  assert.deepEqual(normalized.target.menuPlacement, {
+    strategy: 'root',
+    source: 'auto',
+    groupTitle: '',
+    groupReservationKey: '',
+    existingGroupRouteId: '',
+    existingGroupTitle: '',
+  });
   assert.equal(compiled.compileArtifact.requiredUses.includes('RootPageTabModel'), true);
   assert.equal(compiled.compileArtifact.requiredUses.includes('EditActionModel'), true);
   assert.deepEqual(compiled.compileArtifact.guardRequirements.requiredTabs[0].titles, ['客户概览', '跟进记录']);
@@ -366,6 +374,41 @@ test('spec normalization and compile derive guard requirements and readback cont
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].selectorContract.kind, 'any');
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].dataScopeContract.mode, 'empty');
   assert.equal(compiled.compileArtifact.primitiveTree.tabs[0].blocks[0].actions[0].popup, null);
+});
+
+test('spec normalization preserves explicit grouped menu placement', () => {
+  const normalized = normalizeBuildSpec({
+    source: '构建审批工作台',
+    target: {
+      title: '审批工作台',
+      menuPlacement: {
+        strategy: 'group',
+        source: 'explicit',
+        groupTitle: '审批工作台',
+        groupReservationKey: 'group-key-1',
+      },
+    },
+    layout: {
+      blocks: [
+        {
+          kind: 'Table',
+          collectionName: 'approvals',
+          fields: ['title', 'status'],
+        },
+      ],
+    },
+  });
+
+  const compiled = compileBuildSpec(normalized);
+  assert.deepEqual(normalized.target.menuPlacement, {
+    strategy: 'group',
+    source: 'explicit',
+    groupTitle: '审批工作台',
+    groupReservationKey: 'group-key-1',
+    existingGroupRouteId: '',
+    existingGroupTitle: '',
+  });
+  assert.deepEqual(compiled.compileArtifact.menuPlacement, normalized.target.menuPlacement);
 });
 
 test('spec normalization supports filter blocks, row actions and nested details blocks', () => {
@@ -786,6 +829,50 @@ test('validation run helper emits primitive-first ready specs when live inventor
   assert.equal(typeof result.compileArtifact.candidateShape['tabbed-multi-surface'] === 'string', true);
   assert.equal(result.compileArtifact.guardRequirements.allowedBusinessBlockUses.includes('TableBlockModel'), true);
   assert.equal(result.verifySpec.stages.length >= 1, true);
+  assert.deepEqual(result.menuPlacement, {
+    strategy: 'root',
+    source: 'auto',
+    groupTitle: '',
+    groupReservationKey: '',
+    existingGroupRouteId: '',
+    existingGroupTitle: '',
+  });
+});
+
+test('validation run helper auto-groups system-level single-page requests', async () => {
+  const result = await buildValidationSpecsForRun({
+    caseRequest: '基于 approvals 创建一个审批工作台，展示 status applicant，并带筛选。',
+    sessionId: '20260322T120000-approval-system',
+    baseSlug: 'approvals',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-system',
+    sessionDir: '/tmp/session',
+    randomSeed: 'approval-seed',
+    instanceInventory: makePrimitiveFirstInventory(),
+  });
+
+  assert.equal(result.menuPlacement.strategy, 'group');
+  assert.equal(result.menuPlacement.source, 'auto');
+  assert.equal(result.menuPlacement.groupTitle, '审批工作台');
+  assert.match(result.menuPlacement.groupReservationKey, /^[a-z][a-z0-9]{11}$/);
+  assert.deepEqual(result.compileArtifact.menuPlacement, result.menuPlacement);
+});
+
+test('validation run helper lets explicit root placement override system-level auto grouping', async () => {
+  const result = await buildValidationSpecsForRun({
+    caseRequest: '基于 approvals 创建一个审批工作台，展示 status applicant，并带筛选。',
+    sessionId: '20260322T120000-approval-root',
+    baseSlug: 'approvals',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-root',
+    sessionDir: '/tmp/session',
+    randomSeed: 'approval-seed',
+    instanceInventory: makePrimitiveFirstInventory(),
+    menuPlacement: {
+      mode: 'root',
+    },
+  });
+
+  assert.equal(result.menuPlacement.strategy, 'root');
+  assert.equal(result.menuPlacement.source, 'explicit');
 });
 
 test('validation run helper probes missing collection inventory before planning when only flow schema inventory is provided', async () => {
@@ -957,6 +1044,13 @@ test('validation run helper splits explicit multi-page requests into page-level 
   assert.deepEqual(result.pageBuilds[0].compileArtifact.targetCollections, ['approvals']);
   assert.deepEqual(result.pageBuilds[1].compileArtifact.targetCollections, ['approvals']);
   assert.equal(result.pageBuilds.every((item) => item.compileArtifact.planningStatus === 'ready'), true);
+  assert.equal(result.menuPlacement.strategy, 'group');
+  assert.equal(result.menuPlacement.groupTitle, '审批单');
+  assert.equal(result.pageBuilds.every((item) => item.menuPlacement.strategy === 'group'), true);
+  assert.equal(
+    result.pageBuilds.every((item) => item.menuPlacement.groupReservationKey === result.pageBuilds[0].menuPlacement.groupReservationKey),
+    true,
+  );
 });
 
 test('validation run helper blocks immediately when no collection inventory source is available at all', async () => {

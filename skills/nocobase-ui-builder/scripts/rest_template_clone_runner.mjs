@@ -5,6 +5,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BLOCKER_EXIT_CODE, VALIDATION_CASE_MODE, auditPayload, canonicalizePayload, extractRequiredMetadata } from './flow_payload_guard.mjs';
+import {
+  resolveEffectiveMenuPlacement,
+  resolveMenuParentRoute,
+} from './menu_placement_runtime.mjs';
 import { reservePage } from './opaque_uid.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
 import { remapTemplateTreeToTarget, summarizeModelTree } from './template_clone_helpers.mjs';
@@ -47,6 +51,10 @@ function usage() {
     '    [--url-base <http://127.0.0.1:23000 | http://127.0.0.1:23000/admin>]',
     '    [--icon <icon>]',
     '    [--parent-id <desktopRouteId>]',
+    '    [--menu-mode <auto|group|root>]',
+    '    [--menu-group-title <title>]',
+    '    [--existing-group-route-id <id>]',
+    '    [--existing-group-title <title>]',
     '    [--registry-path <path>]',
   ].join('\n');
 }
@@ -631,6 +639,23 @@ async function createPageShell({
       schemaUid,
       title,
       ...(icon ? { icon } : {}),
+      parentId: parentId || null,
+    },
+  });
+}
+
+async function upsertGroupRoute({ apiBase, token, schemaUid, title, parentId }) {
+  const params = new URLSearchParams();
+  params.append('filterKeys[]', 'schemaUid');
+  const url = `${apiBase}/api/desktopRoutes:updateOrCreate?${params.toString()}`;
+  return requestJson({
+    method: 'POST',
+    url,
+    token,
+    body: {
+      type: 'group',
+      schemaUid,
+      title,
       parentId: parentId || null,
     },
   });
@@ -1743,6 +1768,27 @@ async function runBuild(flags) {
     sessionId: session.sessionId,
     sessionRoot: session.sessionRoot,
   });
+  const effectiveMenuPlacement = resolveEffectiveMenuPlacement({
+    compileMenuPlacement: compileArtifact.raw?.menuPlacement,
+    menuPlacementOverride: flags,
+    fallbackGroupTitle: title,
+    sessionId: session.sessionId,
+  });
+  const menuParentResolution = await resolveMenuParentRoute({
+    menuPlacement: effectiveMenuPlacement,
+    requestedParentId: parentId,
+    registryPath,
+    sessionId: session.sessionId,
+    sessionRoot: session.sessionRoot,
+    upsertGroupRoute: ({ schemaUid, title: groupTitle, parentId: groupParentId }) => upsertGroupRoute({
+      apiBase,
+      token,
+      schemaUid,
+      title: groupTitle,
+      parentId: groupParentId,
+    }),
+    fetchAccessibleTree: () => fetchAccessibleTree({ apiBase, token }),
+  });
   const schemaUid = reservedPageWithSession.page.schemaUid;
   const routeSegment = schemaUid;
   const pageUrl = buildPageUrl(adminBase, routeSegment);
@@ -1761,12 +1807,30 @@ async function runBuild(flags) {
     status: 'failed',
     notes: [],
     artifactPaths: {},
+    menuPlacement: effectiveMenuPlacement,
+    pageParentId: menuParentResolution.pageParentId,
   };
+  if (menuParentResolution.groupRoute) {
+    summary.menuGroup = {
+      id: menuParentResolution.groupRoute.id ?? null,
+      schemaUid: menuParentResolution.groupRoute.schemaUid || '',
+      title: menuParentResolution.groupRoute.title || '',
+      parentId: menuParentResolution.groupRoute.parentId ?? null,
+    };
+  }
 
   writeJson(path.join(outDir, 'source-template.raw.json'), templatePayload.raw);
   writeJson(path.join(outDir, 'source-template.payload.json'), templatePayload.payload);
   summary.artifactPaths.sourceTemplateRaw = path.join(outDir, 'source-template.raw.json');
   summary.artifactPaths.sourceTemplatePayload = path.join(outDir, 'source-template.payload.json');
+  if (menuParentResolution.groupUpsertResult) {
+    writeJson(path.join(outDir, 'menu-group-upsert.json'), menuParentResolution.groupUpsertResult.raw);
+    summary.artifactPaths.menuGroupUpsert = path.join(outDir, 'menu-group-upsert.json');
+  }
+  if (menuParentResolution.accessibleTreeResult) {
+    writeJson(path.join(outDir, 'menu-placement-route-tree.json'), menuParentResolution.accessibleTreeResult.raw);
+    summary.artifactPaths.menuPlacementRouteTree = path.join(outDir, 'menu-placement-route-tree.json');
+  }
 
   const createResult = await createPageShell({
     apiBase,
@@ -1774,7 +1838,7 @@ async function runBuild(flags) {
     schemaUid,
     title: reservedPageWithSession.actualTitle,
     icon,
-    parentId,
+    parentId: menuParentResolution.pageParentId,
   });
   writeJson(path.join(outDir, 'create-v2.json'), createResult.raw);
   summary.artifactPaths.createV2 = path.join(outDir, 'create-v2.json');

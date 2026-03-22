@@ -24,6 +24,8 @@ function usage() {
     '  node scripts/opaque_uid.mjs reserve-page --title <title> [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
     '  node scripts/opaque_uid.mjs rename-page --schemaUid <schemaUid> --title <title> [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
     '  node scripts/opaque_uid.mjs resolve-page (--title <title> | --schemaUid <schemaUid>) [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
+    '  node scripts/opaque_uid.mjs reserve-group --title <title> --reservation-key <key> [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
+    '  node scripts/opaque_uid.mjs resolve-group (--reservation-key <key> | --schemaUid <schemaUid> | --title <title>) [--session-id <id>] [--session-root <path>] [--registry-path <path>]',
     '  node scripts/opaque_uid.mjs node-uids --page-schema-uid <schemaUid> --specs-json <jsonArray>',
   ].join('\n');
 }
@@ -41,6 +43,10 @@ function normalizeNonEmpty(value, label) {
     throw new Error(`${label} must not be empty`);
   }
   return normalized;
+}
+
+function normalizeOptionalText(value) {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function resolveRegistryPath(explicitPath, options = {}) {
@@ -69,6 +75,7 @@ export function createEmptyRegistry() {
   return {
     version: REGISTRY_VERSION,
     pages: [],
+    groups: [],
   };
 }
 
@@ -88,6 +95,9 @@ export function loadRegistry(registryPath, options = {}) {
   }
   if (!Array.isArray(parsed.pages)) {
     throw new Error('Registry is invalid: pages must be an array');
+  }
+  if (!Array.isArray(parsed.groups)) {
+    parsed.groups = [];
   }
 
   return parsed;
@@ -129,6 +139,14 @@ function findPageBySchemaUid(registry, schemaUid) {
   return registry.pages.find((page) => page.schemaUid === schemaUid) ?? null;
 }
 
+function findGroupBySchemaUid(registry, schemaUid) {
+  return registry.groups.find((group) => group.schemaUid === schemaUid) ?? null;
+}
+
+function findGroupByReservationKey(registry, reservationKey) {
+  return registry.groups.find((group) => group.reservationKey === reservationKey) ?? null;
+}
+
 function findTitleMatches(registry, title) {
   return registry.pages.filter((page) => page.title === title || page.aliases.includes(title));
 }
@@ -160,6 +178,20 @@ function buildPageRecord(title, logicalKey, schemaUid) {
   };
 }
 
+function buildGroupRecord(title, logicalKey, schemaUid, reservationKey) {
+  const timestamp = nowIso();
+  return {
+    logicalKey,
+    reservationKey,
+    schemaUid,
+    title,
+    aliases: [],
+    routeId: '',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 function createPageSchemaUid(registry, logicalKey) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const suffix = attempt === 0 ? logicalKey : `${logicalKey}|${attempt}`;
@@ -170,6 +202,18 @@ function createPageSchemaUid(registry, logicalKey) {
     }
   }
   throw new Error('Unable to allocate a unique page schemaUid');
+}
+
+function createGroupSchemaUid(registry, logicalKey) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const suffix = attempt === 0 ? logicalKey : `${logicalKey}|${attempt}`;
+    const schemaUid = stableOpaqueId('group-schema', suffix);
+    const existing = findGroupBySchemaUid(registry, schemaUid);
+    if (!existing || existing.logicalKey === logicalKey) {
+      return schemaUid;
+    }
+  }
+  throw new Error('Unable to allocate a unique group schemaUid');
 }
 
 export function reservePage({
@@ -283,6 +327,137 @@ export function resolvePage({
   return {
     registryPath: resolvedRegistryPath,
     page: matches[0],
+  };
+}
+
+export function reserveGroup({
+  title,
+  reservationKey,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
+  const normalizedTitle = normalizeNonEmpty(title, 'title');
+  const normalizedReservationKey = normalizeNonEmpty(reservationKey, 'reservationKey');
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, { sessionId, sessionRoot });
+  const registry = loadRegistry(resolvedRegistryPath);
+  const existing = findGroupByReservationKey(registry, normalizedReservationKey);
+
+  if (existing) {
+    if (existing.title !== normalizedTitle) {
+      const aliases = new Set(Array.isArray(existing.aliases) ? existing.aliases : []);
+      aliases.delete(normalizedTitle);
+      aliases.add(existing.title);
+      existing.title = normalizedTitle;
+      existing.aliases = [...aliases].sort();
+      existing.updatedAt = nowIso();
+      saveRegistry(resolvedRegistryPath, registry);
+    }
+    return {
+      created: false,
+      registryPath: resolvedRegistryPath,
+      group: existing,
+    };
+  }
+
+  const logicalKey = normalizedReservationKey;
+  const schemaUid = createGroupSchemaUid(registry, logicalKey);
+  const group = buildGroupRecord(normalizedTitle, logicalKey, schemaUid, normalizedReservationKey);
+  registry.groups.push(group);
+  saveRegistry(resolvedRegistryPath, registry);
+
+  return {
+    created: true,
+    registryPath: resolvedRegistryPath,
+    group,
+  };
+}
+
+export function resolveGroup({
+  reservationKey,
+  schemaUid,
+  title,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, { sessionId, sessionRoot });
+  const registry = loadRegistry(resolvedRegistryPath);
+
+  if (reservationKey) {
+    const normalizedReservationKey = normalizeNonEmpty(reservationKey, 'reservationKey');
+    const group = findGroupByReservationKey(registry, normalizedReservationKey);
+    if (!group) {
+      throw new Error(`Group reservation "${normalizedReservationKey}" was not found in the local registry`);
+    }
+    return {
+      registryPath: resolvedRegistryPath,
+      group,
+    };
+  }
+
+  if (schemaUid) {
+    const normalizedSchemaUid = normalizeNonEmpty(schemaUid, 'schemaUid');
+    const group = findGroupBySchemaUid(registry, normalizedSchemaUid);
+    if (!group) {
+      throw new Error(`Group "${normalizedSchemaUid}" was not found in the local registry`);
+    }
+    return {
+      registryPath: resolvedRegistryPath,
+      group,
+    };
+  }
+
+  const normalizedTitle = normalizeNonEmpty(title, 'title');
+  const matches = registry.groups.filter((group) => group.title === normalizedTitle || group.aliases.includes(normalizedTitle));
+  if (matches.length === 0) {
+    throw new Error(`Group title "${normalizedTitle}" was not found in the local registry`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`Group title "${normalizedTitle}" is ambiguous in the local registry`);
+  }
+
+  return {
+    registryPath: resolvedRegistryPath,
+    group: matches[0],
+  };
+}
+
+export function recordGroupRoute({
+  reservationKey,
+  schemaUid,
+  routeId,
+  title,
+  registryPath,
+  sessionId,
+  sessionRoot,
+}) {
+  const resolvedRegistryPath = resolveRegistryPath(registryPath, { sessionId, sessionRoot });
+  const registry = loadRegistry(resolvedRegistryPath);
+  const normalizedRouteId = normalizeNonEmpty(String(routeId), 'routeId');
+  const group = reservationKey
+    ? findGroupByReservationKey(registry, normalizeNonEmpty(reservationKey, 'reservationKey'))
+    : findGroupBySchemaUid(registry, normalizeNonEmpty(schemaUid, 'schemaUid'));
+  if (!group) {
+    throw new Error('Group was not found in the local registry');
+  }
+
+  const normalizedTitle = normalizeOptionalText(title);
+  if (normalizedTitle && group.title !== normalizedTitle) {
+    const aliases = new Set(Array.isArray(group.aliases) ? group.aliases : []);
+    aliases.delete(normalizedTitle);
+    aliases.add(group.title);
+    group.title = normalizedTitle;
+    group.aliases = [...aliases].sort();
+  }
+
+  group.routeId = normalizedRouteId;
+  group.updatedAt = nowIso();
+  saveRegistry(resolvedRegistryPath, registry);
+
+  return {
+    registryPath: resolvedRegistryPath,
+    group,
   };
 }
 
@@ -412,6 +587,23 @@ export async function runCli(argv = process.argv.slice(2)) {
     case 'resolve-page':
       result = resolvePage({
         title: flags.title,
+        schemaUid: flags.schemaUid,
+        registryPath,
+        ...sessionOptions,
+      });
+      break;
+    case 'reserve-group':
+      result = reserveGroup({
+        title: flags.title,
+        reservationKey: flags['reservation-key'],
+        registryPath,
+        ...sessionOptions,
+      });
+      break;
+    case 'resolve-group':
+      result = resolveGroup({
+        title: flags.title,
+        reservationKey: flags['reservation-key'],
         schemaUid: flags.schemaUid,
         registryPath,
         ...sessionOptions,

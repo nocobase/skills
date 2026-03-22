@@ -17,6 +17,12 @@
 
 ## 1. 初始化探测
 
+如果当前任务已经明确目标 `use`，或只是要核对某个模型的详细结构，先读本地 snapshot：
+
+- 索引：[flow-schemas/index.md](flow-schemas/index.md)
+- 清单：`flow-schemas/manifest.json`
+- 目标 schema：`flow-schemas/by-use/<UseName>.json`
+
 先抓取紧凑的 bundle：
 
 ```json
@@ -60,6 +66,7 @@
 
 执行规则：
 
+- 本地 snapshot 已覆盖目标 `use` 时，优先直接读取 `flow-schemas/by-use/<UseName>.json`，不要为了“看一下结构”就先调 `PostFlowmodels_schemas`
 - 先把本阶段目标 use 尽量收敛进一次 `PostFlowmodels_schemas`
 - 如果中途新增了目标 use，先补一次增量 `PostFlowmodels_schemas`
 - 只有 `schemas` 之后仍不能确定时，再针对具体 use 调 `GetFlowmodels_schema`

@@ -1,7 +1,7 @@
 ---
 name: nocobase-ui-builder
 description: 通过 MCP 构建和更新 NocoBase Modern page (v2) UI。用户要创建页面，或通过 desktopRoutes v2 与 flowModels MCP 工具修改现有页面区块时使用。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, scripts/tool_review_report.mjs, and scripts/spec_contracts.mjs
+allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/opaque_uid.mjs, scripts/flow_payload_guard.mjs, scripts/tool_journal.mjs, scripts/tool_review_report.mjs, scripts/spec_contracts.mjs, and scripts/menu_placement_runtime.mjs
 ---
 
 # 目标
@@ -12,6 +12,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 - `PostDesktoproutes_createv2`
 - `PostDesktoproutes_destroyv2`
+- `PostDesktoproutes_updateorcreate`
 - `GetDesktoproutes_getaccessible`
 - `GetDesktoproutes_listaccessible`
 - `GetFlowmodels_findone`
@@ -26,7 +27,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 - `PostFlowmodels_attach`
 - `PostFlowmodels_duplicate`
 
-只要这些 MCP 工具名可用，就必须原样使用。不要把 `flowModels:schemaBundle` 或 `desktopRoutes:createV2` 当成真正的工具名本身。
+只要这些 MCP 工具名可用，就必须原样使用。不要把 `flowModels:schemaBundle`、`desktopRoutes:createV2` 或 `desktopRoutes:updateOrCreate` 当成真正的工具名本身。
 
 V1 默认采用 schema-first 的渐进支持策略：
 
@@ -447,6 +448,12 @@ NocoBase `resourcer` 的关键实现细节：
 - 挂在 `schemaUid -> page` 下的 flow model 根节点
 - 挂在 `tabs-{schemaUid} -> grid` 下的 flow model 根节点
 
+补充菜单分组规则：
+
+- `createV2.requestBody.parentId` 必须是 desktop route id，不是 `schemaUid`
+- 需要把多个 v2 页面放到同一菜单组时，先用 `PostDesktoproutes_updateorcreate` 创建或复用 `type=group` 的 desktop route，再把该 group route id 作为 `createV2.parentId`
+- group 本身可以用旧 desktopRoutes 路由接口维护；v2 页面壳仍只能用 `PostDesktoproutes_createv2`
+
 它不是修复接口。如果页面已经存在：
 
 - 相同 `schemaUid` 且关键字段一致，会返回现有页面
@@ -481,6 +488,9 @@ NocoBase `resourcer` 的关键实现细节：
   - `node scripts/opaque_uid.mjs rename-page --schemaUid "k7n4x9p2q5ra" --title "Orders Admin"`
 - 批量生成稳定的 opaque 节点 uid：
   - `node scripts/opaque_uid.mjs node-uids --page-schema-uid "k7n4x9p2q5ra" --specs-json '[{"key":"ordersTable","use":"TableBlockModel","path":"block:table:orders:main"},{"key":"ordersCreateForm","use":"CreateFormModel","path":"block:create-form:orders:main"}]'`
+- 预留或解析菜单组：
+  - `node scripts/opaque_uid.mjs reserve-group --title "审批系统" --reservation-key "session-approval:group"`
+  - `node scripts/opaque_uid.mjs resolve-group --reservation-key "session-approval:group"`
 
 规则：
 
@@ -525,11 +535,14 @@ NocoBase `resourcer` 的关键实现细节：
 ## 创建页面
 
 1. 确认 `title`，以及可选的 `parentId` / `icon`
+   - 如果本轮目标是“系统 / 工作台 / 多页面集合”，默认先决定是否需要 group；单页默认不分组，除非显式指定
+   - 如果需要 group，先创建或复用 `type=group` 的 desktop route，并记住它的 route id；后续 `createV2.parentId` 传这个 route id
 2. 运行辅助脚本：
    - `node scripts/opaque_uid.mjs reserve-page --title "<title>"`
 3. 读取返回的 `schemaUid`
 4. 调用 `PostDesktoproutes_createv2`：
    - `requestBody: { schemaUid, title, parentId, icon }`
+   - 这里的 `parentId` 是目标父菜单的 desktop route id；如果页面属于某个菜单组，这里必须传 group route id
 5. 立即做 route-ready 检查，至少满足其一：
    - `GetDesktoproutes_getaccessible({ filterByTk: "<schemaUid>" })` 能读到新页面
    - 或 `GetDesktoproutes_listaccessible({ tree: true })` 中能看到：
@@ -702,7 +715,8 @@ validation 主入口现在默认不再优先命中任何固定 case。
 
 # 安全规则
 
-- 同一个页面初始化流程里，绝不要把旧版 `desktopRoutes:create` 和 `PostDesktoproutes_createv2` 混用
+- 不要用旧版 `desktopRoutes:create` / `desktopRoutes:updateOrCreate` 去创建 v2 页面壳
+- 允许先用旧版 desktopRoutes 路由接口创建 `type=group`，再用 `PostDesktoproutes_createv2` 把页面挂到该 group 下
 - 绝不要把 `PostDesktoproutes_createv2` 当修复接口使用
 - 绝不要把 `PostDesktoproutes_createv2` + flowModels 锚点存在，误报成“页面已可打开”
 - 绝不要提交实时探测已标记为内部或未解析的模型 use

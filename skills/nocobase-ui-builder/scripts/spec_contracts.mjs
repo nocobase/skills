@@ -16,6 +16,7 @@ import {
   splitValidationRequestIntoPageSpecs,
 } from './validation_scenario_planner.mjs';
 import { probeInstanceInventory } from './instance_inventory_probe.mjs';
+import { stableOpaqueId } from './opaque_uid.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
@@ -42,6 +43,9 @@ const ACTION_USE_BY_KIND = {
 const SUPPORTED_BLOCK_KINDS = new Set(['Filter', 'Table', 'Details', 'Form', 'PublicUse']);
 const SUPPORTED_REQUIRED_ACTION_SCOPES = new Set(['block-actions', 'row-actions', 'details-actions', 'either']);
 const METADATA_TRUST_LEVELS = new Set(['live', 'stable', 'cache', 'artifact', 'unknown', 'not-required']);
+const MENU_PLACEMENT_STRATEGIES = new Set(['root', 'group']);
+const MENU_PLACEMENT_SOURCES = new Set(['auto', 'explicit', 'explicit-reuse']);
+const MENU_PLACEMENT_MODES = new Set(['auto', 'group', 'root']);
 
 function resolveActionUse(kind) {
   const resolvedUse = ACTION_USE_BY_KIND[kind];
@@ -57,7 +61,7 @@ function usage() {
     '  node scripts/spec_contracts.mjs normalize-build-spec (--input-json <json> | --input-file <path>)',
     '  node scripts/spec_contracts.mjs normalize-verify-spec (--input-json <json> | --input-file <path>)',
     '  node scripts/spec_contracts.mjs compile-build-spec (--input-json <json> | --input-file <path>)',
-    '  node scripts/spec_contracts.mjs build-validation-specs --case-request <text> --session-id <id> --candidate-page-url <url> [--base-slug <slug>] [--session-dir <path>] [--random-seed <seed>] [--instance-inventory-file <path> | --instance-inventory-json <json>]',
+    '  node scripts/spec_contracts.mjs build-validation-specs --case-request <text> --session-id <id> --candidate-page-url <url> [--base-slug <slug>] [--session-dir <path>] [--random-seed <seed>] [--instance-inventory-file <path> | --instance-inventory-json <json>] [--menu-mode <auto|group|root>] [--menu-group-title <title>] [--existing-group-route-id <id>] [--existing-group-title <title>]',
   ].join('\n');
 }
 
@@ -140,6 +144,204 @@ function uniqueStrings(values) {
       .map((item) => item.trim())
       .filter(Boolean),
   )];
+}
+
+function humanizeSlug(value) {
+  const normalized = normalizeOptionalText(value);
+  if (!normalized) {
+    return '';
+  }
+  if (/[^\x00-\x7F]/.test(normalized)) {
+    return normalized;
+  }
+  return normalized
+    .split(/[-_]+/g)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
+function humanizeCollectionTitle(collectionMeta) {
+  const rawTitle = normalizeOptionalText(collectionMeta?.title);
+  if (!rawTitle) {
+    return normalizeOptionalText(collectionMeta?.name);
+  }
+  const translated = rawTitle.match(/\{\{t\("([^"]+)"\)\}\}/);
+  if (translated?.[1]) {
+    return translated[1];
+  }
+  return rawTitle.replace(/[{}]/g, '') || normalizeOptionalText(collectionMeta?.name);
+}
+
+function normalizeMenuPlacementMode(value) {
+  const normalized = normalizeOptionalText(value) || 'auto';
+  return MENU_PLACEMENT_MODES.has(normalized) ? normalized : 'auto';
+}
+
+function normalizeMenuPlacementOverride(input) {
+  if (!input || typeof input !== 'object') {
+    return {
+      mode: 'auto',
+      groupTitle: '',
+      existingGroupRouteId: '',
+      existingGroupTitle: '',
+    };
+  }
+  return {
+    mode: normalizeMenuPlacementMode(input.mode),
+    groupTitle: normalizeOptionalText(input.groupTitle),
+    existingGroupRouteId: normalizeOptionalText(input.existingGroupRouteId),
+    existingGroupTitle: normalizeOptionalText(input.existingGroupTitle),
+  };
+}
+
+export function buildMenuGroupReservationKey({
+  sessionId,
+  groupTitle,
+  source = 'auto',
+}) {
+  return stableOpaqueId(
+    'menu-group-reservation',
+    `${normalizeNonEmpty(sessionId, 'session id')}|${normalizeNonEmpty(groupTitle, 'group title')}|${normalizeOptionalText(source) || 'auto'}`,
+  );
+}
+
+export function normalizeMenuPlacement(input, options = {}) {
+  const raw = input && typeof input === 'object' ? input : {};
+  const targetTitle = normalizeOptionalText(options.targetTitle);
+  const strategy = MENU_PLACEMENT_STRATEGIES.has(normalizeOptionalText(raw.strategy))
+    ? normalizeOptionalText(raw.strategy)
+    : 'root';
+  const sourceCandidate = normalizeOptionalText(raw.source) || (strategy === 'root' ? 'auto' : 'auto');
+  const source = MENU_PLACEMENT_SOURCES.has(sourceCandidate)
+    ? sourceCandidate
+    : (strategy === 'root' ? 'auto' : 'auto');
+
+  if (strategy === 'root') {
+    return {
+      strategy: 'root',
+      source: source === 'explicit' ? 'explicit' : 'auto',
+      groupTitle: '',
+      groupReservationKey: '',
+      existingGroupRouteId: '',
+      existingGroupTitle: '',
+    };
+  }
+
+  const existingGroupRouteId = normalizeOptionalText(raw.existingGroupRouteId);
+  const existingGroupTitle = normalizeOptionalText(raw.existingGroupTitle);
+  const groupTitle = normalizeOptionalText(raw.groupTitle) || (source === 'explicit-reuse' ? '' : targetTitle);
+  const groupReservationKey = normalizeOptionalText(raw.groupReservationKey);
+
+  if (source === 'explicit-reuse' && !existingGroupRouteId && !existingGroupTitle) {
+    throw new Error('target.menuPlacement requires existingGroupRouteId or existingGroupTitle when source is explicit-reuse');
+  }
+  if (source !== 'explicit-reuse' && !groupTitle) {
+    throw new Error('target.menuPlacement.groupTitle must not be empty when strategy is group');
+  }
+
+  return {
+    strategy: 'group',
+    source,
+    groupTitle,
+    groupReservationKey,
+    existingGroupRouteId,
+    existingGroupTitle,
+  };
+}
+
+function pickMenuGroupTitleFromCollections(collectionNames, instanceInventory) {
+  const normalizedNames = uniqueStrings(collectionNames);
+  const collectionMap = instanceInventory?.collections?.byName && typeof instanceInventory.collections.byName === 'object'
+    ? instanceInventory.collections.byName
+    : {};
+  for (const name of normalizedNames) {
+    const collectionMeta = collectionMap[name];
+    if (!collectionMeta) {
+      continue;
+    }
+    const title = humanizeCollectionTitle(collectionMeta);
+    if (title) {
+      return title;
+    }
+  }
+  return normalizedNames[0] || '';
+}
+
+function resolveMenuPlacementForRun({
+  requestText,
+  sessionId,
+  baseSlug,
+  instanceInventory,
+  pageSpecPlan,
+  menuPlacementOverride,
+}) {
+  const override = normalizeMenuPlacementOverride(menuPlacementOverride);
+  const pageRequests = Array.isArray(pageSpecPlan?.pageRequests) ? pageSpecPlan.pageRequests : [];
+  const pageCount = pageRequests.length;
+  const collectionNames = uniqueStrings([
+    ...pageRequests.flatMap((pageRequest) => Array.isArray(pageRequest?.explicitCollections) ? pageRequest.explicitCollections : []),
+  ]);
+  const autoGroupTitle = normalizeOptionalText(pageSpecPlan?.groupTitleHint)
+    || pickMenuGroupTitleFromCollections(collectionNames, instanceInventory)
+    || humanizeSlug(baseSlug)
+    || humanizeSlug(requestText.split(/[\s，。；:：]/)[0])
+    || 'System';
+
+  if (override.mode === 'root') {
+    return normalizeMenuPlacement({
+      strategy: 'root',
+      source: 'explicit',
+    });
+  }
+
+  if (override.mode === 'group') {
+    if (override.existingGroupRouteId || override.existingGroupTitle) {
+      return normalizeMenuPlacement({
+        strategy: 'group',
+        source: 'explicit-reuse',
+        existingGroupRouteId: override.existingGroupRouteId,
+        existingGroupTitle: override.existingGroupTitle,
+        groupTitle: override.groupTitle,
+      }, {
+        targetTitle: autoGroupTitle,
+      });
+    }
+    const groupTitle = override.groupTitle || autoGroupTitle;
+    return normalizeMenuPlacement({
+      strategy: 'group',
+      source: 'explicit',
+      groupTitle,
+      groupReservationKey: buildMenuGroupReservationKey({
+        sessionId,
+        groupTitle,
+        source: 'explicit',
+      }),
+    }, {
+      targetTitle: groupTitle,
+    });
+  }
+
+  const shouldGroup = pageCount > 1 || pageSpecPlan?.systemIntent === true;
+  if (!shouldGroup) {
+    return normalizeMenuPlacement({
+      strategy: 'root',
+      source: 'auto',
+    });
+  }
+
+  return normalizeMenuPlacement({
+    strategy: 'group',
+    source: 'auto',
+    groupTitle: autoGroupTitle,
+    groupReservationKey: buildMenuGroupReservationKey({
+      sessionId,
+      groupTitle: autoGroupTitle,
+      source: 'auto',
+    }),
+  }, {
+    targetTitle: autoGroupTitle,
+  });
 }
 
 function normalizeSource(rawSource, fallbackText) {
@@ -832,16 +1034,22 @@ export function normalizeBuildSpec(input) {
   return {
     version: BUILD_SPEC_VERSION,
     source,
-    target: {
-      title: typeof targetInput.title === 'string' && targetInput.title.trim() ? targetInput.title.trim() : '',
-      buildPolicy: typeof targetInput.buildPolicy === 'string' && targetInput.buildPolicy.trim()
-        ? targetInput.buildPolicy.trim()
-        : 'fresh',
-      schemaUidCandidate: typeof targetInput.schemaUidCandidate === 'string' ? targetInput.schemaUidCandidate.trim() : '',
-      routeSegmentCandidate: typeof targetInput.routeSegmentCandidate === 'string' ? targetInput.routeSegmentCandidate.trim() : '',
-      candidatePageUrl: typeof targetInput.candidatePageUrl === 'string' ? targetInput.candidatePageUrl.trim() : '',
-      pageUse: layout.pageUse,
-    },
+    target: (() => {
+      const normalizedTarget = {
+        title: typeof targetInput.title === 'string' && targetInput.title.trim() ? targetInput.title.trim() : '',
+        buildPolicy: typeof targetInput.buildPolicy === 'string' && targetInput.buildPolicy.trim()
+          ? targetInput.buildPolicy.trim()
+          : 'fresh',
+        schemaUidCandidate: typeof targetInput.schemaUidCandidate === 'string' ? targetInput.schemaUidCandidate.trim() : '',
+        routeSegmentCandidate: typeof targetInput.routeSegmentCandidate === 'string' ? targetInput.routeSegmentCandidate.trim() : '',
+        candidatePageUrl: typeof targetInput.candidatePageUrl === 'string' ? targetInput.candidatePageUrl.trim() : '',
+        pageUse: layout.pageUse,
+      };
+      normalizedTarget.menuPlacement = normalizeMenuPlacement(targetInput.menuPlacement, {
+        targetTitle: normalizedTarget.title,
+      });
+      return normalizedTarget;
+    })(),
     layout,
     dataBindings: {
       collections: sortUniqueStrings(input.dataBindings?.collections),
@@ -1488,6 +1696,7 @@ function compileLayoutVariant({
 
 function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
   return {
+    menuPlacement: buildSpec.target.menuPlacement,
     compileMode: artifact.compileMode,
     payloadFragment: artifact.payloadFragment,
     primitiveTree: artifact.primitiveTree,
@@ -1889,6 +2098,7 @@ function buildBlockedValidationSpecs({
   blocker,
   issueCode,
   issueMessage,
+  menuPlacement,
   extraCompileArtifact = {},
   extraResult = {},
 }) {
@@ -1911,6 +2121,7 @@ function buildBlockedValidationSpecs({
       buildPolicy: 'fresh',
       routeSegmentCandidate: sessionId,
       candidatePageUrl,
+      menuPlacement,
     },
     options: {
       compileMode: DEFAULT_BUILD_COMPILE_MODE,
@@ -1952,6 +2163,7 @@ function buildBlockedValidationSpecs({
   return {
     buildSpec,
     verifySpec,
+    menuPlacement: buildSpec.target.menuPlacement,
     compileArtifact: {
       ...compiled.compileArtifact,
       issues: [
@@ -1980,6 +2192,7 @@ function buildSingleValidationSpecs({
   instanceInventory,
   planningMode,
   pageId = '',
+  menuPlacement,
 }) {
   const plannedScenario = buildDynamicValidationScenario({
     caseRequest: requestText,
@@ -2019,6 +2232,7 @@ function buildSingleValidationSpecs({
       buildPolicy: 'fresh',
       routeSegmentCandidate: sessionId,
       candidatePageUrl,
+      menuPlacement,
     },
     options: {
       compileMode: DEFAULT_BUILD_COMPILE_MODE,
@@ -2078,6 +2292,7 @@ function buildSingleValidationSpecs({
   return {
     pageId,
     pageRequest: requestText,
+    menuPlacement: buildSpec.target.menuPlacement,
     buildSpec,
     verifySpec,
     compileArtifact: {
@@ -2099,6 +2314,7 @@ export async function buildValidationSpecsForRun({
   randomSeed = '',
   instanceInventory: instanceInventoryInput,
   planningMode,
+  menuPlacement: menuPlacementOverride,
 }) {
   const requestText = normalizeNonEmpty(caseRequest, 'case request');
   const normalizedSessionId = normalizeNonEmpty(sessionId, 'session id');
@@ -2107,6 +2323,18 @@ export async function buildValidationSpecsForRun({
     instanceInventoryInput,
   });
   if (!inventoryResolution.ok) {
+    const blockedPageSpecPlan = splitValidationRequestIntoPageSpecs({
+      caseRequest: requestText,
+      collectionsInventory: inventoryResolution.instanceInventory?.collections,
+    });
+    const blockedMenuPlacement = resolveMenuPlacementForRun({
+      requestText,
+      sessionId: normalizedSessionId,
+      baseSlug,
+      instanceInventory: inventoryResolution.instanceInventory,
+      pageSpecPlan: blockedPageSpecPlan,
+      menuPlacementOverride,
+    });
     return buildBlockedValidationSpecs({
       requestText,
       sessionId: normalizedSessionId,
@@ -2117,6 +2345,7 @@ export async function buildValidationSpecsForRun({
       blocker: inventoryResolution.blocker,
       issueCode: 'LIVE_COLLECTION_INVENTORY_REQUIRED',
       issueMessage: '缺少 live collection inventory，validation request 在 planner 前被阻断。',
+      menuPlacement: blockedMenuPlacement,
       extraResult: {
         pageBuilds: [],
         pageLevelPlan: {
@@ -2134,6 +2363,14 @@ export async function buildValidationSpecsForRun({
     caseRequest: requestText,
     collectionsInventory: instanceInventory?.collections,
   });
+  const resolvedMenuPlacement = resolveMenuPlacementForRun({
+    requestText,
+    sessionId: normalizedSessionId,
+    baseSlug,
+    instanceInventory,
+    pageSpecPlan,
+    menuPlacementOverride,
+  });
   if (Array.isArray(pageSpecPlan.blockers) && pageSpecPlan.blockers.length > 0) {
     return buildBlockedValidationSpecs({
       requestText,
@@ -2145,6 +2382,7 @@ export async function buildValidationSpecsForRun({
       blocker: pageSpecPlan.blockers[0],
       issueCode: pageSpecPlan.blockers[0].code,
       issueMessage: pageSpecPlan.blockers[0].message,
+      menuPlacement: resolvedMenuPlacement,
       extraResult: {
         pageBuilds: [],
         pageLevelPlan: {
@@ -2170,6 +2408,7 @@ export async function buildValidationSpecsForRun({
       instanceInventory,
       planningMode,
       pageId: pageRequest.pageId || `page-${index + 1}`,
+      menuPlacement: resolvedMenuPlacement,
     }));
     const multiPageBlocker = {
       code: 'MULTI_PAGE_REQUEST_REQUIRES_PAGE_LEVEL_EXECUTION',
@@ -2190,6 +2429,7 @@ export async function buildValidationSpecsForRun({
       blocker: multiPageBlocker,
       issueCode: 'MULTI_PAGE_REQUEST_SPLIT_REQUIRED',
       issueMessage: multiPageBlocker.message,
+      menuPlacement: resolvedMenuPlacement,
       extraCompileArtifact: {
         multiPageRequest: {
           detected: true,
@@ -2220,6 +2460,7 @@ export async function buildValidationSpecsForRun({
     randomSeed,
     instanceInventory,
     planningMode,
+    menuPlacement: resolvedMenuPlacement,
   });
   return {
     ...singleBuild,
@@ -2265,6 +2506,12 @@ async function main() {
       flags['instance-inventory-file'],
       'instance inventory',
     );
+    const menuPlacement = normalizeMenuPlacementOverride({
+      mode: flags['menu-mode'],
+      groupTitle: flags['menu-group-title'],
+      existingGroupRouteId: flags['existing-group-route-id'],
+      existingGroupTitle: flags['existing-group-title'],
+    });
     console.log(JSON.stringify(await buildValidationSpecsForRun({
       caseRequest: flags['case-request'],
       sessionId: flags['session-id'],
@@ -2273,6 +2520,7 @@ async function main() {
       sessionDir: typeof flags['session-dir'] === 'string' ? flags['session-dir'] : '',
       randomSeed: typeof flags['random-seed'] === 'string' ? flags['random-seed'] : '',
       instanceInventory,
+      menuPlacement,
     }), null, 2));
     return;
   }

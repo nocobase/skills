@@ -11,8 +11,11 @@ import {
   loadRegistry,
   nodeUid,
   nodeUids,
+  recordGroupRoute,
   renamePage,
+  reserveGroup,
   reservePage,
+  resolveGroup,
   resolvePage,
 } from './opaque_uid.mjs';
 
@@ -54,6 +57,38 @@ test('reserve-page is idempotent for the same current title', () => {
   assert.equal(first.page.schemaUid, second.page.schemaUid);
   assert.equal(first.page.defaultTabSchemaUid, `tabs-${first.page.schemaUid}`);
   assert.equal(registry.pages.length, 1);
+});
+
+test('reserve-group is idempotent for the same reservation key and stores route id', () => {
+  const registryPath = makeRegistryPath('group');
+
+  const first = reserveGroup({ title: '审批系统', reservationKey: 'session-1:approval', registryPath });
+  const second = reserveGroup({ title: '审批系统', reservationKey: 'session-1:approval', registryPath });
+  const recorded = recordGroupRoute({
+    reservationKey: 'session-1:approval',
+    routeId: 88,
+    registryPath,
+  });
+  const resolved = resolveGroup({ reservationKey: 'session-1:approval', registryPath });
+
+  assert.equal(first.created, true);
+  assert.equal(second.created, false);
+  assert.equal(first.group.schemaUid, second.group.schemaUid);
+  assert.equal(recorded.group.routeId, '88');
+  assert.equal(resolved.group.routeId, '88');
+  assert.equal(loadRegistry(registryPath).groups.length, 1);
+});
+
+test('resolve-group by title fails when local registry contains duplicate titles', () => {
+  const registryPath = makeRegistryPath('group-ambiguous');
+
+  reserveGroup({ title: '系统页面', reservationKey: 'session-1:a', registryPath });
+  reserveGroup({ title: '系统页面', reservationKey: 'session-1:b', registryPath });
+
+  assert.throws(
+    () => resolveGroup({ title: '系统页面', registryPath }),
+    /ambiguous/,
+  );
 });
 
 test('rename-page preserves the original title as an alias', () => {

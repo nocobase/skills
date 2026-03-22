@@ -373,6 +373,11 @@ const COLLECTION_ALIASES = {
 };
 
 const REQUEST_FIELD_STOP_WORDS = new Set(['title', 'page', 'grid', 'table', 'list']);
+const SYSTEM_INTENT_KEYWORDS = ['系统', '工作台', '模块', '管理台', '中心', 'system', 'workbench', 'module', 'console', 'center'];
+const SYSTEM_TITLE_PATTERNS = [
+  /(?:创建|搭建|做|新增|生成|设计|构建)(?:一个|一套|一个新的|一套新的)?(?<prefix>[^，。；:：]{1,24}?)(?<suffix>系统|工作台|模块|管理台|中心)/i,
+  /(?<prefix>[^，。；:：]{1,24}?)(?<suffix>系统|工作台|模块|管理台|中心)/i,
+];
 
 function normalizeCollectionsInventory(value) {
   if (!value || typeof value !== 'object') {
@@ -619,6 +624,49 @@ function extractQuotedTitle(requestText) {
   return '';
 }
 
+function detectSystemIntent(requestText) {
+  return hasAnyKeyword(requestText, SYSTEM_INTENT_KEYWORDS);
+}
+
+function cleanSystemTitlePrefix(value) {
+  return normalizeText(value)
+    .replace(/^(?:基于|围绕|关于|针对)\s+[A-Za-z0-9_\-.]+\s*/i, '')
+    .replace(/^(?:基于|围绕|关于|针对)\s*/i, '')
+    .replace(/^(?:创建|搭建|做|新增|生成|设计|构建)(?:一个|一套|一个新的|一套新的)?/i, '')
+    .replace(/^(?:用于|面向|给)\s*/i, '')
+    .trim();
+}
+
+function extractSystemTitle(requestText) {
+  for (const pattern of SYSTEM_TITLE_PATTERNS) {
+    const matched = pattern.exec(requestText);
+    if (!matched?.groups?.suffix) {
+      continue;
+    }
+    const prefix = cleanSystemTitlePrefix(matched.groups.prefix || '');
+    const suffix = normalizeText(matched.groups.suffix);
+    const combined = normalizeText(`${prefix}${suffix}`);
+    if (combined) {
+      return combined;
+    }
+  }
+  return '';
+}
+
+function deriveMenuGroupTitleHint(requestText, collectionsInventory) {
+  const explicitTitle = extractSystemTitle(requestText);
+  if (explicitTitle) {
+    return explicitTitle;
+  }
+
+  const collectionMatches = collectExplicitCollectionMatches(requestText, collectionsInventory);
+  if (collectionMatches.length > 0) {
+    return normalizeText(collectionMatches[0].title || collectionMatches[0].name);
+  }
+
+  return '';
+}
+
 function parseCountToken(token) {
   const normalized = normalizeText(token).replace(/\s+/g, '');
   if (!normalized) {
@@ -752,11 +800,15 @@ export function splitValidationRequestIntoPageSpecs({ caseRequest, collectionsIn
   const requestText = normalizeText(caseRequest);
   const requestedPageCount = detectRequestedPageCount(requestText);
   const { preface, sections } = extractPageSections(requestText);
+  const systemIntent = detectSystemIntent(requestText);
+  const groupTitleHint = deriveMenuGroupTitleHint(requestText, collectionsInventory);
 
   if (sections.length <= 1 && !(requestedPageCount && requestedPageCount > 1)) {
     return {
       requestedPageCount: 1,
       decompositionMode: 'single-page',
+      systemIntent,
+      groupTitleHint,
       pageRequests: [{
         pageId: 'page-1',
         pageIndex: 1,
@@ -796,6 +848,8 @@ export function splitValidationRequestIntoPageSpecs({ caseRequest, collectionsIn
   return {
     requestedPageCount: requestedPageCount || pageRequests.length,
     decompositionMode: pageRequests.length > 0 ? 'numbered-page-sections' : 'unresolved-multi-page',
+    systemIntent,
+    groupTitleHint,
     pageRequests,
     blockers,
   };

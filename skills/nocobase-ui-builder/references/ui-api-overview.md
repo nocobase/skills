@@ -15,6 +15,7 @@
 
 - `PostDesktoproutes_createv2` -> `POST /desktopRoutes:createV2`
 - `PostDesktoproutes_destroyv2` -> `POST /desktopRoutes:destroyV2`
+- `PostDesktoproutes_updateorcreate` -> `POST /desktopRoutes:updateOrCreate`
 - `GetFlowmodels_findone` -> `GET /flowModels:findOne`
 - `GetFlowmodels_schema` -> `GET /flowModels:schema`
 - `PostFlowmodels_schemas` -> `POST /flowModels:schemas`
@@ -64,10 +65,11 @@
 任何写操作之前，都按以下顺序读取探测文档：
 
 1. `PostFlowmodels_schemabundle`
-2. 先收敛本轮目标 public model use，并优先用一次 `PostFlowmodels_schemas`
-3. 如果中途新增了目标 use，先补一次增量 `PostFlowmodels_schemas`
-4. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
-5. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照，作为本轮默认唯一的写前 snapshot
+2. 如果目标 `use` 已知，先查 [flow-schemas/index.md](flow-schemas/index.md) 与本地 `by-use/<UseName>.json`
+3. 只有本地 snapshot 缺少目标 `use`、或本地 schema 与当前实例行为明显冲突时，才补 `PostFlowmodels_schemas`
+4. 如果中途新增了目标 use，且本地 snapshot 里仍没有，再补一次增量 `PostFlowmodels_schemas`
+5. 如果某个具体模型仍需进一步确认，再调用 `GetFlowmodels_schema`
+6. 用 `GetFlowmodels_findone` 读取当前页面 / 网格的实时快照，作为本轮默认唯一的写前 snapshot
 
 推荐的 `schemaBundle` 请求起点：
 
@@ -91,10 +93,12 @@
 
 补充规则：
 
+- 如果只是想看某个具体 `use` 的 `jsonSchema`、`minimalExample`、`skeleton`、`dynamicHints`、`commonPatterns` 或 `stepParams` 结构，默认先读本地 `flow-schemas/by-use/<UseName>.json`
 - 同一写入阶段里，优先把目标 use 合并进一次 `PostFlowmodels_schemas`；只有发现遗漏 use 时，才补一次增量 `PostFlowmodels_schemas`。
 - `GetFlowmodels_schema` 只作为 `schemas` 之后仍未消歧的兜底，不要把多个目标 use 直接拆成多次单模型深挖。
 - 对同一目标 live tree，默认只做一次写前 `GetFlowmodels_findone` 和一次写后 `GetFlowmodels_findone`；如果额外读取，必须能说明是目标树切换、校验不同子树、返回不一致，或失败排查。
 - 不要为了“保险起见”连续重复读取同一个 grid/page；如果只是目标 use 变多了，先补 `PostFlowmodels_schemas`。
+- 不要一次性把 `flow-schemas/by-use/` 下的多个大 JSON 展开到会话里；默认一轮只读取当前任务相关的单个 `use`
 
 探测结果里重点关注：
 
@@ -132,6 +136,26 @@
 ```
 
 `schemaUid` 可以是 opaque 值。在这个 skill 里，优先通过 `scripts/opaque_uid.mjs reserve-page` 预留，不要手写语义化值。
+
+关键补充：
+
+- `createV2.requestBody.parentId` 是 desktop route id，不是页面 `schemaUid`
+- 如果需要把多个 Modern page 放到同一个菜单组，先用 `PostDesktoproutes_updateorcreate` 创建或复用一个 `type=group` 的 desktop route，再把它的 route id 传给 `createV2.parentId`
+- `group` 菜单允许通过旧 desktopRoutes 路由接口维护；Modern page 壳本身仍然只能通过 `PostDesktoproutes_createv2`
+
+创建或复用 group 的典型请求：
+
+```json
+{
+  "filterKeys": ["schemaUid"],
+  "requestBody": {
+    "type": "group",
+    "schemaUid": "g7n4x9p2q5ra",
+    "title": "Approval Center",
+    "parentId": null
+  }
+}
+```
 
 这个操作会创建或保证以下对象存在：
 
