@@ -72,6 +72,55 @@ test('remapTemplateTree rewrites node uids, parentId, and defaultTargetUid for a
   );
 });
 
+test('remapTemplateTree rewrites filterManager filterId and targetId bindings', () => {
+  const payload = {
+    uid: 'grid-old',
+    parentId: 'tabs-old',
+    use: 'BlockGridModel',
+    filterManager: [
+      {
+        filterId: 'filter-old',
+        targetId: 'table-old',
+        filterPaths: ['name'],
+      },
+    ],
+    subModels: {
+      items: [
+        {
+          uid: 'filter-old',
+          parentId: 'grid-old',
+          use: 'FilterFormItemModel',
+        },
+        {
+          uid: 'table-old',
+          parentId: 'grid-old',
+          use: 'TableBlockModel',
+        },
+      ],
+    },
+  };
+
+  const result = remapTemplateTree({
+    payload,
+    pageSchemaUid: 'k7n4x9p2q5ra',
+    rootUid: 'fresh-grid',
+    rootParentId: 'tabs-k7n4x9p2q5ra',
+    logicalPathPrefix: 'case10',
+  });
+
+  const [filterNode, targetNode] = result.payload.subModels.items;
+  assert.equal(result.payload.filterManager[0].filterId, filterNode.uid);
+  assert.equal(result.payload.filterManager[0].targetId, targetNode.uid);
+  assert.equal(
+    result.rewrittenReferences.some((item) => item.key === 'filterId' && item.from === 'filter-old' && item.to === filterNode.uid),
+    true,
+  );
+  assert.equal(
+    result.rewrittenReferences.some((item) => item.key === 'targetId' && item.from === 'table-old' && item.to === targetNode.uid),
+    true,
+  );
+});
+
 test('template_tree_remap CLI prints remapped payload', () => {
   const payload = {
     uid: 'grid-old',

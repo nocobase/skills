@@ -129,7 +129,13 @@ function visitFlowModelTree(node, visitor, logicalPath = 'root') {
 }
 
 function shouldRewriteUidReferenceKey(key) {
-  if (key === 'uid' || key === 'parentId' || key === 'defaultTargetUid') {
+  if (
+    key === 'uid'
+    || key === 'parentId'
+    || key === 'defaultTargetUid'
+    || key === 'filterId'
+    || key === 'targetId'
+  ) {
     return true;
   }
   return /Uid$/.test(key) && key !== 'schemaUid' && key !== 'defaultTabSchemaUid';
