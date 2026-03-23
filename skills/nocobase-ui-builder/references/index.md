@@ -76,6 +76,7 @@ description: 按任务类型直达 canonical docs、block docs、pattern docs、
 - [js-models/js-block.md](js-models/js-block.md)
 - [js-models/js-column.md](js-models/js-column.md)
 - [js-models/js-field.md](js-models/js-field.md)
+- [js-models/js-editable-field.md](js-models/js-editable-field.md)
 - [js-models/js-item.md](js-models/js-item.md)
 - [js-models/js-action.md](js-models/js-action.md)
 
