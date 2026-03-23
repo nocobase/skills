@@ -16,7 +16,7 @@
 
 - 同一个 validation 请求不再总是复用同一套固定区块模板
 - 不同业务默认生成不同页面结构，而不是把所有页面都压成“筛选 + 表格 + 弹窗”
-- 把 tabs、详情联动、关系表、record actions、树形结构和源码公开区块纳入主路径
+- 把 tabs、详情联动、关系表、record actions、树形结构和实例公开区块纳入主路径
 
 ## 动态规划规则
 
@@ -93,15 +93,15 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
    - page route 是否已进入 accessible route tree
    - hidden tab route 是否已出现在 page children 中
    - 没有这层证据时，不要把问题直接归到 payload
-4. 再去源码确认对应 runtime model 的渲染契约：
+4. 再根据 flow schema graph、block/pattern 文档和当前 readback 确认对应渲染契约：
    - 读哪个 `subModels` slot
    - 读哪些 `stepParams`
    - 允许哪些 child model/use
    - popup/openView 的 `pageModelClass` 是否与 `subModels.page.use` 一致
-5. 用源码契约反查当前 readback 是否结构错误
-6. 只有当 readback 已满足源码契约时，才继续怀疑 case 数据或平台 runtime
+5. 用这些契约反查当前 readback 是否结构错误
+6. 只有当 readback 已满足这些契约时，才继续怀疑 case 数据或平台 runtime
 
-特别注意两类已被源码证实的高频结构错误：
+特别注意两类已知高频结构错误：
 
 1. `CollectionBlockModel` 派生区块缺少 `stepParams.resourceSettings.init.dataSourceKey / collectionName`
    - 典型症状：页面或区块卡骨架屏、Map/List/GridCard 一打开就空白
@@ -117,9 +117,9 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 
 1. 浏览器 smoke 只负责确认现象，不负责给出根修复方案。
 2. 对结构型渲染问题，不要先补“多跑一次 smoke”或“多开一次浏览器”当改进建议。
-3. 如果源码已经证明当前 payload 违反固定结构契约，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
+3. 如果现有契约和已知规则已经证明当前 payload 违反固定结构约束，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
 4. 对动作区渲染问题，优先检查 slot 级 `allowedUses` 是否匹配；`DetailsBlockModel.actions`、`TableActionsColumnModel.actions`、`FilterFormBlockModel.actions`、`TableBlockModel.actions` 都不能把泛型 `ActionModel` 当成“结构正确”。
-5. 如果问题发生在 fresh page 首开，且尚未完成 route-ready 校验，优先把结论落在 skill 的 page-ready gate，而不是直接修改平台源码。
+5. 如果问题发生在 fresh page 首开，且尚未完成 route-ready 校验，优先把结论落在 skill 的 page-ready gate，而不是直接怀疑平台实现。
 6. browser smoke 不得在点击合法 action 后立即发送 `Escape` 或通用“关闭弹窗”动作，否则会把刚打开的 drawer/dialog 当成噪声误关，导致 validation 结论失真。
 
 ## 数据前置与造数

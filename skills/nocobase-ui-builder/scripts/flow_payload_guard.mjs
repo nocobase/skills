@@ -2881,7 +2881,7 @@ function inspectCollectionResourceContracts(payload, mode, blockers, seen) {
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING',
-      message: `${node.use} 缺少完整的 stepParams.resourceSettings.init.dataSourceKey / collectionName。源码里的 CollectionBlockModel.onInit 会直接读取这两个值；缺失时常见症状就是 runtime TypeError、区块空白或整页卡骨架屏。`,
+      message: `${node.use} 缺少完整的 stepParams.resourceSettings.init.dataSourceKey / collectionName。运行时会直接读取这两个值；缺失时常见症状就是 runtime TypeError、区块空白或整页卡骨架屏。`,
       path: `${pathValue}.stepParams.resourceSettings.init`,
       mode,
       dedupeKey: `COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING:${pathValue}`,
@@ -3016,7 +3016,7 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(warnings, seen, createFinding({
         severity: 'warning',
         code: 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID',
-        message: 'DetailsItemModel.subModels.field 当前建议统一走 FieldModel + stepParams.fieldBinding.use 入口；直接落具体 display field model 仍可能造成 builder/readback/runtime 形态不一致，应视为高风险诊断而非当前源码硬 blocker。',
+        message: 'DetailsItemModel.subModels.field 当前建议统一走 FieldModel + stepParams.fieldBinding.use 入口；直接落具体 display field model 仍可能造成 builder/readback/runtime 形态不一致，应视为高风险诊断而非当前硬 blocker。',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,

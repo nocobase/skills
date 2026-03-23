@@ -23,17 +23,17 @@ validation 默认走动态场景规划，不再依赖固定 case registry。
    - `CreateFormModel`
    - `EditFormModel`
    - row actions / details actions / popup
-4. 最后结合实例感知清单扩展公开 root block（推荐路径，不依赖本地源码）：
+4. 最后结合实例感知清单扩展公开 root block：
    - 通过 `PostFlowmodels_schemabundle`（`uses=['BlockGridModel']`）拿到实例真实可用的 root blocks 候选清单
    - 再用 `PostFlowmodels_schemas`（`uses=<root blocks>`）拉回这些区块的 `dynamicHints / contextRequirements / unresolvedReason` 等信息
    - 选块会同时看业务领域、页面原型、请求关键词，以及上述动态 hints 的语义标签
 
 ## 实例清单来源（MCP）
 
-- 通过 NocoBase MCP 工具 `PostFlowmodels_schemabundle` + `PostFlowmodels_schemas` 获取，不依赖本地源码。
+- 通过 NocoBase MCP 工具 `PostFlowmodels_schemabundle` + `PostFlowmodels_schemas` 获取。
 - `schemaBundle` 负责回答“这个实例上哪些 root blocks 真正可用”，`schemas` 负责补齐这些区块的动态 hints（用于语义匹配与 guard 解释）。
 - 输出建议落成 `instanceInventory.flowSchema.rootPublicUses/publicUseCatalog` 并透传到 planner + payload guard。
-- 若使用 `scripts/spec_contracts.mjs build-validation-specs` 生成 spec，可通过 `--instance-inventory-file` 注入实例清单，避免依赖本地源码或额外 REST token。
+- 若使用 `scripts/spec_contracts.mjs build-validation-specs` 生成 spec，可通过 `--instance-inventory-file` 注入实例清单，避免额外 REST token。
 - 如果你只有 MCP 的原始返回体（schemaBundle/schemas），可用 `scripts/instance_inventory_probe.mjs materialize --schema-bundle-file ... --schemas-file ...` 把它们落成 `instanceInventory.json` 再注入。
 
 ## 真实场景策略
