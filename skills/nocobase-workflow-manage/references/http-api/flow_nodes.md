@@ -1,54 +1,54 @@
 ---
-title: flow_nodes 资源 HTTP API
-description: flow_nodes 节点的创建、更新、删除、移动、复制与测试接口参数说明与调用示例。
+title: flow_nodes Resource HTTP API
+description: Parameter descriptions and call examples for flow_nodes node creation, update, deletion, movement, duplication, and testing interfaces.
 ---
 
-# flow_nodes 资源 HTTP API
+# flow_nodes Resource HTTP API
 
-> 这些端点通过 NocoBase MCP 工具暴露；以下 HTTP 路径用于映射具体资源动作与参数。
+> These endpoints are exposed through the NocoBase MCP tool; the following HTTP paths are used to map specific resource actions and parameters.
 >
-> **注意：除 `test` 外，所有写操作均要求工作流版本尚未执行（`versionStats.executed == 0`）。已执行的版本须先通过 `workflows:revision` 创建新版本。**
+> **Note: Except for `test`, all write operations require that the workflow version has not yet been executed (`versionStats.executed == 0`). For already executed versions, a new version must first be created via `workflows:revision`.**
 
-## nodes:create（创建节点）
+## nodes:create (Create Node)
 
 `POST /api/workflows/<workflowId>/nodes:create`
 
-在指定工作流下创建节点。
+Creates a node under the specified workflow. If creating nodes for the same workflow, the interface must be called serially (wait for the previous creation to complete before the next call) to avoid connection relationship errors caused by concurrency.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `type` | string | 是 | 节点类型，见节点文档。创建后不可更改。 |
-| `title` | string | 否 | 节点标题 |
-| `upstreamId` | number\|null | 是 | 上游节点 ID；`null` 表示插入为第一个节点 |
-| `branchIndex` | number\|null | 是 | 分支序号；主链路使用 `null`；分支头节点使用对应整数 |
-| `config` | object | 否 | 节点配置，可在创建后通过 `flow_nodes:update` 更新 |
+| `type` | string | Yes | Node type, see node documentation. Cannot be changed after creation. |
+| `title` | string | No | Node title |
+| `upstreamId` | number|null | Yes | Upstream node ID; `null` means insert as the first node |
+| `branchIndex` | number|null | Yes | Branch index; use `null` for the main chain; use the corresponding integer for branch head nodes |
+| `config` | object | No | Node configuration, can be updated via `flow_nodes:update` after creation |
 
 ```
 POST /api/workflows/1/nodes:create
 Body: {
   "type": "calculation",
-  "title": "运算节点",
+  "title": "Calculation Node",
   "upstreamId": null,
   "branchIndex": null,
   "config": {}
 }
 ```
 
-返回创建的节点对象，包含 `id` 和 `key`。
+Returns the created node object, including `id` and `key`.
 
 ---
 
-## flow_nodes:update（更新节点）
+## flow_nodes:update (Update Node)
 
 `POST /api/flow_nodes:update`
 
-更新节点的标题或配置。已执行版本不允许调用。
+Updates a node's title or configuration. Calling is not allowed for already executed versions.
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filterByTk` | 节点 ID（Query） |
-| Body `title` | 修改节点标题 |
-| Body `config` | 修改节点配置 |
+| `filterByTk` | Node ID (Query) |
+| Body `title` | Modify node title |
+| Body `config` | Modify node configuration |
 
 ```
 POST /api/flow_nodes:update?filterByTk=10
@@ -62,38 +62,38 @@ Body: {
 
 ---
 
-## flow_nodes:destroy（删除节点）
+## flow_nodes:destroy (Delete Node)
 
 `POST /api/flow_nodes:destroy`
 
-删除节点。默认会同时删除其所有分支链路。
+Deletes a node. By default, all its branch chains will be deleted as well.
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filterByTk` | 节点 ID（Query） |
-| `keepBranch` | 可选，保留某个分支并将其接入主链路（填写 `branchIndex` 值） |
+| `filterByTk` | Node ID (Query) |
+| `keepBranch` | Optional, retain a branch and connect it to the main chain (provide the `branchIndex` value) |
 
 ```
-# 删除节点，连带删除所有分支
+# Delete node, including all branches
 POST /api/flow_nodes:destroy?filterByTk=10
 
-# 删除节点，保留 branchIndex=1 的分支接入主链路
+# Delete node, keep branch with branchIndex=1 and connect it to the main chain
 POST /api/flow_nodes:destroy?filterByTk=10&keepBranch=1
 ```
 
 ---
 
-## flow_nodes:destroyBranch（删除分支）
+## flow_nodes:destroyBranch (Delete Branch)
 
 `POST /api/flow_nodes:destroyBranch`
 
-删除分支节点的某条分支（连带删除分支内所有节点）。
+Deletes a specific branch of a branch node (including all nodes within the branch).
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filterByTk` | 分支父节点 ID（Query） |
-| `branchIndex` | 要删除的分支序号 |
-| `shift` | `1` 表示删除后将后续分支序号前移（适用于多条件节点） |
+| `filterByTk` | Branch parent node ID (Query) |
+| `branchIndex` | Index of the branch to delete |
+| `shift` | `1` means shift subsequent branch indices forward after deletion (useful for multi-condition nodes) |
 
 ```
 POST /api/flow_nodes:destroyBranch?filterByTk=5&branchIndex=2&shift=1
@@ -101,25 +101,25 @@ POST /api/flow_nodes:destroyBranch?filterByTk=5&branchIndex=2&shift=1
 
 ---
 
-## flow_nodes:move（移动节点）
+## flow_nodes:move (Move Node)
 
 `POST /api/flow_nodes:move`
 
-将节点移动到新位置（重新接入链路）。
+Moves a node to a new position (re-connects the chain).
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filterByTk` | 要移动的节点 ID（Query） |
-| Body `values.upstreamId` | 目标上游节点 ID；`null` 表示移动到链路最前面 |
-| Body `values.branchIndex` | 目标分支序号；主链路使用 `null` |
+| `filterByTk` | ID of the node to move (Query) |
+| Body `values.upstreamId` | Target upstream node ID; `null` means move to the very front of the chain |
+| Body `values.branchIndex` | Target branch index; use `null` for the main chain |
 
-约束：
-- 工作流版本未被执行
-- 不能将节点的上游设为自身
-- 上游和分支序号与当前相同时接口会报错（无需移动）
+Constraints:
+- The workflow version must not have been executed.
+- A node's upstream cannot be set to itself.
+- If the upstream and branch index are the same as current, the interface will return an error (no move necessary).
 
 ```
-# 移动节点到 nodeId=3 之后的主链路
+# Move node to the main chain after nodeId=3
 POST /api/flow_nodes:move?filterByTk=10
 Body: {
   "values": {
@@ -128,7 +128,7 @@ Body: {
   }
 }
 
-# 移动节点到链路最前面
+# Move node to the very front of the chain
 POST /api/flow_nodes:move?filterByTk=10
 Body: {
   "values": {
@@ -137,29 +137,29 @@ Body: {
 }
 ```
 
-返回移动后的节点对象。
+Returns the moved node object.
 
 ---
 
-## flow_nodes:duplicate（复制节点）
+## flow_nodes:duplicate (Duplicate Node)
 
 `POST /api/flow_nodes:duplicate`
 
-复制一个节点到指定位置。新节点复制原节点的 `type`、`title` 和 `config`（部分节点类型会通过 `duplicateConfig` 处理配置）。
+Duplicates a node to a specified position. The new node copies the original node's `type`, `title`, and `config` (some node types handle configuration via `duplicateConfig`).
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filterByTk` | 要复制的源节点 ID（Query） |
-| Body `values.upstreamId` | 新节点插入位置的上游节点 ID |
-| Body `values.branchIndex` | 新节点的分支序号；主链路使用 `null` |
-| Body `values.config` | 可选，覆盖复制后的节点配置 |
+| `filterByTk` | Source node ID to duplicate (Query) |
+| Body `values.upstreamId` | Upstream node ID for the new node's insertion position |
+| Body `values.branchIndex` | Branch index for the new node; use `null` for the main chain |
+| Body `values.config` | Optional, override the duplicated node configuration |
 
-约束：
-- 工作流版本未被执行
-- 节点总数不超过服务端限制（`WORKFLOW_NODES_LIMIT`）
+Constraints:
+- The workflow version must not have been executed.
+- Total number of nodes must not exceed the server limit (`WORKFLOW_NODES_LIMIT`).
 
 ```
-# 复制 nodeId=10 的节点，插入到 nodeId=3 之后的主链路
+# Duplicate nodeId=10 node, insert into the main chain after nodeId=3
 POST /api/flow_nodes:duplicate?filterByTk=10
 Body: {
   "values": {
@@ -169,20 +169,20 @@ Body: {
 }
 ```
 
-返回新创建的节点对象，包含新的 `id` 和 `key`。
+Returns the newly created node object, including new `id` and `key`.
 
 ---
 
-## flow_nodes:test（测试节点配置）
+## flow_nodes:test (Test Node Configuration)
 
 `POST /api/flow_nodes:test`
 
-测试节点配置是否有效（仅部分节点类型实现了 `test` 方法，如 `calculation`、`query`、`request`）。
+Tests if a node configuration is valid (only some node types implement the `test` method, such as `calculation`, `query`, `request`).
 
-| 字段 | 说明 |
+| Field | Description |
 |---|---|
-| Body `values.type` | 节点类型 |
-| Body `values.config` | 节点配置 |
+| Body `values.type` | Node type |
+| Body `values.config` | Node configuration |
 
 ```
 POST /api/flow_nodes:test
@@ -194,4 +194,4 @@ Body: {
 }
 ```
 
-成功时返回执行结果；配置错误时返回 500 及错误信息。
+Returns execution results on success; returns 500 and error message on configuration error.

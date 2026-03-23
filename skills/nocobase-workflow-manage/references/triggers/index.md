@@ -1,39 +1,39 @@
 ---
-title: 工作流触发器
-description: 详述工作流触发器的类型、配置项与变量产出说明。
+title: Workflow Triggers
+description: Detailed description of workflow trigger types, configuration items, and variable outputs.
 ---
 
-# 工作流触发器
+# Workflow Triggers
 
-## 基础数据
+## Basic Data
 
-根据触发器类型不同，配置项与产出变量也不同。触发器的类型即为 `type` 字段值。配置项存储在 `config` 字段（JSON）中。
+Configuration items and output variables vary depending on the trigger type. The trigger type is represented by the `type` field value. Configuration items are stored in the `config` field (JSON).
 
-创建工作流时会确定 type 字段，该字段在创建后不可更改。修改触发器配置时，需调用相应接口更新 `config` 字段。
+The `type` field is determined when the workflow is created and cannot be changed thereafter. To modify the trigger configuration, the corresponding interface must be called to update the `config` field.
 
-## 触发器产出的变量
+## Variables Produced by Triggers
 
-部分触发器可以产出供后续节点使用的变量，变量以 `{{$context.<:variableName>}}` 形式引用，具体可参考各触发器的文档说明。其中如果变量指向某张数据表结构的，则内部属性路径与数据表字段名一致。
+Some triggers can produce variables for use by subsequent nodes. Variables are referenced in the form `{{$context.<:variableName>}}`; please refer to the documentation of each trigger for specifics. If a variable points to a data table structure, its internal property paths match the data table field names.
 
-后续节点基于业务的需要，可以在配置项中引用这些变量，实现动态化的工作流逻辑。
+Subsequent nodes can reference these variables in their configuration items based on business needs to achieve dynamic workflow logic.
 
-## 使用注意
+## Usage Notes
 
-* **只有文档中写明的类型值才能使用**，其他值会导致工作流无法识别。
+* **Only type values explicitly listed in the documentation can be used**; other values will cause the workflow to be unrecognized.
 
-## 触发器文档目录
+## Trigger Documentation Directory
 
-### 内置触发器
+### Built-in Triggers
 
-| 类型值 | 名称 | 说明 |
+| Type Value | Name | Description |
 |---|---|---|
-| `collection` | 数据表事件 | [collection.md](collection.md) |
-| `schedule` | 定时任务 | [schedule.md](schedule.md) |
+| `collection` | Data Table Events | [collection.md](collection.md) |
+| `schedule` | Scheduled Tasks | [schedule.md](schedule.md) |
 
-### 扩展插件触发器
+### Extension Plugin Triggers
 
-| 类型值 | 名称 | 插件 | 说明 |
+| Type Value | Name | Plugin | Description |
 |---|---|---|---|
-| `action` | 操作后事件 | plugin-workflow-action-trigger | [action-trigger.md](action-trigger.md) |
+| `action` | Post-action Events | plugin-workflow-action-trigger | [action-trigger.md](action-trigger.md) |
 | `webhook` | Webhook | plugin-workflow-webhook | [webhook-trigger.md](webhook-trigger.md) |
-| `approval` | 审批 | plugin-workflow-approval | [approval-trigger.md](approval-trigger.md) |
+| `approval` | Approval | plugin-workflow-approval | [approval-trigger.md](approval-trigger.md) |

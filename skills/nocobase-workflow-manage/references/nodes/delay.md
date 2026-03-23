@@ -1,32 +1,32 @@
 ---
-title: "延时"
-description: "说明延时节点的时间单位、时长与结束状态配置。"
+title: "Delay"
+description: "Explains the time unit, duration, and end status configuration of the delay node."
 ---
 
-# 延时
+# Delay
 
-## 节点类型
+## Node Type
 
 `delay`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the above `type` value to create the node; do not use the document filename as the type.
 
-## 节点描述
-等待指定时长后继续流程或结束，用于等待、超时或并行分支的节拍控制（仅异步流程可用）。
+## Node Description
+Waits for a specified duration before continuing or ending the workflow. Used for waiting, timeouts, or beat control in parallel branches (only available for asynchronous workflows).
 
-## 业务场景举例
-等待付款超时后自动关闭订单，可类比 sleep/timeout。
+## Business Scenario Example
+Automatically close an order after waiting for a payment timeout, similar to `sleep`/`timeout`.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| unit | number | 60000 | 是 | 时间单位毫秒倍率：1000(秒)、60000(分)、3600000(时)、86400000(天)、604800000(周)。 |
-| duration | number | 1 | 是 | 时长数值，与 `unit` 相乘得到等待毫秒数。 |
-| endStatus | number | 1 | 是 | 结束状态：`1` 成功继续，`-1` 失败退出。 |
+| unit | number | 60000 | Yes | Time unit millisecond multiplier: 1000 (second), 60000 (minute), 3600000 (hour), 86400000 (day), 604800000 (week). |
+| duration | number | 1 | Yes | Duration value; multiplied by `unit` to get the total wait time in milliseconds. |
+| endStatus | number | 1 | Yes | End status: `1` to succeed and continue, `-1` to fail and exit. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Branches are not supported.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "unit": 60000,

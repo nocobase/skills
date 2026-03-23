@@ -1,43 +1,43 @@
 ---
-title: "邮件发送"
-description: "介绍邮件发送节点的 SMTP 配置、收发件人及内容字段。"
+title: "Send Email"
+description: "Introduces the SMTP configuration, sender, recipient, and content fields of the email sending node."
 ---
 
-# 邮件发送
+# Send Email
 
-## 节点类型
+## Node Type
 
 `mailer`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the above `type` value to create the node; do not use the document filename as the type.
 
-## 节点描述
-通过 SMTP 发送邮件，可使用上游变量配置收件人、主题和内容。
+## Node Description
+Sends an email via SMTP. Upstream variables can be used to configure recipients, subject, and content.
 
-## 业务场景举例
-订单完成后给客户发送确认邮件。
+## Business Scenario Example
+Send a confirmation email to the customer after an order is completed.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| provider.host | string | 无 | 是 | SMTP 主机。 |
-| provider.port | number | 465 | 是 | SMTP 端口。 |
-| provider.secure | boolean | true | 是 | 是否使用 TLS。 |
-| provider.auth.user | string | 无 | 否 | SMTP 账号。 |
-| provider.auth.pass | string | 无 | 否 | SMTP 密码。 |
-| from | string | 无 | 是 | 发件人（如 `noreply <a@b.com>`）。 |
-| to | array | [] | 是 | 收件人列表（数组元素为邮箱地址或变量）。 |
-| cc | array | [] | 否 | 抄送列表。 |
-| bcc | array | [] | 否 | 密送列表。 |
-| subject | string | 无 | 否 | 邮件标题。 |
-| contentType | string | html | 否 | 内容类型：`html` 或 `text`。 |
-| html | string | 无 | 否 | HTML 内容（当 `contentType=html`）。 |
-| text | string | 无 | 否 | 文本内容（当 `contentType=text`）。 |
-| ignoreFail | boolean | false | 否 | 发送失败是否忽略并继续流程。 |
+| provider.host | string | None | Yes | SMTP host. |
+| provider.port | number | 465 | Yes | SMTP port. |
+| provider.secure | boolean | true | Yes | Whether to use TLS. |
+| provider.auth.user | string | None | No | SMTP account. |
+| provider.auth.pass | string | None | No | SMTP password. |
+| from | string | None | Yes | Sender (e.g., `noreply <a@b.com>`). |
+| to | array | [] | Yes | Recipient list (array elements can be email addresses or variables). |
+| cc | array | [] | No | CC list. |
+| bcc | array | [] | No | BCC list. |
+| subject | string | None | No | Email subject. |
+| contentType | string | html | No | Content type: `html` or `text`. |
+| html | string | None | No | HTML content (when `contentType=html`). |
+| text | string | None | No | Text content (when `contentType=text`). |
+| ignoreFail | boolean | false | No | Whether to ignore failures and continue the workflow. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Branches are not supported.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "provider": {
@@ -51,9 +51,9 @@ description: "介绍邮件发送节点的 SMTP 配置、收发件人及内容字
   },
   "from": "noreply <noreply@example.com>",
   "to": ["{{ $context.data.email }}"],
-  "subject": "欢迎",
+  "subject": "Welcome",
   "contentType": "text",
-  "text": "你好，欢迎使用 NocoBase",
+  "text": "Hello, welcome to NocoBase",
   "ignoreFail": false
 }
 ```

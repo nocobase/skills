@@ -1,30 +1,30 @@
 ---
-title: "结束流程"
-description: "说明结束流程节点的终止状态配置。"
+title: "End Workflow"
+description: "Explains the termination status configuration of the end workflow node."
 ---
 
-# 结束流程
+# End Workflow
 
-## 节点类型
+## Node Type
 
 `end`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the above `type` value to create the node; do not use the document filename as the type.
 
-## 节点描述
-立即结束当前工作流执行，并以指定状态退出。
+## Node Description
+Immediately ends the execution of the current workflow and exits with a specified status.
 
-## 业务场景举例
-在校验失败时直接结束流程，可类比编程语言中的 return。
+## Business Scenario Example
+Directly end the workflow when validation fails, similar to `return` in programming languages.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| endStatus | number | 1 | 是 | 结束状态：`1` 表示成功（RESOLVED），`-1` 表示失败（FAILED）。 |
+| endStatus | number | 1 | Yes | End status: `1` indicates success (RESOLVED), `-1` indicates failure (FAILED). |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Branches are not supported.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "endStatus": -1

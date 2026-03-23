@@ -1,35 +1,35 @@
 ---
-title: "更新数据"
-description: "说明更新数据节点的筛选条件、更新模式与配置示例。"
+title: "Update Data"
+description: "Explains the filter conditions, update modes, and configuration examples for the Update Data node."
 ---
 
-# 更新数据
+# Update Data
 
-## 节点类型
+## Node Type
 
 `update`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-按筛选条件更新数据表中的记录，可选择批量或逐条更新。
+## Node Description
+Updates records in a data table based on filter conditions, with options for batch or individual updates.
 
-## 业务场景举例
-订单支付成功后更新状态与时间字段。
+## Business Scenario Examples
+Updating the status and timestamp fields after an order is successfully paid.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration Items
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | 无 | 是 | 目标数据表，单数据源时可直接写集合名，多数据源可写 `dataSource:collection`。 |
-| usingAssignFormSchema | boolean | true | 否 | 是否使用自定义赋值表单（主要影响前端配置展示）。 |
-| assignFormSchema | object | {} | 否 | 自定义赋值表单的 UI Schema（主要供前端使用）。 |
-| params.individualHooks | boolean | false | 否 | 更新模式：`false` 批量更新；`true` 逐条更新（会触发记录级钩子/工作流）。 |
-| params.filter | object | 无 | 是 | 筛选条件（至少包含一个条件）。 |
-| params.values | object | {} | 否 | 字段赋值对象，键为字段名，值可为常量或变量；至少应包含一个要更新的字段。 |
+| collection | string | None | Yes | Target data table. For a single data source, use the collection name; for multiple data sources, use `dataSource:collection`. |
+| usingAssignFormSchema | boolean | true | No | Whether to use a custom assignment form (primarily affects the frontend configuration display). |
+| assignFormSchema | object | {} | No | UI Schema for the custom assignment form (primarily for frontend use). |
+| params.individualHooks | boolean | false | No | Update mode: `false` for batch update; `true` for individual update (triggers record-level hooks/workflows). |
+| params.filter | object | None | Yes | Filter conditions (must contain at least one condition). |
+| params.values | object | {} | No | Field assignment object, where keys are field names and values can be constants or variables; must include at least one field to be updated. |
 
-## 分支说明
-不支持分支。
+## Branching
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "collection": "posts",

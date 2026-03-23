@@ -1,31 +1,31 @@
 ---
-title: "计算"
-description: "介绍计算节点的表达式引擎、配置字段与结果输出。"
+title: "Calculation"
+description: "Introduces the expression engine, configuration fields, and result output for the calculation node."
 ---
 
-# 计算
+# Calculation
 
-## 节点类型
+## Node Type
 
 `calculation`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Use the above `type` value when creating the node; do not use the documentation filename as the type.
 
-## 节点描述
-基于计算引擎对表达式求值，结果写入当前节点的执行结果，可供后续节点引用。
+## Node Description
+Evaluates an expression based on a calculation engine and writes the result to the current node's execution result, which can be referenced by subsequent nodes.
 
-## 业务场景举例
-计算订单金额、拼接文案或生成派生字段。
+## Business Scenario Examples
+Calculating order amounts, concatenating text, or generating derived fields.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration Items
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| engine | string | formula.js | 是 | 计算引擎。常用为 `math.js`、`formula.js`、`string`（字符串模板），建议显式指定；未提供时后端兜底为 `math.js`。 |
-| expression | string | 无 | 是 | 计算表达式，可使用流程上下文变量。表达式语法由 `engine` 决定。 |
+| engine | string | formula.js | Yes | Calculation engine. Common ones are `math.js`, `formula.js`, `string` (string template). It's recommended to specify explicitly; defaults to `math.js` on the backend if not provided. |
+| expression | string | None | Yes | Calculation expression, can use workflow context variables. Expression syntax depends on the `engine`. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branching.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "engine": "formula.js",

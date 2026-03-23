@@ -1,68 +1,68 @@
 ---
-title: 工作流 HTTP API
-description: 工作流相关端点的资源列表与调用规范，这些端点通过 NocoBase MCP 工具暴露。
+title: Workflow HTTP API
+description: Resource list and invocation specifications for workflow-related endpoints, exposed through the NocoBase MCP tool.
 ---
 
-# 工作流 HTTP API
+# Workflow HTTP API
 
-## 调用规范
+## Invocation Specifications
 
-- 这些接口在 MCP 中对应同名资源动作；优先通过 NocoBase MCP 工具调用。
-- API 前缀为 `/api`，操作路由格式为 `/api/<resource>:<action>`。
-- 关联资源操作格式为 `/api/<resource>/<id>/<association>:<action>`。
-- 在 MCP 调用时，通常只需按资源动作和参数组织请求；此处保留 HTTP 路径用于端点映射与排障。
+- These interfaces correspond to resource actions of the same name in MCP; prioritize invocation via NocoBase MCP tools.
+- The API prefix is `/api`, and the operation route format is `/api/<resource>:<action>`.
+- The association resource operation format is `/api/<resource>/<id>/<association>:<action>`.
+- When invoking via MCP, you usually only need to organize the request by resource action and parameters; the HTTP paths are preserved here for endpoint mapping and troubleshooting.
 
-## 资源与接口
+## Resources and Interfaces
 
-### workflows — 工作流
+### workflows — Workflows
 
-详细参数与示例：[workflows.md](workflows.md)
+Detailed parameters and examples: [workflows.md](workflows.md)
 
-| 接口 | 说明 |
+| Interface | Description |
 |---|---|
-| `GET /api/workflows:list` | 列出工作流 |
-| `GET /api/workflows:get` | 获取单个工作流（可附带节点） |
-| `POST /api/workflows:create` | 创建工作流 |
-| `POST /api/workflows:update` | 更新工作流（标题、配置、启用状态等） |
-| `POST /api/workflows:destroy` | 删除工作流 |
-| `POST /api/workflows:revision` | 创建新版本（同 key） |
-| `POST /api/workflows:execute` | 手动触发执行 |
-
----
-
-### flow_nodes — 节点
-
-详细参数与示例：[flow_nodes.md](flow_nodes.md)
-
-| 接口 | 说明 |
-|---|---|
-| `POST /api/workflows/<workflowId>/nodes:create` | 在指定工作流下创建节点 |
-| `POST /api/flow_nodes:update` | 更新节点配置或标题 |
-| `POST /api/flow_nodes:destroy` | 删除节点（默认连带删除其分支） |
-| `POST /api/flow_nodes:destroyBranch` | 删除指定分支 |
-| `POST /api/flow_nodes:move` | 移动节点到新位置 |
-| `POST /api/flow_nodes:duplicate` | 复制节点到指定位置 |
-| `POST /api/flow_nodes:test` | 测试节点配置（仅部分节点类型支持） |
+| `GET /api/workflows:list` | List workflows |
+| `GET /api/workflows:get` | Get a single workflow (can include nodes) |
+| `POST /api/workflows:create` | Create a workflow |
+| `POST /api/workflows:update` | Update a workflow (title, configuration, enabled status, etc.) |
+| `POST /api/workflows:destroy` | Delete a workflow |
+| `POST /api/workflows:revision` | Create a new version (same key) |
+| `POST /api/workflows:execute` | Manually trigger execution |
 
 ---
 
-### executions — 执行记录
+### flow_nodes — Nodes
 
-详细参数与示例：[executions.md](executions.md)
+Detailed parameters and examples: [flow_nodes.md](flow_nodes.md)
 
-| 接口 | 说明 |
+| Interface | Description |
 |---|---|
-| `GET /api/executions:list` | 列出执行记录 |
-| `GET /api/executions:get` | 获取单个执行详情（含 jobs） |
-| `POST /api/executions:cancel` | 取消执行中的记录 |
-| `POST /api/executions:destroy` | 删除执行记录（运行中不可删除） |
+| `POST /api/workflows/<workflowId>/nodes:create` | Create a node under a specified workflow |
+| `POST /api/flow_nodes:update` | Update node configuration or title |
+| `POST /api/flow_nodes:destroy` | Delete a node (and its branches by default) |
+| `POST /api/flow_nodes:destroyBranch` | Delete a specified branch |
+| `POST /api/flow_nodes:move` | Move a node to a new position |
+| `POST /api/flow_nodes:duplicate` | Duplicate a node to a specified position |
+| `POST /api/flow_nodes:test` | Test node configuration (supported only by some node types) |
 
 ---
 
-### jobs — 节点作业
+### executions — Execution Records
 
-详细参数与示例：[jobs.md](jobs.md)
+Detailed parameters and examples: [executions.md](executions.md)
 
-| 接口 | 说明 |
+| Interface | Description |
 |---|---|
-| `GET /api/jobs:get` | 获取单个节点作业详情（含完整 result） |
+| `GET /api/executions:list` | List execution records |
+| `GET /api/executions:get` | Get details of a single execution (including jobs) |
+| `POST /api/executions:cancel` | Cancel an ongoing execution record |
+| `POST /api/executions:destroy` | Delete an execution record (cannot be deleted while running) |
+
+---
+
+### jobs — Node Jobs
+
+Detailed parameters and examples: [jobs.md](jobs.md)
+
+| Interface | Description |
+|---|---|
+| `GET /api/jobs:get` | Get details of a single node job (including full result) |

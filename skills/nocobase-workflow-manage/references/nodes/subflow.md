@@ -1,31 +1,31 @@
 ---
-title: "调用工作流"
-description: "说明子流程调用节点的被调工作流与上下文传参方式。"
+title: "Call Workflow"
+description: "Explains how the sub-workflow call node handles the called workflow and context parameter passing."
 ---
 
-# 调用工作流
+# Call Workflow
 
-## 节点类型
+## Node Type
 
 `subflow`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-调用另一条工作流，并使用其“流程输出”作为当前流程变量。
+## Node Description
+Calls another workflow and uses its "Workflow Output" as a variable in the current process.
 
-## 业务场景举例
-将一段通用流程抽成子流程复用，可类比函数调用。
+## Business Scenario Example
+Extract a common process into a sub-workflow for reuse, similar to a function call.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| workflow | string | 无 | 是 | 被调用工作流的 key。同步流程只能调用同步流程。 |
-| context | object | {} | 否 | 触发变量上下文，结构需符合目标工作流触发器的输入要求。 |
+| workflow | string | None | Yes | The key of the workflow to be called. Synchronous processes can only call synchronous processes. |
+| context | object | {} | No | Trigger variable context; the structure must meet the input requirements of the target workflow's trigger. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "workflow": "order-calc",

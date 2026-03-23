@@ -1,38 +1,38 @@
 ---
-title: "操作后事件"
-description: "在用户操作（创建/更新）完成后触发流程，适合处理带用户上下文的数据操作。"
+title: "Post-action Events"
+description: "Trigger flows after user actions (creation/update) are completed, suitable for handling data operations with user context."
 ---
 
-# 操作后事件
+# Post-action Events
 
-## 触发器类型
+## Trigger Type
 
 `action`
-请使用以上 `type` 值创建触发器，不要使用文档文件名作为 type。
+Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
-## 适用场景
-- 需要在用户操作完成后立即执行流程（例如创建/更新后的通知、审批、同步）。
-- 需要流程上下文包含操作者信息（用户与角色）。
+## Use Cases
+- Executing flows immediately after user operations (e.g., notifications, approvals, synchronization after creation/update).
+- When the flow context needs to include operator information (user and role).
 
-## 触发时机 / 事件
-- 监听应用内的操作请求（Koa 中间件层），当前主要包含 `create` / `update` 操作。
-- **局部模式**：仅在绑定了该工作流的按钮/操作触发。
-- **全局模式**：对选定的数据表与操作类型，所有操作均触发。
+## Trigger Timing / Events
+- Monitors in-app operation requests (Koa middleware layer), currently mainly including `create` / `update` operations.
+- **Local Mode**: Triggered only by buttons/operations bound to this workflow.
+- **Global Mode**: Triggered for all operations on the selected data table and operation types.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration Items
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | - | 是 | 触发数据所在数据表，格式为 `"<dataSource>.<collection>"`。 |
-| global | boolean | false | 是 | 触发模式：`false` 局部模式（需绑定），`true` 全局模式（按 actions 生效）。 |
-| actions | string[] | - | 仅全局模式必填 | 全局模式下允许触发的操作类型，目前支持：`"create"`、`"update"`。 |
-| appends | string[] | [] | 否 | 预加载关联字段路径，用于补充触发数据。 |
+| collection | string | - | Yes | The data table where the trigger data resides, format is `"<dataSource>.<collection>"`. |
+| global | boolean | false | Yes | Trigger mode: `false` Local mode (binding required), `true` Global mode (effective based on `actions`). |
+| actions | string[] | - | Required only in Global mode | Operation types allowed to trigger in Global mode, currently supported: `"create"`, `"update"`. |
+| appends | string[] | [] | No | Paths of associated fields to be preloaded, used to supplement trigger data. |
 
-## 触发器变量
-- `$context.data`：触发的数据记录（必要时会按 `appends` 预加载）。
-- `$context.user`：触发操作的用户（脱敏后的用户信息）。
-- `$context.roleName`：触发操作的用户角色名称。
+## Trigger Variables
+- `$context.data`: The triggered data record (preloaded via `appends` when necessary).
+- `$context.user`: The user who triggered the operation (sanitized user information).
+- `$context.roleName`: The role name of the user who triggered the operation.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "collection": "main.posts",

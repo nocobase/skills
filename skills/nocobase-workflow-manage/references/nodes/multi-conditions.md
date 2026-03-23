@@ -1,37 +1,37 @@
 ---
-title: "多条件分支"
-description: "说明多条件分支节点的条件列表、否则分支与继续规则。"
+title: "Multi-condition Branch"
+description: "Explains the condition list, 'otherwise' branch, and continuation rules for the Multi-condition Branch node."
 ---
 
-# 多条件分支
+# Multi-condition Branch
 
-## 节点类型
+## Node Type
 
 `multi-conditions`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-按配置顺序依次判断多个条件，满足即进入对应分支，未满足则继续判断；若均不满足则进入“否则”分支。
+## Node Description
+Evaluates multiple conditions in sequential order; if a condition is met, the process enters the corresponding branch, otherwise it continues to evaluate the next condition. If none are met, it enters the "otherwise" branch.
 
-## 业务场景举例
-根据状态/等级选择不同处理分支，可类比 switch/case 或 if-else if。
+## Business Scenario Example
+Choosing different processing branches based on status/level, similar to switch/case or if-else if.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| conditions | array | 无 | 是 | 条件分支列表，按数组顺序对应分支顺序。每项结构见下方“conditions 项结构”。 |
-| continueOnNoMatch | boolean | false | 否 | 所有条件均不满足时，是否在“否则”分支执行完后继续后续节点。`false` 表示以失败结束。 |
+| conditions | array | None | Yes | List of conditional branches, corresponding to the branch order in the array. For the structure of each item, see "Structure of conditions item" below. |
+| continueOnNoMatch | boolean | false | No | Whether to continue subsequent nodes after the "otherwise" branch is executed when no conditions are met. `false` means it ends with a failure. |
 
-### conditions 项结构
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+### Structure of conditions item
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| uid | string | 无 | 否 | 条件分支唯一标识，主要用于前端展示，建议提供。 |
-| title | string | 无 | 否 | 条件分支标题，未设置时默认显示“条件 X”。 |
-| engine | string | basic | 是 | 运算引擎：`basic`、`math.js`、`formula.js`。 |
-| calculation | object | 无 | 是（engine=basic） | 当 `engine=basic` 时使用，结构同 Condition 节点的 `calculation`。 |
-| expression | string | 无 | 是（engine!=basic） | 当 `engine` 非 `basic` 时使用的表达式。 |
+| uid | string | None | No | Unique identifier for the conditional branch, mainly used for front-end display; recommended to provide. |
+| title | string | None | No | Title of the conditional branch; defaults to "Condition X" if not set. |
+| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. |
+| calculation | object | None | Yes (engine=basic) | Used when `engine=basic`, structure same as `calculation` in the Condition node. |
+| expression | string | None | Yes (engine!=basic) | Expression used when `engine` is not `basic`. |
 
-## 分支说明
+## Branch Description
 
 - Branch indexes:
   - `branchIndex = 0` reserved for the "otherwise" branch.
@@ -39,13 +39,13 @@ description: "说明多条件分支节点的条件列表、否则分支与继续
 - Each branchIndex value can appear at most once.
 - When adding a new condition branch, pick the next integer after the current maximum.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "conditions": [
     {
       "uid": "c1",
-      "title": "已审核",
+      "title": "Approved",
       "engine": "basic",
       "calculation": {
         "group": {
@@ -61,7 +61,7 @@ description: "说明多条件分支节点的条件列表、否则分支与继续
     },
     {
       "uid": "c2",
-      "title": "金额大于 1000",
+      "title": "Amount > 1000",
       "engine": "math.js",
       "expression": "{{ $context.data.amount }} > 1000"
     }

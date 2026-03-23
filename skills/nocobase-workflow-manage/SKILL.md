@@ -29,7 +29,7 @@ Help users orchestrate NocoBase workflows end-to-end through NocoBase MCP tools:
 Before making any MCP calls, clarify with the user:
 1. **Trigger type** — what event starts the workflow? → see [Trigger Reference](references/triggers/index.md)
 2. **Node chain** — what processing steps are needed? → see [Node Reference](references/nodes/index.md)
-3. **Execution mode** — synchronous or async? See [sync vs async](references/modeling/index.md#同步与异步模式)
+3. **Execution mode** — synchronous or async? See [sync vs async](references/modeling/index.md#synchronous-vs-asynchronous-mode)
 
 Summarize the plan in natural language before executing.
 

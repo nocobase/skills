@@ -1,23 +1,23 @@
 ---
-title: executions 资源 HTTP API
-description: executions 执行记录的列表、详情、取消与删除接口参数说明与调用示例。
+title: executions Resource HTTP API
+description: Parameter descriptions and call examples for the list, detail, cancellation, and deletion interfaces of execution records.
 ---
 
-# executions 资源 HTTP API
+# executions Resource HTTP API
 
-> 这些端点通过 NocoBase MCP 工具暴露；以下 HTTP 路径用于映射具体资源动作与参数。
+> These endpoints are exposed through the NocoBase MCP tool; the following HTTP paths are used to map specific resource actions and parameters.
 
 ## executions:list
 
 `GET /api/executions:list`
 
-列出执行记录，通常按工作流 ID 过滤并按时间倒序排列。
+List execution records, usually filtered by workflow ID and sorted by time in descending order.
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filter` | 过滤条件，如 `{"workflowId":1}` |
-| `sort` | 排序，如 `-id` |
-| `page` / `pageSize` | 分页 |
+| `filter` | Filter conditions, e.g., `{"workflowId":1}` |
+| `sort` | Sorting, e.g., `-id` |
+| `page` / `pageSize` | Pagination |
 
 ```
 GET /api/executions:list?filter[workflowId]=1&sort=-id&page=1&pageSize=20
@@ -29,19 +29,19 @@ GET /api/executions:list?filter[workflowId]=1&sort=-id&page=1&pageSize=20
 
 `GET /api/executions:get`
 
-获取单个执行详情。**诊断执行失败时，附带 `jobs` 获取各节点状态；首次加载 jobs 时 `result` 字段默认不包含**（减小响应体积），如需查看某个节点的完整输出，用 `jobs:get` 单独加载。
+Get details of a single execution. **When diagnosing execution failures, include `jobs` to get the status of each node; the `result` field is excluded by default when first loading jobs** (to reduce response size). To view the full output of a specific node, load it separately using `jobs:get`.
 
-| 参数 | 说明 |
+| Parameter | Description |
 |---|---|
-| `filterByTk` | 执行 ID |
-| `appends[]` | 追加关联，诊断问题时使用 `jobs`、`workflow`、`workflow.nodes` |
-| `except[]` | 排除字段，如 `jobs.result`（首次加载时排除，减少体积） |
+| `filterByTk` | Execution ID |
+| `appends[]` | Append associations, use `jobs`, `workflow`, `workflow.nodes` when diagnosing issues |
+| `except[]` | Exclude fields, e.g., `jobs.result` (exclude during initial load to reduce size) |
 
 ```
-# 诊断执行失败时（加载所有节点状态，排除 result 字段）
+# When diagnosing execution failure (load all node statuses, exclude result field)
 GET /api/executions:get?filterByTk=10&appends[]=jobs&appends[]=workflow.nodes&except[]=jobs.result
 
-# 需要 result 时（体积较大，按需使用）
+# When result is needed (larger size, use as needed)
 GET /api/executions:get?filterByTk=10&appends[]=jobs&appends[]=workflow.nodes
 ```
 
@@ -51,7 +51,7 @@ GET /api/executions:get?filterByTk=10&appends[]=jobs&appends[]=workflow.nodes
 
 `POST /api/executions:cancel`
 
-取消执行中的记录（`status = 0`）。执行状态和所有 PENDING jobs 均置为 ABORTED（-3）。
+Cancel an ongoing execution record (`status = 0`). The execution status and all PENDING jobs will be set to ABORTED (-3).
 
 ```
 POST /api/executions:cancel?filterByTk=10
@@ -63,7 +63,7 @@ POST /api/executions:cancel?filterByTk=10
 
 `POST /api/executions:destroy`
 
-删除执行记录。运行中的执行（`status = 0`）不可删除，须先取消。
+Delete an execution record. Running executions (`status = 0`) cannot be deleted and must be cancelled first.
 
 ```
 POST /api/executions:destroy?filterByTk=10

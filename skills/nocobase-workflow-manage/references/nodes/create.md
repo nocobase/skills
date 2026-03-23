@@ -1,34 +1,34 @@
 ---
-title: "新增数据"
-description: "说明新增数据节点的目标集合与字段赋值方式。"
+title: "Create Data"
+description: "Explains the target collection and field assignment method of the create data node."
 ---
 
-# 新增数据
+# Create Data
 
-## 节点类型
+## Node Type
 
 `create`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the above `type` value to create the node; do not use the document filename as the type.
 
-## 节点描述
-向指定数据表新增一条记录，可使用流程上下文变量为字段赋值。
+## Node Description
+Adds a new record to a specified data table, with fields assigned using workflow context variables.
 
-## 业务场景举例
-提交订单后新增订单日志或关联记录。
+## Business Scenario Example
+Add an order log or related record after an order is submitted.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | 无 | 是 | 目标数据表，格式与数据源选择器一致，单数据源时可直接写集合名（如 `posts`），多数据源可写 `dataSource:collection`。 |
-| usingAssignFormSchema | boolean | true | 否 | 是否使用自定义赋值表单（主要影响前端配置展示）。 |
-| assignFormSchema | object | {} | 否 | 自定义赋值表单的 UI Schema（主要供前端使用）。 |
-| params.values | object | {} | 否 | 字段赋值对象，键为字段名，值可为常量或变量。未赋值字段将使用默认值或 `null`。 |
-| params.appends | string[] | [] | 否 | 预加载关联字段列表，用于将关系数据一并写入节点结果。 |
+| collection | string | None | Yes | Target data table. The format matches the data source selector. For a single data source, write the collection name (e.g., `posts`). For multiple data sources, use `dataSource:collection`. |
+| usingAssignFormSchema | boolean | true | No | Whether to use a custom assignment form (primarily affects the frontend configuration display). |
+| assignFormSchema | object | {} | No | UI Schema for the custom assignment form (primarily for frontend use). |
+| params.values | object | {} | No | Field assignment object where keys are field names and values can be constants or variables. Unassigned fields will use their default value or `null`. |
+| params.appends | string[] | [] | No | List of relationship fields to pre-load, used to include relationship data in the node result. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Branches are not supported.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "collection": "posts",
@@ -36,7 +36,7 @@ description: "说明新增数据节点的目标集合与字段赋值方式。"
   "assignFormSchema": {},
   "params": {
     "values": {
-      "title": "自动生成",
+      "title": "Automatically Generated",
       "status": "draft",
       "author_id": "{{ $context.user.id }}"
     },
