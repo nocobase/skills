@@ -107,8 +107,11 @@ function nowIso(now = () => Date.now()) {
   return new Date(now()).toISOString();
 }
 
-function cacheKeyToString(key) {
-  return JSON.stringify(key);
+function memoryCacheKeyToString(cacheDir, key) {
+  return JSON.stringify({
+    cacheDir: path.resolve(cacheDir),
+    ...key,
+  });
 }
 
 function summarizeValue(value) {
@@ -245,12 +248,13 @@ export function createStableCacheStore({
   const cacheDir = resolveStableCacheDir(stateDir);
 
   function getFromMemory(key) {
-    const memoryEntry = MEMORY_CACHE.get(cacheKeyToString(key));
+    const memoryKey = memoryCacheKeyToString(cacheDir, key);
+    const memoryEntry = MEMORY_CACHE.get(memoryKey);
     if (!memoryEntry) {
       return null;
     }
     if (isExpired(memoryEntry, now)) {
-      MEMORY_CACHE.delete(cacheKeyToString(key));
+      MEMORY_CACHE.delete(memoryKey);
       return null;
     }
     return memoryEntry;
@@ -306,7 +310,7 @@ export function createStableCacheStore({
       };
     }
 
-    MEMORY_CACHE.set(cacheKeyToString(key), diskEntry);
+    MEMORY_CACHE.set(memoryCacheKeyToString(cacheDir, key), diskEntry);
     emitEvent(onEvent, {
       action: 'cache_hit',
       kind: key.kind,
@@ -353,7 +357,7 @@ export function createStableCacheStore({
     };
     const filePath = buildExactFilePath(cacheDir, key);
     writeJsonAtomic(filePath, entry);
-    MEMORY_CACHE.set(cacheKeyToString(key), entry);
+    MEMORY_CACHE.set(memoryCacheKeyToString(cacheDir, key), entry);
     emitEvent(onEvent, {
       action: 'cache_store',
       kind: key.kind,
@@ -394,7 +398,7 @@ export function createStableCacheStore({
         schemaVersion: normalizedSchemaVersion,
       });
       removeFileIfExists(buildExactFilePath(cacheDir, key));
-      MEMORY_CACHE.delete(cacheKeyToString(key));
+      MEMORY_CACHE.delete(memoryCacheKeyToString(cacheDir, key));
       removed += 1;
     } else {
       for (const filePath of listCacheEntryFiles(cacheDir, normalizedKind, normalizedInstanceFingerprint)) {
@@ -412,7 +416,7 @@ export function createStableCacheStore({
           schemaVersion: entry.version,
         });
         removeFileIfExists(filePath);
-        MEMORY_CACHE.delete(cacheKeyToString(key));
+        MEMORY_CACHE.delete(memoryCacheKeyToString(cacheDir, key));
         removed += 1;
       }
     }

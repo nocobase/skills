@@ -147,6 +147,35 @@ test('stable cache supports memory hits, disk hits and targeted invalidation', (
   assert.equal(events.some((event) => event.action === 'cache_store'), true);
 });
 
+test('stable cache does not reuse memory entries across different state directories', () => {
+  const firstRootDir = makeTempDir('stable-cache-first');
+  const secondRootDir = makeTempDir('stable-cache-second');
+  const instanceFingerprint = buildInstanceFingerprint({
+    urlBase: 'http://localhost:23000',
+    appVersion: '1.0.0',
+    enabledPluginNames: ['workflow', 'ui'],
+  });
+
+  const firstStore = createStableCacheStore({ stateDir: firstRootDir });
+  const secondStore = createStableCacheStore({ stateDir: secondRootDir });
+
+  firstStore.set({
+    kind: 'schemas',
+    instanceFingerprint,
+    identity: 'RootPageModel|TableBlockModel',
+    value: { uses: 2 },
+  });
+
+  const secondRead = secondStore.get({
+    kind: 'schemas',
+    instanceFingerprint,
+    identity: 'RootPageModel|TableBlockModel',
+  });
+
+  assert.equal(secondRead.hit, false);
+  assert.equal(secondRead.source, 'miss');
+});
+
 test('stable cache CLI supports summary-only mode and value-file-out for large payloads', () => {
   const rootDir = makeTempDir('stable-cache-cli');
   const instanceFingerprint = buildInstanceFingerprint({

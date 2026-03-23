@@ -27,10 +27,10 @@ export function resolveBuilderStateDir(explicitPath) {
 
 export function createAutoSessionId({
   cwd = process.cwd(),
-  ppid = process.ppid,
+  pid = process.pid,
 } = {}) {
   const digest = crypto.createHash('sha256')
-    .update(`${ppid}|${path.resolve(cwd)}`)
+    .update(`${pid}|${path.resolve(cwd)}`)
     .digest('hex')
     .slice(0, 12);
   return `session-${digest}`;
@@ -52,7 +52,7 @@ export function resolveSessionRoot({
   sessionRoot,
   stateDir,
   cwd,
-  ppid,
+  pid,
 } = {}) {
   if (typeof sessionRoot === 'string' && sessionRoot.trim()) {
     return path.resolve(sessionRoot.trim());
@@ -61,7 +61,7 @@ export function resolveSessionRoot({
     && process.env.NOCOBASE_UI_BUILDER_SESSION_ROOT.trim()) {
     return path.resolve(process.env.NOCOBASE_UI_BUILDER_SESSION_ROOT.trim());
   }
-  const resolvedSessionId = resolveSessionId(sessionId, { cwd, ppid });
+  const resolvedSessionId = resolveSessionId(sessionId, { cwd, pid });
   return path.join(resolveBuilderStateDir(stateDir), 'sessions', resolvedSessionId);
 }
 

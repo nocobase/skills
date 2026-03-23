@@ -275,15 +275,90 @@ function normalizeAssertions(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeAssertionSeverity(assertion) {
+  const severity = normalizeOptionalText(assertion?.severity);
+  return severity || 'blocking';
+}
+
+export function normalizeGatePolicy(verifySpec = {}) {
+  const gatePolicy = verifySpec?.gatePolicy && typeof verifySpec.gatePolicy === 'object'
+    ? verifySpec.gatePolicy
+    : {};
+  return {
+    stopOnBuildGateFailure: gatePolicy.stopOnBuildGateFailure !== false,
+    stopOnPreOpenBlocker: gatePolicy.stopOnPreOpenBlocker !== false,
+    stopOnStageFailure: gatePolicy.stopOnStageFailure !== false,
+  };
+}
+
+function isBlockingAssertionFailure(assertionResult) {
+  if (!assertionResult || assertionResult.passed !== false) {
+    return false;
+  }
+  const severity = normalizeAssertionSeverity(assertionResult);
+  // Browser smoke remains strict: warning findings still block runtime usability.
+  return severity === 'warning' || severity === 'blocking' || Boolean(severity);
+}
+
+function assertionsPassed(assertionResults) {
+  return !assertionResults.some((item) => isBlockingAssertionFailure(item));
+}
+
+function buildGuardBlockedCaseResult(caseEntry) {
+  return {
+    caseId: caseEntry.caseId,
+    title: caseEntry.title,
+    expectedOutcome: caseEntry.expectedOutcome,
+    buildStatus: caseEntry.buildStatus,
+    guardBlocked: caseEntry.guardBlocked,
+    pageUrl: caseEntry.pageUrl,
+    browseUrl: caseEntry.browseUrl,
+    browserStatus: 'blocked',
+    preOpenPassed: null,
+    preOpenAssertions: [],
+    stages: [],
+    landingPng: '',
+    runtimeErrors: [],
+  };
+}
+
+export function determineBrowserStatus({
+  guardBlocked,
+  preOpenPassed,
+  stages,
+  runtimeErrors,
+}) {
+  if (guardBlocked) {
+    return 'blocked';
+  }
+  if (Array.isArray(runtimeErrors) && runtimeErrors.length > 0) {
+    return 'failed';
+  }
+  const stageItems = Array.isArray(stages) ? stages : [];
+  const stagePassCount = stageItems.filter((item) => item?.passed).length;
+  const stageFailureCount = stageItems.length - stagePassCount;
+  const hasFailure = preOpenPassed === false || stageFailureCount > 0;
+  const hasSuccessEvidence = preOpenPassed === true || stagePassCount > 0;
+  if (hasFailure && hasSuccessEvidence) {
+    return 'partial';
+  }
+  if (hasFailure) {
+    return 'failed';
+  }
+  return 'success';
+}
+
 async function evaluateAssertion(page, assertion) {
+  const severity = normalizeAssertionSeverity(assertion);
   if (!assertion || typeof assertion !== 'object') {
-    return { passed: true, kind: 'unknown' };
+    return { passed: true, kind: 'unknown', severity };
   }
   if (assertion.kind === 'page-reachable') {
     return {
       passed: !page.url().includes('/signin'),
       kind: assertion.kind,
       label: assertion.label || assertion.kind,
+      severity,
     };
   }
   if (assertion.kind === 'bodyTextIncludesAll') {
@@ -294,6 +369,7 @@ async function evaluateAssertion(page, assertion) {
       kind: assertion.kind,
       label: assertion.label || assertion.kind,
       values,
+      severity,
     };
   }
   if (assertion.kind === 'bodyTextIncludesAny') {
@@ -304,12 +380,14 @@ async function evaluateAssertion(page, assertion) {
       kind: assertion.kind,
       label: assertion.label || assertion.kind,
       values,
+      severity,
     };
   }
   return {
     passed: true,
     kind: assertion.kind,
     label: assertion.label || assertion.kind,
+    severity,
   };
 }
 
@@ -338,10 +416,25 @@ async function runWaitFor(page, waitFor) {
   return { ok: false, reason: `unsupported-wait:${waitFor.kind}` };
 }
 
-async function runCase(page, caseEntry, suiteOutDir) {
-  const verifySpec = readJson(caseEntry.verifySpecPath);
+export async function runCase(page, caseEntry, suiteOutDir, options = {}) {
+  const readJsonImpl = typeof options.readJsonImpl === 'function' ? options.readJsonImpl : readJson;
+  const writeJsonImpl = typeof options.writeJsonImpl === 'function' ? options.writeJsonImpl : writeJson;
+  const delayImpl = typeof options.delayImpl === 'function' ? options.delayImpl : delay;
+  const dismissNoiseImpl = typeof options.dismissNoiseImpl === 'function' ? options.dismissNoiseImpl : dismissNoise;
+  const evaluateAssertionImpl = typeof options.evaluateAssertionImpl === 'function' ? options.evaluateAssertionImpl : evaluateAssertion;
+  const runTriggerImpl = typeof options.runTriggerImpl === 'function' ? options.runTriggerImpl : runTrigger;
+  const runWaitForImpl = typeof options.runWaitForImpl === 'function' ? options.runWaitForImpl : runWaitFor;
+  const verifySpec = readJsonImpl(caseEntry.verifySpecPath);
+  const gatePolicy = normalizeGatePolicy(verifySpec);
   const caseOutDir = path.join(suiteOutDir, caseEntry.caseId);
   ensureDir(caseOutDir);
+
+  if (caseEntry.guardBlocked) {
+    const caseResult = buildGuardBlockedCaseResult(caseEntry);
+    writeJsonImpl(path.join(caseOutDir, 'result.json'), caseResult);
+    return caseResult;
+  }
+
   const runtimeErrors = [];
   const onPageError = (error) => {
     const message = error?.stack || error?.message || String(error);
@@ -371,32 +464,32 @@ async function runCase(page, caseEntry, suiteOutDir) {
   try {
     await page.goto(caseEntry.browseUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await delay(800);
-    await dismissNoise(page);
+    await delayImpl(800);
+    await dismissNoiseImpl(page);
 
     const landingPng = path.join(caseOutDir, 'landing.png');
     await page.screenshot({ path: landingPng, fullPage: true });
 
     const preOpenAssertions = [];
     for (const assertion of normalizeAssertions(verifySpec.preOpen?.assertions)) {
-      preOpenAssertions.push(await evaluateAssertion(page, assertion));
+      preOpenAssertions.push(await evaluateAssertionImpl(page, assertion));
     }
-    const preOpenPassed = preOpenAssertions.every((item) => item.passed !== false);
+    const preOpenPassed = assertionsPassed(preOpenAssertions);
 
     const stages = [];
-    let stopped = !preOpenPassed;
+    let stopped = !preOpenPassed && gatePolicy.stopOnPreOpenBlocker;
     if (!stopped) {
       for (const stage of Array.isArray(verifySpec.stages) ? verifySpec.stages : []) {
-        const triggerResult = await runTrigger(page, stage.trigger);
+        const triggerResult = await runTriggerImpl(page, stage.trigger);
         let waitResult = { ok: true };
         if (triggerResult.ok) {
-          waitResult = await runWaitFor(page, stage.waitFor);
+          waitResult = await runWaitForImpl(page, stage.waitFor);
         }
         const stageAssertions = [];
         for (const assertion of normalizeAssertions(stage.assertions)) {
-          stageAssertions.push(await evaluateAssertion(page, assertion));
+          stageAssertions.push(await evaluateAssertionImpl(page, assertion));
         }
-        const passed = triggerResult.ok && waitResult.ok && stageAssertions.every((item) => item.passed !== false);
+        const passed = triggerResult.ok && waitResult.ok && assertionsPassed(stageAssertions);
         const screenshotPath = path.join(caseOutDir, `${stage.id || 'stage'}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: true });
         stages.push({
@@ -410,25 +503,19 @@ async function runCase(page, caseEntry, suiteOutDir) {
           passed,
           screenshotPath,
         });
-        if (!passed && stage.mandatory !== false) {
+        if (!passed && stage.mandatory !== false && gatePolicy.stopOnStageFailure) {
           stopped = true;
           break;
         }
       }
     }
 
-    const stagePassCount = stages.filter((item) => item.passed).length;
-    let browserStatus = 'success';
-    if (caseEntry.guardBlocked) {
-      browserStatus = 'blocked';
-    } else if (!preOpenPassed) {
-      browserStatus = 'failed';
-    } else if (stages.length > 0 && stagePassCount < stages.length) {
-      browserStatus = stagePassCount > 0 ? 'partial' : 'failed';
-    }
-    if (runtimeErrors.length > 0 && browserStatus !== 'blocked') {
-      browserStatus = 'failed';
-    }
+    const browserStatus = determineBrowserStatus({
+      guardBlocked: caseEntry.guardBlocked,
+      preOpenPassed,
+      stages,
+      runtimeErrors,
+    });
 
     const caseResult = {
       caseId: caseEntry.caseId,
@@ -445,7 +532,7 @@ async function runCase(page, caseEntry, suiteOutDir) {
       landingPng,
       runtimeErrors,
     };
-    writeJson(path.join(caseOutDir, 'result.json'), caseResult);
+    writeJsonImpl(path.join(caseOutDir, 'result.json'), caseResult);
     return caseResult;
   } finally {
     page.off('pageerror', onPageError);
