@@ -203,6 +203,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 6. 对现有页面默认做局部补丁，不要为了一个局部改动重建整棵页面树。
 7. validation 结论必须基于真实故障信号和数据可用性，不要把 React warning 当失败。
 8. 任何已标记为内部、未解析、或 schema 未放行的 model/use，都不能直接写入。
+9. 生成 RunJS / JSBlock 代码时，不要默认假设浏览器全局 `fetch`、`localStorage` 或任意 `window.*` 可用；当前登录用户优先使用 `ctx.user` / `ctx.auth?.user`，NocoBase collection/list/get 默认使用 `ctx.initResource()` + `ctx.resource` 或 `ctx.makeResource()`，只有自定义端点或 request-only 场景才使用 `ctx.request()`。
 
 # 任务路由
 

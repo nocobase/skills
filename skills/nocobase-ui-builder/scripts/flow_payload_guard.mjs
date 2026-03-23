@@ -12,6 +12,11 @@ import {
   getAllowedTabUsesForPage as getAllowedTabUsesForPageFromContracts,
   normalizePageUse,
 } from './model_contracts.mjs';
+import {
+  canonicalizeRunJSPayload,
+  inspectRunJSPayloadStatic,
+  transformFilterGroupToQueryFilter,
+} from './runjs_guard.mjs';
 
 export const GENERAL_MODE = 'general';
 export const VALIDATION_CASE_MODE = 'validation-case';
@@ -207,9 +212,10 @@ function usage() {
   return [
     'Usage:',
     '  node scripts/flow_payload_guard.mjs build-filter (--condition-json <json> | --path <path> --operator <op> --value-json <json>) [--logic <$and|$or>]',
+    '  node scripts/flow_payload_guard.mjs build-query-filter (--condition-json <json> | --path <path> --operator <op> --value-json <json>) [--logic <$and|$or>]',
     '  node scripts/flow_payload_guard.mjs extract-required-metadata (--payload-json <json> | --payload-file <path>) [(--metadata-json <json> | --metadata-file <path>)]',
     '  node scripts/flow_payload_guard.mjs canonicalize-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case]',
-    '  node scripts/flow_payload_guard.mjs audit-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case] [(--requirements-json <json> | --requirements-file <path>)] [--risk-accept <CODE>]',
+    '  node scripts/flow_payload_guard.mjs audit-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case] [(--requirements-json <json> | --requirements-file <path>)] [--nocobase-root <path>] [--snapshot-file <path>] [--risk-accept <CODE>]',
     '',
     `Default audit mode: ${DEFAULT_AUDIT_MODE}`,
   ].join('\n');
@@ -664,6 +670,12 @@ export function buildFilterGroup({ logic = '$and', condition }) {
   };
 }
 
+export function buildQueryFilter({ logic = '$and', condition }) {
+  return {
+    filter: transformFilterGroupToQueryFilter(buildFilterGroup({ logic, condition }).filter),
+  };
+}
+
 function createFinding({ severity, code, message, path: findingPath, mode, accepted = false, details, dedupeKey }) {
   return {
     severity,
@@ -685,6 +697,28 @@ function pushFinding(target, seen, finding) {
   const sanitized = { ...finding };
   delete sanitized.dedupeKey;
   target.push(sanitized);
+}
+
+function pushExternalFinding(target, seen, finding, mode) {
+  if (!isPlainObject(finding) || typeof finding.code !== 'string' || typeof finding.path !== 'string') {
+    return;
+  }
+  const dedupeKey = [
+    finding.code,
+    finding.path,
+    finding.modelUse || '',
+    finding.line || '',
+    finding.column || '',
+    finding.message || '',
+  ].join(':');
+  if (seen.has(dedupeKey)) {
+    return;
+  }
+  seen.add(dedupeKey);
+  target.push({
+    ...finding,
+    mode,
+  });
 }
 
 function normalizeCollectionField(field) {
@@ -3911,6 +3945,7 @@ function applyRiskAccept(blockers, warnings, acceptedCodes) {
       acceptedSet.has(blocker.code)
       && !ignoredCodes.has(blocker.code)
       && !NON_RISK_ACCEPTABLE_BLOCKER_CODES.has(blocker.code)
+      && !blocker.code.startsWith('RUNJS_')
     ) {
       downgradedWarnings.push({
         ...blocker,
@@ -3942,7 +3977,7 @@ function pushCanonicalizeItem(target, seen, item) {
   target.push(sanitized);
 }
 
-export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE }) {
+export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE, nocobaseRoot, snapshotPath } = {}) {
   if (mode !== GENERAL_MODE && mode !== VALIDATION_CASE_MODE) {
     throw new Error(`Unsupported mode "${mode}"`);
   }
@@ -3953,6 +3988,18 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
   const unresolved = [];
   const transformSeen = new Set();
   const unresolvedSeen = new Set();
+
+  const runjsCanonicalized = canonicalizeRunJSPayload({
+    payload: workingPayload,
+    nocobaseRoot,
+    snapshotPath,
+  });
+  for (const item of runjsCanonicalized.transforms || []) {
+    pushCanonicalizeItem(transforms, transformSeen, item);
+  }
+  for (const item of runjsCanonicalized.unresolved || []) {
+    pushCanonicalizeItem(unresolved, unresolvedSeen, item);
+  }
 
   walk(workingPayload, (node, pathValue, context) => {
     if (!isPlainObject(node)) {
@@ -4483,6 +4530,11 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
     payload: workingPayload,
     transforms,
     unresolved,
+    runjsCanonicalization: runjsCanonicalized.semantic || {
+      blockerCount: 0,
+      warningCount: 0,
+      autoRewriteCount: 0,
+    },
     metadataCoverage: {
       collectionCount: Object.keys(normalizedMetadata.collections).length,
       requiredCollectionCount: new Set(requiredMetadata.collectionRefs.map((item) => item.collectionName)).size,
@@ -4652,7 +4704,15 @@ export function extractRequiredMetadata({ payload, metadata = {} }) {
   };
 }
 
-export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE, riskAccept = [], requirements = {} }) {
+export function auditPayload({
+  payload,
+  metadata = {},
+  mode = DEFAULT_AUDIT_MODE,
+  riskAccept = [],
+  requirements = {},
+  nocobaseRoot,
+  snapshotPath,
+}) {
   if (mode !== GENERAL_MODE && mode !== VALIDATION_CASE_MODE) {
     throw new Error(`Unsupported mode "${mode}"`);
   }
@@ -4664,6 +4724,7 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   const warnings = [];
   const blockerSeen = new Set();
   const warningSeen = new Set();
+  let runjsInspection = null;
 
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
@@ -4680,6 +4741,29 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
   inspectPopupActions(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectDeclaredRequirements(payload, normalizedMetadata, mode, normalizedRequirements, blockers, blockerSeen);
+  try {
+    runjsInspection = inspectRunJSPayloadStatic({
+      payload,
+      mode,
+      nocobaseRoot,
+      snapshotPath,
+    });
+    for (const finding of runjsInspection.blockers || []) {
+      pushExternalFinding(blockers, blockerSeen, finding, mode);
+    }
+    for (const finding of runjsInspection.warnings || []) {
+      pushExternalFinding(warnings, warningSeen, finding, mode);
+    }
+  } catch (error) {
+    pushFinding(warnings, warningSeen, createFinding({
+      severity: 'warning',
+      code: 'RUNJS_GUARD_UNAVAILABLE',
+      message: `RunJS static guard could not run: ${error.message}`,
+      path: '$',
+      mode,
+      dedupeKey: 'RUNJS_GUARD_UNAVAILABLE:$',
+    }));
+  }
   if (mode === VALIDATION_CASE_MODE) {
     inspectHardcodedFilterByTk(payload, mode, blockers, blockerSeen);
   } else {
@@ -4699,6 +4783,18 @@ export function auditPayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE
     warnings: finalWarnings,
     acceptedRiskCodes: applied.acceptedRiskCodes,
     ignoredRiskAcceptCodes: applied.ignoredRiskAcceptCodes,
+    runjsInspection: runjsInspection
+      ? {
+        ok: runjsInspection.ok,
+        blockerCount: runjsInspection.blockers.length,
+        warningCount: runjsInspection.warnings.length,
+        inspectedNodeCount: runjsInspection.inspectedNodes.length,
+        contractSource: runjsInspection.contractSource,
+        semanticBlockerCount: runjsInspection.execution?.semanticBlockerCount || 0,
+        semanticWarningCount: runjsInspection.execution?.semanticWarningCount || 0,
+        autoRewriteCount: runjsInspection.execution?.autoRewriteCount || 0,
+      }
+      : null,
     metadataCoverage: {
       collectionCount: Object.keys(normalizedMetadata.collections).length,
       requiredCollectionCount: new Set(requiredMetadata.collectionRefs.map((item) => item.collectionName)).size,
@@ -4718,8 +4814,25 @@ function buildFilterFromFlags(flags) {
   return buildFilterGroup({ logic, condition });
 }
 
+function buildQueryFilterFromFlags(flags) {
+  const logic = flags.logic ? normalizeFilterLogic(flags.logic) : '$and';
+  const condition = flags['condition-json']
+    ? parseJson(flags['condition-json'], 'condition-json')
+    : {
+      path: normalizeNonEmpty(flags.path, 'path'),
+      operator: normalizeNonEmpty(flags.operator, 'operator'),
+      value: parseJson(flags['value-json'], 'value-json'),
+    };
+  return buildQueryFilter({ logic, condition });
+}
+
 function handleBuildFilter(flags) {
   const result = buildFilterFromFlags(flags);
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
+
+function handleBuildQueryFilter(flags) {
+  const result = buildQueryFilterFromFlags(flags);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
@@ -4736,7 +4849,13 @@ function handleCanonicalizePayload(flags) {
   const payload = readJsonInput(flags['payload-json'], flags['payload-file'], 'payload');
   const metadata = readJsonInput(flags['metadata-json'], flags['metadata-file'], 'metadata');
   const mode = flags.mode ? normalizeNonEmpty(flags.mode, 'mode') : DEFAULT_AUDIT_MODE;
-  const result = canonicalizePayload({ payload, metadata, mode });
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode,
+    nocobaseRoot: flags['nocobase-root'],
+    snapshotPath: flags['snapshot-file'],
+  });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
@@ -4748,7 +4867,15 @@ function handleAuditPayload(flags) {
   const requirements = flags['requirements-json'] || flags['requirements-file']
     ? readJsonInput(flags['requirements-json'], flags['requirements-file'], 'requirements')
     : {};
-  const result = auditPayload({ payload, metadata, mode, riskAccept, requirements });
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode,
+    riskAccept,
+    requirements,
+    nocobaseRoot: flags['nocobase-root'],
+    snapshotPath: flags['snapshot-file'],
+  });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!result.ok) {
     process.exitCode = BLOCKER_EXIT_CODE;
@@ -4764,6 +4891,10 @@ function main(argv) {
     }
     if (command === 'build-filter') {
       handleBuildFilter(flags);
+      return;
+    }
+    if (command === 'build-query-filter') {
+      handleBuildQueryFilter(flags);
       return;
     }
     if (command === 'extract-required-metadata') {

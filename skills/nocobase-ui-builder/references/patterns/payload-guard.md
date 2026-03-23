@@ -48,6 +48,15 @@ node scripts/flow_payload_guard.mjs build-filter \
   --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
 ```
 
+如果需要给 RunJS 的 `ctx.request({ params.filter })` 或 `resource.setFilter()` 生成服务端 query filter，不要复用上面的 `{ logic, items }`；改用：
+
+```bash
+node scripts/flow_payload_guard.mjs build-query-filter \
+  --path order_id \
+  --operator '$eq' \
+  --value-json '"{{ctx.view.inputArgs.filterByTk}}"'
+```
+
 如果这是 popup / 详情里的关联子表，不要把这条示例当默认方案；只有在 parent->child relation resource 已被稳定 reference、live tree 或已验证样板证明可用时，才升级成 `resourceSettings.init.associationName + sourceId`。否则允许保留 child-side 的逻辑 relation filter，但仍然不能把子表上的 `belongsTo` 字段名或 `child.belongsToField` 直接当成 `associationName`。同时，child-side 逻辑 filter 的 `path` 也必须来自 relation metadata：优先 `foreignKey`，否则 `<belongsToField>.<targetKey>`；拿不到就保持 blocker，不猜字段名。
 
 3. 提取所需元数据：

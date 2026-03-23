@@ -9,6 +9,7 @@ import {
   VALIDATION_CASE_MODE,
   auditPayload,
   buildFilterGroup,
+  buildQueryFilter,
   canonicalizePayload,
   extractRequiredMetadata,
 } from './flow_payload_guard.mjs';
@@ -1076,6 +1077,109 @@ test('buildFilterGroup returns a valid FilterGroupType wrapper', () => {
       },
     },
   );
+});
+
+test('buildQueryFilter returns a valid server query filter wrapper', () => {
+  assert.deepEqual(
+    buildQueryFilter({
+      logic: '$and',
+      condition: {
+        path: 'customer',
+        operator: '$eq',
+        value: '{{ctx.record.id}}',
+      },
+    }),
+    {
+      filter: {
+        $and: [
+          {
+            customer: {
+              $eq: '{{ctx.record.id}}',
+            },
+          },
+        ],
+      },
+    },
+  );
+});
+
+test('canonicalizePayload rewrites JSBlock resource reads from ctx.request to resource API', () => {
+  const payload = {
+    use: 'JSBlockModel',
+    stepParams: {
+      jsSettings: {
+        runJs: {
+          version: 'v2',
+          code: `const filter = {
+  logic: '$and',
+  items: [
+    { path: 'owner_id', operator: '$eq', value: currentUserId },
+  ],
+};
+const response = await ctx.request({
+  url: 'task:list',
+  method: 'get',
+  params: {
+    pageSize: 100,
+    sort: ['due_date'],
+    filter,
+  },
+  skipNotify: true,
+});
+const rows = Array.isArray(response?.data?.data) ? response.data.data : [];`,
+        },
+      },
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  const nextCode = result.payload.stepParams.jsSettings.runJs.code;
+  assert.equal(nextCode.includes("ctx.makeResource('MultiRecordResource')"), true);
+  assert.equal(nextCode.includes('__runjsResource.setFilter'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'RUNJS_REQUEST_FILTER_GROUP_TO_QUERY_FILTER'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'RUNJS_REQUEST_LIST_TO_MULTI_RECORD_RESOURCE'), true);
+  assert.deepEqual(result.runjsCanonicalization, {
+    blockerCount: 0,
+    warningCount: 1,
+    autoRewriteCount: 1,
+  });
+});
+
+test('auditPayload exposes runjs semantic warning summary for resource reads left on ctx.request', () => {
+  const payload = {
+    use: 'JSBlockModel',
+    stepParams: {
+      jsSettings: {
+        runJs: {
+          version: 'v2',
+          code: `const response = await ctx.request({
+  url: 'task:list',
+  method: 'get',
+  params: {
+    pageSize: 20,
+  },
+});`,
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: {},
+    mode: GENERAL_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.warnings.some((item) => item.code === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'), true);
+  assert.equal(result.runjsInspection.semanticBlockerCount, 0);
+  assert.equal(result.runjsInspection.semanticWarningCount > 0, true);
+  assert.equal(result.runjsInspection.autoRewriteCount, 1);
 });
 
 test('extractRequiredMetadata collects collection refs, field refs, and popup checks', () => {
@@ -3985,6 +4089,29 @@ test('build-filter CLI prints normalized JSON', () => {
   assert.equal(result.filter.items[0].operator, '$eq');
 });
 
+test('build-query-filter CLI prints server query JSON', () => {
+  const output = execFileSync(
+    process.execPath,
+    [
+      SCRIPT_PATH,
+      'build-query-filter',
+      '--path',
+      'customer',
+      '--operator',
+      '$eq',
+      '--value-json',
+      '"{{ctx.record.id}}"',
+    ],
+    {
+      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      encoding: 'utf8',
+    },
+  );
+  const result = JSON.parse(output);
+  assert.equal(Array.isArray(result.filter.$and), true);
+  assert.equal(result.filter.$and[0].customer.$eq, '{{ctx.record.id}}');
+});
+
 test('canonicalize-payload CLI prints normalized JSON', () => {
   const payload = JSON.stringify(makeEditFormBlock({ includeActions: false }));
   const output = execFileSync(
@@ -4041,4 +4168,56 @@ test('audit-payload CLI exits with blocker code when payload is invalid', () => 
   assert.equal(result.status, BLOCKER_EXIT_CODE);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), true);
+});
+
+test('auditPayload blocks forbidden RunJS globals and exposes runjs inspection summary', () => {
+  const result = auditPayload({
+    payload: {
+      use: 'JSBlockModel',
+      stepParams: {
+        jsSettings: {
+          runJs: {
+            code: "await fetch('/api/auth:check')",
+            version: 'v1',
+          },
+        },
+      },
+    },
+    metadata: {},
+    mode: GENERAL_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_FORBIDDEN_GLOBAL'), true);
+  assert.deepEqual(result.runjsInspection, {
+    ok: false,
+    blockerCount: 1,
+    warningCount: 0,
+    inspectedNodeCount: 1,
+    contractSource: 'live',
+    semanticBlockerCount: 0,
+    semanticWarningCount: 0,
+    autoRewriteCount: 0,
+  });
+});
+
+test('auditPayload does not downgrade RunJS blockers through risk accept', () => {
+  const result = auditPayload({
+    payload: {
+      use: 'JSActionModel',
+      clickSettings: {
+        runJs: {
+          code: 'await ctx.notAllowed()',
+          version: 'v1',
+        },
+      },
+    },
+    metadata: {},
+    mode: GENERAL_MODE,
+    riskAccept: ['RUNJS_UNKNOWN_CTX_MEMBER'],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.acceptedRiskCodes.includes('RUNJS_UNKNOWN_CTX_MEMBER'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_UNKNOWN_CTX_MEMBER'), true);
 });
