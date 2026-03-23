@@ -14,6 +14,7 @@ Help users orchestrate NocoBase workflows end-to-end through NocoBase MCP tools:
 - Related helper skills: `nocobase-mcp-setup`, `nocobase-data-modeling`.
 - Check whether NocoBase MCP tools are available before planning write operations.
 - If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
+- If MCP tools return authentication errors such as `Auth required`, stop and ask the user to complete MCP authentication or refresh the MCP connection before continuing.
 - Data modeling skill may be used to understand related collections and fields when configuring workflow triggers and nodes.
 
 # Mandatory MCP Gate
