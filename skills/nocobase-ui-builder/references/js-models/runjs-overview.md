@@ -7,7 +7,7 @@ description: 面向 nocobase-ui-builder 的 RunJS 最小必备知识，覆盖顶
 
 ## 核心认知
 
-RunJS 是 NocoBase 里给 JS 区块、JS 字段、JS 项、JS 表格列、JS 操作使用的浏览器端执行环境。
+RunJS 是 NocoBase 里给 JS 区块、JS 字段、JS 可编辑字段、JS 项、JS 表格列、JS 操作使用的浏览器端执行环境。
 
 对 builder 来说，只需要先记住这 5 件事：
 
@@ -16,6 +16,12 @@ RunJS 是 NocoBase 里给 JS 区块、JS 字段、JS 项、JS 表格列、JS 操
 3. 渲染型 JS model 默认通过 `ctx.render()` 输出内容
 4. 代码运行在受限沙箱里，可通过 `ctx` 访问上下文
 5. 不要默认假设浏览器全局 `fetch`、`localStorage`、任意 `window.*` 可直接访问
+
+补充：
+
+- 上游源码仍保留 `ctx.element` / `innerHTML` 兼容路径
+- `nocobase-ui-builder` skill 明确更严格：默认只生成 `ctx.render(...)`
+- 对简单的 `innerHTML = ...` 赋值，guard 会尝试自动改写；剩余复杂场景直接 blocker
 
 ## 常用能力
 
@@ -116,6 +122,7 @@ ctx.render(
 - `JSBlockModel`
 - `JSColumnModel`
 - `JSFieldModel`
+- `JSEditableFieldModel`
 - `JSItemModel`
 
 默认写法：
@@ -157,6 +164,6 @@ await fetch('/api/auth:check', { credentials: 'include' });
 
 这些写法都不应作为 builder 生成代码的默认模板：
 
-- `ctx.element` 只作为容器概念或特例说明保留
+- `ctx.element` 只作为容器概念、锚点或低级 DOM 互操作说明保留；不要把它当默认渲染出口
 - `return value` 不能替代渲染动作
 - `fetch` 不应被默认假设为可用；在 RunJS 里应优先使用 `ctx.user` / resource API，只有自定义端点才使用 `ctx.request()`

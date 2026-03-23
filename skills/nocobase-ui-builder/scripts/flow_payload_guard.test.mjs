@@ -4201,6 +4201,62 @@ test('auditPayload blocks forbidden RunJS globals and exposes runjs inspection s
   });
 });
 
+test('canonicalizePayload rewrites render-model innerHTML writes to ctx.render', () => {
+  const result = canonicalizePayload({
+    payload: {
+      use: 'JSColumnModel',
+      stepParams: {
+        tableColumnSettings: {
+          title: {
+            title: '概览',
+          },
+        },
+        jsSettings: {
+          runJs: {
+            version: 'v2',
+            code: "ctx.element.innerHTML = '<span>Preview</span>';",
+          },
+        },
+      },
+    },
+    metadata: {},
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.jsSettings.runJs.code.includes("ctx.render('<span>Preview</span>');"), true);
+  assert.equal(result.transforms.some((item) => item.code === 'RUNJS_ELEMENT_INNERHTML_TO_CTX_RENDER'), true);
+  assert.deepEqual(result.runjsCanonicalization, {
+    blockerCount: 0,
+    warningCount: 1,
+    autoRewriteCount: 1,
+  });
+});
+
+test('auditPayload blocks render-model innerHTML writes when later DOM access remains', () => {
+  const result = auditPayload({
+    payload: {
+      use: 'JSBlockModel',
+      stepParams: {
+        jsSettings: {
+          runJs: {
+            version: 'v2',
+            code: `ctx.element.innerHTML = '<a>Open</a>';
+ctx.element.querySelector('a')?.addEventListener('click', () => {
+  console.log('open');
+});`,
+          },
+        },
+      },
+    },
+    metadata: {},
+    mode: GENERAL_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_ELEMENT_INNERHTML_FORBIDDEN'), true);
+  assert.equal(result.runjsInspection.semanticBlockerCount > 0, true);
+});
+
 test('auditPayload does not downgrade RunJS blockers through risk accept', () => {
   const result = auditPayload({
     payload: {

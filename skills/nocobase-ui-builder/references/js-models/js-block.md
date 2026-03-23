@@ -41,6 +41,7 @@ description: 面向 builder 的 JSBlockModel 约束、stepParams 路径与默认
 - JSBlock 默认没有预绑定 `ctx.resource`；需要结构化数据时先 `ctx.initResource(...)`
 - 当前登录用户优先使用 `ctx.user` 或 `ctx.auth?.user`
 - collection 的 `:list` / `:get` 默认使用 resource API，不要直接写进 `ctx.request()`
+- `ctx.element` 在源码里仍存在，但 skill 默认不接受直接写 `innerHTML`
 
 ## 默认写法
 
@@ -125,6 +126,8 @@ ctx.element.innerHTML = '<div>...</div>';
 await ctx.request({ url: 'tasks:list', method: 'get' });
 await fetch('/api/auth:check', { credentials: 'include' });
 ```
+
+其中 `innerHTML` 简单赋值可能会被 guard 自动改写为 `ctx.render(...)`，复杂场景会直接 blocker。
 
 ## 何时再看别的文档
 

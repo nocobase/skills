@@ -184,6 +184,66 @@ const response = await ctx.request({
   assert.equal(listResult.transforms.some((item) => item.code === 'RUNJS_REQUEST_LIST_TO_MULTI_RECORD_RESOURCE'), true);
 });
 
+test('inspectRunJSCode accepts JSColumnModel and JSEditableFieldModel specific context members', async () => {
+  const columnResult = await inspectRunJSCode({
+    modelUse: 'JSColumnModel',
+    code: `ctx.render(String(ctx.recordIndex ?? 0));
+await ctx.viewer.drawer({ title: String(ctx.collection?.name ?? 'tasks') });`,
+  });
+  assert.equal(columnResult.ok, true);
+  assert.equal(columnResult.blockers.length, 0);
+
+  const editableResult = await inspectRunJSCode({
+    modelUse: 'JSEditableFieldModel',
+    code: `const nextValue = String(ctx.getValue?.() ?? ctx.value ?? '');
+ctx.setValue?.(nextValue);
+ctx.render('<span>' + nextValue + '</span>');`,
+  });
+  assert.equal(editableResult.ok, true);
+  assert.equal(editableResult.blockers.length, 0);
+});
+
+test('canonicalizeRunJSCode rewrites innerHTML assignments to ctx.render for render models', () => {
+  const directResult = canonicalizeRunJSCode({
+    modelUse: 'JSColumnModel',
+    code: `ctx.element.innerHTML = '<span>' + String(ctx.record?.status ?? '-') + '</span>';`,
+  });
+  assert.equal(directResult.changed, true);
+  assert.equal(directResult.code.includes('ctx.render('), true);
+  assert.equal(directResult.transforms.some((item) => item.code === 'RUNJS_ELEMENT_INNERHTML_TO_CTX_RENDER'), true);
+
+  const aliasResult = canonicalizeRunJSCode({
+    modelUse: 'JSBlockModel',
+    code: `const root = ctx.element;
+root.innerHTML = '<div>Preview</div>';`,
+  });
+  assert.equal(aliasResult.changed, true);
+  assert.equal(aliasResult.code.includes("ctx.render('<div>Preview</div>');"), true);
+
+  const refReadyResult = canonicalizeRunJSCode({
+    modelUse: 'JSFieldModel',
+    code: `ctx.onRefReady(ctx.ref, (el) => {
+  const html = '<strong>' + String(ctx.value ?? '') + '</strong>';
+  el.innerHTML = html;
+});`,
+  });
+  assert.equal(refReadyResult.changed, true);
+  assert.equal(refReadyResult.code.includes('ctx.render(html);'), true);
+});
+
+test('inspectRunJSCode blocks innerHTML writes that still depend on DOM after rendering', async () => {
+  const result = await inspectRunJSCode({
+    modelUse: 'JSBlockModel',
+    code: `ctx.element.innerHTML = '<a>Open</a>';
+ctx.element.querySelector('a')?.addEventListener('click', () => {
+  console.log('open');
+});`,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_ELEMENT_INNERHTML_FORBIDDEN'), true);
+});
+
 test('inspectRunJSStaticCode falls back to snapshot when nocobase source root is unavailable', () => {
   const result = inspectRunJSStaticCode({
     modelUse: 'JSBlockModel',

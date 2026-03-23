@@ -107,6 +107,13 @@ const SAFE_REQUEST_PARAM_KEYS = new Set([
   'tree',
 ]);
 const IDENTIFIER_KEY_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const RENDER_MODEL_USES = new Set([
+  'JSBlockModel',
+  'JSColumnModel',
+  'JSFieldModel',
+  'JSItemModel',
+  'JSEditableFieldModel',
+]);
 
 function usage() {
   return [
@@ -384,6 +391,7 @@ function collectVariableInitializers(ast) {
     env.set(node.id.name, {
       kind: declaration?.type === 'VariableDeclaration' ? declaration.kind : 'var',
       init: node.init,
+      start: Number.isInteger(node.start) ? node.start : null,
     });
   });
   return env;
@@ -477,6 +485,255 @@ function isCtxMemberExpression(node, name) {
 
 function isCtxRequestCall(node) {
   return node?.type === 'CallExpression' && isCtxMemberExpression(node.callee, 'request');
+}
+
+function isRenderModelUse(modelUse) {
+  return RENDER_MODEL_USES.has(modelUse);
+}
+
+function isFunctionNode(node) {
+  return node?.type === 'FunctionDeclaration'
+    || node?.type === 'FunctionExpression'
+    || node?.type === 'ArrowFunctionExpression';
+}
+
+function isInnerHTMLMemberExpression(node) {
+  return node?.type === 'MemberExpression'
+    && node.computed !== true
+    && node.property?.type === 'Identifier'
+    && node.property.name === 'innerHTML';
+}
+
+function findOnRefReadyCallbackContext(ancestors) {
+  for (let index = ancestors.length - 1; index >= 1; index -= 1) {
+    const candidate = ancestors[index];
+    if (!isFunctionNode(candidate)) continue;
+    const parent = ancestors[index - 1];
+    if (parent?.type !== 'CallExpression' || !isCtxMemberExpression(parent.callee, 'onRefReady')) {
+      continue;
+    }
+    const firstParam = Array.isArray(candidate.params) ? candidate.params[0] : null;
+    return {
+      functionNode: candidate,
+      paramName: firstParam?.type === 'Identifier' ? firstParam.name : null,
+    };
+  }
+  return null;
+}
+
+function buildFunctionAliasMap(functionNode, maxStart, refReadyParamName = null) {
+  const aliases = new Map();
+  if (refReadyParamName) {
+    aliases.set(refReadyParamName, {
+      kind: 'ref-ready-element',
+    });
+  }
+  const visit = (node) => {
+    if (!isAstNode(node)) return;
+    if (node !== functionNode && isFunctionNode(node)) return;
+    if (
+      node.type === 'VariableDeclarator'
+      && node.id?.type === 'Identifier'
+      && node.init
+      && (!Number.isInteger(maxStart) || !Number.isInteger(node.start) || node.start < maxStart)
+    ) {
+      aliases.set(node.id.name, {
+        kind: 'alias',
+        init: node.init,
+      });
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item);
+        continue;
+      }
+      visit(value);
+    }
+  };
+
+  if (functionNode?.body) {
+    visit(functionNode.body);
+  }
+  return aliases;
+}
+
+function resolveElementReference(node, env, localAliases, currentPos, seen = new Set()) {
+  if (!node) return null;
+  if (isCtxMemberExpression(node, 'element')) {
+    return {
+      kind: 'ctx-element',
+      label: 'ctx.element',
+    };
+  }
+  if (node.type !== 'Identifier') return null;
+  if (seen.has(node.name)) return null;
+  seen.add(node.name);
+
+  const localEntry = localAliases?.get(node.name);
+  if (localEntry) {
+    if (localEntry.kind === 'ref-ready-element') {
+      return {
+        kind: 'ref-ready-element',
+        label: node.name,
+      };
+    }
+    if (localEntry.kind === 'alias') {
+      return resolveElementReference(localEntry.init, env, localAliases, currentPos, seen);
+    }
+  }
+
+  const globalEntry = env?.get(node.name);
+  if (
+    globalEntry
+    && (!Number.isInteger(globalEntry.start) || !Number.isInteger(currentPos) || globalEntry.start < currentPos)
+  ) {
+    return resolveElementReference(globalEntry.init, env, localAliases, currentPos, seen);
+  }
+  return null;
+}
+
+function findExpressionStatementContext(node, ancestors) {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const candidate = ancestors[index];
+    if (candidate?.type !== 'ExpressionStatement' || candidate.expression !== node) continue;
+    for (let parentIndex = index - 1; parentIndex >= 0; parentIndex -= 1) {
+      const parent = ancestors[parentIndex];
+      const body = Array.isArray(parent?.body) ? parent.body : null;
+      if (!body || !body.includes(candidate)) continue;
+      return {
+        statement: candidate,
+        statements: body,
+        statementIndex: body.indexOf(candidate),
+      };
+    }
+    return {
+      statement: candidate,
+      statements: null,
+      statementIndex: -1,
+    };
+  }
+  return null;
+}
+
+function nodeUsesElementReference(node, env, localAliases) {
+  let found = false;
+  traverseAst(node, (candidate, ancestors) => {
+    if (found) return;
+    if (candidate?.type === 'MemberExpression') {
+      const target = resolveElementReference(candidate.object, env, localAliases, candidate.start);
+      if (target) {
+        found = true;
+      }
+      return;
+    }
+    if (candidate?.type === 'Identifier') {
+      const parent = ancestors[ancestors.length - 1];
+      if (
+        (parent?.type === 'VariableDeclarator' && parent.id === candidate)
+        || (parent?.type === 'FunctionDeclaration' && parent.id === candidate)
+        || (parent?.type === 'FunctionExpression' && parent.id === candidate)
+        || (parent?.type === 'ArrowFunctionExpression' && parent.params?.includes(candidate))
+        || (parent?.type === 'Property' && parent.key === candidate && parent.computed !== true)
+        || (parent?.type === 'MemberExpression' && parent.property === candidate && parent.computed !== true)
+      ) {
+        return;
+      }
+      if (resolveElementReference(candidate, env, localAliases, candidate.start)) {
+        found = true;
+      }
+    }
+  });
+  return found;
+}
+
+function buildInnerHTMLRewrite({ assignmentNode, ancestors, code, env, localAliases }) {
+  if (assignmentNode.operator !== '=') return null;
+  const statementContext = findExpressionStatementContext(assignmentNode, ancestors);
+  if (!statementContext?.statement || !statementContext.statements) {
+    return null;
+  }
+
+  for (let index = statementContext.statementIndex + 1; index < statementContext.statements.length; index += 1) {
+    if (nodeUsesElementReference(statementContext.statements[index], env, localAliases)) {
+      return null;
+    }
+  }
+
+  return {
+    start: statementContext.statement.start,
+    end: statementContext.statement.end,
+    replacement: `ctx.render(${sourceOf(code, assignmentNode.right)});`,
+    transforms: [
+      {
+        code: 'RUNJS_ELEMENT_INNERHTML_TO_CTX_RENDER',
+        message: '把 ctx.element.innerHTML 赋值改写为 ctx.render(...)。',
+      },
+    ],
+  };
+}
+
+function analyzeInnerHTMLAssignment({ node, ancestors, code, env, modelUse, path: findingPath }) {
+  if (!isRenderModelUse(modelUse)) return null;
+  if (node?.type !== 'AssignmentExpression' || !isInnerHTMLMemberExpression(node.left)) {
+    return null;
+  }
+
+  const onRefReadyContext = findOnRefReadyCallbackContext(ancestors);
+  const localAliases = onRefReadyContext
+    ? buildFunctionAliasMap(onRefReadyContext.functionNode, node.start, onRefReadyContext.paramName)
+    : new Map();
+  const elementTarget = resolveElementReference(node.left.object, env, localAliases, node.start);
+  if (!elementTarget) return null;
+
+  const line = node.left.property?.loc?.start?.line ?? node.loc?.start?.line ?? null;
+  const column = node.left.property?.loc?.start?.column != null
+    ? node.left.property.loc.start.column + 1
+    : (node.loc?.start?.column != null ? node.loc.start.column + 1 : null);
+  const rewrite = buildInnerHTMLRewrite({
+    assignmentNode: node,
+    ancestors,
+    code,
+    env,
+    localAliases,
+  });
+
+  if (rewrite) {
+    return {
+      findings: [
+        createFinding({
+          severity: 'warning',
+          code: 'RUNJS_ELEMENT_INNERHTML_REWRITE_AVAILABLE',
+          message: '渲染型 JS model 不应直接写 innerHTML；当前赋值可自动改写为 ctx.render(...)。',
+          path: findingPath,
+          modelUse,
+          line,
+          column,
+          details: {
+            target: elementTarget.label,
+          },
+        }),
+      ],
+      rewrite,
+    };
+  }
+
+  return {
+    findings: [
+      createFinding({
+        code: 'RUNJS_ELEMENT_INNERHTML_FORBIDDEN',
+        message: '渲染型 JS model 不允许直接写 innerHTML；请改用 ctx.render(...)，或先移除后续 DOM 依赖再重写。',
+        path: findingPath,
+        modelUse,
+        line,
+        column,
+        details: {
+          target: elementTarget.label,
+          operator: node.operator,
+        },
+      }),
+    ],
+    rewrite: null,
+  };
 }
 
 function parseRequestTarget(url) {
@@ -832,19 +1089,35 @@ function inspectRunJSSemantics({ code, ast, modelUse = 'JSBlockModel', path: fin
   const rewrites = [];
   const env = collectVariableInitializers(ast);
 
-  traverseAst(ast, (node) => {
-    if (!isCtxRequestCall(node)) return;
-    const result = analyzeCtxRequestCall({
-      callNode: node,
+  traverseAst(ast, (node, ancestors) => {
+    if (isCtxRequestCall(node)) {
+      const result = analyzeCtxRequestCall({
+        callNode: node,
+        code,
+        env,
+        modelUse,
+        path: findingPath,
+      });
+      if (result) {
+        findings.push(...(result.findings || []));
+        if (result.rewrite) {
+          rewrites.push(result.rewrite);
+        }
+      }
+    }
+
+    const innerHTMLResult = analyzeInnerHTMLAssignment({
+      node,
+      ancestors,
       code,
       env,
       modelUse,
       path: findingPath,
     });
-    if (!result) return;
-    findings.push(...(result.findings || []));
-    if (result.rewrite) {
-      rewrites.push(result.rewrite);
+    if (!innerHTMLResult) return;
+    findings.push(...(innerHTMLResult.findings || []));
+    if (innerHTMLResult.rewrite) {
+      rewrites.push(innerHTMLResult.rewrite);
     }
   });
 

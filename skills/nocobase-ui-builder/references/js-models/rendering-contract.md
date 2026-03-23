@@ -1,6 +1,6 @@
 ---
 title: JS 渲染契约
-description: 渲染型 JS model 的统一约束：默认用 ctx.render()，ctx.element 只作为默认容器或锚点说明。
+description: 渲染型 JS model 的统一约束：默认用 ctx.render()，ctx.element 只作为锚点或兼容上下文说明。
 ---
 
 # JS 渲染契约
@@ -10,21 +10,22 @@ description: 渲染型 JS model 的统一约束：默认用 ctx.render()，ctx.e
 - `JSBlockModel`
 - `JSColumnModel`
 - `JSFieldModel`
+- `JSEditableFieldModel`
 - `JSItemModel`
 
 ## 强规则
 
 - 对需要渲染的 JS model，默认使用 `ctx.render()`。
-- 不要把 `ctx.element.innerHTML = ...` 当作默认模板。
+- 不要把 `ctx.element.innerHTML = ...` 当作默认模板；skill 会先尝试自动改写，不能安全改写时直接 blocker。
 - 不要把 `return value` 当作渲染结果。
 
 ## 为什么
 
-根据官方中文 RunJS 文档：
+根据 NocoBase 源码当前实现：
 
 - `ctx.render()` 会默认渲染到 `ctx.element`
 - `ctx.render()` 统一处理 React Root、HTML 字符串和 DOM 节点
-- `ctx.element.innerHTML` 已被官方文档标记为废弃/不推荐的默认路径
+- `ctx.element` 仍然存在，但它更适合作为容器/锚点概念，而不是 skill 的默认渲染出口
 
 ## 默认模板
 
@@ -56,7 +57,7 @@ ctx.render(div);
 1. 解释“默认渲染容器是什么”
 2. 作为弹层锚点拿原生 DOM，例如 `ctx.element?.__el`
 
-只有在官方能力要求必须直接拿 DOM 时，才允许引用 `ctx.element`。即便如此，也应优先把最终输出交回给 `ctx.render()`。
+只有在官方能力要求必须直接拿 DOM 时，才允许引用 `ctx.element`。即便如此，也应优先把最终输出交回给 `ctx.render()`；直接写 `innerHTML` 不属于 skill 默认允许的路径。
 
 ## 错误示例
 
@@ -75,7 +76,7 @@ return value;
 ctx.element.innerHTML = '<div>...</div>';
 ```
 
-问题：这不是 skill 应优先生成的范式。
+问题：这不是 skill 允许的默认范式；guard 会优先尝试自动改写，剩余复杂场景直接阻断。
 
 ## 正确示例
 

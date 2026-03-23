@@ -18,23 +18,18 @@ description: 面向 builder 的 JSItemModel 约束，覆盖表单中的非字段
 
 ## 常用上下文
 
-- `ctx.form`
-- `ctx.blockModel`
+- `ctx.formValues`
 - `ctx.record`
-- `ctx.collection`
+- `ctx.resource`
 - `ctx.render()`
+- `ctx.onRefReady()`
 
 ## 默认写法
 
 ```jsx
-const render = () => {
-  const { price = 0, quantity = 1 } = ctx.form.getFieldsValue();
-  const total = Number(price) * Number(quantity);
-  ctx.render(<div>Total: {total}</div>);
-};
-
-render();
-ctx.blockModel?.on?.('formValuesChange', render);
+const values = ctx.formValues || {};
+const total = Number(values.price || 0) * Number(values.quantity || 1);
+ctx.render(<div>Total: {total}</div>);
 ```
 
 ## 不要默认这么写
@@ -43,7 +38,10 @@ ctx.blockModel?.on?.('formValuesChange', render);
 ctx.element.innerHTML = '<div>Preview</div>';
 ```
 
+简单的 `innerHTML` 赋值可能会被 guard 自动改写，复杂场景则会直接 blocker。
+
 ## 最小判断规则
 
 - 需要字段值同步但不占字段槽位：`JSItemModel`
-- 需要读写某个字段值本身：`JSFieldModel`
+- 需要字段位置的只读展示：`JSFieldModel`
+- 需要字段本身的可编辑输入：`JSEditableFieldModel`

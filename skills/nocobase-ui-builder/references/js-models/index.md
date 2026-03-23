@@ -1,6 +1,6 @@
 ---
 title: JS Model 与 RunJS 索引
-description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSItemModel、JSActionModel 或 runJs 代码生成任务时的优先入口。
+description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFieldModel、JSItemModel、JSActionModel 或 runJs 代码生成任务时的优先入口。
 ---
 
 # JS Model 与 RunJS 索引
@@ -12,6 +12,7 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSItemModel、
 - `JSBlockModel`
 - `JSColumnModel`
 - `JSFieldModel`
+- `JSEditableFieldModel`
 - `JSItemModel`
 - `JSActionModel`
 - 任何 `stepParams.jsSettings.runJs` / `clickSettings.runJs` 代码生成
@@ -19,8 +20,8 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSItemModel、
 ## 强规则
 
 - 对需要渲染的 JS model，默认使用 `ctx.render()`。
-- 不要把 `ctx.element.innerHTML = ...` 当作默认推荐方案。
-- 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSItemModel` 的默认渲染范式。
+- 不要把 `ctx.element.innerHTML = ...` 当作默认推荐方案；skill 会先尝试自动改写，仍残留则直接 blocker。
+- 不要把 `return value` 当作 `JSBlockModel`、`JSColumnModel`、`JSFieldModel`、`JSEditableFieldModel`、`JSItemModel` 的默认渲染范式。
 - `JSActionModel` 主要负责点击逻辑，不属于“渲染型 JS model”。
 - 不要默认假设浏览器全局 `fetch`、`localStorage`、任意 `window.*` 在 RunJS 中可直接访问。
 - 当前登录用户优先使用 `ctx.user` 或 `ctx.auth?.user`，不要默认请求 `auth:check`。
@@ -36,6 +37,7 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSItemModel、
    - [js-block.md](js-block.md)
    - [js-column.md](js-column.md)
    - [js-field.md](js-field.md)
+   - [js-editable-field.md](js-editable-field.md)
    - [js-item.md](js-item.md)
    - [js-action.md](js-action.md)
 
@@ -43,13 +45,14 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSItemModel、
 
 | 模型 | 默认用途 | 默认上下文 | 默认写法 |
 | --- | --- | --- | --- |
-| `JSBlockModel` | 页面区块自定义内容 | `ctx.libs` `ctx.render` `ctx.request` | `ctx.render(...)` |
-| `JSColumnModel` | 表格单元格渲染 | `ctx.record` `ctx.collection` `ctx.render` | `ctx.render(...)` |
-| `JSFieldModel` | 字段位置自定义渲染 | `ctx.value` `ctx.record` `ctx.render` | `ctx.render(...)` |
-| `JSItemModel` | 表单里无字段绑定的自定义项 | `ctx.form` `ctx.blockModel` `ctx.render` | `ctx.render(...)` |
+| `JSBlockModel` | 页面区块自定义内容 | `ctx.render` `ctx.user` `ctx.libs` `ctx.initResource()` | `ctx.render(...)` |
+| `JSColumnModel` | 表格单元格渲染 | `ctx.record` `ctx.recordIndex` `ctx.collection` `ctx.viewer` | `ctx.render(...)` |
+| `JSFieldModel` | 只读字段位置渲染 | `ctx.value` `ctx.record` `ctx.collection` | `ctx.render(...)` |
+| `JSEditableFieldModel` | 可编辑字段自定义输入 | `ctx.getValue()` `ctx.setValue()` `ctx.form` `ctx.formValues` | `ctx.render(...)` |
+| `JSItemModel` | 表单里无字段绑定的自定义项 | `ctx.formValues` `ctx.record` `ctx.resource` | `ctx.render(...)` |
 | `JSActionModel` | 按钮点击逻辑 | `ctx.record` / `ctx.resource` / `ctx.form` | 执行逻辑，不以渲染为主 |
 
 补充：
 
 - `JSBlockModel` 默认没有预绑定 `ctx.resource`；需要数据时先手动 `ctx.initResource(...)`。
-- `ctx.element` 仍可作为兼容上下文存在，但默认生成代码时应优先使用 `ctx.render()`，而不是直接操作 DOM。
+- `ctx.element` 在上游源码里仍是兼容上下文，但 skill 默认不接受直接写 `innerHTML`；渲染结果应统一交给 `ctx.render()`。

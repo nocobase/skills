@@ -255,7 +255,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 硬规则：
 
 - 渲染型 JS model 默认使用 `ctx.render()`
-- 不把 `ctx.element.innerHTML = ...` 当作默认推荐方案
+- 渲染型 JS model 命中 `ctx.element.innerHTML = ...` 时，先尝试自动改写为 `ctx.render(...)`；仍残留则视为 blocker
 - 不把 `return value` 当作 `JSBlockModel` / `JSColumnModel` / `JSFieldModel` / `JSItemModel` 的默认渲染范式
 
 ## 需要看某个 use/slot 的具体 schema
