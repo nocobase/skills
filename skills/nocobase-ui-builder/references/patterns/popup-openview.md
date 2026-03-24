@@ -46,14 +46,15 @@ builder DSL 边界：
 
 | 场景 | 常见来源 |
 | --- | --- |
-| 主表行 -> 第一层详情弹窗 | `{{ctx.record.id}}` |
+| 主表行 -> 第一层详情弹窗 | 按目标 record context 的 `filterTargetKey` 展开；单键是 `{{ctx.record.<filterTargetKey>}}`，复合键是对象模板 |
 | popup page 内部 block | `{{ctx.view.inputArgs.filterByTk}}`；若是关联子表，只有在 parent->child relation resource 已验证时才升级成 `associationName + sourceId` |
-| 二层 popup 继续编辑当前子表记录 | 先取当前弹窗表格行的 `{{ctx.record.id}}`，再传给下一层 `filterByTk` |
+| 二层 popup 继续编辑当前子表记录 | 先取当前弹窗表格行的 record key（按该行 collection 的 `filterTargetKey` 展开），再传给下一层 `filterByTk` |
 | 详情动作查看关联客户 | 只有在当前详情 record 结构明确时，才使用类似 `{{ctx.record.customer.id}}` 的表达式 |
 
 ## 决策规则
 
 - 能显式写 `filterByTk` 时，优先显式写，不要完全依赖隐式 runtime 注入
+- 不要把 record popup 的 `filterByTk` 固定写成 `{{ctx.record.id}}`；默认按 live metadata 的 `filterTargetKey` 展开
 - `openView.pageModelClass` 必须与 `subModels.page.use` 严格一致；默认优先 `ChildPageModel`，但上游也允许 `RootPageModel` / `PageModel`
 - popup page 的 tab use 要跟父 page 对齐：`ChildPageModel -> ChildPageTabModel`
 - 对 popup 内“当前记录的关联子表”，只有在 parent->child relation resource 已验证时才优先走 `resourceSettings.init.associationName + sourceId`；否则允许保留 child-side 的逻辑 `dataScope.filter`，但 `path` 必须来自 relation metadata，优先 `foreignKey`，否则 `<belongsToField>.<targetKey>`

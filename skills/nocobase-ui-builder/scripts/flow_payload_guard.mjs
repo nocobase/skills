@@ -13,6 +13,10 @@ import {
   normalizePageUse,
 } from './model_contracts.mjs';
 import {
+  LEGACY_RECORD_CONTEXT_FILTER_BY_TK as RECORD_CONTEXT_FILTER_BY_TK,
+  buildRecordContextFilterByTkTemplate,
+} from './filter_by_tk_templates.mjs';
+import {
   canonicalizeRunJSPayload,
   inspectRunJSPayloadStatic,
   transformFilterGroupToQueryFilter,
@@ -82,7 +86,6 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
 ]);
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
-const RECORD_CONTEXT_FILTER_BY_TK = '{{ctx.record.id}}';
 
 const PAGE_TAB_MODEL_USES = new Set(PAGE_TAB_USES);
 const REQUIRED_FILTER_SCOPE_USES = [...PAGE_MODEL_USES_SET, ...PAGE_TAB_MODEL_USES];
@@ -1249,17 +1252,6 @@ function normalizeFilterTargetKeyValue(value) {
   return null;
 }
 
-function normalizeFilterTargetKeyList(value) {
-  if (Array.isArray(value)) {
-    return value
-      .filter((item) => typeof item === 'string')
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  const normalized = normalizeFilterTargetKeyValue(value);
-  return normalized ? [normalized] : [];
-}
-
 function normalizeRecordContextFilterExpression(value) {
   if (typeof value !== 'string') {
     return '';
@@ -1269,16 +1261,9 @@ function normalizeRecordContextFilterExpression(value) {
 
 function buildRecordContextFilterByTk(metadata, collectionName) {
   const collectionMeta = getCollectionMeta(metadata, collectionName);
-  const filterTargetKeys = normalizeFilterTargetKeyList(collectionMeta?.filterTargetKey);
-  if (filterTargetKeys.length === 0) {
-    return RECORD_CONTEXT_FILTER_BY_TK;
-  }
-  if (filterTargetKeys.length === 1) {
-    return `{{ctx.record.${filterTargetKeys[0]}}}`;
-  }
-  return Object.fromEntries(
-    filterTargetKeys.map((fieldName) => [fieldName, `{{ctx.record.${fieldName}}}`]),
-  );
+  return buildRecordContextFilterByTkTemplate(collectionMeta?.filterTargetKey, {
+    fallback: RECORD_CONTEXT_FILTER_BY_TK,
+  });
 }
 
 function matchesRecordContextFilterByTk(value, expected) {

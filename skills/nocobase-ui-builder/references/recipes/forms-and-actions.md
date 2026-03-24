@@ -80,7 +80,7 @@
       "stepParams": {
         "buttonSettings": {
           "general": {
-            "title": "编辑记录",
+            "title": "编辑成员",
             "type": "default"
           }
         },
@@ -89,9 +89,12 @@
             "mode": "dialog",
             "size": "medium",
             "dataSourceKey": "main",
-            "collectionName": "order_items",
+            "collectionName": "project_members",
             "pageModelClass": "ChildPageModel",
-            "filterByTk": "{{ctx.record.id}}"
+            "filterByTk": {
+              "project_id": "{{ctx.record.project_id}}",
+              "user_id": "{{ctx.record.user_id}}"
+            }
           }
         }
       },
@@ -107,7 +110,7 @@
                 "stepParams": {
                   "pageTabSettings": {
                     "tab": {
-                      "title": "编辑"
+                      "title": "编辑成员"
                     }
                   }
                 },
@@ -124,7 +127,7 @@
                             "resourceSettings": {
                               "init": {
                                 "dataSourceKey": "main",
-                                "collectionName": "order_items",
+                                "collectionName": "project_members",
                                 "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
                               }
                             }
@@ -141,8 +144,8 @@
                                     "stepParams": {
                                       "fieldSettings": {
                                         "init": {
-                                          "collectionName": "order_items",
-                                          "fieldPath": "quantity"
+                                          "collectionName": "project_members",
+                                          "fieldPath": "role"
                                         }
                                       }
                                     },
@@ -153,8 +156,8 @@
                                         "stepParams": {
                                           "fieldSettings": {
                                             "init": {
-                                              "collectionName": "order_items",
-                                              "fieldPath": "quantity"
+                                              "collectionName": "project_members",
+                                              "fieldPath": "role"
                                             }
                                           }
                                         }
@@ -196,6 +199,7 @@
 
 补充：
 
+- `openView.filterByTk` 必须按目标 collection 的 `filterTargetKey` 展开：单键是 `{{ctx.record.<filterTargetKey>}}`，复合键是对象模板；上面的示例演示复合键。
 - 把 `parentId` 换成目标 `TableBlockModel` / `DetailsBlockModel` / `TableActionsColumnModel` 的 action 槽宿主 uid。
 - 如果需要关系筛选或 query filter，仍用 `node scripts/flow_payload_guard.mjs build-filter` / `build-query-filter` 生成片段，再回填到对应的 `dataScope.filter` 或 selector 上。
 

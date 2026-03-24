@@ -4027,6 +4027,32 @@ test('canonicalizePayload rewrites hardcoded popup and resource filterByTk insid
   assert.equal(auditResult.blockers.some((item) => item.code === 'HARDCODED_FILTER_BY_TK'), false);
 });
 
+test('canonicalizePayload rewrites legacy record popup filterByTk to a non-id filterTargetKey template', () => {
+  const namedFilterKeyMetadata = {
+    collections: {
+      ...metadata.collections,
+      order_items: {
+        ...metadata.collections.order_items,
+        filterTargetKey: 'code',
+        fields: [
+          ...metadata.collections.order_items.fields,
+          { name: 'code', type: 'string', interface: 'input' },
+        ],
+      },
+    },
+  };
+  const payload = cloneJson(makeEditRecordPopupAction('order_items'));
+
+  const result = canonicalizePayload({
+    payload,
+    metadata: namedFilterKeyMetadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.popupSettings.openView.filterByTk, '{{ctx.record.code}}');
+  assert.equal(result.transforms.some((item) => item.code === 'POPUP_FILTER_BY_TK_CANONICALIZED'), true);
+});
+
 test('canonicalizePayload rewrites legacy record popup filterByTk to composite record context template', () => {
   const payload = cloneJson(makeEditRecordPopupAction('project_members'));
 

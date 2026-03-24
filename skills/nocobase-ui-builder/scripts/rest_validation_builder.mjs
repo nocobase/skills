@@ -10,6 +10,10 @@ import {
   resolveMenuParentRoute,
 } from './menu_placement_runtime.mjs';
 import { reservePage, stableOpaqueId } from './opaque_uid.mjs';
+import {
+  buildRecordContextFilterByTkTemplate,
+  normalizeFilterTargetKeyList,
+} from './filter_by_tk_templates.mjs';
 import { VALIDATION_CASE_MODE, auditPayload, canonicalizePayload } from './flow_payload_guard.mjs';
 import { getDefaultTabUseForPage } from './model_contracts.mjs';
 import { buildReadbackDriftReport, validateReadbackContract } from './rest_template_clone_runner.mjs';
@@ -432,6 +436,25 @@ function isAssociationFieldMeta(fieldMeta) {
 
 function getCollectionMeta(collectionIndex, collectionName) {
   return collectionIndex.get(normalizeOptionalText(collectionName)) || null;
+}
+
+function resolveRecordPopupFilterByTkTemplateFromIndex(collectionIndex, collectionName) {
+  const normalizedCollectionName = normalizeOptionalText(collectionName);
+  const collectionMeta = getCollectionMeta(collectionIndex, normalizedCollectionName);
+  const filterTargetKeys = normalizeFilterTargetKeyList(collectionMeta?.filterTargetKey);
+  if (filterTargetKeys.length === 0) {
+    throw new Error(
+      `collection "${normalizedCollectionName || 'unknown'}" missing filterTargetKey; cannot derive stable popup record filterByTk`,
+    );
+  }
+  return buildRecordContextFilterByTkTemplate(collectionMeta.filterTargetKey);
+}
+
+export function resolveRecordPopupFilterByTkTemplate({ collectionsMeta, collectionName }) {
+  return resolveRecordPopupFilterByTkTemplateFromIndex(
+    buildCollectionsMetaIndex(collectionsMeta),
+    collectionName,
+  );
 }
 
 function resolveStableScalarFieldPath(collectionIndex, collectionName) {
@@ -1810,7 +1833,7 @@ function buildActionModel({
       ? ''
       : (
         actionScope === 'row-actions' || actionScope === 'details-actions' || actionSpec.kind === 'add-child-record-popup'
-          ? '{{ctx.record.id}}'
+          ? resolveRecordPopupFilterByTkTemplateFromIndex(collectionIndex, collectionName)
           : ''
       );
     patchPopupOpenView(actionNode, {
