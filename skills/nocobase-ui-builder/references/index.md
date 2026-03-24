@@ -92,5 +92,6 @@ description: 唯一权威任务路由表；先按任务分类，再进入 canoni
 
 1. 任何探测或写操作前，先读 [ops-and-review.md](ops-and-review.md) 并执行 `start-run`。
 2. 默认先看本地 graph，再决定是否调用 `PostFlowmodels_schemabundle` / `PostFlowmodels_schemas`。
-3. 任何写操作都要先经过 [patterns/payload-guard.md](patterns/payload-guard.md)。
-4. validation、review、improve 的事实来源固定是 [validation.md](validation.md) + [ops-and-review.md](ops-and-review.md)。
+3. 默认写入口是 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...`；不要裸调这些底层写接口。
+4. 任何写操作都要先经过 [patterns/payload-guard.md](patterns/payload-guard.md)。
+5. validation、review、improve 的事实来源固定是 [validation.md](validation.md) + [ops-and-review.md](ops-and-review.md)。

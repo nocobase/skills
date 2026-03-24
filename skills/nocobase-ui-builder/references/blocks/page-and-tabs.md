@@ -7,7 +7,7 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 
 ## 适用范围
 
-- `PostDesktoproutes_createv2`
+- `PostDesktoproutes_createv2`（默认通过 `ui_write_wrapper.mjs --action create-v2` 间接调用）
 - `RootPageModel` / `PageModel` / `ChildPageModel`
 - `RootPageTabModel` / `PageTabModel` / `ChildPageTabModel`
 - tab 下的 `grid`
@@ -39,7 +39,7 @@ description: 页面壳、默认隐藏页签、显式 tabs 和 tab-grid 定位的
 
 单页最低结构：
 
-- `PostDesktoproutes_createv2`
+- `ui_write_wrapper.mjs --action create-v2`
 - 页面根锚点
 - 默认隐藏 tab grid
 

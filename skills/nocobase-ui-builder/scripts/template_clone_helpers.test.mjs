@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   canonicalizeLegacyFilterItems,
   dedupeFormSubmitActions,
+  remapConflictingDescendantUids,
   remapTemplateTreeToTarget,
   stripUnsupportedFieldPopupPages,
   summarizeModelTree,
@@ -283,6 +284,90 @@ test('remapTemplateTreeToTarget canonicalizes legacy filter items inside cloned 
       value: 3,
     },
   );
+});
+
+test('remapConflictingDescendantUids freshens only descendants that collide with live topology at a different locator', () => {
+  const model = {
+    uid: 'grid-root',
+    parentId: 'tabs-demo',
+    subKey: 'grid',
+    subType: 'object',
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [
+              ['table-old'],
+            ],
+          },
+          sizes: {
+            row1: [24],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'table-old',
+          parentId: 'grid-root',
+          subKey: 'items',
+          subType: 'array',
+          use: 'TableBlockModel',
+          stepParams: {
+            tableSettings: {
+              targetUid: 'table-old',
+            },
+          },
+          subModels: {
+            actions: [
+              {
+                uid: 'action-old',
+                parentId: 'table-old',
+                subKey: 'actions',
+                subType: 'array',
+                use: 'ViewActionModel',
+                stepParams: {
+                  actionSettings: {
+                    defaultTargetUid: 'table-old',
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
+
+  const result = remapConflictingDescendantUids({
+    model,
+    liveTopology: {
+      byUid: {
+        'table-old': {
+          uid: 'table-old',
+          parentId: 'other-grid',
+          subKey: 'items',
+          subType: 'array',
+          path: '$.subModels.items[3]',
+          use: 'TableBlockModel',
+        },
+      },
+    },
+    uidSeed: 'case-live',
+  });
+
+  assert.equal(result.changed, true);
+  assert.equal(result.payload.uid, 'grid-root');
+  assert.equal(result.remappedNodes.length, 1);
+  const remappedTable = result.payload.subModels.items[0];
+  assert.notEqual(remappedTable.uid, 'table-old');
+  assert.equal(remappedTable.parentId, 'grid-root');
+  assert.equal(remappedTable.stepParams.tableSettings.targetUid, remappedTable.uid);
+  assert.equal(remappedTable.subModels.actions[0].parentId, remappedTable.uid);
+  assert.equal(remappedTable.subModels.actions[0].stepParams.actionSettings.defaultTargetUid, remappedTable.uid);
 });
 
 test('stripUnsupportedFieldPopupPages removes illegal page slots under field models', () => {

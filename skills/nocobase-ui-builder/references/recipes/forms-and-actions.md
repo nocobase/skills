@@ -18,7 +18,7 @@
    - popup / openView 对应 page subtree 的稳定结构
    - selector、`filterByTk`、`dataScope.filter` 该落在哪一层
 3. 关系筛选或 query filter 统一用 `flow_payload_guard.mjs build-filter` / `build-query-filter` 生成。
-4. 动作落库前照常经过 guard，再写后 readback。
+4. 动作/表单树真正落库时，统一交给 `ui_write_wrapper.mjs run --action save|mutate|ensure`；不要自己手动跑完 guard 再裸写。
 
 ## 关键规则
 
@@ -26,10 +26,23 @@
 - “关联标题列点击弹窗”优先原生关系列方案；不要默认退回 `JSFieldModel` / `JSColumnModel`。
 - popup / openView 的 page subtree 需要和对应 `pageModelClass`、slot 契约对齐。
 - 未经验证时，不要猜 `associationName`、relation path、through 结构。
+- 下面的 JSON 只作为 wrapper 输入 payload 参考，不再是直接执行入口。
 
 ## 最小可执行示例
 
-最小创建表单区块：
+最小创建表单区块时，默认执行入口应是：
+
+```bash
+node scripts/ui_write_wrapper.mjs run \
+  --action save \
+  --task "append create form block" \
+  --payload-file "<create-form-payload.json>" \
+  --metadata-file "<metadata.json>" \
+  --readback-parent-id "tabs-k7n4x9p2q5ra" \
+  --readback-sub-key "grid"
+```
+
+对应的 payload 参考仍然可以是：
 
 ```json
 {
@@ -63,7 +76,7 @@
 }
 ```
 
-最小编辑弹窗动作（popup/openView MCP payload）：
+最小编辑弹窗动作时，依然是同一个 wrapper 入口；下面只保留底层 payload 参考：
 
 ```json
 {

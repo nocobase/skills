@@ -15,17 +15,9 @@
 2. 先看本地 graph；只在 graph 不够时再补 `PostFlowmodels_schemabundle` / `PostFlowmodels_schemas`。
 3. 对目标 page / tab / grid / slot 做一次写前 live snapshot。
 4. 组装 draft payload。
-5. 固定执行 guard 流水线：
-   - `extract-required-metadata`
-   - `canonicalize-payload`
-   - `audit-payload`
-6. 选择写入工具：
-   - 单树、结构明确：`PostFlowmodels_save`
-   - 多步事务或 `$ref` 串联：`PostFlowmodels_mutate`
-   - 缺 object child 且 schema 已证明应存在：`PostFlowmodels_ensure`
-   - 排序：`PostFlowmodels_move`
-   - 删除：`PostFlowmodels_destroy`
-7. 写后立刻做同目标 `GetFlowmodels_findone` readback，对账必须带 `args.targetSignature`。
+5. 把 draft payload、metadata、readback target 交给 `ui_write_wrapper.mjs`。
+6. 由 wrapper 内部固定执行 guard、选择底层写法、完成写后 readback。
+7. 只有排序或删除这类不在 wrapper 覆盖范围内的动作，才单独走 `PostFlowmodels_move` / `PostFlowmodels_destroy`。
 
 ## 关键规则
 
@@ -36,50 +28,43 @@
 
 ## 最小可执行示例
 
-向页面默认 grid 追加一个最小表格区块：
+向页面默认 grid 追加一个最小表格区块时，默认执行入口应是：
 
-```json
-{
-  "tool": "PostFlowmodels_save",
-  "arguments": {
-    "includeAsyncNode": true,
-    "return": "model",
-    "requestBody": {
-      "uid": "m6w3t8q2p4za",
-      "parentId": "tabs-k7n4x9p2q5ra",
-      "subKey": "items",
-      "subType": "array",
-      "use": "TableBlockModel",
-      "stepParams": {
-        "resourceSettings": {
-          "init": {
-            "dataSourceKey": "main",
-            "collectionName": "orders"
-          }
-        },
-        "tableSettings": {
-          "pageSize": {
-            "pageSize": 20
-          }
-        }
-      },
-      "subModels": {
-        "columns": []
-      }
-    }
-  }
-}
+```bash
+node scripts/ui_write_wrapper.mjs run \
+  --action save \
+  --task "append orders table block" \
+  --payload-file "<payload.json>" \
+  --metadata-file "<metadata.json>" \
+  --readback-parent-id "tabs-k7n4x9p2q5ra" \
+  --readback-sub-key "grid" \
+  --target-signature "tabs-k7n4x9p2q5ra:grid"
 ```
 
-写后回读同一个 grid：
+其中 `<payload.json>` 里的底层 payload 仍然可以长这样，但这只是 wrapper 的输入，不再是直接执行指南：
 
 ```json
 {
-  "tool": "GetFlowmodels_findone",
-  "arguments": {
-    "parentId": "tabs-k7n4x9p2q5ra",
-    "subKey": "grid",
-    "includeAsyncNode": true
+  "uid": "m6w3t8q2p4za",
+  "parentId": "tabs-k7n4x9p2q5ra",
+  "subKey": "items",
+  "subType": "array",
+  "use": "TableBlockModel",
+  "stepParams": {
+    "resourceSettings": {
+      "init": {
+        "dataSourceKey": "main",
+        "collectionName": "orders"
+      }
+    },
+    "tableSettings": {
+      "pageSize": {
+        "pageSize": 20
+      }
+    }
+  },
+  "subModels": {
+    "columns": []
   }
 }
 ```

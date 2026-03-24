@@ -16,7 +16,11 @@ import {
 } from './filter_by_tk_templates.mjs';
 import { VALIDATION_CASE_MODE, auditPayload, canonicalizePayload } from './flow_payload_guard.mjs';
 import { getDefaultTabUseForPage } from './model_contracts.mjs';
-import { buildReadbackDriftReport, validateReadbackContract } from './rest_template_clone_runner.mjs';
+import {
+  augmentReadbackContractWithGridMembership,
+  buildReadbackDriftReport,
+  validateReadbackContract,
+} from './rest_template_clone_runner.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
 import { collectExplicitCollectionMatches } from './validation_scenario_planner.mjs';
 
@@ -2619,7 +2623,13 @@ async function runBuild(flags) {
     readbackDiffResult = buildReadbackDriftReport(canonicalizeResult.payload, readbackResult.data);
     writeJson(path.join(outDir, 'readback-diff.json'), readbackDiffResult);
     summary.artifactPaths.readbackDiff = path.join(outDir, 'readback-diff.json');
-    readbackContractResult = validateReadbackContract(readbackResult.data, effectiveCompileArtifact.readbackContract || {});
+    const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
+      effectiveCompileArtifact.readbackContract || {},
+      canonicalizeResult.payload,
+    );
+    writeJson(path.join(outDir, 'effective-readback-contract.json'), effectiveReadbackContract);
+    summary.artifactPaths.effectiveReadbackContract = path.join(outDir, 'effective-readback-contract.json');
+    readbackContractResult = validateReadbackContract(readbackResult.data, effectiveReadbackContract);
     writeJson(path.join(outDir, 'readback-contract.json'), readbackContractResult);
     summary.artifactPaths.readbackContract = path.join(outDir, 'readback-contract.json');
   }

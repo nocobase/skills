@@ -1485,6 +1485,13 @@ function collectScopedBlockUses(compiledBlocks) {
   return [...uses].sort((left, right) => left.localeCompare(right));
 }
 
+function collectDirectBlockUses(compiledBlocks) {
+  return (Array.isArray(compiledBlocks) ? compiledBlocks : [])
+    .map((item) => normalizeOptionalText(item?.use))
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+}
+
 function pushReadbackRequiredScope(artifact, descriptor) {
   if (!descriptor || typeof descriptor !== 'object') {
     return;
@@ -1500,6 +1507,29 @@ function pushReadbackRequiredScope(artifact, descriptor) {
     tabTitle: normalizeOptionalText(descriptor.tabTitle),
     requireBlockGrid: descriptor.requireBlockGrid !== false,
     requiredBlockUses: sortUniqueStrings(descriptor.requiredBlockUses),
+  });
+}
+
+function pushReadbackRequiredGridMembership(artifact, descriptor) {
+  if (!descriptor || typeof descriptor !== 'object') {
+    return;
+  }
+  const scopePath = normalizeOptionalText(descriptor.scopePath);
+  const expectedItemUses = collectDirectBlockUses(descriptor.compiledBlocks);
+  const expectedItemCount = Number.isInteger(descriptor.expectedItemCount)
+    ? descriptor.expectedItemCount
+    : expectedItemUses.length;
+  if (!scopePath || expectedItemCount <= 0) {
+    return;
+  }
+  artifact.readbackContract.requiredGridMembership.push({
+    scopePath,
+    scopeKind: normalizeOptionalText(descriptor.scopeKind),
+    gridUse: normalizeOptionalText(descriptor.gridUse) || 'BlockGridModel',
+    expectedItemCount,
+    expectedItemUses,
+    expectedItemUids: [],
+    requireBidirectionalLayoutMatch: descriptor.requireBidirectionalLayoutMatch === true,
   });
 }
 
@@ -1545,6 +1575,12 @@ function compilePopup(popup, scope, artifact, context) {
     tabTitle: '',
     requireBlockGrid: true,
     requiredBlockUses: collectScopedBlockUses(compiledBlocks),
+  });
+  pushReadbackRequiredGridMembership(artifact, {
+    scopePath: popupContext.scopePath,
+    scopeKind: popupContext.scopeKind,
+    compiledBlocks,
+    gridUse: 'BlockGridModel',
   });
   return {
     title: popup.title,
@@ -1712,6 +1748,7 @@ function createArtifactState(buildSpec, scenarioLike, runtimeSensitiveMetadataTr
         requiredBlockUses: sortUniqueStrings(item.requiredBlockUses),
       })),
       requiredScopes: [],
+      requiredGridMembership: [],
       requiredDetailsBlocks: [],
       requiredVisibleTabs: requirements.requiredTabs.flatMap((item) => item.titles),
       requiredTabCount: requirements.requiredTabs.reduce((count, item) => count + item.titles.length, 0),
@@ -1788,6 +1825,12 @@ function compileLayoutVariant({
     requireBlockGrid: false,
     requiredBlockUses: collectScopedBlockUses(tree.blocks),
   });
+  pushReadbackRequiredGridMembership(artifact, {
+    scopePath: '$.page',
+    scopeKind: 'root-page',
+    compiledBlocks: tree.blocks,
+    gridUse: 'BlockGridModel',
+  });
   tree.tabs.forEach((tab, index) => {
     pushReadbackRequiredScope(artifact, {
       scopePath: `$.page.tabs[${index}]`,
@@ -1796,6 +1839,12 @@ function compileLayoutVariant({
       tabTitle: tab.title,
       requireBlockGrid: true,
       requiredBlockUses: collectScopedBlockUses(tab.blocks),
+    });
+    pushReadbackRequiredGridMembership(artifact, {
+      scopePath: `$.page.tabs[${index}]`,
+      scopeKind: 'root-tab',
+      compiledBlocks: tab.blocks,
+      gridUse: 'BlockGridModel',
     });
   });
 

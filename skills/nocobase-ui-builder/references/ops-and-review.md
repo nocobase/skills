@@ -82,24 +82,32 @@ node scripts/tool_journal.mjs start-run \
 7. cache 命中/失效写 `cache-event`
 8. 最终必须写 `run_finished`
 
-## ad-hoc 写前 gate
+## ad-hoc 写入口
 
-如果这轮不是走 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这种内建流水线，而是临时直接改一个 live tree、JSBlock、action tree 或 tab 子树，不要省略写前 gate。
+如果这轮不是走 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这种内建流水线，而是临时直接改一个 live tree、JSBlock、action tree、tab 子树，或直接创建页面壳，不允许裸调 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`。
 
-统一先跑：
+统一入口改为：
 
 ```bash
-node scripts/preflight_write_gate.mjs run \
+node scripts/ui_write_wrapper.mjs run \
+  --action save \
+  --task "<task>" \
   --payload-file "<payload.json>" \
   --metadata-file "<metadata.json>" \
-  --out-file "<canonicalized-payload.json>"
+  --readback-parent-id "<parentId>" \
+  --readback-sub-key "<subKey>"
 ```
 
 规则：
 
-1. `out-file` 作为后续 `PostFlowmodels_save` / `PostFlowmodels_mutate` 的唯一 payload 来源。
-2. 如果退出码是 `2`，说明存在 blocker，不能继续写入。
-3. 对含 `JSBlockModel` / `JSFieldModel` / `JSActionModel` 的 payload，不要跳过这一步。
+1. wrapper 固定执行 `start-run -> guard -> write -> readback -> finish-run`；agent 不要在外层自行拆分这些阶段。
+2. `--action create-v2|save|mutate|ensure` 由 wrapper 统一收口；只有在实现或调试 wrapper 本身时，才允许单独运行底层工具。
+3. 默认 `mode=validation-case`；只有明确在调试草稿时，才允许单独用 `preflight_write_gate.mjs` 看 guard 结果。
+4. 如果退出码是 `2`，说明 guard blocker 已阻止写入；如果退出码是 `1`，说明写入或 readback 验证未通过。
+5. `flow_write_wrapper.mjs` 仍可作为 flow-only 兼容脚本存在，但不再是默认 agent 入口。
+6. wrapper 写前会尽量读取 live topology；如果 payload 里某个已存在 uid 试图改变 `parentId/subKey/subType`，必须在 write 前失败，不能放到 save 后靠页面空白再排查。
+7. 对显式布局 grid，`gridSettings.rows/rowOrder/sizes` 与 `subModels.items` 必须双向对齐；rows 引用了孤儿 uid，或 items 没进任何 row，都视为 tree-path failure。
+8. `save ok` 但 readback 的 slot membership 不完整，默认归类为 `failed` 或 `partial`；不要写成“已落库完成”。
 
 ## tool_call 记录要求
 
@@ -132,6 +140,7 @@ node scripts/preflight_write_gate.mjs run \
 - `filterManager`
 - selector / `filterByTk` / `dataScope` 摘要
 - block 是否真正挂到预期 slot
+- `gridSettings.rows` 与 `subModels.items` 是否成员一致
 
 readback mismatch 时，默认降级为 `partial` 或 `failed`。
 

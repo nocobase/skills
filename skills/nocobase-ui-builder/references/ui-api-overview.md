@@ -23,6 +23,13 @@
 
 ## 2. MCP 工具映射
 
+这些映射是底层事实源，不是默认执行入口。agent 默认应优先走：
+
+- `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...`
+- 或 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这种已内置 guard/readback 的流水线
+
+只有在实现 wrapper、本地调试底层接口、或核对 HTTP/MCP 参数映射时，才直接参考下面这些工具名。
+
 - `PostDesktoproutes_createv2` -> `POST /desktopRoutes:createV2`
 - `PostDesktoproutes_destroyv2` -> `POST /desktopRoutes:destroyV2`
 - `PostDesktoproutes_updateorcreate` -> `POST /desktopRoutes:updateOrCreate`
@@ -41,6 +48,12 @@
 - `PostFlowmodels_duplicate` -> `POST /flowModels:duplicate`
 
 调用 MCP 时只用精确工具名，不要传 REST 路径。
+
+默认执行策略：
+
+- 页面创建/模板克隆：优先走 `ui_write_wrapper.mjs --action create-v2` 或 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs`
+- ad-hoc `save` / `mutate` / `ensure`：默认走 `scripts/ui_write_wrapper.mjs`
+- 不要在 `js_repl` 或外层 prompt 里直接裸调 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`
 
 ## 3. 请求格式
 
@@ -107,6 +120,8 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 
 `PostDesktoproutes_createv2` 用来初始化 Modern page (v2) 页面壳：
 
+但这只是底层接口。默认执行时不要直接裸调，改为通过 `ui_write_wrapper.mjs --action create-v2` 或内建 builder 流水线调用它。
+
 ```json
 {
   "requestBody": {
@@ -134,6 +149,7 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 - 相同 `schemaUid` 但关键字段不同会返回 `409`
 - 它不是修复接口
 - 它不代表页面已经可打开
+- skill 层默认不允许裸调；应通过 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这类自带 route-ready/readback 的流水线使用
 
 ## 7. route-ready
 
@@ -172,9 +188,10 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 
 ## 9. 写入策略与 readback
 
-- 多步事务、`$ref` 串联、可重试 upsert：优先 `PostFlowmodels_mutate`
-- 单个已知模型/树且已有实时快照：优先 `PostFlowmodels_save`
-- object child 缺失且 schema 已证明本应存在：才用 `PostFlowmodels_ensure`
+- agent 默认不要直接决定 `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`；默认由 wrapper 或 builder 流水线代选底层写法。
+- 多步事务、`$ref` 串联、可重试 upsert：底层通常落到 `PostFlowmodels_mutate`
+- 单个已知模型/树且已有实时快照：底层通常落到 `PostFlowmodels_save`
+- object child 缺失且 schema 已证明本应存在：底层才用 `PostFlowmodels_ensure`
 - 排序只用 `PostFlowmodels_move`
 - 删除已知子树只用 `PostFlowmodels_destroy`
 - `PostFlowmodels_duplicate` 是遗留接口；确实需要复制时，优先考虑 `mutate + duplicate`
@@ -185,9 +202,17 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 - `PostFlowmodels_ensure`
 - `PostFlowmodels_mutate`
 
+skill 级执行约束：
+
+- 上面这些工具不是 ad-hoc 默认入口
+- ad-hoc live tree 写入与直接页面壳创建时，统一经 `node scripts/ui_write_wrapper.mjs run ...`
+- `flow_write_wrapper.mjs` 只保留给 flow-only 兼容场景，不再是默认 agent 入口
+- `mutate` / `ensure` 如果请求体不是最终模型树，要额外提供 verify payload 给兼容 wrapper 做 guard/readback
+
 对账规则：
 
 - 以后续同目标 `GetFlowmodels_findone` 为准
+- 默认由 wrapper 自动执行写后 readback；不要手工把它省掉
 - `ok` 只代表请求提交成功，不代表最终状态
 - 显式 tabs 至少对账 tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`
 - selector/dataScope 至少对账 `filterByTk` / `dataScope` 是否漂移

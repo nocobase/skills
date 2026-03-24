@@ -58,6 +58,9 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'TAB_SLOT_USE_INVALID',
   'TAB_GRID_MISSING_OR_INVALID',
   'TAB_GRID_ITEM_USE_INVALID',
+  'EXISTING_UID_REPARENT_BLOCKED',
+  'GRID_ITEM_LAYOUT_MISSING',
+  'GRID_LAYOUT_ORPHAN_UID',
   'TAB_SUBTREE_UID_REUSED',
   'REQUIRED_VISIBLE_TABS_MISSING',
   'REQUIRED_TABS_TARGET_PAGE_MISSING',
@@ -90,6 +93,13 @@ const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
 const PAGE_TAB_MODEL_USES = new Set(PAGE_TAB_USES);
 const REQUIRED_FILTER_SCOPE_USES = [...PAGE_MODEL_USES_SET, ...PAGE_TAB_MODEL_USES];
 const GRID_MODEL_USES = new Set(['BlockGridModel', 'FormGridModel']);
+const LAYOUT_GRID_MODEL_USES = new Set([
+  'AssignFormGridModel',
+  'BlockGridModel',
+  'DetailsGridModel',
+  'FilterFormGridModel',
+  'FormGridModel',
+]);
 const BUSINESS_BLOCK_MODEL_USES = new Set([
   'FilterFormBlockModel',
   'TableBlockModel',
@@ -813,6 +823,108 @@ function normalizeCollectionField(field) {
   };
 }
 
+function normalizeFlowSubType(value, fallbackValue = '') {
+  if (value === 'array' || value === 'object') {
+    return value;
+  }
+  return fallbackValue;
+}
+
+function isFlowModelNode(value) {
+  return isPlainObject(value) && (
+    typeof value.use === 'string'
+    || typeof value.uid === 'string'
+    || isPlainObject(value.subModels)
+  );
+}
+
+function walkFlowModelTree(node, visitor, pathValue = '$', parentLink = null) {
+  if (!isFlowModelNode(node)) {
+    return;
+  }
+
+  visitor(node, pathValue, parentLink);
+
+  const currentUid = normalizeOptionalText(node.uid);
+  const currentUse = normalizeOptionalText(node.use);
+  const subModels = isPlainObject(node.subModels) ? node.subModels : {};
+  for (const [subKey, child] of Object.entries(subModels)) {
+    if (Array.isArray(child)) {
+      child.forEach((item, index) => {
+        walkFlowModelTree(item, visitor, `${pathValue}.subModels.${subKey}[${index}]`, {
+          parentUid: currentUid,
+          parentUse: currentUse,
+          subKey,
+          subType: 'array',
+        });
+      });
+      continue;
+    }
+    walkFlowModelTree(child, visitor, `${pathValue}.subModels.${subKey}`, {
+      parentUid: currentUid,
+      parentUse: currentUse,
+      subKey,
+      subType: 'object',
+    });
+  }
+}
+
+function normalizeLiveTopology(rawLiveTopology) {
+  const byUid = new Map();
+  if (!rawLiveTopology) {
+    return {
+      source: '',
+      byUid,
+      nodeCount: 0,
+    };
+  }
+
+  const source = normalizeOptionalText(rawLiveTopology.source);
+  const rawEntries = Array.isArray(rawLiveTopology.entries)
+    ? rawLiveTopology.entries
+    : [];
+  const rawByUid = isPlainObject(rawLiveTopology.byUid)
+    ? rawLiveTopology.byUid
+    : (isPlainObject(rawLiveTopology) ? rawLiveTopology : null);
+
+  const pushEntry = (uidValue, rawEntry) => {
+    const uid = normalizeOptionalText(uidValue || rawEntry?.uid);
+    if (!uid) {
+      return;
+    }
+    byUid.set(uid, {
+      uid,
+      path: normalizeOptionalText(rawEntry?.path),
+      use: normalizeOptionalText(rawEntry?.use),
+      parentId: normalizeOptionalText(rawEntry?.parentId),
+      subKey: normalizeOptionalText(rawEntry?.subKey),
+      subType: normalizeFlowSubType(rawEntry?.subType, ''),
+    });
+  };
+
+  rawEntries.forEach((entry) => {
+    if (!isPlainObject(entry)) {
+      return;
+    }
+    pushEntry(entry.uid, entry);
+  });
+
+  if (rawByUid) {
+    Object.entries(rawByUid).forEach(([uid, entry]) => {
+      if (!isPlainObject(entry)) {
+        return;
+      }
+      pushEntry(uid, entry);
+    });
+  }
+
+  return {
+    source,
+    byUid,
+    nodeCount: byUid.size,
+  };
+}
+
 function normalizeMetadata(rawMetadata = {}) {
   const rawCollections = rawMetadata.collections;
   const collections = {};
@@ -855,6 +967,11 @@ function normalizeMetadata(rawMetadata = {}) {
 
   return {
     collections: normalizedCollections,
+    liveTopology: normalizeLiveTopology(
+      rawMetadata.liveTopology
+      || rawMetadata.liveFlowTopology
+      || rawMetadata.liveTreeTopology,
+    ),
   };
 }
 
@@ -863,6 +980,69 @@ function cloneJsonValue(value) {
     return undefined;
   }
   return JSON.parse(JSON.stringify(value));
+}
+
+function resolveFlowNodeLocator(node, parentLink) {
+  return {
+    uid: normalizeOptionalText(node?.uid),
+    use: normalizeOptionalText(node?.use),
+    parentId: normalizeOptionalText(node?.parentId) || normalizeOptionalText(parentLink?.parentUid),
+    subKey: normalizeOptionalText(node?.subKey) || normalizeOptionalText(parentLink?.subKey),
+    subType: normalizeFlowSubType(node?.subType, normalizeFlowSubType(parentLink?.subType, '')),
+  };
+}
+
+function collectGridLayoutMembership(gridNode) {
+  const itemDescriptors = (Array.isArray(gridNode?.subModels?.items) ? gridNode.subModels.items : [])
+    .filter((item) => isPlainObject(item))
+    .map((item, index) => ({
+      index,
+      uid: normalizeOptionalText(item.uid),
+      use: normalizeOptionalText(item.use),
+    }));
+  const itemUids = itemDescriptors
+    .map((item) => item.uid)
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const itemUidSet = new Set(itemUids);
+
+  const rawGridSettings = isPlainObject(gridNode?.stepParams?.gridSettings?.grid)
+    ? gridNode.stepParams.gridSettings.grid
+    : null;
+  const rawRows = isPlainObject(rawGridSettings?.rows) ? rawGridSettings.rows : null;
+  const rawRowOrder = Array.isArray(rawGridSettings?.rowOrder) ? rawGridSettings.rowOrder : [];
+  const rowOrder = rawRowOrder
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => item.trim());
+
+  const layoutItemUids = [];
+  if (rawRows) {
+    Object.values(rawRows).forEach((columns) => {
+      if (!Array.isArray(columns)) {
+        return;
+      }
+      columns.forEach((column) => {
+        const uidGroup = Array.isArray(column) ? column : [column];
+        uidGroup.forEach((value) => {
+          const uid = normalizeOptionalText(value);
+          if (uid) {
+            layoutItemUids.push(uid);
+          }
+        });
+      });
+    });
+  }
+
+  const sortedLayoutItemUids = layoutItemUids.sort((left, right) => left.localeCompare(right));
+  return {
+    hasExplicitLayout: Boolean(rawRows),
+    itemDescriptors,
+    itemUids,
+    itemUidSet,
+    layoutItemUids: sortedLayoutItemUids,
+    layoutUidSet: new Set(sortedLayoutItemUids),
+    rowOrder,
+  };
 }
 
 function getCollectionMeta(metadata, collectionName) {
@@ -2454,6 +2634,116 @@ function inspectTabTrees(payload, mode, warnings, blockers, seen) {
           pageUse: node.use,
           uid,
           occurrences,
+        },
+      }));
+    }
+  });
+}
+
+function inspectExistingUidReparenting(payload, metadata, mode, blockers, seen) {
+  const liveTopologyByUid = metadata?.liveTopology?.byUid;
+  if (!(liveTopologyByUid instanceof Map) || liveTopologyByUid.size === 0) {
+    return;
+  }
+
+  walkFlowModelTree(payload, (node, pathValue, parentLink) => {
+    const current = resolveFlowNodeLocator(node, parentLink);
+    if (!current.uid) {
+      return;
+    }
+    const liveNode = liveTopologyByUid.get(current.uid);
+    if (!liveNode) {
+      return;
+    }
+
+    const hasExplicitLocator = Boolean(
+      normalizeOptionalText(node?.parentId)
+      || normalizeOptionalText(node?.subKey)
+      || normalizeFlowSubType(node?.subType, ''),
+    );
+    const isImplicitRoot = !parentLink && !hasExplicitLocator;
+    if (isImplicitRoot) {
+      return;
+    }
+
+    if (
+      current.parentId === normalizeOptionalText(liveNode.parentId)
+      && current.subKey === normalizeOptionalText(liveNode.subKey)
+      && current.subType === normalizeFlowSubType(liveNode.subType, '')
+    ) {
+      return;
+    }
+
+    pushFinding(blockers, seen, createFinding({
+      severity: 'blocker',
+      code: 'EXISTING_UID_REPARENT_BLOCKED',
+      message: `uid "${current.uid}" 已存在于 live tree，不能通过直接复用旧 uid 改变 parent/subKey/subType 挂载关系。`,
+      path: pathValue,
+      mode,
+      dedupeKey: `EXISTING_UID_REPARENT_BLOCKED:${current.uid}:${pathValue}`,
+      details: {
+        uid: current.uid,
+        use: current.use || liveNode.use || null,
+        payloadLocator: {
+          parentId: current.parentId || null,
+          subKey: current.subKey || null,
+          subType: current.subType || null,
+        },
+        liveLocator: {
+          parentId: normalizeOptionalText(liveNode.parentId) || null,
+          subKey: normalizeOptionalText(liveNode.subKey) || null,
+          subType: normalizeFlowSubType(liveNode.subType, '') || null,
+        },
+        livePath: normalizeOptionalText(liveNode.path) || null,
+      },
+    }));
+  });
+}
+
+function inspectGridLayoutMembership(payload, mode, blockers, seen) {
+  walkFlowModelTree(payload, (node, pathValue) => {
+    const gridUse = normalizeOptionalText(node?.use);
+    if (!LAYOUT_GRID_MODEL_USES.has(gridUse)) {
+      return;
+    }
+
+    const membership = collectGridLayoutMembership(node);
+    if (!membership.hasExplicitLayout) {
+      return;
+    }
+
+    const orphanLayoutUids = membership.layoutItemUids.filter((uid) => !membership.itemUidSet.has(uid));
+    if (orphanLayoutUids.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'GRID_LAYOUT_ORPHAN_UID',
+        message: `${gridUse} 的 gridSettings.rows 引用了不在 subModels.items 中的 uid，readback/runtime 会出现空槽或整块不显示。`,
+        path: `${pathValue}.stepParams.gridSettings.grid.rows`,
+        mode,
+        dedupeKey: `GRID_LAYOUT_ORPHAN_UID:${pathValue}:${orphanLayoutUids.join(',')}`,
+        details: {
+          gridUse,
+          orphanLayoutUids,
+          itemUids: membership.itemUids,
+          rowOrder: membership.rowOrder,
+        },
+      }));
+    }
+
+    const unplacedItemUids = membership.itemUids.filter((uid) => !membership.layoutUidSet.has(uid));
+    if (unplacedItemUids.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'GRID_ITEM_LAYOUT_MISSING',
+        message: `${gridUse} 的 subModels.items 中有节点没有出现在 gridSettings.rows 里，这类节点不会稳定落到可见布局槽位。`,
+        path: `${pathValue}.subModels.items`,
+        mode,
+        dedupeKey: `GRID_ITEM_LAYOUT_MISSING:${pathValue}:${unplacedItemUids.join(',')}`,
+        details: {
+          gridUse,
+          unplacedItemUids,
+          layoutItemUids: membership.layoutItemUids,
+          rowOrder: membership.rowOrder,
         },
       }));
     }
@@ -5141,6 +5431,8 @@ export function auditPayload({
   inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
+  inspectExistingUidReparenting(payload, normalizedMetadata, mode, blockers, blockerSeen);
+  inspectGridLayoutMembership(payload, mode, blockers, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectDeclaredRequirements(payload, normalizedMetadata, mode, normalizedRequirements, blockers, blockerSeen);

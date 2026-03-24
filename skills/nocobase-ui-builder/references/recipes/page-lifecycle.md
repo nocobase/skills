@@ -12,14 +12,13 @@
 
 1. 先 `start-run`，不要先探测、后补日志。
 2. 用 `node scripts/opaque_uid.mjs reserve-page` 生成 opaque `schemaUid`。
-3. 执行 `PostDesktoproutes_createv2` 或 `PostDesktoproutes_destroyv2`。
-4. 对新页面补 route-ready 证据：
-   - `GetDesktoproutes_getaccessible({ filterByTk: "<schemaUid>" })`
-   - 或 `GetDesktoproutes_listaccessible({ tree: true })`
-5. 读取 page / default hidden tab anchor：
+3. 创建页面壳时，默认走 `ui_write_wrapper.mjs run --action create-v2`；不要裸调 `PostDesktoproutes_createv2`。
+4. wrapper 会自动补 route-ready 证据：
+   - `GetDesktoproutes_listaccessible({ tree: true })`
+5. wrapper 会自动读取 page / default hidden tab anchor：
    - `GetFlowmodels_findone({ parentId: "<schemaUid>", subKey: "page" })`
    - `GetFlowmodels_findone({ parentId: "tabs-<schemaUid>", subKey: "grid" })`
-6. 后续如果进入区块写入，再按写前 snapshot / 写后 readback 流程继续。
+6. 后续如果进入区块写入，再按 wrapper 的写前 guard / 写后 readback 流程继续。
 
 ## 关键规则
 
@@ -30,30 +29,24 @@
 
 ## 最小可执行示例
 
-创建页面壳：
+创建页面壳时，默认执行入口应是：
 
-```json
-{
-  "tool": "PostDesktoproutes_createv2",
-  "arguments": {
-    "requestBody": {
-      "schemaUid": "k7n4x9p2q5ra",
-      "title": "Orders",
-      "parentId": null,
-      "icon": "TableOutlined"
-    }
-  }
-}
+```bash
+node scripts/ui_write_wrapper.mjs run \
+  --action create-v2 \
+  --task "create orders page shell" \
+  --request-file "<create-v2-request.json>" \
+  --schema-uid "k7n4x9p2q5ra"
 ```
 
-回读 route-ready 证据：
+其中 `<create-v2-request.json>` 的底层请求体可以是：
 
 ```json
 {
-  "tool": "GetDesktoproutes_getaccessible",
-  "arguments": {
-    "filterByTk": "k7n4x9p2q5ra"
-  }
+  "schemaUid": "k7n4x9p2q5ra",
+  "title": "Orders",
+  "parentId": null,
+  "icon": "TableOutlined"
 }
 ```
 

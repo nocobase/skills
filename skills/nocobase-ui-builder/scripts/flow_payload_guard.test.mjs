@@ -2978,6 +2978,120 @@ test('auditPayload blocks visible tabs that reuse the page uid across tab subtre
   assert.equal(result.blockers.some((item) => item.code === 'TAB_SUBTREE_UID_REUSED'), true);
 });
 
+test('auditPayload blocks grid layouts that reference orphan uid or leave items outside rows', () => {
+  const payload = {
+    uid: 'grid-root',
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [
+              ['table-1'],
+              ['ghost-1'],
+            ],
+          },
+          sizes: {
+            row1: [12, 12],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'table-1',
+          use: 'TableBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: makeCollectionResourceInit('orders'),
+            },
+          },
+        },
+        {
+          uid: 'details-1',
+          use: 'DetailsBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: makeCollectionResourceInit('orders'),
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'GRID_LAYOUT_ORPHAN_UID'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'GRID_ITEM_LAYOUT_MISSING'), true);
+});
+
+test('auditPayload blocks reparenting an existing uid when live topology disagrees', () => {
+  const payload = {
+    uid: 'grid-root',
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [
+              ['existing-table'],
+            ],
+          },
+          sizes: {
+            row1: [24],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'existing-table',
+          use: 'TableBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: makeCollectionResourceInit('orders'),
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: {
+      ...metadata,
+      liveTopology: {
+        source: 'test',
+        byUid: {
+          'existing-table': {
+            uid: 'existing-table',
+            use: 'TableBlockModel',
+            parentId: 'other-grid',
+            subKey: 'items',
+            subType: 'array',
+            path: '$.subModels.items[0]',
+          },
+        },
+      },
+    },
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'EXISTING_UID_REPARENT_BLOCKED'), true);
+});
+
 test('auditPayload validates declared visible tab titles', () => {
   const payload = makeVisibleTabsPage({
     titles: ['客户概览', '联系人', '商机', '跟进记录'],

@@ -1145,7 +1145,162 @@ function compareStringLists(left, right) {
     === JSON.stringify(uniqueStrings(right).sort((a, b) => a.localeCompare(b)));
 }
 
-function buildReadbackDriftReport(writeModel, readbackModel) {
+function normalizeSortedStringList(values) {
+  return (Array.isArray(values) ? values : [])
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => item.trim())
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function compareStringListsWithDuplicates(left, right) {
+  return JSON.stringify(normalizeSortedStringList(left)) === JSON.stringify(normalizeSortedStringList(right));
+}
+
+function collectGridMembershipSummaryFromGrid(gridNode) {
+  if (!isPlainObject(gridNode)) {
+    return null;
+  }
+
+  const items = (Array.isArray(gridNode?.subModels?.items) ? gridNode.subModels.items : [])
+    .filter((item) => isPlainObject(item));
+  const itemUids = normalizeSortedStringList(items.map((item) => normalizeOptionalText(item.uid)));
+  const itemUses = normalizeSortedStringList(items.map((item) => normalizeOptionalText(item.use)));
+  const rawGridSettings = isPlainObject(gridNode?.stepParams?.gridSettings?.grid)
+    ? gridNode.stepParams.gridSettings.grid
+    : null;
+  const rawRows = isPlainObject(rawGridSettings?.rows) ? rawGridSettings.rows : null;
+  const layoutItemUids = [];
+
+  if (rawRows) {
+    Object.values(rawRows).forEach((columns) => {
+      if (!Array.isArray(columns)) {
+        return;
+      }
+      columns.forEach((column) => {
+        const uidGroup = Array.isArray(column) ? column : [column];
+        uidGroup.forEach((value) => {
+          const uid = normalizeOptionalText(value);
+          if (uid) {
+            layoutItemUids.push(uid);
+          }
+        });
+      });
+    });
+  }
+
+  const sortedLayoutItemUids = normalizeSortedStringList(layoutItemUids);
+  return {
+    gridUse: normalizeOptionalText(gridNode.use),
+    itemCount: items.length,
+    itemUids,
+    itemUidSet: new Set(itemUids),
+    itemUses,
+    hasExplicitLayout: Boolean(rawRows),
+    layoutItemUids: sortedLayoutItemUids,
+    layoutUidSet: new Set(sortedLayoutItemUids),
+  };
+}
+
+function collectGridMembershipSnapshots(model) {
+  const snapshots = new Map();
+  const visit = (node, pathValue) => {
+    if (!isPlainObject(node)) {
+      return;
+    }
+    if (normalizeOptionalText(node.use).endsWith('GridModel')) {
+      const summary = collectGridMembershipSummaryFromGrid(node);
+      if (summary) {
+        snapshots.set(pathValue, summary);
+      }
+    }
+
+    const subModels = isPlainObject(node.subModels) ? node.subModels : {};
+    Object.entries(subModels).forEach(([subKey, child]) => {
+      if (Array.isArray(child)) {
+        child.forEach((item, index) => visit(item, `${pathValue}.subModels.${subKey}[${index}]`));
+        return;
+      }
+      visit(child, `${pathValue}.subModels.${subKey}`);
+    });
+  };
+  visit(model, '$');
+  return snapshots;
+}
+
+function buildGridMembershipRequirementFromScope(scope) {
+  if (!isPlainObject(scope?.gridNode)) {
+    return null;
+  }
+  const directBlocks = Array.isArray(scope.directBlocks) ? scope.directBlocks.filter((item) => isPlainObject(item)) : [];
+  if (directBlocks.length === 0) {
+    return null;
+  }
+
+  const gridSummary = collectGridMembershipSummaryFromGrid(scope.gridNode);
+  return {
+    scopePath: normalizeOptionalText(scope.scopePath),
+    scopeKind: normalizeOptionalText(scope.scopeKind),
+    gridUse: normalizeOptionalText(scope.gridNode.use),
+    expectedItemCount: directBlocks.length,
+    expectedItemUses: normalizeSortedStringList(directBlocks.map((item) => normalizeOptionalText(item.use))),
+    expectedItemUids: normalizeSortedStringList(directBlocks.map((item) => normalizeOptionalText(item.uid))),
+    requireBidirectionalLayoutMatch: gridSummary?.hasExplicitLayout === true,
+  };
+}
+
+export function augmentReadbackContractWithGridMembership(contract = {}, model) {
+  const merged = isPlainObject(contract) ? cloneJson(contract) : {};
+  const requiredGridMembership = Array.isArray(merged.requiredGridMembership)
+    ? merged.requiredGridMembership.filter((item) => isPlainObject(item)).map((item) => cloneJson(item))
+    : [];
+  const indexByScopePath = new Map(
+    requiredGridMembership
+      .map((item, index) => [normalizeOptionalText(item.scopePath), index])
+      .filter(([scopePath]) => Boolean(scopePath)),
+  );
+
+  collectStructuredScopes(model)
+    .map((scope) => buildGridMembershipRequirementFromScope(scope))
+    .filter(Boolean)
+    .forEach((derived) => {
+      const scopePath = derived.scopePath;
+      if (!scopePath) {
+        return;
+      }
+      if (!indexByScopePath.has(scopePath)) {
+        requiredGridMembership.push(derived);
+        indexByScopePath.set(scopePath, requiredGridMembership.length - 1);
+        return;
+      }
+
+      const index = indexByScopePath.get(scopePath);
+      const existing = isPlainObject(requiredGridMembership[index]) ? requiredGridMembership[index] : {};
+      requiredGridMembership[index] = {
+        ...existing,
+        scopePath,
+        scopeKind: normalizeOptionalText(existing.scopeKind) || derived.scopeKind,
+        gridUse: normalizeOptionalText(existing.gridUse) || derived.gridUse,
+        expectedItemCount: Number.isInteger(existing.expectedItemCount)
+          ? existing.expectedItemCount
+          : derived.expectedItemCount,
+        expectedItemUses: normalizeSortedStringList([
+          ...(Array.isArray(existing.expectedItemUses) ? existing.expectedItemUses : []),
+          ...derived.expectedItemUses,
+        ]),
+        expectedItemUids: normalizeSortedStringList([
+          ...(Array.isArray(existing.expectedItemUids) ? existing.expectedItemUids : []),
+          ...derived.expectedItemUids,
+        ]),
+        requireBidirectionalLayoutMatch: existing.requireBidirectionalLayoutMatch === true
+          || derived.requireBidirectionalLayoutMatch === true,
+      };
+    });
+
+  merged.requiredGridMembership = requiredGridMembership;
+  return merged;
+}
+
+export function buildReadbackDriftReport(writeModel, readbackModel) {
   const findings = [];
   const writeScopes = collectStructuredScopes(writeModel);
   const readbackScopes = collectStructuredScopes(readbackModel);
@@ -1241,6 +1396,55 @@ function buildReadbackDriftReport(writeModel, readbackModel) {
     }
   });
 
+  const writeGridSnapshots = collectGridMembershipSnapshots(writeModel);
+  const readbackGridSnapshots = collectGridMembershipSnapshots(readbackModel);
+  const gridSnapshotPaths = uniqueStrings([...writeGridSnapshots.keys(), ...readbackGridSnapshots.keys()]);
+  gridSnapshotPaths.forEach((gridPath) => {
+    const writeGrid = writeGridSnapshots.get(gridPath) || null;
+    const readbackGrid = readbackGridSnapshots.get(gridPath) || null;
+    if (!writeGrid || !readbackGrid) {
+      findings.push({
+        severity: 'warning',
+        code: 'READBACK_GRID_SCOPE_DRIFT',
+        message: `grid scope "${gridPath}" 在 write/readback 之间不一致。`,
+        details: {
+          gridPath,
+          writePresent: Boolean(writeGrid),
+          readbackPresent: Boolean(readbackGrid),
+        },
+      });
+      return;
+    }
+
+    if (
+      writeGrid.gridUse !== readbackGrid.gridUse
+      || !compareStringListsWithDuplicates(writeGrid.itemUses, readbackGrid.itemUses)
+      || !compareStringListsWithDuplicates(writeGrid.itemUids, readbackGrid.itemUids)
+      || (writeGrid.hasExplicitLayout && !compareStringListsWithDuplicates(writeGrid.layoutItemUids, readbackGrid.layoutItemUids))
+    ) {
+      findings.push({
+        severity: 'warning',
+        code: 'READBACK_GRID_MEMBERSHIP_DRIFT',
+        message: `grid scope "${gridPath}" 的 items/layout 在 readback 中发生漂移。`,
+        details: {
+          gridPath,
+          write: {
+            gridUse: writeGrid.gridUse,
+            itemUses: writeGrid.itemUses,
+            itemUids: writeGrid.itemUids,
+            layoutItemUids: writeGrid.layoutItemUids,
+          },
+          readback: {
+            gridUse: readbackGrid.gridUse,
+            itemUses: readbackGrid.itemUses,
+            itemUids: readbackGrid.itemUids,
+            layoutItemUids: readbackGrid.layoutItemUids,
+          },
+        },
+      });
+    }
+  });
+
   return {
     ok: findings.length === 0,
     findings,
@@ -1249,12 +1453,14 @@ function buildReadbackDriftReport(writeModel, readbackModel) {
       readbackPopupScopeCount: readbackPopupScopes.size,
       writeFieldSnapshotCount: writeFields.size,
       readbackFieldSnapshotCount: readbackFields.size,
+      writeGridSnapshotCount: writeGridSnapshots.size,
+      readbackGridSnapshotCount: readbackGridSnapshots.size,
       driftCount: findings.length,
     },
   };
 }
 
-function validateReadbackContract(model, contract = {}) {
+export function validateReadbackContract(model, contract = {}) {
   const findings = [];
   const topLevelUses = collectTopLevelUses(model);
   const visibleTabTitles = collectVisibleTabTitles(model);
@@ -1266,6 +1472,7 @@ function validateReadbackContract(model, contract = {}) {
   const requiredTabCount = Number.isInteger(contract.requiredTabCount) ? contract.requiredTabCount : 0;
   const requiredTabs = Array.isArray(contract.requiredTabs) ? contract.requiredTabs : [];
   const requiredScopes = Array.isArray(contract.requiredScopes) ? contract.requiredScopes : [];
+  const requiredGridMembership = Array.isArray(contract.requiredGridMembership) ? contract.requiredGridMembership : [];
   const requiredDetailsBlocks = Array.isArray(contract.requiredDetailsBlocks) ? contract.requiredDetailsBlocks : [];
   const requireFilterManager = contract.requireFilterManager === true;
   const requiredFilterManagerEntryCount = Number.isInteger(contract.requiredFilterManagerEntryCount)
@@ -1576,6 +1783,139 @@ function validateReadbackContract(model, contract = {}) {
     }
   });
 
+  requiredGridMembership.forEach((gridRequirement, index) => {
+    if (!isPlainObject(gridRequirement)) {
+      return;
+    }
+    const scopePath = normalizeOptionalText(gridRequirement.scopePath);
+    if (!scopePath) {
+      return;
+    }
+    const matchedScope = structuredScopeByPath.get(scopePath) || null;
+    if (!matchedScope) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_GRID_SCOPE_MISSING',
+        message: `readback 缺少 grid membership 所在 scope "${scopePath}"`,
+        details: {
+          index,
+          scopePath,
+        },
+      });
+      return;
+    }
+
+    const actualGrid = collectGridMembershipSummaryFromGrid(matchedScope.gridNode);
+    if (!actualGrid) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_GRID_NODE_MISSING',
+        message: `scope "${scopePath}" 没有可读的 grid 节点`,
+        details: {
+          index,
+          scopePath,
+        },
+      });
+      return;
+    }
+
+    const expectedGridUse = normalizeOptionalText(gridRequirement.gridUse);
+    if (expectedGridUse && actualGrid.gridUse !== expectedGridUse) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_GRID_USE_MISMATCH',
+        message: `scope "${scopePath}" 的 grid use 不匹配`,
+        details: {
+          index,
+          scopePath,
+          expectedGridUse,
+          actualGridUse: actualGrid.gridUse,
+        },
+      });
+    }
+
+    const expectedItemCount = Number.isInteger(gridRequirement.expectedItemCount) ? gridRequirement.expectedItemCount : null;
+    if (expectedItemCount !== null && actualGrid.itemCount !== expectedItemCount) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_GRID_ITEM_COUNT_MISMATCH',
+        message: `scope "${scopePath}" 的 grid item 数量不匹配`,
+        details: {
+          index,
+          scopePath,
+          expectedItemCount,
+          actualItemCount: actualGrid.itemCount,
+        },
+      });
+    }
+
+    const expectedItemUses = normalizeSortedStringList(gridRequirement.expectedItemUses);
+    if (expectedItemUses.length > 0 && !compareStringListsWithDuplicates(expectedItemUses, actualGrid.itemUses)) {
+      findings.push({
+        severity: 'blocker',
+        code: 'READBACK_GRID_ITEM_USE_MISMATCH',
+        message: `scope "${scopePath}" 的 grid item uses 不匹配`,
+        details: {
+          index,
+          scopePath,
+          expectedItemUses,
+          actualItemUses: actualGrid.itemUses,
+        },
+      });
+    }
+
+    const expectedItemUids = normalizeSortedStringList(gridRequirement.expectedItemUids);
+    if (expectedItemUids.length > 0) {
+      const missingExpectedUids = expectedItemUids.filter((uid) => !actualGrid.itemUidSet.has(uid));
+      if (missingExpectedUids.length > 0) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_GRID_ITEM_UID_MISSING',
+          message: `scope "${scopePath}" 的 grid 缺少期望 item uid`,
+          details: {
+            index,
+            scopePath,
+            expectedItemUids,
+            actualItemUids: actualGrid.itemUids,
+            missingExpectedUids,
+          },
+        });
+      }
+    }
+
+    if (gridRequirement.requireBidirectionalLayoutMatch === true) {
+      const orphanLayoutUids = actualGrid.layoutItemUids.filter((uid) => !actualGrid.itemUidSet.has(uid));
+      if (orphanLayoutUids.length > 0) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_GRID_LAYOUT_ORPHAN_UID',
+          message: `scope "${scopePath}" 的布局引用了不存在的 item uid`,
+          details: {
+            index,
+            scopePath,
+            orphanLayoutUids,
+            actualItemUids: actualGrid.itemUids,
+          },
+        });
+      }
+
+      const unplacedItemUids = actualGrid.itemUids.filter((uid) => !actualGrid.layoutUidSet.has(uid));
+      if (unplacedItemUids.length > 0) {
+        findings.push({
+          severity: 'blocker',
+          code: 'READBACK_GRID_ITEM_UNPLACED',
+          message: `scope "${scopePath}" 的 grid item 没有真正落进布局 rows`,
+          details: {
+            index,
+            scopePath,
+            unplacedItemUids,
+            layoutItemUids: actualGrid.layoutItemUids,
+          },
+        });
+      }
+    }
+  });
+
   requiredDetailsBlocks.forEach((detailsRequirement, index) => {
     if (!isPlainObject(detailsRequirement)) {
       return;
@@ -1673,6 +2013,7 @@ function validateReadbackContract(model, contract = {}) {
       visibleTabTitles,
       filterManagerEntryCount,
       structuredScopeCount: structuredScopes.length,
+      requiredGridMembershipCount: requiredGridMembership.length,
       tabBlockUses: Object.fromEntries(
         tabDescriptors.map((tab) => [
           tab.title || `#${tab.index}`,
@@ -2038,7 +2379,13 @@ async function runBuild(flags) {
     });
     writeJson(path.join(outDir, 'readback.json'), readbackResult.raw);
     summary.artifactPaths.readback = path.join(outDir, 'readback.json');
-    readbackContractResult = validateReadbackContract(readbackResult.data, compileArtifact.readbackContract);
+    const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
+      compileArtifact.readbackContract || {},
+      canonicalizeResult.payload,
+    );
+    writeJson(path.join(outDir, 'effective-readback-contract.json'), effectiveReadbackContract);
+    summary.artifactPaths.effectiveReadbackContract = path.join(outDir, 'effective-readback-contract.json');
+    readbackContractResult = validateReadbackContract(readbackResult.data, effectiveReadbackContract);
     writeJson(path.join(outDir, 'readback-contract.json'), readbackContractResult);
     summary.artifactPaths.readbackContract = path.join(outDir, 'readback-contract.json');
   }
@@ -2098,10 +2445,8 @@ if (isDirectRun) {
 }
 
 export {
-  buildReadbackDriftReport,
   buildTemplatePriorityList,
   collectRequiredCollectionNames,
   normalizeUrlBase,
   runBuild,
-  validateReadbackContract,
 };

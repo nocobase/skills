@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  augmentReadbackContractWithGridMembership,
   buildReadbackDriftReport,
   detectCloneTarget,
   discoverTemplatePayloadFile,
@@ -397,6 +398,98 @@ test('validateReadbackContract detects missing popup scope and details field dri
 
   assert.equal(result.ok, false);
   assert.equal(result.findings.some((item) => item.code === 'READBACK_DETAILS_ITEM_COUNT_MISMATCH'), true);
+});
+
+test('augmentReadbackContractWithGridMembership materializes scope grid membership and validateReadbackContract catches unplaced items', () => {
+  const writeModel = {
+    use: 'RootPageModel',
+    subModels: {
+      tabs: [
+        {
+          use: 'RootPageTabModel',
+          stepParams: {
+            pageTabSettings: {
+              tab: {
+                title: '客户概览',
+              },
+            },
+          },
+          subModels: {
+            grid: {
+              use: 'BlockGridModel',
+              stepParams: {
+                gridSettings: {
+                  grid: {
+                    rows: {
+                      row1: [
+                        ['filter-1'],
+                        ['table-1'],
+                      ],
+                    },
+                    sizes: {
+                      row1: [8, 16],
+                    },
+                    rowOrder: ['row1'],
+                  },
+                },
+              },
+              subModels: {
+                items: [
+                  {
+                    uid: 'filter-1',
+                    use: 'FilterFormBlockModel',
+                  },
+                  {
+                    uid: 'table-1',
+                    use: 'TableBlockModel',
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const contract = augmentReadbackContractWithGridMembership({
+    requiredScopes: [
+      {
+        scopePath: '$.page.tabs[0]',
+        scopeKind: 'root-tab',
+        pageUse: 'RootPageTabModel',
+        tabTitle: '客户概览',
+        requireBlockGrid: true,
+        requiredBlockUses: ['FilterFormBlockModel', 'TableBlockModel'],
+      },
+    ],
+  }, writeModel);
+
+  assert.deepEqual(contract.requiredGridMembership, [
+    {
+      scopePath: '$.page.tabs[0]',
+      scopeKind: 'root-tab',
+      gridUse: 'BlockGridModel',
+      expectedItemCount: 2,
+      expectedItemUses: ['FilterFormBlockModel', 'TableBlockModel'],
+      expectedItemUids: ['filter-1', 'table-1'],
+      requireBidirectionalLayoutMatch: true,
+    },
+  ]);
+
+  const readbackModel = structuredClone(writeModel);
+  readbackModel.subModels.tabs[0].subModels.grid.stepParams.gridSettings.grid.rows = {
+    row1: [
+      ['filter-1'],
+    ],
+  };
+  readbackModel.subModels.tabs[0].subModels.grid.stepParams.gridSettings.grid.sizes = {
+    row1: [24],
+  };
+
+  const result = validateReadbackContract(readbackModel, contract);
+  assert.equal(result.ok, false);
+  assert.equal(result.findings.some((item) => item.code === 'READBACK_GRID_ITEM_UNPLACED'), true);
 });
 
 test('buildReadbackDriftReport reports runtime-sensitive field shape drift', () => {

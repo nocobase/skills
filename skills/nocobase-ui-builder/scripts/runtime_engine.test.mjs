@@ -384,6 +384,26 @@ test('spec normalization and compile derive guard requirements and readback cont
       requiredBlockUses: ['DetailsBlockModel'],
     },
   ]);
+  assert.deepEqual(compiled.compileArtifact.readbackContract.requiredGridMembership, [
+    {
+      scopePath: '$.page.tabs[0]',
+      scopeKind: 'root-tab',
+      gridUse: 'BlockGridModel',
+      expectedItemCount: 1,
+      expectedItemUses: ['TableBlockModel'],
+      expectedItemUids: [],
+      requireBidirectionalLayoutMatch: false,
+    },
+    {
+      scopePath: '$.page.tabs[1]',
+      scopeKind: 'root-tab',
+      gridUse: 'BlockGridModel',
+      expectedItemCount: 1,
+      expectedItemUses: ['DetailsBlockModel'],
+      expectedItemUids: [],
+      requireBidirectionalLayoutMatch: false,
+    },
+  ]);
   assert.deepEqual(compiled.compileArtifact.readbackContract.requiredDetailsBlocks, [
     {
       scopePath: '$.page.tabs[1]',

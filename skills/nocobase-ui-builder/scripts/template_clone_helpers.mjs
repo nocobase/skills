@@ -21,6 +21,14 @@ function isPlainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function normalizeOptionalText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function normalizeFlowSubType(value) {
+  return value === 'array' || value === 'object' ? value : '';
+}
+
 function walkModel(node, visit) {
   if (!node || typeof node !== 'object') {
     return;
@@ -63,6 +71,64 @@ function replaceMappedStrings(value, uidMap) {
     output[key] = replaceMappedStrings(nestedValue, uidMap);
   }
   return output;
+}
+
+function resolveLiveTopologyByUid(liveTopology) {
+  if (liveTopology instanceof Map) {
+    return liveTopology;
+  }
+  const rawByUid = isPlainObject(liveTopology?.byUid)
+    ? liveTopology.byUid
+    : (isPlainObject(liveTopology) ? liveTopology : null);
+  const byUid = new Map();
+  if (!rawByUid) {
+    return byUid;
+  }
+  Object.entries(rawByUid).forEach(([uid, entry]) => {
+    if (!isPlainObject(entry)) {
+      return;
+    }
+    const normalizedUid = normalizeOptionalText(uid || entry.uid);
+    if (!normalizedUid) {
+      return;
+    }
+    byUid.set(normalizedUid, {
+      uid: normalizedUid,
+      parentId: normalizeOptionalText(entry.parentId),
+      subKey: normalizeOptionalText(entry.subKey),
+      subType: normalizeFlowSubType(entry.subType),
+      path: normalizeOptionalText(entry.path),
+      use: normalizeOptionalText(entry.use),
+    });
+  });
+  return byUid;
+}
+
+function walkModelWithParentLink(node, visit, parentLink = null, pathValue = '$') {
+  if (!node || typeof node !== 'object') {
+    return;
+  }
+  visit(node, pathValue, parentLink);
+  const subModels = node.subModels && typeof node.subModels === 'object' ? node.subModels : {};
+  const currentUid = normalizeOptionalText(node.uid);
+  const currentUse = normalizeOptionalText(node.use);
+  for (const [subKey, value] of Object.entries(subModels)) {
+    if (Array.isArray(value)) {
+      value.forEach((child, index) => walkModelWithParentLink(child, visit, {
+        parentUid: currentUid,
+        parentUse: currentUse,
+        subKey,
+        subType: 'array',
+      }, `${pathValue}.subModels.${subKey}[${index}]`));
+      continue;
+    }
+    walkModelWithParentLink(value, visit, {
+      parentUid: currentUid,
+      parentUse: currentUse,
+      subKey,
+      subType: 'object',
+    }, `${pathValue}.subModels.${subKey}`);
+  }
 }
 
 function scoreModelRichness(node) {
@@ -303,6 +369,92 @@ export function remapTemplateTreeToTarget({
     strippedUnsupportedFieldPopupPages,
     dedupedFormSubmitActions,
     issues,
+  };
+}
+
+export function remapConflictingDescendantUids({
+  model,
+  liveTopology,
+  uidSeed,
+}) {
+  if (!isPlainObject(model)) {
+    return {
+      payload: model,
+      uidMap: {},
+      remappedNodes: [],
+      changed: false,
+    };
+  }
+
+  const liveTopologyByUid = resolveLiveTopologyByUid(liveTopology);
+  if (liveTopologyByUid.size === 0) {
+    return {
+      payload: cloneValue(model),
+      uidMap: {},
+      remappedNodes: [],
+      changed: false,
+    };
+  }
+
+  const rootUid = normalizeOptionalText(model.uid);
+  const uidMap = new Map();
+  const remappedNodes = [];
+  const makeUid = createUidGenerator(uidSeed || rootUid || 'node');
+
+  walkModelWithParentLink(model, (node, pathValue, parentLink) => {
+    const uid = normalizeOptionalText(node.uid);
+    if (!uid || uid === rootUid || uidMap.has(uid)) {
+      return;
+    }
+    const liveNode = liveTopologyByUid.get(uid);
+    if (!liveNode) {
+      return;
+    }
+
+    const payloadLocator = {
+      parentId: normalizeOptionalText(node.parentId) || normalizeOptionalText(parentLink?.parentUid),
+      subKey: normalizeOptionalText(node.subKey) || normalizeOptionalText(parentLink?.subKey),
+      subType: normalizeFlowSubType(node.subType) || normalizeFlowSubType(parentLink?.subType),
+    };
+    if (
+      payloadLocator.parentId === liveNode.parentId
+      && payloadLocator.subKey === liveNode.subKey
+      && payloadLocator.subType === liveNode.subType
+    ) {
+      return;
+    }
+
+    const nextUid = makeUid();
+    uidMap.set(uid, nextUid);
+    remappedNodes.push({
+      path: pathValue,
+      use: normalizeOptionalText(node.use) || liveNode.use || '',
+      oldUid: uid,
+      newUid: nextUid,
+      payloadLocator,
+      liveLocator: {
+        parentId: liveNode.parentId,
+        subKey: liveNode.subKey,
+        subType: liveNode.subType,
+      },
+      livePath: liveNode.path || null,
+    });
+  });
+
+  if (uidMap.size === 0) {
+    return {
+      payload: cloneValue(model),
+      uidMap: {},
+      remappedNodes,
+      changed: false,
+    };
+  }
+
+  return {
+    payload: replaceMappedStrings(cloneValue(model), uidMap),
+    uidMap: Object.fromEntries(uidMap),
+    remappedNodes,
+    changed: true,
   };
 }
 
