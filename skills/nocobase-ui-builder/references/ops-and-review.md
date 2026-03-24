@@ -82,6 +82,25 @@ node scripts/tool_journal.mjs start-run \
 7. cache 命中/失效写 `cache-event`
 8. 最终必须写 `run_finished`
 
+## ad-hoc 写前 gate
+
+如果这轮不是走 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这种内建流水线，而是临时直接改一个 live tree、JSBlock、action tree 或 tab 子树，不要省略写前 gate。
+
+统一先跑：
+
+```bash
+node scripts/preflight_write_gate.mjs run \
+  --payload-file "<payload.json>" \
+  --metadata-file "<metadata.json>" \
+  --out-file "<canonicalized-payload.json>"
+```
+
+规则：
+
+1. `out-file` 作为后续 `PostFlowmodels_save` / `PostFlowmodels_mutate` 的唯一 payload 来源。
+2. 如果退出码是 `2`，说明存在 blocker，不能继续写入。
+3. 对含 `JSBlockModel` / `JSFieldModel` / `JSActionModel` 的 payload，不要跳过这一步。
+
 ## tool_call 记录要求
 
 - `toolType=mcp` 的 `ok/error` 记录必须附 raw evidence

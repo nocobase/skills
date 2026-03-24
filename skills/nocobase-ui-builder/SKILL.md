@@ -42,13 +42,14 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 1. 只要能探测，就不要猜 `use`、slot、`requestBody` 结构。
 2. 任何探测或写操作前都必须先 `start-run`；不要先探测、后补日志。
-3. 任何 `save` / `mutate` / `ensure` / `createV2` 前都必须先过 payload guard。
-4. `createV2` 成功只代表 `page shell created`；没有 route-ready 证据前，不得报页面 ready。
-5. `save` / `mutate` 返回 `ok` 只代表请求提交成功；最终以后续 readback 为准。
-6. 对现有页面默认做局部补丁，不要为了局部改动重建整棵页面树。
-7. 未经 schema / graph 放行的内部、未解析或高风险 model/use，不得直接写入。
-8. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器。
-9. validation 结论必须拆开 `page shell`、`route-ready`、`readback`、`data`、`runtime`，不能合并成一个“成功”。
+3. 任何 `save` / `mutate` / `ensure` / `createV2` 前都必须先过 payload guard；包括临时用 `js_repl`、直接 MCP、手写 payload 的 ad-hoc 写入。
+4. 对 ad-hoc 写入，优先先跑 `node scripts/preflight_write_gate.mjs run ...`，不要手动拆成“先写再想起 guard”。
+5. `createV2` 成功只代表 `page shell created`；没有 route-ready 证据前，不得报页面 ready。
+6. `save` / `mutate` 返回 `ok` 只代表请求提交成功；最终以后续 readback 为准。
+7. 对现有页面默认做局部补丁，不要为了局部改动重建整棵页面树。
+8. 未经 schema / graph 放行的内部、未解析或高风险 model/use，不得直接写入。
+9. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器。
+10. validation 结论必须拆开 `page shell`、`route-ready`、`readback`、`data`、`runtime`，不能合并成一个“成功”。
 
 ## validation / review 子路径
 
