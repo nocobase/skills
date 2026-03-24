@@ -398,21 +398,20 @@ function fillMissingFilterFieldDescriptors(model, metadata) {
     if (!isPlainObject(filterInit) || !isPlainObject(fieldInit)) {
       return;
     }
-    if (isPlainObject(filterInit.filterField)) {
-      return;
-    }
-
     const fieldSpec = resolveFilterFieldModelSpec({
       metadata,
       collectionName: fieldInit.collectionName,
       fieldPath: fieldInit.fieldPath,
     });
-    if (fieldSpec.unresolved) {
+    if (!isPlainObject(fieldSpec?.descriptor)) {
       return;
     }
 
-    filterInit.filterField = cloneJson(fieldSpec.descriptor);
-    changed += 1;
+    const nextDescriptor = cloneJson(fieldSpec.descriptor);
+    if (JSON.stringify(filterInit.filterField ?? null) !== JSON.stringify(nextDescriptor)) {
+      filterInit.filterField = nextDescriptor;
+      changed += 1;
+    }
   });
 
   return changed;
@@ -445,18 +444,18 @@ export function normalizeFilterItemFieldModelUses(model, metadata) {
       collectionName,
       fieldPath,
     });
-    if (fieldSpec.unresolved) {
+    if (!Array.isArray(fieldSpec?.preferredUses) || fieldSpec.preferredUses.length === 0) {
       return;
     }
 
     let mutated = false;
-    if (fieldSpec.use && fieldSpec.use !== fieldNode.use) {
+    if (fieldSpec.use && !fieldSpec.preferredUses.includes(fieldNode.use)) {
       fieldNode.use = fieldSpec.use;
       mutated = true;
     }
 
     const filterInit = node.stepParams?.filterFormItemSettings?.init;
-    if (isPlainObject(filterInit)) {
+    if (isPlainObject(filterInit) && isPlainObject(fieldSpec.descriptor)) {
       const currentDescriptor = isPlainObject(filterInit.filterField) ? filterInit.filterField : null;
       const nextDescriptor = cloneJson(fieldSpec.descriptor);
       if (JSON.stringify(currentDescriptor) !== JSON.stringify(nextDescriptor)) {

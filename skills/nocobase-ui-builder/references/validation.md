@@ -128,6 +128,10 @@ validation 默认按下面链路生成：
 3. `DetailsItemModel` 如果直接把具体 display field model 落到 `subModels.field.use`
    - 当前应优先视为 builder/readback/runtime 形态漂移的高风险诊断，而不是先验认定为所有核心版本都不合法
    - 需要结合 write payload、readback diff 与浏览器现象一起判断
+4. `FilterFormItemModel` 把 `select/date/datetime/number/percent/time/association` 全都落成 `InputFieldModel`
+   - 这通常是 skill 没按 metadata 推导筛选字段模型，不是 runtime 偶现
+   - 如果 `filterFormItemSettings.init.filterField` 仍然保留旧的 `interface/type/name`，应优先归因为 skill 的结构生成错误
+   - `manager.nickname` 这类 dotted scalar path 的 descriptor 也必须绑定 leaf field，而不是整段 path 或 relation root
 
 强制规则：
 

@@ -584,6 +584,16 @@ test('normalizeFilterItemFieldModelUses rewrites association selector to scalar 
                 fieldPath: 'manager.nickname',
               },
             },
+            filterFormItemSettings: {
+              init: {
+                filterField: {
+                  name: 'manager',
+                  title: '负责人',
+                  interface: 'm2o',
+                  type: 'belongsTo',
+                },
+              },
+            },
           },
           subModels: {
             field: {
@@ -626,4 +636,71 @@ test('normalizeFilterItemFieldModelUses rewrites association selector to scalar 
 
   assert.equal(changed, 1);
   assert.equal(model.subModels.items[0].subModels.field.use, 'InputFieldModel');
+  assert.deepEqual(model.subModels.items[0].stepParams.filterFormItemSettings.init.filterField, {
+    name: 'nickname',
+    title: 'nickname',
+    interface: 'input',
+    type: 'string',
+  });
+});
+
+test('normalizeFilterItemFieldModelUses rewrites top-level select fields from InputFieldModel to SelectFieldModel', () => {
+  const model = {
+    use: 'BlockGridModel',
+    subModels: {
+      items: [
+        {
+          use: 'FilterFormItemModel',
+          stepParams: {
+            fieldSettings: {
+              init: {
+                collectionName: 'projects',
+                fieldPath: 'status',
+              },
+            },
+            filterFormItemSettings: {
+              init: {
+                filterField: {
+                  name: 'status',
+                  title: '状态',
+                  interface: 'input',
+                  type: 'string',
+                },
+              },
+            },
+          },
+          subModels: {
+            field: {
+              use: 'InputFieldModel',
+            },
+          },
+        },
+      ],
+    },
+  };
+  const metadata = {
+    collections: {
+      projects: {
+        name: 'projects',
+        fields: [
+          {
+            name: 'status',
+            interface: 'select',
+            type: 'string',
+          },
+        ],
+      },
+    },
+  };
+
+  const changed = normalizeFilterItemFieldModelUses(model, metadata);
+
+  assert.equal(changed, 1);
+  assert.equal(model.subModels.items[0].subModels.field.use, 'SelectFieldModel');
+  assert.deepEqual(model.subModels.items[0].stepParams.filterFormItemSettings.init.filterField, {
+    name: 'status',
+    title: 'status',
+    interface: 'select',
+    type: 'string',
+  });
 });

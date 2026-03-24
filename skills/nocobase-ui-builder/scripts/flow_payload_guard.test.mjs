@@ -4270,6 +4270,50 @@ test('auditPayload blocks empty filter forms and malformed filter form items', (
   assert.equal(missingFilterFieldResult.blockers.some((item) => item.code === 'FILTER_FORM_ITEM_FILTERFIELD_MISSING'), true);
 });
 
+test('canonicalizePayload rewrites select filter form items to SelectFieldModel and metadata-derived descriptor', () => {
+  const payload = makeFilterFormItem({
+    collectionName: 'orders',
+    fieldPath: 'status',
+  });
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.subModels.field.use, 'SelectFieldModel');
+  assert.deepEqual(result.payload.stepParams.filterFormItemSettings.init.filterField, {
+    name: 'status',
+    title: 'status',
+    interface: 'select',
+    type: 'string',
+  });
+  assert.equal(result.transforms.some((item) => item.code === 'FILTER_FORM_FIELD_MODEL_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'FILTER_FORM_FIELD_MODEL_MISMATCH'), false);
+});
+
+test('auditPayload blocks filter form field model mismatches against metadata', () => {
+  const result = auditPayload({
+    payload: makeFilterFormBlockWithItems([
+      makeFilterFormItem({
+        collectionName: 'orders',
+        fieldPath: 'status',
+      }),
+    ]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_FIELD_MODEL_MISMATCH'), true);
+});
+
 test('auditPayload blocks field models that carry unsupported page slots', () => {
   const payload = {
     use: 'DetailsItemModel',

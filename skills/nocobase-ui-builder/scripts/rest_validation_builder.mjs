@@ -559,16 +559,20 @@ export function resolveBuildFilterFieldSpec({
   collectionsMeta,
   collectionName,
   fieldPath,
+  filterItemCandidate,
   allowedUses,
 }) {
   const collectionIndex = collectionsMeta instanceof Map
     ? collectionsMeta
     : buildCollectionsMetaIndex(collectionsMeta);
+  const effectiveAllowedUses = allowedUses
+    || filterItemCandidate?.subModelCatalog?.field?.candidates
+    || [];
   return resolveBuildFilterFieldSpecFromIndex({
     collectionIndex,
     collectionName,
     fieldPath,
-    allowedUses,
+    allowedUses: effectiveAllowedUses,
   });
 }
 
@@ -1597,18 +1601,21 @@ function patchFilterItemModel(filterItemNode, {
   filterItemNode.stepParams.filterFormItemSettings.init.filterField = cloneJson(
     isPlainObject(fieldSpec?.descriptor)
       ? fieldSpec.descriptor
-      : resolveBuildFilterFieldSpecFromIndex({
-        collectionIndex: new Map(),
-        collectionName,
-        fieldPath,
-      }).descriptor,
+      : {
+        name: normalizeOptionalText(fieldPath),
+        title: normalizeOptionalText(fieldPath),
+        interface: 'input',
+        type: 'string',
+      },
   );
   if (!isPlainObject(filterItemNode.subModels)) {
     filterItemNode.subModels = {};
   }
   const fieldUse = normalizeOptionalText(fieldSpec?.use) || 'InputFieldModel';
+  const existingFieldNode = isPlainObject(filterItemNode.subModels.field) ? filterItemNode.subModels.field : {};
   filterItemNode.subModels.field = {
-    uid: allocator(fieldUse),
+    ...existingFieldNode,
+    uid: normalizeOptionalText(existingFieldNode.uid) || allocator(fieldUse),
     use: fieldUse,
   };
 }
@@ -1637,6 +1644,9 @@ function buildFilterBlockModel({
   }
   const fieldPaths = normalizeFieldPaths(blockSpec.fields, firstScalarFieldPath(blockSpec.fields) || 'id');
   const filterItemSkeleton = filterItemCandidate?.skeleton;
+  const allowedFilterFieldUses = Array.isArray(filterItemCandidate?.subModelCatalog?.field?.candidates)
+    ? filterItemCandidate.subModelCatalog.field.candidates
+    : [];
   gridNode.subModels.items = fieldPaths.map((fieldPath) => {
     const filterItemNode = isPlainObject(filterItemSkeleton)
       ? cloneJson(filterItemSkeleton)
@@ -1653,6 +1663,7 @@ function buildFilterBlockModel({
         collectionIndex,
         collectionName,
         fieldPath,
+        allowedUses: allowedFilterFieldUses,
       }),
       defaultTargetUid: '',
       allocator,

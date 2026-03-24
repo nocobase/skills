@@ -21,6 +21,7 @@ import {
   inspectRunJSPayloadStatic,
   transformFilterGroupToQueryFilter,
 } from './runjs_guard.mjs';
+import { resolveFilterFieldModelSpec } from './filter_form_field_resolver.mjs';
 
 export const GENERAL_MODE = 'general';
 export const VALIDATION_CASE_MODE = 'validation-case';
@@ -52,6 +53,7 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'FILTER_FORM_ACTION_SLOT_USE_INVALID',
   'FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING',
   'FILTER_FORM_ITEM_FILTERFIELD_MISSING',
+  'FILTER_FORM_FIELD_MODEL_MISMATCH',
   'FIELD_MODEL_PAGE_SLOT_UNSUPPORTED',
   'POPUP_PAGE_USE_INVALID',
   'POPUP_PAGE_USE_MISMATCH',
@@ -3118,7 +3120,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
   });
 }
 
-function inspectFilterFormBlocks(payload, mode, warnings, blockers, seen) {
+function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'FilterFormBlockModel') {
       return;
@@ -3142,6 +3144,9 @@ function inspectFilterFormBlocks(payload, mode, warnings, blockers, seen) {
         return;
       }
 
+      const fieldInit = item.stepParams?.fieldSettings?.init;
+      const collectionName = normalizeOptionalText(fieldInit?.collectionName);
+      const fieldPath = normalizeOptionalText(fieldInit?.fieldPath);
       const fieldUse = typeof item.subModels?.field?.use === 'string' ? item.subModels.field.use.trim() : '';
       if (!fieldUse) {
         pushFinding(blockers, seen, createFinding({
@@ -3152,8 +3157,8 @@ function inspectFilterFormBlocks(payload, mode, warnings, blockers, seen) {
           mode,
           dedupeKey: `FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
           details: {
-            fieldPath: item.stepParams?.fieldSettings?.init?.fieldPath || null,
-            collectionName: item.stepParams?.fieldSettings?.init?.collectionName || null,
+            fieldPath: fieldPath || null,
+            collectionName: collectionName || null,
           },
         }));
       }
@@ -3167,11 +3172,44 @@ function inspectFilterFormBlocks(payload, mode, warnings, blockers, seen) {
           mode,
           dedupeKey: `FILTER_FORM_ITEM_FILTERFIELD_MISSING:${pathValue}:${index}`,
           details: {
-            fieldPath: item.stepParams?.fieldSettings?.init?.fieldPath || null,
-            collectionName: item.stepParams?.fieldSettings?.init?.collectionName || null,
+            fieldPath: fieldPath || null,
+            collectionName: collectionName || null,
           },
         }));
       }
+
+      if (!fieldUse || !collectionName || !fieldPath || hasTemplateExpression(fieldPath)) {
+        return;
+      }
+
+      const expectedFieldSpec = resolveFilterFieldModelSpec({
+        metadata,
+        collectionName,
+        fieldPath,
+      });
+      if (
+        !Array.isArray(expectedFieldSpec?.preferredUses)
+        || expectedFieldSpec.preferredUses.length === 0
+        || expectedFieldSpec.preferredUses.includes(fieldUse)
+      ) {
+        return;
+      }
+
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'FILTER_FORM_FIELD_MODEL_MISMATCH',
+        message: 'FilterFormItemModel.subModels.field.use 必须根据字段 metadata 推导；select/date/number/association 等字段不能一律回退成 InputFieldModel。',
+        path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
+        mode,
+        dedupeKey: `FILTER_FORM_FIELD_MODEL_MISMATCH:${pathValue}:${index}`,
+        details: {
+          collectionName,
+          fieldPath,
+          expectedUse: expectedFieldSpec.use,
+          actualUse: fieldUse,
+          resolvedFieldInterface: normalizeOptionalText(expectedFieldSpec.resolvedField?.interface) || null,
+        },
+      }));
     });
   });
 }
@@ -5126,6 +5164,67 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
     }
 
     if (
+      node.use === 'FilterFormItemModel'
+      && isPlainObject(fieldInit)
+      && typeof fieldInit.fieldPath === 'string'
+      && !hasTemplateExpression(fieldInit.fieldPath)
+    ) {
+      const collectionName = fieldInit.collectionName || context.resourceCollectionName;
+      const fieldSpec = resolveFilterFieldModelSpec({
+        metadata: normalizedMetadata,
+        collectionName,
+        fieldPath: fieldInit.fieldPath,
+      });
+      if (Array.isArray(fieldSpec?.preferredUses) && fieldSpec.preferredUses.length > 0) {
+        const nextDescriptor = cloneJsonValue(fieldSpec.descriptor);
+        let useChanged = false;
+        let descriptorChanged = false;
+
+        const filterItemSettings = isPlainObject(node.stepParams?.filterFormItemSettings)
+          ? node.stepParams.filterFormItemSettings
+          : (node.stepParams.filterFormItemSettings = {});
+        const filterItemInit = isPlainObject(filterItemSettings.init)
+          ? filterItemSettings.init
+          : (filterItemSettings.init = {});
+        const previousDescriptor = isPlainObject(filterItemInit.filterField)
+          ? cloneJsonValue(filterItemInit.filterField)
+          : null;
+        if (JSON.stringify(previousDescriptor) !== JSON.stringify(nextDescriptor)) {
+          filterItemInit.filterField = nextDescriptor;
+          descriptorChanged = true;
+        }
+
+        const fieldModelNode = isPlainObject(node.subModels?.field) ? node.subModels.field : null;
+        const previousFieldUse = normalizeOptionalText(fieldModelNode?.use) || null;
+        if (
+          fieldModelNode
+          && fieldSpec.use
+          && !fieldSpec.preferredUses.includes(normalizeOptionalText(fieldModelNode.use))
+        ) {
+          fieldModelNode.use = fieldSpec.use;
+          useChanged = true;
+        }
+
+        if (useChanged || descriptorChanged) {
+          pushCanonicalizeItem(transforms, transformSeen, {
+            code: 'FILTER_FORM_FIELD_MODEL_CANONICALIZED',
+            path: pathValue,
+            message: `按字段 metadata 归一化筛选项 "${fieldInit.fieldPath}" 的 field model 和 filterField descriptor。`,
+            details: {
+              collectionName,
+              fieldPath: fieldInit.fieldPath,
+              expectedUse: fieldSpec.use,
+              actualUse: previousFieldUse,
+              useChanged,
+              descriptorChanged,
+              resolvedFieldInterface: normalizeOptionalText(fieldSpec.resolvedField?.interface) || null,
+            },
+          });
+        }
+      }
+    }
+
+    if (
       isPlainObject(fieldInit)
       && typeof fieldInit.fieldPath === 'string'
       && !hasTemplateExpression(fieldInit.fieldPath)
@@ -5681,7 +5780,7 @@ export function auditPayload({
   inspectChartBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
-  inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);
+  inspectFilterFormBlocks(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
   inspectTableBlocks(payload, mode, blockers, blockerSeen);
   inspectFilterManagerBindings(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectActionSlots(payload, mode, blockers, blockerSeen);

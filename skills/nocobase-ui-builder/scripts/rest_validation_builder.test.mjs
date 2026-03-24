@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   evaluateBuildPreflight,
+  resolveBuildFilterFieldSpec,
   resolveRecordPopupFilterByTkTemplate,
 } from './rest_validation_builder.mjs';
 
@@ -71,6 +72,30 @@ function makeBuildSpec() {
       tabs: [],
     },
   };
+}
+
+function makeFilterCollectionsMeta() {
+  return [
+    {
+      name: 'projects',
+      title: '项目',
+      titleField: 'name',
+      fields: [
+        { name: 'name', type: 'string', interface: 'input' },
+        { name: 'stage', type: 'string', interface: 'select' },
+        { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'users', foreignKey: 'manager_id', targetKey: 'id' },
+      ],
+    },
+    {
+      name: 'users',
+      title: '用户',
+      titleField: 'nickname',
+      fields: [
+        { name: 'id', type: 'bigInt', interface: 'integer' },
+        { name: 'nickname', type: 'string', interface: 'input', uiSchema: { title: '昵称' } },
+      ],
+    },
+  ];
 }
 
 function makeCompileArtifact(overrides = {}) {
@@ -142,6 +167,36 @@ test('resolveRecordPopupFilterByTkTemplate uses collection filterTargetKey for s
   });
 
   assert.equal(filterByTk, '{{ctx.record.name}}');
+});
+
+test('resolveBuildFilterFieldSpec maps select fields to SelectFieldModel and keeps descriptor tied to metadata', () => {
+  const spec = resolveBuildFilterFieldSpec({
+    collectionsMeta: makeCollectionsMeta(),
+    collectionName: 'approvals',
+    fieldPath: 'status',
+  });
+
+  assert.equal(spec.use, 'SelectFieldModel');
+  assert.deepEqual(spec.descriptor, {
+    name: 'status',
+    title: 'status',
+    interface: 'select',
+    type: 'string',
+  });
+});
+
+test('resolveBuildFilterFieldSpec uses leaf metadata for dotted scalar filter descriptors', () => {
+  const spec = resolveBuildFilterFieldSpec({
+    collectionsMeta: makeFilterCollectionsMeta(),
+    collectionName: 'projects',
+    fieldPath: 'manager.nickname',
+  });
+
+  assert.equal(spec.use, 'InputFieldModel');
+  assert.equal(spec.descriptor.name, 'nickname');
+  assert.equal(spec.descriptor.title, '昵称');
+  assert.equal(spec.descriptor.interface, 'input');
+  assert.equal(spec.descriptor.type, 'string');
 });
 
 test('resolveRecordPopupFilterByTkTemplate expands composite filterTargetKey into an object template', () => {
