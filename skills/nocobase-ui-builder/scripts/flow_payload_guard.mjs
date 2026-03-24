@@ -29,6 +29,8 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH',
   'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
   'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
+  'TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE',
+  'TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT',
   'FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH',
   'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
   'EMPTY_DETAILS_BLOCK',
@@ -165,6 +167,8 @@ const FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET = new Set([
   'FilterFormRecordSelectFieldModel',
 ]);
 const DIRECT_ASSOCIATION_TEXT_FIELD_MODEL_USES = new Set(['DisplayTextFieldModel']);
+const CLICKABLE_ASSOCIATION_TITLE_FIELD_MODEL_USES = new Set(['DisplayTextFieldModel']);
+const JS_RELATION_WORKAROUND_MODEL_USES = new Set(['JSFieldModel', 'JSColumnModel']);
 const CANONICALIZE_FOREIGN_KEY_DISPLAY_MODEL_USES = new Set([
   'DetailsItemModel',
   'DisplayTextFieldModel',
@@ -368,7 +372,44 @@ function buildContext(node, parentContext) {
   context.resourceCollectionName = resourceCollectionName;
   context.ancestorPopupAction = parentContext.popupAction || null;
   context.popupAction = currentPopupAction || parentContext.popupAction || null;
+  context.inTableColumn = use === 'TableColumnModel' || Boolean(parentContext.inTableColumn);
   return context;
+}
+
+function getEffectiveNodeUse(node, contextUse) {
+  const bindingUse = typeof node?.stepParams?.fieldBinding?.use === 'string'
+    ? node.stepParams.fieldBinding.use.trim()
+    : '';
+  if (bindingUse) {
+    return bindingUse;
+  }
+  return typeof node?.use === 'string' && node.use.trim() ? node.use.trim() : contextUse;
+}
+
+function hasClickToOpenEnabled(node) {
+  if (!isPlainObject(node)) {
+    return false;
+  }
+  const clickToOpen = node.stepParams?.displayFieldSettings?.clickToOpen;
+  if (clickToOpen === true) {
+    return true;
+  }
+  if (isPlainObject(clickToOpen) && clickToOpen.clickToOpen === true) {
+    return true;
+  }
+  return node.props?.clickToOpen === true;
+}
+
+function hasPopupOpenViewConfigured(node) {
+  if (!isPlainObject(node)) {
+    return false;
+  }
+  return isPlainObject(node.stepParams?.popupSettings?.openView) || isPlainObject(node.subModels?.page);
+}
+
+function hasExplicitJsIntent(requirements) {
+  const intentTags = Array.isArray(requirements?.intentTags) ? requirements.intentTags : [];
+  return intentTags.includes('js.explicit') || intentTags.includes('explicit-js');
 }
 
 function normalizeFilterLogic(logic) {
@@ -569,6 +610,7 @@ function normalizeRequirements(rawRequirements = {}) {
       requiredFilters: [],
       expectedFilterContracts: [],
       allowedBusinessBlockUses: [],
+      intentTags: [],
       metadataTrust: {
         runtimeSensitive: null,
       },
@@ -598,6 +640,10 @@ function normalizeRequirements(rawRequirements = {}) {
   const rawAllowedBusinessBlockUses = rawRequirements.allowedBusinessBlockUses;
   if (rawAllowedBusinessBlockUses != null && !Array.isArray(rawAllowedBusinessBlockUses)) {
     throw new Error('requirements.allowedBusinessBlockUses must be an array');
+  }
+  const rawIntentTags = rawRequirements.intentTags;
+  if (rawIntentTags != null && !Array.isArray(rawIntentTags)) {
+    throw new Error('requirements.intentTags must be an array');
   }
   const rawMetadataTrust = rawRequirements.metadataTrust;
   if (
@@ -641,6 +687,12 @@ function normalizeRequirements(rawRequirements = {}) {
       : [],
     allowedBusinessBlockUses: [...new Set(
       (Array.isArray(rawAllowedBusinessBlockUses) ? rawAllowedBusinessBlockUses : [])
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    )],
+    intentTags: [...new Set(
+      (Array.isArray(rawIntentTags) ? rawIntentTags : [])
         .filter((item) => typeof item === 'string')
         .map((item) => item.trim())
         .filter(Boolean),
@@ -3544,7 +3596,7 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
   filter.items.forEach((item, index) => validateItem(item, `${filterPath}.items[${index}]`));
 }
 
-function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen) {
+function inspectFieldBindings(payload, metadata, mode, requirements, warnings, blockers, seen) {
   walk(payload, (node, pathValue, context) => {
     if (
       !isPlainObject(node)
@@ -3560,6 +3612,7 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
     }
 
     const { fieldPath, collectionName, associationPathName } = context.fieldBinding;
+    const effectiveUse = getEffectiveNodeUse(node, context.use);
     if (hasTemplateExpression(fieldPath)) {
       return;
     }
@@ -3568,19 +3621,19 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
     const resolvedFieldBinding = resolveFieldPathInMetadata(metadata, collectionName, fieldPath);
     const associationFromForeignKey = isSimpleBinding ? collectionMeta.associationsByForeignKey.get(fieldPath) || null : null;
 
-    if (associationFromForeignKey && FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET.has(context.use)) {
+    if (associationFromForeignKey && FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET.has(effectiveUse)) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FOREIGN_KEY_USED_AS_FIELD_PATH',
         message: `fieldPath "${fieldPath}" 是关联字段 "${associationFromForeignKey.name}" 的 foreignKey，不应直接作为 UI 字段绑定。`,
         path: pathValue,
         mode,
-        dedupeKey: `FOREIGN_KEY_USED_AS_FIELD_PATH:${collectionName}:${fieldPath}:${context.use}`,
+        dedupeKey: `FOREIGN_KEY_USED_AS_FIELD_PATH:${collectionName}:${fieldPath}:${effectiveUse}`,
         details: {
           collectionName,
           fieldPath,
           associationField: associationFromForeignKey.name,
-          use: context.use,
+          use: effectiveUse,
         },
       }));
       return;
@@ -3639,6 +3692,49 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
           },
         }));
       }
+
+      const clickableTitlePath = context.inTableColumn && (hasClickToOpenEnabled(node) || hasPopupOpenViewConfigured(node));
+      if (clickableTitlePath && CLICKABLE_ASSOCIATION_TITLE_FIELD_MODEL_USES.has(effectiveUse)) {
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE',
+          message: `表格列 "${fieldPath}" 是关联标题 dotted path，并启用了 click-to-open/popup；默认不要让 dotted path 自己承担打开行为，请改成关系字段 "${expectedAssociationPathName}" 的原生列，再用标题字段展示名称并挂 openView。`,
+          path: pathValue,
+          mode,
+          dedupeKey: `TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE:${collectionName}:${fieldPath}:${effectiveUse}`,
+          details: {
+            collectionName,
+            fieldPath,
+            associationPathName: expectedAssociationPathName,
+            effectiveUse,
+            suggestedFieldPath: expectedAssociationPathName,
+            suggestedDisplayFieldPath: fieldPath,
+          },
+        }));
+      }
+      if (
+        clickableTitlePath
+        && JS_RELATION_WORKAROUND_MODEL_USES.has(effectiveUse)
+        && !hasExplicitJsIntent(requirements)
+      ) {
+        pushFinding(targetList, seen, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT',
+          message: `表格列 "${fieldPath}" 当前使用 ${effectiveUse} 承担关联标题 click-to-open/popup，但本轮 requirements 未声明显式 JS 意图；默认应优先改用关系字段 "${expectedAssociationPathName}" 的原生列。`,
+          path: pathValue,
+          mode,
+          dedupeKey: `TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT:${collectionName}:${fieldPath}:${effectiveUse}`,
+          details: {
+            collectionName,
+            fieldPath,
+            associationPathName: expectedAssociationPathName,
+            effectiveUse,
+            requiredIntentTag: 'js.explicit',
+            suggestedFieldPath: expectedAssociationPathName,
+            suggestedDisplayFieldPath: fieldPath,
+          },
+        }));
+      }
     }
 
     const directField = resolvedFieldBinding.field;
@@ -3675,7 +3771,7 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
       }
     }
 
-    const needsAssociationTarget = FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET.has(context.use);
+    const needsAssociationTarget = FIELD_MODELS_REQUIRING_ASSOCIATION_TARGET.has(effectiveUse);
     const isDirectAssociationField = isSimpleBinding
       && (directField.target || directField.foreignKey || directField.type === 'belongsTo' || directField.interface === 'm2o');
     if (!needsAssociationTarget || !isDirectAssociationField) {
@@ -3685,7 +3781,7 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
     const targetCollectionMeta = getCollectionMeta(metadata, directField.target);
     if (!targetCollectionMeta) {
       const targetList = mode === VALIDATION_CASE_MODE
-        && (context.use === 'FormItemModel' || context.use === FORM_ASSOCIATION_FIELD_MODEL_USE)
+        && (effectiveUse === 'FormItemModel' || effectiveUse === FORM_ASSOCIATION_FIELD_MODEL_USE)
         ? blockers
         : warnings;
       pushFinding(targetList, seen, createFinding({
@@ -3706,14 +3802,14 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
       return;
     }
 
-    if (context.use === FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE && !targetCollectionMeta.titleField) {
+    if (effectiveUse === FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE && !targetCollectionMeta.titleField) {
       const suggestedScalarField = getSuggestedScalarFieldPath(metadata, directField.target);
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH',
         message: suggestedScalarField
-          ? `筛选里的关联字段 "${fieldPath}" 目标 collection "${directField.target}" 没有 titleField；请改成显式 scalar path（例如 "${fieldPath}.${suggestedScalarField}"），不要直接生成 ${context.use}。`
-          : `筛选里的关联字段 "${fieldPath}" 目标 collection "${directField.target}" 没有 titleField；请改成显式 scalar path，不要直接生成 ${context.use}。`,
+          ? `筛选里的关联字段 "${fieldPath}" 目标 collection "${directField.target}" 没有 titleField；请改成显式 scalar path（例如 "${fieldPath}.${suggestedScalarField}"），不要直接生成 ${effectiveUse}。`
+          : `筛选里的关联字段 "${fieldPath}" 目标 collection "${directField.target}" 没有 titleField；请改成显式 scalar path，不要直接生成 ${effectiveUse}。`,
         path: pathValue,
         mode,
         dedupeKey: `FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH:${collectionName}:${fieldPath}:${directField.target}`,
@@ -3721,7 +3817,7 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
           collectionName,
           fieldPath,
           targetCollection: directField.target,
-          use: context.use,
+          use: effectiveUse,
           suggestedFieldPath: suggestedScalarField ? `${fieldPath}.${suggestedScalarField}` : null,
         },
       }));
@@ -3730,14 +3826,14 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
 
     const targetDisplayField = targetCollectionMeta.titleField || targetCollectionMeta.filterTargetKey;
     const allowAssociationInputFilterTargetFallback =
-      (context.use === 'FormItemModel' || context.use === FORM_ASSOCIATION_FIELD_MODEL_USE)
+      (effectiveUse === 'FormItemModel' || effectiveUse === FORM_ASSOCIATION_FIELD_MODEL_USE)
       && Boolean(targetCollectionMeta.filterTargetKey);
-    if (DIRECT_ASSOCIATION_TEXT_FIELD_MODEL_USES.has(context.use)) {
+    if (DIRECT_ASSOCIATION_TEXT_FIELD_MODEL_USES.has(effectiveUse)) {
       const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
-        message: `关联字段 "${fieldPath}" 不应直接用 ${context.use} 绑定自身；请显式选择目标 collection "${directField.target}" 的稳定显示策略。`,
+        message: `关联字段 "${fieldPath}" 不应直接用 ${effectiveUse} 绑定自身；请显式选择目标 collection "${directField.target}" 的稳定显示策略。`,
         path: pathValue,
         mode,
         dedupeKey: `ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL:${collectionName}:${fieldPath}:${pathValue}`,
@@ -3773,7 +3869,7 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
       }));
     }
 
-    if (context.use !== 'FormItemModel' && context.use !== FORM_ASSOCIATION_FIELD_MODEL_USE) {
+    if (effectiveUse !== 'FormItemModel' && effectiveUse !== FORM_ASSOCIATION_FIELD_MODEL_USE) {
       return;
     }
 
@@ -3796,7 +3892,7 @@ function inspectFieldBindings(payload, metadata, mode, warnings, blockers, seen)
 
     const associationFieldModelNode = getAssociationInputFieldModelNode(node);
     const titleFallback = getAssociationInputTitleFallback(metadata, collectionName, fieldPath);
-    const associationInputPath = context.use === FORM_ASSOCIATION_FIELD_MODEL_USE
+    const associationInputPath = effectiveUse === FORM_ASSOCIATION_FIELD_MODEL_USE
       ? pathValue
       : `${pathValue}.subModels.field`;
     const runtimeSelection = getAssociationInputRuntimeSelection({
@@ -4729,7 +4825,7 @@ export function auditPayload({
   inspectRequiredMetadataCoverage(requiredMetadata, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilters(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
-  inspectFieldBindings(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
+  inspectFieldBindings(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectCollectionResourceContracts(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);

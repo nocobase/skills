@@ -117,6 +117,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 - block 问题先看 `blocks/*.md`
 - popup/openView、关系上下文、record actions、tree、多对多先看 `patterns/*.md`
+- 只要需求里同时出现“表格列 + 关联字段 + 点击打开 / popup”，优先看 `patterns/clickable-relation-column.md`
 - JS model 一律先看 `js-models/*.md`
 
 如果索引里没有对应文档，再退回 `ui-api-overview + flow-model-recipes + payload-guard` 的通用规则，并在日志里记一条 `note` 说明缺口。
@@ -151,6 +152,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 2. 如需关系筛选/selector/dataScope condition，先用 `flow_payload_guard.mjs build-filter`
 3. 如需页面或节点 uid，一律按 [references/opaque-uid.md](references/opaque-uid.md) 通过脚本生成
 4. 不要手写语义化 page/node uid
+5. 如果需求是“关联标题列点击打开 popup”，默认先收口到原生关系列方案，不要直接生成 `dotted path + click-to-open` 或 JS workaround
 
 ## E. 写前 guard
 
@@ -208,6 +210,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 8. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器，也不要为了补证据自行进入页面。
 9. 任何已标记为内部、未解析、或 schema 未放行的 model/use，都不能直接写入。
 10. 生成 RunJS / JSBlock 代码时，不要默认假设浏览器全局 `fetch`、`localStorage` 或任意 `window.*` 可用；当前登录用户优先使用 `ctx.user` / `ctx.auth?.user`，NocoBase collection/list/get 默认使用 `ctx.initResource()` + `ctx.resource` 或 `ctx.makeResource()`，只有自定义端点或 request-only 场景才使用 `ctx.request()`。
+11. 表格里的关联标题字段如果要点击打开 popup，默认不要让 dotted path 列自己承担 click-to-open，也不要默认切去 `JSFieldModel` / `JSColumnModel`；先回到原生关系列方案。
 
 # 任务路由
 
@@ -243,6 +246,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 
 尤其优先：
 
+- `clickable-relation-column.md`
 - `popup-openview.md`
 - `relation-context.md`
 - `record-actions.md`
@@ -258,6 +262,8 @@ guard 细则、blocker/warning、risk-accept 语义以：
 
 硬规则：
 
+- 只要普通列 / 原生关系列能表达，就不要默认生成 `JSFieldModel` / `JSColumnModel`
+- “关联标题列点击弹窗”只有在用户明确要求 JS 时，才允许走 JS 方案
 - 渲染型 JS model 默认使用 `ctx.render()`
 - 渲染型 JS model 命中 `ctx.element.innerHTML = ...` 时，先尝试自动改写为 `ctx.render(...)`；仍残留则视为 blocker
 - 不把 `return value` 当作 `JSBlockModel` / `JSColumnModel` / `JSFieldModel` / `JSItemModel` 的默认渲染范式

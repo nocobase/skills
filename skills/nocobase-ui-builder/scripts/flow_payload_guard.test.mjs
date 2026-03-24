@@ -84,6 +84,54 @@ function makeFieldBindingSubModel({ use, init }) {
   };
 }
 
+function makeClickableAssociationTitleColumn({ bindingUse = 'DisplayTextFieldModel', includePopup = true } = {}) {
+  const fieldNode = makeFieldBindingSubModel({
+    use: bindingUse,
+    init: {
+      collectionName: 'orders',
+      fieldPath: 'customer.name',
+      associationPathName: 'customer',
+    },
+  });
+  fieldNode.stepParams.displayFieldSettings = {
+    clickToOpen: {
+      clickToOpen: true,
+    },
+  };
+  if (includePopup) {
+    fieldNode.stepParams.popupSettings = {
+      openView: {
+        collectionName: 'customers',
+        associationName: 'orders.customer',
+        pageModelClass: 'ChildPageModel',
+      },
+    };
+  }
+  if (bindingUse === 'JSFieldModel') {
+    fieldNode.stepParams.jsSettings = {
+      runJs: {
+        version: 'v2',
+        code: 'ctx.render(String(ctx.value ?? ""));',
+      },
+    };
+  }
+  return {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'customer.name',
+          associationPathName: 'customer',
+        },
+      },
+    },
+    subModels: {
+      field: fieldNode,
+    },
+  };
+}
+
 function makeCollectionResourceInit(collectionName, extra = {}) {
   return {
     dataSourceKey: 'main',
@@ -1817,6 +1865,48 @@ test('auditPayload warns and blocks direct DisplayTextFieldModel association bin
   );
 });
 
+test('auditPayload warns in general mode and blocks in validation mode when clickable relation title path is bound as dotted display field', () => {
+  const payload = makeClickableAssociationTitleColumn();
+
+  const generalResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: GENERAL_MODE });
+  assert.equal(generalResult.ok, true);
+  assert.equal(
+    generalResult.warnings.some((item) => item.code === 'TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE'),
+    true,
+  );
+
+  const validationResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(validationResult.ok, false);
+  assert.equal(
+    validationResult.blockers.some((item) => item.code === 'TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE'),
+    true,
+  );
+});
+
+test('auditPayload blocks JS workaround for clickable relation title path unless requirements declare explicit JS intent', () => {
+  const payload = makeClickableAssociationTitleColumn({ bindingUse: 'JSFieldModel' });
+
+  const blockedResult = auditPayload({ payload, metadata: metadataWithCustomerTitle, mode: VALIDATION_CASE_MODE });
+  assert.equal(blockedResult.ok, false);
+  assert.equal(
+    blockedResult.blockers.some((item) => item.code === 'TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT'),
+    true,
+  );
+
+  const explicitResult = auditPayload({
+    payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      intentTags: ['js.explicit'],
+    },
+  });
+  assert.equal(
+    explicitResult.blockers.some((item) => item.code === 'TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT'),
+    false,
+  );
+});
+
 test('auditPayload allows runtime-legal non-empty dataScope on record details blocks', () => {
   const payload = {
     use: 'DetailsBlockModel',
@@ -3118,6 +3208,16 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
         },
       }),
       metadata,
+    },
+    {
+      code: 'TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE',
+      payload: makeClickableAssociationTitleColumn(),
+      metadata: metadataWithCustomerTitle,
+    },
+    {
+      code: 'TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT',
+      payload: makeClickableAssociationTitleColumn({ bindingUse: 'JSFieldModel' }),
+      metadata: metadataWithCustomerTitle,
     },
     {
       code: 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',

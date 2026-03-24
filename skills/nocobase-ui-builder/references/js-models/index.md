@@ -28,6 +28,7 @@ description: 遇到 JSBlockModel、JSColumnModel、JSFieldModel、JSEditableFiel
 - RunJS 里读取 NocoBase collection/list/get 默认使用 `ctx.initResource()` + `ctx.resource`，或 `ctx.makeResource()`。
 - `ctx.request()` 只作为自定义端点、跨域请求或 resource API 无法表达的 request-only 场景兜底。
 - 生成 RunJS 代码后，至少回看一次是否误写了 `fetch(` 或把 `collection:list/get` 写进了 `ctx.request()`；若出现，优先改写为 `ctx.user`、`ctx.initResource()` / `ctx.makeResource()`，只有自定义端点才保留 `ctx.request()`。
+- 对“关联标题列点击弹窗”这类原生列表达场景，不要默认把 JS model 当第一解；先回到 [../patterns/clickable-relation-column.md](../patterns/clickable-relation-column.md)。
 
 ## 推荐阅读顺序
 

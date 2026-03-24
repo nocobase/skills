@@ -58,6 +58,7 @@ builder DSL 边界：
 - popup page 的 tab use 要跟父 page 对齐：`ChildPageModel -> ChildPageTabModel`
 - 对 popup 内“当前记录的关联子表”，只有在 parent->child relation resource 已验证时才优先走 `resourceSettings.init.associationName + sourceId`；否则允许保留 child-side 的逻辑 `dataScope.filter`，但 `path` 必须来自 relation metadata，优先 `foreignKey`，否则 `<belongsToField>.<targetKey>`
 - `associationName` 不能只复用子表指向父表的 `belongsTo` 字段名；`order` 和 `order_items.order` 这类 child-side 写法都不能算“已完成”
+- 如果弹窗入口来自表格里的关联标题列，不要默认让 `customer.name` 这种 dotted path 列自己承担 click-to-open；优先回到 [clickable-relation-column.md](clickable-relation-column.md) 的原生关系列方案
 - 多层 popup 时，每一层都要能说清楚“输入参数从哪一层来”
 - popup page 下的 block 一律假设自己依赖 `ctx.view.inputArgs`，不要擅自跨层偷用外层上下文
 - popup/openView 相关 payload 写前先跑 [payload-guard.md](payload-guard.md)
@@ -74,6 +75,7 @@ builder DSL 边界：
 - 把子表 `belongsTo(parent)` 的字段名直接当成 `associationName` 提交，却没有证明运行时资源真的存在
 - 对关联客户这类深路径表达式不做说明，直接报成功
 - popup page 下业务 block 依赖 `ctx.view.inputArgs.filterByTk`，但 action 层没有显式传 `filterByTk`
+- 因为用户要“点关联标题打开弹窗”，就直接改成 JS 单元格，而不是先收口到原生关系列
 
 ## 完成标准
 
@@ -88,6 +90,7 @@ builder DSL 边界：
 - [../blocks/details.md](../blocks/details.md)
 - [../blocks/create-form.md](../blocks/create-form.md)
 - [../blocks/edit-form.md](../blocks/edit-form.md)
+- [clickable-relation-column.md](clickable-relation-column.md)
 - [payload-guard.md](payload-guard.md)
 - [relation-context.md](relation-context.md)
 - [record-actions.md](record-actions.md)

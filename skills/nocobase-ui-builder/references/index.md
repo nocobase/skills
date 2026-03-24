@@ -40,6 +40,10 @@ description: 按任务类型直达 canonical docs、block docs、pattern docs、
   [ui-api-overview.md](ui-api-overview.md)
 - 需要写前 guard：
   [patterns/payload-guard.md](patterns/payload-guard.md)
+- 需要“表格列里的关联标题点击弹窗”：
+  [patterns/clickable-relation-column.md](patterns/clickable-relation-column.md),
+  [patterns/table-column-rendering.md](patterns/table-column-rendering.md),
+  [patterns/popup-openview.md](patterns/popup-openview.md)
 - 需要本地 graph / schema 明细：
   [flow-schemas/index.md](flow-schemas/index.md)
 - 需要 validation / review / improve：
@@ -61,6 +65,7 @@ description: 按任务类型直达 canonical docs、block docs、pattern docs、
 
 - [patterns/index.md](patterns/index.md)
 - [patterns/payload-guard.md](patterns/payload-guard.md)
+- [patterns/clickable-relation-column.md](patterns/clickable-relation-column.md)
 - [patterns/popup-openview.md](patterns/popup-openview.md)
 - [patterns/relation-context.md](patterns/relation-context.md)
 - [patterns/table-column-rendering.md](patterns/table-column-rendering.md)

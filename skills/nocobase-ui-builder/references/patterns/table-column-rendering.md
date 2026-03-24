@@ -21,6 +21,7 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - `TableColumnModel` 已落库，但 `subModels.field` 缺失
 - 不同字段类型该选哪个 display field model
 - `customer.name` 这类关联路径列为什么容易不稳
+- 关联标题列为什么不应默认自己承担 click-to-open
 
 优先参考动态场景：
 
@@ -137,8 +138,9 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 
 在这种场景里，允许的降级顺序是：
 
-1. 退回到更稳定的关联字段展示方式
-2. 或明确记录“关联路径列未稳定落库”
+1. 如果只是展示，保留 dotted path + `associationPathName`
+2. 如果还要求点击打开 popup，直接退回到更稳定的“关系字段列 + title display + openView”方案
+3. 或明确记录“关联路径列未稳定落库”
 
 如果当前只确认了 `customer` / `product` 这类关联字段存在，而没有稳定的 relation-display 模式，不要直接写：
 
@@ -175,9 +177,12 @@ description: 真实可见数据列的完成标准、字段类型到 display mode
 - 把关联字段本身直接交给 `DisplayTextFieldModel(fieldPath=<relationField>)`，却没有验证实际可见值
 - 直接把 `customer.name` 当稳定路径使用，却漏掉 `associationPathName`
 - 直接把 `customer.name` 当稳定路径使用，而不核对元数据与 schema
+- 把 `customer.name` 这种 dotted path 列继续挂 click-to-open，再让它负责打开关联详情弹窗
+- 发现 dotted path 列点开不稳后，默认切去 `JSFieldModel` / `JSColumnModel`
 
 ## 关联文档
 
 - [../blocks/table.md](../blocks/table.md)
+- [clickable-relation-column.md](clickable-relation-column.md)
 - [popup-openview.md](popup-openview.md)
 - [relation-context.md](relation-context.md)
