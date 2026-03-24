@@ -165,3 +165,24 @@ test('compileBuildSpec keeps insight-first metadata in compile artifacts and can
     ['interactive-insight-layer', 'selected-js-peer'],
   );
 });
+
+test('compileBuildSpec stringifies relation chart field refs into required metadata', () => {
+  const compiled = compileBuildSpec(makeBuildSpecInput({
+    visualizationSpec: {
+      blockUse: 'ChartBlockModel',
+      goal: 'distribution',
+      queryMode: 'builder',
+      optionMode: 'basic',
+      collectionPath: ['main', 'mb_transactions'],
+      metricOrDimension: ['category.category_type'],
+      measures: [{ field: 'amount', aggregation: 'sum', alias: 'sum_amount' }],
+      dimensions: [{ field: ['category', 'category_type'], alias: 'category_type' }],
+      optionBuilder: { type: 'bar', xField: 'category_type', yField: 'sum_amount' },
+      chartType: 'bar',
+      confidence: 'high',
+    },
+  }));
+
+  assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('mb_transactions.amount'), true);
+  assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('mb_transactions.category.category_type'), true);
+});

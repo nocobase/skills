@@ -4659,6 +4659,220 @@ test('auditPayload blocks invalid chart payloads and wrong config paths', () => 
   assert.equal(result.blockers.some((item) => item.code === 'CHART_BASIC_OPTION_BUILDER_MISSING'), true);
 });
 
+test('canonicalizePayload normalizes chart scalar-array and relation dotted fields', () => {
+  const result = canonicalizePayload({
+    payload: makeValidChartBlock({
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+              collectionPath: ['main', 'orders'],
+              measures: [
+                {
+                  field: ['order_no'],
+                  aggregation: 'count',
+                  alias: 'count_order_no',
+                },
+              ],
+              dimensions: [
+                {
+                  field: 'customer.name',
+                  alias: 'customer_name',
+                },
+              ],
+              orders: [
+                {
+                  field: 'customer.name',
+                  alias: 'customer_name',
+                  order: 'ASC',
+                },
+              ],
+            },
+            chart: {
+              option: {
+                mode: 'basic',
+                builder: {
+                  type: 'pie',
+                  pieCategory: 'customer_name',
+                  pieValue: 'count_order_no',
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.chartSettings.configure.query.measures[0].field, 'order_no');
+  assert.deepEqual(result.payload.stepParams.chartSettings.configure.query.dimensions[0].field, ['customer', 'name']);
+  assert.deepEqual(result.payload.stepParams.chartSettings.configure.query.orders[0].field, ['customer', 'name']);
+  assert.equal(result.transforms.some((item) => item.code === 'CHART_QUERY_SCALAR_FIELD_CANONICALIZED'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'CHART_QUERY_RELATION_FIELD_CANONICALIZED'), true);
+});
+
+test('auditPayload accepts chart relation array paths resolved by metadata', () => {
+  const result = auditPayload({
+    payload: makeValidChartBlock({
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+              collectionPath: ['main', 'orders'],
+              measures: [
+                {
+                  field: 'order_no',
+                  aggregation: 'count',
+                  alias: 'count_order_no',
+                },
+              ],
+              dimensions: [
+                {
+                  field: ['customer', 'name'],
+                  alias: 'customer_name',
+                },
+              ],
+            },
+            chart: {
+              option: {
+                mode: 'basic',
+                builder: {
+                  type: 'pie',
+                  pieCategory: 'customer_name',
+                  pieValue: 'count_order_no',
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code.startsWith('CHART_QUERY_')), false);
+});
+
+test('auditPayload blocks chart association field without explicit target field', () => {
+  const result = auditPayload({
+    payload: makeValidChartBlock({
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+              collectionPath: ['main', 'orders'],
+              measures: [
+                {
+                  field: 'order_no',
+                  aggregation: 'count',
+                  alias: 'count_order_no',
+                },
+              ],
+              dimensions: [
+                {
+                  field: 'customer',
+                },
+              ],
+            },
+          },
+        },
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING'), true);
+});
+
+test('auditPayload blocks unresolved chart relation target fields', () => {
+  const result = auditPayload({
+    payload: makeValidChartBlock({
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+              collectionPath: ['main', 'orders'],
+              measures: [
+                {
+                  field: 'order_no',
+                  aggregation: 'count',
+                  alias: 'count_order_no',
+                },
+              ],
+              dimensions: [
+                {
+                  field: ['customer', 'email'],
+                  alias: 'customer_email',
+                },
+              ],
+            },
+            chart: {
+              option: {
+                mode: 'basic',
+                builder: {
+                  type: 'pie',
+                  pieCategory: 'customer_email',
+                  pieValue: 'count_order_no',
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED'), true);
+});
+
+test('auditPayload blocks unsupported chart field path shapes', () => {
+  const result = auditPayload({
+    payload: makeValidChartBlock({
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+              collectionPath: ['main', 'orders'],
+              measures: [
+                {
+                  field: 'order_no',
+                  aggregation: 'count',
+                  alias: 'count_order_no',
+                },
+              ],
+              dimensions: [
+                {
+                  field: ['customer', 'name', 'extra'],
+                  alias: 'customer_name',
+                },
+              ],
+            },
+          },
+        },
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED'), true);
+});
+
 test('auditPayload blocks grid card payloads missing item subtree or invalid action slots', () => {
   const missingItemResult = auditPayload({
     payload: {

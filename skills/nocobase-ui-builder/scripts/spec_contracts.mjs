@@ -21,6 +21,7 @@ import {
   getVisualizationCollectionName,
   isVisualizationRuntimeSensitive,
   normalizeVisualizationSpec,
+  serializeVisualizationFieldPath,
 } from './visualization_contracts.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
@@ -1633,8 +1634,9 @@ function compileBlocks(blocks, scope, artifact, context) {
         ...(Array.isArray(visualizationSpec.measures) ? visualizationSpec.measures.map((item) => item?.field) : []),
         ...(Array.isArray(visualizationSpec.dimensions) ? visualizationSpec.dimensions.map((item) => item?.field) : []),
       ]) {
-        if (typeof field === 'string' && field.trim()) {
-          artifact.requiredMetadataRefs.fields.add(`${visualizationCollectionName}.${field}`);
+        const serializedField = serializeVisualizationFieldPath(field);
+        if (serializedField) {
+          artifact.requiredMetadataRefs.fields.add(`${visualizationCollectionName}.${serializedField}`);
         }
       }
     }

@@ -23,6 +23,7 @@ import {
 } from './rest_template_clone_runner.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
 import { collectExplicitCollectionMatches } from './validation_scenario_planner.mjs';
+import { resolveFilterFieldModelSpec } from './filter_form_field_resolver.mjs';
 
 function usage() {
   return [
@@ -540,33 +541,35 @@ function findFieldMeta(collectionIndex, collectionName, fieldPath) {
   return collectionMeta.fields.find((field) => normalizeOptionalText(field?.name) === topLevelField) || null;
 }
 
-function buildFilterFieldDescriptor(fieldMeta, fieldPath) {
-  const normalizedFieldPath = normalizeOptionalText(fieldPath);
-  const topLevelField = normalizedFieldPath.split('.')[0];
-  return {
-    name: topLevelField,
-    title: normalizeOptionalText(fieldMeta?.uiSchema?.title)
-      || normalizeOptionalText(fieldMeta?.title)
-      || topLevelField,
-    interface: normalizeOptionalText(fieldMeta?.interface) || 'input',
-    type: normalizeOptionalText(fieldMeta?.type) || 'string',
-  };
+function resolveBuildFilterFieldSpecFromIndex({
+  collectionIndex,
+  collectionName,
+  fieldPath,
+  allowedUses,
+}) {
+  return resolveFilterFieldModelSpec({
+    metadata: collectionIndex,
+    collectionName,
+    fieldPath,
+    allowedUses,
+  });
 }
 
-function resolveFilterFieldUse(fieldMeta) {
-  const fieldInterface = normalizeOptionalText(fieldMeta?.interface);
-  const fieldType = normalizeOptionalText(fieldMeta?.type);
-  if (
-    fieldType === 'belongsTo'
-    || fieldType === 'belongsToMany'
-    || fieldType === 'hasMany'
-    || fieldInterface === 'm2o'
-    || fieldInterface === 'm2m'
-    || fieldInterface === 'o2m'
-  ) {
-    return 'FilterFormRecordSelectFieldModel';
-  }
-  return 'InputFieldModel';
+export function resolveBuildFilterFieldSpec({
+  collectionsMeta,
+  collectionName,
+  fieldPath,
+  allowedUses,
+}) {
+  const collectionIndex = collectionsMeta instanceof Map
+    ? collectionsMeta
+    : buildCollectionsMetaIndex(collectionsMeta);
+  return resolveBuildFilterFieldSpecFromIndex({
+    collectionIndex,
+    collectionName,
+    fieldPath,
+    allowedUses,
+  });
 }
 
 export function evaluateBuildPreflight({ buildSpec, compileArtifact, collectionsMeta }) {
@@ -1564,7 +1567,7 @@ function findFilterFormCandidates(blockGridDoc) {
 function patchFilterItemModel(filterItemNode, {
   collectionName,
   fieldPath,
-  fieldMeta,
+  fieldSpec,
   defaultTargetUid,
   allocator,
 }) {
@@ -1591,13 +1594,22 @@ function patchFilterItemModel(filterItemNode, {
     filterItemNode.stepParams.filterFormItemSettings.init = {};
   }
   filterItemNode.stepParams.filterFormItemSettings.init.defaultTargetUid = defaultTargetUid || '';
-  filterItemNode.stepParams.filterFormItemSettings.init.filterField = buildFilterFieldDescriptor(fieldMeta, fieldPath);
+  filterItemNode.stepParams.filterFormItemSettings.init.filterField = cloneJson(
+    isPlainObject(fieldSpec?.descriptor)
+      ? fieldSpec.descriptor
+      : resolveBuildFilterFieldSpecFromIndex({
+        collectionIndex: new Map(),
+        collectionName,
+        fieldPath,
+      }).descriptor,
+  );
   if (!isPlainObject(filterItemNode.subModels)) {
     filterItemNode.subModels = {};
   }
+  const fieldUse = normalizeOptionalText(fieldSpec?.use) || 'InputFieldModel';
   filterItemNode.subModels.field = {
-    uid: allocator(resolveFilterFieldUse(fieldMeta)),
-    use: resolveFilterFieldUse(fieldMeta),
+    uid: allocator(fieldUse),
+    use: fieldUse,
   };
 }
 
@@ -1637,7 +1649,11 @@ function buildFilterBlockModel({
     patchFilterItemModel(filterItemNode, {
       collectionName,
       fieldPath,
-      fieldMeta: findFieldMeta(collectionIndex, collectionName, fieldPath),
+      fieldSpec: resolveBuildFilterFieldSpecFromIndex({
+        collectionIndex,
+        collectionName,
+        fieldPath,
+      }),
       defaultTargetUid: '',
       allocator,
     });

@@ -137,6 +137,21 @@ test('buildChartBlockFromBuilderSpec produces high-confidence builder chart bloc
   assert.equal(block.visualizationSpec.confidence, 'high');
 });
 
+test('buildChartBlockFromBuilderSpec preserves relation array paths and stringifies block fields', () => {
+  const block = buildChartBlockFromBuilderSpec({
+    title: '分类支出',
+    collectionName: 'mb_transactions',
+    metricOrDimension: [['category', 'category_type']],
+    measures: [{ field: 'amount', aggregation: 'sum', alias: 'sum_amount' }],
+    dimensions: [{ field: ['category', 'category_type'], alias: 'category_type' }],
+    optionBuilder: { type: 'bar', xField: 'category_type', yField: 'sum_amount' },
+  });
+
+  assert.deepEqual(block.visualizationSpec.collectionPath, ['main', 'mb_transactions']);
+  assert.deepEqual(block.visualizationSpec.dimensions, [{ field: ['category', 'category_type'], alias: 'category_type' }]);
+  assert.deepEqual(block.fields, ['category.category_type', 'amount']);
+});
+
 test('guessVisualizationConfidence downgrades incomplete builder charts', () => {
   assert.equal(guessVisualizationConfidence({
     blockUse: 'ChartBlockModel',

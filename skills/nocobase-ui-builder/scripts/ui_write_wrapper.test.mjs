@@ -242,6 +242,113 @@ test('ui_write_wrapper save remaps conflicting descendant uid before write when 
   }
 });
 
+test('ui_write_wrapper save records chart data readiness after readback', async () => {
+  const sessionRoot = makeTempDir('save-chart-probe');
+  const outDir = path.join(sessionRoot, 'out');
+  const calls = [];
+  let savedPayload = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    if (String(url).includes('/api/flowModels:save')) {
+      savedPayload = JSON.parse(options.body);
+      return makeJsonResponse({ data: savedPayload });
+    }
+    if (String(url).includes('/api/flowModels:findOne')) {
+      return makeJsonResponse({ data: savedPayload });
+    }
+    if (String(url).includes('/api/charts:query')) {
+      return makeJsonResponse({
+        data: [
+          {
+            customer_name: 'Alice',
+            count_order_no: 2,
+          },
+        ],
+      });
+    }
+    return makeJsonResponse({ errors: [{ message: 'not found' }] }, { status: 404 });
+  };
+
+  try {
+    const result = await runUiWriteWrapper({
+      action: 'save',
+      task: 'save chart data probe test',
+      token: 'demo-token',
+      sessionRoot,
+      outDir,
+      payload: {
+        uid: 'chart-1',
+        use: 'ChartBlockModel',
+        title: 'Orders by customer',
+        stepParams: {
+          chartSettings: {
+            configure: {
+              query: {
+                mode: 'builder',
+                collectionPath: ['main', 'orders'],
+                measures: [
+                  {
+                    field: 'order_no',
+                    aggregation: 'count',
+                    alias: 'count_order_no',
+                  },
+                ],
+                dimensions: [
+                  {
+                    field: ['customer', 'name'],
+                    alias: 'customer_name',
+                  },
+                ],
+              },
+              chart: {
+                option: {
+                  mode: 'basic',
+                  builder: {
+                    type: 'pie',
+                    pieCategory: 'customer_name',
+                    pieValue: 'count_order_no',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      metadata: {
+        collections: {
+          orders: {
+            titleField: 'order_no',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'order_no', type: 'string', interface: 'input' },
+              { name: 'customer', type: 'belongsTo', interface: 'm2o', target: 'customers', foreignKey: 'customer_id', targetKey: 'id' },
+            ],
+          },
+          customers: {
+            titleField: 'name',
+            filterTargetKey: 'id',
+            fields: [
+              { name: 'name', type: 'string', interface: 'input' },
+            ],
+          },
+        },
+      },
+      readbackParentId: 'tabs-demo',
+      readbackSubKey: 'grid',
+      targetSignature: 'grid:tabs-demo',
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(result.statusAxes.dataReady.status, 'ready');
+    assert.equal(result.chartDataProbes[0].rowCount, 1);
+    assert.equal(calls.some((call) => call.url.includes('/api/charts:query')), true);
+    assert.equal(fs.existsSync(result.artifactPaths.chartDataProbes), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('ui_write_wrapper create-v2 verifies route-ready and anchors', async () => {
   const sessionRoot = makeTempDir('create-v2');
   const outDir = path.join(sessionRoot, 'out');

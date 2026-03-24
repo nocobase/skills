@@ -343,6 +343,289 @@ async function fetchAccessibleTree({ apiBase, token }) {
   return requestJson({ method: 'GET', url, token });
 }
 
+function normalizeChartProbeField(value) {
+  if (Array.isArray(value)) {
+    const segments = value
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (segments.length === 0) {
+      return '';
+    }
+    if (segments.length === 1) {
+      return segments[0];
+    }
+    return segments;
+  }
+  return normalizeOptionalText(value);
+}
+
+function serializeChartProbeField(value) {
+  if (Array.isArray(value)) {
+    return value.join('.');
+  }
+  return normalizeOptionalText(value);
+}
+
+function normalizeChartProbeMeasures(values) {
+  return (Array.isArray(values) ? values : [])
+    .filter((item) => isPlainObject(item))
+    .map((item) => {
+      const field = normalizeChartProbeField(item.field);
+      if (!field) {
+        return null;
+      }
+      const alias = normalizeOptionalText(item.alias)
+        || (normalizeOptionalText(item.aggregation) ? serializeChartProbeField(field) : '');
+      return {
+        ...item,
+        field,
+        ...(alias ? { alias } : {}),
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeChartProbeDimensions(values) {
+  return (Array.isArray(values) ? values : [])
+    .filter((item) => isPlainObject(item))
+    .map((item) => {
+      const field = normalizeChartProbeField(item.field);
+      if (!field) {
+        return null;
+      }
+      const alias = normalizeOptionalText(item.alias)
+        || (normalizeOptionalText(item.format) ? serializeChartProbeField(field) : '');
+      return {
+        ...item,
+        field,
+        ...(alias ? { alias } : {}),
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeChartProbeOrders(values) {
+  return (Array.isArray(values) ? values : [])
+    .filter((item) => isPlainObject(item))
+    .map((item) => {
+      const field = normalizeChartProbeField(item.field);
+      if (!field) {
+        return null;
+      }
+      const alias = normalizeOptionalText(item.alias) || serializeChartProbeField(field);
+      return {
+        ...item,
+        field,
+        ...(alias ? { alias } : {}),
+      };
+    })
+    .filter(Boolean);
+}
+
+function collectChartBlocks(tree) {
+  const chartBlocks = [];
+  walkFlowModelTree(tree, (node, pathValue) => {
+    if (normalizeOptionalText(node.use) !== 'ChartBlockModel') {
+      return;
+    }
+    chartBlocks.push({
+      uid: normalizeOptionalText(node.uid),
+      title: normalizeOptionalText(node.title),
+      path: pathValue,
+      query: cloneJson(node.stepParams?.chartSettings?.configure?.query ?? null),
+    });
+  });
+  return chartBlocks;
+}
+
+function getProbeRowCount(data) {
+  if (Array.isArray(data)) {
+    return data.length;
+  }
+  if (isPlainObject(data) && Array.isArray(data.data)) {
+    return data.data.length;
+  }
+  if (data === null || data === undefined) {
+    return 0;
+  }
+  return 1;
+}
+
+async function runChartDataProbe({ chartBlock, apiBase, token, logPath }) {
+  const query = isPlainObject(chartBlock.query) ? chartBlock.query : {};
+  const queryMode = normalizeOptionalText(query.mode) || (normalizeOptionalText(query.sql) ? 'sql' : 'builder');
+
+  try {
+    if (queryMode === 'sql') {
+      const requestBody = {
+        sql: normalizeOptionalText(query.sql),
+        dataSourceKey: normalizeOptionalText(query.sqlDatasource) || 'main',
+        type: 'selectRows',
+      };
+      const response = await requestJson({
+        method: 'POST',
+        url: buildRequestUrl(apiBase, '/api/flowSql:run'),
+        token,
+        body: requestBody,
+      });
+      const rowCount = getProbeRowCount(response.data);
+      const probe = {
+        uid: chartBlock.uid,
+        title: chartBlock.title,
+        path: chartBlock.path,
+        mode: 'sql',
+        ok: true,
+        rowCount,
+        dataSourceKey: requestBody.dataSourceKey,
+      };
+      recordToolCall({
+        logPath,
+        tool: 'flowSql:run',
+        toolType: 'node',
+        status: 'ok',
+        args: {
+          uid: chartBlock.uid || undefined,
+          mode: 'sql',
+        },
+        summary: 'wrapper chart data probe completed',
+        result: {
+          rowCount,
+          dataSourceKey: requestBody.dataSourceKey,
+        },
+      });
+      return probe;
+    }
+
+    const collectionPath = Array.isArray(query.collectionPath)
+      ? query.collectionPath
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+      : [];
+    const [dataSource = 'main', collection = ''] = collectionPath;
+    const requestBody = {
+      uid: chartBlock.uid || undefined,
+      dataSource,
+      collection,
+      mode: 'builder',
+      filter: query.filter,
+      orders: normalizeChartProbeOrders(query.orders),
+      limit: query.limit,
+      offset: query.offset,
+      measures: normalizeChartProbeMeasures(query.measures),
+      dimensions: normalizeChartProbeDimensions(query.dimensions),
+    };
+    const response = await requestJson({
+      method: 'POST',
+      url: buildRequestUrl(apiBase, '/api/charts:query'),
+      token,
+      body: requestBody,
+    });
+    const rowCount = getProbeRowCount(response.data);
+    const probe = {
+      uid: chartBlock.uid,
+      title: chartBlock.title,
+      path: chartBlock.path,
+      mode: 'builder',
+      ok: true,
+      rowCount,
+      dataSource,
+      collection,
+    };
+    recordToolCall({
+      logPath,
+      tool: 'charts:query',
+      toolType: 'node',
+      status: 'ok',
+      args: {
+        uid: chartBlock.uid || undefined,
+        mode: 'builder',
+        dataSource,
+        collection,
+      },
+      summary: 'wrapper chart data probe completed',
+      result: {
+        rowCount,
+        dataSource,
+        collection,
+      },
+    });
+    return probe;
+  } catch (error) {
+    const serializedError = summarizeError(error);
+    const probe = {
+      uid: chartBlock.uid,
+      title: chartBlock.title,
+      path: chartBlock.path,
+      mode: queryMode,
+      ok: false,
+      error: serializedError,
+    };
+    recordToolCall({
+      logPath,
+      tool: queryMode === 'sql' ? 'flowSql:run' : 'charts:query',
+      toolType: 'node',
+      status: 'error',
+      args: {
+        uid: chartBlock.uid || undefined,
+        mode: queryMode,
+      },
+      summary: 'wrapper chart data probe failed',
+      error: serializedError.message,
+      result: serializedError.response ?? undefined,
+    });
+    return probe;
+  }
+}
+
+async function probeChartDataReadiness({ tree, apiBase, token, logPath }) {
+  const chartBlocks = collectChartBlocks(tree);
+  if (chartBlocks.length === 0) {
+    return {
+      probes: [],
+      statusAxis: {
+        status: 'not-recorded',
+        detail: '本次 readback 未发现 ChartBlockModel。',
+      },
+    };
+  }
+
+  const probes = [];
+  for (const chartBlock of chartBlocks) {
+    probes.push(await runChartDataProbe({
+      chartBlock,
+      apiBase,
+      token,
+      logPath,
+    }));
+  }
+
+  const failedProbes = probes.filter((item) => item.ok === false);
+  if (failedProbes.length > 0) {
+    return {
+      probes,
+      statusAxis: {
+        status: 'failed',
+        detail: `${failedProbes.length}/${probes.length} 个图表数据探测失败。`,
+      },
+    };
+  }
+
+  const zeroRowCount = probes.filter((item) => item.rowCount === 0).length;
+  const totalRows = probes.reduce((sum, item) => sum + (Number.isInteger(item.rowCount) ? item.rowCount : 0), 0);
+  const detail = zeroRowCount > 0
+    ? `已验证 ${probes.length} 个图表查询，累计返回 ${totalRows} 行，其中 ${zeroRowCount} 个图表返回 0 行。`
+    : `已验证 ${probes.length} 个图表查询，累计返回 ${totalRows} 行。`;
+  return {
+    probes,
+    statusAxis: {
+      status: 'ready',
+      detail,
+    },
+  };
+}
+
 function probeRouteReady(routeTree, schemaUid) {
   const nodes = Array.isArray(routeTree) ? routeTree : [];
   const flat = [];
@@ -563,6 +846,7 @@ export async function runUiWriteWrapper(options = {}) {
     schemaUid: normalized.schemaUid,
     targetSignature: normalized.targetSignature || '',
     artifactPaths: {},
+    statusAxes: {},
     notes: [],
   };
 
@@ -926,6 +1210,7 @@ export async function runUiWriteWrapper(options = {}) {
     let readbackResult = null;
     let readbackDiffResult = null;
     let readbackContractResult = null;
+    let chartDataProbeResult = null;
 
     if (action === 'create-v2') {
       const schemaUid = normalized.schemaUid || normalizeOptionalText(requestBody?.schemaUid);
@@ -1049,6 +1334,18 @@ export async function runUiWriteWrapper(options = {}) {
           findingCount: readbackContractResult.findings.length,
         };
       }
+
+      chartDataProbeResult = await probeChartDataReadiness({
+        tree: readbackResult.data,
+        apiBase,
+        token: normalized.token,
+        logPath: run.logPath,
+      });
+      const chartDataProbePath = path.join(outDir, 'chart-data-probes.json');
+      writeJson(chartDataProbePath, chartDataProbeResult);
+      summary.artifactPaths.chartDataProbes = chartDataProbePath;
+      summary.chartDataProbes = chartDataProbeResult.probes;
+      summary.statusAxes.dataReady = chartDataProbeResult.statusAxis;
     }
 
     recordPhase({
@@ -1088,6 +1385,9 @@ export async function runUiWriteWrapper(options = {}) {
       }
       if (readbackContractResult && !readbackContractResult.ok) {
         summary.notes.push('readback contract 未全部通过。');
+      }
+      if (chartDataProbeResult?.statusAxis?.status === 'failed') {
+        summary.notes.push(chartDataProbeResult.statusAxis.detail);
       }
     }
 

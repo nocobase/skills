@@ -12,6 +12,7 @@ import {
 import { reservePage } from './opaque_uid.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
 import { remapTemplateTreeToTarget, summarizeModelTree } from './template_clone_helpers.mjs';
+import { resolveFilterFieldModelSpec } from './filter_form_field_resolver.mjs';
 
 const PAGE_ROOT_USES = new Set(['RootPageModel', 'PageModel', 'ChildPageModel']);
 const GRID_ROOT_USES = new Set([
@@ -382,49 +383,6 @@ function loadCompileArtifact(filePath) {
   };
 }
 
-function getCollectionMeta(metadata, collectionName) {
-  if (!isPlainObject(metadata?.collections) || typeof collectionName !== 'string' || !collectionName.trim()) {
-    return null;
-  }
-  return metadata.collections[collectionName] || null;
-}
-
-function getFieldTitle(field) {
-  const candidate = field?.uiSchema?.title;
-  if (typeof candidate === 'string' && candidate.trim()) {
-    return candidate.trim();
-  }
-  return typeof field?.name === 'string' ? field.name : '';
-}
-
-function resolveFieldMeta(metadata, collectionName, fieldPath) {
-  if (typeof collectionName !== 'string' || typeof fieldPath !== 'string') {
-    return null;
-  }
-  const segments = fieldPath.split('.').map((item) => item.trim()).filter(Boolean);
-  if (segments.length === 0) {
-    return null;
-  }
-
-  let currentCollection = getCollectionMeta(metadata, collectionName);
-  let currentField = null;
-  for (const segment of segments) {
-    if (!currentCollection) {
-      return null;
-    }
-    currentField = Array.isArray(currentCollection.fields)
-      ? currentCollection.fields.find((item) => item?.name === segment) || null
-      : null;
-    if (!currentField) {
-      return null;
-    }
-    if (segment !== segments[segments.length - 1]) {
-      currentCollection = getCollectionMeta(metadata, currentField.target);
-    }
-  }
-  return currentField;
-}
-
 function fillMissingFilterFieldDescriptors(model, metadata) {
   if (!isPlainObject(model)) {
     return 0;
@@ -444,66 +402,20 @@ function fillMissingFilterFieldDescriptors(model, metadata) {
       return;
     }
 
-    const fieldMeta = resolveFieldMeta(metadata, fieldInit.collectionName, fieldInit.fieldPath);
-    if (!fieldMeta) {
+    const fieldSpec = resolveFilterFieldModelSpec({
+      metadata,
+      collectionName: fieldInit.collectionName,
+      fieldPath: fieldInit.fieldPath,
+    });
+    if (fieldSpec.unresolved) {
       return;
     }
 
-    filterInit.filterField = {
-      name: fieldInit.fieldPath,
-      title: getFieldTitle(fieldMeta),
-      interface: fieldMeta.interface || '',
-      type: fieldMeta.type || '',
-      ...(fieldMeta.target ? { target: fieldMeta.target } : {}),
-      ...(fieldMeta.foreignKey ? { foreignKey: fieldMeta.foreignKey } : {}),
-      ...(fieldMeta.targetKey ? { targetKey: fieldMeta.targetKey } : {}),
-    };
+    filterInit.filterField = cloneJson(fieldSpec.descriptor);
     changed += 1;
   });
 
   return changed;
-}
-
-function chooseScalarFilterFieldModelUse(fieldMeta) {
-  const interfaceName = normalizeOptionalText(fieldMeta?.interface);
-  const fieldType = normalizeOptionalText(fieldMeta?.type);
-
-  if (interfaceName === 'date') {
-    return 'DateOnlyFilterFieldModel';
-  }
-  if (interfaceName === 'datetimeNoTz') {
-    return 'DateTimeNoTzFilterFieldModel';
-  }
-  if (interfaceName === 'datetime' || interfaceName === 'datetimeTz') {
-    return 'DateTimeTzFilterFieldModel';
-  }
-  if (
-    interfaceName === 'select'
-    || interfaceName === 'radioGroup'
-    || interfaceName === 'checkbox'
-    || interfaceName === 'checkboxGroup'
-    || interfaceName === 'boolean'
-    || fieldType === 'boolean'
-    || fieldType === 'enum'
-  ) {
-    return 'SelectFieldModel';
-  }
-  if (
-    interfaceName === 'integer'
-    || interfaceName === 'number'
-    || interfaceName === 'float'
-    || interfaceName === 'double'
-    || interfaceName === 'decimal'
-    || interfaceName === 'percent'
-    || fieldType === 'integer'
-    || fieldType === 'bigInt'
-    || fieldType === 'float'
-    || fieldType === 'double'
-    || fieldType === 'decimal'
-  ) {
-    return 'NumberFieldModel';
-  }
-  return 'InputFieldModel';
 }
 
 export function normalizeFilterItemFieldModelUses(model, metadata) {
@@ -517,7 +429,7 @@ export function normalizeFilterItemFieldModelUses(model, metadata) {
       return;
     }
     const fieldNode = node.subModels?.field;
-    if (!isPlainObject(fieldNode) || fieldNode.use !== 'FilterFormRecordSelectFieldModel') {
+    if (!isPlainObject(fieldNode)) {
       return;
     }
 
@@ -528,18 +440,34 @@ export function normalizeFilterItemFieldModelUses(model, metadata) {
       return;
     }
 
-    const fieldMeta = resolveFieldMeta(metadata, collectionName, fieldPath);
-    if (!fieldMeta || fieldMeta.target) {
+    const fieldSpec = resolveFilterFieldModelSpec({
+      metadata,
+      collectionName,
+      fieldPath,
+    });
+    if (fieldSpec.unresolved) {
       return;
     }
 
-    const nextUse = chooseScalarFilterFieldModelUse(fieldMeta);
-    if (!nextUse || nextUse === fieldNode.use) {
-      return;
+    let mutated = false;
+    if (fieldSpec.use && fieldSpec.use !== fieldNode.use) {
+      fieldNode.use = fieldSpec.use;
+      mutated = true;
     }
 
-    fieldNode.use = nextUse;
-    changed += 1;
+    const filterInit = node.stepParams?.filterFormItemSettings?.init;
+    if (isPlainObject(filterInit)) {
+      const currentDescriptor = isPlainObject(filterInit.filterField) ? filterInit.filterField : null;
+      const nextDescriptor = cloneJson(fieldSpec.descriptor);
+      if (JSON.stringify(currentDescriptor) !== JSON.stringify(nextDescriptor)) {
+        filterInit.filterField = nextDescriptor;
+        mutated = true;
+      }
+    }
+
+    if (mutated) {
+      changed += 1;
+    }
   });
 
   return changed;

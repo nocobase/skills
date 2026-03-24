@@ -96,6 +96,52 @@ Chart 的查询和 option 不走 `resourceSettings`，而是走：
 
 这是首选模式。只要用户说“总览 / 趋势 / 分布 / 报表”，且我们已经有 collection metadata，就优先用它。
 
+### builder field contract
+
+`ChartBlockModel` 的 query 字段路径有一条额外契约，和 table/details/form/filter 不一样：
+
+- scalar 字段继续用字符串，例如 `"amount"`、`"status"`
+- relation 字段必须用数组路径，例如 `["category", "name"]`、`["customer", "name"]`
+- 不要在 chart query 里写 dotted relation string，例如 `"category.name"`；这会让服务端把它当成普通列名，而不会稳定补 join
+- `query.orders[].field` 同样遵守这条规则
+- `chart.option.builder` 里的 `xField` / `yField` / `pieCategory` / `pieValue` 仍然写最终 alias 或列名字符串，不改成数组
+
+例子：
+
+```json
+{
+  "query": {
+    "mode": "builder",
+    "collectionPath": ["main", "orders"],
+    "measures": [
+      {
+        "field": "order_no",
+        "aggregation": "count",
+        "alias": "count_order_no"
+      }
+    ],
+    "dimensions": [
+      {
+        "field": ["customer", "name"],
+        "alias": "customer_name"
+      }
+    ]
+  },
+  "chart": {
+    "option": {
+      "mode": "basic",
+      "builder": {
+        "type": "pie",
+        "pieCategory": "customer_name",
+        "pieValue": "count_order_no"
+      }
+    }
+  }
+}
+```
+
+这条规则只影响 chart query。其它 block 的 `fieldPath` / `filterPaths` / metadata refs 仍然继续使用 dotted string。
+
 ### `sql`
 
 必须显式提供：
@@ -154,11 +200,16 @@ payload guard 应至少检查：
 - `CHART_SQL_TEXT_MISSING`
 - `CHART_CUSTOM_OPTION_RAW_MISSING`
 - `CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS`
+- `CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING`
+- `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED`
+- `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED`
 
 `canonicalize-payload` 只允许自动补：
 
 - `query.mode='builder'`
 - `option.mode='basic'`
+- 单元素 chart field 数组归一化为标量字符串，例如 `["amount"] -> "amount"`
+- 在 metadata 可证明是稳定关联路径时，把 legacy dotted relation path 改成数组，例如 `"customer.name" -> ["customer", "name"]`
 
 不要自动猜：
 

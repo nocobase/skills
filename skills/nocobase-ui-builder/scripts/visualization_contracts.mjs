@@ -67,6 +67,53 @@ function normalizeCollectionPath(value) {
   return normalizeStringArray(value, { dedupe: false, maxItems: 2 });
 }
 
+function normalizeFieldPathSegments(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((item) => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeVisualizationFieldPath(value) {
+  if (Array.isArray(value)) {
+    const segments = normalizeFieldPathSegments(value);
+    if (segments.length === 0) {
+      return null;
+    }
+    if (segments.length === 1) {
+      return segments[0];
+    }
+    if (segments.length === 2) {
+      return segments;
+    }
+    return null;
+  }
+  const normalized = normalizeText(value);
+  return normalized || null;
+}
+
+export function serializeVisualizationFieldPath(value) {
+  if (Array.isArray(value)) {
+    return normalizeFieldPathSegments(value).join('.');
+  }
+  return normalizeText(value);
+}
+
+function normalizeVisualizationFieldList(values) {
+  const normalized = [];
+  const seen = new Set();
+  for (const item of Array.isArray(values) ? values : []) {
+    const fieldPath = normalizeVisualizationFieldPath(item);
+    const serialized = serializeVisualizationFieldPath(fieldPath);
+    if (!serialized || seen.has(serialized)) {
+      continue;
+    }
+    seen.add(serialized);
+    normalized.push(serialized);
+  }
+  return normalized;
+}
+
 function normalizeFieldDescriptorList(values, type) {
   const normalized = [];
   const seen = new Set();
@@ -74,15 +121,16 @@ function normalizeFieldDescriptorList(values, type) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       continue;
     }
-    const field = normalizeText(item.field);
-    if (!field) {
+    const field = normalizeVisualizationFieldPath(item.field);
+    const serializedField = serializeVisualizationFieldPath(field);
+    if (!serializedField) {
       continue;
     }
     const aggregation = type === 'measure' ? normalizeText(item.aggregation) : '';
     const alias = normalizeText(item.alias);
     const format = type === 'dimension' ? normalizeText(item.format) : '';
     const dedupeKey = [
-      field,
+      serializedField,
       aggregation,
       alias,
       format,
@@ -116,7 +164,7 @@ function normalizeAliasSegment(value, fallback = 'value') {
 }
 
 function buildMeasureAlias(field, aggregation = 'count') {
-  return `${normalizeAliasSegment(aggregation, 'agg')}_${normalizeAliasSegment(field, 'value')}`;
+  return `${normalizeAliasSegment(aggregation, 'agg')}_${normalizeAliasSegment(serializeVisualizationFieldPath(field), 'value')}`;
 }
 
 function chooseMetricField(availableFields, request = '') {
@@ -196,8 +244,8 @@ function normalizeVisualizationSpecCore(input = {}, options = {}) {
     ? (collectionPath[0] || normalizeText(sourceInput.dataSource) || DEFAULT_CHART_DATA_SOURCE_KEY)
     : (normalizeText(sourceInput.dataSource) || normalizeText(sourceOptions.dataSource));
   const fallbackBlockUse = normalizeText(sourceInput.fallbackBlockUse) || normalizeText(sourceOptions.fallbackBlockUse) || TABLE_BLOCK_USE;
-  const metricOrDimension = uniqueStrings(sourceInput.metricOrDimension);
-  const metrics = uniqueStrings(sourceInput.metrics);
+  const metricOrDimension = normalizeVisualizationFieldList(sourceInput.metricOrDimension);
+  const metrics = normalizeVisualizationFieldList(sourceInput.metrics);
   const measures = normalizeFieldDescriptorList(sourceInput.measures, 'measure');
   const dimensions = normalizeFieldDescriptorList(sourceInput.dimensions, 'dimension');
   const chartType = normalizeText(sourceInput.chartType) || normalizeText(sourceOptions.chartType);
@@ -438,7 +486,7 @@ function buildVisualizationBlock({
     use,
     title,
     collectionName,
-    fields: uniqueStrings(fields),
+    fields: normalizeVisualizationFieldList(fields),
     actions: [],
     rowActions: [],
     blocks: [],
@@ -470,18 +518,18 @@ export function buildChartBlockFromBuilderSpec({
   const normalizedDimensions = normalizeFieldDescriptorList(dimensions, 'dimension');
   const normalizedBuilder = normalizeBuilder(optionBuilder) || buildDefaultChartBuilder({
     chartType,
-    dimensionField: normalizedDimensions[0]?.alias || normalizedDimensions[0]?.field || '',
-    measureAlias: normalizedMeasures[0]?.alias || normalizedMeasures[0]?.field || '',
+    dimensionField: normalizedDimensions[0]?.alias || serializeVisualizationFieldPath(normalizedDimensions[0]?.field),
+    measureAlias: normalizedMeasures[0]?.alias || serializeVisualizationFieldPath(normalizedMeasures[0]?.field),
   });
   return buildVisualizationBlock({
     use: CHART_BLOCK_USE,
     title,
     collectionName: '',
-    fields: uniqueStrings([
+    fields: [
       ...metricOrDimension,
       ...normalizedMeasures.map((item) => item.field),
       ...normalizedDimensions.map((item) => item.field),
-    ]),
+    ],
     visualizationSpec: {
       blockUse: CHART_BLOCK_USE,
       goal,
@@ -521,11 +569,11 @@ export function buildChartBlockFromSqlSpec({
     use: CHART_BLOCK_USE,
     title,
     collectionName: '',
-    fields: uniqueStrings([
+    fields: [
       ...metricOrDimension,
       ...normalizedMeasures.map((item) => item.field),
       ...normalizedDimensions.map((item) => item.field),
-    ]),
+    ],
     visualizationSpec: {
       blockUse: CHART_BLOCK_USE,
       goal,
@@ -540,8 +588,8 @@ export function buildChartBlockFromSqlSpec({
       sql,
       optionBuilder: normalizeBuilder(optionBuilder) || buildDefaultChartBuilder({
         chartType,
-        dimensionField: normalizedDimensions[0]?.alias || normalizedDimensions[0]?.field || '',
-        measureAlias: normalizedMeasures[0]?.alias || normalizedMeasures[0]?.field || '',
+        dimensionField: normalizedDimensions[0]?.alias || serializeVisualizationFieldPath(normalizedDimensions[0]?.field),
+        measureAlias: normalizedMeasures[0]?.alias || serializeVisualizationFieldPath(normalizedMeasures[0]?.field),
       }),
       raw,
       eventsRaw,

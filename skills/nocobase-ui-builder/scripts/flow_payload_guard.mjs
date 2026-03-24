@@ -81,6 +81,9 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'CHART_BASIC_OPTION_BUILDER_MISSING',
   'CHART_CUSTOM_OPTION_RAW_MISSING',
   'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS',
+  'CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING',
+  'CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED',
+  'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED',
   'GRID_CARD_ITEM_SUBMODEL_MISSING',
   'GRID_CARD_ITEM_USE_INVALID',
   'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID',
@@ -1755,6 +1758,92 @@ function isSimpleFieldName(value) {
   return typeof value === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 }
 
+function normalizeChartFieldSegments(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((item) => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function serializeChartFieldPath(value) {
+  if (Array.isArray(value)) {
+    return normalizeChartFieldSegments(value).join('.');
+  }
+  return normalizeOptionalText(value);
+}
+
+function formatChartFieldPath(value) {
+  if (Array.isArray(value)) {
+    return JSON.stringify(normalizeChartFieldSegments(value));
+  }
+  return normalizeOptionalText(value);
+}
+
+function describeChartFieldPath(value) {
+  return formatChartFieldPath(value) || '<empty>';
+}
+
+function inspectChartFieldPath(value) {
+  if (Array.isArray(value)) {
+    const segments = normalizeChartFieldSegments(value);
+    if (segments.length === 0) {
+      return { kind: 'invalid', reason: 'empty-array', segments, normalized: null };
+    }
+    if (segments.length === 1) {
+      return { kind: 'scalar-array', reason: '', segments, normalized: segments[0] };
+    }
+    if (segments.length === 2) {
+      return { kind: 'relation-array', reason: '', segments, normalized: segments };
+    }
+    return { kind: 'invalid', reason: 'array-segment-count', segments, normalized: null };
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (!normalized) {
+      return { kind: 'invalid', reason: 'empty-string', segments: [], normalized: null };
+    }
+    const segments = normalized.split('.').map((segment) => segment.trim()).filter(Boolean);
+    if (segments.length <= 1) {
+      return { kind: 'scalar-string', reason: '', segments: [normalized], normalized };
+    }
+    if (segments.length === 2) {
+      return { kind: 'legacy-dotted', reason: '', segments, normalized };
+    }
+    return { kind: 'invalid', reason: 'dotted-segment-count', segments, normalized: null };
+  }
+
+  return { kind: 'invalid', reason: 'unsupported-type', segments: [], normalized: null };
+}
+
+function resolveChartRelationField(metadata, collectionName, segments) {
+  if (!collectionName || !Array.isArray(segments) || segments.length !== 2) {
+    return null;
+  }
+  const collectionMeta = getCollectionMeta(metadata, collectionName);
+  if (!collectionMeta) {
+    return null;
+  }
+  const [associationName, targetFieldName] = segments;
+  const associationField = collectionMeta.fieldsByName.get(associationName) || null;
+  if (!associationField || !isAssociationField(associationField) || !associationField.target) {
+    return {
+      collectionMeta,
+      associationField,
+      targetCollectionMeta: null,
+      targetField: null,
+    };
+  }
+  const targetCollectionMeta = getCollectionMeta(metadata, associationField.target);
+  const targetField = targetCollectionMeta?.fieldsByName.get(targetFieldName) || null;
+  return {
+    collectionMeta,
+    associationField,
+    targetCollectionMeta,
+    targetField,
+  };
+}
+
 function hasTemplateExpression(value) {
   return typeof value === 'string' && value.includes('{{');
 }
@@ -3291,7 +3380,7 @@ function inspectCollectionResourceContracts(payload, mode, blockers, seen) {
   });
 }
 
-function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, blockerSeen) {
+function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warningSeen, blockerSeen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'ChartBlockModel') {
       return;
@@ -3316,11 +3405,110 @@ function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, bloc
         .map((item) => item.trim())
         .filter(Boolean)
       : [];
+    const collectionName = collectionPath[1] || '';
     const measures = Array.isArray(query?.measures)
       ? query.measures
-        .filter((item) => isPlainObject(item) && normalizeOptionalText(item.field))
+        .filter((item) => isPlainObject(item) && inspectChartFieldPath(item.field).kind !== 'invalid')
       : [];
     const optionBuilder = isPlainObject(option?.builder) ? option.builder : null;
+
+    const validateFieldList = (items, key) => {
+      (Array.isArray(items) ? items : []).forEach((item, index) => {
+        if (!isPlainObject(item)) {
+          return;
+        }
+
+        const fieldPath = `${pathValue}.stepParams.chartSettings.configure.query.${key}[${index}].field`;
+        const fieldInspection = inspectChartFieldPath(item.field);
+        if (fieldInspection.kind === 'invalid') {
+          pushFinding(blockers, blockerSeen, createFinding({
+            severity: 'blocker',
+            code: 'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED',
+            message: `ChartBlockModel 的 ${key}[${index}].field 只允许 scalar string 或 [association, field]；当前值 ${describeChartFieldPath(item.field)} 不受支持。`,
+            path: fieldPath,
+            mode,
+            dedupeKey: `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED:${fieldPath}`,
+            details: {
+              field: item.field ?? null,
+              reason: fieldInspection.reason || null,
+            },
+          }));
+          return;
+        }
+
+        if (fieldInspection.kind === 'legacy-dotted') {
+          pushFinding(blockers, blockerSeen, createFinding({
+            severity: 'blocker',
+            code: 'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED',
+            message: `ChartBlockModel 的 ${key}[${index}].field 不应使用 dotted relation path "${fieldInspection.normalized}"；请改成数组路径 ["${fieldInspection.segments[0]}", "${fieldInspection.segments[1]}"]。`,
+            path: fieldPath,
+            mode,
+            dedupeKey: `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED:${fieldPath}:legacy-dotted`,
+            details: {
+              field: item.field,
+              suggestedField: fieldInspection.segments,
+            },
+          }));
+          return;
+        }
+
+        if (fieldInspection.kind === 'scalar-string' || fieldInspection.kind === 'scalar-array') {
+          const collectionMeta = getCollectionMeta(metadata, collectionName);
+          const fieldMeta = collectionMeta?.fieldsByName.get(serializeChartFieldPath(fieldInspection.normalized)) || null;
+          if (fieldMeta && isAssociationField(fieldMeta)) {
+            pushFinding(blockers, blockerSeen, createFinding({
+              severity: 'blocker',
+              code: 'CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING',
+              message: `ChartBlockModel 的 ${key}[${index}].field 直接引用了关联字段 "${fieldMeta.name}"，必须显式选择目标字段。`,
+              path: fieldPath,
+              mode,
+              dedupeKey: `CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING:${fieldPath}`,
+              details: {
+                field: item.field,
+                targetCollection: fieldMeta.target || null,
+              },
+            }));
+          }
+          return;
+        }
+
+        if (fieldInspection.kind === 'relation-array') {
+          const resolvedRelation = resolveChartRelationField(metadata, collectionName, fieldInspection.segments);
+          if (!resolvedRelation?.collectionMeta) {
+            return;
+          }
+          if (!resolvedRelation.associationField || !isAssociationField(resolvedRelation.associationField)) {
+            pushFinding(blockers, blockerSeen, createFinding({
+              severity: 'blocker',
+              code: 'CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED',
+              message: `ChartBlockModel 的 ${key}[${index}].field 关系前缀 "${fieldInspection.segments[0]}" 在 collection "${collectionName}" 中不可解析为稳定关联字段。`,
+              path: fieldPath,
+              mode,
+              dedupeKey: `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED:${fieldPath}:association`,
+              details: {
+                field: item.field,
+                collectionName,
+              },
+            }));
+            return;
+          }
+          if (!resolvedRelation.targetField) {
+            pushFinding(blockers, blockerSeen, createFinding({
+              severity: 'blocker',
+              code: 'CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED',
+              message: `ChartBlockModel 的 ${key}[${index}].field 目标字段 "${fieldInspection.segments[1]}" 在关联 "${fieldInspection.segments[0]}" 的目标 collection 中不可解析。`,
+              path: fieldPath,
+              mode,
+              dedupeKey: `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED:${fieldPath}:target`,
+              details: {
+                field: item.field,
+                targetCollection: resolvedRelation.associationField.target || null,
+              },
+            }));
+          }
+        }
+      });
+    };
 
     if (!CHART_QUERY_MODES.has(queryMode)) {
       pushFinding(blockers, blockerSeen, createFinding({
@@ -3396,6 +3584,12 @@ function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, bloc
         mode,
         dedupeKey: `CHART_BUILDER_MEASURES_MISSING:${pathValue}`,
       }));
+    }
+
+    if (queryMode === 'builder') {
+      validateFieldList(query?.measures, 'measures');
+      validateFieldList(query?.dimensions, 'dimensions');
+      validateFieldList(query?.orders, 'orders');
     }
 
     if (queryMode === 'sql') {
@@ -4667,6 +4861,64 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       const query = isPlainObject(configure.query) ? configure.query : (configure.query = {});
       const chart = isPlainObject(configure.chart) ? configure.chart : (configure.chart = {});
       const option = isPlainObject(chart.option) ? chart.option : (chart.option = {});
+      const collectionPath = Array.isArray(query.collectionPath)
+        ? query.collectionPath
+          .filter((item) => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter(Boolean)
+        : [];
+      const collectionName = collectionPath[1] || '';
+
+      const canonicalizeChartFieldList = (items, key) => {
+        (Array.isArray(items) ? items : []).forEach((item, index) => {
+          if (!isPlainObject(item)) {
+            return;
+          }
+
+          const fieldPath = `${pathValue}.stepParams.chartSettings.configure.query.${key}[${index}].field`;
+          const fieldInspection = inspectChartFieldPath(item.field);
+
+          if (fieldInspection.kind === 'scalar-array') {
+            item.field = fieldInspection.normalized;
+            pushCanonicalizeItem(transforms, transformSeen, {
+              code: 'CHART_QUERY_SCALAR_FIELD_CANONICALIZED',
+              path: fieldPath,
+              message: `ChartBlockModel 的 ${key}[${index}].field 已从单元素数组归一化为标量字符串。`,
+              details: {
+                from: fieldInspection.segments,
+                to: fieldInspection.normalized,
+              },
+            });
+            return;
+          }
+
+          if (fieldInspection.kind !== 'legacy-dotted' || !collectionName) {
+            return;
+          }
+
+          const resolvedRelation = resolveChartRelationField(normalizedMetadata, collectionName, fieldInspection.segments);
+          if (
+            !resolvedRelation?.associationField
+            || !isAssociationField(resolvedRelation.associationField)
+            || !resolvedRelation.targetField
+          ) {
+            return;
+          }
+
+          item.field = fieldInspection.segments;
+          pushCanonicalizeItem(transforms, transformSeen, {
+            code: 'CHART_QUERY_RELATION_FIELD_CANONICALIZED',
+            path: fieldPath,
+            message: `ChartBlockModel 的 ${key}[${index}].field 已从 legacy dotted path 归一化为 relation 数组路径。`,
+            details: {
+              collectionName,
+              from: fieldInspection.normalized,
+              to: fieldInspection.segments,
+              targetCollection: resolvedRelation.associationField.target || null,
+            },
+          });
+        });
+      };
 
       if (!CHART_QUERY_MODES.has(normalizeOptionalText(query.mode))) {
         const previousMode = normalizeOptionalText(query.mode) || null;
@@ -4695,6 +4947,10 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           },
         });
       }
+
+      canonicalizeChartFieldList(query.measures, 'measures');
+      canonicalizeChartFieldList(query.dimensions, 'dimensions');
+      canonicalizeChartFieldList(query.orders, 'orders');
     }
 
     if (typeof node.field === 'string' && typeof node.operator === 'string' && !Object.hasOwn(node, 'path')) {
@@ -5422,7 +5678,7 @@ export function auditPayload({
   inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectCollectionResourceContracts(payload, mode, blockers, blockerSeen);
-  inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, blockerSeen);
+  inspectChartBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);
