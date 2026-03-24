@@ -27,7 +27,11 @@ test('inferChartSpecFromCollection infers builder/basic line chart for trend req
   assert.equal(result.queryMode, 'builder');
   assert.equal(result.optionMode, 'basic');
   assert.equal(result.chartType, 'line');
+  assert.deepEqual(result.collectionPath, ['main', 'orders']);
   assert.deepEqual(result.metricOrDimension, ['createdAt']);
+  assert.deepEqual(result.measures, [{ field: 'amount', aggregation: 'sum', alias: 'sum_amount' }]);
+  assert.deepEqual(result.dimensions, [{ field: 'createdAt' }]);
+  assert.deepEqual(result.optionBuilder, { type: 'line', xField: 'createdAt', yField: 'sum_amount' });
 });
 
 test('buildChartBlockFromSqlSpec creates chart public-use block with normalized visualizationSpec', () => {
@@ -35,6 +39,8 @@ test('buildChartBlockFromSqlSpec creates chart public-use block with normalized 
     title: '资产 SQL 图表',
     collectionName: 'pam_assets',
     metricOrDimension: ['status'],
+    measures: [{ field: 'current_value', aggregation: 'sum', alias: 'sum_current_value' }],
+    dimensions: [{ field: 'status' }],
     sql: 'select status, count(*) as total from pam_assets group by status',
     optionMode: 'custom',
     raw: 'return option;',
@@ -45,6 +51,7 @@ test('buildChartBlockFromSqlSpec creates chart public-use block with normalized 
   assert.equal(block.visualizationSpec.queryMode, 'sql');
   assert.equal(block.visualizationSpec.optionMode, 'custom');
   assert.equal(block.visualizationSpec.sqlDatasource, 'main');
+  assert.deepEqual(block.visualizationSpec.measures, [{ field: 'current_value', aggregation: 'sum', alias: 'sum_current_value' }]);
   assert.equal(block.visualizationSpec.confidence, 'low');
 });
 
@@ -78,6 +85,9 @@ test('guessVisualizationConfidence treats sql/basic as medium and custom/evented
     blockUse: 'ChartBlockModel',
     queryMode: 'sql',
     optionMode: 'basic',
+    sqlDatasource: 'main',
+    sql: 'select status, count(*) as count_title from orders group by status',
+    optionBuilder: { type: 'bar', xField: 'status', yField: 'count_title' },
   }), 'medium');
 
   assert.equal(guessVisualizationConfidence({
@@ -99,10 +109,15 @@ test('normalizeVisualizationSpec keeps fallback block use and normalizes arrays'
     blockUse: 'ChartBlockModel',
     queryMode: 'builder',
     optionMode: 'basic',
+    collectionPath: ['main', 'orders'],
+    measures: [{ field: 'amount', aggregation: 'sum', alias: 'sum_amount' }],
+    optionBuilder: { type: 'bar', xField: 'status', yField: 'sum_amount' },
     metricOrDimension: ['status', 'status', 'category'],
   });
 
   assert.equal(result.fallbackBlockUse, 'TableBlockModel');
+  assert.deepEqual(result.collectionPath, ['main', 'orders']);
+  assert.deepEqual(result.measures, [{ field: 'amount', aggregation: 'sum', alias: 'sum_amount' }]);
   assert.deepEqual(result.metricOrDimension, ['status', 'category']);
 });
 
@@ -111,9 +126,22 @@ test('buildChartBlockFromBuilderSpec produces high-confidence builder chart bloc
     title: '状态分布',
     collectionName: 'pam_assets',
     metricOrDimension: ['status'],
+    measures: [{ field: 'current_value', aggregation: 'sum', alias: 'sum_current_value' }],
+    dimensions: [{ field: 'status' }],
+    optionBuilder: { type: 'pie', pieCategory: 'status', pieValue: 'sum_current_value' },
   });
 
   assert.equal(block.use, 'ChartBlockModel');
-  assert.deepEqual(block.visualizationSpec.collectionPath, ['pam_assets']);
+  assert.deepEqual(block.visualizationSpec.collectionPath, ['main', 'pam_assets']);
+  assert.deepEqual(block.visualizationSpec.measures, [{ field: 'current_value', aggregation: 'sum', alias: 'sum_current_value' }]);
   assert.equal(block.visualizationSpec.confidence, 'high');
+});
+
+test('guessVisualizationConfidence downgrades incomplete builder charts', () => {
+  assert.equal(guessVisualizationConfidence({
+    blockUse: 'ChartBlockModel',
+    queryMode: 'builder',
+    optionMode: 'basic',
+    collectionPath: ['main', 'orders'],
+  }), 'low');
 });

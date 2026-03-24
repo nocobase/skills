@@ -14,7 +14,7 @@
     {
       "kind": "dynamic-ui-schema",
       "path": "ChartBlockModel.stepParams.chartSettings.configure.query",
-      "message": "Chart query configuration depends on runtime collections, query builders, and optional SQL editors.",
+      "message": "Chart query configuration depends on runtime collections and query builders. Builder charts are renderable only when collectionPath includes datasource+collection and measures are present.",
       "x-flow": {
         "contextRequirements": [
           "collection metadata",
@@ -30,7 +30,7 @@
     {
       "kind": "dynamic-ui-schema",
       "path": "ChartBlockModel.stepParams.chartSettings.configure.chart",
-      "message": "Chart option builders and event scripts depend on runtime chart builders and RunJS execution.",
+      "message": "Chart option builders and event scripts depend on runtime chart builders and RunJS execution. Basic mode still needs option.builder; custom mode does not bypass query/dataSource requirements.",
       "x-flow": {
         "contextRequirements": [
           "chart builder",
@@ -49,16 +49,16 @@
   "antiPatterns": [],
   "refs": {
     "jsonSchema": {
-      "artifactRef": "artifacts/json-schema/ChartBlockModel.675955b9fed25c6ebb60.json",
-      "hash": "675955b9fed25c6ebb60"
+      "artifactRef": "artifacts/json-schema/ChartBlockModel.16beecd10e753c3b6e6e.json",
+      "hash": "16beecd10e753c3b6e6e"
     },
     "minimalExample": {
-      "artifactRef": "artifacts/minimal-example/ChartBlockModel.76ba91110ab6a33e2237.json",
-      "hash": "76ba91110ab6a33e2237"
+      "artifactRef": "artifacts/minimal-example/ChartBlockModel.3da6be60956286b13299.json",
+      "hash": "3da6be60956286b13299"
     },
     "skeleton": {
-      "artifactRef": "artifacts/skeleton/ChartBlockModel.2efbb1495cc1d455e346.json",
-      "hash": "2efbb1495cc1d455e346"
+      "artifactRef": "artifacts/skeleton/ChartBlockModel.896219ffb3cf68751586.json",
+      "hash": "896219ffb3cf68751586"
     },
     "examples": {
       "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",

@@ -2,7 +2,7 @@
   "format": "flow-schema-graph/v2",
   "kind": "artifact",
   "artifactKind": "jsonSchema",
-  "hash": "675955b9fed25c6ebb60",
+  "hash": "16beecd10e753c3b6e6e",
   "ownerUses": [
     "ChartBlockModel"
   ],
@@ -58,13 +58,51 @@
                         "type": "array",
                         "items": {
                           "type": "string"
-                        }
+                        },
+                        "minItems": 2,
+                        "maxItems": 2
                       },
                       "sqlDatasource": {
                         "type": "string"
                       },
                       "sql": {
                         "type": "string"
+                      },
+                      "measures": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "field": {
+                              "type": "string"
+                            },
+                            "aggregation": {
+                              "type": "string"
+                            },
+                            "alias": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": true
+                        }
+                      },
+                      "dimensions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "field": {
+                              "type": "string"
+                            },
+                            "alias": {
+                              "type": "string"
+                            },
+                            "format": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": true
+                        }
                       }
                     },
                     "additionalProperties": true
@@ -128,5 +166,5 @@
     ],
     "additionalProperties": true
   },
-  "relativePath": "artifacts/json-schema/ChartBlockModel.675955b9fed25c6ebb60.json"
+  "relativePath": "artifacts/json-schema/ChartBlockModel.16beecd10e753c3b6e6e.json"
 }

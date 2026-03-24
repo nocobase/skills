@@ -18,6 +18,7 @@ import {
 import { probeInstanceInventory } from './instance_inventory_probe.mjs';
 import { stableOpaqueId } from './opaque_uid.mjs';
 import {
+  getVisualizationCollectionName,
   isVisualizationRuntimeSensitive,
   normalizeVisualizationSpec,
 } from './visualization_contracts.mjs';
@@ -755,6 +756,9 @@ function normalizeLayoutCandidate(entry, index) {
     planningBlockers: normalizePlanningBlockersInput(entry.planningBlockers),
     shape: typeof entry.shape === 'string' ? entry.shape.trim() : '',
     families: sortUniqueStrings(entry.families),
+    creativeIntent: typeof entry.creativeIntent === 'string' ? entry.creativeIntent.trim() : '',
+    selectedInsightStrategy: typeof entry.selectedInsightStrategy === 'string' ? entry.selectedInsightStrategy.trim() : '',
+    jsExpansionHints: uniqueStrings(entry.jsExpansionHints),
     actionPlan: normalizeActionPlanInput(entry.actionPlan),
     plannedCoverage: normalizePlannedCoverageInput(entry.plannedCoverage),
     visualizationSpec: normalizeVisualizationSpecList(entry.visualizationSpec),
@@ -799,6 +803,9 @@ function normalizeScenario(input) {
     planningMode: typeof scenarioInput.planningMode === 'string' && scenarioInput.planningMode.trim()
       ? scenarioInput.planningMode.trim()
       : 'creative-first',
+    creativeIntent: typeof scenarioInput.creativeIntent === 'string' ? scenarioInput.creativeIntent.trim() : '',
+    selectedInsightStrategy: typeof scenarioInput.selectedInsightStrategy === 'string' ? scenarioInput.selectedInsightStrategy.trim() : '',
+    jsExpansionHints: uniqueStrings(scenarioInput.jsExpansionHints),
     selectionMode: typeof scenarioInput.selectionMode === 'string' ? scenarioInput.selectionMode.trim() : '',
     plannerVersion: typeof scenarioInput.plannerVersion === 'string' ? scenarioInput.plannerVersion.trim() : '',
     primaryBlockType: typeof scenarioInput.primaryBlockType === 'string' ? scenarioInput.primaryBlockType.trim() : '',
@@ -1574,17 +1581,25 @@ function compileBlocks(blocks, scope, artifact, context) {
     if (block.collectionName) {
       artifact.requiredMetadataRefs.collections.add(block.collectionName);
     }
-    if (Array.isArray(visualizationSpec?.collectionPath) && visualizationSpec.collectionPath.length > 0) {
-      artifact.requiredMetadataRefs.collections.add(visualizationSpec.collectionPath[0]);
+    const visualizationCollectionName = getVisualizationCollectionName(visualizationSpec);
+    if (visualizationCollectionName) {
+      artifact.requiredMetadataRefs.collections.add(visualizationCollectionName);
     }
     for (const field of block.fields) {
       if (block.collectionName) {
         artifact.requiredMetadataRefs.fields.add(`${block.collectionName}.${field}`);
       }
     }
-    if (visualizationSpec?.collectionPath?.[0]) {
-      for (const field of [...(Array.isArray(visualizationSpec.metricOrDimension) ? visualizationSpec.metricOrDimension : []), ...(Array.isArray(visualizationSpec.metrics) ? visualizationSpec.metrics : [])]) {
-        artifact.requiredMetadataRefs.fields.add(`${visualizationSpec.collectionPath[0]}.${field}`);
+    if (visualizationCollectionName) {
+      for (const field of [
+        ...(Array.isArray(visualizationSpec.metricOrDimension) ? visualizationSpec.metricOrDimension : []),
+        ...(Array.isArray(visualizationSpec.metrics) ? visualizationSpec.metrics : []),
+        ...(Array.isArray(visualizationSpec.measures) ? visualizationSpec.measures.map((item) => item?.field) : []),
+        ...(Array.isArray(visualizationSpec.dimensions) ? visualizationSpec.dimensions.map((item) => item?.field) : []),
+      ]) {
+        if (typeof field === 'string' && field.trim()) {
+          artifact.requiredMetadataRefs.fields.add(`${visualizationCollectionName}.${field}`);
+        }
       }
     }
     if (block.relationScope) {
@@ -1814,6 +1829,9 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     archetypeId: artifact.scenario.archetypeId,
     archetypeLabel: artifact.scenario.archetypeLabel,
     planningMode: artifact.scenario.planningMode,
+    creativeIntent: artifact.scenario.creativeIntent,
+    selectedInsightStrategy: artifact.scenario.selectedInsightStrategy,
+    jsExpansionHints: artifact.scenario.jsExpansionHints,
     selectionMode: artifact.selectionMode,
     plannerVersion: artifact.plannerVersion,
     primaryBlockType: artifact.primaryBlockType,
@@ -1903,6 +1921,11 @@ export function compileBuildSpec(input) {
       ...buildSpec.scenario,
       title: candidate.title || buildSpec.scenario.title,
       summary: candidate.summary || buildSpec.scenario.summary,
+      creativeIntent: candidate.creativeIntent || buildSpec.scenario.creativeIntent,
+      selectedInsightStrategy: candidate.selectedInsightStrategy || buildSpec.scenario.selectedInsightStrategy,
+      jsExpansionHints: candidate.jsExpansionHints.length > 0
+        ? candidate.jsExpansionHints
+        : buildSpec.scenario.jsExpansionHints,
       selectionMode: candidate.selectionMode || buildSpec.scenario.selectionMode,
       primaryBlockType: candidate.primaryBlockType || buildSpec.scenario.primaryBlockType,
       targetCollections: candidate.targetCollections.length > 0

@@ -6,6 +6,7 @@ import {
   buildGridCardBlockFromMetrics,
   evaluateVisualizationUseEligibility,
   inferChartSpecFromCollection,
+  isRenderableChartSpec,
   normalizeVisualizationSpec,
 } from './visualization_contracts.mjs';
 
@@ -250,23 +251,39 @@ function buildVisualizationBlock({
         title,
         collectionName,
         metricOrDimension: chartSpec.metricOrDimension,
+        measures: chartSpec.measures,
+        dimensions: chartSpec.dimensions,
         chartType: chartSpec.chartType,
         goal: chartSpec.goal,
         optionMode: chartSpec.optionMode,
         sqlDatasource: chartSpec.sqlDatasource || 'main',
         sql: chartSpec.sql,
+        optionBuilder: chartSpec.optionBuilder,
         raw: chartSpec.raw,
         eventsRaw: chartSpec.eventsRaw,
       });
+    }
+    if (!isRenderableChartSpec(chartSpec)) {
+      return collectionMeta
+        ? buildGridCardBlockFromMetrics({
+          title,
+          collectionName,
+          metrics: resolveMetricFields(collectionMeta, fields),
+          goal: hasAnyKeyword(requestText, ['总览', 'overview', '概览']) ? 'summary' : 'metrics',
+        })
+        : null;
     }
     return buildChartBlockFromBuilderSpec({
       title,
       collectionName,
       collectionPath: chartSpec.collectionPath,
       metricOrDimension: chartSpec.metricOrDimension,
+      measures: chartSpec.measures,
+      dimensions: chartSpec.dimensions,
       chartType: chartSpec.chartType,
       goal: chartSpec.goal,
       optionMode: chartSpec.optionMode,
+      optionBuilder: chartSpec.optionBuilder,
       raw: chartSpec.raw,
       eventsRaw: chartSpec.eventsRaw,
     });
@@ -622,18 +639,89 @@ const ALWAYS_RUNTIME_SENSITIVE_PUBLIC_USES = {
   },
 };
 
-const CREATIVE_PRIORITY_USES = [
-  'GridCardBlockModel',
+const INSIGHT_PRIORITY_USES = new Set([
   'ChartBlockModel',
-  'ListBlockModel',
+  'GridCardBlockModel',
   'JSBlockModel',
-  'MarkdownBlockModel',
+  'ListBlockModel',
   'MapBlockModel',
+]);
+
+const BASE_CREATIVE_PRIORITY_USES = [
+  'ChartBlockModel',
+  'GridCardBlockModel',
+  'JSBlockModel',
+  'ListBlockModel',
+  'MapBlockModel',
+  'MarkdownBlockModel',
   'DetailsBlockModel',
   'CreateFormModel',
   'EditFormModel',
   'TableBlockModel',
 ];
+
+const TREND_OR_DASHBOARD_KEYWORDS = [
+  '总览',
+  '概览',
+  '趋势',
+  '分布',
+  '统计',
+  '占比',
+  '图表',
+  '看板',
+  '分析',
+  'dashboard',
+  'analytics',
+  'trend',
+  'distribution',
+  'overview',
+  'summary',
+];
+
+const JS_INSIGHT_KEYWORDS = [
+  '交互',
+  '联动',
+  '说明',
+  '引导',
+  '叙事',
+  '自定义',
+  'custom',
+  'interactive',
+  'narrative',
+  'guide',
+];
+
+function getCreativePriorityUses(requestText = '') {
+  if (hasAnyKeyword(requestText, JS_INSIGHT_KEYWORDS)) {
+    return [
+      'JSBlockModel',
+      'ChartBlockModel',
+      'GridCardBlockModel',
+      'ListBlockModel',
+      'MapBlockModel',
+      'MarkdownBlockModel',
+      'DetailsBlockModel',
+      'CreateFormModel',
+      'EditFormModel',
+      'TableBlockModel',
+    ];
+  }
+  if (hasAnyKeyword(requestText, ['指标卡', 'kpi', '指标', 'summary'])) {
+    return [
+      'GridCardBlockModel',
+      'ChartBlockModel',
+      'JSBlockModel',
+      'ListBlockModel',
+      'MapBlockModel',
+      'MarkdownBlockModel',
+      'DetailsBlockModel',
+      'CreateFormModel',
+      'EditFormModel',
+      'TableBlockModel',
+    ];
+  }
+  return BASE_CREATIVE_PRIORITY_USES;
+}
 
 const PRIMARY_BLOCK_DEFINITIONS = [
   {
@@ -1519,7 +1607,15 @@ function isCollectionBoundBusinessBlock(block) {
     return Boolean(normalizeText(block.collectionName));
   }
   if (block.kind === 'PublicUse') {
-    return Boolean(normalizeText(block.collectionName)) || COLLECTION_BOUND_PUBLIC_USES.has(normalizeText(block.use));
+    const use = normalizeText(block.use);
+    const visualizationSpec = normalizeVisualizationSpec(block.visualizationSpec, {
+      blockUse: use,
+      dataSource: block.collectionName,
+    });
+    return Boolean(normalizeText(block.collectionName))
+      || COLLECTION_BOUND_PUBLIC_USES.has(use)
+      || Boolean(visualizationSpec.collectionPath?.[0])
+      || Boolean(normalizeText(visualizationSpec.dataSource));
   }
   return false;
 }
@@ -1591,6 +1687,7 @@ function collectCandidateFamiliesFromLayout(layout, publicUseCatalog = []) {
 function buildCreativeUseInventory({
   inventoryMerge,
   collectionMeta,
+  requestText = '',
 }) {
   const catalogByUse = new Map(
     (Array.isArray(inventoryMerge?.publicUseCatalog) ? inventoryMerge.publicUseCatalog : [])
@@ -1602,6 +1699,7 @@ function buildCreativeUseInventory({
       ? inventoryMerge.instanceInventory.flowSchema.rootPublicUses
       : []),
   ]).filter(isBusinessUse);
+  const creativePriorityUses = getCreativePriorityUses(requestText);
 
   const eligibleDescriptors = [];
   const discardedUses = [];
@@ -1637,6 +1735,27 @@ function buildCreativeUseInventory({
         unresolvedReasons,
         collectionMeta,
       });
+      if (use === 'ChartBlockModel') {
+        const chartSpec = inferChartSpecFromCollection({
+          requestText,
+          collectionMeta,
+          requestedFields: collectionMeta?.fieldNames || [],
+          resolvedFields: collectionMeta?.scalarFieldNames || collectionMeta?.fieldNames || [],
+        });
+        if (!isRenderableChartSpec(chartSpec)) {
+          discardedUses.push({
+            use,
+            title: descriptor.label,
+            contextRequirements,
+            unresolvedReasons: uniqueStrings([
+              ...unresolvedReasons,
+              'chart-spec-not-renderable',
+            ]),
+            families: descriptor.families,
+          });
+          continue;
+        }
+      }
       if (!visualizationEligibility.eligible) {
         discardedUses.push({
           use,
@@ -1654,7 +1773,14 @@ function buildCreativeUseInventory({
       }
       eligibleDescriptors.push({
         ...descriptor,
-        confidence: visualizationEligibility.confidence,
+        confidence: use === 'ChartBlockModel'
+          ? inferChartSpecFromCollection({
+            requestText,
+            collectionMeta,
+            requestedFields: collectionMeta?.fieldNames || [],
+            resolvedFields: collectionMeta?.scalarFieldNames || collectionMeta?.fieldNames || [],
+          }).confidence
+          : visualizationEligibility.confidence,
       });
       continue;
     }
@@ -1672,8 +1798,8 @@ function buildCreativeUseInventory({
   }
 
   eligibleDescriptors.sort((left, right) => {
-    const leftIndex = CREATIVE_PRIORITY_USES.indexOf(left.use);
-    const rightIndex = CREATIVE_PRIORITY_USES.indexOf(right.use);
+    const leftIndex = creativePriorityUses.indexOf(left.use);
+    const rightIndex = creativePriorityUses.indexOf(right.use);
     const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
     const normalizedRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
     if (normalizedLeft !== normalizedRight) {
@@ -1728,26 +1854,27 @@ function createCreativeProgram({
 }) {
   if (planningMode === 'creative-first') {
     return {
-      id: 'creative-first-v1',
+      id: 'creative-first-v2',
       strategy: 'creative-first',
-      prompt: '在全部可稳定落库的业务区块里生成 5 个固定 recipe 候选，并按创意与语义平衡选中主方案。',
-      selectionPolicy: 'creative-and-semantic-balance',
+      prompt: '先生成 insight-first 候选，再按语义、洞察表达力与创意强度排序；保守 collection 方案不再天然占主位。',
+      selectionPolicy: 'insight-first-creative-rank',
       constraints: uniqueStrings([
         'fixed-five-candidates',
         'all-eligible-business-blocks',
         'runtime-sensitive-discarded',
         operationIntent.requestedFilter ? 'filter-request-must-be-materialized' : '',
         collectionMeta ? `collection:${collectionMeta.name}` : '',
+        'stable-blocks-are-not-default-primary',
       ]),
       heuristics: uniqueStrings([
         'prefer-explicit-block-keyword-anchor',
+        'prefer-insight-first-candidates',
+        'prefer-js-as-insight-peer',
         'prefer-mixed-single-and-composite-recipes',
-        collectionMeta ? 'require-collection-bound-business-block' : '',
         operationIntent.requestedTabs ? 'prefer-tabbed-multi-surface' : '',
       ]),
       requiredPatterns: uniqueStrings([
         'keyword-anchor',
-        'collection-workbench',
         'analytics-mix',
         'content-control',
         'tabbed-multi-surface',
@@ -1820,6 +1947,9 @@ function buildLayoutCandidate({
   planningBlockers,
   shape = '',
   families = [],
+  creativeIntent = '',
+  selectedInsightStrategy = '',
+  jsExpansionHints = [],
   pagePlan = null,
   selected = false,
 }) {
@@ -1843,6 +1973,9 @@ function buildLayoutCandidate({
     planningBlockers,
     shape,
     families: uniqueStrings(families),
+    creativeIntent: normalizeText(creativeIntent),
+    selectedInsightStrategy: normalizeText(selectedInsightStrategy),
+    jsExpansionHints: uniqueStrings(jsExpansionHints),
     actionPlan: collectActionPlan(clonedLayout),
     plannedCoverage: buildCoverageFromLayout(clonedLayout),
     visualizationSpec: collectVisualizationSpecsFromLayout(clonedLayout),
@@ -1882,6 +2015,7 @@ function resolveCreativeAnchorDescriptor({
     };
   }
 
+  const creativePriorityUses = getCreativePriorityUses(requestText);
   const scoredDescriptors = (Array.isArray(eligibleDescriptors) ? eligibleDescriptors : [])
     .map((descriptor) => ({
       descriptor,
@@ -1891,8 +2025,8 @@ function resolveCreativeAnchorDescriptor({
       if (right.score !== left.score) {
         return right.score - left.score;
       }
-      const leftIndex = CREATIVE_PRIORITY_USES.indexOf(left.descriptor.use);
-      const rightIndex = CREATIVE_PRIORITY_USES.indexOf(right.descriptor.use);
+      const leftIndex = creativePriorityUses.indexOf(left.descriptor.use);
+      const rightIndex = creativePriorityUses.indexOf(right.descriptor.use);
       return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex)
         - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex);
     });
@@ -2091,13 +2225,16 @@ function buildExplicitPublicUseBlocks({ explicitPublicUses, collectionMeta, avai
     if (!availableSet.has(use)) {
       continue;
     }
-    blocks.push(buildVisualizationBlock({
+    const block = buildVisualizationBlock({
       use,
       title: collectionLabel ? `${collectionLabel}${PRIMARY_BLOCK_DEFINITIONS.find((entry) => entry.use === use)?.titleSuffix || use}` : use,
       collectionMeta,
       fields,
       requestText,
-    }));
+    });
+    if (block) {
+      blocks.push(block);
+    }
   }
   return blocks;
 }
@@ -2555,15 +2692,86 @@ function createCreativeRootLayout({
   };
 }
 
+function deriveCreativeIntent(requestText = '', anchorUse = '') {
+  if (
+    INSIGHT_PRIORITY_USES.has(normalizeText(anchorUse))
+    || hasAnyKeyword(requestText, TREND_OR_DASHBOARD_KEYWORDS)
+    || hasAnyKeyword(requestText, JS_INSIGHT_KEYWORDS)
+  ) {
+    return 'insight-first';
+  }
+  if (hasAnyKeyword(requestText, ['列表页', '详情页', '编辑表单', '新建表单', 'table', 'details'])) {
+    return 'collection-explicit';
+  }
+  return 'insight-first';
+}
+
+function deriveSelectedInsightStrategy(layout) {
+  const uses = collectLayoutUses(layout);
+  const hasChart = uses.includes('ChartBlockModel');
+  const hasGridCard = uses.includes('GridCardBlockModel');
+  const hasJs = uses.includes('JSBlockModel');
+  if (hasChart && hasGridCard && hasJs) {
+    return 'chart-grid-js-mix';
+  }
+  if (hasChart && hasJs) {
+    return 'chart-js-mix';
+  }
+  if (hasGridCard && hasJs) {
+    return 'grid-card-js-mix';
+  }
+  if (hasChart && hasGridCard) {
+    return 'chart-grid-mix';
+  }
+  if (hasChart) {
+    return 'chart-first';
+  }
+  if (hasGridCard) {
+    return 'grid-card-first';
+  }
+  if (hasJs) {
+    return 'js-first';
+  }
+  if (uses.includes('ListBlockModel') || uses.includes('MapBlockModel')) {
+    return 'insight-support';
+  }
+  return 'collection-first';
+}
+
+function deriveJsExpansionHints({ requestText = '', eligibleUses = [], layout = null } = {}) {
+  const hints = [];
+  const hasJsEligible = uniqueStrings(eligibleUses).includes('JSBlockModel');
+  const layoutUses = layout ? collectLayoutUses(layout) : [];
+  if (!hasJsEligible && !layoutUses.includes('JSBlockModel')) {
+    return [];
+  }
+  if (hasAnyKeyword(requestText, ['交互', '联动', 'interactive'])) {
+    hints.push('interactive-insight-layer');
+  }
+  if (hasAnyKeyword(requestText, ['说明', '引导', 'guide', '叙事', 'narrative'])) {
+    hints.push('narrative-explanation-layer');
+  }
+  if (hasAnyKeyword(requestText, ['自定义', 'custom', 'js', 'script'])) {
+    hints.push('custom-insight-surface');
+  }
+  if (layoutUses.includes('JSBlockModel')) {
+    hints.push('selected-js-peer');
+  } else {
+    hints.push('js-peer-candidate');
+  }
+  return uniqueStrings(hints);
+}
+
 function finalizeCreativeLayout({
   filterBlock,
   blocks = [],
   tabs = [],
   collectionMeta,
   collectionFallbackBlock,
+  requireCollectionFallback = false,
 }) {
   const normalizedBlocks = blocks.filter(Boolean).map((block) => cloneJson(block));
-  if (collectionMeta && !layoutHasCollectionBoundBusinessBlock({ blocks: normalizedBlocks, tabs })) {
+  if (requireCollectionFallback && collectionMeta && !layoutHasCollectionBoundBusinessBlock({ blocks: normalizedBlocks, tabs })) {
     const fallbackBlock = cloneBlockOrNull(collectionFallbackBlock);
     if (fallbackBlock) {
       normalizedBlocks.push(fallbackBlock);
@@ -2582,6 +2790,7 @@ function buildCandidateScoreSummary({
   collectionMeta,
   operationIntent,
   explicitAnchorUse,
+  creativeIntent = 'insight-first',
 }) {
   const uses = collectLayoutUses(layout);
   const publicUseCount = uses.filter((use) => ![
@@ -2592,38 +2801,50 @@ function buildCandidateScoreSummary({
     'EditFormModel',
     'RootPageTabModel',
   ].includes(use)).length;
+  const insightUseCount = uses.filter((use) => INSIGHT_PRIORITY_USES.has(use)).length;
+  const stableSurfaceCount = uses.filter((use) => ['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel'].includes(use)).length;
   const tabCount = Array.isArray(layout?.tabs) ? layout.tabs.length : 0;
   const actionPlan = collectActionPlan(layout);
   const hasFilter = uses.includes('FilterFormBlockModel');
   const hasCollectionBinding = collectionMeta ? layoutHasCollectionBoundBusinessBlock(layout) : true;
   const hasExplicitAnchor = explicitAnchorUse ? uses.includes(explicitAnchorUse) : false;
+  const selectedInsightStrategy = deriveSelectedInsightStrategy(layout);
+  const hasJsPeer = uses.includes('JSBlockModel');
+  const hasMixedInsight = selectedInsightStrategy.includes('mix');
 
   const semanticScore = clampScore(
-    42
+    34
     + (hasExplicitAnchor ? 24 : 0)
-    + (collectionMeta ? (hasCollectionBinding ? 18 : -20) : 0)
+    + (creativeIntent === 'insight-first'
+      ? (insightUseCount > 0 ? 24 : -18)
+      : (collectionMeta ? (hasCollectionBinding ? 18 : -20) : 0))
+    + (collectionMeta && hasCollectionBinding ? 10 : 0)
     + (operationIntent?.requestedFilter && hasFilter ? 10 : 0)
     + (actionPlan.length > 0 ? 6 : 0)
     + (tabCount > 0 ? 4 : 0),
   );
   const creativeScore = clampScore(
-    28
+    32
     + (publicUseCount * 16)
+    + (insightUseCount * 10)
+    + (hasMixedInsight ? 12 : 0)
+    + (hasJsPeer ? 10 : 0)
     + (families.length * 6)
     + (tabCount > 0 ? 14 : 0)
     + (uses.length >= 3 ? 8 : 0),
   );
   const stabilityScore = clampScore(
-    92
+    72
     - (publicUseCount * 9)
     - (tabCount > 0 ? 10 : 0)
     - Math.max(0, actionPlan.length - 2) * 4
-    + (hasCollectionBinding ? 4 : -12),
+    + (hasCollectionBinding ? 6 : -10)
+    - Math.max(0, stableSurfaceCount - 1) * 3,
   );
   const score = clampScore(
-    (semanticScore * 0.45)
-    + (creativeScore * 0.35)
-    + (stabilityScore * 0.2)
+    (semanticScore * 0.44)
+    + (creativeScore * 0.42)
+    + (stabilityScore * 0.14)
     + (hasExplicitAnchor ? 6 : 0),
   );
   return {
@@ -2631,6 +2852,7 @@ function buildCandidateScoreSummary({
     creativeScore,
     stabilityScore,
     score,
+    selectedInsightStrategy,
   };
 }
 
@@ -2638,6 +2860,7 @@ function buildCreativeLayoutCandidate({
   candidateId,
   title,
   summary,
+  requestText,
   layout,
   selectionMode,
   primaryBlockDefinition,
@@ -2651,6 +2874,7 @@ function buildCreativeLayoutCandidate({
   publicUseCatalog,
   operationIntent,
   explicitAnchorUse,
+  creativeIntent = 'insight-first',
   selected = false,
 }) {
   const families = collectCandidateFamiliesFromLayout(layout, publicUseCatalog);
@@ -2660,6 +2884,7 @@ function buildCreativeLayoutCandidate({
     collectionMeta,
     operationIntent,
     explicitAnchorUse,
+    creativeIntent,
   });
   return buildLayoutCandidate({
     candidateId,
@@ -2680,6 +2905,13 @@ function buildCreativeLayoutCandidate({
     planningBlockers,
     shape,
     families,
+    creativeIntent,
+    selectedInsightStrategy: scoreSummary.selectedInsightStrategy,
+    jsExpansionHints: deriveJsExpansionHints({
+      requestText,
+      eligibleUses: collectLayoutUses(layout),
+      layout,
+    }),
     selected,
   });
 }
@@ -2827,6 +3059,9 @@ function buildScenarioSummary({
   title,
   planningMode,
   selectionMode,
+  creativeIntent = '',
+  selectedInsightStrategy = '',
+  jsExpansionHints = [],
   collectionMeta,
   explicitCollections,
   primaryCollectionExplicit,
@@ -2884,8 +3119,14 @@ function buildScenarioSummary({
   ].join(':');
   const selectionRationale = [
     planningMode === 'creative-first'
-      ? '创意优先：先在全部可稳定落库的区块里生成候选，再按语义与创意平衡选主方案。'
+      ? '创意优先：先生成 insight-first 候选，再按语义、洞察表达力与创意强度选主方案。'
       : `${selectionMode === 'collection-first' ? '显式集合优先' : '意图优先'}：优先锁定 collection 与字段，再规划区块和操作。`,
+    creativeIntent
+      ? `当前创意意图：${creativeIntent}。`
+      : '',
+    selectedInsightStrategy
+      ? `当前选中的洞察策略：${selectedInsightStrategy}。`
+      : '',
     collectionMeta
       ? `主集合锁定为 ${collectionMeta.name}，展示名 ${collectionLabel}。`
       : '当前页面不依赖显式 collection，可直接使用公开 root block。',
@@ -2904,6 +3145,9 @@ function buildScenarioSummary({
     eligibleUses.length > 0
       ? `可进入候选池的业务区块：${eligibleUses.join(', ')}。`
       : '当前没有可进入候选池的业务区块。',
+    jsExpansionHints.length > 0
+      ? `JS 扩展提示：${jsExpansionHints.join(', ')}。`
+      : '',
     discardedUses.length > 0
       ? `已丢弃 ${discardedUses.length} 个 runtime-sensitive 区块：${discardedUses.map((item) => item.use).join(', ')}。`
       : '没有命中 runtime-sensitive discarded uses。',
@@ -2927,6 +3171,9 @@ function buildScenarioSummary({
       ? 'creative-first'
       : (selectionMode === 'dynamic-exploration' ? 'dynamic-exploration' : 'deterministic-intent'),
     expectedOutcome: planningStatus === 'blocked' ? 'blocker-expected' : 'pass',
+    creativeIntent: normalizeText(creativeIntent),
+    selectedInsightStrategy: normalizeText(selectedInsightStrategy),
+    jsExpansionHints: uniqueStrings(jsExpansionHints),
     requestedSignals: uniqueStrings([title, collectionMeta?.name || '', ...requestedFields]).slice(0, 8),
     selectionRationale: uniqueStrings(selectionRationale),
     availableUses: inventoryMerge.availableUses,
@@ -3233,6 +3480,7 @@ function buildStableFirstValidationScenario({
 function buildCreativeRecipeCandidates({
   title,
   requestText,
+  creativeIntent,
   collectionMeta,
   requestedFields,
   resolvedFields,
@@ -3253,6 +3501,7 @@ function buildCreativeRecipeCandidates({
   ) || buildUseDescriptor('TableBlockModel', publicUseCatalog);
   const detailsDefinition = buildUseDescriptor('DetailsBlockModel', publicUseCatalog);
   const formDefinition = buildUseDescriptor('CreateFormModel', publicUseCatalog);
+  const jsPeerDefinition = buildUseDescriptor('JSBlockModel', publicUseCatalog);
   const contentDefinition = pickDescriptorByPredicate(
     eligibleDescriptors,
     (descriptor) => descriptor.use !== anchorDescriptor?.use && descriptor.families.some((family) => ['content', 'docs', 'custom', 'template'].includes(family)),
@@ -3295,6 +3544,7 @@ function buildCreativeRecipeCandidates({
     });
   };
 
+  const jsPeerBlock = buildBlock(jsPeerDefinition, resolvedFields);
   const collectionFallbackBlock = buildBlock(collectionDefinition, resolvedFields);
   const anchorBlock = buildBlock(anchorDescriptor, resolvedFields);
   const contentBlock = buildBlock(contentDefinition, resolvedFields);
@@ -3321,13 +3571,16 @@ function buildCreativeRecipeCandidates({
         explicitAnchorUse
           ? `请求显式命中了 ${explicitAnchorUse}，先把它作为 anchor 主块。`
           : '未命中显式 block 关键词时，按语义与创意优先级选择 anchor 主块。',
-        collectionMeta && anchorDescriptor && !anchorDescriptor.collectionRequired
-          ? '主块不是 collection block，已自动补一个 collection-bound 业务块保证可落库。'
+        INSIGHT_PRIORITY_USES.has(anchorDescriptor?.use || '')
+          ? '主块优先保持 insight-first，不再自动补一个保守 collection 主块。'
           : '',
       ]),
       layout: finalizeCreativeLayout({
         filterBlock,
-        blocks: [anchorBlock],
+        blocks: [
+          anchorBlock,
+          INSIGHT_PRIORITY_USES.has(anchorDescriptor?.use || '') ? jsPeerBlock : null,
+        ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
       }),
@@ -3340,13 +3593,17 @@ function buildCreativeRecipeCandidates({
       primaryDefinition: contentDefinition || anchorDescriptor || collectionDefinition,
       selectionRationale: uniqueStrings([
         '内容/控制型单主块候选，优先给页面一个更鲜明的视觉重心。',
-        collectionMeta && contentDefinition && !contentDefinition.collectionRequired
-          ? '显式 collection 请求下补充 collection-bound 业务块，避免只有内容块。'
+        INSIGHT_PRIORITY_USES.has(contentDefinition?.use || '')
+          ? '允许内容/洞察块单独成为主视觉，不强制混入稳定工作台结构。'
           : '',
       ]),
       layout: finalizeCreativeLayout({
         filterBlock,
-        blocks: [contentBlock],
+        blocks: [
+          contentBlock,
+          INSIGHT_PRIORITY_USES.has(contentDefinition?.use || '') ? visualBlock : null,
+          contentDefinition?.use === 'JSBlockModel' ? anchorBlock : null,
+        ],
         collectionMeta,
         collectionFallbackBlock: detailsBlock || supportTableBlock || collectionFallbackBlock,
       }),
@@ -3365,7 +3622,7 @@ function buildCreativeRecipeCandidates({
         blocks: [
           collectionFallbackBlock,
           detailsBlock || formBlock,
-          supportPublicBlock,
+          jsPeerBlock || supportPublicBlock,
         ],
         collectionMeta,
         collectionFallbackBlock,
@@ -3378,14 +3635,14 @@ function buildCreativeRecipeCandidates({
       shape: 'multi-block',
       primaryDefinition: visualDefinition || anchorDescriptor || collectionDefinition,
       selectionRationale: [
-        '用分析/指标/可视化区块拉开页面调性，再用 collection 业务块托底。',
+        '用分析/指标/JS 并列拉开页面调性，collection 区块只作为辅助面而不是默认主位。',
       ],
       layout: finalizeCreativeLayout({
         filterBlock,
         blocks: [
-          visualBlock,
+          visualBlock || anchorBlock,
+          jsPeerBlock || supportPublicBlock,
           supportTableBlock || collectionFallbackBlock,
-          supportPublicBlock,
         ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
@@ -3398,7 +3655,7 @@ function buildCreativeRecipeCandidates({
       shape: 'tabbed-multi-surface',
       primaryDefinition: anchorDescriptor || collectionDefinition,
       selectionRationale: [
-        '把主视图、记录面和控制面拆到 tabs，优先追求结构层次与可探索性。',
+        '把主视图、记录面和洞察扩展拆到 tabs，优先追求可探索性与多 surface 表达。',
       ],
       layout: finalizeCreativeLayout({
         filterBlock,
@@ -3413,8 +3670,8 @@ function buildCreativeRecipeCandidates({
             blocks: [supportTableBlock || collectionFallbackBlock].filter(Boolean).map((block) => cloneJson(block)),
           },
           {
-            title: '控制面',
-            blocks: [contentBlock || detailsBlock || formBlock].filter(Boolean).map((block) => cloneJson(block)),
+            title: '洞察扩展',
+            blocks: [jsPeerBlock || contentBlock || supportPublicBlock || detailsBlock || formBlock].filter(Boolean).map((block) => cloneJson(block)),
           },
         ],
         collectionMeta,
@@ -3429,6 +3686,7 @@ function buildCreativeRecipeCandidates({
     candidateId: candidate.candidateId,
     title: candidate.title,
     summary: candidate.summary,
+    requestText,
     layout: candidate.layout,
     selectionMode: 'creative-first',
     primaryBlockDefinition: candidate.primaryDefinition || anchorDescriptor || collectionDefinition,
@@ -3442,6 +3700,7 @@ function buildCreativeRecipeCandidates({
     publicUseCatalog,
     operationIntent,
     explicitAnchorUse,
+    creativeIntent,
     selected: false,
   }));
 }
@@ -3477,6 +3736,7 @@ function buildCreativeFirstValidationScenario({
   const { eligibleDescriptors, eligibleUses, discardedUses } = buildCreativeUseInventory({
     inventoryMerge,
     collectionMeta,
+    requestText,
   });
   const anchorResolution = resolveCreativeAnchorDescriptor({
     requestText,
@@ -3485,6 +3745,7 @@ function buildCreativeFirstValidationScenario({
   });
   const anchorDescriptor = anchorResolution.descriptor;
   const explicitAnchorUse = anchorResolution.explicit ? anchorDescriptor?.use || '' : '';
+  const creativeIntent = deriveCreativeIntent(requestText, anchorDescriptor?.use || '');
   const planningBlockers = [];
 
   if (!anchorDescriptor) {
@@ -3547,6 +3808,7 @@ function buildCreativeFirstValidationScenario({
     ? buildCreativeRecipeCandidates({
       title,
       requestText,
+      creativeIntent,
       collectionMeta,
       requestedFields: fieldResolution.requestedFields,
       resolvedFields: fieldResolution.resolvedFields,
@@ -3563,8 +3825,13 @@ function buildCreativeFirstValidationScenario({
 
   const selectedCandidatePool = explicitAnchorUse
     ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).includes(explicitAnchorUse))
+    : (creativeIntent === 'insight-first'
+      ? layoutCandidates.filter((candidate) => collectLayoutUses(candidate.layout).some((use) => INSIGHT_PRIORITY_USES.has(use)))
+      : layoutCandidates);
+  const effectiveSelectedCandidatePool = selectedCandidatePool.length > 0
+    ? selectedCandidatePool
     : layoutCandidates;
-  const selectedCandidate = [...selectedCandidatePool]
+  const selectedCandidate = [...effectiveSelectedCandidatePool]
     .sort((left, right) => {
       if ((right.score || 0) !== (left.score || 0)) {
         return (right.score || 0) - (left.score || 0);
@@ -3592,10 +3859,23 @@ function buildCreativeFirstValidationScenario({
     inventoryMerge,
     collectionMeta,
   });
+  const selectedInsightStrategy = selectedCandidate?.selectedInsightStrategy
+    || deriveSelectedInsightStrategy(layout);
+  const jsExpansionHints = uniqueStrings([
+    ...(Array.isArray(selectedCandidate?.jsExpansionHints) ? selectedCandidate.jsExpansionHints : []),
+    ...deriveJsExpansionHints({
+      requestText,
+      eligibleUses,
+      layout,
+    }),
+  ]);
   const scenario = buildScenarioSummary({
     title,
     planningMode: 'creative-first',
     selectionMode: 'creative-first',
+    creativeIntent,
+    selectedInsightStrategy,
+    jsExpansionHints,
     collectionMeta,
     explicitCollections: explicitCollectionNames,
     primaryCollectionExplicit: explicitCollectionRequested,

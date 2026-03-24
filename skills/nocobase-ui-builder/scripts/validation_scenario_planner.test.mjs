@@ -6,6 +6,33 @@ import {
   splitValidationRequestIntoPageSpecs,
 } from './validation_scenario_planner.mjs';
 
+function collectLayoutUses(layout) {
+  const uses = [];
+  const visitBlocks = (blocks) => {
+    for (const block of Array.isArray(blocks) ? blocks : []) {
+      if (!block || typeof block !== 'object') {
+        continue;
+      }
+      if (typeof block.use === 'string' && block.use.trim()) {
+        uses.push(block.use.trim());
+      }
+      visitBlocks(block.blocks);
+      if (Array.isArray(block.tabs)) {
+        for (const tab of block.tabs) {
+          visitBlocks(tab?.blocks);
+        }
+      }
+    }
+  };
+  visitBlocks(layout?.blocks);
+  if (Array.isArray(layout?.tabs)) {
+    for (const tab of layout.tabs) {
+      visitBlocks(tab?.blocks);
+    }
+  }
+  return [...new Set(uses)];
+}
+
 function makeInstanceInventory() {
   return {
     detected: true,
@@ -177,6 +204,33 @@ test('dynamic scenario planner emits visualizationSpec for selected chart layout
   assert.equal(selectedCandidate.visualizationSpec[0].queryMode, 'builder');
   assert.equal(selectedCandidate.plannedCoverage.patterns.includes('insight-visualization'), true);
   assert.equal(selectedCandidate.plannedCoverage.patterns.includes('chart-builder'), true);
+});
+
+test('dynamic scenario planner keeps insight-first selection without forcing table or details and promotes JS as an insight peer', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个交互式总览页面，需要图表、指标卡和自定义说明层，并带筛选',
+    sessionId: 'sess-insight-first-js-peer',
+    baseSlug: 'approvals-insight-first-js-peer',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-insight-first-js-peer',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.creativeIntent, 'insight-first');
+  assert.equal(selectedCandidate.creativeIntent, 'insight-first');
+  assert.equal(result.scenario.selectedInsightStrategy.includes('js'), true);
+  assert.equal(selectedCandidate.selectedInsightStrategy.includes('js'), true);
+  assert.equal(result.scenario.jsExpansionHints.includes('interactive-insight-layer'), true);
+  assert.equal(result.scenario.jsExpansionHints.includes('narrative-explanation-layer'), true);
+  assert.equal(result.scenario.jsExpansionHints.includes('custom-insight-surface'), true);
+  assert.equal(result.scenario.jsExpansionHints.includes('selected-js-peer'), true);
+  assert.equal(selectedUses.includes('ChartBlockModel'), true);
+  assert.equal(selectedUses.includes('JSBlockModel'), true);
+  assert.equal(selectedUses.includes('TableBlockModel'), false);
+  assert.equal(selectedUses.includes('DetailsBlockModel'), false);
 });
 
 test('dynamic scenario planner discards runtime-sensitive public uses instead of putting them into final candidates', () => {

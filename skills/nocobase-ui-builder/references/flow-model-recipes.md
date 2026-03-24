@@ -15,6 +15,13 @@
 - 区块索引：[blocks/index.md](blocks/index.md)
 - 模式索引：[patterns/index.md](patterns/index.md)
 
+如果当前任务是总览/看板/趋势/KPI/交互说明页，先补读：
+
+- [insight-first-recipe.md](insight-first-recipe.md)
+- [blocks/chart.md](blocks/chart.md)
+- [blocks/grid-card.md](blocks/grid-card.md)
+- [js-models/index.md](js-models/index.md)
+
 ## 1. 初始化探测
 
 如果当前任务已经明确目标 `use`，或只是要核对某个模型的详细结构，先读本地 graph：

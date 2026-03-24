@@ -13,6 +13,8 @@ description: 按任务类型直达 canonical docs、block docs、pattern docs、
   - API 生命周期、schema-first 探测、route-ready、readback、工具选择
 - [page-first-planning.md](page-first-planning.md)
   - 页面骨架、section 规划、block 映射顺序
+- [insight-first-recipe.md](insight-first-recipe.md)
+  - 总览/看板/趋势/KPI/交互说明页的候选生成 recipe
 - [flow-model-recipes.md](flow-model-recipes.md)
   - 常见起手式和通用 recipe
 - [flow-schemas/index.md](flow-schemas/index.md)
@@ -34,6 +36,12 @@ description: 按任务类型直达 canonical docs、block docs、pattern docs、
   [ui-api-overview.md](ui-api-overview.md),
   [opaque-uid.md](opaque-uid.md),
   [flow-model-recipes.md](flow-model-recipes.md)
+- 创建总览/看板/趋势/KPI/交互说明页：
+  [page-first-planning.md](page-first-planning.md),
+  [insight-first-recipe.md](insight-first-recipe.md),
+  [blocks/chart.md](blocks/chart.md),
+  [blocks/grid-card.md](blocks/grid-card.md),
+  [js-models/index.md](js-models/index.md)
 - 更新现有页面或区块：
   [page-first-planning.md](page-first-planning.md),
   [flow-model-recipes.md](flow-model-recipes.md),

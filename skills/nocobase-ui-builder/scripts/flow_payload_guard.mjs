@@ -67,8 +67,11 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'CHART_QUERY_MODE_MISSING',
   'CHART_OPTION_MODE_MISSING',
   'CHART_BUILDER_COLLECTION_PATH_MISSING',
+  'CHART_COLLECTION_PATH_SHAPE_INVALID',
+  'CHART_BUILDER_MEASURES_MISSING',
   'CHART_SQL_DATASOURCE_MISSING',
   'CHART_SQL_TEXT_MISSING',
+  'CHART_BASIC_OPTION_BUILDER_MISSING',
   'CHART_CUSTOM_OPTION_RAW_MISSING',
   'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS',
   'GRID_CARD_ITEM_SUBMODEL_MISSING',
@@ -3038,6 +3041,11 @@ function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, bloc
         .map((item) => item.trim())
         .filter(Boolean)
       : [];
+    const measures = Array.isArray(query?.measures)
+      ? query.measures
+        .filter((item) => isPlainObject(item) && normalizeOptionalText(item.field))
+      : [];
+    const optionBuilder = isPlainObject(option?.builder) ? option.builder : null;
 
     if (!CHART_QUERY_MODES.has(queryMode)) {
       pushFinding(blockers, blockerSeen, createFinding({
@@ -3090,6 +3098,31 @@ function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, bloc
       }));
     }
 
+    if (queryMode === 'builder' && collectionPath.length > 0 && collectionPath.length !== 2) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_COLLECTION_PATH_SHAPE_INVALID',
+        message: 'ChartBlockModel 使用 builder 查询时，collectionPath 必须是 [dataSourceKey, collectionName] 两段结构。',
+        path: `${pathValue}.stepParams.chartSettings.configure.query.collectionPath`,
+        mode,
+        dedupeKey: `CHART_COLLECTION_PATH_SHAPE_INVALID:${pathValue}`,
+        details: {
+          collectionPath,
+        },
+      }));
+    }
+
+    if (queryMode === 'builder' && measures.length === 0) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_BUILDER_MEASURES_MISSING',
+        message: 'ChartBlockModel 使用 builder 查询时，必须显式提供至少一个 query.measures 项，否则运行时不会返回可渲染图表数据。',
+        path: `${pathValue}.stepParams.chartSettings.configure.query.measures`,
+        mode,
+        dedupeKey: `CHART_BUILDER_MEASURES_MISSING:${pathValue}`,
+      }));
+    }
+
     if (queryMode === 'sql') {
       if (!normalizeOptionalText(query?.sqlDatasource)) {
         pushFinding(blockers, blockerSeen, createFinding({
@@ -3111,6 +3144,17 @@ function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, bloc
           dedupeKey: `CHART_SQL_TEXT_MISSING:${pathValue}`,
         }));
       }
+    }
+
+    if (optionMode === 'basic' && !optionBuilder) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_BASIC_OPTION_BUILDER_MISSING',
+        message: 'ChartBlockModel 使用 basic option 时，必须显式提供 chartSettings.configure.chart.option.builder；仅有 option.mode=basic 不足以生成可渲染配置。',
+        path: `${pathValue}.stepParams.chartSettings.configure.chart.option.builder`,
+        mode,
+        dedupeKey: `CHART_BASIC_OPTION_BUILDER_MISSING:${pathValue}`,
+      }));
     }
 
     if (optionMode === 'custom' && !normalizeOptionalText(option?.raw)) {

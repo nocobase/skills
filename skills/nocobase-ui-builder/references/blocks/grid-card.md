@@ -96,8 +96,9 @@ skill 至少要知道三件事：
 
 1. 命中 `指标卡 / KPI / 总览 / 概览 / summary / overview` 时，把 `GridCardBlockModel` 视为 `insight` 区候选。
 2. 如果请求只需要几个关键指标数字，优先 grid card，而不是 chart。
-3. 默认先生成空的 `actions: []`，不要为了“看起来完整”乱猜 action use。
-4. 如果 item subtree 缺失，先补 `GridCardItemModel + DetailsGridModel`，再继续下游字段/动作配置。
+3. 如果请求同时带 `交互 / 联动 / 说明 / 引导 / 叙事 / 自定义`，允许 `GridCardBlockModel + JSBlockModel` 并列成为 insight 组合，不必自动补 `Table/Details`。
+4. 默认先生成空的 `actions: []`，不要为了“看起来完整”乱猜 action use。
+5. 如果 item subtree 缺失，先补 `GridCardItemModel + DetailsGridModel`，再继续下游字段/动作配置。
 
 ## guard 关注点
 

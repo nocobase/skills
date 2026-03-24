@@ -1,0 +1,49 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "3da6be60956286b13299",
+  "ownerUses": [
+    "ChartBlockModel"
+  ],
+  "value": {
+    "uid": "chart-orders-trend",
+    "use": "ChartBlockModel",
+    "stepParams": {
+      "chartSettings": {
+        "configure": {
+          "query": {
+            "mode": "builder",
+            "collectionPath": [
+              "main",
+              "orders"
+            ],
+            "measures": [
+              {
+                "field": "id",
+                "aggregation": "count",
+                "alias": "count_id"
+              }
+            ],
+            "dimensions": [
+              {
+                "field": "createdAt"
+              }
+            ]
+          },
+          "chart": {
+            "option": {
+              "mode": "basic",
+              "builder": {
+                "type": "line",
+                "xField": "createdAt",
+                "yField": "count_id"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ChartBlockModel.3da6be60956286b13299.json"
+}

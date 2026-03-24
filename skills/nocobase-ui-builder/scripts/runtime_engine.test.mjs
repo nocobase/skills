@@ -845,7 +845,7 @@ test('validation run helper emits primitive-first ready specs when live inventor
   assert.match(result.compileArtifact.scenarioId, /^creative-first:approvals:/);
   assert.equal(result.compileArtifact.selectionMode, 'creative-first');
   assert.equal(typeof result.compileArtifact.primaryBlockType === 'string' && result.compileArtifact.primaryBlockType.length > 0, true);
-  assert.equal(result.compileArtifact.generatedCoverage.blocks.includes('TableBlockModel'), true);
+  assert.equal(result.compileArtifact.generatedCoverage.blocks.includes('GridCardBlockModel'), true);
   assert.equal(result.compileArtifact.generatedCoverage.patterns.includes('popup-openview'), true);
   assert.equal(result.compileArtifact.issues[0].code, 'PRIMITIVE_FIRST_SCENARIO_GENERATED');
   assert.equal(result.compileArtifact.actionPlan.some((item) => item.kind === 'delete-record'), true);

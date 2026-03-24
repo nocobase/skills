@@ -50,6 +50,8 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
   [references/ui-api-overview.md](references/ui-api-overview.md)
 - 页面骨架与 section 规划：
   [references/page-first-planning.md](references/page-first-planning.md)
+- 总览 / 看板 / 趋势 / KPI / 交互说明页的候选 recipe：
+  [references/insight-first-recipe.md](references/insight-first-recipe.md)
 - 常见起手式与通用 recipe：
   [references/flow-model-recipes.md](references/flow-model-recipes.md)
 - 本地 flow schema graph：
@@ -67,8 +69,12 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 - 先读区块索引：[references/blocks/index.md](references/blocks/index.md)
 - 看板 / 趋势 / 占比 / KPI / 概览类请求，直接补读：
+  [references/insight-first-recipe.md](references/insight-first-recipe.md),
   [references/blocks/chart.md](references/blocks/chart.md),
   [references/blocks/grid-card.md](references/blocks/grid-card.md)
+- 如果请求同时带 `交互 / 联动 / 说明 / 引导 / 叙事 / 自定义`，同一轮要把
+  [references/js-models/index.md](references/js-models/index.md)
+  一起读掉，把 `JSBlockModel` 当作 insight peer，而不是最后兜底。
 - 再读模式索引：[references/patterns/index.md](references/patterns/index.md)
 - JS / RunJS 相关先读：[references/js-models/index.md](references/js-models/index.md)
 
@@ -80,7 +86,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 - 普通工作台、详情页、复杂 tab 页面，先看 `page-first-planning`
 - 不要一上来按 block catalog 倒推页面
-- `JSBlockModel` 是实现手段，不是页面结构本身
+- `JSBlockModel` 不是页面骨架本身，但在 `insight / extension` 中可以和 `ChartBlockModel / GridCardBlockModel` 并列成为主表达面
 
 ## 2. schema-first，不猜结构
 
@@ -139,6 +145,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 2. 再确定 section：`controls`、`primary`、`secondary`、`insight`、`extension`
 3. 再为每个 section 选 block
 4. 多页面请求优先编译成 page-level spec，逐页执行；不要把聚合请求继续当成单页 builder 输入
+5. 命中总览 / 看板 / 趋势 / KPI / 交互说明时，默认按 `insight-first` 生成候选，不强制保留 `Table/Details` 版本
 
 ## C. 探测与定界
 
@@ -214,6 +221,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 9. 任何已标记为内部、未解析、或 schema 未放行的 model/use，都不能直接写入。
 10. 生成 RunJS / JSBlock 代码时，不要默认假设浏览器全局 `fetch`、`localStorage` 或任意 `window.*` 可用；当前登录用户优先使用 `ctx.user` / `ctx.auth?.user`，NocoBase collection/list/get 默认使用 `ctx.initResource()` + `ctx.resource` 或 `ctx.makeResource()`，只有自定义端点或 request-only 场景才使用 `ctx.request()`。
 11. 表格里的关联标题字段如果要点击打开 popup，默认不要让 dotted path 列自己承担 click-to-open，也不要默认切去 `JSFieldModel` / `JSColumnModel`；先回到原生关系列方案。
+12. payload guard 只负责合法性与风险检查，不参与 block 排序；不要因为 guard 存在就在 planner 阶段提前回退到 `TableBlockModel` / `DetailsBlockModel`。
 
 # 任务路由
 
@@ -319,6 +327,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 - 总索引：[references/index.md](references/index.md)
 - API / lifecycle：[references/ui-api-overview.md](references/ui-api-overview.md)
 - 页面规划：[references/page-first-planning.md](references/page-first-planning.md)
+- insight-first recipe：[references/insight-first-recipe.md](references/insight-first-recipe.md)
 - 通用 recipe：[references/flow-model-recipes.md](references/flow-model-recipes.md)
 - 本地 flow schema graph：[references/flow-schemas/index.md](references/flow-schemas/index.md)
 - 写前 guard：[references/patterns/payload-guard.md](references/patterns/payload-guard.md)

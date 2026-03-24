@@ -33,9 +33,231 @@ function chooseFirstAvailable(candidates, availableFields) {
 export const CHART_BLOCK_USE = 'ChartBlockModel';
 export const GRID_CARD_BLOCK_USE = 'GridCardBlockModel';
 export const TABLE_BLOCK_USE = 'TableBlockModel';
+export const DEFAULT_CHART_DATA_SOURCE_KEY = 'main';
 export const VISUALIZATION_BLOCK_USES = new Set([CHART_BLOCK_USE, GRID_CARD_BLOCK_USE]);
 export const VISUALIZATION_QUERY_MODES = new Set(['builder', 'sql']);
 export const VISUALIZATION_OPTION_MODES = new Set(['basic', 'custom']);
+
+function normalizeStringArray(values, { dedupe = true, maxItems = Number.POSITIVE_INFINITY } = {}) {
+  const normalized = [];
+  const seen = new Set();
+  for (const item of Array.isArray(values) ? values : []) {
+    if (typeof item !== 'string') {
+      continue;
+    }
+    const trimmed = item.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (dedupe) {
+      if (seen.has(trimmed)) {
+        continue;
+      }
+      seen.add(trimmed);
+    }
+    normalized.push(trimmed);
+    if (normalized.length >= maxItems) {
+      break;
+    }
+  }
+  return normalized;
+}
+
+function normalizeCollectionPath(value) {
+  return normalizeStringArray(value, { dedupe: false, maxItems: 2 });
+}
+
+function normalizeFieldDescriptorList(values, type) {
+  const normalized = [];
+  const seen = new Set();
+  for (const item of Array.isArray(values) ? values : []) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      continue;
+    }
+    const field = normalizeText(item.field);
+    if (!field) {
+      continue;
+    }
+    const aggregation = type === 'measure' ? normalizeText(item.aggregation) : '';
+    const alias = normalizeText(item.alias);
+    const format = type === 'dimension' ? normalizeText(item.format) : '';
+    const dedupeKey = [
+      field,
+      aggregation,
+      alias,
+      format,
+    ].join('|');
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+    normalized.push({
+      field,
+      ...(aggregation ? { aggregation } : {}),
+      ...(alias ? { alias } : {}),
+      ...(format ? { format } : {}),
+    });
+  }
+  return normalized;
+}
+
+function normalizeBuilder(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? { ...value }
+    : null;
+}
+
+function normalizeAliasSegment(value, fallback = 'value') {
+  const normalized = normalizeText(value)
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+  return normalized || fallback;
+}
+
+function buildMeasureAlias(field, aggregation = 'count') {
+  return `${normalizeAliasSegment(aggregation, 'agg')}_${normalizeAliasSegment(field, 'value')}`;
+}
+
+function chooseMetricField(availableFields, request = '') {
+  const preferred = hasAnyKeyword(request, ['资产', '金额', 'value', 'amount', 'balance', 'price', 'cost'])
+    ? ['current_value', 'amount', 'total', 'value', 'balance', 'price', 'cost', 'score', 'quantity']
+    : ['current_value', 'amount', 'total', 'value', 'balance', 'price', 'cost', 'score', 'quantity'];
+  return chooseFirstAvailable(preferred, availableFields);
+}
+
+function chooseCountField(availableFields, fallback = '') {
+  return chooseFirstAvailable(['id', 'title', 'name', 'status', 'createdAt', fallback], availableFields);
+}
+
+function buildDefaultChartBuilder({ chartType = 'bar', dimensionField = '', measureAlias = '' } = {}) {
+  if (!dimensionField || !measureAlias) {
+    return null;
+  }
+  switch (chartType) {
+    case 'pie':
+      return {
+        type: 'pie',
+        pieCategory: dimensionField,
+        pieValue: measureAlias,
+      };
+    case 'doughnut':
+      return {
+        type: 'doughnut',
+        doughnutCategory: dimensionField,
+        doughnutValue: measureAlias,
+      };
+    case 'area':
+      return {
+        type: 'area',
+        xField: dimensionField,
+        yField: measureAlias,
+      };
+    case 'barHorizontal':
+      return {
+        type: 'barHorizontal',
+        xField: dimensionField,
+        yField: measureAlias,
+      };
+    case 'line':
+    case 'bar':
+    default:
+      return {
+        type: chartType || 'bar',
+        xField: dimensionField,
+        yField: measureAlias,
+      };
+  }
+}
+
+export function getVisualizationCollectionName(input = {}) {
+  const spec = input?.visualizationSpec && typeof input.visualizationSpec === 'object'
+    ? normalizeVisualizationSpec(input.visualizationSpec, input)
+    : normalizeVisualizationSpec(input);
+  if (spec.collectionPath.length >= 2) {
+    return spec.collectionPath[1];
+  }
+  return spec.collectionPath[0] || '';
+}
+
+function normalizeVisualizationSpecCore(input = {}, options = {}) {
+  const sourceInput = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const sourceOptions = options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+  const blockUseCandidate = normalizeText(sourceInput.blockUse) || normalizeText(sourceOptions.blockUse);
+  const blockUse = VISUALIZATION_BLOCK_USES.has(blockUseCandidate)
+    ? blockUseCandidate
+    : normalizeText(sourceOptions.blockUse);
+  const queryModeCandidate = normalizeText(sourceInput.queryMode) || normalizeText(sourceOptions.queryMode);
+  const optionModeCandidate = normalizeText(sourceInput.optionMode) || normalizeText(sourceOptions.optionMode);
+  const queryMode = VISUALIZATION_QUERY_MODES.has(queryModeCandidate) ? queryModeCandidate : '';
+  const optionMode = VISUALIZATION_OPTION_MODES.has(optionModeCandidate) ? optionModeCandidate : '';
+  const collectionPath = normalizeCollectionPath(sourceInput.collectionPath);
+  const dataSource = blockUse === CHART_BLOCK_USE
+    ? (collectionPath[0] || normalizeText(sourceInput.dataSource) || DEFAULT_CHART_DATA_SOURCE_KEY)
+    : (normalizeText(sourceInput.dataSource) || normalizeText(sourceOptions.dataSource));
+  const fallbackBlockUse = normalizeText(sourceInput.fallbackBlockUse) || normalizeText(sourceOptions.fallbackBlockUse) || TABLE_BLOCK_USE;
+  const metricOrDimension = uniqueStrings(sourceInput.metricOrDimension);
+  const metrics = uniqueStrings(sourceInput.metrics);
+  const measures = normalizeFieldDescriptorList(sourceInput.measures, 'measure');
+  const dimensions = normalizeFieldDescriptorList(sourceInput.dimensions, 'dimension');
+  const chartType = normalizeText(sourceInput.chartType) || normalizeText(sourceOptions.chartType);
+  const goal = normalizeText(sourceInput.goal) || normalizeText(sourceOptions.goal);
+  const sqlDatasource = normalizeText(sourceInput.sqlDatasource) || (queryMode === 'sql' ? DEFAULT_CHART_DATA_SOURCE_KEY : '');
+  const sql = typeof sourceInput.sql === 'string' ? sourceInput.sql.trim() : '';
+  const raw = typeof sourceInput.raw === 'string' ? sourceInput.raw.trim() : '';
+  const eventsRaw = typeof sourceInput.eventsRaw === 'string' ? sourceInput.eventsRaw.trim() : '';
+  const optionBuilder = normalizeBuilder(sourceInput.optionBuilder ?? sourceInput.builder);
+  return {
+    blockUse,
+    goal,
+    queryMode,
+    optionMode,
+    dataSource,
+    metricOrDimension,
+    metrics,
+    measures,
+    dimensions,
+    chartType,
+    collectionPath,
+    sqlDatasource,
+    sql,
+    optionBuilder,
+    raw,
+    eventsRaw,
+    fallbackBlockUse,
+  };
+}
+
+function isRenderableChartSpecSnapshot(spec = {}) {
+  if (spec.blockUse !== CHART_BLOCK_USE) {
+    return false;
+  }
+  if (spec.queryMode === 'sql') {
+    if (!spec.sqlDatasource || !spec.sql) {
+      return false;
+    }
+  } else if (spec.queryMode === 'builder') {
+    if (spec.collectionPath.length !== 2 || spec.measures.length === 0) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  if (spec.optionMode === 'basic') {
+    return Boolean(spec.optionBuilder && Object.keys(spec.optionBuilder).length > 0);
+  }
+  if (spec.optionMode === 'custom') {
+    return Boolean(spec.raw);
+  }
+  return false;
+}
+
+export function isRenderableChartSpec(input = {}) {
+  const spec = input?.visualizationSpec && typeof input.visualizationSpec === 'object'
+    ? normalizeVisualizationSpecCore(input.visualizationSpec, input)
+    : normalizeVisualizationSpecCore(input);
+  return isRenderableChartSpecSnapshot(spec);
+}
 
 export const SUPPORTED_VISUALIZATION_CONTEXT_REQUIREMENTS = {
   [CHART_BLOCK_USE]: new Set(['collection metadata', 'query builder', 'optional SQL resource', 'chart builder', 'RunJS']),
@@ -48,68 +270,38 @@ export const SUPPORTED_VISUALIZATION_UNRESOLVED_REASONS = {
 };
 
 export function guessVisualizationConfidence(input = {}) {
-  const blockUse = normalizeText(input.blockUse);
-  const queryMode = normalizeText(input.queryMode);
-  const optionMode = normalizeText(input.optionMode);
-  const hasEvents = Boolean(normalizeText(input.eventsRaw));
+  const spec = input?.visualizationSpec && typeof input.visualizationSpec === 'object'
+    ? normalizeVisualizationSpecCore(input.visualizationSpec, input)
+    : normalizeVisualizationSpecCore(input);
+  const hasEvents = Boolean(spec.eventsRaw);
 
-  if (blockUse === GRID_CARD_BLOCK_USE) {
+  if (spec.blockUse === GRID_CARD_BLOCK_USE) {
     return 'high';
   }
-  if (blockUse !== CHART_BLOCK_USE) {
+  if (spec.blockUse !== CHART_BLOCK_USE) {
     return 'unknown';
   }
-  if (optionMode === 'custom' || hasEvents) {
+  if (!isRenderableChartSpecSnapshot(spec)) {
     return 'low';
   }
-  if (queryMode === 'sql') {
+  if (spec.optionMode === 'custom' || hasEvents) {
+    return 'low';
+  }
+  if (spec.queryMode === 'sql') {
     return 'medium';
   }
   return 'high';
 }
 
 export function normalizeVisualizationSpec(input = {}, options = {}) {
-  const blockUseCandidate = normalizeText(input.blockUse) || normalizeText(options.blockUse);
-  const blockUse = VISUALIZATION_BLOCK_USES.has(blockUseCandidate)
-    ? blockUseCandidate
-    : normalizeText(options.blockUse);
-  const queryModeCandidate = normalizeText(input.queryMode) || normalizeText(options.queryMode);
-  const optionModeCandidate = normalizeText(input.optionMode) || normalizeText(options.optionMode);
-  const queryMode = VISUALIZATION_QUERY_MODES.has(queryModeCandidate) ? queryModeCandidate : '';
-  const optionMode = VISUALIZATION_OPTION_MODES.has(optionModeCandidate) ? optionModeCandidate : '';
-  const dataSource = normalizeText(input.dataSource) || normalizeText(options.dataSource);
-  const fallbackBlockUse = normalizeText(input.fallbackBlockUse) || normalizeText(options.fallbackBlockUse) || TABLE_BLOCK_USE;
-  const collectionPath = uniqueStrings(input.collectionPath);
-  const metricOrDimension = uniqueStrings(input.metricOrDimension);
-  const metrics = uniqueStrings(input.metrics);
-  const chartType = normalizeText(input.chartType) || normalizeText(options.chartType);
-  const goal = normalizeText(input.goal) || normalizeText(options.goal);
-  const sqlDatasource = normalizeText(input.sqlDatasource);
-  const sql = typeof input.sql === 'string' ? input.sql.trim() : '';
-  const raw = typeof input.raw === 'string' ? input.raw.trim() : '';
-  const eventsRaw = typeof input.eventsRaw === 'string' ? input.eventsRaw.trim() : '';
-  const confidence = normalizeText(input.confidence) || guessVisualizationConfidence({
-    blockUse,
-    queryMode,
-    optionMode,
-    eventsRaw,
+  const sourceInput = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const core = normalizeVisualizationSpecCore(input, options);
+  const confidence = normalizeText(sourceInput.confidence) || guessVisualizationConfidence({
+    ...core,
   });
 
   return {
-    blockUse,
-    goal,
-    queryMode,
-    optionMode,
-    dataSource,
-    metricOrDimension,
-    metrics,
-    chartType,
-    collectionPath,
-    sqlDatasource,
-    sql,
-    raw,
-    eventsRaw,
-    fallbackBlockUse,
+    ...core,
     confidence,
   };
 }
@@ -190,20 +382,45 @@ export function inferChartSpecFromCollection({
   const chartType = wantsTrend ? 'line' : (wantsShare ? 'pie' : 'bar');
   const queryMode = wantsSql ? 'sql' : 'builder';
   const optionMode = wantsCustom ? 'custom' : 'basic';
+  const metricField = chooseMetricField(availableFields, request);
+  const measureField = metricField || chooseCountField(availableFields, dimension);
+  const aggregation = metricField ? 'sum' : 'count';
+  const measureAlias = measureField ? buildMeasureAlias(measureField, aggregation) : '';
+  const measures = measureField
+    ? [{ field: measureField, aggregation, alias: measureAlias }]
+    : [];
+  const dimensions = dimension ? [{ field: dimension }] : [];
+  const optionBuilder = optionMode === 'basic'
+    ? buildDefaultChartBuilder({
+      chartType,
+      dimensionField: dimension,
+      measureAlias,
+    })
+    : null;
+  const sqlMeasureExpression = measureField
+    ? (metricField ? `sum(${measureField})` : `count(${measureField})`)
+    : 'count(*)';
+  const sqlSelect = dimension
+    ? `${dimension}, ${sqlMeasureExpression} as ${measureAlias || 'metric_value'}`
+    : `${sqlMeasureExpression} as ${measureAlias || 'metric_value'}`;
+  const sqlGroupBy = dimension ? ` group by ${dimension}` : '';
 
   return normalizeVisualizationSpec({
     blockUse: CHART_BLOCK_USE,
     goal,
     queryMode,
     optionMode,
-    dataSource: collectionName,
+    dataSource: DEFAULT_CHART_DATA_SOURCE_KEY,
     metricOrDimension: dimension ? [dimension] : [],
+    measures,
+    dimensions,
     chartType,
-    collectionPath: collectionName ? [collectionName] : [],
-    sqlDatasource: queryMode === 'sql' ? 'main' : '',
+    collectionPath: collectionName ? [DEFAULT_CHART_DATA_SOURCE_KEY, collectionName] : [],
+    sqlDatasource: queryMode === 'sql' ? DEFAULT_CHART_DATA_SOURCE_KEY : '',
     sql: queryMode === 'sql'
-      ? `SELECT ${dimension || '*'} FROM ${collectionName || 'your_collection'}`
+      ? `SELECT ${sqlSelect} FROM ${collectionName || 'your_collection'}${sqlGroupBy}`
       : '',
+    optionBuilder,
     raw: optionMode === 'custom' ? 'return option;' : '',
     eventsRaw: wantsEvents ? 'return {};' : '',
   });
@@ -237,26 +454,46 @@ export function buildChartBlockFromBuilderSpec({
   collectionName = '',
   collectionPath = [],
   metricOrDimension = [],
+  measures = [],
+  dimensions = [],
   chartType = 'bar',
   goal = 'distribution',
   optionMode = 'basic',
+  optionBuilder = null,
   raw = '',
   eventsRaw = '',
 } = {}) {
+  const normalizedCollectionPath = collectionPath.length > 0
+    ? collectionPath
+    : (collectionName ? [DEFAULT_CHART_DATA_SOURCE_KEY, collectionName] : []);
+  const normalizedMeasures = normalizeFieldDescriptorList(measures, 'measure');
+  const normalizedDimensions = normalizeFieldDescriptorList(dimensions, 'dimension');
+  const normalizedBuilder = normalizeBuilder(optionBuilder) || buildDefaultChartBuilder({
+    chartType,
+    dimensionField: normalizedDimensions[0]?.alias || normalizedDimensions[0]?.field || '',
+    measureAlias: normalizedMeasures[0]?.alias || normalizedMeasures[0]?.field || '',
+  });
   return buildVisualizationBlock({
     use: CHART_BLOCK_USE,
     title,
     collectionName: '',
-    fields: uniqueStrings(metricOrDimension),
+    fields: uniqueStrings([
+      ...metricOrDimension,
+      ...normalizedMeasures.map((item) => item.field),
+      ...normalizedDimensions.map((item) => item.field),
+    ]),
     visualizationSpec: {
       blockUse: CHART_BLOCK_USE,
       goal,
       queryMode: 'builder',
       optionMode,
-      dataSource: collectionName,
+      dataSource: normalizedCollectionPath[0] || DEFAULT_CHART_DATA_SOURCE_KEY,
       metricOrDimension,
+      measures: normalizedMeasures,
+      dimensions: normalizedDimensions,
       chartType,
-      collectionPath: collectionPath.length > 0 ? collectionPath : (collectionName ? [collectionName] : []),
+      collectionPath: normalizedCollectionPath,
+      optionBuilder: normalizedBuilder,
       raw,
       eventsRaw,
     },
@@ -267,29 +504,45 @@ export function buildChartBlockFromSqlSpec({
   title = '',
   collectionName = '',
   metricOrDimension = [],
+  measures = [],
+  dimensions = [],
   chartType = 'bar',
   goal = 'distribution',
   optionMode = 'basic',
-  sqlDatasource = 'main',
+  sqlDatasource = DEFAULT_CHART_DATA_SOURCE_KEY,
   sql = '',
+  optionBuilder = null,
   raw = '',
   eventsRaw = '',
 } = {}) {
+  const normalizedMeasures = normalizeFieldDescriptorList(measures, 'measure');
+  const normalizedDimensions = normalizeFieldDescriptorList(dimensions, 'dimension');
   return buildVisualizationBlock({
     use: CHART_BLOCK_USE,
     title,
     collectionName: '',
-    fields: uniqueStrings(metricOrDimension),
+    fields: uniqueStrings([
+      ...metricOrDimension,
+      ...normalizedMeasures.map((item) => item.field),
+      ...normalizedDimensions.map((item) => item.field),
+    ]),
     visualizationSpec: {
       blockUse: CHART_BLOCK_USE,
       goal,
       queryMode: 'sql',
       optionMode,
-      dataSource: collectionName,
+      dataSource: sqlDatasource || DEFAULT_CHART_DATA_SOURCE_KEY,
       metricOrDimension,
+      measures: normalizedMeasures,
+      dimensions: normalizedDimensions,
       chartType,
       sqlDatasource,
       sql,
+      optionBuilder: normalizeBuilder(optionBuilder) || buildDefaultChartBuilder({
+        chartType,
+        dimensionField: normalizedDimensions[0]?.alias || normalizedDimensions[0]?.field || '',
+        measureAlias: normalizedMeasures[0]?.alias || normalizedMeasures[0]?.field || '',
+      }),
       raw,
       eventsRaw,
     },

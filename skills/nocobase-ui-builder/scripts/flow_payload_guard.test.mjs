@@ -4386,11 +4386,28 @@ function makeValidChartBlock(overrides = {}) {
         configure: {
           query: {
             mode: 'builder',
-            collectionPath: ['orders'],
+            collectionPath: ['main', 'orders'],
+            measures: [
+              {
+                field: 'title',
+                aggregation: 'count',
+                alias: 'count_title',
+              },
+            ],
+            dimensions: [
+              {
+                field: 'status',
+              },
+            ],
           },
           chart: {
             option: {
               mode: 'basic',
+              builder: {
+                type: 'pie',
+                pieCategory: 'status',
+                pieValue: 'count_title',
+              },
             },
           },
         },
@@ -4453,7 +4470,7 @@ test('canonicalizePayload defaults chart query and option modes without guessing
         chartSettings: {
           configure: {
             query: {
-              collectionPath: ['orders'],
+              collectionPath: ['main', 'orders'],
             },
             chart: {
               option: {},
@@ -4468,7 +4485,7 @@ test('canonicalizePayload defaults chart query and option modes without guessing
 
   assert.equal(result.payload.stepParams.chartSettings.configure.query.mode, 'builder');
   assert.equal(result.payload.stepParams.chartSettings.configure.chart.option.mode, 'basic');
-  assert.equal(result.payload.stepParams.chartSettings.configure.query.collectionPath[0], 'orders');
+  assert.deepEqual(result.payload.stepParams.chartSettings.configure.query.collectionPath, ['main', 'orders']);
   assert.equal(result.transforms.some((item) => item.code === 'CHART_QUERY_MODE_DEFAULTED'), true);
   assert.equal(result.transforms.some((item) => item.code === 'CHART_OPTION_MODE_DEFAULTED'), true);
 });
@@ -4485,10 +4502,11 @@ test('auditPayload blocks invalid chart payloads and wrong config paths', () => 
           configure: {
             query: {
               mode: 'builder',
+              collectionPath: ['orders'],
             },
             chart: {
               option: {
-                mode: 'custom',
+                mode: 'basic',
               },
             },
           },
@@ -4500,9 +4518,9 @@ test('auditPayload blocks invalid chart payloads and wrong config paths', () => 
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'CHART_BUILDER_COLLECTION_PATH_MISSING'), true);
-  assert.equal(result.blockers.some((item) => item.code === 'CHART_CUSTOM_OPTION_RAW_MISSING'), true);
-  assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_COLLECTION_PATH_SHAPE_INVALID'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_BUILDER_MEASURES_MISSING'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_BASIC_OPTION_BUILDER_MISSING'), true);
 });
 
 test('auditPayload blocks grid card payloads missing item subtree or invalid action slots', () => {

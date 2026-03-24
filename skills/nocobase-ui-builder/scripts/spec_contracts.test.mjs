@@ -23,8 +23,11 @@ function makeBuildSpecInput({ visualizationSpec } = {}) {
     goal: 'trend',
     queryMode: 'builder',
     optionMode: 'basic',
-    collectionPath: ['approvals'],
+    collectionPath: ['main', 'approvals'],
     metricOrDimension: ['createdAt', 'status'],
+    measures: [{ field: 'title', aggregation: 'count', alias: 'count_title' }],
+    dimensions: [{ field: 'createdAt' }],
+    optionBuilder: { type: 'line', xField: 'createdAt', yField: 'count_title' },
     chartType: 'line',
     confidence: 'high',
   };
@@ -55,6 +58,9 @@ function makeBuildSpecInput({ visualizationSpec } = {}) {
       title: '审批分析页',
       summary: '审批图表',
       planningMode: 'creative-first',
+      creativeIntent: 'insight-first',
+      selectedInsightStrategy: 'chart-js-mix',
+      jsExpansionHints: ['interactive-insight-layer', 'selected-js-peer'],
       selectionMode: 'creative-first',
       primaryBlockType: 'ChartBlockModel',
       plannedCoverage: {
@@ -71,6 +77,9 @@ function makeBuildSpecInput({ visualizationSpec } = {}) {
           title: '审批分析页',
           summary: '审批图表',
           selected: true,
+          creativeIntent: 'insight-first',
+          selectedInsightStrategy: 'chart-js-mix',
+          jsExpansionHints: ['interactive-insight-layer', 'selected-js-peer'],
           primaryBlockType: 'ChartBlockModel',
           plannedCoverage: {
             blocks: ['ChartBlockModel'],
@@ -102,9 +111,21 @@ test('normalizeBuildSpec preserves visualizationSpec on blocks, candidates and s
 
   assert.equal(normalized.layout.blocks[0].visualizationSpec.blockUse, 'ChartBlockModel');
   assert.equal(normalized.layout.blocks[0].visualizationSpec.queryMode, 'builder');
-  assert.deepEqual(normalized.layout.blocks[0].visualizationSpec.collectionPath, ['approvals']);
+  assert.deepEqual(normalized.layout.blocks[0].visualizationSpec.collectionPath, ['main', 'approvals']);
+  assert.deepEqual(normalized.layout.blocks[0].visualizationSpec.measures, [{ field: 'title', aggregation: 'count', alias: 'count_title' }]);
   assert.equal(normalized.scenario.visualizationSpec[0].blockUse, 'ChartBlockModel');
   assert.equal(normalized.scenario.layoutCandidates[0].visualizationSpec[0].chartType, 'line');
+});
+
+test('normalizeBuildSpec preserves insight-first metadata on scenario and candidates', () => {
+  const normalized = normalizeBuildSpec(makeBuildSpecInput());
+
+  assert.equal(normalized.scenario.creativeIntent, 'insight-first');
+  assert.equal(normalized.scenario.selectedInsightStrategy, 'chart-js-mix');
+  assert.deepEqual(normalized.scenario.jsExpansionHints, ['interactive-insight-layer', 'selected-js-peer']);
+  assert.equal(normalized.scenario.layoutCandidates[0].creativeIntent, 'insight-first');
+  assert.equal(normalized.scenario.layoutCandidates[0].selectedInsightStrategy, 'chart-js-mix');
+  assert.deepEqual(normalized.scenario.layoutCandidates[0].jsExpansionHints, ['interactive-insight-layer', 'selected-js-peer']);
 });
 
 test('compileBuildSpec marks runtime-sensitive visualization blocks and keeps visualization coverage', () => {
@@ -127,4 +148,20 @@ test('compileBuildSpec marks runtime-sensitive visualization blocks and keeps vi
   assert.equal(compiled.compileArtifact.generatedCoverage.patterns.includes('chart-sql'), true);
   assert.equal(compiled.compileArtifact.generatedCoverage.patterns.includes('chart-custom-option'), true);
   assert.equal(compiled.compileArtifact.visualizationSpec[0].queryMode, 'sql');
+});
+
+test('compileBuildSpec keeps insight-first metadata in compile artifacts and candidate builds', () => {
+  const compiled = compileBuildSpec(makeBuildSpecInput());
+  const selectedCandidateBuild = compiled.compileArtifact.candidateBuilds.find((item) => item.candidateId === 'selected-primary');
+
+  assert.equal(compiled.compileArtifact.creativeIntent, 'insight-first');
+  assert.equal(compiled.compileArtifact.selectedInsightStrategy, 'chart-js-mix');
+  assert.deepEqual(compiled.compileArtifact.jsExpansionHints, ['interactive-insight-layer', 'selected-js-peer']);
+  assert.ok(selectedCandidateBuild);
+  assert.equal(selectedCandidateBuild.compileArtifact.creativeIntent, 'insight-first');
+  assert.equal(selectedCandidateBuild.compileArtifact.selectedInsightStrategy, 'chart-js-mix');
+  assert.deepEqual(
+    selectedCandidateBuild.compileArtifact.jsExpansionHints,
+    ['interactive-insight-layer', 'selected-js-peer'],
+  );
 });
