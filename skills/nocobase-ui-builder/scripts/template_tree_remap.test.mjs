@@ -2,8 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import { remapTemplateTree } from './template_tree_remap.mjs';
+
+const SCRIPT_PATH = fileURLToPath(new URL('./template_tree_remap.mjs', import.meta.url));
+const SKILL_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
 test('remapTemplateTree rewrites node uids, parentId, and defaultTargetUid for a fresh page', () => {
   const payload = {
@@ -137,18 +141,10 @@ test('template_tree_remap CLI prints remapped payload', () => {
     },
   };
 
-  const scriptPath = path.join(
-    process.cwd(),
-    'skills',
-    'nocobase-ui-builder',
-    'scripts',
-    'template_tree_remap.mjs',
-  );
-
   const output = execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'remap-tree',
       '--payload-json',
       JSON.stringify(payload),
@@ -162,7 +158,7 @@ test('template_tree_remap CLI prints remapped payload', () => {
       'case9',
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );

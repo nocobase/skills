@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   BLOCKER_EXIT_CODE,
@@ -14,13 +15,8 @@ import {
   extractRequiredMetadata,
 } from './flow_payload_guard.mjs';
 
-const SCRIPT_PATH = path.join(
-  process.cwd(),
-  'skills',
-  'nocobase-ui-builder',
-  'scripts',
-  'flow_payload_guard.mjs',
-);
+const SCRIPT_PATH = fileURLToPath(new URL('./flow_payload_guard.mjs', import.meta.url));
+const SKILL_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
 const metadata = {
   collections: {
@@ -4180,7 +4176,7 @@ test('build-filter CLI prints normalized JSON', () => {
       '"{{ctx.record.id}}"',
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );
@@ -4203,7 +4199,7 @@ test('build-query-filter CLI prints server query JSON', () => {
       '"{{ctx.record.id}}"',
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );
@@ -4227,7 +4223,7 @@ test('canonicalize-payload CLI prints normalized JSON', () => {
       VALIDATION_CASE_MODE,
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );
@@ -4261,7 +4257,7 @@ test('audit-payload CLI exits with blocker code when payload is invalid', () => 
       GENERAL_MODE,
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );

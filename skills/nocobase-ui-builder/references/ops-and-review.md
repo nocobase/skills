@@ -132,12 +132,21 @@ node scripts/tool_review_report.mjs render --log-path "<logPath>"
 
 报告至少应包含：
 
+- 结果轴：`pageShellCreated`、`routeReady`、`readbackMatched`、`dataReady`、`runtimeUsable`、`browserValidation`、`dataPreparation`
 - 运行摘要：任务、runId、状态、耗时、目标页面信息
+- 页面地址：优先输出实际 `pageUrl`
 - 工具统计：调用次数、失败次数、跳过次数
 - 失败调用：失败工具、错误摘要、关键参数
 - Guard 摘要：`audit-payload` 调用次数、blocker/warning、risk-accept
 - 时间线：`tool_call`、`note`、`phase`、`gate`
 - 可改进点：下次怎样更快达到同样结果
+
+如果日志里没有足够证据，report 可以保守输出：
+
+- `not-recorded`
+- `evidence-insufficient`
+- `skipped (not requested)`
+- `not-run`
 
 ## improve 提炼原则
 
@@ -154,12 +163,16 @@ node scripts/tool_review_report.mjs render --log-path "<logPath>"
 
 最终答复默认至少拆开这些事实：
 
-- page shell 是否已创建
-- route-ready 是否完成
-- write-after-read 是否匹配
-- validation 是否完成
-- 是否进入浏览器验证；未进入时写明 `skipped (not requested)`
-- 数据前置是否完成
+- `pageShellCreated`
+- `routeReady`
+- `readbackMatched`
+- `dataReady`
+- `runtimeUsable`
+- `browserValidation`
+- `dataPreparation`
+- `pageUrl`
 - 报告路径和 improve 路径
 
 没有 readback 或 route-ready 时，不要写“已落库完成”或“页面已可打开”。
+
+如果本轮实际搭建了页面，并且日志里存在 `pageUrl`、`adminBase + schemaUid`、或其他可推导地址，最终答复与 review report 都应给出实际页面 URL，方便点击查看；如果拿不到 URL，要明确说明缺的是哪类信息。

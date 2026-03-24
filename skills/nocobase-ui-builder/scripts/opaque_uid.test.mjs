@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   DEFAULT_REGISTRY_PATH,
@@ -18,6 +19,9 @@ import {
   resolveGroup,
   resolvePage,
 } from './opaque_uid.mjs';
+
+const SCRIPT_PATH = fileURLToPath(new URL('./opaque_uid.mjs', import.meta.url));
+const SKILL_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
 function makeRegistryPath(testName) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `opaque-uid-${testName}-`));
@@ -186,25 +190,18 @@ test('resolve-page by title fails cleanly when the registry file is missing', ()
 
 test('cli smoke test writes and resolves opaque values', () => {
   const registryPath = makeRegistryPath('cli');
-  const scriptPath = path.join(
-    process.cwd(),
-    'skills',
-    'nocobase-ui-builder',
-    'scripts',
-    'opaque_uid.mjs',
-  );
 
   const reserveOutput = execFileSync(
     process.execPath,
-    [scriptPath, 'reserve-page', '--title', 'Customers', '--registry-path', registryPath],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    [SCRIPT_PATH, 'reserve-page', '--title', 'Customers', '--registry-path', registryPath],
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
   const reserveResult = JSON.parse(reserveOutput);
 
   const resolveOutput = execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'node-uids',
       '--page-schema-uid',
       reserveResult.page.schemaUid,
@@ -217,7 +214,7 @@ test('cli smoke test writes and resolves opaque values', () => {
         },
       ]),
     ],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
   const nodeResult = JSON.parse(resolveOutput);
 
@@ -228,18 +225,10 @@ test('cli smoke test writes and resolves opaque values', () => {
 });
 
 test('cli rejects deprecated node-uid command', () => {
-  const scriptPath = path.join(
-    process.cwd(),
-    'skills',
-    'nocobase-ui-builder',
-    'scripts',
-    'opaque_uid.mjs',
-  );
-
   const result = spawnSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'node-uid',
       '--page-schema-uid',
       'k7n4x9p2q5ra',
@@ -249,7 +238,7 @@ test('cli rejects deprecated node-uid command', () => {
       'block:create-form:customers:main',
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );

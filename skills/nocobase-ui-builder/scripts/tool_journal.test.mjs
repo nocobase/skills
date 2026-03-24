@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   DEFAULT_LATEST_RUN_PATH,
@@ -19,6 +20,8 @@ import {
 import { resolveSessionPaths } from './session_state.mjs';
 
 let artifactSequence = 0;
+const SCRIPT_PATH = fileURLToPath(new URL('./tool_journal.mjs', import.meta.url));
+const SKILL_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
 function makeLogDir(testName) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `tool-journal-${testName}-`));
@@ -251,25 +254,18 @@ test('phase, gate and cache-event append structured runtime records', () => {
 test('cli smoke test writes a complete tool journal', () => {
   const logDir = makeLogDir('cli');
   const latestRunPath = makeLatestRunPath('cli');
-  const scriptPath = path.join(
-    process.cwd(),
-    'skills',
-    'nocobase-ui-builder',
-    'scripts',
-    'tool_journal.mjs',
-  );
 
   const startedOutput = execFileSync(
     process.execPath,
-    [scriptPath, 'start-run', '--task', 'Smoke test', '--log-dir', logDir, '--latest-run-path', latestRunPath],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    [SCRIPT_PATH, 'start-run', '--task', 'Smoke test', '--log-dir', logDir, '--latest-run-path', latestRunPath],
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
   const started = JSON.parse(startedOutput);
 
   execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'phase',
       '--log-path',
       started.logPath,
@@ -280,13 +276,13 @@ test('cli smoke test writes a complete tool journal', () => {
       '--attributes-json',
       '{"source":"disk"}',
     ],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
 
   execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'tool-call',
       '--log-path',
       started.logPath,
@@ -314,13 +310,13 @@ test('cli smoke test writes a complete tool journal', () => {
       '--result-json',
       '{"summary":{"targetSignature":"page.root","pageGroups":[]}}',
     ],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
 
   execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'gate',
       '--log-path',
       started.logPath,
@@ -335,13 +331,13 @@ test('cli smoke test writes a complete tool journal', () => {
       '--stopped-remaining-work',
       'false',
     ],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
 
   execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'cache-event',
       '--log-path',
       started.logPath,
@@ -356,13 +352,13 @@ test('cli smoke test writes a complete tool journal', () => {
       '--ttl-ms',
       '86400000',
     ],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
 
   execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'finish-run',
       '--log-path',
       started.logPath,
@@ -371,7 +367,7 @@ test('cli smoke test writes a complete tool journal', () => {
       '--summary',
       'done',
     ],
-    { cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'), encoding: 'utf8' },
+    { cwd: SKILL_ROOT, encoding: 'utf8' },
   );
 
   const records = readJsonLines(started.logPath);

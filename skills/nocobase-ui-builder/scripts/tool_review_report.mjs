@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 
 import { DEFAULT_BUILDER_STATE_DIR, resolveSessionPaths } from './session_state.mjs';
 import {
-  DEFAULT_LATEST_RUN_PATH,
   resolveLatestRunPath,
 } from './tool_journal.mjs';
 
@@ -50,6 +49,10 @@ const GUARD_CANONICALIZE_TOOL_NAME = 'flow_payload_guard.canonicalize-payload';
 const ROUTE_READY_TOOL_NAMES = new Set([
   'GetDesktoproutes_getaccessible',
   'GetDesktoproutes_listaccessible',
+]);
+const BROWSER_PHASE_NAMES = new Set([
+  'browser_attach',
+  'smoke',
 ]);
 
 function usage() {
@@ -151,12 +154,9 @@ export function resolveRunLogPath({
   }
   const sessionOptions = { sessionId, sessionRoot };
   const resolvedLatestRunPath = resolveLatestRunPath(latestRunPath, sessionOptions);
-  const fallbackLatestRunPath = DEFAULT_LATEST_RUN_PATH;
   const manifestPath = fs.existsSync(resolvedLatestRunPath)
     ? resolvedLatestRunPath
-    : (!latestRunPath && resolvedLatestRunPath !== fallbackLatestRunPath && fs.existsSync(fallbackLatestRunPath)
-      ? fallbackLatestRunPath
-      : '');
+    : '';
   if (!manifestPath) {
     throw new Error(
       `Latest run manifest was not found at "${resolvedLatestRunPath}"; provide --log-path explicitly`,
@@ -227,6 +227,20 @@ function normalizeItem(value) {
   return '';
 }
 
+function normalizeUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -245,6 +259,272 @@ function isPlainObject(value) {
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function normalizeOptionalString(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function normalizeGateName(value) {
+  return normalizeOptionalString(value)?.replaceAll('_', '-') ?? '';
+}
+
+function buildStatusAxis(status, detail) {
+  return {
+    status,
+    detail,
+  };
+}
+
+function formatCountLabel(count, noun) {
+  return `${count} ${noun}`;
+}
+
+function normalizeAxisStatusInput(value, { truthyStatus = 'ready', falsyStatus = 'failed' } = {}) {
+  if (typeof value === 'boolean') {
+    return value ? truthyStatus : falsyStatus;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  if (isPlainObject(value) && typeof value.status === 'string' && value.status.trim()) {
+    return value.status.trim();
+  }
+  return null;
+}
+
+function resolveExplicitAxisStatus(records, axisKey, options = {}) {
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    const record = records[index];
+    const containers = [record?.data, record?.result, record?.summary];
+    for (const container of containers) {
+      if (!isPlainObject(container)) {
+        continue;
+      }
+      const fromStatusAxes = normalizeAxisStatusInput(container.statusAxes?.[axisKey], options);
+      if (fromStatusAxes) {
+        return buildStatusAxis(fromStatusAxes, `来自 ${record.type}`);
+      }
+      const directValue = normalizeAxisStatusInput(container[axisKey], options);
+      if (directValue) {
+        return buildStatusAxis(directValue, `来自 ${record.type}`);
+      }
+    }
+  }
+  return null;
+}
+
+function resultMentionsSchemaUid(value, schemaUid, { maxDepth = 6 } = {}) {
+  const normalizedSchemaUid = normalizeOptionalString(schemaUid);
+  if (!normalizedSchemaUid) {
+    return false;
+  }
+
+  const queue = [{ value, depth: 0 }];
+  const visited = new Set();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current.depth > maxDepth) {
+      continue;
+    }
+    if (typeof current.value === 'string') {
+      if (current.value === normalizedSchemaUid || current.value === `tabs-${normalizedSchemaUid}`) {
+        return true;
+      }
+      continue;
+    }
+    if (!current.value || typeof current.value !== 'object') {
+      continue;
+    }
+    if (visited.has(current.value)) {
+      continue;
+    }
+    visited.add(current.value);
+
+    if (Array.isArray(current.value)) {
+      current.value.forEach((item) => queue.push({ value: item, depth: current.depth + 1 }));
+      continue;
+    }
+
+    for (const [key, inner] of Object.entries(current.value)) {
+      if ((key === 'schemaUid' || key === 'filterByTk') && typeof inner === 'string') {
+        if (inner === normalizedSchemaUid || inner === `tabs-${normalizedSchemaUid}`) {
+          return true;
+        }
+      }
+      queue.push({ value: inner, depth: current.depth + 1 });
+    }
+  }
+  return false;
+}
+
+function extractCallSchemaUid(call, { includeFilterByTk = false } = {}) {
+  const candidates = [
+    call?.args?.requestBody?.schemaUid,
+    call?.args?.schemaUid,
+  ];
+  if (includeFilterByTk) {
+    candidates.push(call?.args?.filterByTk);
+    candidates.push(call?.args?.requestBody?.filterByTk);
+  }
+  for (const candidate of candidates) {
+    const normalized = normalizeOptionalString(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+function extractRecordSchemaUid(record) {
+  return normalizeOptionalString(record?.data?.schemaUid)
+    ?? normalizeOptionalString(record?.schemaUid)
+    ?? null;
+}
+
+function resolveRouteTarget(records, { start, finish, toolCalls, gateRecords }) {
+  const candidates = new Map();
+
+  const addCandidate = (schemaUid, source) => {
+    const normalized = normalizeOptionalString(schemaUid);
+    if (!normalized) {
+      return;
+    }
+    const current = candidates.get(normalized) ?? new Set();
+    current.add(source);
+    candidates.set(normalized, current);
+  };
+
+  addCandidate(start?.schemaUid, 'start.schemaUid');
+  addCandidate(finish?.data?.schemaUid, 'run_finished.data.schemaUid');
+
+  for (const call of toolCalls) {
+    if (matchesToolName(call, 'PostDesktoproutes_createv2')) {
+      addCandidate(extractCallSchemaUid(call), 'createv2.args.schemaUid');
+      continue;
+    }
+    if (ROUTE_READY_TOOL_NAMES.has(normalizeToolName(call.tool))) {
+      addCandidate(extractCallSchemaUid(call, { includeFilterByTk: true }), `${normalizeToolName(call.tool)}.args`);
+    }
+  }
+
+  for (const record of gateRecords) {
+    addCandidate(extractRecordSchemaUid(record), `gate:${normalizeGateName(record.gate)}`);
+  }
+
+  for (const record of records) {
+    if (record.type === 'note') {
+      addCandidate(extractRecordSchemaUid(record), 'note.data.schemaUid');
+    }
+  }
+
+  if (candidates.size === 1) {
+    const [schemaUid, sources] = [...candidates.entries()][0];
+    return {
+      status: 'resolved',
+      schemaUid,
+      sources: [...sources].sort((left, right) => left.localeCompare(right)),
+    };
+  }
+
+  if (candidates.size === 0) {
+    return {
+      status: 'missing',
+      schemaUid: null,
+      sources: [],
+    };
+  }
+
+  return {
+    status: 'ambiguous',
+    schemaUid: null,
+    sources: [...candidates.entries()]
+      .map(([schemaUid, sources]) => `${schemaUid} <- ${[...sources].sort((left, right) => left.localeCompare(right)).join(', ')}`)
+      .sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+function buildAbsolutePageUrl(adminBase, schemaUid) {
+  const normalizedAdminBase = normalizeUrl(adminBase)?.replace(/\/+$/g, '');
+  const normalizedSchemaUid = normalizeOptionalString(schemaUid);
+  if (!normalizedAdminBase || !normalizedSchemaUid) {
+    return null;
+  }
+  return `${normalizedAdminBase}/${encodeURIComponent(normalizedSchemaUid)}`;
+}
+
+function findFirstDerivedAdminBase(records) {
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    const record = records[index];
+    const containers = [record?.data, record?.result, record?.summary, record?.metadata];
+    for (const container of containers) {
+      if (!isPlainObject(container)) {
+        continue;
+      }
+      const direct = normalizeUrl(container.adminBase);
+      if (direct) {
+        return direct;
+      }
+      const nested = normalizeUrl(container.instanceInventory?.adminBase);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+  return null;
+}
+
+function resolvePageUrl(records, { start, finish, routeReadySummary }) {
+  const candidates = [];
+  const pushCandidate = (url, source) => {
+    const normalized = normalizeUrl(url);
+    if (!normalized) {
+      return;
+    }
+    if (!candidates.some((item) => item.url === normalized)) {
+      candidates.push({ url: normalized, source });
+    }
+  };
+
+  const inspectContainer = (container, source) => {
+    if (!isPlainObject(container)) {
+      return;
+    }
+    pushCandidate(container.pageUrl, `${source}.pageUrl`);
+    if (isPlainObject(container.summary)) {
+      pushCandidate(container.summary.pageUrl, `${source}.summary.pageUrl`);
+    }
+    if (isPlainObject(container.result)) {
+      pushCandidate(container.result.pageUrl, `${source}.result.pageUrl`);
+    }
+  };
+
+  inspectContainer(start?.metadata, 'run_started.metadata');
+  inspectContainer(finish?.data, 'run_finished.data');
+
+  for (const record of records) {
+    inspectContainer(record?.data, `${record.type}.data`);
+    inspectContainer(record?.result, `${record.type}.result`);
+  }
+
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+
+  const adminBase = findFirstDerivedAdminBase(records);
+  const derived = buildAbsolutePageUrl(adminBase, routeReadySummary?.targetSchemaUid ?? start?.schemaUid ?? finish?.data?.schemaUid);
+  if (derived) {
+    return {
+      url: derived,
+      source: 'derived from adminBase + schemaUid',
+    };
+  }
+
+  return null;
 }
 
 function buildCountsByTool(toolCalls) {
@@ -561,6 +841,7 @@ function buildEvidenceInsufficientItem({
 function buildPostWriteReadbackAnalysis(toolCalls) {
   const mismatches = [];
   const evidenceInsufficient = [];
+  const matched = [];
 
   for (let index = 0; index < toolCalls.length; index += 1) {
     const writeCall = toolCalls[index];
@@ -647,6 +928,11 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
 
     const evidence = compareStructuredSummaries(writeSummary, readSummary);
     if (evidence.length === 0) {
+      matched.push({
+        writeTool: normalizeToolName(writeCall.tool),
+        readTool: normalizeToolName(readbackCall.tool),
+        targetSignature: writeTargetSignature,
+      });
       continue;
     }
 
@@ -665,6 +951,7 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
   return {
     mismatches,
     evidenceInsufficient,
+    matched,
   };
 }
 
@@ -777,7 +1064,12 @@ function buildCacheSummary(records) {
 }
 
 function buildGateSummaryRecords(records) {
-  const gateRecords = records.filter((record) => record.type === 'gate');
+  const gateRecords = records
+    .filter((record) => record.type === 'gate')
+    .map((record) => ({
+      ...record,
+      gate: normalizeGateName(record.gate),
+    }));
   return {
     total: gateRecords.length,
     passed: gateRecords.filter((record) => record.status === 'passed').length,
@@ -787,16 +1079,77 @@ function buildGateSummaryRecords(records) {
   };
 }
 
-function buildRouteReadySummary(toolCalls, gateRecords) {
-  const createPageCount = toolCalls.filter((record) => matchesToolName(record, 'PostDesktoproutes_createv2')).length;
-  const routeReadCalls = toolCalls.filter((record) => ROUTE_READY_TOOL_NAMES.has(normalizeToolName(record.tool)));
-  const preOpenGateCount = gateRecords.filter((record) => record.gate === 'pre-open').length;
+function buildRouteReadySummary(records, { start, finish, toolCalls, gateRecords }) {
+  const target = resolveRouteTarget(records, {
+    start,
+    finish,
+    toolCalls,
+    gateRecords,
+  });
+  const createCalls = toolCalls.filter((record) => matchesToolName(record, 'PostDesktoproutes_createv2'));
+  const targetSchemaUid = target.schemaUid;
+
+  const createSuccessCalls = createCalls.filter((record) => {
+    if (target.status === 'resolved') {
+      return extractCallSchemaUid(record) === targetSchemaUid && record.status !== 'error' && record.status !== 'skipped';
+    }
+    return record.status !== 'error' && record.status !== 'skipped';
+  });
+  const createErrorCalls = createCalls.filter((record) => {
+    if (target.status === 'resolved') {
+      return extractCallSchemaUid(record) === targetSchemaUid && record.status === 'error';
+    }
+    return record.status === 'error';
+  });
+
+  const routeReadCalls = [];
+  const routeReadTools = new Set();
+  const routeReadEvidenceInsufficient = [];
+  const routeReadCandidates = toolCalls.filter((record) => ROUTE_READY_TOOL_NAMES.has(normalizeToolName(record.tool)));
+  for (const record of routeReadCandidates) {
+    if (target.status !== 'resolved') {
+      routeReadEvidenceInsufficient.push(`${normalizeToolName(record.tool)}: target schemaUid ${target.status}`);
+      continue;
+    }
+    const boundSchemaUid = extractCallSchemaUid(record, { includeFilterByTk: true });
+    const isExplicitMatch = boundSchemaUid === targetSchemaUid;
+    const mentionsTargetInResult = resultMentionsSchemaUid(record.result, targetSchemaUid);
+    if ((isExplicitMatch || mentionsTargetInResult) && record.status !== 'error' && record.status !== 'skipped') {
+      routeReadCalls.push(record);
+      routeReadTools.add(normalizeToolName(record.tool));
+      continue;
+    }
+    routeReadEvidenceInsufficient.push(`${normalizeToolName(record.tool)}: no explicit target binding for ${targetSchemaUid}`);
+  }
+
+  const preOpenGateRecords = [];
+  const preOpenEvidenceInsufficient = [];
+  for (const record of gateRecords.filter((item) => item.gate === 'pre-open')) {
+    if (target.status !== 'resolved') {
+      preOpenEvidenceInsufficient.push(`pre-open: target schemaUid ${target.status}`);
+      continue;
+    }
+    const gateSchemaUid = extractRecordSchemaUid(record);
+    if (!gateSchemaUid || gateSchemaUid === targetSchemaUid) {
+      preOpenGateRecords.push(record);
+      continue;
+    }
+    preOpenEvidenceInsufficient.push(`pre-open: schemaUid ${gateSchemaUid} does not match ${targetSchemaUid}`);
+  }
 
   return {
-    createPageCount,
+    target,
+    targetSchemaUid,
+    createPageCount: createCalls.length,
+    createSuccessCount: createSuccessCalls.length,
+    createErrorCount: createErrorCalls.length,
     routeReadCount: routeReadCalls.length,
-    preOpenGateCount,
-    routeReadTools: [...new Set(routeReadCalls.map((record) => normalizeToolName(record.tool)))],
+    routeReadTotalCount: routeReadCandidates.length,
+    preOpenGateCount: preOpenGateRecords.length,
+    preOpenGateTotalCount: gateRecords.filter((record) => record.gate === 'pre-open').length,
+    routeReadTools: [...routeReadTools].sort((left, right) => left.localeCompare(right)),
+    routeReadEvidenceInsufficient,
+    preOpenEvidenceInsufficient,
   };
 }
 
@@ -1037,6 +1390,162 @@ function buildOptimizationItems({
   return items;
 }
 
+function describeRouteTarget(target) {
+  if (target.status === 'resolved') {
+    return `schemaUid=${target.schemaUid}`;
+  }
+  if (target.sources.length > 0) {
+    return target.sources.join('；');
+  }
+  return '未记录 schemaUid';
+}
+
+function summarizeStatusAxes({
+  records,
+  hasWrites,
+  phaseRecords,
+  gateSummary,
+  routeReadySummary,
+  readbackAnalysis,
+}) {
+  const pageShellExplicit = resolveExplicitAxisStatus(records, 'pageShellCreated', {
+    truthyStatus: 'created',
+    falsyStatus: 'failed',
+  });
+  const routeReadyExplicit = resolveExplicitAxisStatus(records, 'routeReady');
+  const readbackExplicit = resolveExplicitAxisStatus(records, 'readbackMatched');
+  const dataReadyExplicit = resolveExplicitAxisStatus(records, 'dataReady');
+  const runtimeExplicit = resolveExplicitAxisStatus(records, 'runtimeUsable');
+  const browserExplicit = resolveExplicitAxisStatus(records, 'browserValidation');
+  const dataPreparationExplicit = resolveExplicitAxisStatus(records, 'dataPreparation', {
+    truthyStatus: 'done',
+    falsyStatus: 'failed',
+  });
+
+  const pageShellCreated = pageShellExplicit ?? (() => {
+    if (routeReadySummary.createPageCount === 0) {
+      return buildStatusAxis('not-recorded', '未记录 `PostDesktoproutes_createv2`。');
+    }
+    if (routeReadySummary.target.status === 'ambiguous') {
+      return buildStatusAxis('evidence-insufficient', `createV2 目标不唯一：${describeRouteTarget(routeReadySummary.target)}`);
+    }
+    if (routeReadySummary.createSuccessCount > 0) {
+      return buildStatusAxis(
+        'created',
+        `${describeRouteTarget(routeReadySummary.target)}；createV2 成功 ${formatCountLabel(routeReadySummary.createSuccessCount, '次')}`,
+      );
+    }
+    if (routeReadySummary.createErrorCount > 0) {
+      return buildStatusAxis('failed', `${describeRouteTarget(routeReadySummary.target)}；createV2 失败 ${formatCountLabel(routeReadySummary.createErrorCount, '次')}`);
+    }
+    return buildStatusAxis('not-recorded', '检测到 createV2，但无法确认成功结果。');
+  })();
+
+  const routeReady = routeReadyExplicit ?? (() => {
+    if (routeReadySummary.createPageCount === 0 && routeReadySummary.routeReadTotalCount === 0) {
+      return buildStatusAxis('not-recorded', '未记录 route-ready 相关工具调用。');
+    }
+    if (routeReadySummary.target.status !== 'resolved' && (routeReadySummary.createPageCount > 0 || routeReadySummary.routeReadTotalCount > 0)) {
+      return buildStatusAxis('evidence-insufficient', `route-ready 目标不明确：${describeRouteTarget(routeReadySummary.target)}`);
+    }
+    if (routeReadySummary.routeReadCount > 0) {
+      return buildStatusAxis(
+        'ready',
+        `${describeRouteTarget(routeReadySummary.target)}；${routeReadySummary.routeReadTools.join(' / ')} x${routeReadySummary.routeReadCount}`,
+      );
+    }
+    if (routeReadySummary.routeReadTotalCount > 0 || routeReadySummary.routeReadEvidenceInsufficient.length > 0) {
+      return buildStatusAxis(
+        'evidence-insufficient',
+        [...routeReadySummary.routeReadEvidenceInsufficient].slice(0, 2).join('；') || '存在 route-ready 调用，但没有显式绑定到目标页面。',
+      );
+    }
+    if (routeReadySummary.createSuccessCount > 0) {
+      return buildStatusAxis('not-ready', `${describeRouteTarget(routeReadySummary.target)}；createV2 后没有 route-ready 证据。`);
+    }
+    return buildStatusAxis('not-recorded', '未记录 route-ready 结论。');
+  })();
+
+  const readbackMatched = readbackExplicit ?? (() => {
+    if (readbackAnalysis.mismatches.length > 0) {
+      return buildStatusAxis(
+        'mismatch',
+        `${formatCountLabel(readbackAnalysis.mismatches.length, '组')} write-after-read mismatch`,
+      );
+    }
+    if (readbackAnalysis.evidenceInsufficient.length > 0) {
+      const detail = [
+        readbackAnalysis.matched.length > 0 ? `matched ${readbackAnalysis.matched.length} 组` : null,
+        `证据不足 ${readbackAnalysis.evidenceInsufficient.length} 组`,
+      ].filter(Boolean).join('；');
+      return buildStatusAxis('evidence-insufficient', detail);
+    }
+    if (readbackAnalysis.matched.length > 0) {
+      return buildStatusAxis('matched', `${formatCountLabel(readbackAnalysis.matched.length, '组')} readback matched`);
+    }
+    if (hasWrites) {
+      return buildStatusAxis('not-recorded', '存在写操作，但没有形成可判定的 readback 结论。');
+    }
+    return buildStatusAxis('not-recorded', '未记录 write-after-read 对账。');
+  })();
+
+  const dataPreparation = dataPreparationExplicit ?? buildStatusAxis('not-recorded', '日志中没有稳定的数据准备信号。');
+  const dataReady = dataReadyExplicit ?? buildStatusAxis('not-recorded', '日志中没有稳定的数据 readiness 信号。');
+
+  const browserPhaseRecords = phaseRecords.filter((record) => BROWSER_PHASE_NAMES.has(record.phase));
+  const browserEndRecords = browserPhaseRecords.filter((record) => record.event === 'end');
+  const browserGateRecords = gateSummary.records.filter((record) => record.gate === 'pre-open' || record.gate.startsWith('stage:'));
+  const browserFailed = browserGateRecords.some((record) => record.status === 'failed')
+    || browserEndRecords.some((record) => record.status === 'error');
+  const browserPassed = browserGateRecords.some((record) => record.status === 'passed')
+    || browserEndRecords.some((record) => record.status === 'ok');
+  const browserSkippedOnly = browserEndRecords.length > 0
+    && browserEndRecords.every((record) => record.status === 'skipped')
+    && browserGateRecords.length === 0;
+  const hasBrowserEvidence = browserPhaseRecords.length > 0 || browserGateRecords.length > 0;
+
+  const browserValidation = browserExplicit ?? (() => {
+    if (!hasBrowserEvidence) {
+      return buildStatusAxis('skipped (not requested)', '未记录 browser_attach / smoke / pre-open / stage gate。');
+    }
+    if (browserFailed) {
+      return buildStatusAxis('failed', `${formatCountLabel(browserGateRecords.filter((record) => record.status === 'failed').length, '个')} browser gate 失败`);
+    }
+    if (browserSkippedOnly) {
+      return buildStatusAxis('skipped', '浏览器阶段被显式跳过。');
+    }
+    if (browserPassed) {
+      return buildStatusAxis('passed', `${formatCountLabel(browserGateRecords.filter((record) => record.status === 'passed').length, '个')} browser gate 通过`);
+    }
+    return buildStatusAxis('not-recorded', '进入了浏览器相关阶段，但没有形成可判定结论。');
+  })();
+
+  const runtimeUsable = runtimeExplicit ?? (() => {
+    if (!hasBrowserEvidence) {
+      return buildStatusAxis('not-run', '没有浏览器验证证据。');
+    }
+    if (browserFailed) {
+      return buildStatusAxis('failed', '浏览器 gate 或 smoke 阶段存在失败。');
+    }
+    const runtimePassCount = browserGateRecords.filter((record) => record.gate.startsWith('stage:') && record.status === 'passed').length;
+    const smokeOkCount = browserEndRecords.filter((record) => record.phase === 'smoke' && record.status === 'ok').length;
+    if (runtimePassCount > 0 || smokeOkCount > 0) {
+      return buildStatusAxis('usable', `stage pass ${runtimePassCount}；smoke ok ${smokeOkCount}`);
+    }
+    return buildStatusAxis('not-recorded', '只有 pre-open 或 attach 证据，尚不足以确认 runtime usable。');
+  })();
+
+  return {
+    pageShellCreated,
+    routeReady,
+    readbackMatched,
+    dataReady,
+    runtimeUsable,
+    browserValidation,
+    dataPreparation,
+  };
+}
+
 export function analyzeRun(records, sourceLogPath) {
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error('run log is empty');
@@ -1077,7 +1586,25 @@ export function analyzeRun(records, sourceLogPath) {
   const phaseSummary = buildPhaseSummary(records);
   const cacheSummary = buildCacheSummary(records);
   const gateSummary = buildGateSummaryRecords(records);
-  const routeReadySummary = buildRouteReadySummary(toolCalls, gateSummary.records);
+  const routeReadySummary = buildRouteReadySummary(records, {
+    start,
+    finish,
+    toolCalls,
+    gateRecords: gateSummary.records,
+  });
+  const pageUrl = resolvePageUrl(records, {
+    start,
+    finish,
+    routeReadySummary,
+  });
+  const statusAxes = summarizeStatusAxes({
+    records,
+    hasWrites,
+    phaseRecords,
+    gateSummary,
+    routeReadySummary,
+    readbackAnalysis,
+  });
 
   const suggestions = [];
   if (!finish) {
@@ -1142,6 +1669,9 @@ export function analyzeRun(records, sourceLogPath) {
   if (routeReadySummary.createPageCount > 0 && routeReadySummary.preOpenGateCount === 0) {
     suggestions.push('存在 `PostDesktoproutes_createv2`，但没有记录 `pre-open` gate；建议把“页面可首开、非空白、非卡骨架屏”作为独立阻断条件。');
   }
+  if (routeReadySummary.routeReadEvidenceInsufficient.length > 0 || routeReadySummary.preOpenEvidenceInsufficient.length > 0) {
+    suggestions.push('部分 route-ready / pre-open 证据没有显式绑定到目标页面；建议在日志中记录 schemaUid，避免串页或串 session。');
+  }
   if (suggestions.length === 0) {
     suggestions.push('本次日志结构完整，可继续从失败率、重复调用和探测顺序三个角度优化。');
   }
@@ -1171,6 +1701,7 @@ export function analyzeRun(records, sourceLogPath) {
     generatedAt: nowIso(),
     start,
     finish,
+    pageUrl,
     durationMs,
     durationLabel: formatDuration(durationMs),
     totalEvents: records.length,
@@ -1189,12 +1720,23 @@ export function analyzeRun(records, sourceLogPath) {
     phaseSummary,
     cacheSummary,
     gateSummary,
+    routeReadySummary,
+    pageUrl,
+    statusAxes,
     readbackMismatches,
     readbackEvidenceInsufficient,
     countsByTool: buildCountsByTool(toolCalls),
     suggestions,
     optimizationItems,
   };
+}
+
+function getStatusAxisEntries(summary) {
+  return Object.entries(summary.statusAxes ?? {}).map(([axis, value]) => ({
+    axis,
+    status: value?.status ?? 'not-recorded',
+    detail: value?.detail ?? '',
+  }));
 }
 
 function renderImprovementMarkdown(summary) {
@@ -1243,6 +1785,7 @@ function buildImprovementSnapshot(summary, improvementLogPath) {
 }
 
 function renderMarkdownReport(summary) {
+  const statusAxisEntries = getStatusAxisEntries(summary);
   const header = [
     '# NocoBase UI Builder 复盘报告',
     '',
@@ -1252,8 +1795,18 @@ function renderMarkdownReport(summary) {
     `- 运行 ID：\`${summary.start?.runId ?? '未知'}\``,
     `- 页面标题：${summary.start?.title ?? '未提供'}`,
     `- schemaUid：${summary.start?.schemaUid ?? '未提供'}`,
+    `- 页面地址：${summary.pageUrl ? `[${summary.pageUrl.url}](${summary.pageUrl.url})` : '未记录'}`,
     `- 状态：${summary.finish?.status ?? '未完成'}`,
     `- 耗时：${summary.durationLabel}`,
+    '',
+  ];
+
+  const statusAxes = [
+    '## 结果轴',
+    '',
+    '| 轴 | 状态 | 说明 |',
+    '| --- | --- | --- |',
+    ...statusAxisEntries.map((item) => `| ${escapeMarkdownCell(item.axis)} | ${escapeMarkdownCell(item.status)} | ${escapeMarkdownCell(item.detail || '—')} |`),
     '',
   ];
 
@@ -1436,6 +1989,7 @@ function renderMarkdownReport(summary) {
 
   return [
     ...header,
+    ...statusAxes,
     ...overview,
     ...phases,
     ...cache,
@@ -1451,6 +2005,13 @@ function renderMarkdownReport(summary) {
 }
 
 function renderHtmlReport(summary) {
+  const statusAxisCards = getStatusAxisEntries(summary).map((item) => `
+      <article class="card">
+        <strong>${escapeHtml(item.axis)}</strong><br>
+        <span class="badge">${escapeHtml(item.status)}</span>
+        <p class="muted">${escapeHtml(item.detail || '—')}</p>
+      </article>
+    `).join('\n');
   const failureBlocks = summary.errors.length === 0
     ? '<p class="muted">无失败调用。</p>'
     : summary.errors.map((item, index) => `
@@ -1721,6 +2282,12 @@ function renderHtmlReport(summary) {
       <article class="card"><strong>耗时</strong><br>${escapeHtml(summary.durationLabel)}</article>
       <article class="card"><strong>页面标题</strong><br>${escapeHtml(summary.start?.title ?? '未提供')}</article>
       <article class="card"><strong>schemaUid</strong><br>${escapeHtml(summary.start?.schemaUid ?? '未提供')}</article>
+      <article class="card"><strong>页面地址</strong><br>${summary.pageUrl ? `<a href="${escapeHtml(summary.pageUrl.url)}">${escapeHtml(summary.pageUrl.url)}</a>` : '未记录'}</article>
+    </section>
+
+    <h2>结果轴</h2>
+    <section class="stats">
+      ${statusAxisCards}
     </section>
 
     <h2>概览</h2>

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   canonicalizeRunJSCode,
@@ -10,7 +10,7 @@ import {
   inspectRunJSStaticCode,
 } from './runjs_guard.mjs';
 
-const SNAPSHOT_PATH = path.join(process.cwd(), 'skills', 'nocobase-ui-builder', 'scripts', 'runjs_contract_snapshot.json');
+const SNAPSHOT_PATH = fileURLToPath(new URL('./runjs_contract_snapshot.json', import.meta.url));
 
 test('collectRunJSNodes discovers JS block, field and action RunJS payloads', () => {
   const payload = {

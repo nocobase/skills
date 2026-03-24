@@ -9,12 +9,14 @@ const __dirname = path.dirname(__filename);
 
 export const DEFAULT_SKILL_ROOT = path.resolve(__dirname, '..');
 export const ROOT_INDEX_MIRROR_DIRS = ['blocks', 'patterns', 'js-models'];
+export const ROOT_DIRECT_LINK_DIRS = ['recipes'];
 
 function createContext(skillRootInput = DEFAULT_SKILL_ROOT) {
   const skillRoot = path.resolve(skillRootInput);
   return {
     skillRoot,
     skillPath: path.join(skillRoot, 'SKILL.md'),
+    agentConfigPath: path.join(skillRoot, 'agents', 'openai.yaml'),
     referencesRoot: path.join(skillRoot, 'references'),
     referencesIndexPath: path.join(skillRoot, 'references', 'index.md'),
   };
@@ -118,7 +120,7 @@ function collectRootLinkedReferenceDocs(context) {
 
 function checkLineBudgets(context, failures) {
   const budgetMap = new Map([
-    ['SKILL.md', 350],
+    ['SKILL.md', 220],
     ['references/index.md', 150],
   ]);
   const exemptPrefixes = [
@@ -165,6 +167,15 @@ function checkTopLevelReferenceReachability(context, failures) {
   for (const filePath of listDirectMarkdownFiles(context.referencesRoot)) {
     if (!rootLinkedDocs.has(filePath)) {
       failures.push(`Top-level reference doc is not directly linked from SKILL.md or references/index.md: ${toRelative(context, filePath)}`);
+    }
+  }
+
+  for (const directoryName of ROOT_DIRECT_LINK_DIRS) {
+    const targetDir = path.join(context.referencesRoot, directoryName);
+    for (const filePath of listFiles(targetDir, (candidate) => candidate.endsWith('.md'))) {
+      if (!rootLinkedDocs.has(filePath)) {
+        failures.push(`Reference doc is not directly linked from SKILL.md or references/index.md: ${toRelative(context, filePath)}`);
+      }
     }
   }
 }
@@ -220,6 +231,16 @@ function checkAllowedToolsPolicy(context, failures) {
   }
 }
 
+function checkAgentConfig(context, failures) {
+  if (!fs.existsSync(context.agentConfigPath)) {
+    failures.push(`Missing agent config: ${toRelative(context, context.agentConfigPath)}`);
+    return;
+  }
+  if (!readText(context.agentConfigPath).trim()) {
+    failures.push(`Agent config is empty: ${toRelative(context, context.agentConfigPath)}`);
+  }
+}
+
 export function collectDocsContractFailures({ skillRoot = DEFAULT_SKILL_ROOT } = {}) {
   const context = createContext(skillRoot);
   const failures = [];
@@ -229,6 +250,7 @@ export function collectDocsContractFailures({ skillRoot = DEFAULT_SKILL_ROOT } =
   checkTopLevelReferenceReachability(context, failures);
   checkRootIndexMirrorsSubindexes(context, failures);
   checkAllowedToolsPolicy(context, failures);
+  checkAgentConfig(context, failures);
 
   return failures;
 }

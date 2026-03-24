@@ -25,6 +25,7 @@ validation 默认拆成两层：
 - `browser_attach` / `smoke` 记为 `skipped`
 - 最终只能汇报到 `data-ready`
 - `runtime-usable` 必须明确写成 `not-run` 或 `unverified`
+- 如果日志没有足够证据支撑某条结论，report 应保守写成 `not-recorded` 或 `evidence-insufficient`
 
 ## 目标
 
@@ -166,6 +167,9 @@ validation 不应该只验证“页面壳有没有搭起来”；默认至少还
 ### 输出要求
 
 - 最终说明里必须单独交代“数据准备”结果，而不只是页面搭建结果。
+- 最终说明与 review report 默认至少拆开：
+  `pageShellCreated`、`routeReady`、`readbackMatched`、`dataReady`、`runtimeUsable`、`browserValidation`、`dataPreparation`、`pageUrl`
+- 如果本轮实际搭建了页面，并且能从 `adminBase`、候选页面 URL 或运行结果里推导地址，必须给出实际页面 URL，方便点击查看。
 - 如果本轮未进入浏览器验证，要明确说明数据 readiness 是通过查询 / readback 还是其他非浏览器证据确认的。
 - 如果 UI 已创建但没有完成造数或造数校验，这次 validation 应视为未完整完成。
 - 如果因为系统能力、权限限制或当前实现缺口导致未能造数，必须明确指出具体阻塞点。

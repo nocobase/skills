@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -13,6 +14,8 @@ import {
   resolveSlotCatalog,
   rewriteArtifactNames,
 } from './flow_schema_graph.mjs';
+
+const FIXTURE_GRAPH_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'references', 'flow-schemas');
 
 function makeTempDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
@@ -217,14 +220,13 @@ test('buildFlowSchemaGraph rewrites raw snapshot into model/catalog/artifact gra
 });
 
 test('generated repo graph exposes common models through refs and branch hydration', () => {
-  const graphDir = path.join(process.cwd(), 'skills/nocobase-ui-builder/references/flow-schemas');
-  const graph = loadFlowSchemaGraph(graphDir);
+  const graph = loadFlowSchemaGraph(FIXTURE_GRAPH_DIR);
 
   assert.equal(graph.manifest.meta.format, 'flow-schema-graph/v2');
   assert.equal(graph.manifest.meta.useCount >= 100, true);
   assert.equal(typeof graph.manifest.modelsByUse.TableBlockModel === 'string', true);
 
-  const tableModel = materializeUse(graphDir, 'TableBlockModel');
+  const tableModel = materializeUse(FIXTURE_GRAPH_DIR, 'TableBlockModel');
   assert.equal(tableModel.use, 'TableBlockModel');
   assert.equal(tableModel.jsonSchema.properties.subModels.properties.columns.xFlowGraphSlotRef.slot, 'columns');
   assert.deepEqual(
@@ -232,11 +234,11 @@ test('generated repo graph exposes common models through refs and branch hydrati
     ['TableColumnModel', 'TableActionsColumnModel', 'JSColumnModel', 'TableCustomColumnModel'],
   );
 
-  const detailsModel = materializeUse(graphDir, 'DetailsBlockModel');
+  const detailsModel = materializeUse(FIXTURE_GRAPH_DIR, 'DetailsBlockModel');
   assert.equal(detailsModel.jsonSchema.properties.subModels.properties.grid.xFlowGraphSlotRef.slot, 'grid');
   assert.equal(detailsModel.slots.actions.candidates.some((item) => item.use === 'ViewActionModel'), true);
 
-  const createFormBranch = hydrateBranch(graphDir, 'CreateFormModel', 'grid/FormGridModel/items/FormItemModel');
+  const createFormBranch = hydrateBranch(FIXTURE_GRAPH_DIR, 'CreateFormModel', 'grid/FormGridModel/items/FormItemModel');
   assert.equal(createFormBranch.leafModel.use, 'FormItemModel');
   assert.equal(createFormBranch.hops[0].slot, 'grid');
   assert.equal(createFormBranch.hops[1].slot, 'items');

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   DEFAULT_IMPROVEMENT_LOG_PATH,
@@ -29,6 +30,8 @@ function makeTempDir(testName) {
 }
 
 let rawArtifactSequence = 0;
+const SCRIPT_PATH = fileURLToPath(new URL('./tool_review_report.mjs', import.meta.url));
+const SKILL_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 
 function writeRawMcpArtifact(logPath, {
   status = 'ok',
@@ -190,6 +193,9 @@ test('renderReport writes markdown and html outputs from a log path', () => {
     logPath: started.logPath,
     status: 'partial',
     summary: 'write failed',
+    data: {
+      pageUrl: 'http://127.0.0.1:23000/admin/k7n4x9p2q5ra',
+    },
   });
 
   const result = renderReport({
@@ -206,6 +212,10 @@ test('renderReport writes markdown and html outputs from a log path', () => {
   const improvementLog = fs.readFileSync(result.improvementLogPath, 'utf8');
 
   assert.match(markdown, /NocoBase UI Builder 复盘报告/);
+  assert.match(markdown, /## 结果轴/);
+  assert.match(markdown, /browserValidation \| skipped \(not requested\)/);
+  assert.match(markdown, /runtimeUsable \| not-run/);
+  assert.match(markdown, /http:\/\/127\.0\.0\.1:23000\/admin\/k7n4x9p2q5ra/);
   assert.match(markdown, /unsupported-model-use/);
   assert.match(markdown, /存在写操作，但没有记录 `PostFlowmodels_schemas`/);
   assert.match(markdown, /Guard 摘要/);
@@ -216,6 +226,8 @@ test('renderReport writes markdown and html outputs from a log path', () => {
   assert.match(markdown, /缺少 `flow_payload_guard.audit-payload`/);
   assert.match(markdown, /自动改进建议/);
   assert.match(html, /复盘报告/);
+  assert.match(html, /结果轴/);
+  assert.match(html, /http:\/\/127\.0\.0\.1:23000\/admin\/k7n4x9p2q5ra/);
   assert.match(html, /阶段耗时画像/);
   assert.match(html, /Stable Cache 摘要/);
   assert.match(html, /Gate 摘要/);
@@ -293,6 +305,135 @@ test('analyzeRun recognizes prefixed MCP tool names and flags missing route-read
   assert.ok(summary.suggestions.some((item) => item.includes('accessible route 回读')));
   assert.ok(summary.suggestions.some((item) => item.includes('`pre-open` gate')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('route-ready')));
+});
+
+test('analyzeRun builds structured status axes for page shell, route-ready and readback', () => {
+  const rootDir = makeTempDir('status-axes');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Create orders page',
+    schemaUid: 'page-orders',
+    logDir,
+    latestRunPath,
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostDesktoproutes_createv2',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'create page shell',
+    args: {
+      requestBody: {
+        schemaUid: 'page-orders',
+      },
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetDesktoproutes_getaccessible',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'route-ready check',
+    args: {
+      filterByTk: 'page-orders',
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostFlowmodels_save',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'save page root',
+    args: {
+      targetSignature: 'page.root',
+    },
+    result: {
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [],
+      },
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetFlowmodels_findone',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'readback page root',
+    args: {
+      parentId: 'page-orders',
+      subKey: 'page',
+      targetSignature: 'page.root',
+    },
+    result: {
+      summary: {
+        targetSignature: 'page.root',
+        pageGroups: [],
+      },
+    },
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.statusAxes.pageShellCreated.status, 'created');
+  assert.equal(summary.statusAxes.routeReady.status, 'ready');
+  assert.equal(summary.statusAxes.readbackMatched.status, 'matched');
+  assert.equal(summary.statusAxes.browserValidation.status, 'skipped (not requested)');
+  assert.equal(summary.statusAxes.runtimeUsable.status, 'not-run');
+  assert.equal(summary.statusAxes.dataReady.status, 'not-recorded');
+  assert.equal(summary.statusAxes.dataPreparation.status, 'not-recorded');
+});
+
+test('analyzeRun keeps route-ready evidence conservative when route reads are not bound to the target page', () => {
+  const rootDir = makeTempDir('route-binding');
+  const logDir = path.join(rootDir, 'logs');
+  const latestRunPath = path.join(rootDir, 'latest-run.json');
+
+  const started = startRun({
+    task: 'Create orders page',
+    schemaUid: 'page-orders',
+    logDir,
+    latestRunPath,
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'PostDesktoproutes_createv2',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'create target page shell',
+    args: {
+      requestBody: {
+        schemaUid: 'page-orders',
+      },
+    },
+  });
+  recordToolCall({
+    logPath: started.logPath,
+    tool: 'GetDesktoproutes_getaccessible',
+    toolType: 'mcp',
+    status: 'ok',
+    summary: 'route check for another page',
+    args: {
+      filterByTk: 'page-other',
+    },
+  });
+  recordGate({
+    logPath: started.logPath,
+    gate: 'pre_open',
+    status: 'passed',
+    reasonCode: 'PREOPEN_READY',
+    findings: [],
+    data: {
+      schemaUid: 'page-other',
+    },
+  });
+
+  const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
+  assert.equal(summary.routeReadySummary.routeReadCount, 0);
+  assert.equal(summary.routeReadySummary.routeReadEvidenceInsufficient.length, 1);
+  assert.equal(summary.statusAxes.routeReady.status, 'evidence-insufficient');
+  assert.ok(summary.suggestions.some((item) => item.includes('显式绑定到目标页面')));
 });
 
 test('analyzeRun summarizes phase, cache and gate telemetry', () => {
@@ -1033,18 +1174,10 @@ test('cli render resolves latest-run manifest automatically', () => {
     summary: 'done',
   });
 
-  const scriptPath = path.join(
-    process.cwd(),
-    'skills',
-    'nocobase-ui-builder',
-    'scripts',
-    'tool_review_report.mjs',
-  );
-
   const output = execFileSync(
     process.execPath,
     [
-      scriptPath,
+      SCRIPT_PATH,
       'render',
       '--latest-run-path',
       latestRunPath,
@@ -1056,7 +1189,7 @@ test('cli render resolves latest-run manifest automatically', () => {
       improvementLogPath,
     ],
     {
-      cwd: path.join(process.cwd(), 'skills', 'nocobase-ui-builder'),
+      cwd: SKILL_ROOT,
       encoding: 'utf8',
     },
   );
