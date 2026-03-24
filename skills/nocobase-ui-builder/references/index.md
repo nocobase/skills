@@ -60,6 +60,8 @@ description: 按任务类型直达 canonical docs、block docs、pattern docs、
 - [blocks/details.md](blocks/details.md)
 - [blocks/create-form.md](blocks/create-form.md)
 - [blocks/edit-form.md](blocks/edit-form.md)
+- [blocks/chart.md](blocks/chart.md)
+- [blocks/grid-card.md](blocks/grid-card.md)
 
 ## 横切模式文档
 

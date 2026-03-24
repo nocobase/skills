@@ -64,6 +64,18 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'FILTER_MANAGER_TARGET_MISSING',
   'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
   'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
+  'CHART_QUERY_MODE_MISSING',
+  'CHART_OPTION_MODE_MISSING',
+  'CHART_BUILDER_COLLECTION_PATH_MISSING',
+  'CHART_SQL_DATASOURCE_MISSING',
+  'CHART_SQL_TEXT_MISSING',
+  'CHART_CUSTOM_OPTION_RAW_MISSING',
+  'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS',
+  'GRID_CARD_ITEM_SUBMODEL_MISSING',
+  'GRID_CARD_ITEM_USE_INVALID',
+  'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID',
+  'GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID',
+  'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID',
 ]);
 
 const POPUP_INPUT_ARGS_FILTER_BY_TK = '{{ctx.view.inputArgs.filterByTk}}';
@@ -117,6 +129,8 @@ function resolveBusinessBlockUses(requirements) {
 }
 const FORM_BLOCK_MODEL_USES = new Set(['CreateFormModel', 'EditFormModel']);
 const FORM_BLOCK_ACTION_MODEL_USES = new Set(['FormSubmitActionModel', 'JSFormActionModel']);
+const CHART_QUERY_MODES = new Set(['builder', 'sql']);
+const CHART_OPTION_MODES = new Set(['basic', 'custom']);
 const COLLECTION_ACTION_MODEL_USES = new Set([
   'AddNewActionModel',
   'BulkDeleteActionModel',
@@ -143,7 +157,8 @@ const FILTER_FORM_ACTION_MODEL_USES = new Set([
   'FilterFormCollapseActionModel',
   'FilterFormJSActionModel',
 ]);
-const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel']);
+const GRID_CARD_ITEM_MODEL_USES = new Set(['GridCardItemModel']);
+const ACTION_HOST_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'GridCardBlockModel', 'GridCardItemModel']);
 const EDIT_FORM_MODEL_USES = new Set(['EditFormModel']);
 const CREATE_FORM_MODEL_USES = new Set(['CreateFormModel']);
 const FILTER_CONTAINER_MODEL_USES = new Set(['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel']);
@@ -1893,6 +1908,24 @@ function listActionSlotsForNode(node, pathValue) {
       path: `${pathValue}.subModels.actions`,
       actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
     });
+    return slots;
+  }
+
+  if (node.use === 'GridCardBlockModel') {
+    slots.push({
+      scope: 'block-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
+    return slots;
+  }
+
+  if (node.use === 'GridCardItemModel') {
+    slots.push({
+      scope: 'row-actions',
+      path: `${pathValue}.subModels.actions`,
+      actions: Array.isArray(node.subModels?.actions) ? node.subModels.actions : [],
+    });
   }
 
   return slots;
@@ -1905,13 +1938,13 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen, busin
     if (!isPlainObject(node) || !ACTION_HOST_MODEL_USES.has(node.use)) {
       return;
     }
-    if (requirement.scope === 'row-actions' && node.use !== 'TableBlockModel') {
+    if (requirement.scope === 'row-actions' && node.use !== 'TableBlockModel' && node.use !== 'GridCardItemModel') {
       return;
     }
     if (requirement.scope === 'details-actions' && node.use !== 'DetailsBlockModel') {
       return;
     }
-    if (requirement.scope === 'block-actions' && node.use !== 'TableBlockModel') {
+    if (requirement.scope === 'block-actions' && node.use !== 'TableBlockModel' && node.use !== 'GridCardBlockModel') {
       return;
     }
 
@@ -2980,6 +3013,184 @@ function inspectCollectionResourceContracts(payload, mode, blockers, seen) {
   });
 }
 
+function inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, blockerSeen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'ChartBlockModel') {
+      return;
+    }
+
+    const configure = isPlainObject(node.stepParams?.chartSettings?.configure)
+      ? node.stepParams.chartSettings.configure
+      : null;
+    const query = isPlainObject(configure?.query) ? configure.query : null;
+    const chart = isPlainObject(configure?.chart) ? configure.chart : null;
+    const option = isPlainObject(chart?.option) ? chart.option : null;
+    const events = isPlainObject(chart?.events) ? chart.events : null;
+    const resourceInit = isPlainObject(node.stepParams?.resourceSettings?.init)
+      ? node.stepParams.resourceSettings.init
+      : null;
+
+    const queryMode = normalizeOptionalText(query?.mode);
+    const optionMode = normalizeOptionalText(option?.mode);
+    const collectionPath = Array.isArray(query?.collectionPath)
+      ? query.collectionPath
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+      : [];
+
+    if (!CHART_QUERY_MODES.has(queryMode)) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_QUERY_MODE_MISSING',
+        message: 'ChartBlockModel 缺少 stepParams.chartSettings.configure.query.mode；skill 只接受 builder 或 sql 两种显式模式。',
+        path: `${pathValue}.stepParams.chartSettings.configure.query.mode`,
+        mode,
+        dedupeKey: `CHART_QUERY_MODE_MISSING:${pathValue}`,
+      }));
+    }
+
+    if (!CHART_OPTION_MODES.has(optionMode)) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_OPTION_MODE_MISSING',
+        message: 'ChartBlockModel 缺少 stepParams.chartSettings.configure.chart.option.mode；skill 只接受 basic 或 custom 两种显式模式。',
+        path: `${pathValue}.stepParams.chartSettings.configure.chart.option.mode`,
+        mode,
+        dedupeKey: `CHART_OPTION_MODE_MISSING:${pathValue}`,
+      }));
+    }
+
+    if (
+      resourceInit
+      && normalizeOptionalText(resourceInit.collectionName)
+      && collectionPath.length === 0
+    ) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS',
+        message: 'ChartBlockModel 把 collection 放进了 resourceSettings，但图表查询真正读取的是 chartSettings.configure.query；请把 collectionPath 配到 query 下。',
+        path: `${pathValue}.stepParams.resourceSettings.init`,
+        mode,
+        dedupeKey: `CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS:${pathValue}`,
+        details: {
+          collectionName: normalizeOptionalText(resourceInit.collectionName) || null,
+        },
+      }));
+    }
+
+    if (queryMode === 'builder' && collectionPath.length === 0) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_BUILDER_COLLECTION_PATH_MISSING',
+        message: 'ChartBlockModel 使用 builder 查询时，必须显式提供 chartSettings.configure.query.collectionPath。',
+        path: `${pathValue}.stepParams.chartSettings.configure.query.collectionPath`,
+        mode,
+        dedupeKey: `CHART_BUILDER_COLLECTION_PATH_MISSING:${pathValue}`,
+      }));
+    }
+
+    if (queryMode === 'sql') {
+      if (!normalizeOptionalText(query?.sqlDatasource)) {
+        pushFinding(blockers, blockerSeen, createFinding({
+          severity: 'blocker',
+          code: 'CHART_SQL_DATASOURCE_MISSING',
+          message: 'ChartBlockModel 使用 sql 查询时，必须显式提供 chartSettings.configure.query.sqlDatasource。',
+          path: `${pathValue}.stepParams.chartSettings.configure.query.sqlDatasource`,
+          mode,
+          dedupeKey: `CHART_SQL_DATASOURCE_MISSING:${pathValue}`,
+        }));
+      }
+      if (!normalizeOptionalText(query?.sql)) {
+        pushFinding(blockers, blockerSeen, createFinding({
+          severity: 'blocker',
+          code: 'CHART_SQL_TEXT_MISSING',
+          message: 'ChartBlockModel 使用 sql 查询时，必须显式提供 chartSettings.configure.query.sql。',
+          path: `${pathValue}.stepParams.chartSettings.configure.query.sql`,
+          mode,
+          dedupeKey: `CHART_SQL_TEXT_MISSING:${pathValue}`,
+        }));
+      }
+    }
+
+    if (optionMode === 'custom' && !normalizeOptionalText(option?.raw)) {
+      pushFinding(blockers, blockerSeen, createFinding({
+        severity: 'blocker',
+        code: 'CHART_CUSTOM_OPTION_RAW_MISSING',
+        message: 'ChartBlockModel 使用 custom option 时，必须显式提供 chartSettings.configure.chart.option.raw。',
+        path: `${pathValue}.stepParams.chartSettings.configure.chart.option.raw`,
+        mode,
+        dedupeKey: `CHART_CUSTOM_OPTION_RAW_MISSING:${pathValue}`,
+      }));
+    }
+
+    if (normalizeOptionalText(events?.raw) && !optionMode) {
+      pushFinding(warnings, warningSeen, createFinding({
+        severity: 'warning',
+        code: 'CHART_EVENTS_WITHOUT_OPTION_MODE',
+        message: 'ChartBlockModel 提供了 events.raw，但没有显式 option.mode；建议至少固定为 basic 或 custom。',
+        path: `${pathValue}.stepParams.chartSettings.configure.chart.events.raw`,
+        mode,
+        dedupeKey: `CHART_EVENTS_WITHOUT_OPTION_MODE:${pathValue}`,
+      }));
+    }
+  });
+}
+
+function inspectGridCardBlocks(payload, mode, blockers, seen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || typeof node.use !== 'string') {
+      return;
+    }
+
+    if (node.use === 'GridCardBlockModel') {
+      const itemNode = isPlainObject(node.subModels?.item) ? node.subModels.item : null;
+      if (!itemNode) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'GRID_CARD_ITEM_SUBMODEL_MISSING',
+          message: 'GridCardBlockModel 缺少 subModels.item；没有 GridCardItemModel 时，页面通常会落库成功但卡片区域空白。',
+          path: `${pathValue}.subModels.item`,
+          mode,
+          dedupeKey: `GRID_CARD_ITEM_SUBMODEL_MISSING:${pathValue}`,
+        }));
+        return;
+      }
+      if (!GRID_CARD_ITEM_MODEL_USES.has(normalizeOptionalText(itemNode.use))) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'GRID_CARD_ITEM_USE_INVALID',
+          message: 'GridCardBlockModel.subModels.item 只能使用 GridCardItemModel。',
+          path: `${pathValue}.subModels.item.use`,
+          mode,
+          dedupeKey: `GRID_CARD_ITEM_USE_INVALID:${pathValue}`,
+          details: {
+            actualUse: normalizeOptionalText(itemNode.use) || null,
+          },
+        }));
+      }
+      return;
+    }
+
+    if (node.use === 'GridCardItemModel') {
+      const gridNode = isPlainObject(node.subModels?.grid) ? node.subModels.grid : null;
+      if (!gridNode || normalizeOptionalText(gridNode.use) !== 'DetailsGridModel') {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID',
+          message: 'GridCardItemModel 必须显式挂接 subModels.grid.use=\'DetailsGridModel\'；否则卡片内容区不会稳定渲染。',
+          path: `${pathValue}.subModels.grid`,
+          mode,
+          dedupeKey: `GRID_CARD_ITEM_GRID_MISSING_OR_INVALID:${pathValue}`,
+          details: {
+            actualUse: normalizeOptionalText(gridNode?.use) || null,
+          },
+        }));
+      }
+    }
+  });
+}
+
 function inspectActionSlots(payload, mode, blockers, seen) {
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || typeof node.use !== 'string') {
@@ -3035,6 +3246,34 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         allowedUses: FILTER_FORM_ACTION_MODEL_USES,
         code: 'FILTER_FORM_ACTION_SLOT_USE_INVALID',
         message: `FilterFormBlockModel 的 actions 槽位只能放 filter-form action uses，不能回退成泛型 ActionModel。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
+    if (node.use === 'GridCardBlockModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: COLLECTION_ACTION_MODEL_USES,
+        code: 'GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID',
+        message: `GridCardBlockModel 的 actions 槽位只能放 collection action uses，不能回退成泛型 ActionModel 或 record action。`,
+        mode,
+        blockers,
+        seen,
+      });
+      return;
+    }
+
+    if (node.use === 'GridCardItemModel') {
+      inspectActionSlotUses({
+        hostNode: node,
+        slotPath: `${pathValue}.subModels.actions`,
+        allowedUses: RECORD_ACTION_MODEL_USES,
+        code: 'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID',
+        message: `GridCardItemModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
         mode,
         blockers,
         seen,
@@ -4102,6 +4341,43 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       return;
     }
 
+    if (node.use === 'ChartBlockModel') {
+      const stepParams = isPlainObject(node.stepParams) ? node.stepParams : (node.stepParams = {});
+      const chartSettings = isPlainObject(stepParams.chartSettings) ? stepParams.chartSettings : (stepParams.chartSettings = {});
+      const configure = isPlainObject(chartSettings.configure) ? chartSettings.configure : (chartSettings.configure = {});
+      const query = isPlainObject(configure.query) ? configure.query : (configure.query = {});
+      const chart = isPlainObject(configure.chart) ? configure.chart : (configure.chart = {});
+      const option = isPlainObject(chart.option) ? chart.option : (chart.option = {});
+
+      if (!CHART_QUERY_MODES.has(normalizeOptionalText(query.mode))) {
+        const previousMode = normalizeOptionalText(query.mode) || null;
+        query.mode = 'builder';
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'CHART_QUERY_MODE_DEFAULTED',
+          path: `${pathValue}.stepParams.chartSettings.configure.query.mode`,
+          message: 'ChartBlockModel 缺少 query.mode，已补成默认值 "builder"。',
+          details: {
+            from: previousMode,
+            to: 'builder',
+          },
+        });
+      }
+
+      if (!CHART_OPTION_MODES.has(normalizeOptionalText(option.mode))) {
+        const previousMode = normalizeOptionalText(option.mode) || null;
+        option.mode = 'basic';
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'CHART_OPTION_MODE_DEFAULTED',
+          path: `${pathValue}.stepParams.chartSettings.configure.chart.option.mode`,
+          message: 'ChartBlockModel 缺少 option.mode，已补成默认值 "basic"。',
+          details: {
+            from: previousMode,
+            to: 'basic',
+          },
+        });
+      }
+    }
+
     if (typeof node.field === 'string' && typeof node.operator === 'string' && !Object.hasOwn(node, 'path')) {
       const collectionName = context.resourceCollectionName;
       const canonicalPath = getCanonicalFilterPathFromLegacyField(normalizedMetadata, collectionName, node.field);
@@ -4827,6 +5103,8 @@ export function auditPayload({
   inspectFilterContainers(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectFieldBindings(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectCollectionResourceContracts(payload, mode, blockers, blockerSeen);
+  inspectChartBlocks(payload, mode, warnings, blockers, warningSeen, blockerSeen);
+  inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectTableBlocks(payload, mode, blockers, blockerSeen);

@@ -46,6 +46,17 @@ validation 默认走动态场景规划，不再依赖固定 case registry。
   - 协作 / 地图 / 引用这类专门视图
 - 同样是 validation，请求“审批处理台”和“图表分析看板”时，区块组合应明显不同。
 
+## 可视化默认策略
+
+- 命中 `总览 / 概览 / 趋势 / 分布 / 统计 / 占比 / dashboard` 时，planner 应优先把 `ChartBlockModel` 放入 `insight` 区，而不是先退回表格。
+- 命中 `指标卡 / KPI / summary / overview` 且更像数字摘要时，planner 应优先考虑 `GridCardBlockModel`。
+- 对 `ChartBlockModel`，skill 默认应先生成 `builder + basic`；只有用户显式要求 `sql` 或 `custom option / events` 时再升级。
+- `ChartBlockModel` 的动态 hints 如果只是：
+  - `runtime-chart-query-config`
+  - `runtime-chart-option-builder`
+  但当前 skill 已经能稳定给出 `builder/sql` 与 `basic/custom` 的正确静态配置，就不应直接丢进 discarded uses。
+- scenario / layout candidate 应显式输出 `visualizationSpec[]`，供 compile artifact、review 和后续 skill 调优使用。
+
 ## 输出重点
 
 - `scenarioId`

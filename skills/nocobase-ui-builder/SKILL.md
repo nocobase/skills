@@ -66,6 +66,9 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 如果任务已经明显落到具体区块或横切模式：
 
 - 先读区块索引：[references/blocks/index.md](references/blocks/index.md)
+- 看板 / 趋势 / 占比 / KPI / 概览类请求，直接补读：
+  [references/blocks/chart.md](references/blocks/chart.md),
+  [references/blocks/grid-card.md](references/blocks/grid-card.md)
 - 再读模式索引：[references/patterns/index.md](references/patterns/index.md)
 - JS / RunJS 相关先读：[references/js-models/index.md](references/js-models/index.md)
 

@@ -17,6 +17,10 @@ import {
 } from './validation_scenario_planner.mjs';
 import { probeInstanceInventory } from './instance_inventory_probe.mjs';
 import { stableOpaqueId } from './opaque_uid.mjs';
+import {
+  isVisualizationRuntimeSensitive,
+  normalizeVisualizationSpec,
+} from './visualization_contracts.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
@@ -450,6 +454,10 @@ function normalizeBlock(block, index, label = 'blocks') {
       : '',
     targetBlock: typeof block.targetBlock === 'string' && block.targetBlock.trim() ? block.targetBlock.trim() : '',
     treeTable: block.treeTable === true,
+    visualizationSpec: normalizeVisualizationSpecInput(block.visualizationSpec, {
+      blockUse: explicitUse,
+      dataSource: typeof block.collectionName === 'string' ? block.collectionName.trim() : '',
+    }),
   };
 
   if (normalized.kind === 'Form') {
@@ -604,6 +612,32 @@ function normalizePlannedCoverageInput(input) {
   };
 }
 
+function normalizeVisualizationSpecInput(input, options = {}) {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+  const normalized = normalizeVisualizationSpec(input, options);
+  return normalized.blockUse ? normalized : null;
+}
+
+function normalizeVisualizationSpecList(items, options = {}) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  const seen = new Set();
+  return items
+    .map((item) => normalizeVisualizationSpecInput(item, options))
+    .filter(Boolean)
+    .filter((item) => {
+      const key = JSON.stringify(item);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
 function normalizeDiscardedUsesInput(items) {
   return Array.isArray(items)
     ? items
@@ -723,6 +757,7 @@ function normalizeLayoutCandidate(entry, index) {
     families: sortUniqueStrings(entry.families),
     actionPlan: normalizeActionPlanInput(entry.actionPlan),
     plannedCoverage: normalizePlannedCoverageInput(entry.plannedCoverage),
+    visualizationSpec: normalizeVisualizationSpecList(entry.visualizationSpec),
     pagePlan: normalizePagePlan(entry.pagePlan, `scenario.layoutCandidates[${index}].pagePlan`),
     layout: normalizeLayoutShape(entry.layout, `scenario.layoutCandidates[${index}].layout`),
   };
@@ -782,6 +817,7 @@ function normalizeScenario(input) {
     actionPlan,
     planningBlockers,
     plannedCoverage: normalizePlannedCoverageInput(scenarioInput.plannedCoverage),
+    visualizationSpec: normalizeVisualizationSpecList(scenarioInput.visualizationSpec),
     creativeProgram: normalizeCreativeProgram(scenarioInput.creativeProgram),
     layoutCandidates,
     selectedCandidateId,
@@ -885,6 +921,9 @@ function hasRuntimeSensitiveBlocks(blocks) {
   return blocks.some((block) => {
     if (!block || typeof block !== 'object') {
       return false;
+    }
+    if (block.visualizationSpec && isVisualizationRuntimeSensitive(block.visualizationSpec)) {
+      return true;
     }
     if (block.blocks.length > 0 && hasRuntimeSensitiveBlocks(block.blocks)) {
       return true;
@@ -1193,6 +1232,36 @@ function buildGeneratedCoverageFromTree(tree) {
   const blockUses = new Set();
   const patterns = new Set();
 
+  const pushVisualizationPatterns = (block) => {
+    const spec = normalizeVisualizationSpecInput(block?.visualizationSpec, {
+      blockUse: block?.use,
+      dataSource: block?.collectionName,
+    });
+    if (!spec?.blockUse) {
+      return;
+    }
+    patterns.add('insight-visualization');
+    if (spec.blockUse === 'GridCardBlockModel') {
+      patterns.add('grid-card-kpi');
+      return;
+    }
+    if (spec.blockUse !== 'ChartBlockModel') {
+      return;
+    }
+    if (spec.queryMode === 'builder') {
+      patterns.add('chart-builder');
+    }
+    if (spec.queryMode === 'sql') {
+      patterns.add('chart-sql');
+    }
+    if (spec.optionMode === 'custom') {
+      patterns.add('chart-custom-option');
+    }
+    if (spec.eventsRaw) {
+      patterns.add('chart-events');
+    }
+  };
+
   const visitPopup = (popup) => {
     if (!popup || typeof popup !== 'object') {
       return;
@@ -1208,6 +1277,7 @@ function buildGeneratedCoverageFromTree(tree) {
     if (block.use) {
       blockUses.add(block.use);
     }
+    pushVisualizationPatterns(block);
     if (block.relationScope) {
       patterns.add('relation-context');
     }
@@ -1493,6 +1563,10 @@ function compileActions(actions, scope, artifact, actionScope, context) {
 function compileBlocks(blocks, scope, artifact, context) {
   return blocks.map((block, index) => {
     collectRequiredUsesFromBlock(block, artifact.requiredUses);
+    const visualizationSpec = normalizeVisualizationSpecInput(block.visualizationSpec, {
+      blockUse: block.use,
+      dataSource: block.collectionName,
+    });
     if (block.kind === 'Filter') {
       artifact.readbackContract.requireFilterManager = true;
       artifact.readbackContract.requiredFilterManagerEntryCount += block.fields.length;
@@ -1500,9 +1574,17 @@ function compileBlocks(blocks, scope, artifact, context) {
     if (block.collectionName) {
       artifact.requiredMetadataRefs.collections.add(block.collectionName);
     }
+    if (Array.isArray(visualizationSpec?.collectionPath) && visualizationSpec.collectionPath.length > 0) {
+      artifact.requiredMetadataRefs.collections.add(visualizationSpec.collectionPath[0]);
+    }
     for (const field of block.fields) {
       if (block.collectionName) {
         artifact.requiredMetadataRefs.fields.add(`${block.collectionName}.${field}`);
+      }
+    }
+    if (visualizationSpec?.collectionPath?.[0]) {
+      for (const field of [...(Array.isArray(visualizationSpec.metricOrDimension) ? visualizationSpec.metricOrDimension : []), ...(Array.isArray(visualizationSpec.metrics) ? visualizationSpec.metrics : [])]) {
+        artifact.requiredMetadataRefs.fields.add(`${visualizationSpec.collectionPath[0]}.${field}`);
       }
     }
     if (block.relationScope) {
@@ -1543,6 +1625,7 @@ function compileBlocks(blocks, scope, artifact, context) {
       targetCollectionName: block.targetCollectionName,
       targetBlock: block.targetBlock,
       treeTable: block.treeTable,
+      visualizationSpec,
       selectorContract,
       dataScopeContract,
     };
@@ -1771,6 +1854,7 @@ function buildCompileArtifactPayload(artifact, buildSpec, extras = {}) {
     readbackContract: artifact.readbackContract,
     verifyHints: artifact.verifyHints,
     coverageStatus: artifact.coverageStatus,
+    visualizationSpec: artifact.scenario.visualizationSpec,
     issues: artifact.issues,
     ...extras,
   };
@@ -1840,6 +1924,9 @@ export function compileBuildSpec(input) {
       plannedCoverage: (candidate.plannedCoverage.blocks.length > 0 || candidate.plannedCoverage.patterns.length > 0)
         ? candidate.plannedCoverage
         : buildSpec.scenario.plannedCoverage,
+      visualizationSpec: candidate.visualizationSpec.length > 0
+        ? candidate.visualizationSpec
+        : buildSpec.scenario.visualizationSpec,
       actionPlan: candidate.actionPlan.length > 0 ? candidate.actionPlan : buildSpec.scenario.actionPlan,
       pagePlan: candidate.pagePlan?.sections?.length || candidate.pagePlan?.tabs?.length
         ? candidate.pagePlan

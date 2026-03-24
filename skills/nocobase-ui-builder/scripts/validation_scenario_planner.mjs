@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+import {
+  buildChartBlockFromBuilderSpec,
+  buildChartBlockFromSqlSpec,
+  buildGridCardBlockFromMetrics,
+  evaluateVisualizationUseEligibility,
+  inferChartSpecFromCollection,
+  normalizeVisualizationSpec,
+} from './visualization_contracts.mjs';
+
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -128,17 +137,24 @@ function buildFilterBlock({ title, collectionName, fields }) {
   };
 }
 
-function buildPublicUseBlock({ use, title = '', collectionName = '' }) {
-  return {
+function buildPublicUseBlock({ use, title = '', collectionName = '', fields = [], visualizationSpec = null }) {
+  const block = {
     kind: 'PublicUse',
     use,
     title: title || use,
     collectionName,
-    fields: [],
+    fields,
     actions: [],
     rowActions: [],
     blocks: [],
   };
+  if (visualizationSpec && typeof visualizationSpec === 'object') {
+    block.visualizationSpec = normalizeVisualizationSpec(visualizationSpec, {
+      blockUse: use,
+      dataSource: collectionName,
+    });
+  }
+  return block;
 }
 
 function buildPopupAction(kind, label, blocks = [], title = label) {
@@ -191,6 +207,83 @@ function buildDeleteAction(label) {
     label,
     popup: null,
   };
+}
+
+function resolveMetricFields(collectionMeta, fields = []) {
+  const availableFields = uniqueStrings([
+    ...(Array.isArray(fields) ? fields : []),
+    ...(Array.isArray(collectionMeta?.scalarFieldNames) ? collectionMeta.scalarFieldNames : []),
+    ...(Array.isArray(collectionMeta?.fieldNames) ? collectionMeta.fieldNames : []),
+  ]);
+  const preferred = ['current_value', 'purchase_price', 'amount', 'status', 'category', 'count', 'total'];
+  const ordered = [];
+  for (const field of preferred) {
+    if (availableFields.includes(field) && !ordered.includes(field)) {
+      ordered.push(field);
+    }
+  }
+  for (const field of availableFields) {
+    if (!ordered.includes(field)) {
+      ordered.push(field);
+    }
+  }
+  return ordered.slice(0, 4);
+}
+
+function buildVisualizationBlock({
+  use,
+  title,
+  collectionMeta,
+  fields,
+  requestText,
+}) {
+  const collectionName = collectionMeta?.name || '';
+  if (use === 'ChartBlockModel') {
+    const chartSpec = inferChartSpecFromCollection({
+      requestText,
+      collectionMeta,
+      requestedFields: fields,
+      resolvedFields: fields,
+    });
+    if (chartSpec.queryMode === 'sql') {
+      return buildChartBlockFromSqlSpec({
+        title,
+        collectionName,
+        metricOrDimension: chartSpec.metricOrDimension,
+        chartType: chartSpec.chartType,
+        goal: chartSpec.goal,
+        optionMode: chartSpec.optionMode,
+        sqlDatasource: chartSpec.sqlDatasource || 'main',
+        sql: chartSpec.sql,
+        raw: chartSpec.raw,
+        eventsRaw: chartSpec.eventsRaw,
+      });
+    }
+    return buildChartBlockFromBuilderSpec({
+      title,
+      collectionName,
+      collectionPath: chartSpec.collectionPath,
+      metricOrDimension: chartSpec.metricOrDimension,
+      chartType: chartSpec.chartType,
+      goal: chartSpec.goal,
+      optionMode: chartSpec.optionMode,
+      raw: chartSpec.raw,
+      eventsRaw: chartSpec.eventsRaw,
+    });
+  }
+  if (use === 'GridCardBlockModel') {
+    return buildGridCardBlockFromMetrics({
+      title,
+      collectionName,
+      metrics: resolveMetricFields(collectionMeta, fields),
+      goal: hasAnyKeyword(requestText, ['总览', 'overview', '概览']) ? 'summary' : 'metrics',
+    });
+  }
+  return buildPublicUseBlock({
+    use,
+    title,
+    collectionName: COLLECTION_BOUND_PUBLIC_USES.has(use) ? collectionName : '',
+  });
 }
 
 const PAGE_PLAN_VERSION = 'page-first-v1';
@@ -556,7 +649,7 @@ const PRIMARY_BLOCK_DEFINITIONS = [
     use: 'ChartBlockModel',
     archetypeId: 'chart-main',
     archetypeLabel: '图表主块页',
-    keywords: ['图表', 'chart', 'dashboard', '看板', '分析', '报表'],
+    keywords: ['图表', 'chart', 'dashboard', '看板', '分析', '报表', '总览', '概览', '趋势', '分布', '统计', '占比', 'analytics', 'trend', 'distribution', 'overview'],
     collectionRequired: false,
     titleSuffix: '分析看板',
     kind: 'public-use',
@@ -565,7 +658,7 @@ const PRIMARY_BLOCK_DEFINITIONS = [
     use: 'GridCardBlockModel',
     archetypeId: 'gridcard-main',
     archetypeLabel: '卡片主块页',
-    keywords: ['指标卡', 'grid card', '卡片', 'kpi', '指标'],
+    keywords: ['指标卡', 'grid card', '卡片', 'kpi', '指标', '总览', '概览', 'summary', 'overview'],
     collectionRequired: true,
     titleSuffix: '指标概览',
     kind: 'public-use',
@@ -1537,6 +1630,34 @@ function buildCreativeUseInventory({
       });
       continue;
     }
+    if (use === 'ChartBlockModel' || use === 'GridCardBlockModel') {
+      const visualizationEligibility = evaluateVisualizationUseEligibility({
+        use,
+        contextRequirements,
+        unresolvedReasons,
+        collectionMeta,
+      });
+      if (!visualizationEligibility.eligible) {
+        discardedUses.push({
+          use,
+          title: descriptor.label,
+          contextRequirements,
+          unresolvedReasons: uniqueStrings([
+            ...unresolvedReasons,
+            visualizationEligibility.reason,
+            ...visualizationEligibility.unsupportedRequirements,
+            ...visualizationEligibility.unsupportedReasons,
+          ]),
+          families: descriptor.families,
+        });
+        continue;
+      }
+      eligibleDescriptors.push({
+        ...descriptor,
+        confidence: visualizationEligibility.confidence,
+      });
+      continue;
+    }
     if (contextRequirements.length > 0 || unresolvedReasons.length > 0) {
       discardedUses.push({
         use,
@@ -1724,6 +1845,7 @@ function buildLayoutCandidate({
     families: uniqueStrings(families),
     actionPlan: collectActionPlan(clonedLayout),
     plannedCoverage: buildCoverageFromLayout(clonedLayout),
+    visualizationSpec: collectVisualizationSpecsFromLayout(clonedLayout),
     pagePlan: pagePlan && typeof pagePlan === 'object'
       ? cloneJson(pagePlan)
       : buildSerializedPagePlanFromLayout({
@@ -1897,6 +2019,7 @@ function buildPrimaryBlock({
   primaryBlockDefinition,
   collectionMeta,
   fields,
+  requestText,
   operationIntent,
   availableUses,
   depth,
@@ -1949,28 +2072,31 @@ function buildPrimaryBlock({
     if (!availableSet.has(primaryBlockDefinition.use)) {
       return null;
     }
-    return buildPublicUseBlock({
+    return buildVisualizationBlock({
       use: primaryBlockDefinition.use,
       title: `${collectionLabel}${primaryBlockDefinition.titleSuffix}`,
-      collectionName: COLLECTION_BOUND_PUBLIC_USES.has(primaryBlockDefinition.use) ? collectionName : '',
+      collectionMeta,
+      fields,
+      requestText,
     });
   }
   return null;
 }
 
-function buildExplicitPublicUseBlocks({ explicitPublicUses, collectionMeta, availableUses }) {
+function buildExplicitPublicUseBlocks({ explicitPublicUses, collectionMeta, availableUses, requestText, fields = [] }) {
   const blocks = [];
   const availableSet = new Set(uniqueStrings(availableUses));
-  const collectionName = collectionMeta?.name || '';
   const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : '';
   for (const use of explicitPublicUses) {
     if (!availableSet.has(use)) {
       continue;
     }
-    blocks.push(buildPublicUseBlock({
+    blocks.push(buildVisualizationBlock({
       use,
       title: collectionLabel ? `${collectionLabel}${PRIMARY_BLOCK_DEFINITIONS.find((entry) => entry.use === use)?.titleSuffix || use}` : use,
-      collectionName: COLLECTION_BOUND_PUBLIC_USES.has(use) ? collectionName : '',
+      collectionMeta,
+      fields,
+      requestText,
     }));
   }
   return blocks;
@@ -2000,6 +2126,7 @@ function createPlannedLayoutFromSurfaceBlocks({
 }
 
 function createLayoutFromPrimary({
+  requestText,
   title,
   primaryBlockDefinition,
   collectionMeta,
@@ -2016,6 +2143,7 @@ function createLayoutFromPrimary({
     primaryBlockDefinition,
     collectionMeta,
     fields,
+    requestText,
     operationIntent,
     availableUses,
     depth: 0,
@@ -2045,6 +2173,8 @@ function createLayoutFromPrimary({
       explicitPublicUses,
       collectionMeta,
       availableUses,
+      requestText,
+      fields,
     }),
     ...companionBlocks,
   ].filter(Boolean);
@@ -2063,6 +2193,8 @@ function createLayoutFromPrimary({
             explicitPublicUses,
             collectionMeta,
             availableUses,
+            requestText,
+            fields,
           }),
           ...companionBlocks,
         ].filter(Boolean),
@@ -2085,6 +2217,7 @@ function createLayoutFromPrimary({
 
 function buildLayoutCandidates({
   title,
+  requestText,
   selectionMode,
   collectionMeta,
   requestedFields,
@@ -2138,6 +2271,7 @@ function buildLayoutCandidates({
   };
 
   const selectedAssembly = createLayoutFromPrimary({
+    requestText,
     title,
     primaryBlockDefinition,
     collectionMeta,
@@ -2167,6 +2301,7 @@ function buildLayoutCandidates({
 
   if (collectionMeta && !operationIntent.requestedTabs) {
     const tabbedAssembly = createLayoutFromPrimary({
+      requestText,
       title: `${title} 多标签`,
       primaryBlockDefinition,
       collectionMeta,
@@ -2198,6 +2333,7 @@ function buildLayoutCandidates({
       ? `${humanizeCollectionTitle(collectionMeta)} ${alternate.titleSuffix}`
       : `${title} ${alternate.titleSuffix}`;
     const alternateAssembly = createLayoutFromPrimary({
+      requestText,
       title: alternateLabel,
       primaryBlockDefinition: alternate,
       collectionMeta,
@@ -2274,6 +2410,35 @@ function collectActionPlan(layout) {
 function buildCoverageFromLayout(layout) {
   const blocks = [];
   const patterns = [];
+  const pushVisualizationPatterns = (block) => {
+    const spec = normalizeVisualizationSpec(block?.visualizationSpec, {
+      blockUse: block?.use,
+      dataSource: block?.collectionName,
+    });
+    if (!spec.blockUse) {
+      return;
+    }
+    patterns.push('insight-visualization');
+    if (spec.blockUse === 'GridCardBlockModel') {
+      patterns.push('grid-card-kpi');
+      return;
+    }
+    if (spec.blockUse !== 'ChartBlockModel') {
+      return;
+    }
+    if (spec.queryMode === 'builder') {
+      patterns.push('chart-builder');
+    }
+    if (spec.queryMode === 'sql') {
+      patterns.push('chart-sql');
+    }
+    if (spec.optionMode === 'custom') {
+      patterns.push('chart-custom-option');
+    }
+    if (spec.eventsRaw) {
+      patterns.push('chart-events');
+    }
+  };
   const visitBlocks = (items, depth = 0) => {
     for (const block of Array.isArray(items) ? items : []) {
       if (!block || typeof block !== 'object') {
@@ -2292,6 +2457,7 @@ function buildCoverageFromLayout(layout) {
         if (block.use === 'JSBlockModel') {
           patterns.push('js-primary');
         }
+        pushVisualizationPatterns(block);
       }
       if (depth > 0) {
         patterns.push('nested-popup');
@@ -2328,6 +2494,45 @@ function buildCoverageFromLayout(layout) {
     blocks: uniqueStrings(blocks),
     patterns: uniqueStrings(patterns),
   };
+}
+
+function collectVisualizationSpecsFromLayout(layout) {
+  const collected = [];
+  const seen = new Set();
+  const pushSpec = (block) => {
+    const spec = normalizeVisualizationSpec(block?.visualizationSpec, {
+      blockUse: block?.use,
+      dataSource: block?.collectionName,
+    });
+    if (!spec.blockUse) {
+      return;
+    }
+    const dedupeKey = JSON.stringify(spec);
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    seen.add(dedupeKey);
+    collected.push(spec);
+  };
+  const visitBlocks = (items) => {
+    for (const block of Array.isArray(items) ? items : []) {
+      if (!block || typeof block !== 'object') {
+        continue;
+      }
+      pushSpec(block);
+      visitBlocks(block.blocks);
+      for (const action of [...(Array.isArray(block.actions) ? block.actions : []), ...(Array.isArray(block.rowActions) ? block.rowActions : [])]) {
+        if (Array.isArray(action?.popup?.blocks)) {
+          visitBlocks(action.popup.blocks);
+        }
+      }
+    }
+  };
+  visitBlocks(layout?.blocks);
+  for (const tab of Array.isArray(layout?.tabs) ? layout.tabs : []) {
+    visitBlocks(tab.blocks);
+  }
+  return collected;
 }
 
 function cloneBlockOrNull(block) {
@@ -2648,6 +2853,7 @@ function buildScenarioSummary({
   };
   const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : '无集合';
   const coverage = buildCoverageFromLayout(layout);
+  const visualizationSpec = collectVisualizationSpecsFromLayout(layout);
   const candidateScores = Object.fromEntries(
     (Array.isArray(layoutCandidates) ? layoutCandidates : []).map((candidate) => [
       candidate.candidateId,
@@ -2733,6 +2939,7 @@ function buildScenarioSummary({
       families: uniqueStrings(item.families),
     })) : [],
     plannedCoverage: coverage,
+    visualizationSpec,
     creativeProgram,
     layoutCandidates,
     selectedCandidateId,
@@ -2926,6 +3133,7 @@ function buildStableFirstValidationScenario({
   const layoutCandidates = planningStatus === 'ready'
     ? buildLayoutCandidates({
       title,
+      requestText,
       selectionMode,
       collectionMeta,
       requestedFields: fieldResolution.requestedFields,
@@ -3024,6 +3232,7 @@ function buildStableFirstValidationScenario({
 
 function buildCreativeRecipeCandidates({
   title,
+  requestText,
   collectionMeta,
   requestedFields,
   resolvedFields,
@@ -3078,6 +3287,7 @@ function buildCreativeRecipeCandidates({
       primaryBlockDefinition: descriptor,
       collectionMeta,
       fields,
+      requestText,
       operationIntent,
       availableUses,
       depth: 0,
@@ -3336,6 +3546,7 @@ function buildCreativeFirstValidationScenario({
   const layoutCandidates = planningStatus === 'ready'
     ? buildCreativeRecipeCandidates({
       title,
+      requestText,
       collectionMeta,
       requestedFields: fieldResolution.requestedFields,
       resolvedFields: fieldResolution.resolvedFields,

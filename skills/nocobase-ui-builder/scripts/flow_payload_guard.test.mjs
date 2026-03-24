@@ -4377,3 +4377,179 @@ test('auditPayload does not downgrade RunJS blockers through risk accept', () =>
   assert.equal(result.acceptedRiskCodes.includes('RUNJS_UNKNOWN_CTX_MEMBER'), false);
   assert.equal(result.blockers.some((item) => item.code === 'RUNJS_UNKNOWN_CTX_MEMBER'), true);
 });
+
+function makeValidChartBlock(overrides = {}) {
+  return {
+    use: 'ChartBlockModel',
+    stepParams: {
+      chartSettings: {
+        configure: {
+          query: {
+            mode: 'builder',
+            collectionPath: ['orders'],
+          },
+          chart: {
+            option: {
+              mode: 'basic',
+            },
+          },
+        },
+      },
+      ...overrides.stepParams,
+    },
+    ...overrides,
+  };
+}
+
+function makeValidGridCardBlock(overrides = {}) {
+  const base = {
+    use: 'GridCardBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit('orders'),
+      },
+      GridCardSettings: {
+        columnCount: {
+          xs: 1,
+          md: 2,
+        },
+      },
+    },
+    subModels: {
+      item: {
+        use: 'GridCardItemModel',
+        subModels: {
+          grid: {
+            use: 'DetailsGridModel',
+            subModels: {
+              items: [],
+            },
+          },
+          actions: [],
+        },
+      },
+      actions: [],
+    },
+  };
+  return {
+    ...base,
+    ...overrides,
+    stepParams: {
+      ...base.stepParams,
+      ...overrides.stepParams,
+    },
+    subModels: {
+      ...base.subModels,
+      ...overrides.subModels,
+    },
+  };
+}
+
+test('canonicalizePayload defaults chart query and option modes without guessing runtime config', () => {
+  const result = canonicalizePayload({
+    payload: {
+      use: 'ChartBlockModel',
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              collectionPath: ['orders'],
+            },
+            chart: {
+              option: {},
+            },
+          },
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.chartSettings.configure.query.mode, 'builder');
+  assert.equal(result.payload.stepParams.chartSettings.configure.chart.option.mode, 'basic');
+  assert.equal(result.payload.stepParams.chartSettings.configure.query.collectionPath[0], 'orders');
+  assert.equal(result.transforms.some((item) => item.code === 'CHART_QUERY_MODE_DEFAULTED'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'CHART_OPTION_MODE_DEFAULTED'), true);
+});
+
+test('auditPayload blocks invalid chart payloads and wrong config paths', () => {
+  const result = auditPayload({
+    payload: {
+      use: 'ChartBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+            },
+            chart: {
+              option: {
+                mode: 'custom',
+              },
+            },
+          },
+        },
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_BUILDER_COLLECTION_PATH_MISSING'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_CUSTOM_OPTION_RAW_MISSING'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS'), true);
+});
+
+test('auditPayload blocks grid card payloads missing item subtree or invalid action slots', () => {
+  const missingItemResult = auditPayload({
+    payload: {
+      use: 'GridCardBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        actions: [],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(missingItemResult.ok, false);
+  assert.equal(missingItemResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_SUBMODEL_MISSING'), true);
+
+  const invalidActionsResult = auditPayload({
+    payload: makeValidGridCardBlock({
+      subModels: {
+        item: {
+          use: 'GridCardItemModel',
+          subModels: {
+            grid: {
+              use: 'BlockGridModel',
+            },
+            actions: [
+              { use: 'AddNewActionModel' },
+            ],
+          },
+        },
+        actions: [
+          { use: 'ViewActionModel' },
+        ],
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(invalidActionsResult.ok, false);
+  assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID'), true);
+  assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID'), true);
+  assert.equal(invalidActionsResult.blockers.some((item) => item.code === 'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID'), true);
+});

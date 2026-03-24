@@ -131,6 +131,54 @@ test('dynamic scenario planner prefers explicit block keywords when the anchor b
   assert.equal(selectedCandidate.primaryBlockType, 'ChartBlockModel');
 });
 
+test('dynamic scenario planner keeps chart eligible when runtime hints are covered by visualization contracts', () => {
+  const inventory = makeInstanceInventory();
+  inventory.flowSchema.publicUseCatalog = inventory.flowSchema.publicUseCatalog.map((entry) => {
+    if (entry.use !== 'ChartBlockModel') {
+      return entry;
+    }
+    return {
+      ...entry,
+      contextRequirements: ['collection metadata', 'query builder', 'chart builder', 'RunJS'],
+      unresolvedReasons: ['runtime-chart-query-config', 'runtime-chart-option-builder'],
+    };
+  });
+
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个趋势总览看板，展示 status applicant createdAt，并带筛选',
+    sessionId: 'sess-chart-runtime-hints',
+    baseSlug: 'approvals-chart-runtime-hints',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-chart-runtime-hints',
+    instanceInventory: inventory,
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.eligibleUses.includes('ChartBlockModel'), true);
+  assert.equal(result.scenario.discardedUses.some((item) => item.use === 'ChartBlockModel'), false);
+  assert.equal(selectedCandidate.primaryBlockType, 'ChartBlockModel');
+});
+
+test('dynamic scenario planner emits visualizationSpec for selected chart layouts', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 创建一个总览趋势分析看板，展示 status applicant createdAt，并带筛选',
+    sessionId: 'sess-chart-visualization-spec',
+    baseSlug: 'approvals-chart-visualization-spec',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-chart-visualization-spec',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  assert.ok(selectedCandidate);
+  assert.equal(Array.isArray(result.scenario.visualizationSpec), true);
+  assert.equal(result.scenario.visualizationSpec.length > 0, true);
+  assert.equal(selectedCandidate.visualizationSpec.length > 0, true);
+  assert.equal(selectedCandidate.visualizationSpec[0].blockUse, 'ChartBlockModel');
+  assert.equal(selectedCandidate.visualizationSpec[0].queryMode, 'builder');
+  assert.equal(selectedCandidate.plannedCoverage.patterns.includes('insight-visualization'), true);
+  assert.equal(selectedCandidate.plannedCoverage.patterns.includes('chart-builder'), true);
+});
+
 test('dynamic scenario planner discards runtime-sensitive public uses instead of putting them into final candidates', () => {
   const inventory = makeInstanceInventory();
   inventory.flowSchema.rootPublicUses = ['TableBlockModel', 'CommentsBlockModel', 'ReferenceBlockModel'];
