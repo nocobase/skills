@@ -1,6 +1,6 @@
 # Validation 总览
 
-`nocobase-ui-builder` 的 validation 关注“页面和交互是否真实可用”，不是只看页面壳是否创建成功。
+`nocobase-ui-builder` 的 validation 默认先关注 route-ready、readback、data-ready 等结构化可用性，不是只看页面壳是否创建成功。只有用户明确要求打开浏览器时，才进入页面和交互层的真实可用验证。
 
 默认入口统一走动态场景规划，先识别业务领域，再决定页面原型和区块组合。详细规则见 [validation-scenarios.md](validation-scenarios.md)。
 
@@ -11,6 +11,20 @@
 - 日志与 review / improve 规则见 [ops-and-review.md](ops-and-review.md)
 
 `validation-data-preconditions.md` 现在只是兼容入口；数据前置规则已经合并到本文档。
+
+## 默认分层
+
+validation 默认拆成两层：
+
+1. 结构化 validation：route-ready、readback、数据前置、样本数据可回读、payload / contract 复核。
+2. 浏览器 runtime 验证：打开页面、观察首屏、点击动作、验证弹窗 / 详情 / 关系交互 smoke。
+
+除非用户明确要求“打开浏览器”“进入页面”“做 smoke / runtime 验证 / 交互复现”，否则不要主动进入第 2 层。未进入浏览器验证时：
+
+- 不要主动 attach / launch 浏览器
+- `browser_attach` / `smoke` 记为 `skipped`
+- 最终只能汇报到 `data-ready`
+- `runtime-usable` 必须明确写成 `not-run` 或 `unverified`
 
 ## 目标
 
@@ -46,13 +60,13 @@ validation 默认按下面链路生成：
 
 ### 基本原则
 
-1. 页面壳创建成功不等于 validation 通过，还要验证在真实业务数据下是否可读、可筛选、可进入详情、可触发关系区块与弹窗动作。
+1. 页面壳创建成功不等于 validation 通过；默认至少还要验证 route-ready、readback 和数据前置。只有用户明确要求打开浏览器时，才继续验证在真实业务数据下是否可读、可筛选、可进入详情、可触发关系区块与弹窗动作。
 2. 最终结论应优先基于真实故障信号，而不是开发态噪声。
 3. 如果页面能稳定完成目标交互，就不要因为无关噪声把结果降级成失败或 warning。
 
 ### 控制台噪声规则
 
-validation 阶段不要把浏览器控制台里的 React warning 当成失败信号。这里的 React warning 包括 React / React DOM 开发态输出的 `Warning:` 类消息，即使它是通过 `console.error` 打出来，也仍然按噪声处理。
+只有在用户明确要求浏览器验证后，才需要处理浏览器控制台噪声。此时不要把浏览器控制台里的 React warning 当成失败信号。这里的 React warning 包括 React / React DOM 开发态输出的 `Warning:` 类消息，即使它是通过 `console.error` 打出来，也仍然按噪声处理。
 
 强制规则：
 
@@ -86,20 +100,21 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 
 处理顺序固定为：
 
-1. 先记录浏览器症状，确认是 `pre-open` 还是 `post-open`
+1. 如果本轮未进入浏览器验证，跳过浏览器症状记录，直接从 route-ready、readback、data-ready 继续；不要为了补证据主动打开浏览器。
+2. 如果本轮已进入浏览器验证，先记录浏览器症状，确认是 `pre-open` 还是 `post-open`
    - fresh page 首开为空白或卡骨架屏时，优先记为 `pre-open`
-2. 再读取 write-after-read / live tree，确认当前 flow model 真实结构
-3. 如果刚执行过 `createV2`，先补一次 route-ready 校验：
+3. 再读取 write-after-read / live tree，确认当前 flow model 真实结构
+4. 如果刚执行过 `createV2`，先补一次 route-ready 校验：
    - page route 是否已进入 accessible route tree
    - hidden tab route 是否已出现在 page children 中
    - 没有这层证据时，不要把问题直接归到 payload
-4. 再根据 flow schema graph、block/pattern 文档和当前 readback 确认对应渲染契约：
+5. 再根据 flow schema graph、block/pattern 文档和当前 readback 确认对应渲染契约：
    - 读哪个 `subModels` slot
    - 读哪些 `stepParams`
    - 允许哪些 child model/use
    - popup/openView 的 `pageModelClass` 是否与 `subModels.page.use` 一致
-5. 用这些契约反查当前 readback 是否结构错误
-6. 只有当 readback 已满足这些契约时，才继续怀疑 case 数据或平台 runtime
+6. 用这些契约反查当前 readback 是否结构错误
+7. 只有当 readback 已满足这些契约时，才继续怀疑 case 数据或平台 runtime
 
 特别注意两类已知高频结构错误：
 
@@ -115,7 +130,7 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 
 强制规则：
 
-1. 浏览器 smoke 只负责确认现象，不负责给出根修复方案。
+1. 只有在用户明确要求浏览器验证后，才运行浏览器 smoke；smoke 只负责确认现象，不负责给出根修复方案。
 2. 对结构型渲染问题，不要先补“多跑一次 smoke”或“多开一次浏览器”当改进建议。
 3. 如果现有契约和已知规则已经证明当前 payload 违反固定结构约束，优先把改进落在 skill guard / recipe / prompt，而不是继续把问题描述成“运行时偶现”。
 4. 对动作区渲染问题，优先检查 slot 级 `allowedUses` 是否匹配；`DetailsBlockModel.actions`、`TableActionsColumnModel.actions`、`FilterFormBlockModel.actions`、`TableBlockModel.actions` 都不能把泛型 `ActionModel` 当成“结构正确”。
@@ -124,14 +139,14 @@ validation 阶段不要把浏览器控制台里的 React warning 当成失败信
 
 ## 数据前置与造数
 
-validation 不应该只验证“页面壳有没有搭起来”，还必须验证页面在存在真实业务数据时是否可读、可筛选、可进入详情、可触发关系区块与弹窗动作。
+validation 不应该只验证“页面壳有没有搭起来”；默认至少还必须验证 route-ready、readback 和数据可回读。只有在用户明确要求打开浏览器时，才继续验证页面在真实业务数据下是否可读、可筛选、可进入详情、可触发关系区块与弹窗动作。
 
 ### 执行顺序
 
 1. 先创建或校验前置数据模型，包括字段和关系。
 2. 再准备前置模拟数据。
 3. 用查询或列表接口校验主表和关系表都已有数据，再开始 UI 搭建。
-4. 完成 UI 后，至少基于一组已插入的数据验证列表、筛选、详情或关系区块不是空壳。
+4. 完成 UI 后，至少基于一组已插入的数据验证主表和关系数据不是空壳；若用户明确要求打开浏览器，再继续验证列表、筛选、详情或关系区块交互。
 
 ### 造数策略
 
@@ -151,6 +166,7 @@ validation 不应该只验证“页面壳有没有搭起来”，还必须验证
 ### 输出要求
 
 - 最终说明里必须单独交代“数据准备”结果，而不只是页面搭建结果。
+- 如果本轮未进入浏览器验证，要明确说明数据 readiness 是通过查询 / readback 还是其他非浏览器证据确认的。
 - 如果 UI 已创建但没有完成造数或造数校验，这次 validation 应视为未完整完成。
 - 如果因为系统能力、权限限制或当前实现缺口导致未能造数，必须明确指出具体阻塞点。
 

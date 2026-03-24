@@ -61,7 +61,7 @@ builder DSL 边界：
 - 多层 popup 时，每一层都要能说清楚“输入参数从哪一层来”
 - popup page 下的 block 一律假设自己依赖 `ctx.view.inputArgs`，不要擅自跨层偷用外层上下文
 - popup/openView 相关 payload 写前先跑 [payload-guard.md](payload-guard.md)
-- through / 中间表 popup 的 add/edit 动作，即使树已落库，也默认需要一次最小 smoke 才能宣称“动作可用”
+- through / 中间表 popup 的 add/edit 动作，只有在用户明确要求打开浏览器或确认运行时动作可用性时，才需要一次最小 smoke；否则保持“模型树已落库，运行时未实测”
 
 ## 常见误区
 

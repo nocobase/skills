@@ -6,7 +6,7 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 
 # 目标
 
-通过 NocoBase MCP 工具构建、读取、更新、验证和复盘 Modern page (v2) UI。
+通过 NocoBase MCP 工具构建、读取、更新、做结构化校验并复盘 Modern page (v2) UI。浏览器验证只在用户明确要求打开浏览器时进行。
 
 这个 skill 继续是单入口的全包 skill，但顶层 `SKILL.md` 只负责：
 
@@ -24,7 +24,8 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 - 创建、读取、更新、移动、删除 Modern page (v2) 页面与区块
 - 在默认 tab、显式 tabs、popup/page 子树中操作公共区块
 - 基于 schema-first 探测结果扩展稳定的字段渲染、动作树、关系区块与 JS model
-- 按真实可用性标准做 validation、review 和自动改进
+- 按 route-ready、readback、data-ready 做结构化 validation、review 和自动改进
+- 仅在用户明确要求打开浏览器时做 runtime / smoke 验证
 
 当前常见 MCP 工具族包括：
 
@@ -185,11 +186,13 @@ guard 细则、blocker/warning、risk-accept 语义以：
 
 ## G. validation 与 review
 
-当用户明确要求 validation，或任务目标包含“真实可用”“可打开”“可交互”“可交付”时：
+当用户明确要求 validation 时：
 
 1. 先完成 route-ready 和 readback 对账
-2. 再按 [references/validation.md](references/validation.md) 做数据前置、可用性判断和噪声归类
-3. 最后按 [references/ops-and-review.md](references/ops-and-review.md) 生成 review / improve 产物
+2. 再按 [references/validation.md](references/validation.md) 做数据前置、结构化可用性判断和噪声归类
+3. 只有用户明确要求“打开浏览器”“进入页面”“做 smoke / runtime 验证 / 交互复现”时，才进入浏览器验证
+4. 未进入浏览器验证时，`browser_attach` / `smoke` 必须记为 `skipped`，并把 `runtime-usable` 明确汇报为 `not-run` / `unverified`
+5. 最后按 [references/ops-and-review.md](references/ops-and-review.md) 生成 review / improve 产物
 
 # 默认硬 gate
 
@@ -202,8 +205,9 @@ guard 细则、blocker/warning、risk-accept 语义以：
 5. `page shell created`、`route-ready`、`readback matched`、`data-ready`、`runtime-usable` 必须分开汇报，不能混成一个“成功”。
 6. 对现有页面默认做局部补丁，不要为了一个局部改动重建整棵页面树。
 7. validation 结论必须基于真实故障信号和数据可用性，不要把 React warning 当失败。
-8. 任何已标记为内部、未解析、或 schema 未放行的 model/use，都不能直接写入。
-9. 生成 RunJS / JSBlock 代码时，不要默认假设浏览器全局 `fetch`、`localStorage` 或任意 `window.*` 可用；当前登录用户优先使用 `ctx.user` / `ctx.auth?.user`，NocoBase collection/list/get 默认使用 `ctx.initResource()` + `ctx.resource` 或 `ctx.makeResource()`，只有自定义端点或 request-only 场景才使用 `ctx.request()`。
+8. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器，也不要为了补证据自行进入页面。
+9. 任何已标记为内部、未解析、或 schema 未放行的 model/use，都不能直接写入。
+10. 生成 RunJS / JSBlock 代码时，不要默认假设浏览器全局 `fetch`、`localStorage` 或任意 `window.*` 可用；当前登录用户优先使用 `ctx.user` / `ctx.auth?.user`，NocoBase collection/list/get 默认使用 `ctx.initResource()` + `ctx.resource` 或 `ctx.makeResource()`，只有自定义端点或 request-only 场景才使用 `ctx.request()`。
 
 # 任务路由
 
@@ -273,7 +277,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 - [references/validation.md](references/validation.md)
 - [references/ops-and-review.md](references/ops-and-review.md)
 
-如果任务已经进入“打开页面/弹窗、串行复现错误、汇总根因和建议”的重 review 阶段，可以继续使用 `nocobase-ui-validation-review` 做浏览器复现与单文件 HTML 复盘。
+如果用户已经明确要求“打开页面/弹窗、串行复现错误、汇总根因和建议”，可以继续使用 `nocobase-ui-validation-review` 做浏览器复现与单文件 HTML 复盘。
 
 # 输出要求
 
@@ -284,6 +288,7 @@ guard 细则、blocker/warning、risk-accept 语义以：
 - 页面是否 route-ready
 - readback 是否匹配预期
 - validation 是否完成
+- 是否进入浏览器验证；若未进入，明确写 `skipped (not requested)`
 - 数据前置是否完成
 - 本轮报告 / improve 产物路径
 
