@@ -94,10 +94,10 @@ function recordToolCall(params) {
   });
 }
 
-test('legacy report constants point to codex state directory', () => {
-  assert.match(DEFAULT_REPORT_DIR, /\.codex\/state\/nocobase-ui-builder\/reports$/);
-  assert.match(DEFAULT_LATEST_RUN_PATH, /\.codex\/state\/nocobase-ui-builder\/latest-run\.json$/);
-  assert.match(DEFAULT_IMPROVEMENT_LOG_PATH, /\.codex\/state\/nocobase-ui-builder\/improvement-log\.jsonl$/);
+test('default report constants point to agent-neutral state directory', () => {
+  assert.match(DEFAULT_REPORT_DIR, /\.nocobase\/state\/nocobase-ui-builder\/reports$/);
+  assert.match(DEFAULT_LATEST_RUN_PATH, /\.nocobase\/state\/nocobase-ui-builder\/latest-run\.json$/);
+  assert.match(DEFAULT_IMPROVEMENT_LOG_PATH, /\.nocobase\/state\/nocobase-ui-builder\/improvement-log\.jsonl$/);
 });
 
 test('renderReport defaults to session-scoped report paths', () => {

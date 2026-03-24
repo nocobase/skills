@@ -3,14 +3,22 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { resolveSessionPaths } from './session_state.mjs';
+import {
+  defaultAgentStateHome,
+  legacyCodexStateHome,
+  resolveSessionPaths,
+} from './session_state.mjs';
 
-export const DEFAULT_RUNTIME_STATE_DIR = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-runtime',
-);
+export function defaultRuntimeStateDir(homeDir = os.homedir()) {
+  return path.join(defaultAgentStateHome(homeDir), 'nocobase-ui-runtime');
+}
+
+export function legacyRuntimeStateDir(homeDir = os.homedir()) {
+  return path.join(legacyCodexStateHome(homeDir), 'nocobase-ui-runtime');
+}
+
+export const DEFAULT_RUNTIME_STATE_DIR = defaultRuntimeStateDir();
+export const LEGACY_RUNTIME_STATE_DIR = legacyRuntimeStateDir();
 
 export const DEFAULT_STABLE_CACHE_DIR = path.join(DEFAULT_RUNTIME_STATE_DIR, 'stable-cache');
 export const DEFAULT_NOISE_BASELINE_DIR = path.join(DEFAULT_RUNTIME_STATE_DIR, 'noise-baselines');
@@ -32,8 +40,21 @@ export function normalizeNonEmpty(value, label) {
 }
 
 export function resolveRuntimeStateDir(explicitPath) {
-  const candidate = explicitPath || process.env.NOCOBASE_UI_RUNTIME_STATE_DIR || DEFAULT_RUNTIME_STATE_DIR;
-  return path.resolve(candidate);
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+  const fromEnv = process.env.NOCOBASE_UI_RUNTIME_STATE_DIR;
+  if (fromEnv && fromEnv.trim()) {
+    return path.resolve(fromEnv.trim());
+  }
+
+  const defaultDir = defaultRuntimeStateDir();
+  const legacyDir = legacyRuntimeStateDir();
+
+  if (fs.existsSync(legacyDir) && !fs.existsSync(defaultDir)) {
+    return legacyDir;
+  }
+  return defaultDir;
 }
 
 export function resolveStableCacheDir(stateDir) {

@@ -6,12 +6,41 @@ import path from 'node:path';
 
 import {
   DEFAULT_BUILDER_STATE_DIR,
+  LEGACY_BUILDER_STATE_DIR,
   createAutoSessionId,
+  defaultBuilderStateDir,
+  legacyBuilderStateDir,
+  resolveBuilderStateDir,
   resolveSessionPaths,
 } from './session_state.mjs';
 
-test('default builder state directory points to codex state directory', () => {
-  assert.match(DEFAULT_BUILDER_STATE_DIR, /\.codex\/state\/nocobase-ui-builder$/);
+test('default builder state directory points to agent-neutral state directory', () => {
+  assert.match(DEFAULT_BUILDER_STATE_DIR, /\.nocobase\/state\/nocobase-ui-builder$/);
+  assert.equal(DEFAULT_BUILDER_STATE_DIR, defaultBuilderStateDir());
+  assert.equal(LEGACY_BUILDER_STATE_DIR, legacyBuilderStateDir());
+});
+
+test('resolveBuilderStateDir falls back to legacy codex state dir when only legacy data exists', () => {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'session-state-home-'));
+  const neutralPath = defaultBuilderStateDir(tempHome);
+  const legacyPath = legacyBuilderStateDir(tempHome);
+
+  fs.mkdirSync(legacyPath, { recursive: true });
+  process.env.NOCOBASE_UI_BUILDER_STATE_DIR = '';
+  const originalHome = process.env.HOME;
+  process.env.HOME = tempHome;
+
+  try {
+    assert.equal(resolveBuilderStateDir(), legacyPath);
+    fs.mkdirSync(neutralPath, { recursive: true });
+    assert.equal(resolveBuilderStateDir(), neutralPath);
+  } finally {
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+  }
 });
 
 test('auto session id is stable for the same cwd and pid', () => {

@@ -24,8 +24,8 @@ function makeRegistryPath(testName) {
   return path.join(dir, 'pages.v1.json');
 }
 
-test('legacy registry constant points to codex state directory', () => {
-  assert.match(DEFAULT_REGISTRY_PATH, /\.codex\/state\/nocobase-ui-builder\/pages\.v1\.json$/);
+test('default registry constant points to agent-neutral state directory', () => {
+  assert.match(DEFAULT_REGISTRY_PATH, /\.nocobase\/state\/nocobase-ui-builder\/pages\.v1\.json$/);
 });
 
 test('default registry path is isolated by session root', () => {

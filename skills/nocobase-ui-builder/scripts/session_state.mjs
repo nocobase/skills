@@ -1,13 +1,26 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export const DEFAULT_BUILDER_STATE_DIR = path.join(
-  os.homedir(),
-  '.codex',
-  'state',
-  'nocobase-ui-builder',
-);
+export function defaultAgentStateHome(homeDir = os.homedir()) {
+  return path.join(homeDir, '.nocobase', 'state');
+}
+
+export function legacyCodexStateHome(homeDir = os.homedir()) {
+  return path.join(homeDir, '.codex', 'state');
+}
+
+export function defaultBuilderStateDir(homeDir = os.homedir()) {
+  return path.join(defaultAgentStateHome(homeDir), 'nocobase-ui-builder');
+}
+
+export function legacyBuilderStateDir(homeDir = os.homedir()) {
+  return path.join(legacyCodexStateHome(homeDir), 'nocobase-ui-builder');
+}
+
+export const DEFAULT_BUILDER_STATE_DIR = defaultBuilderStateDir();
+export const LEGACY_BUILDER_STATE_DIR = legacyBuilderStateDir();
 
 export function normalizeNonEmpty(value, label) {
   if (typeof value !== 'string') {
@@ -21,8 +34,22 @@ export function normalizeNonEmpty(value, label) {
 }
 
 export function resolveBuilderStateDir(explicitPath) {
-  const candidate = explicitPath || process.env.NOCOBASE_UI_BUILDER_STATE_DIR || DEFAULT_BUILDER_STATE_DIR;
-  return path.resolve(candidate);
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+  const fromEnv = process.env.NOCOBASE_UI_BUILDER_STATE_DIR;
+  if (fromEnv && fromEnv.trim()) {
+    return path.resolve(fromEnv.trim());
+  }
+
+  const defaultDir = defaultBuilderStateDir();
+  const legacyDir = legacyBuilderStateDir();
+
+  if (fs.existsSync(legacyDir) && !fs.existsSync(defaultDir)) {
+    return legacyDir;
+  }
+
+  return defaultDir;
 }
 
 export function createAutoSessionId({

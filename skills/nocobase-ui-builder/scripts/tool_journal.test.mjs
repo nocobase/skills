@@ -65,9 +65,9 @@ function writeRawMcpArtifact(dir, {
   };
 }
 
-test('legacy run log constants point to codex state directory', () => {
-  assert.match(DEFAULT_RUN_LOG_DIR, /\.codex\/state\/nocobase-ui-builder\/tool-logs$/);
-  assert.match(DEFAULT_LATEST_RUN_PATH, /\.codex\/state\/nocobase-ui-builder\/latest-run\.json$/);
+test('default run log constants point to agent-neutral state directory', () => {
+  assert.match(DEFAULT_RUN_LOG_DIR, /\.nocobase\/state\/nocobase-ui-builder\/tool-logs$/);
+  assert.match(DEFAULT_LATEST_RUN_PATH, /\.nocobase\/state\/nocobase-ui-builder\/latest-run\.json$/);
 });
 
 test('start-run defaults to session-scoped log paths when session root is provided', () => {
