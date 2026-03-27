@@ -80,6 +80,16 @@ function makeFieldBindingSubModel({ use, init }) {
   };
 }
 
+function makeTableColumnSettings(width = 150) {
+  return {
+    tableColumnSettings: {
+      width: {
+        width,
+      },
+    },
+  };
+}
+
 function makeClickableAssociationTitleColumn({ bindingUse = 'DisplayTextFieldModel', includePopup = true } = {}) {
   const fieldNode = makeFieldBindingSubModel({
     use: bindingUse,
@@ -114,6 +124,7 @@ function makeClickableAssociationTitleColumn({ bindingUse = 'DisplayTextFieldMod
   return {
     use: 'TableColumnModel',
     stepParams: {
+      ...makeTableColumnSettings(),
       fieldSettings: {
         init: {
           collectionName: 'orders',
@@ -132,6 +143,16 @@ function makeCollectionResourceInit(collectionName, extra = {}) {
   return {
     dataSourceKey: 'main',
     collectionName,
+    ...extra,
+  };
+}
+
+function makePopupOpenView(collectionName, extra = {}) {
+  return {
+    mode: 'dialog',
+    dataSourceKey: 'main',
+    collectionName,
+    pageModelClass: 'ChildPageModel',
     ...extra,
   };
 }
@@ -401,12 +422,10 @@ function makePopupPageWithTable(filter) {
     use: 'ViewActionModel',
     stepParams: {
       popupSettings: {
-        openView: {
+        openView: makePopupOpenView('orders', {
           mode: 'drawer',
-          collectionName: 'orders',
-          pageModelClass: 'ChildPageModel',
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -466,12 +485,10 @@ function makePopupPageWithChildTab(tableBlock) {
     use: 'ViewActionModel',
     stepParams: {
       popupSettings: {
-        openView: {
+        openView: makePopupOpenView('orders', {
           mode: 'drawer',
-          collectionName: 'orders',
-          pageModelClass: 'ChildPageModel',
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -507,12 +524,9 @@ function makeEditRecordPopupAction(collectionName = 'order_items') {
         },
       },
       popupSettings: {
-        openView: {
-          mode: 'dialog',
-          collectionName,
-          pageModelClass: 'ChildPageModel',
+        openView: makePopupOpenView(collectionName, {
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -593,11 +607,7 @@ function makeCreatePopupAction(collectionName = 'order_items', title = '新建�
         },
       },
       popupSettings: {
-        openView: {
-          mode: 'dialog',
-          collectionName,
-          pageModelClass: 'ChildPageModel',
-        },
+        openView: makePopupOpenView(collectionName),
       },
     },
     subModels: {
@@ -676,12 +686,9 @@ function makeViewRecordPopupAction(collectionName = 'order_items', title = '查�
         },
       },
       popupSettings: {
-        openView: {
-          mode: 'dialog',
-          collectionName,
-          pageModelClass: 'ChildPageModel',
+        openView: makePopupOpenView(collectionName, {
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -757,12 +764,10 @@ function makeAddChildPopupAction(collectionName = 'departments', title = '新增
         },
       },
       popupSettings: {
-        openView: {
+        openView: makePopupOpenView(collectionName, {
           mode: 'drawer',
-          collectionName,
-          pageModelClass: 'ChildPageModel',
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -1231,10 +1236,7 @@ test('extractRequiredMetadata collects collection refs, field refs, and popup ch
     use: 'ViewActionModel',
     stepParams: {
       popupSettings: {
-        openView: {
-          collectionName: 'orders',
-          pageModelClass: 'ChildPageModel',
-        },
+        openView: makePopupOpenView('orders'),
       },
       fieldSettings: {
         init: {
@@ -1690,17 +1692,25 @@ test('auditPayload blocks popup actions missing required page subtree', () => {
     use: 'ViewActionModel',
     stepParams: {
       popupSettings: {
-        openView: {
-          collectionName: 'orders',
-          pageModelClass: 'ChildPageModel',
+        openView: makePopupOpenView('orders', {
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
   };
 
   const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_ACTION_MISSING_SUBTREE'), true);
+});
+
+test('auditPayload blocks popup actions when openView resource triple is incomplete', () => {
+  const payload = makeCreatePopupAction('order_items');
+  delete payload.stepParams.popupSettings.openView.dataSourceKey;
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'POPUP_OPEN_VIEW_RESOURCE_INCOMPLETE'), true);
 });
 
 test('auditPayload blocks popup pages that depend on inputArgs but opener does not pass filterByTk', () => {
@@ -1718,6 +1728,37 @@ test('auditPayload blocks popup pages that depend on inputArgs but opener does n
 
   const result = auditPayload({ payload, metadata, mode: GENERAL_MODE });
   assert.equal(result.blockers.some((item) => item.code === 'POPUP_CONTEXT_REFERENCE_WITHOUT_INPUT_ARG'), true);
+});
+
+test('auditPayload blocks half-configured association resource context on collection blocks', () => {
+  const payload = {
+    use: 'CreateFormModel',
+    stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit('order_items', {
+          associationName: 'orders.order_items',
+        }),
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'FormGridModel',
+        subModels: {
+          items: [],
+        },
+      },
+      actions: [
+        {
+          use: 'FormSubmitActionModel',
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({ payload, metadata, mode: VALIDATION_CASE_MODE });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'COLLECTION_BLOCK_ASSOCIATION_CONTEXT_INCOMPLETE'), true);
 });
 
 test('auditPayload blocks popup actions when openView target collection lacks filterTargetKey', () => {
@@ -2063,11 +2104,9 @@ test('auditPayload warns on empty popup grids in general mode and blocks in vali
     use: 'ViewActionModel',
     stepParams: {
       popupSettings: {
-        openView: {
-          collectionName: 'orders',
-          pageModelClass: 'ChildPageModel',
+        openView: makePopupOpenView('orders', {
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -2410,6 +2449,7 @@ test('auditPayload warns and blocks split association display bindings that swit
         {
           use: 'TableColumnModel',
           stepParams: {
+            ...makeTableColumnSettings(),
             fieldSettings: {
               init: {
                 collectionName: 'customers',
@@ -2452,6 +2492,7 @@ test('auditPayload accepts dotted association display bindings on the parent col
   const payload = {
     use: 'TableColumnModel',
     stepParams: {
+      ...makeTableColumnSettings(),
       fieldSettings: {
         init: {
           collectionName: 'orders',
@@ -2482,6 +2523,7 @@ test('auditPayload warns and blocks dotted association display bindings without 
   const payload = {
     use: 'TableColumnModel',
     stepParams: {
+      ...makeTableColumnSettings(),
       fieldSettings: {
         init: {
           collectionName: 'orders',
@@ -2829,6 +2871,64 @@ test('auditPayload blocks FormItemModel without editable field subModel', () => 
   assert.equal(result.blockers.some((item) => item.code === 'FORM_ITEM_FIELD_SUBMODEL_MISSING'), true);
 });
 
+test('auditPayload allows FormItemModel to persist a direct concrete editable field model entry', () => {
+  const payload = {
+    use: 'CreateFormModel',
+    stepParams: {
+      resourceSettings: {
+        init: makeCollectionResourceInit('orders'),
+      },
+    },
+    subModels: {
+      grid: {
+        use: 'FormGridModel',
+        subModels: {
+          items: [
+            {
+              use: 'FormItemModel',
+              stepParams: {
+                fieldSettings: {
+                  init: {
+                    collectionName: 'orders',
+                    fieldPath: 'customer',
+                  },
+                },
+              },
+              subModels: {
+                field: {
+                  use: 'RecordSelectFieldModel',
+                  stepParams: {
+                    fieldSettings: {
+                      init: {
+                        collectionName: 'orders',
+                        fieldPath: 'customer',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      actions: [
+        {
+          use: 'FormSubmitActionModel',
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: metadataWithAssociationFormTargetFilterKeyOnly,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'FORM_ITEM_FIELD_BINDING_ENTRY_INVALID'), false);
+});
+
 test('auditPayload blocks TableColumnModel without display field subModel', () => {
   const payload = {
     use: 'TableBlockModel',
@@ -2844,6 +2944,7 @@ test('auditPayload blocks TableColumnModel without display field subModel', () =
         {
           use: 'TableColumnModel',
           stepParams: {
+            ...makeTableColumnSettings(),
             fieldSettings: {
               init: {
                 collectionName: 'orders',
@@ -2870,6 +2971,7 @@ test('auditPayload blocks TableColumnModel with direct display field model inste
   const payload = {
     use: 'TableColumnModel',
     stepParams: {
+      ...makeTableColumnSettings(),
       fieldSettings: {
         init: {
           collectionName: 'orders',
@@ -2900,6 +3002,38 @@ test('auditPayload blocks TableColumnModel with direct display field model inste
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID'), true);
+});
+
+test('auditPayload blocks TableColumnModel without renderable width', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'order_no',
+        },
+      },
+    },
+    subModels: {
+      field: makeFieldBindingSubModel({
+        use: 'DisplayTextFieldModel',
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'order_no',
+        },
+      }),
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_WIDTH_MISSING'), true);
 });
 
 test('auditPayload warns in general mode and blocks in validation mode when form submit action is missing', () => {
@@ -3280,11 +3414,9 @@ test('auditPayload does not downgrade ambiguous riskAccept codes that match mult
     use: 'ViewActionModel',
     stepParams: {
       popupSettings: {
-        openView: {
-          collectionName: 'orders',
-          pageModelClass: 'ChildPageModel',
+        openView: makePopupOpenView('orders', {
           filterByTk: '{{ctx.record.id}}',
-        },
+        }),
       },
     },
     subModels: {
@@ -3361,6 +3493,7 @@ test('auditPayload does not allow riskAccept to bypass hard validation-case bloc
             {
               use: 'TableColumnModel',
               stepParams: {
+                ...makeTableColumnSettings(),
                 fieldSettings: {
                   init: {
                     collectionName: 'customers',
@@ -3718,6 +3851,46 @@ test('canonicalizePayload rewrites display foreignKey fieldPath to dotted associ
     mode: VALIDATION_CASE_MODE,
   });
   assert.equal(auditResult.blockers.some((item) => item.code === 'FOREIGN_KEY_USED_AS_FIELD_PATH'), false);
+});
+
+test('canonicalizePayload fills missing table column width for TableColumnModel', () => {
+  const payload = {
+    use: 'TableColumnModel',
+    stepParams: {
+      fieldSettings: {
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'order_no',
+        },
+      },
+    },
+    subModels: {
+      field: makeFieldBindingSubModel({
+        use: 'DisplayTextFieldModel',
+        init: {
+          collectionName: 'orders',
+          fieldPath: 'order_no',
+        },
+      }),
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.tableColumnSettings.width.width, 150);
+  assert.equal(result.transforms.some((item) => item.code === 'TABLE_COLUMN_WIDTH_DEFAULTED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'TABLE_COLUMN_WIDTH_MISSING'), false);
+  assert.equal(auditResult.ok, true);
 });
 
 test('canonicalizePayload fills missing associationPathName for dotted association display bindings', () => {
@@ -4216,6 +4389,27 @@ test('canonicalizePayload rewrites hardcoded popup and resource filterByTk insid
     mode: VALIDATION_CASE_MODE,
   });
   assert.equal(auditResult.blockers.some((item) => item.code === 'HARDCODED_FILTER_BY_TK'), false);
+});
+
+test('canonicalizePayload fills popup openView.dataSourceKey from popup subtree resource settings', () => {
+  const payload = cloneJson(makeCreatePopupAction('order_items'));
+  delete payload.stepParams.popupSettings.openView.dataSourceKey;
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.popupSettings.openView.dataSourceKey, 'main');
+  assert.equal(result.transforms.some((item) => item.code === 'POPUP_OPEN_VIEW_DATASOURCE_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'POPUP_OPEN_VIEW_RESOURCE_INCOMPLETE'), false);
 });
 
 test('canonicalizePayload rewrites legacy record popup filterByTk to a non-id filterTargetKey template', () => {

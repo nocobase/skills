@@ -27,6 +27,7 @@ export const GENERAL_MODE = 'general';
 export const VALIDATION_CASE_MODE = 'validation-case';
 export const DEFAULT_AUDIT_MODE = VALIDATION_CASE_MODE;
 export const BLOCKER_EXIT_CODE = 2;
+const DEFAULT_TABLE_COLUMN_WIDTH = 150;
 
 const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
@@ -53,6 +54,8 @@ const NON_RISK_ACCEPTABLE_BLOCKER_CODES = new Set([
   'FILTER_FORM_ACTION_SLOT_USE_INVALID',
   'FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING',
   'FILTER_FORM_ITEM_FILTERFIELD_MISSING',
+  'POPUP_OPEN_VIEW_RESOURCE_INCOMPLETE',
+  'COLLECTION_BLOCK_ASSOCIATION_CONTEXT_INCOMPLETE',
   'FILTER_FORM_FIELD_MODEL_MISMATCH',
   'FIELD_MODEL_PAGE_SLOT_UNSUPPORTED',
   'POPUP_PAGE_USE_INVALID',
@@ -280,6 +283,27 @@ function normalizeOptionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
+function normalizeOptionalPositiveNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getPersistedTableColumnWidth(node) {
+  const stepWidth = normalizeOptionalPositiveNumber(node?.stepParams?.tableColumnSettings?.width?.width);
+  if (stepWidth !== null) {
+    return stepWidth;
+  }
+  return normalizeOptionalPositiveNumber(node?.props?.width);
+}
+
 function parseJson(rawValue, label) {
   try {
     return JSON.parse(rawValue);
@@ -384,6 +408,9 @@ function buildContext(node, parentContext) {
 
   const use = typeof node.use === 'string' ? node.use : parentContext.use;
   const resourceCollectionName = node.stepParams?.resourceSettings?.init?.collectionName || parentContext.resourceCollectionName;
+  const resourceDataSourceKey = normalizeOptionalText(
+    node.stepParams?.resourceSettings?.init?.dataSourceKey || parentContext.resourceDataSourceKey,
+  );
   const currentPopupAction = isPopupActionNode(node)
     ? {
         use,
@@ -406,6 +433,7 @@ function buildContext(node, parentContext) {
   }
   context.use = use;
   context.resourceCollectionName = resourceCollectionName;
+  context.resourceDataSourceKey = resourceDataSourceKey;
   context.ancestorPopupAction = parentContext.popupAction || null;
   context.popupAction = currentPopupAction || parentContext.popupAction || null;
   context.inTableColumn = use === 'TableColumnModel' || Boolean(parentContext.inTableColumn);
@@ -1648,6 +1676,75 @@ function hasAssociationContextProtocol(initOptions) {
     && initOptions.sourceId !== null
     && String(initOptions.sourceId).trim() !== '',
   );
+}
+
+function hasAssociationContextIntent(initOptions) {
+  if (!isPlainObject(initOptions)) {
+    return false;
+  }
+  return Boolean(
+    (typeof initOptions.associationName === 'string' && initOptions.associationName.trim())
+    || Object.hasOwn(initOptions, 'sourceId'),
+  );
+}
+
+function hasConcreteFormFieldModelEntry(fieldUse) {
+  return Boolean(
+    typeof fieldUse === 'string'
+    && fieldUse.endsWith('FieldModel')
+    && fieldUse !== 'FieldModel'
+    && fieldUse !== FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE
+    && !fieldUse.startsWith('Display')
+  );
+}
+
+function collectPopupOpenViewDataSourceKeys(pageNode, targetCollectionName) {
+  const keys = new Set();
+  if (!isPlainObject(pageNode)) {
+    return [];
+  }
+  walk(pageNode, (node) => {
+    if (!isPlainObject(node)) {
+      return;
+    }
+    const init = isPlainObject(node.stepParams?.resourceSettings?.init)
+      ? node.stepParams.resourceSettings.init
+      : null;
+    const dataSourceKey = normalizeOptionalText(init?.dataSourceKey);
+    if (!dataSourceKey) {
+      return;
+    }
+    const collectionName = normalizeOptionalText(init?.collectionName);
+    if (!targetCollectionName || !collectionName || collectionName === targetCollectionName) {
+      keys.add(dataSourceKey);
+    }
+  });
+  return [...keys];
+}
+
+function inferPopupOpenViewDataSourceKey({ pageNode, openView, context }) {
+  const targetCollectionName = normalizeOptionalText(openView?.collectionName) || normalizeOptionalText(context.resourceCollectionName);
+  const candidateKeys = collectPopupOpenViewDataSourceKeys(pageNode, targetCollectionName);
+  const contextDataSourceKey = normalizeOptionalText(context.resourceDataSourceKey);
+  if (candidateKeys.length === 1) {
+    return {
+      dataSourceKey: candidateKeys[0],
+      source: 'popup-subtree-resource-settings',
+      candidateKeys,
+    };
+  }
+  if (candidateKeys.length === 0 && contextDataSourceKey) {
+    return {
+      dataSourceKey: contextDataSourceKey,
+      source: 'ancestor-resource-settings',
+      candidateKeys: [contextDataSourceKey],
+    };
+  }
+  return {
+    dataSourceKey: null,
+    source: null,
+    candidateKeys,
+  };
 }
 
 function getFilterContainerSelectorKind(node) {
@@ -3206,14 +3303,14 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       const bindingUse = typeof item.subModels?.field?.stepParams?.fieldBinding?.use === 'string'
         ? item.subModels.field.stepParams.fieldBinding.use.trim()
         : '';
-      if (fieldUse === 'FieldModel' && bindingUse) {
+      if ((fieldUse === 'FieldModel' && bindingUse) || hasConcreteFormFieldModelEntry(fieldUse)) {
         return;
       }
 
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FORM_ITEM_FIELD_BINDING_ENTRY_INVALID',
-        message: 'FormItemModel.subModels.field must use FieldModel as the entry point and point to the concrete editable field model through stepParams.fieldBinding.use. Persisting a concrete field-model use directly can trigger runtime issues such as resolveUse circular reference.',
+        message: 'FormItemModel.subModels.field must use either FieldModel + stepParams.fieldBinding.use, or a direct concrete editable field model entry that matches the slot catalog/runtime readback contract. Bare FieldModel without binding and display-only field models are not acceptable here.',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `FORM_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
@@ -3505,23 +3602,39 @@ function inspectCollectionResourceContracts(payload, mode, blockers, seen) {
       : null;
     const dataSourceKey = typeof init?.dataSourceKey === 'string' ? init.dataSourceKey.trim() : '';
     const collectionName = typeof init?.collectionName === 'string' ? init.collectionName.trim() : '';
-    if (dataSourceKey && collectionName) {
+    if (!dataSourceKey || !collectionName) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING',
+        message: `${node.use} is missing a complete stepParams.resourceSettings.init.dataSourceKey / collectionName pair. Runtime reads both values directly, and missing them often causes TypeError, blank blocks, or a page stuck on skeleton loading.`,
+        path: `${pathValue}.stepParams.resourceSettings.init`,
+        mode,
+        dedupeKey: `COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING:${pathValue}`,
+        details: {
+          blockUse: node.use,
+          dataSourceKey: dataSourceKey || null,
+          collectionName: collectionName || null,
+        },
+      }));
       return;
     }
 
-    pushFinding(blockers, seen, createFinding({
-      severity: 'blocker',
-      code: 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING',
-      message: `${node.use} is missing a complete stepParams.resourceSettings.init.dataSourceKey / collectionName pair. Runtime reads both values directly, and missing them often causes TypeError, blank blocks, or a page stuck on skeleton loading.`,
-      path: `${pathValue}.stepParams.resourceSettings.init`,
-      mode,
-      dedupeKey: `COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING:${pathValue}`,
-      details: {
-        blockUse: node.use,
-        dataSourceKey: dataSourceKey || null,
-        collectionName: collectionName || null,
-      },
-    }));
+    if (hasAssociationContextIntent(init) && !hasAssociationContextProtocol(init)) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'COLLECTION_BLOCK_ASSOCIATION_CONTEXT_INCOMPLETE',
+        message: `${node.use} started to use association resource context, but stepParams.resourceSettings.init must provide both associationName and a non-empty sourceId together. Do not persist a half-configured association protocol.`,
+        path: `${pathValue}.stepParams.resourceSettings.init`,
+        mode,
+        dedupeKey: `COLLECTION_BLOCK_ASSOCIATION_CONTEXT_INCOMPLETE:${pathValue}`,
+        details: {
+          blockUse: node.use,
+          collectionName,
+          associationName: normalizeOptionalText(init?.associationName),
+          sourceId: Object.hasOwn(init, 'sourceId') ? init.sourceId : null,
+        },
+      }));
+    }
   });
 }
 
@@ -4035,6 +4148,24 @@ function inspectTableBlocks(payload, mode, blockers, seen) {
       return;
     }
 
+    const persistedWidth = getPersistedTableColumnWidth(node);
+    if (persistedWidth === null) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'TABLE_COLUMN_WIDTH_MISSING',
+        message: 'TableColumnModel must persist tableColumnSettings.width.width (or props.width in readback) because NocoBase runtime returns early when props.width is missing, so the field can appear in Fields while the actual column stays invisible.',
+        path: pathValue,
+        mode,
+        dedupeKey: `TABLE_COLUMN_WIDTH_MISSING:${pathValue}`,
+        details: {
+          fieldPath: node.stepParams?.fieldSettings?.init?.fieldPath || null,
+          collectionName: node.stepParams?.fieldSettings?.init?.collectionName || null,
+          stepWidth: node.stepParams?.tableColumnSettings?.width?.width ?? null,
+          propsWidth: node.props?.width ?? null,
+        },
+      }));
+    }
+
     const fieldUse = typeof node.subModels?.field?.use === 'string' ? node.subModels.field.use.trim() : '';
     if (!fieldUse) {
       pushFinding(blockers, seen, createFinding({
@@ -4134,7 +4265,31 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       return;
     }
 
+    const openViewDataSourceKey = normalizeOptionalText(openView?.dataSourceKey);
     const openViewCollectionName = typeof openView?.collectionName === 'string' ? openView.collectionName.trim() : '';
+    const missingOpenViewKeys = [
+      openViewDataSourceKey ? null : 'dataSourceKey',
+      openViewCollectionName ? null : 'collectionName',
+      typeof openView?.pageModelClass === 'string' && openView.pageModelClass.trim() ? null : 'pageModelClass',
+    ].filter(Boolean);
+    if (missingOpenViewKeys.length > 0) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'POPUP_OPEN_VIEW_RESOURCE_INCOMPLETE',
+        message: 'popup/openView must persist a complete dataSourceKey / collectionName / pageModelClass triple. Without the full resource context, popup routes may open into broken skeleton pages or crash during runtime resolution.',
+        path: `${pathValue}.stepParams.popupSettings.openView`,
+        mode,
+        dedupeKey: `POPUP_OPEN_VIEW_RESOURCE_INCOMPLETE:${pathValue}:${missingOpenViewKeys.join(',')}`,
+        details: {
+          actionUse: node.use,
+          missingKeys: missingOpenViewKeys,
+          dataSourceKey: openViewDataSourceKey || null,
+          collectionName: openViewCollectionName || null,
+          pageModelClass: normalizeOptionalText(openView?.pageModelClass),
+        },
+      }));
+    }
+
     const usesFilterByTk = Object.hasOwn(openView || {}, 'filterByTk')
       && openView?.filterByTk !== undefined
       && openView?.filterByTk !== null
@@ -4999,6 +5154,36 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       return;
     }
 
+    if (node.use === 'TableColumnModel') {
+      const stepParams = isPlainObject(node.stepParams) ? node.stepParams : (node.stepParams = {});
+      const tableColumnSettings = isPlainObject(stepParams.tableColumnSettings)
+        ? stepParams.tableColumnSettings
+        : (stepParams.tableColumnSettings = {});
+      const widthConfig = isPlainObject(tableColumnSettings.width)
+        ? tableColumnSettings.width
+        : (tableColumnSettings.width = {});
+      const previousWidthValue = widthConfig.width;
+      const previousStepWidth = normalizeOptionalPositiveNumber(widthConfig.width);
+      const propsWidth = normalizeOptionalPositiveNumber(node.props?.width);
+      const nextWidth = previousStepWidth ?? propsWidth ?? DEFAULT_TABLE_COLUMN_WIDTH;
+      if (previousStepWidth === null || previousWidthValue !== nextWidth) {
+        widthConfig.width = nextWidth;
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'TABLE_COLUMN_WIDTH_DEFAULTED',
+          path: `${pathValue}.stepParams.tableColumnSettings.width.width`,
+          message: `Filled in a renderable width for TableColumnModel so the column can actually mount at runtime.`,
+          details: {
+            from: previousWidthValue ?? null,
+            to: nextWidth,
+            source: previousStepWidth !== null ? 'stepParams'
+              : (propsWidth !== null ? 'props.width' : 'default'),
+            propsWidth,
+            defaultWidth: DEFAULT_TABLE_COLUMN_WIDTH,
+          },
+        });
+      }
+    }
+
     if (node.use === 'ChartBlockModel') {
       const stepParams = isPlainObject(node.stepParams) ? node.stepParams : (node.stepParams = {});
       const chartSettings = isPlainObject(stepParams.chartSettings) ? stepParams.chartSettings : (stepParams.chartSettings = {});
@@ -5503,6 +5688,35 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
     if (isPlainObject(openView)) {
       let replacement = null;
       let strategy = null;
+      const inferredOpenViewDataSource = !normalizeOptionalText(openView.dataSourceKey)
+        ? inferPopupOpenViewDataSourceKey({ pageNode: node.subModels?.page, openView, context })
+        : null;
+      if (inferredOpenViewDataSource?.dataSourceKey) {
+        openView.dataSourceKey = inferredOpenViewDataSource.dataSourceKey;
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'POPUP_OPEN_VIEW_DATASOURCE_CANONICALIZED',
+          path: `${pathValue}.stepParams.popupSettings.openView.dataSourceKey`,
+          message: `Filled in popup/openView.dataSourceKey="${inferredOpenViewDataSource.dataSourceKey}" from verified resource context.`,
+          details: {
+            actionUse: node.use,
+            collectionName: normalizeOptionalText(openView.collectionName) || null,
+            source: inferredOpenViewDataSource.source,
+            candidateKeys: inferredOpenViewDataSource.candidateKeys,
+          },
+        });
+      } else if (!normalizeOptionalText(openView.dataSourceKey)) {
+        pushCanonicalizeItem(unresolved, unresolvedSeen, {
+          code: 'POPUP_OPEN_VIEW_DATASOURCE_UNRESOLVED',
+          path: `${pathValue}.stepParams.popupSettings.openView.dataSourceKey`,
+          message: 'popup/openView is missing dataSourceKey, and the current payload cannot infer a single safe value from popup subtree resource settings.',
+          details: {
+            actionUse: node.use,
+            collectionName: normalizeOptionalText(openView.collectionName) || null,
+            candidateKeys: inferredOpenViewDataSource?.candidateKeys || [],
+          },
+        });
+      }
+
       const targetCollectionName = openView.collectionName || context.resourceCollectionName || null;
       if (RECORD_ACTION_MODEL_USES.has(node.use)) {
         replacement = buildRecordContextFilterByTk(metadata, targetCollectionName);

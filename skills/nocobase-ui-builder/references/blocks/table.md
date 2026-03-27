@@ -47,7 +47,7 @@ By scenario:
 - real visible data table:
   - `TableBlockModel`
   - at least one `TableColumnModel`
-  - every target column follows [../patterns/table-column-rendering.md](../patterns/table-column-rendering.md) and includes `subModels.field`
+  - every target column follows [../patterns/table-column-rendering.md](../patterns/table-column-rendering.md), includes `subModels.field`, and persists column width
 - action-enabled table:
   - add `TableActionsColumnModel`
   - persist a real action tree inside the action column
@@ -57,6 +57,7 @@ By scenario:
 - the table binds an explicit `collectionName`
 - every requested key column exists
 - if the user asked for real visible values, every key column has a field-rendering subtree
+- if the user asked for real visible values, every key column also persists a renderable width
 - if the user asked for table or row actions, the action column or block actions are persisted
 - if the user explicitly asked for record-level popup actions, the row actions inside `TableActionsColumnModel` also count toward acceptance
 - for relation tables, the filter context is explicit and the report can name which sample data it should hit
@@ -64,6 +65,7 @@ By scenario:
 ## Common traps
 
 - `TableColumnModel` exists without `subModels.field`, so the column shell renders but values do not
+- `TableColumnModel` misses `tableColumnSettings.width.width`, so the field still shows up in `Fields` but the column itself does not render
 - popup actions are added first while the main visible columns stay incomplete
 - relation dotted paths such as `customer.name` omit `associationPathName`
 - relation display bindings are split into `target collection + associationPathName + simple fieldPath`

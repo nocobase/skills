@@ -22,9 +22,11 @@ Typical problems:
 When the user asks to show real values in a table, the column is complete only when:
 
 1. the column itself exists
-2. `subModels.field` exists and uses a stable display field model
+2. `stepParams.tableColumnSettings.width.width` exists, or readback at least shows `props.width`
+3. `subModels.field` exists and uses a stable display field model
 
 A column shell without `subModels.field` is only a partial structural result.
+If width is missing, NocoBase runtime returns early in `getColumnProps()`, so the field may still appear inside `Fields` while the actual column does not render.
 
 ## Minimal flow-tree shape
 
@@ -32,6 +34,7 @@ At minimum:
 
 - `use: TableColumnModel`
 - `stepParams.fieldSettings.init.fieldPath`
+- `stepParams.tableColumnSettings.width.width`
 - `subModels.field.use = <Display*FieldModel>`
 
 ## Default mapping
@@ -72,6 +75,7 @@ Fallback order:
 Confirm that:
 
 - each target column uses `TableColumnModel`
+- each target column persists a renderable width
 - each target column has `subModels.field.use`
 - `subModels.field.stepParams.fieldSettings.init.fieldPath` matches the column target
 
@@ -80,6 +84,7 @@ If any item is missing, report "column shell created, data column incomplete".
 ## Common mistakes
 
 - persisting only `TableColumnModel`
+- omitting `tableColumnSettings.width.width`, which makes the column invisible even though `Fields` still lists it
 - keeping the display model only in settings without creating `subModels.field`
 - sacrificing visible data columns because popup or action flows are more complex
 - binding a relation field directly into `DisplayTextFieldModel(fieldPath=<relationField>)`

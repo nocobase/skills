@@ -19,6 +19,7 @@ A stable popup or openView flow usually includes:
 
 1. an action model
 2. `popupSettings.openView`
+   `openView` must already persist `dataSourceKey + collectionName + pageModelClass`
 3. `subModels.page`
 4. at least one tab under the page
 5. a grid under the tab
@@ -46,6 +47,7 @@ Common stable sources:
 ## Decision rules
 
 - if `filterByTk` can be written explicitly, prefer the explicit path
+- do not omit `openView.dataSourceKey`; popup route context is incomplete without it
 - do not hardcode record popup `filterByTk` as `{{ctx.record.id}}`; expand by the live `filterTargetKey`
 - `openView.pageModelClass` must match `subModels.page.use`
 - popup page tab `use` must match the parent page model
