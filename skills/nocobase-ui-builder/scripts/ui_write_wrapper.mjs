@@ -10,13 +10,25 @@ import {
   auditPayload,
   canonicalizePayload,
 } from './flow_payload_guard.mjs';
-import { remapConflictingDescendantUids } from './template_clone_helpers.mjs';
+import {
+  buildPageUrlFromCandidatePageUrl,
+  cloneJson,
+  ensureDir,
+  isPlainObject,
+  loadArtifactInput,
+  loadArtifactValue,
+  normalizeOptionalText,
+  normalizeRequiredText,
+  readJsonInput,
+  writeJson,
+} from './mcp_artifact_support.mjs';
 import {
   augmentReadbackContractWithGridMembership,
   buildReadbackDriftReport,
   validateReadbackContract,
 } from './rest_template_clone_runner.mjs';
 import { resolveSessionPaths } from './session_state.mjs';
+import { remapConflictingDescendantUids } from './template_clone_helpers.mjs';
 import {
   appendNote,
   finishRun,
@@ -28,37 +40,19 @@ import {
 
 const WRITE_ACTIONS = {
   'create-v2': {
-    endpointPath: '/api/desktopRoutes:createV2',
-    method: 'POST',
     toolName: 'PostDesktoproutes_createv2',
     requiresGuard: false,
   },
   save: {
-    endpointPath: '/api/flowModels:save',
-    method: 'POST',
     toolName: 'PostFlowmodels_save',
-    query: {
-      return: 'model',
-      includeAsyncNode: 'true',
-    },
     requiresGuard: true,
   },
   mutate: {
-    endpointPath: '/api/flowModels:mutate',
-    method: 'POST',
     toolName: 'PostFlowmodels_mutate',
-    query: {
-      includeAsyncNode: 'true',
-    },
     requiresGuard: true,
   },
   ensure: {
-    endpointPath: '/api/flowModels:ensure',
-    method: 'POST',
     toolName: 'PostFlowmodels_ensure',
-    query: {
-      includeAsyncNode: 'true',
-    },
     requiresGuard: true,
   },
 };
@@ -76,8 +70,6 @@ function usage() {
     '    [--log-dir <path>]',
     '    [--latest-run-path <path>]',
     '    [--out-dir <path>]',
-    '    [--url-base <http://127.0.0.1:23000 | http://127.0.0.1:23000/admin>]',
-    '    [--token <token>]',
     '    [--request-json <json> | --request-file <path>]',
     '    [--payload-json <json> | --payload-file <path>]',
     '    [--metadata-json <json> | --metadata-file <path>]',
@@ -90,11 +82,19 @@ function usage() {
     '    [--target-signature <signature>]',
     '    [--readback-parent-id <id>]',
     '    [--readback-sub-key <subKey>]',
+    '    [--write-result-json <json> | --write-result-file <path>]',
+    '    [--live-topology-json <json> | --live-topology-file <path>]',
+    '    [--readback-json <json> | --readback-file <path>]',
+    '    [--route-tree-json <json> | --route-tree-file <path>]',
+    '    [--page-anchor-json <json> | --page-anchor-file <path>]',
+    '    [--grid-anchor-json <json> | --grid-anchor-file <path>]',
+    '    [--chart-data-probes-json <json> | --chart-data-probes-file <path>]',
+    '    [--candidate-page-url <url>]',
     '',
     'Notes:',
-    '  - 这是 nocobase-ui-builder 的统一写入口；默认禁止裸 PostFlowmodels_save/mutate/ensure/createV2。',
-    '  - create-v2 会自动补 route-ready 与 page/grid anchor 读取。',
-    '  - save/mutate/ensure 会先跑 canonicalizePayload -> auditPayload，再执行写入与 readback。',
+    '  - 这是 nocobase-ui-builder 的统一写入口，但脚本本身不再直接访问 NocoBase API。',
+    '  - create-v2 / save / mutate / ensure 的实际写入与 readback 证据应先由 agent 通过 MCP 获取，再以 artifact 形式喂给 wrapper。',
+    '  - save/mutate/ensure 会继续执行 canonicalizePayload -> auditPayload -> readback drift/contract，本地只做 guard 与证据汇总。',
   ].join('\n');
 }
 
@@ -133,48 +133,6 @@ function parseArgs(argv) {
     index += 1;
   }
   return { command, flags };
-}
-
-function normalizeOptionalText(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : '';
-}
-
-function normalizeRequiredText(value, label) {
-  const normalized = normalizeOptionalText(value);
-  if (!normalized) {
-    throw new Error(`${label} is required`);
-  }
-  return normalized;
-}
-
-function readJsonInput(jsonValue, fileValue, label, { required = true } = {}) {
-  if (jsonValue && fileValue) {
-    throw new Error(`${label} accepts either inline json or file, not both`);
-  }
-  if (jsonValue) {
-    return JSON.parse(jsonValue);
-  }
-  if (fileValue) {
-    return JSON.parse(fs.readFileSync(path.resolve(fileValue), 'utf8'));
-  }
-  if (required) {
-    throw new Error(`${label} is required`);
-  }
-  return null;
-}
-
-function writeJson(filePath, value) {
-  const resolvedPath = path.resolve(filePath);
-  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-  fs.writeFileSync(resolvedPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-}
-
-function cloneJson(value) {
-  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function isFlowModelNode(value) {
@@ -235,395 +193,20 @@ function buildLiveTopology(tree) {
   };
 }
 
-function normalizeUrlBase(urlBase) {
-  const normalized = normalizeRequiredText(urlBase || 'http://127.0.0.1:23000', 'url base')
-    .replace(/\/+$/, '');
-  if (normalized.endsWith('/admin')) {
+function normalizeLiveTopologyArtifact(artifact) {
+  if (!artifact) {
+    return null;
+  }
+  const data = artifact.data;
+  if (isPlainObject(data) && isPlainObject(data.byUid)) {
+    const byUid = cloneJson(data.byUid);
     return {
-      apiBase: normalized.slice(0, -'/admin'.length),
-      adminBase: normalized,
+      source: normalizeOptionalText(data.source) || 'artifact',
+      nodeCount: Number.isInteger(data.nodeCount) ? data.nodeCount : Object.keys(byUid).length,
+      byUid,
     };
   }
-  return {
-    apiBase: normalized,
-    adminBase: `${normalized}/admin`,
-  };
-}
-
-function buildPageUrl(adminBase, schemaUid) {
-  return `${adminBase.replace(/\/+$/, '')}/${encodeURIComponent(schemaUid)}`;
-}
-
-function unwrapResponseEnvelope(value) {
-  let current = value;
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    if (typeof current === 'string') {
-      const trimmed = current.trim();
-      if (!trimmed) {
-        return current;
-      }
-      try {
-        current = JSON.parse(trimmed);
-        continue;
-      } catch {
-        return current;
-      }
-    }
-    if (!isPlainObject(current)) {
-      return current;
-    }
-    if (Object.prototype.hasOwnProperty.call(current, 'data')) {
-      current = current.data;
-      continue;
-    }
-    return current;
-  }
-  return current;
-}
-
-function buildRequestUrl(apiBase, endpointPath, query) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(isPlainObject(query) ? query : {})) {
-    if (value === undefined || value === null || value === '') {
-      continue;
-    }
-    params.set(key, String(value));
-  }
-  const suffix = params.toString();
-  return `${apiBase}${endpointPath}${suffix ? `?${suffix}` : ''}`;
-}
-
-async function requestJson({ method = 'GET', url, token, body }) {
-  const headers = {
-    Accept: 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const rawText = await response.text();
-  let parsed = rawText;
-  try {
-    parsed = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    parsed = rawText;
-  }
-  if (!response.ok) {
-    const error = new Error(`HTTP ${response.status} ${method} ${url}`);
-    error.status = response.status;
-    error.response = parsed;
-    throw error;
-  }
-  return {
-    status: response.status,
-    raw: parsed,
-    data: unwrapResponseEnvelope(parsed),
-  };
-}
-
-async function fetchAnchorModel({ apiBase, token, parentId, subKey }) {
-  const url = buildRequestUrl(apiBase, '/api/flowModels:findOne', {
-    parentId,
-    subKey,
-    includeAsyncNode: 'true',
-  });
-  return requestJson({ method: 'GET', url, token });
-}
-
-async function fetchAccessibleTree({ apiBase, token }) {
-  const url = buildRequestUrl(apiBase, '/api/desktopRoutes:listAccessible', {
-    tree: 'true',
-    sort: 'sort',
-  });
-  return requestJson({ method: 'GET', url, token });
-}
-
-function normalizeChartProbeField(value) {
-  if (Array.isArray(value)) {
-    const segments = value
-      .filter((item) => typeof item === 'string')
-      .map((item) => item.trim())
-      .filter(Boolean);
-    if (segments.length === 0) {
-      return '';
-    }
-    if (segments.length === 1) {
-      return segments[0];
-    }
-    return segments;
-  }
-  return normalizeOptionalText(value);
-}
-
-function serializeChartProbeField(value) {
-  if (Array.isArray(value)) {
-    return value.join('.');
-  }
-  return normalizeOptionalText(value);
-}
-
-function normalizeChartProbeMeasures(values) {
-  return (Array.isArray(values) ? values : [])
-    .filter((item) => isPlainObject(item))
-    .map((item) => {
-      const field = normalizeChartProbeField(item.field);
-      if (!field) {
-        return null;
-      }
-      const alias = normalizeOptionalText(item.alias)
-        || (normalizeOptionalText(item.aggregation) ? serializeChartProbeField(field) : '');
-      return {
-        ...item,
-        field,
-        ...(alias ? { alias } : {}),
-      };
-    })
-    .filter(Boolean);
-}
-
-function normalizeChartProbeDimensions(values) {
-  return (Array.isArray(values) ? values : [])
-    .filter((item) => isPlainObject(item))
-    .map((item) => {
-      const field = normalizeChartProbeField(item.field);
-      if (!field) {
-        return null;
-      }
-      const alias = normalizeOptionalText(item.alias)
-        || (normalizeOptionalText(item.format) ? serializeChartProbeField(field) : '');
-      return {
-        ...item,
-        field,
-        ...(alias ? { alias } : {}),
-      };
-    })
-    .filter(Boolean);
-}
-
-function normalizeChartProbeOrders(values) {
-  return (Array.isArray(values) ? values : [])
-    .filter((item) => isPlainObject(item))
-    .map((item) => {
-      const field = normalizeChartProbeField(item.field);
-      if (!field) {
-        return null;
-      }
-      const alias = normalizeOptionalText(item.alias) || serializeChartProbeField(field);
-      return {
-        ...item,
-        field,
-        ...(alias ? { alias } : {}),
-      };
-    })
-    .filter(Boolean);
-}
-
-function collectChartBlocks(tree) {
-  const chartBlocks = [];
-  walkFlowModelTree(tree, (node, pathValue) => {
-    if (normalizeOptionalText(node.use) !== 'ChartBlockModel') {
-      return;
-    }
-    chartBlocks.push({
-      uid: normalizeOptionalText(node.uid),
-      title: normalizeOptionalText(node.title),
-      path: pathValue,
-      query: cloneJson(node.stepParams?.chartSettings?.configure?.query ?? null),
-    });
-  });
-  return chartBlocks;
-}
-
-function getProbeRowCount(data) {
-  if (Array.isArray(data)) {
-    return data.length;
-  }
-  if (isPlainObject(data) && Array.isArray(data.data)) {
-    return data.data.length;
-  }
-  if (data === null || data === undefined) {
-    return 0;
-  }
-  return 1;
-}
-
-async function runChartDataProbe({ chartBlock, apiBase, token, logPath }) {
-  const query = isPlainObject(chartBlock.query) ? chartBlock.query : {};
-  const queryMode = normalizeOptionalText(query.mode) || (normalizeOptionalText(query.sql) ? 'sql' : 'builder');
-
-  try {
-    if (queryMode === 'sql') {
-      const requestBody = {
-        sql: normalizeOptionalText(query.sql),
-        dataSourceKey: normalizeOptionalText(query.sqlDatasource) || 'main',
-        type: 'selectRows',
-      };
-      const response = await requestJson({
-        method: 'POST',
-        url: buildRequestUrl(apiBase, '/api/flowSql:run'),
-        token,
-        body: requestBody,
-      });
-      const rowCount = getProbeRowCount(response.data);
-      const probe = {
-        uid: chartBlock.uid,
-        title: chartBlock.title,
-        path: chartBlock.path,
-        mode: 'sql',
-        ok: true,
-        rowCount,
-        dataSourceKey: requestBody.dataSourceKey,
-      };
-      recordToolCall({
-        logPath,
-        tool: 'flowSql:run',
-        toolType: 'node',
-        status: 'ok',
-        args: {
-          uid: chartBlock.uid || undefined,
-          mode: 'sql',
-        },
-        summary: 'wrapper chart data probe completed',
-        result: {
-          rowCount,
-          dataSourceKey: requestBody.dataSourceKey,
-        },
-      });
-      return probe;
-    }
-
-    const collectionPath = Array.isArray(query.collectionPath)
-      ? query.collectionPath
-        .filter((item) => typeof item === 'string')
-        .map((item) => item.trim())
-        .filter(Boolean)
-      : [];
-    const [dataSource = 'main', collection = ''] = collectionPath;
-    const requestBody = {
-      uid: chartBlock.uid || undefined,
-      dataSource,
-      collection,
-      mode: 'builder',
-      filter: query.filter,
-      orders: normalizeChartProbeOrders(query.orders),
-      limit: query.limit,
-      offset: query.offset,
-      measures: normalizeChartProbeMeasures(query.measures),
-      dimensions: normalizeChartProbeDimensions(query.dimensions),
-    };
-    const response = await requestJson({
-      method: 'POST',
-      url: buildRequestUrl(apiBase, '/api/charts:query'),
-      token,
-      body: requestBody,
-    });
-    const rowCount = getProbeRowCount(response.data);
-    const probe = {
-      uid: chartBlock.uid,
-      title: chartBlock.title,
-      path: chartBlock.path,
-      mode: 'builder',
-      ok: true,
-      rowCount,
-      dataSource,
-      collection,
-    };
-    recordToolCall({
-      logPath,
-      tool: 'charts:query',
-      toolType: 'node',
-      status: 'ok',
-      args: {
-        uid: chartBlock.uid || undefined,
-        mode: 'builder',
-        dataSource,
-        collection,
-      },
-      summary: 'wrapper chart data probe completed',
-      result: {
-        rowCount,
-        dataSource,
-        collection,
-      },
-    });
-    return probe;
-  } catch (error) {
-    const serializedError = summarizeError(error);
-    const probe = {
-      uid: chartBlock.uid,
-      title: chartBlock.title,
-      path: chartBlock.path,
-      mode: queryMode,
-      ok: false,
-      error: serializedError,
-    };
-    recordToolCall({
-      logPath,
-      tool: queryMode === 'sql' ? 'flowSql:run' : 'charts:query',
-      toolType: 'node',
-      status: 'error',
-      args: {
-        uid: chartBlock.uid || undefined,
-        mode: queryMode,
-      },
-      summary: 'wrapper chart data probe failed',
-      error: serializedError.message,
-      result: serializedError.response ?? undefined,
-    });
-    return probe;
-  }
-}
-
-async function probeChartDataReadiness({ tree, apiBase, token, logPath }) {
-  const chartBlocks = collectChartBlocks(tree);
-  if (chartBlocks.length === 0) {
-    return {
-      probes: [],
-      statusAxis: {
-        status: 'not-recorded',
-        detail: '本次 readback 未发现 ChartBlockModel。',
-      },
-    };
-  }
-
-  const probes = [];
-  for (const chartBlock of chartBlocks) {
-    probes.push(await runChartDataProbe({
-      chartBlock,
-      apiBase,
-      token,
-      logPath,
-    }));
-  }
-
-  const failedProbes = probes.filter((item) => item.ok === false);
-  if (failedProbes.length > 0) {
-    return {
-      probes,
-      statusAxis: {
-        status: 'failed',
-        detail: `${failedProbes.length}/${probes.length} 个图表数据探测失败。`,
-      },
-    };
-  }
-
-  const zeroRowCount = probes.filter((item) => item.rowCount === 0).length;
-  const totalRows = probes.reduce((sum, item) => sum + (Number.isInteger(item.rowCount) ? item.rowCount : 0), 0);
-  const detail = zeroRowCount > 0
-    ? `已验证 ${probes.length} 个图表查询，累计返回 ${totalRows} 行，其中 ${zeroRowCount} 个图表返回 0 行。`
-    : `已验证 ${probes.length} 个图表查询，累计返回 ${totalRows} 行。`;
-  return {
-    probes,
-    statusAxis: {
-      status: 'ready',
-      detail,
-    },
-  };
+  return buildLiveTopology(data);
 }
 
 function probeRouteReady(routeTree, schemaUid) {
@@ -699,6 +282,24 @@ function summarizeError(error) {
   };
 }
 
+function buildGuardMetadata(normalized) {
+  const metadata = cloneJson(normalized.metadata) || {};
+
+  if (normalized.actionDef.requiresGuard && normalized.readbackParentId && normalized.readbackSubKey) {
+    metadata.targetAnchor = {
+      parentId: normalized.readbackParentId,
+      subKey: normalized.readbackSubKey,
+      subType: 'object',
+    };
+  }
+
+  if (normalized.routeTreeArtifact) {
+    metadata.routeTree = cloneJson(normalized.routeTreeArtifact.data);
+  }
+
+  return metadata;
+}
+
 function buildDefaultOutDir({ sessionId, sessionRoot, runId }) {
   const sessionPaths = resolveSessionPaths({ sessionId, sessionRoot });
   return path.join(sessionPaths.artifactDir, 'ui-write-wrapper', runId);
@@ -724,7 +325,17 @@ function markSkippedPhase(logPath, phase, reason) {
   });
 }
 
-function determineWriteStatus({ action, guardBlocked, writeError, routeReadyOk, pageAnchorOk, gridAnchorOk, readbackResult, driftOk, contractOk }) {
+function determineWriteStatus({
+  action,
+  guardBlocked,
+  writeError,
+  routeReadyOk,
+  pageAnchorOk,
+  gridAnchorOk,
+  readbackPresent,
+  driftOk,
+  contractOk,
+}) {
   if (guardBlocked || writeError) {
     return 'failed';
   }
@@ -734,7 +345,7 @@ function determineWriteStatus({ action, guardBlocked, writeError, routeReadyOk, 
     }
     return 'success';
   }
-  if (!isPlainObject(readbackResult?.data)) {
+  if (!readbackPresent) {
     return 'failed';
   }
   if (driftOk === false || contractOk === false) {
@@ -743,20 +354,174 @@ function determineWriteStatus({ action, guardBlocked, writeError, routeReadyOk, 
   return 'success';
 }
 
-async function executeWrapperAction({
-  action,
-  apiBase,
-  token,
-  requestBody,
-}) {
-  const actionDef = WRITE_ACTIONS[action];
-  const url = buildRequestUrl(apiBase, actionDef.endpointPath, actionDef.query);
-  return requestJson({
-    method: actionDef.method,
-    url,
-    token,
-    body: requestBody,
+function collectChartBlocks(tree) {
+  const chartBlocks = [];
+  walkFlowModelTree(tree, (node, pathValue) => {
+    if (normalizeOptionalText(node.use) !== 'ChartBlockModel') {
+      return;
+    }
+    chartBlocks.push({
+      uid: normalizeOptionalText(node.uid),
+      title: normalizeOptionalText(node.title),
+      path: pathValue,
+    });
   });
+  return chartBlocks;
+}
+
+function deriveChartProbeStatusFromProbes(probes) {
+  const failedProbes = probes.filter((item) => item?.ok === false);
+  if (failedProbes.length > 0) {
+    return {
+      status: 'failed',
+      detail: `${failedProbes.length}/${probes.length} 个图表数据探测失败。`,
+    };
+  }
+
+  const totalRows = probes.reduce(
+    (sum, item) => sum + (Number.isInteger(item?.rowCount) ? item.rowCount : 0),
+    0,
+  );
+  const zeroRowCount = probes.filter((item) => item?.rowCount === 0).length;
+  const detail = zeroRowCount > 0
+    ? `已读取 ${probes.length} 个图表探测 artifact，累计 ${totalRows} 行，其中 ${zeroRowCount} 个图表返回 0 行。`
+    : `已读取 ${probes.length} 个图表探测 artifact，累计 ${totalRows} 行。`;
+  return {
+    status: 'ready',
+    detail,
+  };
+}
+
+function normalizeChartDataProbeResult(artifact, tree) {
+  if (artifact) {
+    const data = artifact.data;
+    if (Array.isArray(data)) {
+      return {
+        probes: cloneJson(data),
+        statusAxis: deriveChartProbeStatusFromProbes(data),
+      };
+    }
+    if (isPlainObject(data)) {
+      const probes = Array.isArray(data.probes)
+        ? cloneJson(data.probes)
+        : (Array.isArray(data.items) ? cloneJson(data.items) : []);
+      const statusAxis = isPlainObject(data.statusAxis)
+        ? cloneJson(data.statusAxis)
+        : deriveChartProbeStatusFromProbes(probes);
+      return {
+        probes,
+        statusAxis,
+      };
+    }
+  }
+
+  const chartBlocks = collectChartBlocks(tree);
+  if (chartBlocks.length === 0) {
+    return {
+      probes: [],
+      statusAxis: {
+        status: 'not-recorded',
+        detail: '本次 readback 未发现 ChartBlockModel。',
+      },
+    };
+  }
+
+  return {
+    probes: chartBlocks.map((item) => ({
+      uid: item.uid,
+      title: item.title,
+      path: item.path,
+      ok: null,
+      status: 'not-run',
+    })),
+    statusAxis: {
+      status: 'not-run',
+      detail: `readback 中发现 ${chartBlocks.length} 个 ChartBlockModel，但未提供 chart data probe artifact。`,
+    },
+  };
+}
+
+function buildDefaultStatusAxes() {
+  return {
+    browserValidation: {
+      status: 'skipped (not requested)',
+      detail: '本轮未请求浏览器验证。',
+    },
+    runtimeUsable: {
+      status: 'not-run',
+      detail: '本轮未执行 runtime/smoke。',
+    },
+    dataPreparation: {
+      status: 'not-recorded',
+      detail: '日志中没有稳定的数据准备信号。',
+    },
+  };
+}
+
+function finalizeStatusAxesForCreateV2({
+  routeReady,
+  pageAnchor,
+  gridAnchor,
+  writePresent,
+}) {
+  return {
+    pageShellCreated: writePresent
+      ? { status: 'created', detail: 'create-v2 write artifact 已提供。' }
+      : { status: 'failed', detail: '缺少 create-v2 write artifact。' },
+    routeReady: routeReady?.ok
+      ? { status: 'ready', detail: 'route tree 已确认 page route 与默认隐藏 tab。' }
+      : { status: 'not-ready', detail: 'route-ready 证据不完整。' },
+    readbackMatched: pageAnchor.present && gridAnchor.present
+      ? { status: 'matched', detail: 'page/grid anchor 已提供。' }
+      : { status: 'evidence-insufficient', detail: 'page/grid anchor 证据不完整。' },
+    dataReady: {
+      status: 'not-recorded',
+      detail: '页面壳创建阶段没有数据 readiness 检查。',
+    },
+  };
+}
+
+function finalizeStatusAxesForFlowWrite({
+  readbackPresent,
+  readbackDiffResult,
+  readbackContractResult,
+  chartDataProbeResult,
+}) {
+  let readbackMatched;
+  if (!readbackPresent) {
+    readbackMatched = {
+      status: 'failed',
+      detail: '缺少 readback artifact。',
+    };
+  } else if (!readbackContractResult.ok) {
+    readbackMatched = {
+      status: 'mismatch',
+      detail: 'readback contract 未通过。',
+    };
+  } else if (!readbackDiffResult.ok) {
+    readbackMatched = {
+      status: 'mismatch',
+      detail: `readback drift 发现 ${readbackDiffResult.summary?.driftCount || 0} 处漂移。`,
+    };
+  } else {
+    readbackMatched = {
+      status: 'matched',
+      detail: 'readback drift 与 contract 均通过。',
+    };
+  }
+
+  return {
+    pageShellCreated: {
+      status: 'not-recorded',
+      detail: '本轮不是 create-v2 页面壳创建。',
+    },
+    routeReady: {
+      status: 'not-recorded',
+      detail: '本轮不是 create-v2 route-ready 校验。',
+    },
+    readbackMatched,
+    dataReady: chartDataProbeResult.statusAxis,
+  };
 }
 
 function normalizeWrapperOptions(options = {}) {
@@ -771,7 +536,7 @@ function normalizeWrapperOptions(options = {}) {
   const payload = options.payload !== undefined ? cloneJson(options.payload) : null;
   const metadata = options.metadata !== undefined ? cloneJson(options.metadata) : {};
   const requirements = options.requirements !== undefined ? cloneJson(options.requirements) : {};
-  const readbackContract = options.readbackContract !== undefined ? cloneJson(options.readbackContract) : null;
+  const readbackContract = options.readbackContract !== undefined ? cloneJson(options.readbackContract) : {};
 
   if (action === 'create-v2' && !requestBody) {
     throw new Error('action "create-v2" requires request body');
@@ -786,8 +551,6 @@ function normalizeWrapperOptions(options = {}) {
     task: normalizeRequiredText(options.task, 'task'),
     title: normalizeOptionalText(options.title),
     schemaUid: normalizeOptionalText(options.schemaUid),
-    urlBase: normalizeOptionalText(options.urlBase) || 'http://127.0.0.1:23000',
-    token: normalizeRequiredText(options.token ?? process.env.NOCOBASE_API_TOKEN, 'NOCOBASE_API_TOKEN'),
     requestBody,
     payload,
     requestProvided,
@@ -806,13 +569,40 @@ function normalizeWrapperOptions(options = {}) {
     logDir: normalizeOptionalText(options.logDir),
     latestRunPath: normalizeOptionalText(options.latestRunPath),
     outDir: normalizeOptionalText(options.outDir),
+    candidatePageUrl: normalizeOptionalText(options.candidatePageUrl),
+    writeResultArtifact: options.writeResult !== undefined ? loadArtifactValue(options.writeResult, { label: 'write result' }) : null,
+    liveTopologyArtifact: options.liveTopology !== undefined ? loadArtifactValue(options.liveTopology, { label: 'live topology' }) : null,
+    readbackArtifact: options.readback !== undefined ? loadArtifactValue(options.readback, { label: 'readback' }) : null,
+    routeTreeArtifact: options.routeTree !== undefined ? loadArtifactValue(options.routeTree, { label: 'route tree' }) : null,
+    pageAnchorArtifact: options.pageAnchor !== undefined ? loadArtifactValue(options.pageAnchor, { label: 'page anchor' }) : null,
+    gridAnchorArtifact: options.gridAnchor !== undefined ? loadArtifactValue(options.gridAnchor, { label: 'grid anchor' }) : null,
+    chartDataProbesArtifact: options.chartDataProbes !== undefined ? loadArtifactValue(options.chartDataProbes, { label: 'chart data probes' }) : null,
   };
+}
+
+function requireArtifact(artifact, label) {
+  if (!artifact) {
+    throw new Error(`${label} artifact is required`);
+  }
+  return artifact;
+}
+
+function recordConsumedArtifact({ logPath, tool, status = 'ok', summary, args, result, error }) {
+  recordToolCall({
+    logPath,
+    tool,
+    toolType: 'node',
+    status,
+    summary,
+    args,
+    result,
+    error,
+  });
 }
 
 export async function runUiWriteWrapper(options = {}) {
   const normalized = normalizeWrapperOptions(options);
   const { action, actionDef } = normalized;
-  const { apiBase, adminBase } = normalizeUrlBase(normalized.urlBase);
   const run = startRun({
     task: normalized.task,
     title: normalized.title || undefined,
@@ -824,6 +614,7 @@ export async function runUiWriteWrapper(options = {}) {
     metadata: {
       wrapperOnly: true,
       action,
+      transport: 'mcp-artifact',
     },
   });
   const outDir = normalized.outDir
@@ -833,7 +624,7 @@ export async function runUiWriteWrapper(options = {}) {
       sessionRoot: run.sessionRoot,
       runId: run.runId,
     });
-  fs.mkdirSync(outDir, { recursive: true });
+  ensureDir(outDir);
 
   const summary = {
     runId: run.runId,
@@ -841,21 +632,23 @@ export async function runUiWriteWrapper(options = {}) {
     action,
     status: 'failed',
     wrapperOnly: true,
+    transport: 'mcp-artifact',
     outDir,
     pageUrl: '',
     schemaUid: normalized.schemaUid,
     targetSignature: normalized.targetSignature || '',
     artifactPaths: {},
-    statusAxes: {},
+    statusAxes: buildDefaultStatusAxes(),
     notes: [],
   };
 
   appendNote({
     logPath: run.logPath,
-    message: 'wrapper-only write path engaged',
+    message: 'wrapper-only MCP artifact path engaged',
     data: {
       type: 'wrapper_only',
       action,
+      transport: 'mcp-artifact',
     },
   });
 
@@ -865,18 +658,20 @@ export async function runUiWriteWrapper(options = {}) {
     event: 'end',
     status: 'skipped',
     attributes: {
-      reason: 'wrapper expects precomputed target metadata or explicit request payload',
+      reason: 'wrapper expects precomputed payload and MCP artifacts',
     },
   });
 
-  let guardPayload = normalized.payload || normalized.requestBody;
-  let requestBody = normalized.requestBody;
-  let canonicalizeResult = null;
-  let auditResult = null;
-  let effectiveMetadata = normalized.metadata;
-  let initialAuditResult = null;
+  let finishStatus = 'failed';
+  let finishSummary = `wrapper ${action} failed`;
 
   try {
+    let guardPayload = normalized.payload || normalized.requestBody;
+    let requestBody = normalized.requestBody;
+    let canonicalizeResult = null;
+    let auditResult = null;
+    let effectiveMetadata = buildGuardMetadata(normalized);
+
     if (actionDef.requiresGuard) {
       if (!normalized.readbackParentId || !normalized.readbackSubKey) {
         throw new Error(`action "${action}" requires --readback-parent-id and --readback-sub-key`);
@@ -889,48 +684,54 @@ export async function runUiWriteWrapper(options = {}) {
         status: 'running',
       });
 
-      writeJson(path.join(outDir, 'payload.draft.json'), guardPayload);
-      summary.artifactPaths.payloadDraft = path.join(outDir, 'payload.draft.json');
+      const payloadDraftPath = path.join(outDir, 'payload.draft.json');
+      writeJson(payloadDraftPath, guardPayload);
+      summary.artifactPaths.payloadDraft = payloadDraftPath;
+
       if (requestBody !== null) {
-        writeJson(path.join(outDir, 'request.raw.json'), requestBody);
-        summary.artifactPaths.requestRaw = path.join(outDir, 'request.raw.json');
+        const requestRawPath = path.join(outDir, 'request.raw.json');
+        writeJson(requestRawPath, requestBody);
+        summary.artifactPaths.requestRaw = requestRawPath;
       }
 
       canonicalizeResult = canonicalizePayload({
         payload: guardPayload,
-        metadata: normalized.metadata,
+        metadata: effectiveMetadata,
         mode: normalized.mode,
         nocobaseRoot: normalized.nocobaseRoot || undefined,
         snapshotPath: normalized.snapshotFile || undefined,
       });
-      writeJson(path.join(outDir, 'canonicalize-result.json'), canonicalizeResult);
-      writeJson(path.join(outDir, 'payload.canonical.json'), canonicalizeResult.payload);
-      summary.artifactPaths.canonicalizeResult = path.join(outDir, 'canonicalize-result.json');
-      summary.artifactPaths.payloadCanonical = path.join(outDir, 'payload.canonical.json');
+      const canonicalizePath = path.join(outDir, 'canonicalize-result.json');
+      const payloadCanonicalPath = path.join(outDir, 'payload.canonical.json');
+      writeJson(canonicalizePath, canonicalizeResult);
+      writeJson(payloadCanonicalPath, canonicalizeResult.payload);
+      summary.artifactPaths.canonicalizeResult = canonicalizePath;
+      summary.artifactPaths.payloadCanonical = payloadCanonicalPath;
 
-      initialAuditResult = auditPayload({
+      const initialAuditResult = auditPayload({
         payload: canonicalizeResult.payload,
-        metadata: normalized.metadata,
+        metadata: effectiveMetadata,
         mode: normalized.mode,
         riskAccept: normalized.riskAccept,
         requirements: normalized.requirements,
         nocobaseRoot: normalized.nocobaseRoot || undefined,
         snapshotPath: normalized.snapshotFile || undefined,
       });
-      writeJson(path.join(outDir, 'audit.initial.json'), initialAuditResult);
-      summary.artifactPaths.auditInitial = path.join(outDir, 'audit.initial.json');
+      const auditInitialPath = path.join(outDir, 'audit.initial.json');
+      writeJson(auditInitialPath, initialAuditResult);
+      summary.artifactPaths.auditInitial = auditInitialPath;
+
       if (!initialAuditResult.ok) {
         summary.audit = summarizeAudit(initialAuditResult);
-
-        recordToolCall({
+        recordConsumedArtifact({
           logPath: run.logPath,
-          tool: 'node scripts/preflight_write_gate.mjs',
-          toolType: 'node',
+          tool: 'flow_payload_guard.audit-payload',
           status: 'error',
+          summary: 'wrapper preflight blocked before live-topology remap',
           args: {
             action,
+            stage: 'initial',
           },
-          summary: 'wrapper preflight blocked before live-topology probe',
           result: {
             mode: normalized.mode,
             canonicalize: summarizeCanonicalize(canonicalizeResult),
@@ -969,48 +770,42 @@ export async function runUiWriteWrapper(options = {}) {
         markSkippedPhase(run.logPath, 'readback', 'write blocked by guard');
         markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
         markSkippedPhase(run.logPath, 'smoke', 'browser not requested');
-        writeJson(path.join(outDir, 'summary.json'), summary);
-        summary.artifactPaths.summary = path.join(outDir, 'summary.json');
-        finishRun({
-          logPath: run.logPath,
-          status: 'failed',
-          summary: 'wrapper blocked write on preflight guard',
-          data: summary,
-        });
+        const summaryPath = path.join(outDir, 'summary.json');
+        writeJson(summaryPath, summary);
+        summary.artifactPaths.summary = summaryPath;
+        finishStatus = 'failed';
+        finishSummary = 'wrapper blocked write on preflight guard';
         return summary;
       }
 
-      try {
-        const liveProbeResult = await fetchAnchorModel({
-          apiBase,
-          token: normalized.token,
-          parentId: normalized.readbackParentId,
-          subKey: normalized.readbackSubKey,
-        });
-        writeJson(path.join(outDir, 'live-topology.json'), liveProbeResult.raw);
-        summary.artifactPaths.liveTopology = path.join(outDir, 'live-topology.json');
-        const liveTopology = buildLiveTopology(liveProbeResult.data);
+      const liveTopologyArtifact = normalized.liveTopologyArtifact;
+      if (liveTopologyArtifact) {
+        const liveTopologyPath = path.join(outDir, 'live-topology.json');
+        writeJson(liveTopologyPath, liveTopologyArtifact.raw);
+        summary.artifactPaths.liveTopology = liveTopologyPath;
+
+        const liveTopology = normalizeLiveTopologyArtifact(liveTopologyArtifact);
         effectiveMetadata = {
-          ...normalized.metadata,
+          ...effectiveMetadata,
           liveTopology,
         };
         summary.liveTopology = {
           source: liveTopology.source,
           nodeCount: liveTopology.nodeCount,
         };
-        recordToolCall({
+
+        recordConsumedArtifact({
           logPath: run.logPath,
           tool: 'GetFlowmodels_findone',
-          toolType: 'node',
-          status: 'ok',
+          summary: 'wrapper consumed live topology artifact before write',
           args: {
             action,
             parentId: normalized.readbackParentId,
             subKey: normalized.readbackSubKey,
             targetSignature: normalized.targetSignature || undefined,
           },
-          summary: 'wrapper fetched live topology before write',
           result: {
+            source: liveTopology.source,
             nodeCount: liveTopology.nodeCount,
           },
         });
@@ -1022,54 +817,34 @@ export async function runUiWriteWrapper(options = {}) {
         });
         if (liveRemapResult.changed) {
           canonicalizeResult.payload = liveRemapResult.payload;
-          writeJson(path.join(outDir, 'live-topology-remap.json'), liveRemapResult);
-          writeJson(path.join(outDir, 'payload.remapped.json'), liveRemapResult.payload);
-          summary.artifactPaths.liveTopologyRemap = path.join(outDir, 'live-topology-remap.json');
-          summary.artifactPaths.payloadRemapped = path.join(outDir, 'payload.remapped.json');
+          const liveRemapPath = path.join(outDir, 'live-topology-remap.json');
+          const payloadRemappedPath = path.join(outDir, 'payload.remapped.json');
+          writeJson(liveRemapPath, liveRemapResult);
+          writeJson(payloadRemappedPath, liveRemapResult.payload);
+          summary.artifactPaths.liveTopologyRemap = liveRemapPath;
+          summary.artifactPaths.payloadRemapped = payloadRemappedPath;
           summary.liveTopologyRemap = {
             changed: true,
             remappedNodeCount: liveRemapResult.remappedNodes.length,
           };
           summary.notes.push(`live topology remap 已刷新 ${liveRemapResult.remappedNodes.length} 个冲突 descendant uid。`);
-          recordToolCall({
+
+          recordConsumedArtifact({
             logPath: run.logPath,
             tool: 'template_clone_helpers.remapConflictingDescendantUids',
-            toolType: 'node',
-            status: 'ok',
+            summary: 'wrapper remapped conflicting descendant uids before write',
             args: {
               action,
               targetSignature: normalized.targetSignature || undefined,
             },
-            summary: 'wrapper remapped conflicting descendant uids before write',
             result: {
               changed: true,
               remappedNodeCount: liveRemapResult.remappedNodes.length,
             },
           });
         }
-      } catch (error) {
-        const liveProbeError = {
-          message: error instanceof Error ? error.message : String(error),
-          status: Number.isInteger(error?.status) ? error.status : null,
-          response: error?.response ?? null,
-        };
-        writeJson(path.join(outDir, 'live-topology-error.json'), liveProbeError);
-        summary.artifactPaths.liveTopologyError = path.join(outDir, 'live-topology-error.json');
-        summary.notes.push(`live topology probe 失败，将跳过 auto-remap: ${liveProbeError.message}`);
-        recordToolCall({
-          logPath: run.logPath,
-          tool: 'GetFlowmodels_findone',
-          toolType: 'node',
-          status: 'error',
-          args: {
-            action,
-            parentId: normalized.readbackParentId,
-            subKey: normalized.readbackSubKey,
-            targetSignature: normalized.targetSignature || undefined,
-          },
-          summary: 'wrapper failed to fetch live topology before write',
-          error: liveProbeError.message,
-        });
+      } else {
+        summary.notes.push('未提供 live topology artifact，将跳过 auto-remap。');
       }
 
       auditResult = auditPayload({
@@ -1081,19 +856,20 @@ export async function runUiWriteWrapper(options = {}) {
         nocobaseRoot: normalized.nocobaseRoot || undefined,
         snapshotPath: normalized.snapshotFile || undefined,
       });
-      writeJson(path.join(outDir, 'audit.json'), auditResult);
-      summary.artifactPaths.audit = path.join(outDir, 'audit.json');
+      const auditPath = path.join(outDir, 'audit.json');
+      writeJson(auditPath, auditResult);
+      summary.artifactPaths.audit = auditPath;
       summary.audit = summarizeAudit(auditResult);
 
-      recordToolCall({
+      recordConsumedArtifact({
         logPath: run.logPath,
-        tool: 'node scripts/preflight_write_gate.mjs',
-        toolType: 'node',
+        tool: 'flow_payload_guard.audit-payload',
         status: auditResult.ok ? 'ok' : 'error',
+        summary: auditResult.ok ? 'wrapper preflight passed' : 'wrapper preflight blocked',
         args: {
           action,
+          stage: 'final',
         },
-        summary: auditResult.ok ? 'wrapper preflight passed' : 'wrapper preflight blocked',
         result: {
           mode: normalized.mode,
           canonicalize: summarizeCanonicalize(canonicalizeResult),
@@ -1133,14 +909,11 @@ export async function runUiWriteWrapper(options = {}) {
         markSkippedPhase(run.logPath, 'readback', 'write blocked by guard');
         markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
         markSkippedPhase(run.logPath, 'smoke', 'browser not requested');
-        writeJson(path.join(outDir, 'summary.json'), summary);
-        summary.artifactPaths.summary = path.join(outDir, 'summary.json');
-        finishRun({
-          logPath: run.logPath,
-          status: 'failed',
-          summary: 'wrapper blocked write on preflight guard',
-          data: summary,
-        });
+        const summaryPath = path.join(outDir, 'summary.json');
+        writeJson(summaryPath, summary);
+        summary.artifactPaths.summary = summaryPath;
+        finishStatus = 'failed';
+        finishSummary = 'wrapper blocked write on preflight guard';
         return summary;
       }
 
@@ -1159,32 +932,22 @@ export async function runUiWriteWrapper(options = {}) {
       status: 'running',
     });
 
-    const writeResult = await executeWrapperAction({
-      action,
-      apiBase,
-      token: normalized.token,
-      requestBody: requestBody ?? normalized.requestBody,
-    });
+    const writeResultArtifact = requireArtifact(normalized.writeResultArtifact, 'write result');
     const writeArtifactPath = path.join(outDir, `${action}.result.json`);
-    writeJson(writeArtifactPath, writeResult.raw);
+    writeJson(writeArtifactPath, writeResultArtifact.raw);
     summary.artifactPaths.writeResult = writeArtifactPath;
 
-    recordToolCall({
+    recordConsumedArtifact({
       logPath: run.logPath,
       tool: actionDef.toolName,
-      toolType: 'node',
-      status: 'ok',
+      summary: `wrapper consumed ${action} write artifact`,
       args: {
         action,
         targetSignature: normalized.targetSignature || undefined,
         readbackParentId: normalized.readbackParentId || undefined,
         readbackSubKey: normalized.readbackSubKey || undefined,
       },
-      summary: `wrapper ${action} completed`,
-      result: {
-        status: writeResult.status,
-        summary: summarizeNode(writeResult.data),
-      },
+      result: summarizeNode(writeResultArtifact.data),
     });
 
     recordPhase({
@@ -1204,203 +967,243 @@ export async function runUiWriteWrapper(options = {}) {
       status: 'running',
     });
 
-    let routeReady = null;
-    let pageAnchor = null;
-    let gridAnchor = null;
-    let readbackResult = null;
-    let readbackDiffResult = null;
-    let readbackContractResult = null;
-    let chartDataProbeResult = null;
-
     if (action === 'create-v2') {
-      const schemaUid = normalized.schemaUid || normalizeOptionalText(requestBody?.schemaUid);
+      const schemaUid = normalized.schemaUid
+        || normalizeOptionalText(requestBody?.schemaUid)
+        || normalizeOptionalText(writeResultArtifact.data?.schemaUid);
       summary.schemaUid = schemaUid;
-      summary.pageUrl = schemaUid ? buildPageUrl(adminBase, schemaUid) : '';
+      summary.pageUrl = buildPageUrlFromCandidatePageUrl(normalized.candidatePageUrl, schemaUid);
 
-      const routeTreeResult = await fetchAccessibleTree({
-        apiBase,
-        token: normalized.token,
-      });
-      const routeTreePath = path.join(outDir, 'route-tree.json');
-      writeJson(routeTreePath, routeTreeResult.raw);
-      summary.artifactPaths.routeTree = routeTreePath;
-      routeReady = probeRouteReady(Array.isArray(routeTreeResult.data) ? routeTreeResult.data : [], schemaUid);
-      summary.routeReady = routeReady;
+      const routeTreeArtifact = normalized.routeTreeArtifact;
+      const pageAnchorArtifact = normalized.pageAnchorArtifact;
+      const gridAnchorArtifact = normalized.gridAnchorArtifact;
 
-      recordToolCall({
-        logPath: run.logPath,
-        tool: 'GetDesktoproutes_listaccessible',
-        toolType: 'node',
-        status: 'ok',
-        args: {
-          tree: true,
+      let routeReady = {
+        ok: false,
+        pageFound: false,
+        defaultTabFound: false,
+      };
+      if (routeTreeArtifact) {
+        const routeTreePath = path.join(outDir, 'route-tree.json');
+        writeJson(routeTreePath, routeTreeArtifact.raw);
+        summary.artifactPaths.routeTree = routeTreePath;
+        routeReady = probeRouteReady(
+          Array.isArray(routeTreeArtifact.data) ? routeTreeArtifact.data : [],
           schemaUid,
-        },
-        summary: routeReady.ok ? 'wrapper route-ready confirmed' : 'wrapper route-ready partial',
-        result: routeReady,
-      });
+        );
+        recordConsumedArtifact({
+          logPath: run.logPath,
+          tool: 'GetDesktoproutes_listaccessible',
+          summary: routeReady.ok ? 'wrapper route-ready confirmed from artifact' : 'wrapper route-ready partial from artifact',
+          args: {
+            tree: true,
+            schemaUid,
+          },
+          result: routeReady,
+        });
+      } else {
+        summary.notes.push('缺少 route tree artifact，无法确认 route-ready。');
+      }
 
-      pageAnchor = await fetchAnchorModel({
-        apiBase,
-        token: normalized.token,
-        parentId: schemaUid,
-        subKey: 'page',
-      });
-      const pageAnchorPath = path.join(outDir, 'anchor-page.json');
-      writeJson(pageAnchorPath, pageAnchor.raw);
-      summary.artifactPaths.anchorPage = pageAnchorPath;
+      let pageAnchor = {
+        present: false,
+      };
+      if (pageAnchorArtifact) {
+        const pageAnchorPath = path.join(outDir, 'anchor-page.json');
+        writeJson(pageAnchorPath, pageAnchorArtifact.raw);
+        summary.artifactPaths.anchorPage = pageAnchorPath;
+        pageAnchor = summarizeNode(pageAnchorArtifact.data);
+        recordConsumedArtifact({
+          logPath: run.logPath,
+          tool: 'GetFlowmodels_findone',
+          summary: 'wrapper page anchor readback loaded from artifact',
+          args: {
+            targetSignature: `page:${schemaUid}`,
+            parentId: schemaUid,
+            subKey: 'page',
+          },
+          result: pageAnchor,
+        });
+      } else {
+        summary.notes.push('缺少 page anchor artifact。');
+      }
 
-      gridAnchor = await fetchAnchorModel({
-        apiBase,
-        token: normalized.token,
-        parentId: `tabs-${schemaUid}`,
-        subKey: 'grid',
-      });
-      const gridAnchorPath = path.join(outDir, 'anchor-grid.json');
-      writeJson(gridAnchorPath, gridAnchor.raw);
-      summary.artifactPaths.anchorGrid = gridAnchorPath;
+      let gridAnchor = {
+        present: false,
+      };
+      if (gridAnchorArtifact) {
+        const gridAnchorPath = path.join(outDir, 'anchor-grid.json');
+        writeJson(gridAnchorPath, gridAnchorArtifact.raw);
+        summary.artifactPaths.anchorGrid = gridAnchorPath;
+        gridAnchor = summarizeNode(gridAnchorArtifact.data);
+        recordConsumedArtifact({
+          logPath: run.logPath,
+          tool: 'GetFlowmodels_findone',
+          summary: 'wrapper grid anchor readback loaded from artifact',
+          args: {
+            targetSignature: `grid:tabs-${schemaUid}`,
+            parentId: `tabs-${schemaUid}`,
+            subKey: 'grid',
+          },
+          result: gridAnchor,
+        });
+      } else {
+        summary.notes.push('缺少 grid anchor artifact。');
+      }
 
-      recordToolCall({
+      recordPhase({
         logPath: run.logPath,
-        tool: 'GetFlowmodels_findone',
-        toolType: 'node',
-        status: 'ok',
-        args: {
-          targetSignature: `page:${schemaUid}`,
-          parentId: schemaUid,
-          subKey: 'page',
+        phase: 'readback',
+        event: 'end',
+        status: routeReady.ok && pageAnchor.present && gridAnchor.present ? 'ok' : 'error',
+        attributes: {
+          action,
         },
-        summary: 'wrapper page anchor readback completed',
-        result: summarizeNode(pageAnchor.data),
       });
-      recordToolCall({
-        logPath: run.logPath,
-        tool: 'GetFlowmodels_findone',
-        toolType: 'node',
-        status: 'ok',
-        args: {
-          targetSignature: `grid:tabs-${schemaUid}`,
-          parentId: `tabs-${schemaUid}`,
-          subKey: 'grid',
-        },
-        summary: 'wrapper grid anchor readback completed',
-        result: summarizeNode(gridAnchor.data),
+
+      markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
+      markSkippedPhase(run.logPath, 'smoke', 'browser not requested');
+
+      summary.routeReady = routeReady;
+      summary.pageAnchor = pageAnchor;
+      summary.gridAnchor = gridAnchor;
+      summary.statusAxes = {
+        ...summary.statusAxes,
+        ...finalizeStatusAxesForCreateV2({
+          routeReady,
+          pageAnchor,
+          gridAnchor,
+          writePresent: true,
+        }),
+      };
+      summary.status = determineWriteStatus({
+        action,
+        guardBlocked: false,
+        writeError: null,
+        routeReadyOk: routeReady.ok,
+        pageAnchorOk: pageAnchor.present,
+        gridAnchorOk: gridAnchor.present,
+        readbackPresent: true,
+        driftOk: true,
+        contractOk: true,
       });
+      if (!routeReady.ok) {
+        summary.notes.push('create-v2 已执行，但 route-ready 证据仍不完整。');
+      }
     } else {
-      readbackResult = await fetchAnchorModel({
-        apiBase,
-        token: normalized.token,
-        parentId: normalized.readbackParentId,
-        subKey: normalized.readbackSubKey,
-      });
+      const readbackArtifact = requireArtifact(normalized.readbackArtifact, 'readback');
       const readbackPath = path.join(outDir, 'readback.json');
-      writeJson(readbackPath, readbackResult.raw);
+      writeJson(readbackPath, readbackArtifact.raw);
       summary.artifactPaths.readback = readbackPath;
 
-      recordToolCall({
+      recordConsumedArtifact({
         logPath: run.logPath,
         tool: 'GetFlowmodels_findone',
-        toolType: 'node',
-        status: 'ok',
+        summary: 'wrapper write readback loaded from artifact',
         args: {
           targetSignature: normalized.targetSignature || undefined,
           parentId: normalized.readbackParentId,
           subKey: normalized.readbackSubKey,
         },
-        summary: 'wrapper write readback completed',
-        result: summarizeNode(readbackResult.data),
+        result: summarizeNode(readbackArtifact.data),
       });
 
-      readbackDiffResult = buildReadbackDriftReport(guardPayload, readbackResult.data);
+      const readbackDiffResult = buildReadbackDriftReport(guardPayload, readbackArtifact.data);
       const diffPath = path.join(outDir, 'readback-diff.json');
       writeJson(diffPath, readbackDiffResult);
       summary.artifactPaths.readbackDiff = diffPath;
       summary.readbackDiff = readbackDiffResult.summary;
 
-      if (normalized.readbackContract) {
-        const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
-          normalized.readbackContract,
-          guardPayload,
-        );
-        const effectiveContractPath = path.join(outDir, 'effective-readback-contract.json');
-        writeJson(effectiveContractPath, effectiveReadbackContract);
-        summary.artifactPaths.effectiveReadbackContract = effectiveContractPath;
-        readbackContractResult = validateReadbackContract(readbackResult.data, effectiveReadbackContract);
-        const contractPath = path.join(outDir, 'readback-contract.json');
-        writeJson(contractPath, readbackContractResult);
-        summary.artifactPaths.readbackContract = contractPath;
-        summary.readbackContract = {
-          ok: readbackContractResult.ok,
-          findingCount: readbackContractResult.findings.length,
-        };
-      }
+      const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
+        normalized.readbackContract,
+        guardPayload,
+      );
+      const effectiveContractPath = path.join(outDir, 'effective-readback-contract.json');
+      writeJson(effectiveContractPath, effectiveReadbackContract);
+      summary.artifactPaths.effectiveReadbackContract = effectiveContractPath;
 
-      chartDataProbeResult = await probeChartDataReadiness({
-        tree: readbackResult.data,
-        apiBase,
-        token: normalized.token,
-        logPath: run.logPath,
-      });
+      const readbackContractResult = validateReadbackContract(readbackArtifact.data, effectiveReadbackContract);
+      const contractPath = path.join(outDir, 'readback-contract.json');
+      writeJson(contractPath, readbackContractResult);
+      summary.artifactPaths.readbackContract = contractPath;
+      summary.readbackContract = {
+        ok: readbackContractResult.ok,
+        findingCount: readbackContractResult.findings.length,
+      };
+
+      const chartDataProbeResult = normalizeChartDataProbeResult(
+        normalized.chartDataProbesArtifact,
+        readbackArtifact.data,
+      );
       const chartDataProbePath = path.join(outDir, 'chart-data-probes.json');
       writeJson(chartDataProbePath, chartDataProbeResult);
       summary.artifactPaths.chartDataProbes = chartDataProbePath;
       summary.chartDataProbes = chartDataProbeResult.probes;
-      summary.statusAxes.dataReady = chartDataProbeResult.statusAxis;
-    }
+      summary.statusAxes = {
+        ...summary.statusAxes,
+        ...finalizeStatusAxesForFlowWrite({
+          readbackPresent: true,
+          readbackDiffResult,
+          readbackContractResult,
+          chartDataProbeResult,
+        }),
+      };
 
-    recordPhase({
-      logPath: run.logPath,
-      phase: 'readback',
-      event: 'end',
-      status: 'ok',
-      attributes: {
-        action,
-      },
-    });
-
-    markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
-    markSkippedPhase(run.logPath, 'smoke', 'browser not requested');
-
-    summary.status = determineWriteStatus({
-      action,
-      guardBlocked: false,
-      writeError: null,
-      routeReadyOk: routeReady?.ok,
-      pageAnchorOk: summarizeNode(pageAnchor?.data).present,
-      gridAnchorOk: summarizeNode(gridAnchor?.data).present,
-      readbackResult,
-      driftOk: readbackDiffResult?.ok,
-      contractOk: readbackContractResult?.ok,
-    });
-
-    if (action === 'create-v2') {
-      summary.pageAnchor = summarizeNode(pageAnchor?.data);
-      summary.gridAnchor = summarizeNode(gridAnchor?.data);
-      if (!routeReady?.ok) {
-        summary.notes.push('create-v2 已执行，但 route-ready 证据仍不完整。');
+      if (normalized.chartDataProbesArtifact) {
+        recordConsumedArtifact({
+          logPath: run.logPath,
+          tool: 'charts:query',
+          summary: 'wrapper consumed chart data probe artifact',
+          args: {
+            targetSignature: normalized.targetSignature || undefined,
+          },
+          result: {
+            probeCount: chartDataProbeResult.probes.length,
+            statusAxis: chartDataProbeResult.statusAxis,
+          },
+        });
       }
-    } else {
-      if (readbackDiffResult && !readbackDiffResult.ok) {
+
+      recordPhase({
+        logPath: run.logPath,
+        phase: 'readback',
+        event: 'end',
+        status: readbackDiffResult.ok && readbackContractResult.ok ? 'ok' : 'error',
+        attributes: {
+          action,
+        },
+      });
+
+      markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
+      markSkippedPhase(run.logPath, 'smoke', 'browser not requested');
+
+      summary.status = determineWriteStatus({
+        action,
+        guardBlocked: false,
+        writeError: null,
+        routeReadyOk: true,
+        pageAnchorOk: true,
+        gridAnchorOk: true,
+        readbackPresent: true,
+        driftOk: readbackDiffResult.ok,
+        contractOk: readbackContractResult.ok,
+      });
+      if (!readbackDiffResult.ok) {
         summary.notes.push(`readback diff 发现 ${readbackDiffResult.summary?.driftCount || readbackDiffResult.findings?.length || 0} 处漂移。`);
       }
-      if (readbackContractResult && !readbackContractResult.ok) {
+      if (!readbackContractResult.ok) {
         summary.notes.push('readback contract 未全部通过。');
       }
-      if (chartDataProbeResult?.statusAxis?.status === 'failed') {
+      if (chartDataProbeResult.statusAxis?.status === 'failed' || chartDataProbeResult.statusAxis?.status === 'not-run') {
         summary.notes.push(chartDataProbeResult.statusAxis.detail);
       }
     }
 
-    writeJson(path.join(outDir, 'summary.json'), summary);
-    summary.artifactPaths.summary = path.join(outDir, 'summary.json');
-
-    finishRun({
-      logPath: run.logPath,
-      status: summary.status,
-      summary: `wrapper ${action} finished with status ${summary.status}`,
-      data: summary,
-    });
-
+    const summaryPath = path.join(outDir, 'summary.json');
+    writeJson(summaryPath, summary);
+    summary.artifactPaths.summary = summaryPath;
+    finishStatus = summary.status;
+    finishSummary = `wrapper ${action} finished with status ${summary.status}`;
     return summary;
   } catch (error) {
     const serializedError = summarizeError(error);
@@ -1411,16 +1214,15 @@ export async function runUiWriteWrapper(options = {}) {
     summary.error = serializedError;
     summary.notes.push(serializedError.message);
 
-    recordToolCall({
+    recordConsumedArtifact({
       logPath: run.logPath,
       tool: actionDef.toolName,
-      toolType: 'node',
       status: 'error',
+      summary: `wrapper ${action} failed`,
       args: {
         action,
         targetSignature: normalized.targetSignature || undefined,
       },
-      summary: `wrapper ${action} failed`,
       error: serializedError.message,
       result: serializedError.response ?? undefined,
     });
@@ -1437,15 +1239,19 @@ export async function runUiWriteWrapper(options = {}) {
     markSkippedPhase(run.logPath, 'readback', 'write failed');
     markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
     markSkippedPhase(run.logPath, 'smoke', 'browser not requested');
-    writeJson(path.join(outDir, 'summary.json'), summary);
-    summary.artifactPaths.summary = path.join(outDir, 'summary.json');
+    const summaryPath = path.join(outDir, 'summary.json');
+    writeJson(summaryPath, summary);
+    summary.artifactPaths.summary = summaryPath;
+    finishStatus = 'failed';
+    finishSummary = `wrapper ${action} failed`;
+    return summary;
+  } finally {
     finishRun({
       logPath: run.logPath,
-      status: 'failed',
-      summary: `wrapper ${action} failed`,
+      status: finishStatus,
+      summary: finishSummary,
       data: summary,
     });
-    return summary;
   }
 }
 
@@ -1476,7 +1282,50 @@ export async function runCli(argv = process.argv.slice(2)) {
     flags['readback-contract-file'],
     'readback contract',
     { required: false },
-  );
+  ) || {};
+
+  const writeResultArtifact = loadArtifactInput({
+    jsonValue: flags['write-result-json'],
+    fileValue: flags['write-result-file'],
+    label: 'write result',
+    required: false,
+  });
+  const liveTopologyArtifact = loadArtifactInput({
+    jsonValue: flags['live-topology-json'],
+    fileValue: flags['live-topology-file'],
+    label: 'live topology',
+    required: false,
+  });
+  const readbackArtifact = loadArtifactInput({
+    jsonValue: flags['readback-json'],
+    fileValue: flags['readback-file'],
+    label: 'readback',
+    required: false,
+  });
+  const routeTreeArtifact = loadArtifactInput({
+    jsonValue: flags['route-tree-json'],
+    fileValue: flags['route-tree-file'],
+    label: 'route tree',
+    required: false,
+  });
+  const pageAnchorArtifact = loadArtifactInput({
+    jsonValue: flags['page-anchor-json'],
+    fileValue: flags['page-anchor-file'],
+    label: 'page anchor',
+    required: false,
+  });
+  const gridAnchorArtifact = loadArtifactInput({
+    jsonValue: flags['grid-anchor-json'],
+    fileValue: flags['grid-anchor-file'],
+    label: 'grid anchor',
+    required: false,
+  });
+  const chartDataProbesArtifact = loadArtifactInput({
+    jsonValue: flags['chart-data-probes-json'],
+    fileValue: flags['chart-data-probes-file'],
+    label: 'chart data probes',
+    required: false,
+  });
 
   const summary = await runUiWriteWrapper({
     action: flags.action,
@@ -1488,8 +1337,6 @@ export async function runCli(argv = process.argv.slice(2)) {
     logDir: flags['log-dir'],
     latestRunPath: flags['latest-run-path'],
     outDir: flags['out-dir'],
-    urlBase: flags['url-base'],
-    token: flags.token,
     requestBody,
     payload,
     metadata,
@@ -1502,6 +1349,14 @@ export async function runCli(argv = process.argv.slice(2)) {
     targetSignature: flags['target-signature'],
     readbackParentId: flags['readback-parent-id'],
     readbackSubKey: flags['readback-sub-key'],
+    candidatePageUrl: flags['candidate-page-url'],
+    writeResult: writeResultArtifact?.raw,
+    liveTopology: liveTopologyArtifact?.raw,
+    readback: readbackArtifact?.raw,
+    routeTree: routeTreeArtifact?.raw,
+    pageAnchor: pageAnchorArtifact?.raw,
+    gridAnchor: gridAnchorArtifact?.raw,
+    chartDataProbes: chartDataProbesArtifact?.raw,
   });
 
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

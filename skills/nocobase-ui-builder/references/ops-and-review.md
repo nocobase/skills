@@ -84,7 +84,7 @@ node scripts/tool_journal.mjs start-run \
 
 ## ad-hoc 写入口
 
-如果这轮不是走 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这种内建流水线，而是临时直接改一个 live tree、JSBlock、action tree、tab 子树，或直接创建页面壳，不允许裸调 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`。
+如果这轮是临时直接改一个 live tree、JSBlock、action tree、tab 子树，或直接创建页面壳，不允许只做 MCP 写入而不补 wrapper 证据，也不允许让脚本自己请求 NocoBase。
 
 统一入口改为：
 
@@ -94,13 +94,15 @@ node scripts/ui_write_wrapper.mjs run \
   --task "<task>" \
   --payload-file "<payload.json>" \
   --metadata-file "<metadata.json>" \
+  --write-result-file "<write-result.json>" \
+  --readback-file "<readback.json>" \
   --readback-parent-id "<parentId>" \
   --readback-sub-key "<subKey>"
 ```
 
 规则：
 
-1. wrapper 固定执行 `start-run -> guard -> write -> readback -> finish-run`；agent 不要在外层自行拆分这些阶段。
+1. agent 先调 MCP，再把 artifacts 交给 wrapper；wrapper 固定执行 `start-run -> guard -> consume write artifact -> consume readback artifact -> finish-run`。
 2. `--action create-v2|save|mutate|ensure` 由 wrapper 统一收口；只有在实现或调试 wrapper 本身时，才允许单独运行底层工具。
 3. 默认 `mode=validation-case`；只有明确在调试草稿时，才允许单独用 `preflight_write_gate.mjs` 看 guard 结果。
 4. 如果退出码是 `2`，说明 guard blocker 已阻止写入；如果退出码是 `1`，说明写入或 readback 验证未通过。

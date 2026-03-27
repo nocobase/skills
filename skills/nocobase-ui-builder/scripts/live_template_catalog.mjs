@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { normalizeUrlBase, unwrapResponseEnvelope } from './rest_template_clone_runner.mjs';
+import {
+  ensureDir,
+  loadArtifactInput,
+  normalizeOptionalText,
+  normalizeRequiredText,
+  writeJson,
+} from './mcp_artifact_support.mjs';
 
 function usage() {
   return [
     'Usage:',
-    '  node scripts/live_template_catalog.mjs list [--url-base <url>]',
-    '  node scripts/live_template_catalog.mjs export (--schema-uid <uid> | --title <title>) --target <page|grid> --out-dir <dir> [--url-base <url>]',
+    '  node scripts/live_template_catalog.mjs list (--route-tree-json <json> | --route-tree-file <path>)',
+    '  node scripts/live_template_catalog.mjs export (--schema-uid <uid> | --title <title>) --target <page|grid> --out-dir <dir> (--route-tree-json <json> | --route-tree-file <path>) [--page-anchor-json <json> | --page-anchor-file <path>] [--grid-anchor-json <json> | --grid-anchor-file <path>]',
   ].join('\n');
 }
 
@@ -37,89 +41,8 @@ function parseArgs(argv) {
   return { command, flags };
 }
 
-function normalizeRequiredText(value, label) {
-  if (typeof value !== 'string') {
-    throw new Error(`${label} is required`);
-  }
-  const normalized = value.trim();
-  if (!normalized) {
-    throw new Error(`${label} must not be empty`);
-  }
-  return normalized;
-}
-
-function normalizeOptionalText(value) {
-  return typeof value === 'string' && value.trim() ? value.trim() : '';
-}
-
-function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
-}
-
-function writeJson(filePath, value) {
-  ensureDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-}
-
 function isPlainObject(value) {
   return Object.prototype.toString.call(value) === '[object Object]';
-}
-
-async function requestJson({ method = 'GET', url, token, body }) {
-  const headers = {
-    Accept: 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const rawText = await response.text();
-  let parsed = rawText;
-  try {
-    parsed = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    parsed = rawText;
-  }
-
-  if (!response.ok) {
-    const error = new Error(`HTTP ${response.status} ${method} ${url}`);
-    error.status = response.status;
-    error.response = parsed;
-    throw error;
-  }
-
-  return {
-    status: response.status,
-    raw: parsed,
-    data: unwrapResponseEnvelope(parsed),
-  };
-}
-
-async function fetchAccessibleTree({ apiBase, token }) {
-  return requestJson({
-    method: 'GET',
-    url: `${apiBase}/api/desktopRoutes:listAccessible?tree=true&sort=sort`,
-    token,
-  });
-}
-
-async function fetchAnchorModel({ apiBase, token, parentId, subKey }) {
-  const params = new URLSearchParams({
-    parentId,
-    subKey,
-    includeAsyncNode: 'true',
-  });
-  return requestJson({
-    method: 'GET',
-    url: `${apiBase}/api/flowModels:findOne?${params.toString()}`,
-    token,
-  });
 }
 
 function flattenRouteTree(nodes, parent = null, output = []) {
@@ -135,7 +58,7 @@ function flattenRouteTree(nodes, parent = null, output = []) {
 
 function pickHiddenTabNode(pageNode) {
   const children = Array.isArray(pageNode?.children) ? pageNode.children : [];
-  return children.find((child) => child?.type === 'tabs' && child?.hidden) || null;
+  return children.find((child) => child?.schemaUid && child?.hidden) || null;
 }
 
 function normalizeTemplateEntry(node) {
@@ -154,7 +77,7 @@ export function collectLiveTemplates(routeTree) {
   const flatNodes = flattenRouteTree(routeTree);
   return flatNodes
     .map(({ node }) => normalizeTemplateEntry(node))
-    .filter((entry) => entry.type === 'flowPage' && entry.schemaUid)
+    .filter((entry) => entry.schemaUid)
     .sort((left, right) => left.title.localeCompare(right.title) || left.schemaUid.localeCompare(right.schemaUid));
 }
 
@@ -174,39 +97,27 @@ export async function exportLiveTemplate({
   title,
   target,
   outDir,
-  urlBase = 'http://127.0.0.1:23000',
-  token = process.env.NOCOBASE_API_TOKEN,
+  routeTree,
+  pageAnchor = null,
+  gridAnchor = null,
 }) {
   const normalizedTarget = normalizeRequiredText(target, 'target');
   if (normalizedTarget !== 'page' && normalizedTarget !== 'grid') {
     throw new Error('target must be "page" or "grid"');
   }
-  const normalizedOutDir = path.resolve(normalizeRequiredText(outDir, 'out dir'));
-  const normalizedToken = normalizeRequiredText(token, 'NOCOBASE_API_TOKEN');
-  const { apiBase } = normalizeUrlBase(urlBase);
 
-  const routeTreeResult = await fetchAccessibleTree({ apiBase, token: normalizedToken });
-  const routeTree = Array.isArray(routeTreeResult.data) ? routeTreeResult.data : [];
+  const normalizedOutDir = path.resolve(normalizeRequiredText(outDir, 'out dir'));
   const route = findTemplateRoute(routeTree, {
     schemaUid: normalizeOptionalText(schemaUid),
     title: normalizeOptionalText(title),
   });
-
   if (!route) {
     throw new Error(`template route not found for ${schemaUid ? `schemaUid=${schemaUid}` : `title=${title}`}`);
   }
-  if (normalizedTarget === 'grid' && !route.hiddenTabSchemaUid) {
-    throw new Error(`template ${route.schemaUid} does not expose a hidden tab schemaUid`);
-  }
 
-  const anchor = await fetchAnchorModel({
-    apiBase,
-    token: normalizedToken,
-    parentId: normalizedTarget === 'page' ? route.schemaUid : route.hiddenTabSchemaUid,
-    subKey: normalizedTarget,
-  });
-  if (!isPlainObject(anchor.data) || typeof anchor.data.use !== 'string') {
-    throw new Error(`unable to fetch ${normalizedTarget} anchor model for ${route.schemaUid}`);
+  const anchorArtifact = normalizedTarget === 'page' ? pageAnchor : gridAnchor;
+  if (!anchorArtifact) {
+    throw new Error(`${normalizedTarget} anchor artifact is required`);
   }
 
   ensureDir(normalizedOutDir);
@@ -214,7 +125,7 @@ export async function exportLiveTemplate({
   const templateFile = path.join(normalizedOutDir, normalizedTarget === 'page' ? 'source-page.json' : 'source-grid.json');
   const summaryFile = path.join(normalizedOutDir, 'summary.json');
   writeJson(routeFile, route);
-  writeJson(templateFile, anchor.raw);
+  writeJson(templateFile, anchorArtifact.raw ?? anchorArtifact);
   writeJson(summaryFile, {
     exportedAt: new Date().toISOString(),
     target: normalizedTarget,
@@ -237,20 +148,43 @@ export async function exportLiveTemplate({
 }
 
 async function handleList(flags) {
-  const token = normalizeRequiredText(process.env.NOCOBASE_API_TOKEN, 'NOCOBASE_API_TOKEN');
-  const { apiBase } = normalizeUrlBase(flags['url-base'] || 'http://127.0.0.1:23000');
-  const routeTreeResult = await fetchAccessibleTree({ apiBase, token });
-  const routeTree = Array.isArray(routeTreeResult.data) ? routeTreeResult.data : [];
+  const routeTreeArtifact = loadArtifactInput({
+    jsonValue: flags['route-tree-json'],
+    fileValue: flags['route-tree-file'],
+    label: 'route tree',
+    required: true,
+  });
+  const routeTree = Array.isArray(routeTreeArtifact.data) ? routeTreeArtifact.data : [];
   process.stdout.write(`${JSON.stringify({ templates: collectLiveTemplates(routeTree) }, null, 2)}\n`);
 }
 
 async function handleExport(flags) {
+  const routeTreeArtifact = loadArtifactInput({
+    jsonValue: flags['route-tree-json'],
+    fileValue: flags['route-tree-file'],
+    label: 'route tree',
+    required: true,
+  });
+  const pageAnchorArtifact = loadArtifactInput({
+    jsonValue: flags['page-anchor-json'],
+    fileValue: flags['page-anchor-file'],
+    label: 'page anchor',
+    required: false,
+  });
+  const gridAnchorArtifact = loadArtifactInput({
+    jsonValue: flags['grid-anchor-json'],
+    fileValue: flags['grid-anchor-file'],
+    label: 'grid anchor',
+    required: false,
+  });
   const result = await exportLiveTemplate({
     schemaUid: flags['schema-uid'],
     title: flags.title,
     target: flags.target,
     outDir: flags['out-dir'],
-    urlBase: flags['url-base'] || 'http://127.0.0.1:23000',
+    routeTree: Array.isArray(routeTreeArtifact.data) ? routeTreeArtifact.data : [],
+    pageAnchor: pageAnchorArtifact,
+    gridAnchor: gridAnchorArtifact,
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
@@ -273,13 +207,11 @@ async function main(argv) {
 }
 
 const isDirectRun = process.argv[1]
-  ? path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+  ? path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)
   : false;
-
 if (isDirectRun) {
   main(process.argv.slice(2)).catch((error) => {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.stderr.write(`${usage()}\n`);
     process.exitCode = 1;
   });
 }

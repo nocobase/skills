@@ -2939,6 +2939,81 @@ test('auditPayload blocks visible tabs with invalid tab slot use', () => {
   assert.equal(result.blockers.some((item) => item.code === 'TAB_SLOT_USE_INVALID'), true);
 });
 
+test('auditPayload blocks RootPageModel visible tabs because flowPage tabs are route-driven', () => {
+  const payload = makeVisibleTabsPage({
+    pageUid: 'ir-dashboard-anchor',
+  });
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'ROOT_PAGE_TABS_ROUTE_DRIVEN_ONLY'), true);
+});
+
+test('auditPayload blocks RootPageModel payloads that write page schemaUid directly instead of page anchor child', () => {
+  const payload = {
+    uid: 'ir-dashboard',
+    use: 'RootPageModel',
+    stepParams: {
+      pageSettings: {
+        general: {
+          title: '投资关系总览',
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: {
+      ...metadata,
+      targetAnchor: {
+        parentId: 'ir-dashboard',
+        subKey: 'page',
+        subType: 'object',
+      },
+    },
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'ROOT_PAGE_DIRECT_ROUTE_UID_WRITE_BLOCKED'), true);
+});
+
+test('auditPayload allows RootPageModel page-anchor payload without visible tabs', () => {
+  const payload = {
+    uid: 'ir-dashboard-anchor-node',
+    use: 'RootPageModel',
+    stepParams: {
+      pageSettings: {
+        general: {
+          title: '投资关系总览',
+        },
+      },
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata: {
+      ...metadata,
+      targetAnchor: {
+        parentId: 'ir-dashboard',
+        subKey: 'page',
+        subType: 'object',
+      },
+    },
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'ROOT_PAGE_TABS_ROUTE_DRIVEN_ONLY'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'ROOT_PAGE_DIRECT_ROUTE_UID_WRITE_BLOCKED'), false);
+});
+
 test('auditPayload blocks visible tabs whose grid items still use page-like models', () => {
   const payload = makeVisibleTabsPage({
     itemUse: 'RootPageModel',
@@ -3094,6 +3169,8 @@ test('auditPayload blocks reparenting an existing uid when live topology disagre
 
 test('auditPayload validates declared visible tab titles', () => {
   const payload = makeVisibleTabsPage({
+    pageUse: 'PageModel',
+    tabUse: 'PageTabModel',
     titles: ['客户概览', '联系人', '商机', '跟进记录'],
   });
 
@@ -3104,7 +3181,7 @@ test('auditPayload validates declared visible tab titles', () => {
     requirements: {
       requiredTabs: [
         {
-          pageUse: 'RootPageModel',
+          pageUse: 'PageModel',
           titles: ['客户概览', '联系人', '商机', '跟进记录'],
         },
       ],
@@ -3121,7 +3198,7 @@ test('auditPayload validates declared visible tab titles', () => {
     requirements: {
       requiredTabs: [
         {
-          pageUse: 'RootPageModel',
+          pageUse: 'PageModel',
           titles: ['客户概览', '联系人', '商机', '跟进记录', '续约预测'],
         },
       ],
@@ -4469,16 +4546,15 @@ test('auditPayload blocks forbidden RunJS globals and exposes runjs inspection s
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'RUNJS_FORBIDDEN_GLOBAL'), true);
-  assert.deepEqual(result.runjsInspection, {
-    ok: false,
-    blockerCount: 1,
-    warningCount: 0,
-    inspectedNodeCount: 1,
-    contractSource: 'live',
-    semanticBlockerCount: 0,
-    semanticWarningCount: 0,
-    autoRewriteCount: 0,
-  });
+  assert.equal(result.runjsInspection.ok, false);
+  assert.equal(result.runjsInspection.blockerCount, 1);
+  assert.equal(result.runjsInspection.warningCount, result.warnings.length);
+  assert.equal(result.runjsInspection.inspectedNodeCount, 1);
+  assert.equal(result.runjsInspection.contractSource, 'live');
+  assert.equal(result.runjsInspection.semanticBlockerCount, 0);
+  assert.equal(result.runjsInspection.semanticWarningCount, 0);
+  assert.equal(result.runjsInspection.autoRewriteCount, 0);
+  assert.equal(result.warnings.every((item) => item.code === 'RUNJS_CONTRACT_SNAPSHOT_STALE'), true);
 });
 
 test('canonicalizePayload rewrites render-model innerHTML writes to ctx.render', () => {

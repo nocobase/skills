@@ -186,3 +186,38 @@ test('compileBuildSpec stringifies relation chart field refs into required metad
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('mb_transactions.amount'), true);
   assert.equal(compiled.compileArtifact.requiredMetadataRefs.fields.includes('mb_transactions.category.category_type'), true);
 });
+
+test('compileBuildSpec marks RootPageModel visible tabs as route-driven planning issue', () => {
+  const compiled = compileBuildSpec({
+    target: {
+      title: '投资关系工作台',
+    },
+    layout: {
+      pageUse: 'RootPageModel',
+      blocks: [],
+      tabs: [
+        {
+          title: '总览',
+          blocks: [],
+        },
+      ],
+    },
+    dataBindings: {
+      collections: [],
+      relations: [],
+    },
+    requirements: {},
+    scenario: {
+      id: 'scenario:ir:workspace',
+      title: '投资关系工作台',
+      summary: 'root visible tabs',
+      pagePlan: makePagePlan('投资关系工作台'),
+      layoutCandidates: [],
+    },
+  });
+
+  assert.equal(
+    compiled.compileArtifact.issues.some((item) => item.code === 'ROOT_PAGE_TABS_REQUIRE_ROUTE_DRIVEN_BUILD'),
+    true,
+  );
+});

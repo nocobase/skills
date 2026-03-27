@@ -930,6 +930,23 @@ function normalizeLiveTopology(rawLiveTopology) {
   };
 }
 
+function normalizeTargetAnchor(rawTargetAnchor) {
+  if (!isPlainObject(rawTargetAnchor)) {
+    return null;
+  }
+  const parentId = normalizeOptionalText(rawTargetAnchor.parentId);
+  const subKey = normalizeOptionalText(rawTargetAnchor.subKey);
+  const subType = normalizeFlowSubType(rawTargetAnchor.subType, '');
+  if (!parentId && !subKey && !subType) {
+    return null;
+  }
+  return {
+    parentId,
+    subKey,
+    subType,
+  };
+}
+
 function normalizeMetadata(rawMetadata = {}) {
   const rawCollections = rawMetadata.collections;
   const collections = {};
@@ -976,6 +993,11 @@ function normalizeMetadata(rawMetadata = {}) {
       rawMetadata.liveTopology
       || rawMetadata.liveFlowTopology
       || rawMetadata.liveTreeTopology,
+    ),
+    targetAnchor: normalizeTargetAnchor(
+      rawMetadata.targetAnchor
+      || rawMetadata.writeTarget
+      || rawMetadata.readbackTarget,
     ),
   };
 }
@@ -2725,6 +2747,91 @@ function inspectTabTrees(payload, mode, warnings, blockers, seen) {
           pageUse: node.use,
           uid,
           occurrences,
+        },
+      }));
+    }
+  });
+}
+
+function inspectRootFlowPageSemantics(payload, metadata, mode, blockers, seen) {
+  const targetAnchor = metadata?.targetAnchor;
+
+  walkFlowModelTree(payload, (node, pathValue, parentLink) => {
+    if (!isPlainObject(node) || normalizeOptionalText(node.use) !== 'RootPageModel' || parentLink) {
+      return;
+    }
+
+    const locator = resolveFlowNodeLocator(node, parentLink);
+    const tabs = Array.isArray(node.subModels?.tabs)
+      ? node.subModels.tabs.filter((item) => isPlainObject(item))
+      : [];
+
+    if (tabs.length > 0) {
+      const titles = tabs
+        .map((tabNode) => normalizeOptionalText(tabNode?.stepParams?.pageTabSettings?.tab?.title))
+        .filter(Boolean);
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ROOT_PAGE_TABS_ROUTE_DRIVEN_ONLY',
+        message: 'RootPageModel 的可见 tabs 由 desktopRoutes 子路由驱动，不能作为 flowModels.subModels.tabs 直接落库；请改为写 page anchor，并把每个 tab 内容写到对应 tab route 的 grid anchor。',
+        path: `${pathValue}.subModels.tabs`,
+        mode,
+        dedupeKey: `ROOT_PAGE_TABS_ROUTE_DRIVEN_ONLY:${pathValue}:${tabs.length}`,
+        details: {
+          tabCount: tabs.length,
+          titles,
+          pageUid: locator.uid,
+          pageParentId: locator.parentId,
+          requiredWritePattern: {
+            page: 'parentId=<pageSchemaUid>, subKey=page',
+            tabGrid: 'parentId=<tabSchemaUid>, subKey=grid',
+          },
+        },
+      }));
+    }
+
+    if (!isPlainObject(targetAnchor) || targetAnchor.subKey !== 'page' || !targetAnchor.parentId) {
+      return;
+    }
+
+    if (locator.parentId) {
+      const locatorSubType = locator.subType || 'object';
+      if (
+        locator.parentId !== targetAnchor.parentId
+        || locator.subKey !== 'page'
+        || locatorSubType !== 'object'
+      ) {
+        pushFinding(blockers, seen, createFinding({
+          severity: 'blocker',
+          code: 'ROOT_PAGE_ANCHOR_LOCATOR_INVALID',
+          message: 'RootPageModel 的 anchor locator 不合法；page 写入必须命中 parentId=<pageSchemaUid>, subKey=page, subType=object。',
+          path: pathValue,
+          mode,
+          dedupeKey: `ROOT_PAGE_ANCHOR_LOCATOR_INVALID:${pathValue}:${locator.parentId}:${locator.subKey}:${locatorSubType}`,
+          details: {
+            targetAnchor,
+            actual: {
+              parentId: locator.parentId,
+              subKey: locator.subKey,
+              subType: locatorSubType,
+            },
+          },
+        }));
+      }
+      return;
+    }
+
+    if (locator.uid && locator.uid === targetAnchor.parentId) {
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
+        code: 'ROOT_PAGE_DIRECT_ROUTE_UID_WRITE_BLOCKED',
+        message: '不能把页面 route schemaUid 直接当作 RootPageModel.uid 保存；flowPage v2 必须写 parentId=<pageSchemaUid>, subKey=page 的 anchor child，或写已有 anchor uid。',
+        path: pathValue,
+        mode,
+        dedupeKey: `ROOT_PAGE_DIRECT_ROUTE_UID_WRITE_BLOCKED:${pathValue}:${locator.uid}`,
+        details: {
+          targetAnchor,
+          actualUid: locator.uid,
         },
       }));
     }
@@ -5785,6 +5892,7 @@ export function auditPayload({
   inspectFilterManagerBindings(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
+  inspectRootFlowPageSemantics(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectExistingUidReparenting(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectGridLayoutMembership(payload, mode, blockers, blockerSeen);

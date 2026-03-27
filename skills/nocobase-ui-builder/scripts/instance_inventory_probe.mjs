@@ -4,14 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { buildInstanceFingerprint, createStableCacheStore, DEFAULT_TTL_MS_BY_KIND } from './stable_cache.mjs';
+import { readJsonInput, unwrapResponseEnvelope } from './mcp_artifact_support.mjs';
 
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
 function normalizeOptionalText(value) {
-  const normalized = normalizeText(value);
-  return normalized || '';
+  return normalizeText(value) || '';
 }
 
 function normalizeRequiredText(value, label) {
@@ -33,15 +33,6 @@ function sortUniqueStrings(values) {
       .map((item) => item.trim())
       .filter(Boolean),
   )].sort((left, right) => left.localeCompare(right));
-}
-
-function uniqueStrings(values) {
-  return [...new Set(
-    (Array.isArray(values) ? values : [])
-      .filter((item) => typeof item === 'string')
-      .map((item) => item.trim())
-      .filter(Boolean),
-  )];
 }
 
 function parseArgs(argv) {
@@ -70,8 +61,8 @@ function parseArgs(argv) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/instance_inventory_probe.mjs probe --candidate-page-url <url> [--url-base <url>] [--token <token>] [--state-dir <dir>] [--no-cache]',
-    '  node scripts/instance_inventory_probe.mjs materialize --candidate-page-url <url> (--schema-bundle-json <json> | --schema-bundle-file <path>) [--schemas-json <json> | --schemas-file <path>] [--url-base <url>] [--state-dir <dir>] [--no-cache] [--out-file <path>]',
+    '  node scripts/instance_inventory_probe.mjs probe --candidate-page-url <url> --schema-bundle-file <path> [--schemas-file <path>] [--collections-meta-file <path>] [--app-info-file <path>] [--enabled-plugins-file <path>] [--state-dir <dir>] [--no-cache] [--out-file <path>]',
+    '  node scripts/instance_inventory_probe.mjs materialize --candidate-page-url <url> --schema-bundle-file <path> [--schemas-file <path>] [--collections-meta-file <path>] [--app-info-file <path>] [--enabled-plugins-file <path>] [--state-dir <dir>] [--no-cache] [--out-file <path>]',
   ].join('\n');
 }
 
@@ -99,14 +90,14 @@ export function deriveUrlBaseFromCandidatePageUrl(candidatePageUrl) {
   try {
     const url = new URL(raw);
     const origin = url.origin;
-    const path = url.pathname || '';
-    if (!path || path === '/') {
+    const pathname = url.pathname || '';
+    if (!pathname || pathname === '/') {
       return origin;
     }
-    if (path === '/admin' || path.startsWith('/admin/')) {
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
       return `${origin}/admin`;
     }
-    const match = /^(.*\/admin)(?:\/|$)/.exec(path);
+    const match = /^(.*\/admin)(?:\/|$)/.exec(pathname);
     if (match && match[1]) {
       return `${origin}${match[1]}`;
     }
@@ -114,106 +105,6 @@ export function deriveUrlBaseFromCandidatePageUrl(candidatePageUrl) {
   } catch {
     return '';
   }
-}
-
-function unwrapResponseEnvelope(value) {
-  let current = value;
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    if (typeof current === 'string') {
-      const trimmed = current.trim();
-      if (!trimmed) {
-        return current;
-      }
-      try {
-        current = JSON.parse(trimmed);
-        continue;
-      } catch {
-        return current;
-      }
-    }
-
-    if (!isPlainObject(current)) {
-      return current;
-    }
-
-    if (isPlainObject(current.body)) {
-      current = current.body;
-      continue;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(current, 'data')) {
-      current = current.data;
-      continue;
-    }
-
-    return current;
-  }
-
-  return current;
-}
-
-function parseJson(rawValue, label) {
-  try {
-    return JSON.parse(rawValue);
-  } catch (error) {
-    throw new Error(`${label} must be valid JSON: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-function readJsonInput(jsonValue, filePath, label, { required = true } = {}) {
-  if (typeof jsonValue === 'string' && jsonValue.trim()) {
-    return parseJson(jsonValue, label);
-  }
-  if (typeof filePath === 'string' && filePath.trim()) {
-    return parseJson(fs.readFileSync(path.resolve(filePath), 'utf8'), `${label} file`);
-  }
-  if (required) {
-    throw new Error(`${label} is required`);
-  }
-  return null;
-}
-
-async function requestJson({ method = 'GET', url, token, body }) {
-  const headers = {
-    Accept: 'application/json',
-  };
-  const normalizedToken = normalizeOptionalText(token);
-  if (normalizedToken) {
-    headers.Authorization = `Bearer ${normalizedToken}`;
-  }
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  const rawText = await response.text();
-  let parsed = rawText;
-  try {
-    parsed = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    parsed = rawText;
-  }
-
-  if (!response.ok) {
-    const errorMessage = isPlainObject(parsed) && Array.isArray(parsed.errors) && parsed.errors[0]?.message
-      ? parsed.errors[0].message
-      : `HTTP ${response.status}`;
-    const error = new Error(`${errorMessage} (${method} ${url})`);
-    error.response = parsed;
-    error.status = response.status;
-    throw error;
-  }
-
-  return {
-    status: response.status,
-    raw: parsed,
-    data: unwrapResponseEnvelope(parsed),
-  };
 }
 
 function inferSemanticTags({ use, title, hintMessages, contextRequirements, unresolvedReasons }) {
@@ -323,6 +214,7 @@ function normalizeCollectionMeta(collection) {
     name,
     title: normalizeOptionalText(collection.title),
     titleField: normalizeOptionalText(collection.titleField),
+    filterTargetKey: collection.filterTargetKey ?? null,
     origin: normalizeOptionalText(collection.origin),
     template: normalizeOptionalText(collection.template),
     tree: normalizeOptionalText(collection.tree),
@@ -332,117 +224,26 @@ function normalizeCollectionMeta(collection) {
   };
 }
 
-async function probeCollectionsInventory({ apiBase, token, errors }) {
-  const notes = [];
-  const collections = {
-    detected: false,
-    names: [],
-    byName: {},
-    discoveryNotes: [],
+function materializeCollectionsInventory(collectionsMeta) {
+  const items = Array.isArray(unwrapResponseEnvelope(collectionsMeta))
+    ? unwrapResponseEnvelope(collectionsMeta)
+    : [];
+  const normalized = items
+    .map(normalizeCollectionMeta)
+    .filter(Boolean)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  return {
+    detected: normalized.length > 0,
+    names: normalized.map((item) => item.name),
+    byName: Object.fromEntries(normalized.map((item) => [item.name, item])),
+    discoveryNotes: normalized.length > 0
+      ? [`collections inventory provided: ${normalized.length}`]
+      : ['collections inventory not provided'],
   };
-
-  try {
-    const collectionsResp = await requestJson({
-      method: 'GET',
-      url: `${apiBase}/api/collections:listMeta?pageSize=2000`,
-      token,
-    });
-    const items = Array.isArray(collectionsResp.data) ? collectionsResp.data : [];
-    const normalized = items
-      .map(normalizeCollectionMeta)
-      .filter(Boolean)
-      .sort((left, right) => left.name.localeCompare(right.name));
-    collections.names = normalized.map((item) => item.name);
-    collections.byName = Object.fromEntries(normalized.map((item) => [item.name, item]));
-    collections.detected = normalized.length > 0;
-    notes.push(`collections:listMeta returned: ${normalized.length}`);
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  collections.discoveryNotes = notes;
-  return collections;
 }
 
-async function probeFlowSchemaInventory({ apiBase, token, candidateUses, errors }) {
-  const safeUses = sortUniqueStrings(candidateUses);
+function materializeFlowSchemaInventory({ schemaBundle, schemas }) {
   const notes = [];
-  const flowSchema = {
-    detected: false,
-    rootPublicUses: [],
-    publicUseCatalog: [],
-    missingUses: [],
-    discoveryNotes: [],
-  };
-
-  try {
-    const bundleResp = await requestJson({
-      method: 'POST',
-      url: `${apiBase}/api/flowModels:schemaBundle`,
-      token,
-      body: { uses: safeUses },
-    });
-    const items = Array.isArray(bundleResp.data?.items) ? bundleResp.data.items : [];
-    const blockGridDoc = items.find((item) => item?.use === 'BlockGridModel') || null;
-    const candidates = Array.isArray(blockGridDoc?.subModelCatalog?.items?.candidates)
-      ? blockGridDoc.subModelCatalog.items.candidates
-      : [];
-    flowSchema.rootPublicUses = sortUniqueStrings(
-      candidates.map((candidate) => (typeof candidate?.use === 'string' ? candidate.use : '')).filter(Boolean),
-    );
-    flowSchema.detected = flowSchema.rootPublicUses.length > 0;
-    notes.push(`schemaBundle resolved BlockGridModel candidates: ${flowSchema.rootPublicUses.length}`);
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  if (!flowSchema.detected) {
-    flowSchema.discoveryNotes = notes;
-    return flowSchema;
-  }
-
-  const requestUses = flowSchema.rootPublicUses;
-  try {
-    const schemasResp = await requestJson({
-      method: 'POST',
-      url: `${apiBase}/api/flowModels:schemas`,
-      token,
-      body: { uses: requestUses.slice(0, 60) },
-    });
-    const docs = Array.isArray(schemasResp.data) ? schemasResp.data : [];
-    const catalog = docs
-      .map(buildCatalogEntryFromSchemaDocument)
-      .filter(Boolean)
-      .sort((left, right) => left.use.localeCompare(right.use));
-    flowSchema.publicUseCatalog = catalog;
-    const returnedUses = new Set(catalog.map((item) => item.use));
-    flowSchema.missingUses = requestUses.filter((use) => !returnedUses.has(use));
-    notes.push(`schemas returned: ${docs.length}`);
-    if (flowSchema.missingUses.length > 0) {
-      notes.push(`schemas missing: ${flowSchema.missingUses.length}`);
-    }
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  flowSchema.discoveryNotes = notes;
-  return flowSchema;
-}
-
-export function materializeInstanceInventory({
-  candidatePageUrl,
-  urlBase,
-  schemaBundle,
-  schemas = null,
-  stateDir,
-  allowCache = true,
-} = {}) {
-  const derivedUrlBase = normalizeText(urlBase) || deriveUrlBaseFromCandidatePageUrl(candidatePageUrl);
-  const { apiBase, adminBase } = normalizeUrlBase(derivedUrlBase || 'http://127.0.0.1:23000');
-
-  const errors = [];
-  const notes = [];
-
   const bundleData = unwrapResponseEnvelope(schemaBundle);
   const bundleItems = Array.isArray(bundleData?.items) ? bundleData.items : [];
   const blockGridDoc = bundleItems.find((item) => item?.use === 'BlockGridModel') || null;
@@ -477,33 +278,80 @@ export function materializeInstanceInventory({
       notes.push(`schemas missing: ${flowSchema.missingUses.length}`);
     }
   } else if (flowSchema.detected) {
-    flowSchema.discoveryNotes.push('schemas not provided; publicUseCatalog is empty');
+    notes.push('schemas not provided; publicUseCatalog is empty');
   }
 
-  flowSchema.discoveryNotes.push(...notes);
+  flowSchema.discoveryNotes = notes;
+  return flowSchema;
+}
 
-  const instanceFingerprint = buildInstanceFingerprint({
-    urlBase: apiBase,
-    appVersion: '',
-    enabledPluginNames: [],
-  });
-  const inventory = {
-    detected: flowSchema.detected,
-    apiBase,
-    adminBase,
-    appVersion: '',
-    enabledPlugins: [],
-    enabledPluginsDetected: false,
-    instanceFingerprint,
-    flowSchema,
-    collections: {
+function materializeEnabledPlugins(enabledPluginsArtifact) {
+  const items = Array.isArray(unwrapResponseEnvelope(enabledPluginsArtifact))
+    ? unwrapResponseEnvelope(enabledPluginsArtifact)
+    : [];
+  return sortUniqueStrings(
+    items.map((item) => (typeof item?.packageName === 'string' ? item.packageName : '')),
+  );
+}
+
+function materializeAppVersion(appInfoArtifact) {
+  const info = unwrapResponseEnvelope(appInfoArtifact);
+  return isPlainObject(info) ? normalizeOptionalText(info.version) : '';
+}
+
+export function materializeInstanceInventory({
+  candidatePageUrl,
+  urlBase,
+  schemaBundle,
+  schemas = null,
+  collectionsMeta = null,
+  appInfo = null,
+  enabledPlugins = null,
+  stateDir,
+  allowCache = true,
+} = {}) {
+  const derivedUrlBase = normalizeText(urlBase) || deriveUrlBaseFromCandidatePageUrl(candidatePageUrl);
+  const { apiBase, adminBase } = normalizeUrlBase(derivedUrlBase || 'http://127.0.0.1:23000');
+
+  const appVersion = appInfo ? materializeAppVersion(appInfo) : '';
+  const enabledPluginNames = enabledPlugins ? materializeEnabledPlugins(enabledPlugins) : [];
+  const enabledPluginsDetected = enabledPlugins !== null && enabledPlugins !== undefined;
+  const flowSchema = schemaBundle
+    ? materializeFlowSchemaInventory({ schemaBundle, schemas })
+    : {
+      detected: false,
+      rootPublicUses: [],
+      publicUseCatalog: [],
+      missingUses: [],
+      discoveryNotes: ['schemaBundle not provided'],
+    };
+  const collections = collectionsMeta
+    ? materializeCollectionsInventory(collectionsMeta)
+    : {
       detected: false,
       names: [],
       byName: {},
-      discoveryNotes: [],
-    },
+      discoveryNotes: ['collections inventory not provided'],
+    };
+
+  const instanceFingerprint = buildInstanceFingerprint({
+    urlBase: apiBase,
+    appVersion,
+    enabledPluginNames: enabledPluginsDetected ? enabledPluginNames : [],
+  });
+
+  const inventory = {
+    detected: flowSchema.detected || collections.detected,
+    apiBase,
+    adminBase,
+    appVersion,
+    enabledPlugins: enabledPluginNames,
+    enabledPluginsDetected,
+    instanceFingerprint,
+    flowSchema,
+    collections,
     notes: [],
-    errors,
+    errors: [],
     cache: {
       hit: false,
       source: 'materialize',
@@ -512,7 +360,9 @@ export function materializeInstanceInventory({
 
   if (allowCache) {
     const store = createStableCacheStore({ stateDir });
-    const ttlMs = 10 * 60 * 1000;
+    const ttlMs = enabledPluginsDetected
+      ? DEFAULT_TTL_MS_BY_KIND.flowSchemaInventory
+      : 10 * 60 * 1000;
     store.set({
       kind: 'flowSchemaInventory',
       instanceFingerprint,
@@ -532,125 +382,25 @@ export function materializeInstanceInventory({
 export async function probeInstanceInventory({
   candidatePageUrl,
   urlBase,
-  token = process.env.NOCOBASE_API_TOKEN,
+  schemaBundle,
+  schemas = null,
+  collectionsMeta = null,
+  appInfo = null,
+  enabledPlugins = null,
   stateDir,
   allowCache = true,
 } = {}) {
-  const derivedUrlBase = normalizeText(urlBase) || deriveUrlBaseFromCandidatePageUrl(candidatePageUrl);
-  const { apiBase, adminBase } = normalizeUrlBase(derivedUrlBase || 'http://127.0.0.1:23000');
-
-  const errors = [];
-  const notes = [];
-  let appVersion = '';
-  let enabledPlugins = [];
-  let enabledPluginsDetected = false;
-
-  try {
-    const infoResp = await requestJson({
-      method: 'GET',
-      url: `${apiBase}/api/app:getInfo`,
-      token,
-    });
-    const info = isPlainObject(infoResp.data) ? infoResp.data : {};
-    appVersion = normalizeOptionalText(info.version);
-    if (appVersion) {
-      notes.push(`appVersion: ${appVersion}`);
-    }
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  try {
-    const pluginsResp = await requestJson({
-      method: 'GET',
-      url: `${apiBase}/api/pm:listEnabled`,
-      token,
-    });
-    const plugins = Array.isArray(pluginsResp.data) ? pluginsResp.data : [];
-    enabledPlugins = sortUniqueStrings(
-      plugins.map((item) => (typeof item?.packageName === 'string' ? item.packageName : '')),
-    );
-    enabledPluginsDetected = true;
-    notes.push(`enabledPlugins: ${enabledPlugins.length}`);
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  const instanceFingerprint = buildInstanceFingerprint({
-    urlBase: apiBase,
-    appVersion,
-    enabledPluginNames: enabledPluginsDetected ? enabledPlugins : [],
-  });
-
-  const store = createStableCacheStore({ stateDir });
-  const cacheKey = {
-    kind: 'flowSchemaInventory',
-    instanceFingerprint,
-    identity: 'public-root-uses-v1',
-  };
-
-  if (allowCache) {
-    const cached = store.get(cacheKey);
-    if (cached.hit) {
-      const value = cached.value;
-      if (value && typeof value === 'object') {
-        return {
-          ...value,
-          cache: {
-            hit: true,
-            source: cached.source,
-          },
-        };
-      }
-    }
-  }
-
-  const flowSchema = await probeFlowSchemaInventory({
-    apiBase,
-    token,
-    candidateUses: ['BlockGridModel'],
-    errors,
-  });
-  const collections = await probeCollectionsInventory({
-    apiBase,
-    token,
-    errors,
-  });
-
-  const inventory = {
-    detected: flowSchema.detected || collections.detected,
-    apiBase,
-    adminBase,
-    appVersion,
+  return materializeInstanceInventory({
+    candidatePageUrl,
+    urlBase,
+    schemaBundle,
+    schemas,
+    collectionsMeta,
+    appInfo,
     enabledPlugins,
-    enabledPluginsDetected,
-    instanceFingerprint,
-    flowSchema,
-    collections,
-    notes,
-    errors,
-    cache: {
-      hit: false,
-      source: 'probe',
-    },
-  };
-
-  if (allowCache) {
-    const ttlMs = enabledPluginsDetected
-      ? DEFAULT_TTL_MS_BY_KIND.flowSchemaInventory
-      : 10 * 60 * 1000;
-    store.set({
-      ...cacheKey,
-      value: inventory,
-      ttlMs,
-      metadata: {
-        ttlMs,
-        enabledPluginsDetected,
-      },
-    });
-  }
-
-  return inventory;
+    stateDir,
+    allowCache,
+  });
 }
 
 async function main() {
@@ -660,59 +410,62 @@ async function main() {
     return;
   }
 
-  if (command === 'materialize') {
-    const candidatePageUrl = normalizeRequiredText(flags['candidate-page-url'], '--candidate-page-url');
-    const urlBase = typeof flags['url-base'] === 'string' ? flags['url-base'] : '';
-    const schemaBundle = readJsonInput(
-      flags['schema-bundle-json'],
-      flags['schema-bundle-file'],
-      'schema bundle',
-      { required: true },
-    );
-    const schemas = readJsonInput(
-      flags['schemas-json'],
-      flags['schemas-file'],
-      'schemas',
-      { required: false },
-    );
-    const stateDir = typeof flags['state-dir'] === 'string' ? flags['state-dir'] : undefined;
-    const allowCache = flags['no-cache'] ? false : true;
-    const result = materializeInstanceInventory({
-      candidatePageUrl,
-      urlBase,
-      schemaBundle,
-      schemas,
-      stateDir,
-      allowCache,
-    });
-    const outFile = typeof flags['out-file'] === 'string' ? flags['out-file'] : '';
-    if (outFile) {
-      fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
-      fs.writeFileSync(path.resolve(outFile), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-      console.log(JSON.stringify({ ok: true, outFile: path.resolve(outFile) }, null, 2));
-      return;
-    }
-    console.log(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  if (command !== 'probe') {
+  if (command !== 'materialize' && command !== 'probe') {
     throw new Error(`Unsupported command: ${command}`);
   }
 
   const candidatePageUrl = normalizeRequiredText(flags['candidate-page-url'], '--candidate-page-url');
-  const urlBase = typeof flags['url-base'] === 'string' ? flags['url-base'] : '';
-  const token = typeof flags.token === 'string' ? flags.token : process.env.NOCOBASE_API_TOKEN;
+  const schemaBundle = readJsonInput(
+    flags['schema-bundle-json'],
+    flags['schema-bundle-file'],
+    'schema bundle',
+    { required: true },
+  );
+  const schemas = readJsonInput(
+    flags['schemas-json'],
+    flags['schemas-file'],
+    'schemas',
+    { required: false },
+  );
+  const collectionsMeta = readJsonInput(
+    flags['collections-meta-json'],
+    flags['collections-meta-file'],
+    'collections meta',
+    { required: false },
+  );
+  const appInfo = readJsonInput(
+    flags['app-info-json'],
+    flags['app-info-file'],
+    'app info',
+    { required: false },
+  );
+  const enabledPlugins = readJsonInput(
+    flags['enabled-plugins-json'],
+    flags['enabled-plugins-file'],
+    'enabled plugins',
+    { required: false },
+  );
   const stateDir = typeof flags['state-dir'] === 'string' ? flags['state-dir'] : undefined;
   const allowCache = flags['no-cache'] ? false : true;
+  const outFile = typeof flags['out-file'] === 'string' ? flags['out-file'] : '';
 
   const result = await probeInstanceInventory({
     candidatePageUrl,
-    urlBase,
-    token,
+    schemaBundle,
+    schemas,
+    collectionsMeta,
+    appInfo,
+    enabledPlugins,
     stateDir,
     allowCache,
   });
+
+  if (outFile) {
+    fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
+    fs.writeFileSync(path.resolve(outFile), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+    console.log(JSON.stringify({ ok: true, outFile: path.resolve(outFile) }, null, 2));
+    return;
+  }
 
   console.log(JSON.stringify(result, null, 2));
 }

@@ -15,7 +15,6 @@ import {
   buildDynamicValidationScenario,
   splitValidationRequestIntoPageSpecs,
 } from './validation_scenario_planner.mjs';
-import { probeInstanceInventory } from './instance_inventory_probe.mjs';
 import { stableOpaqueId } from './opaque_uid.mjs';
 import {
   getVisualizationCollectionName,
@@ -1819,6 +1818,19 @@ function compileLayoutVariant({
     }),
   };
 
+  if (layout.pageUse === 'RootPageModel' && tree.tabs.length > 0) {
+    artifact.issues.push({
+      code: 'ROOT_PAGE_TABS_REQUIRE_ROUTE_DRIVEN_BUILD',
+      severity: 'blocker',
+      message: 'Root flowPage 的 visible tabs 不能直接编译成 RootPageModel.subModels.tabs；应先创建 child desktopRoutes，再分别写 tab route 的 grid anchor。',
+      details: {
+        tabTitles: tree.tabs.map((tab) => tab.title),
+        pageUse: layout.pageUse,
+        compileMode: artifact.compileMode,
+      },
+    });
+  }
+
   pushReadbackRequiredScope(artifact, {
     scopePath: '$.page',
     scopeKind: 'root-page',
@@ -2139,14 +2151,6 @@ function hasUsableCollectionsInventory(instanceInventory) {
   return names.length > 0;
 }
 
-function canProbeValidationInstanceInventory() {
-  return process.env.NOCOBASE_DISABLE_INSTANCE_PROBE !== 'true'
-    && (
-      (typeof process.env.NOCOBASE_API_TOKEN === 'string' && process.env.NOCOBASE_API_TOKEN.trim())
-      || process.env.NOCOBASE_ENABLE_INSTANCE_PROBE === 'true'
-    );
-}
-
 async function resolveValidationInstanceInventory({
   candidatePageUrl,
   instanceInventoryInput,
@@ -2160,23 +2164,13 @@ async function resolveValidationInstanceInventory({
     };
   }
 
-  const canProbe = canProbeValidationInstanceInventory();
-  const shouldProbe = !hasProvidedInventory || !hasUsableCollectionsInventory(instanceInventoryInput);
-  const probedInventory = shouldProbe && canProbe
-    ? await probeInstanceInventory({
-      candidatePageUrl,
-      token: process.env.NOCOBASE_API_TOKEN || '',
-    })
-    : null;
-  const mergedInventory = hasProvidedInventory
-    ? mergeInstanceInventories(instanceInventoryInput, probedInventory)
-    : probedInventory;
+  const mergedInventory = hasProvidedInventory ? instanceInventoryInput : null;
 
   if (hasUsableCollectionsInventory(mergedInventory)) {
     return {
       ok: true,
       instanceInventory: mergedInventory,
-      source: hasProvidedInventory ? (probedInventory ? 'provided+probed' : 'provided') : 'probed',
+      source: 'provided',
     };
   }
 
@@ -2190,9 +2184,8 @@ async function resolveValidationInstanceInventory({
       details: {
         candidatePageUrl: normalizeOptionalText(candidatePageUrl),
         hasProvidedInventory,
-        canProbe,
-        probeDisabled: process.env.NOCOBASE_DISABLE_INSTANCE_PROBE === 'true',
-        hasApiToken: Boolean(typeof process.env.NOCOBASE_API_TOKEN === 'string' && process.env.NOCOBASE_API_TOKEN.trim()),
+        probeSupported: false,
+        reason: 'instance inventory must be provided as MCP artifact',
       },
     },
   };

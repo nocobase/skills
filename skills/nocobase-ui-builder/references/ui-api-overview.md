@@ -25,8 +25,8 @@
 
 这些映射是底层事实源，不是默认执行入口。agent 默认应优先走：
 
-- `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...`
-- 或 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这种已内置 guard/readback 的流水线
+- 先直接调用 MCP 工具拿到 write/readback/route/anchor artifacts
+- 再调用 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` 做 guard、diff、contract、summary
 
 只有在实现 wrapper、本地调试底层接口、或核对 HTTP/MCP 参数映射时，才直接参考下面这些工具名。
 
@@ -51,9 +51,10 @@
 
 默认执行策略：
 
-- 页面创建/模板克隆：优先走 `ui_write_wrapper.mjs --action create-v2` 或 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs`
-- ad-hoc `save` / `mutate` / `ensure`：默认走 `scripts/ui_write_wrapper.mjs`
-- 不要在 `js_repl` 或外层 prompt 里直接裸调 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`
+- 页面创建：先调用 `PostDesktoproutes_createv2`、`GetDesktoproutes_listaccessible`、`GetFlowmodels_findone` 拿 artifact，再走 `ui_write_wrapper.mjs --action create-v2`
+- ad-hoc `save` / `mutate` / `ensure`：先调用对应 `PostFlowmodels_*` 与 `GetFlowmodels_findone` 拿 artifact，再走 `scripts/ui_write_wrapper.mjs`
+- `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 现在只保留本地 helper 职责，不再自己请求 NocoBase
+- 不要在 `js_repl` 或外层 prompt 里直接裸调底层写接口后就结束；必须补上 wrapper 的本地校验与证据落盘
 
 ## 3. 请求格式
 
@@ -120,7 +121,7 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 
 `PostDesktoproutes_createv2` 用来初始化 Modern page (v2) 页面壳：
 
-但这只是底层接口。默认执行时不要直接裸调，改为通过 `ui_write_wrapper.mjs --action create-v2` 或内建 builder 流水线调用它。
+但这只是底层接口。默认执行时不要直接裸调；应先用 MCP 取证，再通过 `ui_write_wrapper.mjs --action create-v2` 汇总。
 
 ```json
 {
@@ -143,13 +144,20 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 - `{schemaUid} -> page` flow model 根节点
 - `tabs-{schemaUid} -> grid` 默认 grid 根节点
 
+flowPage v2 的关键语义：
+
+- `{schemaUid} -> page` 是 page anchor child，不是“把 `schemaUid` 直接当 `RootPageModel.uid`”
+- `RootPageModel` 的可见 tabs 由 page route 的 child desktopRoutes 驱动
+- `RootPageModel.subModels.tabs` 不应被 skill 当作显式 tabs 的持久化入口
+- 每个可见 tab 的内容应写到 `parentId=<tabSchemaUid>, subKey=grid`
+
 关键约束：
 
 - 相同 `schemaUid + title + icon + parentId` 时具备幂等性
 - 相同 `schemaUid` 但关键字段不同会返回 `409`
 - 它不是修复接口
 - 它不代表页面已经可打开
-- skill 层默认不允许裸调；应通过 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这类自带 route-ready/readback 的流水线使用
+- skill 层默认不允许裸调；应先通过 MCP 取到 route-ready / readback 证据，再交给 wrapper 或本地 helper 处理
 
 ## 7. route-ready
 
@@ -186,6 +194,11 @@ query 参数工具暴露成 MCP 顶层参数，例如：
 
 显式 tab 场景下，使用明确的 `tabSchemaUid` 读取对应 `grid`。
 
+注意：
+
+- flowPage v2 的 `RootPageModel` readback 不应依赖 `subModels.tabs` 持久化结果
+- 如果页面需要多个可见 tab，先通过 `desktopRoutes` 创建 child route，再读取对应 `tabSchemaUid -> grid`
+
 ## 9. 写入策略与 readback
 
 - agent 默认不要直接决定 `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`；默认由 wrapper 或 builder 流水线代选底层写法。
@@ -208,6 +221,7 @@ skill 级执行约束：
 - ad-hoc live tree 写入与直接页面壳创建时，统一经 `node scripts/ui_write_wrapper.mjs run ...`
 - `flow_write_wrapper.mjs` 只保留给 flow-only 兼容场景，不再是默认 agent 入口
 - `mutate` / `ensure` 如果请求体不是最终模型树，要额外提供 verify payload 给兼容 wrapper 做 guard/readback
+- 对 flowPage v2，guard 会阻断两类写法：`RootPageModel.subModels.tabs` 直写，以及把页面 route `schemaUid` 直接当成 `RootPageModel.uid` 直写
 
 对账规则：
 

@@ -33,7 +33,7 @@ validation 默认走动态场景规划，不再依赖固定 case registry。
 - 通过 NocoBase MCP 工具 `PostFlowmodels_schemabundle` + `PostFlowmodels_schemas` 获取。
 - `schemaBundle` 负责回答“这个实例上哪些 root blocks 真正可用”，`schemas` 负责补齐这些区块的动态 hints（用于语义匹配与 guard 解释）。
 - 输出建议落成 `instanceInventory.flowSchema.rootPublicUses/publicUseCatalog` 并透传到 planner + payload guard。
-- 若使用 `scripts/spec_contracts.mjs build-validation-specs` 生成 spec，可通过 `--instance-inventory-file` 注入实例清单，避免额外 REST token。
+- 若使用 `scripts/spec_contracts.mjs build-validation-specs` 生成 spec，可通过 `--instance-inventory-file` 注入实例清单，避免 planner 侧再去补实例探测。
 - 如果你只有 MCP 的原始返回体（schemaBundle/schemas），可用 `scripts/instance_inventory_probe.mjs materialize --schema-bundle-file ... --schemas-file ...` 把它们落成 `instanceInventory.json` 再注入。
 
 ## 真实场景策略

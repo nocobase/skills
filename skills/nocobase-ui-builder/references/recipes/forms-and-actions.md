@@ -18,7 +18,7 @@
    - popup / openView 对应 page subtree 的稳定结构
    - selector、`filterByTk`、`dataScope.filter` 该落在哪一层
 3. 关系筛选或 query filter 统一用 `flow_payload_guard.mjs build-filter` / `build-query-filter` 生成。
-4. 动作/表单树真正落库时，统一交给 `ui_write_wrapper.mjs run --action save|mutate|ensure`；不要自己手动跑完 guard 再裸写。
+4. 动作/表单树真正落库时，先用 MCP 做写入并拿到 write/readback artifacts，再交给 `ui_write_wrapper.mjs run --action save|mutate|ensure`；不要自己手动跑完 guard 再裸写。
 
 ## 关键规则
 
@@ -38,6 +38,8 @@ node scripts/ui_write_wrapper.mjs run \
   --task "append create form block" \
   --payload-file "<create-form-payload.json>" \
   --metadata-file "<metadata.json>" \
+  --write-result-file "<save-result.json>" \
+  --readback-file "<readback.json>" \
   --readback-parent-id "tabs-k7n4x9p2q5ra" \
   --readback-sub-key "grid"
 ```

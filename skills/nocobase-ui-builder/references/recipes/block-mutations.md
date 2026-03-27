@@ -15,8 +15,8 @@
 2. 先看本地 graph；只在 graph 不够时再补 `PostFlowmodels_schemabundle` / `PostFlowmodels_schemas`。
 3. 对目标 page / tab / grid / slot 做一次写前 live snapshot。
 4. 组装 draft payload。
-5. 把 draft payload、metadata、readback target 交给 `ui_write_wrapper.mjs`。
-6. 由 wrapper 内部固定执行 guard、选择底层写法、完成写后 readback。
+5. 先用 MCP 做写入并拿到 write/readback artifacts。
+6. 再把 draft payload、metadata、readback target 和 artifacts 交给 `ui_write_wrapper.mjs`。
 7. 只有排序或删除这类不在 wrapper 覆盖范围内的动作，才单独走 `PostFlowmodels_move` / `PostFlowmodels_destroy`。
 
 ## 关键规则
@@ -36,6 +36,8 @@ node scripts/ui_write_wrapper.mjs run \
   --task "append orders table block" \
   --payload-file "<payload.json>" \
   --metadata-file "<metadata.json>" \
+  --write-result-file "<save-result.json>" \
+  --readback-file "<readback.json>" \
   --readback-parent-id "tabs-k7n4x9p2q5ra" \
   --readback-sub-key "grid" \
   --target-signature "tabs-k7n4x9p2q5ra:grid"
