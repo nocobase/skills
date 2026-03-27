@@ -175,6 +175,11 @@ const RECORD_ACTION_MODEL_USES = new Set([
   'UpdateRecordActionModel',
   'ViewActionModel',
 ]);
+const RECORD_POPUP_FILTER_ACTION_MODEL_USES = new Set([
+  'EditActionModel',
+  'UpdateRecordActionModel',
+  'ViewActionModel',
+]);
 const FILTER_FORM_ACTION_MODEL_USES = new Set([
   'FilterFormSubmitActionModel',
   'FilterFormResetActionModel',
@@ -1688,14 +1693,74 @@ function hasAssociationContextIntent(initOptions) {
   );
 }
 
-function hasConcreteFormFieldModelEntry(fieldUse) {
+function hasConcreteFieldModelEntry(fieldUse, {
+  allowDisplay = true,
+  forbiddenUses = [],
+} = {}) {
   return Boolean(
     typeof fieldUse === 'string'
     && fieldUse.endsWith('FieldModel')
     && fieldUse !== 'FieldModel'
-    && fieldUse !== FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE
-    && !fieldUse.startsWith('Display')
+    && !forbiddenUses.includes(fieldUse)
+    && (allowDisplay || !fieldUse.startsWith('Display'))
   );
+}
+
+function popupSubtreeUsesInputArgsFilterByTk(pageNode) {
+  if (!isPlainObject(pageNode)) {
+    return false;
+  }
+  return collectStrings(pageNode).some((value) => value.includes(POPUP_INPUT_ARGS_FILTER_BY_TK));
+}
+
+function hasMeaningfulFilterByTk(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function collectNodeResourceContextHints(node) {
+  const collectionNames = new Set();
+  const dataSourceKeys = new Set();
+  walk(node, (currentNode) => {
+    if (!isPlainObject(currentNode)) {
+      return;
+    }
+    const resourceInit = isPlainObject(currentNode.stepParams?.resourceSettings?.init)
+      ? currentNode.stepParams.resourceSettings.init
+      : null;
+    const fieldInit = isPlainObject(currentNode.stepParams?.fieldSettings?.init)
+      ? currentNode.stepParams.fieldSettings.init
+      : null;
+    const collectionName = normalizeOptionalText(resourceInit?.collectionName) || normalizeOptionalText(fieldInit?.collectionName);
+    const dataSourceKey = normalizeOptionalText(resourceInit?.dataSourceKey);
+    if (collectionName) {
+      collectionNames.add(collectionName);
+    }
+    if (dataSourceKey) {
+      dataSourceKeys.add(dataSourceKey);
+    }
+  });
+  return {
+    collectionNames: [...collectionNames],
+    dataSourceKeys: [...dataSourceKeys],
+  };
+}
+
+function inferResourceContextFromNode(node, context) {
+  const explicitCollectionName = normalizeOptionalText(node?.stepParams?.resourceSettings?.init?.collectionName);
+  const explicitDataSourceKey = normalizeOptionalText(node?.stepParams?.resourceSettings?.init?.dataSourceKey);
+  const descendantHints = collectNodeResourceContextHints(node);
+  const collectionName = explicitCollectionName
+    || normalizeOptionalText(context.resourceCollectionName)
+    || (descendantHints.collectionNames.length === 1 ? descendantHints.collectionNames[0] : '');
+  const dataSourceKey = explicitDataSourceKey
+    || normalizeOptionalText(context.resourceDataSourceKey)
+    || (descendantHints.dataSourceKeys.length === 1 ? descendantHints.dataSourceKeys[0] : '')
+    || (collectionName ? 'main' : '');
+  return {
+    collectionName,
+    dataSourceKey,
+    descendantHints,
+  };
 }
 
 function collectPopupOpenViewDataSourceKeys(pageNode, targetCollectionName) {
@@ -2563,7 +2628,14 @@ function matchesRequiredFilterScope(scopeDescriptor, requirement) {
 
   if (requirement.pageUse) {
     const candidateUses = sortUniqueStrings([scopeDescriptor.pageUse, scopeDescriptor.tabUse]);
-    if (!candidateUses.includes(requirement.pageUse)) {
+    const allowRootGridPageScope = (
+      scopeDescriptor.kind === 'root-grid'
+      && !requirement.tabTitle
+      && expectedTabIndex == null
+      && requirement.pageSignature === '$'
+      && PAGE_MODEL_USES_SET.has(requirement.pageUse)
+    );
+    if (!candidateUses.includes(requirement.pageUse) && !allowRootGridPageScope) {
       return false;
     }
   }
@@ -3303,7 +3375,13 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       const bindingUse = typeof item.subModels?.field?.stepParams?.fieldBinding?.use === 'string'
         ? item.subModels.field.stepParams.fieldBinding.use.trim()
         : '';
-      if ((fieldUse === 'FieldModel' && bindingUse) || hasConcreteFormFieldModelEntry(fieldUse)) {
+      if (
+        (fieldUse === 'FieldModel' && bindingUse)
+        || hasConcreteFieldModelEntry(fieldUse, {
+          allowDisplay: false,
+          forbiddenUses: [FILTER_FORM_ASSOCIATION_FIELD_MODEL_USE],
+        })
+      ) {
         return;
       }
 
@@ -4109,10 +4187,13 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
       if (fieldUse === 'FieldModel' && bindingUse) {
         return;
       }
-      pushFinding(warnings, seen, createFinding({
-        severity: 'warning',
+      if (hasConcreteFieldModelEntry(fieldUse)) {
+        return;
+      }
+      pushFinding(blockers, seen, createFinding({
+        severity: 'blocker',
         code: 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID',
-        message: 'DetailsItemModel.subModels.field should currently use the unified FieldModel + stepParams.fieldBinding.use entry. Persisting a concrete display field model directly can still create builder/readback/runtime shape drift, so treat it as a high-risk diagnostic warning rather than a hard blocker.',
+        message: 'DetailsItemModel.subModels.field must use either FieldModel + stepParams.fieldBinding.use, or a direct concrete field model entry. Bare FieldModel without binding is still invalid here.',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
@@ -4189,11 +4270,14 @@ function inspectTableBlocks(payload, mode, blockers, seen) {
     if (fieldUse === 'FieldModel' && bindingUse) {
       return;
     }
+    if (hasConcreteFieldModelEntry(fieldUse)) {
+      return;
+    }
 
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID',
-      message: 'TableColumnModel.subModels.field must use FieldModel as the entry point and point to the concrete display field model through stepParams.fieldBinding.use. Persisting a concrete Display*FieldModel use directly creates builder/runtime structural drift.',
+      message: 'TableColumnModel.subModels.field must use either FieldModel + stepParams.fieldBinding.use, or a direct concrete field-model entry that the current runtime/schema catalog already exposes. Bare FieldModel without binding is still invalid here.',
       path: `${pathValue}.subModels.field`,
       mode,
       dedupeKey: `TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID:${pathValue}`,
@@ -5622,6 +5706,49 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       }
     }
 
+    if (COLLECTION_RESOURCE_BLOCK_MODEL_USES.has(node.use)) {
+      const stepParams = isPlainObject(node.stepParams) ? node.stepParams : (node.stepParams = {});
+      const resourceSettings = isPlainObject(stepParams.resourceSettings)
+        ? stepParams.resourceSettings
+        : (stepParams.resourceSettings = {});
+      const initOptions = isPlainObject(resourceSettings.init)
+        ? resourceSettings.init
+        : (resourceSettings.init = {});
+      const currentCollectionName = normalizeOptionalText(initOptions.collectionName);
+      const currentDataSourceKey = normalizeOptionalText(initOptions.dataSourceKey);
+      const inferredResourceContext = inferResourceContextFromNode(node, context);
+      const inferredCollectionName = currentCollectionName || inferredResourceContext.collectionName;
+      const inferredDataSourceKey = currentDataSourceKey || inferredResourceContext.dataSourceKey;
+
+      if (!currentCollectionName && inferredCollectionName) {
+        initOptions.collectionName = inferredCollectionName;
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'COLLECTION_BLOCK_RESOURCE_COLLECTION_CANONICALIZED',
+          path: `${pathValue}.stepParams.resourceSettings.init.collectionName`,
+          message: `Filled in ${node.use}.resourceSettings.init.collectionName="${inferredCollectionName}" from the verified resource context.`,
+          details: {
+            blockUse: node.use,
+            collectionName: inferredCollectionName,
+            sourceCollectionHints: inferredResourceContext.descendantHints.collectionNames,
+          },
+        });
+      }
+
+      if (!currentDataSourceKey && inferredDataSourceKey) {
+        initOptions.dataSourceKey = inferredDataSourceKey;
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'COLLECTION_BLOCK_RESOURCE_DATASOURCE_CANONICALIZED',
+          path: `${pathValue}.stepParams.resourceSettings.init.dataSourceKey`,
+          message: `Filled in ${node.use}.resourceSettings.init.dataSourceKey="${inferredDataSourceKey}" from the verified resource context.`,
+          details: {
+            blockUse: node.use,
+            dataSourceKey: inferredDataSourceKey,
+            sourceDataSourceHints: inferredResourceContext.descendantHints.dataSourceKeys,
+          },
+        });
+      }
+    }
+
     if (node.use === 'DetailsBlockModel' && !hasMeaningfulDetailsContent(node)) {
       const collectionName = node.stepParams?.resourceSettings?.init?.collectionName || context.resourceCollectionName;
       const displayBinding = getStableDisplayFieldBinding(normalizedMetadata, collectionName);
@@ -5718,6 +5845,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       }
 
       const targetCollectionName = openView.collectionName || context.resourceCollectionName || null;
+      const popupNeedsInputArgsFilterByTk = popupSubtreeUsesInputArgsFilterByTk(node.subModels?.page);
       if (RECORD_ACTION_MODEL_USES.has(node.use)) {
         replacement = buildRecordContextFilterByTk(metadata, targetCollectionName);
         strategy = 'record-context';
@@ -5726,7 +5854,24 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         strategy = 'ancestor-popup-input-args';
       }
 
-      if (isHardcodedFilterValue(openView.filterByTk)) {
+      if (
+        !hasMeaningfulFilterByTk(openView.filterByTk)
+        && replacement
+        && popupNeedsInputArgsFilterByTk
+        && RECORD_POPUP_FILTER_ACTION_MODEL_USES.has(node.use)
+      ) {
+        openView.filterByTk = replacement;
+        pushCanonicalizeItem(transforms, transformSeen, {
+          code: 'POPUP_FILTER_BY_TK_CANONICALIZED',
+          path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
+          message: 'Filled missing popup filterByTk from the current record context because the popup subtree reads ctx.view.inputArgs.filterByTk.',
+          details: {
+            to: replacement,
+            strategy,
+            collectionName: targetCollectionName,
+          },
+        });
+      } else if (isHardcodedFilterValue(openView.filterByTk)) {
         if (replacement) {
           const previousValue = openView.filterByTk;
           openView.filterByTk = replacement;

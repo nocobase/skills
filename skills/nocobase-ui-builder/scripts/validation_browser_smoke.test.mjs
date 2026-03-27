@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ensureSignedIn,
   loadChromium,
   resolvePlaywrightLoader,
   runCase,
@@ -144,6 +145,35 @@ test('loadChromium loads chromium export from PLAYWRIGHT_PACKAGE_PATH', () => {
   });
 
   assert.deepEqual(chromium, { name: 'stub-chromium' });
+});
+
+test('ensureSignedIn tolerates URL wait timeout when auth token is already persisted', async () => {
+  const page = {
+    currentUrl: 'http://example.test/admin/signin',
+    async goto() {},
+    async waitForLoadState() {},
+    url() {
+      return this.currentUrl;
+    },
+    getByPlaceholder() {
+      return {
+        async fill() {},
+      };
+    },
+    getByRole() {
+      return {
+        async click() {},
+      };
+    },
+    async waitForURL() {
+      throw new Error('timeout');
+    },
+  };
+
+  await assert.doesNotReject(async () => ensureSignedIn(page, 'http://example.test/admin', {
+    delayImpl: async () => {},
+    hasPersistedAuthTokenImpl: async () => true,
+  }));
 });
 
 test('runCase short-circuits guardBlocked cases before browser navigation', async () => {

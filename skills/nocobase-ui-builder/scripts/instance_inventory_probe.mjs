@@ -35,6 +35,13 @@ function sortUniqueStrings(values) {
   )].sort((left, right) => left.localeCompare(right));
 }
 
+const PLUGIN_HINTED_ROOT_USES = {
+  '@nocobase/plugin-block-grid-card': ['GridCardBlockModel'],
+  '@nocobase/plugin-charts': ['ChartBlockModel'],
+  '@nocobase/plugin-data-visualization': ['ChartBlockModel'],
+  '@nocobase/plugin-data-visualization-echarts': ['ChartBlockModel'],
+};
+
 function parseArgs(argv) {
   if (argv.length === 0 || argv[0] === '--help' || argv[0] === 'help') {
     return { command: 'help', flags: {} };
@@ -174,6 +181,44 @@ function buildCatalogEntryFromSchemaDocument(document) {
   };
 }
 
+function isRecognizedPublicRootUse(use) {
+  const normalizedUse = normalizeOptionalText(use);
+  return Boolean(
+    normalizedUse
+    && (
+      normalizedUse.endsWith('BlockModel')
+      || normalizedUse === 'CreateFormModel'
+      || normalizedUse === 'EditFormModel'
+    )
+  );
+}
+
+function collectSchemaDocumentRootUses(docs) {
+  const uses = [];
+  for (const document of Array.isArray(docs) ? docs : []) {
+    if (!isPlainObject(document)) {
+      continue;
+    }
+    const publicTreeRoots = Array.isArray(document.publicTreeRoots)
+      ? document.publicTreeRoots.map((item) => normalizeOptionalText(item)).filter(Boolean)
+      : [];
+    uses.push(...publicTreeRoots);
+    const use = normalizeOptionalText(document.use);
+    if (isRecognizedPublicRootUse(use)) {
+      uses.push(use);
+    }
+  }
+  return sortUniqueStrings(uses);
+}
+
+function collectPluginHintedRootUses(enabledPluginNames) {
+  const hintedUses = [];
+  for (const pluginName of Array.isArray(enabledPluginNames) ? enabledPluginNames : []) {
+    hintedUses.push(...(PLUGIN_HINTED_ROOT_USES[normalizeOptionalText(pluginName)] || []));
+  }
+  return sortUniqueStrings(hintedUses);
+}
+
 function normalizeCollectionField(field) {
   if (!isPlainObject(field)) {
     return null;
@@ -242,7 +287,7 @@ function materializeCollectionsInventory(collectionsMeta) {
   };
 }
 
-function materializeFlowSchemaInventory({ schemaBundle, schemas }) {
+function materializeFlowSchemaInventory({ schemaBundle, schemas, enabledPluginNames = [] }) {
   const notes = [];
   const bundleData = unwrapResponseEnvelope(schemaBundle);
   const bundleItems = Array.isArray(bundleData?.items) ? bundleData.items : [];
@@ -251,9 +296,18 @@ function materializeFlowSchemaInventory({ schemaBundle, schemas }) {
     ? blockGridDoc.subModelCatalog.items.candidates
     : [];
 
-  const rootPublicUses = sortUniqueStrings(
+  const bundleRootUses = sortUniqueStrings(
     candidates.map((candidate) => (typeof candidate?.use === 'string' ? candidate.use : '')).filter(Boolean),
   );
+  const schemasData = schemas ? unwrapResponseEnvelope(schemas) : null;
+  const docs = Array.isArray(schemasData) ? schemasData : [];
+  const schemaDocumentRootUses = collectSchemaDocumentRootUses(docs);
+  const pluginHintedRootUses = collectPluginHintedRootUses(enabledPluginNames);
+  const rootPublicUses = sortUniqueStrings([
+    ...bundleRootUses,
+    ...schemaDocumentRootUses,
+    ...pluginHintedRootUses,
+  ]);
   const flowSchema = {
     detected: rootPublicUses.length > 0,
     rootPublicUses,
@@ -261,11 +315,15 @@ function materializeFlowSchemaInventory({ schemaBundle, schemas }) {
     missingUses: [],
     discoveryNotes: [],
   };
-  notes.push(`schemaBundle resolved BlockGridModel candidates: ${rootPublicUses.length}`);
+  notes.push(`schemaBundle resolved BlockGridModel candidates: ${bundleRootUses.length}`);
+  if (schemaDocumentRootUses.length > 0) {
+    notes.push(`schemas root-use hints: ${schemaDocumentRootUses.length}`);
+  }
+  if (pluginHintedRootUses.length > 0) {
+    notes.push(`plugin-hinted root uses: ${pluginHintedRootUses.join(', ')}`);
+  }
 
-  const schemasData = schemas ? unwrapResponseEnvelope(schemas) : null;
-  const docs = Array.isArray(schemasData) ? schemasData : [];
-  if (flowSchema.detected && docs.length > 0) {
+  if (docs.length > 0) {
     const catalog = docs
       .map(buildCatalogEntryFromSchemaDocument)
       .filter(Boolean)
@@ -317,7 +375,7 @@ export function materializeInstanceInventory({
   const enabledPluginNames = enabledPlugins ? materializeEnabledPlugins(enabledPlugins) : [];
   const enabledPluginsDetected = enabledPlugins !== null && enabledPlugins !== undefined;
   const flowSchema = schemaBundle
-    ? materializeFlowSchemaInventory({ schemaBundle, schemas })
+    ? materializeFlowSchemaInventory({ schemaBundle, schemas, enabledPluginNames })
     : {
       detected: false,
       rootPublicUses: [],

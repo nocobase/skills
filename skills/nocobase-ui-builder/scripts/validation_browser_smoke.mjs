@@ -257,7 +257,41 @@ async function clickByText(page, text) {
   return false;
 }
 
-async function ensureSignedIn(page, adminBase) {
+async function hasPersistedAuthToken(page) {
+  try {
+    return await page.evaluate(() => {
+      const tokenLike = (value) => typeof value === 'string' && value.trim().length > 0;
+      const hasStorageToken = (storage) => {
+        try {
+          for (let index = 0; index < storage.length; index += 1) {
+            const key = storage.key(index);
+            if (!key) {
+              continue;
+            }
+            const value = storage.getItem(key);
+            if (tokenLike(value)) {
+              return true;
+            }
+          }
+        } catch {
+          return false;
+        }
+        return false;
+      };
+
+      return hasStorageToken(window.localStorage)
+        || hasStorageToken(window.sessionStorage)
+        || /token|authorization/i.test(document.cookie || '');
+    });
+  } catch {
+    return false;
+  }
+}
+
+export async function ensureSignedIn(page, adminBase, {
+  delayImpl = delay,
+  hasPersistedAuthTokenImpl = hasPersistedAuthToken,
+} = {}) {
   const signinUrl = `${adminBase.replace(/\/+$/, '')}/signin`;
   await page.goto(signinUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
@@ -267,8 +301,15 @@ async function ensureSignedIn(page, adminBase) {
   await page.getByPlaceholder('Username/Email').fill('admin@nocobase.com');
   await page.getByPlaceholder('Password').fill('admin123');
   await page.getByRole('button', { name: /sign in/i }).click();
-  await page.waitForURL((url) => !url.pathname.includes('/signin'), { timeout: 20000 });
-  await delay(1000);
+  try {
+    await page.waitForURL((url) => !url.pathname.includes('/signin'), { timeout: 20000 });
+  } catch (error) {
+    const hasToken = await hasPersistedAuthTokenImpl(page);
+    if (!hasToken) {
+      throw error;
+    }
+  }
+  await delayImpl(1000);
 }
 
 function normalizeAssertions(value) {

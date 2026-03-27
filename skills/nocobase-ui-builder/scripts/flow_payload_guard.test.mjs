@@ -2967,7 +2967,7 @@ test('auditPayload blocks TableColumnModel without display field subModel', () =
   assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_FIELD_SUBMODEL_MISSING'), true);
 });
 
-test('auditPayload blocks TableColumnModel with direct display field model instead of FieldModel binding entry', () => {
+test('auditPayload accepts TableColumnModel with direct concrete field model entry', () => {
   const payload = {
     use: 'TableColumnModel',
     stepParams: {
@@ -3000,8 +3000,8 @@ test('auditPayload blocks TableColumnModel with direct display field model inste
     mode: VALIDATION_CASE_MODE,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID'), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.some((item) => item.code === 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID'), false);
 });
 
 test('auditPayload blocks TableColumnModel without renderable width', () => {
@@ -4127,6 +4127,36 @@ test('auditPayload blocks filter-form grids that omit BlockGridModel filterManag
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_MANAGER_FILTER_ITEM_UNBOUND'), true);
 });
 
+test('auditPayload accepts root-grid filter requirements compiled from RootPageModel scope', () => {
+  const canonicalized = canonicalizePayload({
+    payload: makeOrdersFilterTableGrid(),
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  const result = auditPayload({
+    payload: canonicalized.payload,
+    metadata: metadataWithCustomerTitle,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      requiredFilters: [
+        {
+          pageSignature: '$',
+          pageUse: 'RootPageModel',
+          tabTitle: '',
+          collectionName: 'orders',
+          fields: ['order_no', 'customer'],
+          targetUses: ['TableBlockModel'],
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_FILTER_SCOPE_MISSING'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_FILTER_FIELDS_MISSING'), false);
+  assert.equal(result.blockers.some((item) => item.code === 'REQUIRED_FILTER_TARGET_USE_MISMATCH'), false);
+});
+
 test('auditPayload blocks filterManager entries whose filterPaths drift from runtime expectations', () => {
   const result = auditPayload({
     payload: makeOrdersFilterTableGrid({
@@ -4361,7 +4391,7 @@ test('auditPayload warns instead of blocking on direct details field model entry
   });
 
   assert.equal(result.blockers.some((item) => item.code === 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID'), false);
-  assert.equal(result.warnings.some((item) => item.code === 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID'), true);
+  assert.equal(result.warnings.some((item) => item.code === 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID'), false);
 });
 
 test('canonicalizePayload rewrites hardcoded popup and resource filterByTk inside popup context', () => {
@@ -4412,6 +4442,68 @@ test('canonicalizePayload fills popup openView.dataSourceKey from popup subtree 
   assert.equal(auditResult.blockers.some((item) => item.code === 'POPUP_OPEN_VIEW_RESOURCE_INCOMPLETE'), false);
 });
 
+test('canonicalizePayload fills collection block dataSourceKey from default resource context', () => {
+  const payload = {
+    use: 'TableBlockModel',
+    stepParams: {
+      resourceSettings: {
+        init: {
+          collectionName: 'orders',
+        },
+      },
+    },
+    subModels: {
+      columns: [],
+      actions: [],
+    },
+  };
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.resourceSettings.init.dataSourceKey, 'main');
+  assert.equal(result.transforms.some((item) => item.code === 'COLLECTION_BLOCK_RESOURCE_DATASOURCE_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING'), false);
+});
+
+test('canonicalizePayload infers filter block resource context from descendant field settings', () => {
+  const payload = makeFilterFormBlockWithItems([
+    makeFilterFormItem({
+      collectionName: 'orders',
+      fieldPath: 'status',
+    }),
+  ]);
+  delete payload.stepParams.resourceSettings.init.collectionName;
+  delete payload.stepParams.resourceSettings.init.dataSourceKey;
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.resourceSettings.init.collectionName, 'orders');
+  assert.equal(result.payload.stepParams.resourceSettings.init.dataSourceKey, 'main');
+  assert.equal(result.transforms.some((item) => item.code === 'COLLECTION_BLOCK_RESOURCE_COLLECTION_CANONICALIZED'), true);
+  assert.equal(result.transforms.some((item) => item.code === 'COLLECTION_BLOCK_RESOURCE_DATASOURCE_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING'), false);
+});
+
 test('canonicalizePayload rewrites legacy record popup filterByTk to a non-id filterTargetKey template', () => {
   const namedFilterKeyMetadata = {
     collections: {
@@ -4436,6 +4528,32 @@ test('canonicalizePayload rewrites legacy record popup filterByTk to a non-id fi
 
   assert.equal(result.payload.stepParams.popupSettings.openView.filterByTk, '{{ctx.record.code}}');
   assert.equal(result.transforms.some((item) => item.code === 'POPUP_FILTER_BY_TK_CANONICALIZED'), true);
+});
+
+test('canonicalizePayload fills missing popup filterByTk when popup subtree depends on inputArgs context', () => {
+  const payload = cloneJson(makeViewRecordPopupAction('order_items'));
+  delete payload.stepParams.popupSettings.openView.filterByTk;
+
+  const result = canonicalizePayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.payload.stepParams.popupSettings.openView.filterByTk, '{{ctx.record.id}}');
+  assert.equal(result.transforms.some((item) => item.code === 'POPUP_FILTER_BY_TK_CANONICALIZED'), true);
+
+  const auditResult = auditPayload({
+    payload: result.payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+    requirements: {
+      metadataTrust: {
+        runtimeSensitive: 'live',
+      },
+    },
+  });
+  assert.equal(auditResult.blockers.some((item) => item.code === 'POPUP_CONTEXT_REFERENCE_WITHOUT_INPUT_ARG'), false);
 });
 
 test('canonicalizePayload rewrites legacy record popup filterByTk to composite record context template', () => {

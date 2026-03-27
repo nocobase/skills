@@ -22,6 +22,7 @@ import {
   normalizeVisualizationSpec,
   serializeVisualizationFieldPath,
 } from './visualization_contracts.mjs';
+import { buildRecordContextFilterByTkTemplate } from './filter_by_tk_templates.mjs';
 
 export const BUILD_SPEC_VERSION = '1.0';
 export const VERIFY_SPEC_VERSION = '1.0';
@@ -51,6 +52,8 @@ const METADATA_TRUST_LEVELS = new Set(['live', 'stable', 'cache', 'artifact', 'u
 const MENU_PLACEMENT_STRATEGIES = new Set(['root', 'group']);
 const MENU_PLACEMENT_SOURCES = new Set(['auto', 'explicit', 'explicit-reuse']);
 const MENU_PLACEMENT_MODES = new Set(['auto', 'group', 'root']);
+const DEFAULT_RESOURCE_DATA_SOURCE_KEY = 'main';
+const RECORD_POPUP_ACTION_KINDS = new Set(['view-record-popup', 'edit-record-popup']);
 
 function resolveActionUse(kind) {
   const resolvedUse = ACTION_USE_BY_KIND[kind];
@@ -106,6 +109,50 @@ function normalizeNonEmpty(value, label) {
 
 function normalizeOptionalText(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function buildResourceContext(source, fallbackContext = null) {
+  const collectionName = normalizeOptionalText(source?.collectionName)
+    || normalizeOptionalText(fallbackContext?.resourceCollectionName);
+  const dataSourceKey = normalizeOptionalText(source?.dataSourceKey)
+    || normalizeOptionalText(fallbackContext?.resourceDataSourceKey)
+    || (collectionName ? DEFAULT_RESOURCE_DATA_SOURCE_KEY : '');
+  return {
+    collectionName,
+    dataSourceKey,
+  };
+}
+
+function getInstanceInventoryCollectionMeta(instanceInventory, collectionName) {
+  const normalizedCollectionName = normalizeOptionalText(collectionName);
+  if (!normalizedCollectionName) {
+    return null;
+  }
+  const byName = instanceInventory?.collections?.byName;
+  return byName && typeof byName === 'object'
+    ? (byName[normalizedCollectionName] || null)
+    : null;
+}
+
+function buildPopupOpenViewDescriptor(action, popup, context, instanceInventory) {
+  if (!popup) {
+    return null;
+  }
+  const resourceContext = buildResourceContext({}, context);
+  const openView = {
+    pageModelClass: popup.pageUse,
+  };
+  if (resourceContext.collectionName) {
+    openView.collectionName = resourceContext.collectionName;
+  }
+  if (resourceContext.dataSourceKey) {
+    openView.dataSourceKey = resourceContext.dataSourceKey;
+  }
+  if (RECORD_POPUP_ACTION_KINDS.has(normalizeOptionalText(action?.kind)) && resourceContext.collectionName) {
+    const collectionMeta = getInstanceInventoryCollectionMeta(instanceInventory, resourceContext.collectionName);
+    openView.filterByTk = buildRecordContextFilterByTkTemplate(collectionMeta?.filterTargetKey);
+  }
+  return openView;
 }
 
 function parseJson(rawValue, label) {
@@ -434,6 +481,9 @@ function normalizeBlock(block, index, label = 'blocks') {
     title: typeof block.title === 'string' && block.title.trim() ? block.title.trim() : '',
     collectionName: typeof block.collectionName === 'string' && block.collectionName.trim()
       ? block.collectionName.trim()
+      : '',
+    dataSourceKey: typeof block.dataSourceKey === 'string' && block.dataSourceKey.trim()
+      ? block.dataSourceKey.trim()
       : '',
     fields: sortUniqueStrings(block.fields),
     actions: normalizeActions(block.actions, `${label}[${index}].actions`),
@@ -1426,7 +1476,7 @@ function buildExpectedFilterContract(block, compiledBlock, selectorContract, dat
   return {
     path: compiledBlock.path,
     use: compiledBlock.use,
-    collectionName: compiledBlock.collectionName || null,
+    collectionName: compiledBlock.resourceContext.collectionName || null,
     selectorKind: selectorContract.kind,
     dataScopeMode: dataScopeContract.mode,
     allowNonEmptyDataScope: dataScopeContract.mode !== 'empty',
@@ -1448,8 +1498,10 @@ function buildRequiredFilterDescriptor(block, compiledBlock, context, targetUses
     path: compiledBlock.path,
     pageSignature: context.pageSignature || '$',
     pageUse: context.pageUse || null,
+    scopePath: context.scopePath || null,
+    scopeKind: context.scopeKind || null,
     tabTitle: context.tabTitle || '',
-    collectionName: block.collectionName || null,
+    collectionName: compiledBlock.resourceContext.collectionName || null,
     fields: [...compiledBlock.fields],
     targetUses: sortUniqueStrings(targetUses),
   };
@@ -1459,13 +1511,28 @@ function buildRequiredFilterBinding(block, compiledBlock, context, targetUses) {
   return {
     pageSignature: context.pageSignature || '$',
     pageUse: context.pageUse || null,
+    scopePath: context.scopePath || null,
+    scopeKind: context.scopeKind || null,
     tabTitle: context.tabTitle || '',
     filterPath: compiledBlock.path,
     filterUse: compiledBlock.use,
-    collectionName: block.collectionName || null,
+    collectionName: compiledBlock.resourceContext.collectionName || null,
     filterFields: [...compiledBlock.fields],
     targetUses: sortUniqueStrings(targetUses),
   };
+}
+
+function deriveRequiredFilterManagerEntryCount(requiredFilterBindings) {
+  return (Array.isArray(requiredFilterBindings) ? requiredFilterBindings : []).reduce((count, binding) => {
+    if (!binding || typeof binding !== 'object') {
+      return count;
+    }
+    const scopeKind = typeof binding.scopeKind === 'string' ? binding.scopeKind.trim() : '';
+    if (scopeKind === 'popup-page' || scopeKind === 'popup-tab') {
+      return count;
+    }
+    return count + sortUniqueStrings(binding.filterFields).length;
+  }, 0);
 }
 
 function collectScopedBlockUses(compiledBlocks) {
@@ -1566,6 +1633,8 @@ function compilePopup(popup, scope, artifact, context) {
     tabTitle: context?.tabTitle || '',
     scopePath: `${scope}.popup.page`,
     scopeKind: 'popup-page',
+    resourceCollectionName: normalizeOptionalText(context?.resourceCollectionName),
+    resourceDataSourceKey: normalizeOptionalText(context?.resourceDataSourceKey),
   };
   const compiledBlocks = compileBlocks(popup.blocks, `${scope}.popup.page`, artifact, popupContext);
   pushReadbackRequiredScope(artifact, {
@@ -1592,13 +1661,20 @@ function compilePopup(popup, scope, artifact, context) {
 function compileActions(actions, scope, artifact, actionScope, context) {
   return actions.map((action, index) => {
     maybeAddVerifyHintForAction(action, actionScope, artifact.verifyHints, scope.replaceAll('.', '-'));
+    const popup = action.popup
+      ? compilePopup(action.popup, `${scope}.${actionScope}[${index}]`, artifact, context)
+      : null;
     return {
       ...action,
       scope: actionScope,
       path: `${scope}.${actionScope}[${index}]`,
-      popup: action.popup
-        ? compilePopup(action.popup, `${scope}.${actionScope}[${index}]`, artifact, context)
-        : null,
+      popup,
+      popupOpenView: buildPopupOpenViewDescriptor(
+        action,
+        popup,
+        context,
+        artifact?.scenario?.instanceInventory,
+      ),
     };
   });
 }
@@ -1606,24 +1682,29 @@ function compileActions(actions, scope, artifact, actionScope, context) {
 function compileBlocks(blocks, scope, artifact, context) {
   return blocks.map((block, index) => {
     collectRequiredUsesFromBlock(block, artifact.requiredUses);
+    const resourceContext = buildResourceContext(block, context);
+    const blockContext = {
+      ...context,
+      resourceCollectionName: resourceContext.collectionName || normalizeOptionalText(context?.resourceCollectionName),
+      resourceDataSourceKey: resourceContext.dataSourceKey || normalizeOptionalText(context?.resourceDataSourceKey),
+    };
     const visualizationSpec = normalizeVisualizationSpecInput(block.visualizationSpec, {
       blockUse: block.use,
-      dataSource: block.collectionName,
+      dataSource: resourceContext.collectionName,
     });
     if (block.kind === 'Filter') {
       artifact.readbackContract.requireFilterManager = true;
-      artifact.readbackContract.requiredFilterManagerEntryCount += block.fields.length;
     }
-    if (block.collectionName) {
-      artifact.requiredMetadataRefs.collections.add(block.collectionName);
+    if (resourceContext.collectionName) {
+      artifact.requiredMetadataRefs.collections.add(resourceContext.collectionName);
     }
     const visualizationCollectionName = getVisualizationCollectionName(visualizationSpec);
     if (visualizationCollectionName) {
       artifact.requiredMetadataRefs.collections.add(visualizationCollectionName);
     }
     for (const field of block.fields) {
-      if (block.collectionName) {
-        artifact.requiredMetadataRefs.fields.add(`${block.collectionName}.${field}`);
+      if (resourceContext.collectionName) {
+        artifact.requiredMetadataRefs.fields.add(`${resourceContext.collectionName}.${field}`);
       }
     }
     if (visualizationCollectionName) {
@@ -1653,24 +1734,26 @@ function compileBlocks(blocks, scope, artifact, context) {
       kind: block.kind,
       use: resolveBlockUse(block),
       title: block.title,
-      collectionName: block.collectionName,
+      collectionName: resourceContext.collectionName,
+      dataSourceKey: resourceContext.dataSourceKey,
+      resourceContext,
       fields: block.fields,
       actions: compileActions(
         block.actions,
         `${scope}.blocks[${index}]`,
         artifact,
         block.kind === 'Details' ? 'details-actions' : 'block-actions',
-        context,
+        blockContext,
       ),
       rowActions: compileActions(
         block.rowActions,
         `${scope}.blocks[${index}]`,
         artifact,
         'row-actions',
-        context,
+        blockContext,
       ),
-      blocks: compileBlocks(block.blocks, `${scope}.blocks[${index}]`, artifact, context),
-      popup: compilePopup(block.popup, `${scope}.blocks[${index}]`, artifact, context),
+      blocks: compileBlocks(block.blocks, `${scope}.blocks[${index}]`, artifact, blockContext),
+      popup: compilePopup(block.popup, `${scope}.blocks[${index}]`, artifact, blockContext),
       relationScope: block.relationScope,
       explicitUse: block.use,
       mode: block.mode,
@@ -1697,7 +1780,7 @@ function compileBlocks(blocks, scope, artifact, context) {
       pushReadbackRequiredDetailsBlock(artifact, {
         scopePath: context.scopePath || context.pageSignature || '$.page',
         scopeKind: context.scopeKind || 'root-page',
-        collectionName: block.collectionName || compiledBlock.collectionName,
+        collectionName: compiledBlock.resourceContext.collectionName,
         fieldPaths: compiledBlock.fields,
         minItemCount: compiledBlock.fields.length,
         requireFilterByTkTemplate: String(context.scopeKind || '').startsWith('popup'),
@@ -1866,6 +1949,9 @@ function compileLayoutVariant({
     ...tree.blocks.map((item) => item.use),
     ...(tree.tabs.length > 0 ? [defaultTabUse] : []),
   ]);
+  artifact.readbackContract.requiredFilterManagerEntryCount = deriveRequiredFilterManagerEntryCount(
+    artifact.readbackContract.requiredFilterBindings,
+  );
   const generatedCoverage = buildGeneratedCoverageFromTree(tree);
   artifact.payloadFragment = tree;
   artifact.primitiveTree = tree;

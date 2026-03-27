@@ -981,6 +981,16 @@ function mergeAvailableUsesWithInventories({ baseUses, instanceInventory }) {
   };
 }
 
+function deriveValidationMetadataTrust(inventoryMerge, collectionMeta) {
+  const instanceInventory = normalizeInstanceInventory(inventoryMerge?.instanceInventory);
+  const hasFlowSchemaEvidence = instanceInventory.flowSchema.detected
+    && instanceInventory.flowSchema.rootPublicUses.length > 0;
+  const hasCollectionEvidence = collectionMeta
+    ? Boolean(instanceInventory.collections.byName?.[collectionMeta.name])
+    : instanceInventory.collections.detected;
+  return hasFlowSchemaEvidence || hasCollectionEvidence ? 'live' : 'unknown';
+}
+
 function humanizeCollectionTitle(collectionMeta) {
   const rawTitle = normalizeText(collectionMeta?.title);
   if (!rawTitle) {
@@ -3461,7 +3471,7 @@ function buildStableFirstValidationScenario({
         relations: [],
       },
       requirements: {
-        metadataTrust: 'unknown',
+        metadataTrust: deriveValidationMetadataTrust(inventoryMerge, collectionMeta),
       },
       options: {
         compileMode: 'primitive-tree',
@@ -3910,7 +3920,7 @@ function buildCreativeFirstValidationScenario({
         relations: [],
       },
       requirements: {
-        metadataTrust: 'unknown',
+        metadataTrust: deriveValidationMetadataTrust(inventoryMerge, collectionMeta),
       },
       options: {
         compileMode: 'primitive-tree',

@@ -23,6 +23,8 @@ import {
   writeJson,
 } from './mcp_artifact_support.mjs';
 import {
+  alignReadbackContractToModel,
+  augmentReadbackContractWithModelDefaults,
   augmentReadbackContractWithGridMembership,
   buildReadbackDriftReport,
   validateReadbackContract,
@@ -1114,9 +1116,19 @@ export async function runUiWriteWrapper(options = {}) {
       summary.artifactPaths.readbackDiff = diffPath;
       summary.readbackDiff = readbackDiffResult.summary;
 
-      const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
+      const alignedReadbackContract = alignReadbackContractToModel(
         normalized.readbackContract,
-        guardPayload,
+        readbackArtifact.data,
+      );
+      const contractModel = normalizeOptionalText(readbackArtifact.data?.use) === 'BlockGridModel'
+        ? readbackArtifact.data
+        : guardPayload;
+      const effectiveReadbackContract = augmentReadbackContractWithGridMembership(
+        augmentReadbackContractWithModelDefaults(
+          alignedReadbackContract,
+          contractModel,
+        ),
+        contractModel,
       );
       const effectiveContractPath = path.join(outDir, 'effective-readback-contract.json');
       writeJson(effectiveContractPath, effectiveReadbackContract);

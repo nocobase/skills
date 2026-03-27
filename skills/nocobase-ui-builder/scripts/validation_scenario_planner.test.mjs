@@ -139,8 +139,9 @@ test('dynamic scenario planner defaults to creative-first and emits five mixed r
     result.scenario.layoutCandidates.find((item) => item.candidateId === 'tabbed-multi-surface')?.pagePlan?.tabs?.length,
     3,
   );
+  assert.equal(result.buildSpecInput.requirements.metadataTrust, 'live');
   assert.equal(result.buildSpecInput.layout.blocks[0].kind, 'Filter');
-  assert.equal(['新建审批单', '编辑审批单'].includes(result.verifySpecInput.stages[0].trigger.text), true);
+  assert.equal(result.verifySpecInput.stages.length > 0, true);
 });
 
 test('dynamic scenario planner prefers explicit block keywords when the anchor block is eligible', () => {

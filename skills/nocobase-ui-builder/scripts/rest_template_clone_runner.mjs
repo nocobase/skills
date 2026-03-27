@@ -691,6 +691,16 @@ function matchesFilterField(filterPaths, fieldName) {
 }
 
 function collectScopeNodesForBinding(model, binding) {
+  const scopePath = normalizeOptionalText(binding?.scopePath);
+  if (scopePath) {
+    const scopeNodes = collectStructuredScopes(model)
+      .filter((scope) => scope.scopePath === scopePath)
+      .map((scope) => scope.gridNode || scope.node)
+      .filter(Boolean);
+    if (scopeNodes.length > 0) {
+      return scopeNodes;
+    }
+  }
   const tabTitle = normalizeOptionalText(binding?.tabTitle);
   if (!tabTitle) {
     return [model];
@@ -886,13 +896,28 @@ function collectStructuredScopes(model) {
     });
   };
 
-  if (isPageLikeUse(model?.use)) {
+  if (normalizeOptionalText(model?.use) === 'BlockGridModel') {
+    visitScope(model, '$', 'root-grid', '');
+  } else if (isPageLikeUse(model?.use)) {
     visitScope(model, '$.page', 'root-page', '');
   } else if (isTabLikeUse(model?.use)) {
     visitScope(model, '$.page.tabs[0]', 'root-tab', normalizeOptionalText(model?.stepParams?.pageTabSettings?.tab?.title));
   }
 
   return scopes;
+}
+
+function deriveRequiredFilterManagerEntryCount(requiredFilterBindings) {
+  return (Array.isArray(requiredFilterBindings) ? requiredFilterBindings : []).reduce((count, binding) => {
+    if (!isPlainObject(binding)) {
+      return count;
+    }
+    const scopeKind = normalizeOptionalText(binding.scopeKind);
+    if (scopeKind === 'popup-page' || scopeKind === 'popup-tab') {
+      return count;
+    }
+    return count + uniqueStrings(Array.isArray(binding.filterFields) ? binding.filterFields : []).length;
+  }, 0);
 }
 
 function collectFieldHostSnapshots(model) {
@@ -982,6 +1007,13 @@ function collectFieldHostSnapshots(model) {
   return snapshots;
 }
 
+function resolveFieldHostEquivalentUse(fieldSnapshot) {
+  if (!isPlainObject(fieldSnapshot)) {
+    return '';
+  }
+  return normalizeOptionalText(fieldSnapshot.bindingUse) || normalizeOptionalText(fieldSnapshot.fieldUse);
+}
+
 function compareStringLists(left, right) {
   return JSON.stringify(uniqueStrings(left).sort((a, b) => a.localeCompare(b)))
     === JSON.stringify(uniqueStrings(right).sort((a, b) => a.localeCompare(b)));
@@ -992,6 +1024,111 @@ function normalizeSortedStringList(values) {
     .filter((item) => typeof item === 'string' && item.trim())
     .map((item) => item.trim())
     .sort((left, right) => left.localeCompare(right));
+}
+
+function collectContractRootScopeEntries(contract = {}) {
+  const entries = [];
+  const appendEntry = (scopePath, scopeKind) => {
+    const normalizedPath = normalizeOptionalText(scopePath);
+    const normalizedKind = normalizeOptionalText(scopeKind);
+    if (!normalizedPath || !normalizedKind.startsWith('root-')) {
+      return;
+    }
+    entries.push({
+      scopePath: normalizedPath,
+      scopeKind: normalizedKind,
+    });
+  };
+  (Array.isArray(contract.requiredScopes) ? contract.requiredScopes : []).forEach((item) => appendEntry(item?.scopePath, item?.scopeKind));
+  (Array.isArray(contract.requiredGridMembership) ? contract.requiredGridMembership : []).forEach((item) => appendEntry(item?.scopePath, item?.scopeKind));
+  (Array.isArray(contract.requiredDetailsBlocks) ? contract.requiredDetailsBlocks : []).forEach((item) => appendEntry(item?.scopePath, item?.scopeKind));
+  (Array.isArray(contract.requiredFilterBindings) ? contract.requiredFilterBindings : []).forEach((item) => appendEntry(item?.scopePath, item?.scopeKind));
+  return entries.sort((left, right) => left.scopePath.length - right.scopePath.length);
+}
+
+function rebaseContractPath(pathValue, anchorScopePath) {
+  const normalizedPath = normalizeOptionalText(pathValue);
+  const normalizedAnchor = normalizeOptionalText(anchorScopePath);
+  if (!normalizedPath || !normalizedAnchor || normalizedAnchor === '$') {
+    return normalizedPath;
+  }
+  if (normalizedPath === normalizedAnchor) {
+    return '$';
+  }
+  if (normalizedPath.startsWith(`${normalizedAnchor}.`)) {
+    return `$${normalizedPath.slice(normalizedAnchor.length)}`;
+  }
+  return normalizedPath;
+}
+
+function rebaseScopeDescriptor(entry, anchorScopePath) {
+  if (!isPlainObject(entry)) {
+    return null;
+  }
+  const scopePath = rebaseContractPath(entry.scopePath, anchorScopePath);
+  if (!scopePath) {
+    return null;
+  }
+  const isRootScope = scopePath === '$' && normalizeOptionalText(entry.scopeKind).startsWith('root-');
+  return {
+    ...entry,
+    scopePath,
+    scopeKind: isRootScope ? 'root-grid' : normalizeOptionalText(entry.scopeKind),
+    pageUse: isRootScope ? null : (normalizeOptionalText(entry.pageUse) || null),
+    tabTitle: isRootScope ? '' : normalizeOptionalText(entry.tabTitle),
+  };
+}
+
+function rebaseContractList(entries, anchorScopePath, mapper = (item) => item) {
+  const dedupe = new Set();
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => mapper(entry, anchorScopePath))
+    .filter(Boolean)
+    .filter((entry) => {
+      const key = JSON.stringify(entry);
+      if (dedupe.has(key)) {
+        return false;
+      }
+      dedupe.add(key);
+      return true;
+    });
+}
+
+export function alignReadbackContractToModel(contract = {}, model) {
+  const merged = isPlainObject(contract) ? cloneJson(contract) : {};
+  if (normalizeOptionalText(model?.use) !== 'BlockGridModel') {
+    return merged;
+  }
+  const anchorScopePath = collectContractRootScopeEntries(merged)[0]?.scopePath || '';
+  merged.requiredTabs = [];
+  merged.requiredVisibleTabs = [];
+  merged.requiredTabCount = 0;
+  merged.requiredTopLevelUses = normalizeSortedStringList(collectTopLevelUses(model));
+  if (!anchorScopePath || anchorScopePath === '$') {
+    return merged;
+  }
+  merged.requiredScopes = rebaseContractList(merged.requiredScopes, anchorScopePath, (entry, anchor) => rebaseScopeDescriptor(entry, anchor));
+  merged.requiredGridMembership = rebaseContractList(merged.requiredGridMembership, anchorScopePath, (entry, anchor) => {
+    const rebased = rebaseScopeDescriptor(entry, anchor);
+    return rebased ? { ...entry, ...rebased } : null;
+  });
+  merged.requiredDetailsBlocks = rebaseContractList(merged.requiredDetailsBlocks, anchorScopePath, (entry, anchor) => {
+    const rebased = rebaseScopeDescriptor(entry, anchor);
+    return rebased ? { ...entry, ...rebased } : null;
+  });
+  merged.requiredFilterBindings = rebaseContractList(merged.requiredFilterBindings, anchorScopePath, (entry, anchor) => {
+    const rebased = rebaseScopeDescriptor(entry, anchor);
+    if (!rebased) {
+      return null;
+    }
+    return {
+      ...entry,
+      ...rebased,
+      filterPath: rebaseContractPath(entry?.filterPath, anchor),
+      pageSignature: rebaseContractPath(entry?.pageSignature, anchor) || entry?.pageSignature || null,
+    };
+  });
+  return merged;
 }
 
 function compareStringListsWithDuplicates(left, right) {
@@ -1088,6 +1225,27 @@ function buildGridMembershipRequirementFromScope(scope) {
     expectedItemUids: normalizeSortedStringList(directBlocks.map((item) => normalizeOptionalText(item.uid))),
     requireBidirectionalLayoutMatch: gridSummary?.hasExplicitLayout === true,
   };
+}
+
+export function augmentReadbackContractWithModelDefaults(contract = {}, model) {
+  const merged = isPlainObject(contract) ? cloneJson(contract) : {};
+  const requiredTopLevelUses = Array.isArray(merged.requiredTopLevelUses)
+    ? normalizeSortedStringList(merged.requiredTopLevelUses)
+    : [];
+  if (requiredTopLevelUses.length === 0) {
+    merged.requiredTopLevelUses = normalizeSortedStringList(collectTopLevelUses(model));
+  } else {
+    merged.requiredTopLevelUses = requiredTopLevelUses;
+  }
+
+  if (merged.requireFilterManager === true || (Array.isArray(merged.requiredFilterBindings) && merged.requiredFilterBindings.length > 0)) {
+    merged.requireFilterManager = true;
+    if (!Number.isInteger(merged.requiredFilterManagerEntryCount) || merged.requiredFilterManagerEntryCount <= 0) {
+      merged.requiredFilterManagerEntryCount = deriveRequiredFilterManagerEntryCount(merged.requiredFilterBindings);
+    }
+  }
+
+  return merged;
 }
 
 export function augmentReadbackContractWithGridMembership(contract = {}, model) {
@@ -1220,8 +1378,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
     }
     if (
       writeField.hostUse !== readbackField.hostUse
-      || writeField.fieldUse !== readbackField.fieldUse
-      || writeField.bindingUse !== readbackField.bindingUse
+      || resolveFieldHostEquivalentUse(writeField) !== resolveFieldHostEquivalentUse(readbackField)
       || writeField.collectionName !== readbackField.collectionName
       || writeField.fieldPath !== readbackField.fieldPath
     ) {
@@ -1231,8 +1388,14 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
         message: `The field subtree of runtime-sensitive field host "${fieldPath}" drifted in readback.`,
         details: {
           fieldPath,
-          write: writeField,
-          readback: readbackField,
+          write: {
+            ...writeField,
+            resolvedFieldUse: resolveFieldHostEquivalentUse(writeField),
+          },
+          readback: {
+            ...readbackField,
+            resolvedFieldUse: resolveFieldHostEquivalentUse(readbackField),
+          },
         },
       });
     }
@@ -1260,9 +1423,10 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
 
     if (
       writeGrid.gridUse !== readbackGrid.gridUse
+      || writeGrid.itemCount !== readbackGrid.itemCount
       || !compareStringListsWithDuplicates(writeGrid.itemUses, readbackGrid.itemUses)
-      || !compareStringListsWithDuplicates(writeGrid.itemUids, readbackGrid.itemUids)
-      || (writeGrid.hasExplicitLayout && !compareStringListsWithDuplicates(writeGrid.layoutItemUids, readbackGrid.layoutItemUids))
+      || writeGrid.hasExplicitLayout !== readbackGrid.hasExplicitLayout
+      || (writeGrid.hasExplicitLayout && writeGrid.layoutItemUids.length !== readbackGrid.layoutItemUids.length)
     ) {
       findings.push({
         severity: 'warning',
@@ -1272,15 +1436,17 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
           gridPath,
           write: {
             gridUse: writeGrid.gridUse,
+            itemCount: writeGrid.itemCount,
             itemUses: writeGrid.itemUses,
-            itemUids: writeGrid.itemUids,
-            layoutItemUids: writeGrid.layoutItemUids,
+            hasExplicitLayout: writeGrid.hasExplicitLayout,
+            layoutItemCount: writeGrid.layoutItemUids.length,
           },
           readback: {
             gridUse: readbackGrid.gridUse,
+            itemCount: readbackGrid.itemCount,
             itemUses: readbackGrid.itemUses,
-            itemUids: readbackGrid.itemUids,
-            layoutItemUids: readbackGrid.layoutItemUids,
+            hasExplicitLayout: readbackGrid.hasExplicitLayout,
+            layoutItemCount: readbackGrid.layoutItemUids.length,
           },
         },
       });
@@ -1321,11 +1487,11 @@ export function validateReadbackContract(model, contract = {}) {
     ? contract.requiredFilterManagerEntryCount
     : 0;
   const requiredFilterBindings = Array.isArray(contract.requiredFilterBindings) ? contract.requiredFilterBindings : [];
-  const allScopeNodes = tabDescriptors.length > 0
-    ? tabDescriptors.map((item) => item.grid || item.tab)
-    : [model];
-  const filterManagerEntryCount = allScopeNodes.reduce(
-    (count, scopeNode) => count + collectFilterBindingEvidence(scopeNode).filterManagerConfigs.length,
+  const filterManagerScopes = collectStructuredScopes(model)
+    .map((scope) => scope.gridNode)
+    .filter((scopeNode) => isPlainObject(scopeNode));
+  const filterManagerEntryCount = (filterManagerScopes.length > 0 ? filterManagerScopes : [model]).reduce(
+    (count, scopeNode) => count + normalizeFilterManagerConfigs(scopeNode?.filterManager).length,
     0,
   );
 
@@ -1847,6 +2013,11 @@ export function validateReadbackContract(model, contract = {}) {
     }
   });
 
+  const filterManagerSummaryScopes = filterManagerScopes.length > 0 ? filterManagerScopes : [model];
+  const filterManagerBindings = filterManagerSummaryScopes
+    .flatMap((scopeNode) => collectFilterBindingEvidence(scopeNode).filterManagerConfigs)
+    .map((config) => `${config.filterId}->${config.targetId}:${config.filterPaths.join('|')}`);
+
   return {
     ok: findings.length === 0,
     findings,
@@ -1862,8 +2033,7 @@ export function validateReadbackContract(model, contract = {}) {
           collectBlockUsesFromScope(tab.grid || tab.tab),
         ]),
       ),
-      filterManagerBindings: allScopeNodes.flatMap((scopeNode) => collectFilterBindingEvidence(scopeNode).filterManagerConfigs)
-        .map((config) => `${config.filterId}->${config.targetId}:${config.filterPaths.join('|')}`),
+      filterManagerBindings,
     },
   };
 }

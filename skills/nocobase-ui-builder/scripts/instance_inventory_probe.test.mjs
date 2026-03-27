@@ -159,3 +159,48 @@ test('materializeInstanceInventory can build flow schema inventory from MCP tool
   assert.equal(markdownEntry.semanticTags.includes('docs'), true);
   assert.equal(markdownEntry.contextRequirements.includes('markdown renderer'), true);
 });
+
+test('materializeInstanceInventory merges schema-root hints and enabled-plugin root uses', () => {
+  const result = materializeInstanceInventory({
+    candidatePageUrl: 'http://localhost:23000/admin/demo',
+    schemaBundle: {
+      data: {
+        items: [
+          {
+            use: 'BlockGridModel',
+            subModelCatalog: {
+              items: {
+                type: 'array',
+                candidates: [
+                  { use: 'TableBlockModel' },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    },
+    schemas: {
+      data: [
+        {
+          use: 'MarkdownBlockModel',
+          title: 'Markdown block',
+        },
+      ],
+    },
+    enabledPlugins: {
+      data: [
+        { packageName: '@nocobase/plugin-block-grid-card' },
+        { packageName: '@nocobase/plugin-data-visualization' },
+      ],
+    },
+    allowCache: false,
+  });
+
+  assert.equal(result.detected, true);
+  assert.deepEqual(
+    result.flowSchema.rootPublicUses,
+    ['ChartBlockModel', 'GridCardBlockModel', 'MarkdownBlockModel', 'TableBlockModel'],
+  );
+  assert.equal(result.flowSchema.discoveryNotes.some((note) => note.includes('plugin-hinted root uses')), true);
+});

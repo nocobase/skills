@@ -526,11 +526,17 @@ test('spec normalization supports filter blocks, row actions and nested details 
   assert.equal(compiled.compileArtifact.requiredUses.includes('CreateFormModel'), true);
   assert.equal(compiled.compileArtifact.readbackContract.requireFilterManager, true);
   assert.equal(compiled.compileArtifact.readbackContract.requiredFilterManagerEntryCount, 2);
+  assert.deepEqual(compiled.compileArtifact.primitiveTree.blocks[0].resourceContext, {
+    collectionName: 'orders',
+    dataSourceKey: 'main',
+  });
   assert.deepEqual(compiled.compileArtifact.guardRequirements.requiredFilters, [
     {
       path: '$.page.blocks[0]',
       pageSignature: '$',
       pageUse: 'RootPageModel',
+      scopePath: '$.page',
+      scopeKind: 'root-page',
       tabTitle: '',
       collectionName: 'orders',
       fields: ['order_no', 'status'],
@@ -541,6 +547,8 @@ test('spec normalization supports filter blocks, row actions and nested details 
     {
       pageSignature: '$',
       pageUse: 'RootPageModel',
+      scopePath: '$.page',
+      scopeKind: 'root-page',
       tabTitle: '',
       filterPath: '$.page.blocks[0]',
       filterUse: 'FilterFormBlockModel',
@@ -570,6 +578,12 @@ test('spec normalization supports filter blocks, row actions and nested details 
     },
   ]);
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].use, 'ViewActionModel');
+  assert.deepEqual(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popupOpenView, {
+    pageModelClass: 'ChildPageModel',
+    collectionName: 'orders',
+    dataSourceKey: 'main',
+    filterByTk: '{{ctx.record.id}}',
+  });
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].use, 'DetailsBlockModel');
   assert.equal(compiled.compileArtifact.primitiveTree.blocks[1].rowActions[0].popup.blocks[0].blocks[0].use, 'TableBlockModel');
 });

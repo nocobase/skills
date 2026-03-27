@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  alignReadbackContractToModel,
+  augmentReadbackContractWithModelDefaults,
   augmentReadbackContractWithGridMembership,
   buildReadbackDriftReport,
   detectCloneTarget,
@@ -400,6 +402,231 @@ test('validateReadbackContract detects missing popup scope and details field dri
   assert.equal(result.findings.some((item) => item.code === 'READBACK_DETAILS_ITEM_COUNT_MISMATCH'), true);
 });
 
+test('augmentReadbackContractWithModelDefaults backfills top-level uses from the write model', () => {
+  const model = {
+    use: 'BlockGridModel',
+    subModels: {
+      items: [
+        {
+          uid: 'table-1',
+          use: 'TableBlockModel',
+        },
+      ],
+    },
+  };
+
+  const contract = augmentReadbackContractWithModelDefaults({}, model);
+
+  assert.deepEqual(contract.requiredTopLevelUses, ['TableBlockModel']);
+});
+
+test('augmentReadbackContractWithGridMembership materializes root-grid scope membership', () => {
+  const writeModel = {
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [
+              ['filter-1'],
+              ['table-1'],
+            ],
+          },
+          sizes: {
+            row1: [8, 16],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'filter-1',
+          use: 'FilterFormBlockModel',
+        },
+        {
+          uid: 'table-1',
+          use: 'TableBlockModel',
+        },
+      ],
+    },
+  };
+
+  const contract = augmentReadbackContractWithGridMembership({}, writeModel);
+
+  assert.deepEqual(contract.requiredGridMembership, [
+    {
+      scopePath: '$',
+      scopeKind: 'root-grid',
+      gridUse: 'BlockGridModel',
+      expectedItemCount: 2,
+      expectedItemUses: ['FilterFormBlockModel', 'TableBlockModel'],
+      expectedItemUids: ['filter-1', 'table-1'],
+      requireBidirectionalLayoutMatch: true,
+    },
+  ]);
+});
+
+test('alignReadbackContractToModel rebases page-scope contract to grid-root target', () => {
+  const readbackModel = {
+    use: 'BlockGridModel',
+    subModels: {
+      items: [
+        {
+          use: 'FilterFormBlockModel',
+        },
+        {
+          use: 'TableBlockModel',
+          subModels: {
+            columns: [
+              {
+                use: 'TableActionsColumnModel',
+                subModels: {
+                  actions: [
+                    {
+                      use: 'ViewActionModel',
+                      subModels: {
+                        page: {
+                          use: 'ChildPageModel',
+                          subModels: {
+                            tabs: [
+                              {
+                                use: 'ChildPageTabModel',
+                                subModels: {
+                                  grid: {
+                                    use: 'BlockGridModel',
+                                    subModels: {
+                                      items: [
+                                        {
+                                          use: 'DetailsBlockModel',
+                                          stepParams: {
+                                            resourceSettings: {
+                                              init: {
+                                                collectionName: 'orders',
+                                                filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+                                              },
+                                            },
+                                          },
+                                          subModels: {
+                                            grid: {
+                                              use: 'DetailsGridModel',
+                                              subModels: {
+                                                items: [
+                                                  {
+                                                    use: 'DetailsItemModel',
+                                                    stepParams: {
+                                                      fieldSettings: {
+                                                        init: {
+                                                          collectionName: 'orders',
+                                                          fieldPath: 'order_no',
+                                                        },
+                                                      },
+                                                    },
+                                                    subModels: {
+                                                      field: {
+                                                        use: 'DisplayTextFieldModel',
+                                                      },
+                                                    },
+                                                  },
+                                                ],
+                                              },
+                                            },
+                                          },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
+
+  const aligned = alignReadbackContractToModel({
+    requiredTopLevelUses: ['FilterFormBlockModel', 'RootPageModel', 'TableBlockModel'],
+    requiredVisibleTabs: ['不应保留'],
+    requiredTabCount: 1,
+    requiredScopes: [
+      {
+        scopePath: '$.page',
+        scopeKind: 'root-page',
+        pageUse: 'RootPageModel',
+        tabTitle: '',
+        requireBlockGrid: true,
+        requiredBlockUses: ['FilterFormBlockModel', 'TableBlockModel'],
+      },
+      {
+        scopePath: '$.page.blocks[1].row-actions[0].popup.page',
+        scopeKind: 'popup-page',
+        pageUse: 'ChildPageModel',
+        tabTitle: '',
+        requireBlockGrid: true,
+        requiredBlockUses: ['DetailsBlockModel'],
+      },
+    ],
+    requiredGridMembership: [
+      {
+        scopePath: '$.page',
+        scopeKind: 'root-page',
+        gridUse: 'BlockGridModel',
+        expectedItemCount: 2,
+        expectedItemUses: ['FilterFormBlockModel', 'TableBlockModel'],
+      },
+    ],
+    requiredDetailsBlocks: [
+      {
+        scopePath: '$.page.blocks[1].row-actions[0].popup.page',
+        scopeKind: 'popup-page',
+        collectionName: 'orders',
+        fieldPaths: ['order_no'],
+        minItemCount: 1,
+        requireFilterByTkTemplate: true,
+        expectedFilterByTkTemplate: '{{ctx.view.inputArgs.filterByTk}}',
+      },
+    ],
+    requiredFilterBindings: [
+      {
+        pageSignature: '$',
+        pageUse: 'RootPageModel',
+        scopePath: '$.page',
+        scopeKind: 'root-page',
+        tabTitle: '',
+        filterPath: '$.page.blocks[0]',
+        filterUse: 'FilterFormBlockModel',
+        collectionName: 'orders',
+        filterFields: [],
+        targetUses: ['TableBlockModel'],
+      },
+    ],
+  }, readbackModel);
+
+  assert.deepEqual(aligned.requiredTopLevelUses, ['FilterFormBlockModel', 'TableBlockModel']);
+  assert.deepEqual(aligned.requiredVisibleTabs, []);
+  assert.equal(aligned.requiredTabCount, 0);
+  assert.equal(aligned.requiredScopes[0].scopePath, '$');
+  assert.equal(aligned.requiredScopes[0].scopeKind, 'root-grid');
+  assert.equal(aligned.requiredScopes[0].pageUse, null);
+  assert.equal(aligned.requiredScopes[1].scopePath, '$.blocks[1].row-actions[0].popup.page');
+  assert.equal(aligned.requiredGridMembership[0].scopePath, '$');
+  assert.equal(aligned.requiredFilterBindings[0].scopePath, '$');
+  assert.equal(aligned.requiredFilterBindings[0].filterPath, '$.blocks[0]');
+
+  const validation = validateReadbackContract(readbackModel, aligned);
+  assert.equal(validation.ok, true);
+});
+
 test('augmentReadbackContractWithGridMembership materializes scope grid membership and validateReadbackContract catches unplaced items', () => {
   const writeModel = {
     use: 'RootPageModel',
@@ -492,7 +719,7 @@ test('augmentReadbackContractWithGridMembership materializes scope grid membersh
   assert.equal(result.findings.some((item) => item.code === 'READBACK_GRID_ITEM_UNPLACED'), true);
 });
 
-test('buildReadbackDriftReport reports runtime-sensitive field shape drift', () => {
+test('buildReadbackDriftReport ignores runtime-equivalent direct field model entries', () => {
   const writeModel = {
     use: 'RootPageModel',
     subModels: {
@@ -566,8 +793,79 @@ test('buildReadbackDriftReport reports runtime-sensitive field shape drift', () 
 
   const result = buildReadbackDriftReport(writeModel, readbackModel);
 
-  assert.equal(result.ok, false);
-  assert.equal(result.findings.some((item) => item.code === 'READBACK_FIELD_MODEL_SHAPE_DRIFT'), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.findings.some((item) => item.code === 'READBACK_FIELD_MODEL_SHAPE_DRIFT'), false);
+});
+
+test('buildReadbackDriftReport ignores pure uid remap inside the same grid shape', () => {
+  const writeModel = {
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [
+              ['item-a'],
+              ['item-b'],
+            ],
+          },
+          sizes: {
+            row1: [12, 12],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'item-a',
+          use: 'FilterFormBlockModel',
+        },
+        {
+          uid: 'item-b',
+          use: 'TableBlockModel',
+        },
+      ],
+    },
+  };
+
+  const readbackModel = {
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [
+              ['remapped-a'],
+              ['remapped-b'],
+            ],
+          },
+          sizes: {
+            row1: [12, 12],
+          },
+          rowOrder: ['row1'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'remapped-a',
+          use: 'FilterFormBlockModel',
+        },
+        {
+          uid: 'remapped-b',
+          use: 'TableBlockModel',
+        },
+      ],
+    },
+  };
+
+  const result = buildReadbackDriftReport(writeModel, readbackModel);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.findings.some((item) => item.code === 'READBACK_GRID_MEMBERSHIP_DRIFT'), false);
 });
 
 test('normalizeFilterItemFieldModelUses rewrites association selector to scalar input when fieldPath resolves to scalar', () => {
