@@ -1,77 +1,77 @@
 ---
 name: nocobase-ui-builder
-description: 通过 MCP 创建、读取、更新、移动、删除 NocoBase Modern page (v2) 页面与区块；validation、review、smoke 仅在用户明确要求时进入。
+description: Create, read, update, move, and delete NocoBase Modern page (v2) pages and blocks through MCP; only enter validation, review, or smoke flows when the user explicitly asks for them.
 allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/*.mjs under this skill
 ---
 
-# 目标
+# Goal
 
-通过 `desktopRoutes` 与 `flowModels` MCP 工具处理 NocoBase Modern page (v2) 页面与区块。
+Use the `desktopRoutes` and `flowModels` MCP tools to build and maintain NocoBase Modern page (v2) pages and blocks.
 
-这个 skill 覆盖：
+This skill covers:
 
-- create / read / update / move / delete 页面、tab、block、action、JS model
-- route-ready、readback、payload guard 驱动的结构化交付
-- validation / review / improve / smoke，但只在用户明确要求时进入
+- create, read, update, move, and delete for pages, tabs, blocks, actions, and JS models
+- structured delivery driven by route-ready, readback, and payload guard evidence
+- validation, review, improve, and smoke only when the user explicitly requests them
 
-顶层 `SKILL.md` 只保留触发边界、统一入口、少量硬 gate 和最终汇报轴。具体任务路由、recipe、block/pattern/JS 契约都以下面的 canonical docs 为准：
+The top-level `SKILL.md` stays small on purpose. It only defines trigger boundaries, the canonical entrypoint, a few hard gates, and the final reporting axes. Task routing, recipes, block contracts, pattern contracts, and JS contracts live in:
 
 - [references/index.md](references/index.md)
 
-## 何时触发
+## When To Trigger
 
-- 用户要创建、读取、更新、移动、删除 Modern page (v2) 页面或区块
-- 用户要用 `desktopRoutes v2` / `flowModels` 修改现有 Modern page
-- 用户要求 route-ready、readback、guard 或结构化 validation 结论
-- 用户明确要求 validation / review / improve / smoke / 浏览器验证
+- The user wants to create, read, update, move, or delete a Modern page (v2) page or block
+- The user wants to modify an existing Modern page through `desktopRoutes v2` or `flowModels`
+- The user asks for route-ready, readback, guard, or structured validation conclusions
+- The user explicitly asks for validation, review, improve, smoke, or browser verification
 
-## 何时不要触发
+## When Not To Trigger
 
-- 只处理 collections / fields / relations：改用 `nocobase-data-modeling`
-- 只处理 workflow：改用 `nocobase-workflow-manage`
-- 只做 MCP 安装或连接：改用 `nocobase-mcp-setup`
+- Collections, fields, or relations only: use `nocobase-data-modeling`
+- Workflows only: use `nocobase-workflow-manage`
+- MCP installation or connectivity only: use `nocobase-mcp-setup`
 
-## 统一入口
+## Canonical Entry
 
-1. 先打开 [references/index.md](references/index.md)。
-2. 按任务路由补读对应 canonical docs、recipes、block docs、pattern docs、JS docs。
-3. 默认执行方式是：agent 先直接调用 NocoBase MCP，拿到 write/readback/route/anchor 等 artifact，再通过 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` 做本地 guard、汇总和落盘。
-4. wrapper 现在只负责 `start-run -> guard -> consume write artifact -> consume readback artifact -> finish-run`；不要在脚本里直接请求 NocoBase，也不要在外层手动拆流程。
-5. validation / review / improve 只有在用户明确要求时才进入；未进入浏览器验证时，`browser_attach` / `smoke` 要记为 `skipped`。
+1. Open [references/index.md](references/index.md) first.
+2. Follow the task route and then read the matching canonical docs, recipes, block docs, pattern docs, and JS docs.
+3. The default execution path is: the agent calls NocoBase MCP directly, collects write/readback/route/anchor artifacts, and then runs `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` for local guard, summarization, and evidence persistence.
+4. The wrapper now only owns `start-run -> guard -> consume write artifact -> consume readback artifact -> finish-run`. Do not let the script call NocoBase directly, and do not manually split the flow outside it.
+5. Only enter validation, review, or improve when the user explicitly asks for them. If browser validation is not requested, record `browser_attach` and `smoke` as `skipped`.
 
-## 默认硬 gate
+## Default Hard Gates
 
-1. 只要能探测，就不要猜 `use`、slot、`requestBody` 结构。
-2. 任何探测或写操作前都必须先 `start-run`；不要先探测、后补日志。
-3. 裸 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure` 默认全部禁用；agent 应先走 MCP，再把证据交给 `ui_write_wrapper.mjs`。
-4. `preflight_write_gate.mjs`、`flow_write_wrapper.mjs`、`rest_validation_builder.mjs`、`rest_template_clone_runner.mjs` 现在都是本地 helper / 兼容组件，不再是默认 agent 写入口；不要手动拆成“先 gate、再自己写、再自己补 readback”。
-5. `createV2` 成功只代表 `page shell created`；没有 route-ready 与 anchor readback 证据前，不得报页面 ready。
-6. `save` / `mutate` / `ensure` 返回 `ok` 只代表请求提交成功；最终以后续 readback 为准。
-7. 对现有页面默认做局部补丁，不要为了局部改动重建整棵页面树。
-8. flowPage v2 一律走 anchor-first：`RootPageModel` 必须写 `parentId=<pageSchemaUid>, subKey=page` 的 anchor child；不要把页面 route `schemaUid` 直接当 `RootPageModel.uid` 保存。
-9. `RootPageModel` 的可见 tabs 一律走 route-driven：不要把 `subModels.tabs` 直接写进 page anchor；多个可见 tab 先建 child desktopRoutes，再分别写各自 `parentId=<tabSchemaUid>, subKey=grid`。
-10. 未经 schema / graph 放行的内部、未解析或高风险 model/use，不得直接写入。
-11. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器。
-12. validation 结论必须拆开 `page shell`、`route-ready`、`readback`、`data`、`runtime`，不能合并成一个“成功”。
-13. live tree patch 禁止靠“旧 uid + 新 parent/subKey/subType”做 reparent；需要移动、克隆或重挂载业务子树时，默认 fresh remap descendants，而不是复用旧 block uid。
-14. 只要 `gridSettings.rows` 与 `subModels.items` 成员不一致，就视为高风险坏树；`save ok` 但 readback 没有稳定 `items` / slot membership 时，一律不得报成功。
+1. Do not guess `use`, slot membership, or `requestBody` structure when you can discover them.
+2. Run `start-run` before any discovery or write action. Never discover first and backfill the log later.
+3. Raw `PostDesktoproutes_createv2`, `PostFlowmodels_save`, `PostFlowmodels_mutate`, and `PostFlowmodels_ensure` are disabled as direct agent entrypoints. Use MCP first, then feed the evidence into `ui_write_wrapper.mjs`.
+4. `preflight_write_gate.mjs`, `flow_write_wrapper.mjs`, `rest_validation_builder.mjs`, and `rest_template_clone_runner.mjs` are now helper or compatibility components. They are not the default write path.
+5. `createV2` success only means `page shell created`. Do not claim the page is ready until route-ready and anchor readback evidence exist.
+6. `save`, `mutate`, and `ensure` returning `ok` only means the request was accepted. Final truth comes from follow-up readback.
+7. Patch existing pages locally by default. Do not rebuild the entire page tree for a local change.
+8. `flowPage v2` is always anchor-first. `RootPageModel` must be written as the anchor child at `parentId=<pageSchemaUid>, subKey=page`. Do not persist the page route `schemaUid` directly as `RootPageModel.uid`.
+9. Visible `RootPageModel` tabs are route-driven. Do not persist them in `subModels.tabs`. Create child desktop routes first, then write each tab's content to `parentId=<tabSchemaUid>, subKey=grid`.
+10. Do not write internal, unresolved, or high-risk model/use values unless schema and graph evidence explicitly allow them.
+11. Do not attach or launch a browser unless the user explicitly asks to open the page or run runtime or smoke verification.
+12. Validation conclusions must separate `page shell`, `route-ready`, `readback`, `data`, and `runtime`. Do not collapse them into a single "success".
+13. Live tree patching must not reparent nodes by reusing an old uid with a new `parentId/subKey/subType`. If you need to move or remount a subtree, remap fresh descendants instead of reusing block uids.
+14. If `gridSettings.rows` and `subModels.items` disagree, treat the tree as high-risk and broken. If readback does not show stable `items` or slot membership, do not claim success.
 
-## validation / review 子路径
+## Validation / Review Branch
 
-只有在用户明确要求 validation / review / improve / smoke 时才进入这一支：
+Only enter this branch when the user explicitly asks for validation, review, improve, or smoke:
 
-- 结构化 validation 规则见 [references/validation.md](references/validation.md)
-- run log、phase/gate、report、improve 规则见 [references/ops-and-review.md](references/ops-and-review.md)
+- Structured validation rules: [references/validation.md](references/validation.md)
+- Run log, phase/gate, report, and improve rules: [references/ops-and-review.md](references/ops-and-review.md)
 
-如果用户没有明确要求浏览器验证：
+If browser validation was not explicitly requested:
 
-- 只做到 route-ready、readback、data-ready 这一级
-- `browser_attach` / `smoke` 记为 `skipped (not requested)`
-- `runtime-usable` 汇报为 `not-run`
+- stop at route-ready, readback, and data-ready
+- record `browser_attach` and `smoke` as `skipped (not requested)`
+- report `runtimeUsable` as `not-run`
 
-## 最终汇报轴
+## Final Reporting Axes
 
-最终说明和 review report 默认至少单独汇报这些轴：
+The final explanation and review report must report these axes separately by default:
 
 - `pageShellCreated`
 - `routeReady`
@@ -82,13 +82,13 @@ allowed-tools: All MCP tools provided by NocoBase server, plus local Node for sc
 - `dataPreparation`
 - `pageUrl`
 
-允许出现的保守状态包括：
+Allowed conservative statuses include:
 
 - `not-recorded`
 - `evidence-insufficient`
 - `skipped (not requested)`
 - `not-run`
 
-没有 route-ready 或 readback 证据时，不要写“页面已可打开”或“已落库完成”。
+Without route-ready or readback evidence, do not say "the page is openable" or "the data is fully persisted".
 
-如果本轮实际创建或更新了页面，并且能够拿到 `adminBase`、候选页面 URL 或其他可推导地址，最终结果必须给出实际页面 URL，方便用户点击查看；只有确实无法推导时，才允许说明阻塞原因。
+If the current run actually created or updated a page and you can infer `adminBase`, a candidate page URL, or any equivalent address, the final result must include the real page URL so the user can open it directly. Only omit it when there is a concrete blocker.

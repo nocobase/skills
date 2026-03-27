@@ -569,15 +569,15 @@ export function createFlowSchemaGraph({ docsByUse, sourceManifest }) {
 function renderIndexMarkdown(manifest) {
   const entryUses = manifest.meta.entryUses?.length ? manifest.meta.entryUses : manifest.meta.uses.slice(0, 12);
   return `---
-title: Flow Schema Graph 索引
-description: 当前实例的 flowModels:schemas graph/ref 参考。先定 use，再读 model、slot catalog 和必要 artifact。
+title: Flow Schema Graph index
+description: Checked-in flowModels:schemas graph/ref reference for the current instance. Choose the use first, then read the model, slot catalog, and only the artifacts you need.
 ---
 
-# Flow Schema Graph 索引
+# Flow Schema Graph index
 
-这份目录保存的是当前实例 \`flowModels:schemas\` 的 graph/ref 版本，不再把整棵递归 schema 直接内嵌到单个文件里。
+This directory stores the graph/ref view of the current instance's \`flowModels:schemas\` result instead of embedding the entire recursive schema tree into one file.
 
-文件结构：
+Directory structure:
 
 - [manifest.json](manifest.json)
 - \`models/<UseName>.json\`
@@ -587,32 +587,32 @@ description: 当前实例的 flowModels:schemas graph/ref 参考。先定 use，
 - \`artifacts/skeleton/<UseName>.<hash>.json\`
 - \`artifacts/examples/<UseName>.<hash>.json\`
 
-当前 snapshot 要点：
+Snapshot notes:
 
-- 来源：\`flowModels:schemas\`
-- 形态：\`model + slot catalog + artifact\`
-- 作用：减少 \`PostFlowmodels_schemas\` 请求，并让 agent 能按需沿 ref 查具体模型，而不是一次性吃下整棵递归树
+- source: \`flowModels:schemas\`
+- shape: \`model + slot catalog + artifact\`
+- purpose: reduce \`PostFlowmodels_schemas\` traffic and let the agent follow refs on demand instead of loading the entire recursive tree
 
-## 推荐用法
+## Recommended usage
 
-1. 先打开 [manifest.json](manifest.json)，确认目标 \`use\`
-2. 读取 \`models/<UseName>.json\`
-3. 如果要看某个 \`subModels.<slot>\` 能接什么，再打开 \`catalogs/<OwnerUse>.<slot>.json\`
-4. 只有在确实要看具体 JSON Schema 或 skeleton 细节时，再按 \`artifactRef\` 继续读对应 artifact
-5. 如果要沿某条路径继续下钻，优先用 \`scripts/flow_schema_graph.mjs hydrate-branch\`
+1. Open [manifest.json](manifest.json) first and confirm the target \`use\`
+2. Read \`models/<UseName>.json\`
+3. If you need to know what a specific \`subModels.<slot>\` accepts, read \`catalogs/<OwnerUse>.<slot>.json\`
+4. Only open artifacts when you truly need JSON Schema, skeleton, or example details
+5. If you need to keep drilling into one branch, prefer \`scripts/flow_schema_graph.mjs hydrate-branch\`
 
-## 强规则
+## Hard rules
 
-- 不要一次性展开整个 \`artifacts/json-schema/\` 或多个大 artifact
-- 默认一轮只读取当前任务相关的 1 到 2 个 model 文件，以及必要的 1 到 2 个 catalog / artifact
-- \`PostFlowmodels_schemabundle\` 仍用于运行时 root block 发现；本地 graph 主要替代 \`flowModels:schemas\` 的常规查阅
-- \`materialize-use\` / \`hydrate-branch\` 输出的是 graph 拼装视图，不要求字节级等同旧版 raw snapshot
+- Do not expand the entire \`artifacts/json-schema/\` tree or multiple large artifacts at once
+- In one round, read only 1 to 2 model files plus the necessary 1 to 2 catalogs or artifacts
+- \`PostFlowmodels_schemabundle\` is still used for runtime root-block discovery; the local graph mainly replaces routine \`flowModels:schemas\` browsing
+- \`materialize-use\` and \`hydrate-branch\` output graph-composed views, not byte-for-byte copies of the older raw snapshot
 
-## 常见入口 use
+## Common entry uses
 
 ${entryUses.map((use) => `- \`${use}\``).join('\n')}
 
-其余完整清单以 [manifest.json](manifest.json) 为准。
+For the full list, use [manifest.json](manifest.json).
 `;
 }
 

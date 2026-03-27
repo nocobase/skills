@@ -72,7 +72,7 @@ function clampScore(value, min = 0, max = 100) {
 function useToReadableLabel(use) {
   const normalized = normalizeText(use);
   if (!normalized) {
-    return '区块';
+    return 'Block';
   }
   return normalized
     .replace(/Model$/, '')
@@ -370,15 +370,15 @@ function resolveSectionRoleForBlock(block, options = {}) {
 function resolveSectionIntent(role) {
   switch (role) {
     case 'controls':
-      return '收敛页面输入条件并控制主体内容。';
+      return 'Narrow page inputs and control the main content flow.';
     case 'primary':
-      return '承载页面主业务目标。';
+      return 'Carry the main business objective of the page.';
     case 'insight':
-      return '提供分析、指标或辅助洞察。';
+      return 'Provide analytics, metrics, or supporting insight.';
     case 'extension':
-      return '承载补充说明、自定义视图或扩展交互。';
+      return 'Carry supporting explanation, custom views, or extended interaction.';
     default:
-      return '补充主体上下文与辅助信息。';
+      return 'Add context and supporting information around the main surface.';
   }
 }
 
@@ -386,15 +386,15 @@ function resolveSectionTitle(role, block, fallbackIndex = 1) {
   const blockTitle = normalizeText(block?.title);
   switch (role) {
     case 'controls':
-      return blockTitle || '顶部控制区';
+      return blockTitle || 'Top controls';
     case 'primary':
-      return blockTitle || '主体内容区';
+      return blockTitle || 'Primary surface';
     case 'insight':
-      return blockTitle || `分析信息区 ${fallbackIndex}`;
+      return blockTitle || `Insight surface ${fallbackIndex}`;
     case 'extension':
-      return blockTitle || `扩展内容区 ${fallbackIndex}`;
+      return blockTitle || `Extension surface ${fallbackIndex}`;
     default:
-      return blockTitle || `辅助内容区 ${fallbackIndex}`;
+      return blockTitle || `Support surface ${fallbackIndex}`;
   }
 }
 
@@ -483,7 +483,7 @@ function buildInternalPagePlanFromSurfaceBlocks({
     .filter((tab) => tab && typeof tab === 'object')
     .map((tab, index) => ({
       tabId: normalizeText(tab.tabId) || `tab-${index + 1}`,
-      title: normalizeText(tab.title) || `标签 ${index + 1}`,
+      title: normalizeText(tab.title) || `Tab ${index + 1}`,
       blocks: (Array.isArray(tab.blocks) ? tab.blocks : [])
         .filter((block) => block && typeof block === 'object')
         .map((block) => cloneJson(block)),
@@ -727,102 +727,102 @@ const PRIMARY_BLOCK_DEFINITIONS = [
   {
     use: 'JSBlockModel',
     archetypeId: 'js-main',
-    archetypeLabel: 'JS 主块页',
+    archetypeLabel: 'JS primary block page',
     keywords: ['jsblock', 'js block', 'custom js', '自定义 js', '脚本区块', 'js 区块'],
     collectionRequired: false,
-    titleSuffix: '自定义面板',
+    titleSuffix: 'Custom panel',
     kind: 'public-use',
   },
   {
     use: 'ChartBlockModel',
     archetypeId: 'chart-main',
-    archetypeLabel: '图表主块页',
+    archetypeLabel: 'Chart primary block page',
     keywords: ['图表', 'chart', 'dashboard', '看板', '分析', '报表', '总览', '概览', '趋势', '分布', '统计', '占比', 'analytics', 'trend', 'distribution', 'overview'],
     collectionRequired: false,
-    titleSuffix: '分析看板',
+    titleSuffix: 'Analytics board',
     kind: 'public-use',
   },
   {
     use: 'GridCardBlockModel',
     archetypeId: 'gridcard-main',
-    archetypeLabel: '卡片主块页',
+    archetypeLabel: 'Grid-card primary block page',
     keywords: ['指标卡', 'grid card', '卡片', 'kpi', '指标', '总览', '概览', 'summary', 'overview'],
     collectionRequired: true,
-    titleSuffix: '指标概览',
+    titleSuffix: 'Metric overview',
     kind: 'public-use',
   },
   {
     use: 'ListBlockModel',
     archetypeId: 'list-main',
-    archetypeLabel: '列表主块页',
+    archetypeLabel: 'List primary block page',
     keywords: ['list', '列表', 'feed', '动态'],
     collectionRequired: true,
-    titleSuffix: '动态列表',
+    titleSuffix: 'Activity list',
     kind: 'public-use',
   },
   {
     use: 'MapBlockModel',
     archetypeId: 'map-main',
-    archetypeLabel: '地图主块页',
+    archetypeLabel: 'Map primary block page',
     keywords: ['地图', 'map', '位置', 'geo'],
     collectionRequired: true,
-    titleSuffix: '地图视图',
+    titleSuffix: 'Map view',
     kind: 'public-use',
   },
   {
     use: 'MarkdownBlockModel',
     archetypeId: 'markdown-main',
-    archetypeLabel: '说明主块页',
+    archetypeLabel: 'Docs primary block page',
     keywords: ['markdown', '说明', '文档', '帮助', 'guide'],
     collectionRequired: false,
-    titleSuffix: '说明面板',
+    titleSuffix: 'Guide panel',
     kind: 'public-use',
   },
   {
     use: 'ReferenceBlockModel',
     archetypeId: 'reference-main',
-    archetypeLabel: '引用主块页',
+    archetypeLabel: 'Reference primary block page',
     keywords: ['reference', '引用', '模板', 'reference block'],
     collectionRequired: false,
-    titleSuffix: '模板引用',
+    titleSuffix: 'Reference surface',
     kind: 'public-use',
   },
   {
     use: 'EditFormModel',
     archetypeId: 'edit-form-main',
-    archetypeLabel: '编辑表单页',
+    archetypeLabel: 'Edit form page',
     keywords: ['编辑表单', 'edit form', '编辑页', '修改表单'],
     collectionRequired: true,
-    titleSuffix: '编辑表单',
+    titleSuffix: 'Edit form',
     kind: 'form',
     mode: 'edit',
   },
   {
     use: 'CreateFormModel',
     archetypeId: 'create-form-main',
-    archetypeLabel: '创建表单页',
+    archetypeLabel: 'Create form page',
     keywords: ['创建表单', '新建表单', 'create form', '录入表单'],
     collectionRequired: true,
-    titleSuffix: '创建表单',
+    titleSuffix: 'Create form',
     kind: 'form',
     mode: 'create',
   },
   {
     use: 'DetailsBlockModel',
     archetypeId: 'details-main',
-    archetypeLabel: '详情主块页',
+    archetypeLabel: 'Details primary block page',
     keywords: ['详情', 'details', '详情页', '明细'],
     collectionRequired: true,
-    titleSuffix: '详情视图',
+    titleSuffix: 'Details view',
     kind: 'details',
   },
   {
     use: 'TableBlockModel',
     archetypeId: 'single-table',
-    archetypeLabel: '单表页面',
+    archetypeLabel: 'Single-table page',
     keywords: ['table', 'grid', '表格', '列表页', '数据表'],
     collectionRequired: true,
-    titleSuffix: '数据表',
+    titleSuffix: 'Data table',
     kind: 'table',
   },
 ];
@@ -1261,7 +1261,7 @@ export function splitValidationRequestIntoPageSpecs({ caseRequest, collectionsIn
   if ((requestedPageCount && pageRequests.length < requestedPageCount) || pageRequests.length === 0) {
     blockers.push(makePlanningBlocker(
       'MULTI_PAGE_REQUEST_PAGE_SPECS_UNRESOLVED',
-      `请求显式要求 ${requestedPageCount || '多'} 张页面，但当前只能拆出 ${pageRequests.length} 份 page-level spec，不能继续走单页 planner。`,
+      `The request explicitly asks for ${requestedPageCount || 'multiple'} pages, but only ${pageRequests.length} page-level specs could be split out. The single-page planner cannot continue.`,
       {
         requestedPageCount: requestedPageCount || null,
         resolvedPageCount: pageRequests.length,
@@ -1352,7 +1352,7 @@ function collectCatalogPlanningBlockers(requestText, publicUseCatalog, options =
     }
     blockers.push(makePlanningBlocker(
       'DYNAMIC_HINTS_REQUIRE_RUNTIME_CONTEXT',
-      `${normalizeText(entry.use) || 'public use'} 命中了请求语义，但它依赖运行时上下文：${uniqueStrings([...contextRequirements, ...unresolvedReasons]).join(', ')}`,
+      `${normalizeText(entry.use) || 'public use'} matches the request semantics, but it depends on runtime context: ${uniqueStrings([...contextRequirements, ...unresolvedReasons]).join(', ')}`,
       {
         use: normalizeText(entry.use),
         contextRequirements,
@@ -1528,7 +1528,7 @@ function buildPrimaryBlockDefinition(use, publicUseCatalog = []) {
   return {
     use: normalizedUse,
     archetypeId: slug,
-    archetypeLabel: `${readableLabel} 主块页`,
+    archetypeLabel: `${readableLabel} primary block page`,
     keywords: [],
     collectionRequired: COLLECTION_BOUND_PUBLIC_USES.has(normalizedUse),
     titleSuffix: readableLabel,
@@ -1856,7 +1856,7 @@ function createCreativeProgram({
     return {
       id: 'creative-first-v2',
       strategy: 'creative-first',
-      prompt: '先生成 insight-first 候选，再按语义、洞察表达力与创意强度排序；保守 collection 方案不再天然占主位。',
+      prompt: 'Generate insight-first candidates first, then rank by semantics, insight expression, and creative strength. Conservative collection-first layouts are no longer the default top choice.',
       selectionPolicy: 'insight-first-creative-rank',
       constraints: uniqueStrings([
         'fixed-five-candidates',
@@ -1895,8 +1895,8 @@ function createCreativeProgram({
     id: selectionMode === 'dynamic-exploration' ? 'dynamic-exploration-v1' : 'collection-first-v1',
     strategy: selectionMode,
     prompt: selectionMode === 'dynamic-exploration'
-      ? '在当前实例公开区块内做 2-3 个确定性候选布局，再选择最稳的一种。'
-      : '先锁定 collection 与字段，再生成 2-3 个可验证布局候选。',
+      ? 'Generate 2 to 3 deterministic candidate layouts from the public root blocks available in the current instance, then choose the most stable one.'
+      : 'Lock the collection and fields first, then generate 2 to 3 verifiable layout candidates.',
     selectionPolicy: 'deterministic-rank',
     constraints: uniqueStrings([
       'deterministic-only',
@@ -2051,10 +2051,10 @@ function buildDetailsActions({
     return actions;
   }
   if (operationIntent.edit) {
-    actions.push(buildEditAction(`编辑${collectionLabel}`, collectionName, fields, `编辑${collectionLabel}`));
+    actions.push(buildEditAction(`Edit ${collectionLabel}`, collectionName, fields, `Edit ${collectionLabel}`));
   }
   if (operationIntent.delete) {
-    actions.push(buildDeleteAction(`删除${collectionLabel}`));
+    actions.push(buildDeleteAction(`Delete ${collectionLabel}`));
   }
   return actions;
 }
@@ -2069,7 +2069,7 @@ function buildViewPopupBlocks({
 }) {
   return [
     buildDetailsBlock({
-      title: `${collectionLabel}详情`,
+      title: `${collectionLabel} details`,
       collectionName,
       fields,
       actions: buildDetailsActions({
@@ -2095,11 +2095,11 @@ function buildTableActions({
   const actions = [];
   const rowActions = [];
   if (operationIntent.create) {
-    actions.push(buildCreateAction(`新建${collectionLabel}`, collectionName, fields, `新建${collectionLabel}`));
+    actions.push(buildCreateAction(`Create ${collectionLabel}`, collectionName, fields, `Create ${collectionLabel}`));
   }
   if (operationIntent.view) {
     rowActions.push(buildViewAction(
-      `查看${collectionLabel}`,
+      `View ${collectionLabel}`,
       buildViewPopupBlocks({
         collectionLabel,
         collectionName,
@@ -2108,14 +2108,14 @@ function buildTableActions({
         depth,
         maxDepth,
       }),
-      `${collectionLabel}详情`,
+      `${collectionLabel} details`,
     ));
   }
   if (operationIntent.edit) {
-    rowActions.push(buildEditAction(`编辑${collectionLabel}`, collectionName, fields, `编辑${collectionLabel}`));
+    rowActions.push(buildEditAction(`Edit ${collectionLabel}`, collectionName, fields, `Edit ${collectionLabel}`));
   }
   if (operationIntent.delete) {
-    rowActions.push(buildDeleteAction(`删除${collectionLabel}`));
+    rowActions.push(buildDeleteAction(`Delete ${collectionLabel}`));
   }
   return {
     actions,
@@ -2141,7 +2141,7 @@ function buildCompanionTable({
     maxDepth,
   });
   return buildTableBlock({
-    title: `${collectionLabel}操作台`,
+    title: `${collectionLabel} workbench`,
     collectionName,
     fields,
     actions,
@@ -2171,7 +2171,7 @@ function buildPrimaryBlock({
       maxDepth,
     });
     return buildTableBlock({
-      title: `${collectionLabel}列表`,
+      title: `${collectionLabel} list`,
       collectionName,
       fields,
       actions,
@@ -2180,7 +2180,7 @@ function buildPrimaryBlock({
   }
   if (primaryBlockDefinition.use === 'DetailsBlockModel') {
     return buildDetailsBlock({
-      title: `${collectionLabel}详情`,
+      title: `${collectionLabel} details`,
       collectionName,
       fields,
       actions: buildDetailsActions({
@@ -2196,7 +2196,7 @@ function buildPrimaryBlock({
   if (primaryBlockDefinition.use === 'CreateFormModel' || primaryBlockDefinition.use === 'EditFormModel') {
     return buildFormBlock({
       mode: primaryBlockDefinition.mode || 'create',
-      title: `${collectionLabel}${primaryBlockDefinition.use === 'EditFormModel' ? '编辑表单' : '创建表单'}`,
+      title: `${collectionLabel} ${primaryBlockDefinition.use === 'EditFormModel' ? 'edit form' : 'create form'}`,
       collectionName,
       fields,
     });
@@ -2252,7 +2252,7 @@ function createPlannedLayoutFromSurfaceBlocks({
     tabs,
     structureKind,
     designRationale: uniqueStrings([
-      '先根据意图与页面骨架划分区域，再把具体区块挂到各区域。',
+      'Split the page into sections from intent and page skeleton first, then mount specific blocks into those sections.',
       ...designRationale,
     ]),
   });
@@ -2319,12 +2319,12 @@ function createLayoutFromPrimary({
     ? [
       {
         tabId: 'main-view',
-        title: '主视图',
+        title: 'Main view',
         blocks: [primaryBlock],
       },
       {
         tabId: 'support-view',
-        title: '操作面',
+        title: 'Action surface',
         blocks: [
           ...buildExplicitPublicUseBlocks({
             explicitPublicUses,
@@ -2345,9 +2345,9 @@ function createLayoutFromPrimary({
     structureKind: requestedTabs ? 'tabbed-workbench' : '',
     designRationale: [
       requestedTabs
-        ? '页面先拆成主视图与操作面两个 surface，再把主块与辅助块分别落位。'
-        : '页面先保留单页骨架，再把主块、辅助块和扩展块按区域落位。',
-      filterBlock ? '筛选能力固定落在根页面的控制区，而不是混入业务主体。' : '',
+        ? 'Split the page into a main view and an action surface first, then place the main and support blocks separately.'
+        : 'Keep a single-page skeleton first, then place primary, support, and extension blocks by area.',
+      filterBlock ? 'Keep filtering in the root controls area instead of mixing it into the business surface.' : '',
     ],
   });
 }
@@ -2425,13 +2425,13 @@ function buildLayoutCandidates({
     candidateId: 'selected-primary',
     score: 100,
     label: title,
-    summary: `${normalizeText(title)} / 主方案`,
+    summary: `${normalizeText(title)} / primary plan`,
     layout: selectedAssembly?.layout || null,
     pagePlan: selectedAssembly?.pagePlan || null,
     primaryDefinition: primaryBlockDefinition,
     rationale: [
-      selectionMode === 'dynamic-exploration' ? '按公开 root block 候选稳定排序，选中第一名。' : '按显式 collection / intent 生成主方案。',
-      operationIntent.requestedFilter ? '显式筛选请求已物化为 FilterFormBlockModel。' : '',
+      selectionMode === 'dynamic-exploration' ? 'Rank public root-block candidates deterministically and select the top result.' : 'Build the primary plan from the explicit collection or intent.',
+      operationIntent.requestedFilter ? 'The explicit filter request has been materialized as FilterFormBlockModel.' : '',
     ],
     selected: true,
   });
@@ -2439,7 +2439,7 @@ function buildLayoutCandidates({
   if (collectionMeta && !operationIntent.requestedTabs) {
     const tabbedAssembly = createLayoutFromPrimary({
       requestText,
-      title: `${title} 多标签`,
+      title: `${title} tabbed`,
       primaryBlockDefinition,
       collectionMeta,
       fields: resolvedFields,
@@ -2454,13 +2454,13 @@ function buildLayoutCandidates({
     addCandidate({
       candidateId: 'tabbed-workbench',
       score: 88,
-      label: `${title} 多标签`,
-      summary: `${humanizeCollectionTitle(collectionMeta)} / 多标签工作台`,
+      label: `${title} tabbed`,
+      summary: `${humanizeCollectionTitle(collectionMeta)} / tabbed workbench`,
       layout: tabbedAssembly?.layout || null,
       pagePlan: tabbedAssembly?.pagePlan || null,
       primaryDefinition: primaryBlockDefinition,
       rationale: [
-        '保留主块语义，但拆成 workspace tabs，便于把操作台与主视图分离。',
+        'Preserve the main-block semantics, but split them into workspace tabs so the main view and action surface are separated.',
       ],
     });
   }
@@ -2487,12 +2487,12 @@ function buildLayoutCandidates({
       candidateId: `alternate-${alternate.use}`,
       score: 72 - candidates.length,
       label: alternateLabel,
-      summary: `${alternate.archetypeLabel} / 备选方案`,
+      summary: `${alternate.archetypeLabel} / alternate plan`,
       layout: alternateAssembly?.layout || null,
       pagePlan: alternateAssembly?.pagePlan || null,
       primaryDefinition: alternate,
       rationale: [
-        `切换主块到 ${alternate.use}，用于验证另一种布局重心。`,
+        `Switch the main block to ${alternate.use} to validate a different layout center of gravity.`,
       ],
     });
     if (candidates.length >= 3) {
@@ -3017,7 +3017,7 @@ function buildVerifySpecInput({ title, layout, actionPlan, planningStatus }) {
   (Array.isArray(layout.tabs) ? layout.tabs : []).forEach((tab, index) => {
     stages.push({
       id: `tab-${index + 1}`,
-      title: `${tab.title} 标签`,
+      title: `${tab.title} tab`,
       trigger: { kind: 'click-tab', text: tab.title },
       waitFor: { kind: 'bodyTextIncludesAll', values: [tab.title] },
     });
@@ -3084,9 +3084,9 @@ function buildScenarioSummary({
   const effectivePrimaryBlock = primaryBlockDefinition || {
     use: '',
     archetypeId: 'unresolved-primary',
-    archetypeLabel: '未解析主块',
+    archetypeLabel: 'Unresolved primary block',
   };
-  const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : '无集合';
+  const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : 'No collection';
   const coverage = buildCoverageFromLayout(layout);
   const visualizationSpec = collectVisualizationSpecsFromLayout(layout);
   const candidateScores = Object.fromEntries(
@@ -3119,40 +3119,40 @@ function buildScenarioSummary({
   ].join(':');
   const selectionRationale = [
     planningMode === 'creative-first'
-      ? '创意优先：先生成 insight-first 候选，再按语义、洞察表达力与创意强度选主方案。'
-      : `${selectionMode === 'collection-first' ? '显式集合优先' : '意图优先'}：优先锁定 collection 与字段，再规划区块和操作。`,
+      ? 'Creative-first: generate insight-first candidates first, then choose the main plan by semantics, insight expression, and creative strength.'
+      : `${selectionMode === 'collection-first' ? 'Explicit collection first' : 'Intent first'}: lock the collection and fields first, then plan blocks and actions.`,
     creativeIntent
-      ? `当前创意意图：${creativeIntent}。`
+      ? `Current creative intent: ${creativeIntent}.`
       : '',
     selectedInsightStrategy
-      ? `当前选中的洞察策略：${selectedInsightStrategy}。`
+      ? `Selected insight strategy: ${selectedInsightStrategy}.`
       : '',
     collectionMeta
-      ? `主集合锁定为 ${collectionMeta.name}，展示名 ${collectionLabel}。`
-      : '当前页面不依赖显式 collection，可直接使用公开 root block。',
+      ? `Primary collection locked to ${collectionMeta.name}, display label ${collectionLabel}.`
+      : 'This page does not depend on an explicit collection and can use public root blocks directly.',
     requestedFields.length > 0
-      ? `请求显式提到字段：${requestedFields.join(', ')}。`
-      : '请求没有显式字段，已按 live metadata 选择默认字段。',
+      ? `Explicitly requested fields: ${requestedFields.join(', ')}.`
+      : 'No explicit fields were requested, so defaults were chosen from live metadata.',
     resolvedFields.length > 0
-      ? `最终字段：${resolvedFields.join(', ')}。`
-      : '当前布局不需要字段绑定。',
+      ? `Resolved fields: ${resolvedFields.join(', ')}.`
+      : 'The current layout does not require field bindings.',
     actionPlan.length > 0
-      ? `已规划 ${actionPlan.length} 个操作节点，默认允许最多 ${maxNestingDepth} 层 popup/page 递归。`
-      : '当前布局未规划额外操作节点。',
+      ? `Planned ${actionPlan.length} action nodes; up to ${maxNestingDepth} popup/page nesting levels are allowed by default.`
+      : 'No extra action nodes were planned for the current layout.',
     pagePlan?.structureKind
-      ? `页面先按 ${pagePlan.structureKind} 骨架划分区域，再把区块挂入各 section。`
-      : '当前页面仍按 layout 直接表示，没有额外 page plan 元信息。',
+      ? `The page is divided by the ${pagePlan.structureKind} skeleton first, then blocks are mounted into each section.`
+      : 'The current page is still represented directly as a layout without extra page-plan metadata.',
     eligibleUses.length > 0
-      ? `可进入候选池的业务区块：${eligibleUses.join(', ')}。`
-      : '当前没有可进入候选池的业务区块。',
+      ? `Eligible business blocks for the candidate pool: ${eligibleUses.join(', ')}.`
+      : 'No eligible business blocks entered the candidate pool.',
     jsExpansionHints.length > 0
-      ? `JS 扩展提示：${jsExpansionHints.join(', ')}。`
+      ? `JS expansion hints: ${jsExpansionHints.join(', ')}.`
       : '',
     discardedUses.length > 0
-      ? `已丢弃 ${discardedUses.length} 个 runtime-sensitive 区块：${discardedUses.map((item) => item.use).join(', ')}。`
-      : '没有命中 runtime-sensitive discarded uses。',
+      ? `Discarded ${discardedUses.length} runtime-sensitive blocks: ${discardedUses.map((item) => item.use).join(', ')}.`
+      : 'No runtime-sensitive discarded uses were hit.',
     ...(inventoryMerge.instanceInventory.flowSchema.detected
-      ? [`实例公开 root blocks: ${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(', ')}`]
+      ? [`Instance public root blocks: ${inventoryMerge.instanceInventory.flowSchema.rootPublicUses.join(', ')}`]
       : []),
     ...(planningBlockers.length > 0
       ? planningBlockers.map((item) => `${item.code}: ${item.message}`)
@@ -3282,7 +3282,7 @@ function buildStableFirstValidationScenario({
   if (!primaryBlockDefinition) {
     planningBlockers.push(makePlanningBlocker(
       'PRIMARY_BLOCK_UNRESOLVED',
-      '当前请求既没有解析出稳定的 collection-first 主块，也没有足够的公开 root block 候选进入 dynamic-exploration。',
+      'The current request did not resolve either a stable collection-first primary block or enough public root-block candidates for dynamic exploration.',
       {
         requestedText: requestText,
         availableUses: inventoryMerge.availableUses,
@@ -3292,7 +3292,7 @@ function buildStableFirstValidationScenario({
   if (primaryBlockDefinition?.collectionRequired && !collectionResolution.collectionMeta) {
     planningBlockers.push(makePlanningBlocker(
       'PRIMARY_COLLECTION_UNRESOLVED',
-      `当前请求需要为主块 ${primaryBlockDefinition.use} 解析 collection，但 live inventory 未找到可用集合。`,
+      `The current request needs a collection for primary block ${primaryBlockDefinition.use}, but the live inventory did not resolve one.`,
       {
         primaryBlockType: primaryBlockDefinition.use,
         requestedText: requestText,
@@ -3306,7 +3306,7 @@ function buildStableFirstValidationScenario({
   ) {
     planningBlockers.push(makePlanningBlocker(
       'PRIMARY_PUBLIC_USE_UNAVAILABLE',
-      `实例当前未公开 ${primaryBlockDefinition.use}，不能把它作为主块。`,
+      `The current instance does not expose ${primaryBlockDefinition.use}, so it cannot be used as the primary block.`,
       {
         primaryBlockType: primaryBlockDefinition.use,
       },
@@ -3320,7 +3320,7 @@ function buildStableFirstValidationScenario({
   if (collectionMeta && fieldResolution.requestedFields.length > 0 && fieldResolution.resolvedFields.length === 0) {
     planningBlockers.push(makePlanningBlocker(
       'REQUESTED_FIELDS_UNRESOLVED',
-      `请求中显式提到了字段，但 ${collectionMeta.name} 的 live metadata 未解析到对应字段。`,
+      `The request explicitly mentioned fields, but the live metadata for ${collectionMeta.name} did not resolve them.`,
       {
         collectionName: collectionMeta.name,
       },
@@ -3331,7 +3331,7 @@ function buildStableFirstValidationScenario({
   if (operationIntent.requestedFilter && !collectionMeta) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_COLLECTION_UNRESOLVED',
-      '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。',
+      'The request explicitly requires a filter block, but there is no bindable collection to plan a stable FilterFormBlockModel.',
       {
         requestedText: requestText,
       },
@@ -3341,7 +3341,7 @@ function buildStableFirstValidationScenario({
   if (operationIntent.requestedFilter && collectionMeta && filterFields.length === 0) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_FIELDS_UNRESOLVED',
-      `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
+      `The request explicitly requires a filter block, but ${collectionMeta.name} has no usable scalar fields for filter items.`,
       {
         collectionName: collectionMeta.name,
       },
@@ -3355,12 +3355,12 @@ function buildStableFirstValidationScenario({
   const maxNestingDepth = 3;
   const title = explicitTitle || (
     collectionMeta
-      ? `${humanizeCollectionTitle(collectionMeta)} ${primaryBlockDefinition?.titleSuffix || '工作台'}`
+      ? `${humanizeCollectionTitle(collectionMeta)} ${primaryBlockDefinition?.titleSuffix || 'workspace'}`
       : `Validation ${primaryBlockDefinition?.titleSuffix || 'workspace'}`
   );
   const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilter && collectionMeta
     ? buildFilterBlock({
-      title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
+      title: `${humanizeCollectionTitle(collectionMeta)} filters`,
       collectionName: collectionMeta.name,
       fields: filterFields,
     })
@@ -3400,7 +3400,7 @@ function buildStableFirstValidationScenario({
   if (!selectedCandidate && planningStatus === 'ready') {
     planningBlockers.push(makePlanningBlocker(
       'PRIMARY_LAYOUT_CANDIDATE_MISSING',
-      `当前请求解析出了主块 ${primaryBlockDefinition.use}，但没有生成可落库的 layout candidate。`,
+      `The current request resolved primary block ${primaryBlockDefinition.use}, but no persistable layout candidate was generated.`,
       {
         primaryBlockType: primaryBlockDefinition.use,
       },
@@ -3569,10 +3569,10 @@ function buildCreativeRecipeCandidates({
       primaryDefinition: anchorDescriptor || collectionDefinition,
       selectionRationale: uniqueStrings([
         explicitAnchorUse
-          ? `请求显式命中了 ${explicitAnchorUse}，先把它作为 anchor 主块。`
-          : '未命中显式 block 关键词时，按语义与创意优先级选择 anchor 主块。',
+          ? `The request explicitly hit ${explicitAnchorUse}, so it is used as the anchor primary block first.`
+          : 'When no explicit block keyword is hit, choose the anchor primary block by semantics and creative priority.',
         INSIGHT_PRIORITY_USES.has(anchorDescriptor?.use || '')
-          ? '主块优先保持 insight-first，不再自动补一个保守 collection 主块。'
+          ? 'Keep the primary block insight-first instead of automatically adding a conservative collection-first primary block.'
           : '',
       ]),
       layout: finalizeCreativeLayout({
@@ -3585,16 +3585,16 @@ function buildCreativeRecipeCandidates({
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
       }),
       title,
-      summary: `${normalizeText(title)} / 关键词锚点方案`,
+      summary: `${normalizeText(title)} / keyword-anchor plan`,
     },
     {
       candidateId: 'content-control',
       shape: 'single-main',
       primaryDefinition: contentDefinition || anchorDescriptor || collectionDefinition,
       selectionRationale: uniqueStrings([
-        '内容/控制型单主块候选，优先给页面一个更鲜明的视觉重心。',
+        'Single-main content/control candidate that gives the page a stronger visual center of gravity.',
         INSIGHT_PRIORITY_USES.has(contentDefinition?.use || '')
-          ? '允许内容/洞察块单独成为主视觉，不强制混入稳定工作台结构。'
+          ? 'Allow a content/insight block to stand alone as the main visual surface without forcing a conservative workbench structure.'
           : '',
       ]),
       layout: finalizeCreativeLayout({
@@ -3607,15 +3607,15 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock: detailsBlock || supportTableBlock || collectionFallbackBlock,
       }),
-      title: `${title} 内容控制`,
-      summary: `${normalizeText(title)} / 单主块内容控制`,
+      title: `${title} content control`,
+      summary: `${normalizeText(title)} / single-main content control`,
     },
     {
       candidateId: 'collection-workbench',
       shape: 'multi-block',
       primaryDefinition: collectionDefinition,
       selectionRationale: [
-        '围绕 collection 组织成工作台，保留业务主块，同时补操作或说明区块。',
+        'Organize the page as a collection workbench, keep the business primary block, and add action or explanatory surfaces around it.',
       ],
       layout: finalizeCreativeLayout({
         filterBlock,
@@ -3627,7 +3627,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock,
       }),
-      title: `${title} 工作台`,
+      title: `${title} workbench`,
       summary: `${normalizeText(title)} / collection workbench`,
     },
     {
@@ -3635,7 +3635,7 @@ function buildCreativeRecipeCandidates({
       shape: 'multi-block',
       primaryDefinition: visualDefinition || anchorDescriptor || collectionDefinition,
       selectionRationale: [
-        '用分析/指标/JS 并列拉开页面调性，collection 区块只作为辅助面而不是默认主位。',
+        'Use analytics, metrics, and JS as parallel surfaces so the collection block becomes a support area instead of the default center.',
       ],
       layout: finalizeCreativeLayout({
         filterBlock,
@@ -3647,7 +3647,7 @@ function buildCreativeRecipeCandidates({
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
       }),
-      title: `${title} 分析混合`,
+      title: `${title} analytics mix`,
       summary: `${normalizeText(title)} / analytics mix`,
     },
     {
@@ -3655,29 +3655,29 @@ function buildCreativeRecipeCandidates({
       shape: 'tabbed-multi-surface',
       primaryDefinition: anchorDescriptor || collectionDefinition,
       selectionRationale: [
-        '把主视图、记录面和洞察扩展拆到 tabs，优先追求可探索性与多 surface 表达。',
+        'Split the main view, record surface, and insight extension into tabs to prioritize exploration and multi-surface expression.',
       ],
       layout: finalizeCreativeLayout({
         filterBlock,
         blocks: [],
         tabs: [
           {
-            title: '主视图',
+            title: 'Main view',
             blocks: [anchorBlock || visualBlock].filter(Boolean).map((block) => cloneJson(block)),
           },
           {
-            title: '记录面',
+            title: 'Record surface',
             blocks: [supportTableBlock || collectionFallbackBlock].filter(Boolean).map((block) => cloneJson(block)),
           },
           {
-            title: '洞察扩展',
+            title: 'Insight extension',
             blocks: [jsPeerBlock || contentBlock || supportPublicBlock || detailsBlock || formBlock].filter(Boolean).map((block) => cloneJson(block)),
           },
         ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
       }),
-      title: `${title} 多界面`,
+      title: `${title} multi-surface`,
       summary: `${normalizeText(title)} / tabbed multi surface`,
     },
   ];
@@ -3751,7 +3751,7 @@ function buildCreativeFirstValidationScenario({
   if (!anchorDescriptor) {
     planningBlockers.push(makePlanningBlocker(
       'PRIMARY_BLOCK_UNRESOLVED',
-      'creative-first 未找到可稳定落库的 anchor 区块，无法生成候选布局。',
+      'creative-first could not find a stable anchor block that can be persisted, so it cannot generate candidate layouts.',
       {
         requestedText: requestText,
         eligibleUses,
@@ -3763,7 +3763,7 @@ function buildCreativeFirstValidationScenario({
   if (collectionMeta && fieldResolution.requestedFields.length > 0 && fieldResolution.resolvedFields.length === 0) {
     planningBlockers.push(makePlanningBlocker(
       'REQUESTED_FIELDS_UNRESOLVED',
-      `请求中显式提到了字段，但 ${collectionMeta.name} 的 live metadata 未解析到对应字段。`,
+      `The request explicitly mentioned fields, but the live metadata for ${collectionMeta.name} did not resolve them.`,
       {
         collectionName: collectionMeta.name,
       },
@@ -3773,7 +3773,7 @@ function buildCreativeFirstValidationScenario({
   if (operationIntent.requestedFilter && !collectionMeta) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_COLLECTION_UNRESOLVED',
-      '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。',
+      'The request explicitly requires a filter block, but there is no bindable collection to plan a stable FilterFormBlockModel.',
       {
         requestedText: requestText,
       },
@@ -3784,7 +3784,7 @@ function buildCreativeFirstValidationScenario({
   if (operationIntent.requestedFilter && collectionMeta && filterFields.length === 0) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_FIELDS_UNRESOLVED',
-      `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
+      `The request explicitly requires a filter block, but ${collectionMeta.name} has no usable scalar fields for filter items.`,
       {
         collectionName: collectionMeta.name,
       },
@@ -3793,12 +3793,12 @@ function buildCreativeFirstValidationScenario({
 
   const title = explicitTitle || (
     collectionMeta
-      ? `${humanizeCollectionTitle(collectionMeta)} 创意工作台`
+      ? `${humanizeCollectionTitle(collectionMeta)} creative workbench`
       : `Creative ${anchorDescriptor?.titleSuffix || 'workspace'}`
   );
   const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilter && collectionMeta
     ? buildFilterBlock({
-      title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
+      title: `${humanizeCollectionTitle(collectionMeta)} filters`,
       collectionName: collectionMeta.name,
       fields: filterFields,
     })

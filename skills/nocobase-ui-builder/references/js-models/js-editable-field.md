@@ -1,22 +1,13 @@
----
-title: JSEditableFieldModel 参考
-description: 面向 builder 的 JSEditableFieldModel 约束，覆盖可编辑字段的双向绑定和默认渲染范式。
----
-
 # JSEditableFieldModel
 
-## 什么时候用
+## Use it for
 
-当用户要的不是“只读展示”，而是“字段本身的自定义输入组件”时使用：
+- editable text inputs
+- custom selectors
+- composite input controls
+- custom inputs that still need two-way form binding
 
-- 可编辑文本输入
-- 自定义选择器
-- 复合输入控件
-- 需要和表单双向绑定的字段
-
-如果当前需求只是字段位置的只读渲染，优先看 [js-field.md](js-field.md)。
-
-## 常用上下文
+## Common context
 
 - `ctx.getValue()`
 - `ctx.setValue(v)`
@@ -26,59 +17,28 @@ description: 面向 builder 的 JSEditableFieldModel 约束，覆盖可编辑字
 - `ctx.record`
 - `ctx.render()`
 
-补充：
+`ctx.value` is closer to a read-only snapshot. Editable flows should usually use `ctx.getValue()` and `ctx.setValue(v)`.
 
-- `ctx.value` 更像只读快照
-- 可编辑场景默认优先用 `ctx.getValue()` / `ctx.setValue(v)` 做双向绑定
+## Default pattern
 
-## 默认写法
+- read the current value through `ctx.getValue()`
+- update it through `ctx.setValue(v)`
+- render the control through `ctx.render(...)`
 
-```jsx
-function InputView() {
-  return (
-    <input
-      defaultValue={String(ctx.getValue?.() ?? ctx.value ?? '')}
-      onInput={(e) => ctx.setValue?.(e.currentTarget.value)}
-    />
-  );
-}
-
-ctx.render(<InputView />);
-```
-
-## 常见辅助上下文
+## Helpful extra context
 
 - `ctx.namePath`
 - `ctx.disabled`
 - `ctx.readOnly`
 
-例如：
+## Do not default to
 
-```jsx
-function InputView() {
-  const disabled = !!ctx.disabled || !!ctx.readOnly;
-  return (
-    <input
-      disabled={disabled}
-      defaultValue={String(ctx.getValue?.() ?? '')}
-      onInput={(e) => ctx.setValue?.(e.currentTarget.value)}
-    />
-  );
-}
+- uncontrolled DOM manipulation
+- `ctx.value = ...`
+- read-only rendering patterns from `JSFieldModel`
 
-ctx.render(<InputView />);
-```
+## Minimal decision rule
 
-## 不要默认这么写
-
-```js
-ctx.element.innerHTML = '<input />';
-```
-
-简单的 `innerHTML` 赋值可能会被 guard 自动改写，但复杂场景会直接 blocker。
-
-## 最小判断规则
-
-- 只读展示：`JSFieldModel`
-- 可编辑输入：`JSEditableFieldModel`
-- 不绑定字段的表单辅助区域：`JSItemModel`
+- read-only display -> `JSFieldModel`
+- editable input -> `JSEditableFieldModel`
+- helper region not bound to a field slot -> `JSItemModel`

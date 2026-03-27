@@ -26,9 +26,9 @@ function usage() {
     '    [--print-payload]',
     '',
     'Notes:',
-    '  - 这是给临时/直接 MCP 写入准备的统一写前 gate。',
-    '  - 固定顺序：canonicalizePayload -> auditPayload。',
-    '  - 出现 blocker 时退出码为 2。',
+    '  - This is the unified pre-write gate for temporary or direct MCP writes.',
+    '  - The fixed order is: canonicalizePayload -> auditPayload.',
+    '  - Exit code 2 means a blocker was hit.',
   ].join('\n');
 }
 

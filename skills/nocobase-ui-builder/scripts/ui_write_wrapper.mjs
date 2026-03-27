@@ -92,9 +92,9 @@ function usage() {
     '    [--candidate-page-url <url>]',
     '',
     'Notes:',
-    '  - 这是 nocobase-ui-builder 的统一写入口，但脚本本身不再直接访问 NocoBase API。',
-    '  - create-v2 / save / mutate / ensure 的实际写入与 readback 证据应先由 agent 通过 MCP 获取，再以 artifact 形式喂给 wrapper。',
-    '  - save/mutate/ensure 会继续执行 canonicalizePayload -> auditPayload -> readback drift/contract，本地只做 guard 与证据汇总。',
+    '  - This is the unified write entrypoint for nocobase-ui-builder, but the script no longer calls the NocoBase API directly.',
+    '  - Real write and readback evidence for create-v2 / save / mutate / ensure must be collected through MCP first and then passed into the wrapper as artifacts.',
+    '  - save/mutate/ensure still run canonicalizePayload -> auditPayload -> readback drift/contract locally; the wrapper only owns guard and evidence aggregation.',
   ].join('\n');
 }
 
@@ -374,7 +374,7 @@ function deriveChartProbeStatusFromProbes(probes) {
   if (failedProbes.length > 0) {
     return {
       status: 'failed',
-      detail: `${failedProbes.length}/${probes.length} 个图表数据探测失败。`,
+      detail: `${failedProbes.length}/${probes.length} chart data probes failed.`,
     };
   }
 
@@ -384,8 +384,8 @@ function deriveChartProbeStatusFromProbes(probes) {
   );
   const zeroRowCount = probes.filter((item) => item?.rowCount === 0).length;
   const detail = zeroRowCount > 0
-    ? `已读取 ${probes.length} 个图表探测 artifact，累计 ${totalRows} 行，其中 ${zeroRowCount} 个图表返回 0 行。`
-    : `已读取 ${probes.length} 个图表探测 artifact，累计 ${totalRows} 行。`;
+    ? `Loaded ${probes.length} chart probe artifacts with ${totalRows} total rows; ${zeroRowCount} charts returned 0 rows.`
+    : `Loaded ${probes.length} chart probe artifacts with ${totalRows} total rows.`;
   return {
     status: 'ready',
     detail,
@@ -421,7 +421,7 @@ function normalizeChartDataProbeResult(artifact, tree) {
       probes: [],
       statusAxis: {
         status: 'not-recorded',
-        detail: '本次 readback 未发现 ChartBlockModel。',
+        detail: 'No ChartBlockModel was found in the current readback.',
       },
     };
   }
@@ -436,7 +436,7 @@ function normalizeChartDataProbeResult(artifact, tree) {
     })),
     statusAxis: {
       status: 'not-run',
-      detail: `readback 中发现 ${chartBlocks.length} 个 ChartBlockModel，但未提供 chart data probe artifact。`,
+      detail: `Readback contains ${chartBlocks.length} ChartBlockModel nodes, but no chart-data probe artifact was provided.`,
     },
   };
 }
@@ -445,15 +445,15 @@ function buildDefaultStatusAxes() {
   return {
     browserValidation: {
       status: 'skipped (not requested)',
-      detail: '本轮未请求浏览器验证。',
+      detail: 'Browser validation was not requested in this run.',
     },
     runtimeUsable: {
       status: 'not-run',
-      detail: '本轮未执行 runtime/smoke。',
+      detail: 'Runtime or smoke validation was not executed in this run.',
     },
     dataPreparation: {
       status: 'not-recorded',
-      detail: '日志中没有稳定的数据准备信号。',
+      detail: 'The log does not contain stable data-preparation signals.',
     },
   };
 }
@@ -466,17 +466,17 @@ function finalizeStatusAxesForCreateV2({
 }) {
   return {
     pageShellCreated: writePresent
-      ? { status: 'created', detail: 'create-v2 write artifact 已提供。' }
-      : { status: 'failed', detail: '缺少 create-v2 write artifact。' },
+      ? { status: 'created', detail: 'The create-v2 write artifact was provided.' }
+      : { status: 'failed', detail: 'The create-v2 write artifact is missing.' },
     routeReady: routeReady?.ok
-      ? { status: 'ready', detail: 'route tree 已确认 page route 与默认隐藏 tab。' }
-      : { status: 'not-ready', detail: 'route-ready 证据不完整。' },
+      ? { status: 'ready', detail: 'The route tree confirms both the page route and the hidden default tab.' }
+      : { status: 'not-ready', detail: 'Route-ready evidence is incomplete.' },
     readbackMatched: pageAnchor.present && gridAnchor.present
-      ? { status: 'matched', detail: 'page/grid anchor 已提供。' }
-      : { status: 'evidence-insufficient', detail: 'page/grid anchor 证据不完整。' },
+      ? { status: 'matched', detail: 'Both page and grid anchor artifacts were provided.' }
+      : { status: 'evidence-insufficient', detail: 'Page/grid anchor evidence is incomplete.' },
     dataReady: {
       status: 'not-recorded',
-      detail: '页面壳创建阶段没有数据 readiness 检查。',
+      detail: 'No data-readiness check exists for the page-shell creation stage.',
     },
   };
 }
@@ -491,33 +491,33 @@ function finalizeStatusAxesForFlowWrite({
   if (!readbackPresent) {
     readbackMatched = {
       status: 'failed',
-      detail: '缺少 readback artifact。',
+      detail: 'The readback artifact is missing.',
     };
   } else if (!readbackContractResult.ok) {
     readbackMatched = {
       status: 'mismatch',
-      detail: 'readback contract 未通过。',
+      detail: 'The readback contract did not pass.',
     };
   } else if (!readbackDiffResult.ok) {
     readbackMatched = {
       status: 'mismatch',
-      detail: `readback drift 发现 ${readbackDiffResult.summary?.driftCount || 0} 处漂移。`,
+      detail: `Readback drift found ${readbackDiffResult.summary?.driftCount || 0} mismatches.`,
     };
   } else {
     readbackMatched = {
       status: 'matched',
-      detail: 'readback drift 与 contract 均通过。',
+      detail: 'Both readback drift and the readback contract passed.',
     };
   }
 
   return {
     pageShellCreated: {
       status: 'not-recorded',
-      detail: '本轮不是 create-v2 页面壳创建。',
+      detail: 'This run was not a create-v2 page-shell creation flow.',
     },
     routeReady: {
       status: 'not-recorded',
-      detail: '本轮不是 create-v2 route-ready 校验。',
+      detail: 'This run was not a create-v2 route-ready check.',
     },
     readbackMatched,
     dataReady: chartDataProbeResult.statusAxis,
@@ -765,7 +765,7 @@ export async function runUiWriteWrapper(options = {}) {
 
         summary.status = 'failed';
         summary.guardBlocked = true;
-        summary.notes.push('guard 命中 blocker，wrapper 已阻断实际写入。');
+        summary.notes.push('A guard blocker was hit, so the wrapper stopped the real write.');
         markSkippedPhase(run.logPath, 'write', 'guard blocked');
         markSkippedPhase(run.logPath, 'readback', 'write blocked by guard');
         markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
@@ -827,7 +827,7 @@ export async function runUiWriteWrapper(options = {}) {
             changed: true,
             remappedNodeCount: liveRemapResult.remappedNodes.length,
           };
-          summary.notes.push(`live topology remap 已刷新 ${liveRemapResult.remappedNodes.length} 个冲突 descendant uid。`);
+          summary.notes.push(`Live-topology remap refreshed ${liveRemapResult.remappedNodes.length} conflicting descendant uid values.`);
 
           recordConsumedArtifact({
             logPath: run.logPath,
@@ -844,7 +844,7 @@ export async function runUiWriteWrapper(options = {}) {
           });
         }
       } else {
-        summary.notes.push('未提供 live topology artifact，将跳过 auto-remap。');
+        summary.notes.push('No live-topology artifact was provided, so auto-remap was skipped.');
       }
 
       auditResult = auditPayload({
@@ -904,7 +904,7 @@ export async function runUiWriteWrapper(options = {}) {
       if (!auditResult.ok) {
         summary.status = 'failed';
         summary.guardBlocked = true;
-        summary.notes.push('guard 命中 blocker，wrapper 已阻断实际写入。');
+        summary.notes.push('A guard blocker was hit, so the wrapper stopped the real write.');
         markSkippedPhase(run.logPath, 'write', 'guard blocked');
         markSkippedPhase(run.logPath, 'readback', 'write blocked by guard');
         markSkippedPhase(run.logPath, 'browser_attach', 'browser not requested');
@@ -1002,7 +1002,7 @@ export async function runUiWriteWrapper(options = {}) {
           result: routeReady,
         });
       } else {
-        summary.notes.push('缺少 route tree artifact，无法确认 route-ready。');
+        summary.notes.push('The route-tree artifact is missing, so route-ready cannot be confirmed.');
       }
 
       let pageAnchor = {
@@ -1025,7 +1025,7 @@ export async function runUiWriteWrapper(options = {}) {
           result: pageAnchor,
         });
       } else {
-        summary.notes.push('缺少 page anchor artifact。');
+        summary.notes.push('The page-anchor artifact is missing.');
       }
 
       let gridAnchor = {
@@ -1048,7 +1048,7 @@ export async function runUiWriteWrapper(options = {}) {
           result: gridAnchor,
         });
       } else {
-        summary.notes.push('缺少 grid anchor artifact。');
+        summary.notes.push('The grid-anchor artifact is missing.');
       }
 
       recordPhase({
@@ -1088,7 +1088,7 @@ export async function runUiWriteWrapper(options = {}) {
         contractOk: true,
       });
       if (!routeReady.ok) {
-        summary.notes.push('create-v2 已执行，但 route-ready 证据仍不完整。');
+        summary.notes.push('create-v2 was executed, but route-ready evidence is still incomplete.');
       }
     } else {
       const readbackArtifact = requireArtifact(normalized.readbackArtifact, 'readback');
@@ -1189,10 +1189,10 @@ export async function runUiWriteWrapper(options = {}) {
         contractOk: readbackContractResult.ok,
       });
       if (!readbackDiffResult.ok) {
-        summary.notes.push(`readback diff 发现 ${readbackDiffResult.summary?.driftCount || readbackDiffResult.findings?.length || 0} 处漂移。`);
+        summary.notes.push(`Readback diff found ${readbackDiffResult.summary?.driftCount || readbackDiffResult.findings?.length || 0} mismatches.`);
       }
       if (!readbackContractResult.ok) {
-        summary.notes.push('readback contract 未全部通过。');
+        summary.notes.push('The readback contract did not pass completely.');
       }
       if (chartDataProbeResult.statusAxis?.status === 'failed' || chartDataProbeResult.statusAxis?.status === 'not-run') {
         summary.notes.push(chartDataProbeResult.statusAxis.detail);

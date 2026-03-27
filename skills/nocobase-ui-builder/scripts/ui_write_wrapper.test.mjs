@@ -52,7 +52,7 @@ test('ui_write_wrapper blocks save before consuming artifacts when guard finds b
   assert.equal(result.guardBlocked, true);
   assert.equal(result.status, 'failed');
   assert.equal(fs.existsSync(result.artifactPaths.auditInitial), true);
-  assert.match(result.notes.join('\n'), /guard 命中 blocker/);
+  assert.match(result.notes.join('\n'), /A guard blocker was hit/);
   assert.equal(result.artifactPaths.writeResult, undefined);
 });
 
@@ -71,7 +71,7 @@ test('ui_write_wrapper injects page anchor context and blocks RootPageModel dire
       stepParams: {
         pageSettings: {
           general: {
-            title: '投资关系总览',
+            title: 'Investment Overview',
           },
         },
       },
@@ -350,7 +350,7 @@ test('ui_write_wrapper save records chart data readiness from provided artifact'
       ],
       statusAxis: {
         status: 'ready',
-        detail: '已读取 1 个图表探测 artifact，累计 1 行。',
+        detail: 'Loaded 1 chart probe artifact with 1 total row.',
       },
     },
   });

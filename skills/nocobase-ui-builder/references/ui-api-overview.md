@@ -1,34 +1,28 @@
-# UI API 概览
+# UI API overview
 
-这个文档是 `nocobase-ui-builder` 的 API / lifecycle 事实源，覆盖工具映射、请求格式、schema-first 探测、页面生命周期、写入策略与 readback。
+## 1. Read the local graph first, runtime schema second
 
-日志、phase/gate、review/improve 看 [ops-and-review.md](ops-and-review.md)；block/pattern 细节看 [blocks/index.md](blocks/index.md) 和 [patterns/index.md](patterns/index.md)。
-
-## 1. 先读本地 graph，再读运行时 schema
-
-如果只是要核对某个模型 / slot 结构，优先读：
+Read these files before hitting runtime schema APIs:
 
 - [flow-schemas/index.md](flow-schemas/index.md)
 - `flow-schemas/manifest.json`
 - `flow-schemas/models/<UseName>.json`
 - `flow-schemas/catalogs/<OwnerUse>.<slot>.json`
 
-只有以下情况才回退到运行时 schema 工具：
+Only go to runtime schema discovery when:
 
-- 本地 graph 缺少目标 `use`
-- 本地 graph 与当前实例行为明显冲突
-- 当前任务涉及 graph 未覆盖的新模型或新插件结构
+- the local graph does not cover the target `use`
+- the local graph clearly conflicts with the current instance
+- the task involves a new model or plugin structure not covered by the checked-in snapshot
 
-`PostFlowmodels_schemabundle` 仍保留给 root block 发现与当前实例结构探测；本地 graph 主要替代常规 `flowModels:schemas` 查阅。
+## 2. MCP tool mapping
 
-## 2. MCP 工具映射
+The default execution path is:
 
-这些映射是底层事实源，不是默认执行入口。agent 默认应优先走：
+- call MCP directly to collect write, readback, route, and anchor artifacts
+- then run `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` for guard, diff, contract checks, and summary persistence
 
-- 先直接调用 MCP 工具拿到 write/readback/route/anchor artifacts
-- 再调用 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` 做 guard、diff、contract、summary
-
-只有在实现 wrapper、本地调试底层接口、或核对 HTTP/MCP 参数映射时，才直接参考下面这些工具名。
+Important MCP tools:
 
 - `PostDesktoproutes_createv2` -> `POST /desktopRoutes:createV2`
 - `PostDesktoproutes_destroyv2` -> `POST /desktopRoutes:destroyV2`
@@ -47,206 +41,105 @@
 - `PostFlowmodels_attach` -> `POST /flowModels:attach`
 - `PostFlowmodels_duplicate` -> `POST /flowModels:duplicate`
 
-调用 MCP 时只用精确工具名，不要传 REST 路径。
+Rules:
 
-默认执行策略：
+- page creation: call `PostDesktoproutes_createv2`, `GetDesktoproutes_listaccessible`, and `GetFlowmodels_findone` first, then run `ui_write_wrapper.mjs --action create-v2`
+- ad-hoc `save`, `mutate`, or `ensure`: call the matching `PostFlowmodels_*` tool plus `GetFlowmodels_findone` first, then run `ui_write_wrapper.mjs`
+- `rest_validation_builder.mjs` and `rest_template_clone_runner.mjs` are helper scripts only; they no longer call NocoBase directly
+- do not end the flow right after a raw write call; wrapper-based local validation and evidence persistence are mandatory
 
-- 页面创建：先调用 `PostDesktoproutes_createv2`、`GetDesktoproutes_listaccessible`、`GetFlowmodels_findone` 拿 artifact，再走 `ui_write_wrapper.mjs --action create-v2`
-- ad-hoc `save` / `mutate` / `ensure`：先调用对应 `PostFlowmodels_*` 与 `GetFlowmodels_findone` 拿 artifact，再走 `scripts/ui_write_wrapper.mjs`
-- `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 现在只保留本地 helper 职责，不再自己请求 NocoBase
-- 不要在 `js_repl` 或外层 prompt 里直接裸调底层写接口后就结束；必须补上 wrapper 的本地校验与证据落盘
+## 3. Request shape
 
-## 3. 请求格式
+Use the raw JSON body directly in `requestBody`.
 
-query 参数工具暴露成 MCP 顶层参数，例如：
+- Do not send `requestBody: { "values": ... }`
+- Put the original HTTP JSON request body directly into `requestBody`
+- NocoBase `resourcer` wraps it into `ctx.action.params.values` internally
 
-```json
-{
-  "parentId": "k7n4x9p2q5ra",
-  "subKey": "page",
-  "includeAsyncNode": true
-}
-```
+## 4. Schema-first discovery order
 
-请求体工具暴露 `requestBody`，不要再套 `values`：
+1. Read the local graph first
+2. Call `PostFlowmodels_schemabundle`
+3. Narrow the public `use` values needed for the current task
+4. Call one `PostFlowmodels_schemas` for those target `use` values
+5. If new `use` values appear later, add one incremental `PostFlowmodels_schemas`
+6. Only call `GetFlowmodels_schema` if ambiguity still remains
+7. Read the live target tree once with `GetFlowmodels_findone` before writing
 
-```json
-{
-  "requestBody": {
-    "uses": ["PageModel", "TableBlockModel"]
-  }
-}
-```
+## 5. Live snapshot cadence
 
-强规则：
+1. One read before write: the only baseline for the stage
+2. One read after write: confirms whether the result actually persisted
 
-- 不要发送 `requestBody: { "values": ... }`
-- 原始 HTTP JSON 请求体直接放进 `requestBody`
-- NocoBase `resourcer` 会在内部包装到 `ctx.action.params.values`
+## 6. Page initialization lifecycle
 
-## 4. schema-first 探测顺序
+`createV2` initializes:
 
-任何写操作前都遵循下面顺序：
+- the page route
+- the hidden default tab route: `tabs-{schemaUid}`
+- the `uiSchemas` FlowRoute shell
+- the page anchor: `{schemaUid} -> page`
+- the default hidden tab grid anchor: `tabs-{schemaUid} -> grid`
 
-1. 先读本地 graph
-2. `PostFlowmodels_schemabundle`
-3. 收敛本轮目标 public `use`
-4. 用一次 `PostFlowmodels_schemas` 拉齐目标 `use`
-5. 中途发现漏掉的 `use` 时，补一次增量 `PostFlowmodels_schemas`
-6. 只有仍未消歧时，才调用 `GetFlowmodels_schema`
-7. 对当前目标树做一次写前 `GetFlowmodels_findone`
+Critical rules:
 
-常见 `schemaBundle` 起手式：
+- `{schemaUid} -> page` is an anchor child, not a signal to persist `schemaUid` as `RootPageModel.uid`
+- visible `RootPageModel` tabs are driven by child desktop routes
+- do not treat `RootPageModel.subModels.tabs` as the persistence entrypoint for visible tabs
+- write visible tab content to `parentId=<tabSchemaUid>, subKey=grid`
+- `createV2` is idempotent only for the same `schemaUid + title + icon + parentId`
+- if the same `schemaUid` is reused with conflicting core fields, it returns `409`
+- `createV2` is not a repair interface
+- `createV2` does not mean the page is openable
 
-```json
-{
-  "requestBody": {
-    "uses": ["PageModel", "FilterFormBlockModel", "TableBlockModel", "DetailsBlockModel", "CreateFormModel", "EditFormModel", "ActionModel"]
-  }
-}
-```
+## 7. Route-ready
 
-这个 `uses` 列表不是白名单；本轮涉及 tab、popup、关系区块、引用区块或 JS/public blocks 时按任务追加。
+Route-ready requires:
 
-## 5. live snapshot 读取节奏
+- `GetDesktoproutes_getaccessible({ filterByTk: "<schemaUid>" })` can read the new page
+- `GetDesktoproutes_listaccessible({ tree: true })` shows the page route and `tabs-{schemaUid}` child route
 
-对同一目标 live tree，默认只保留两次 `GetFlowmodels_findone`：
+## 8. Reading a page
 
-1. 写前一次：当前阶段唯一基线
-2. 写后一次：确认结果是否真正落库
+For flowPage v2:
 
-只有目标树切换、核对不同子树、服务端返回与 live tree 不一致、或当前在排查失败时，才允许额外读取。不要因为“保险起见”反复读同一个 page/grid。
+- `RootPageModel` readback must not depend on `subModels.tabs`
+- if the page uses multiple visible tabs, create child routes first, then read each `tabSchemaUid -> grid`
 
-## 6. 页面初始化生命周期
+## 9. Write strategy and readback
 
-`PostDesktoproutes_createv2` 用来初始化 Modern page (v2) 页面壳：
+The agent should not guess the low-level write tool by default. The wrapper or builder pipeline should choose it.
 
-但这只是底层接口。默认执行时不要直接裸调；应先用 MCP 取证，再通过 `ui_write_wrapper.mjs --action create-v2` 汇总。
+Typical mapping:
 
-```json
-{
-  "requestBody": {
-    "schemaUid": "k7n4x9p2q5ra",
-    "title": "Orders",
-    "parentId": null,
-    "icon": "TableOutlined"
-  }
-}
-```
+- multi-step transaction, `$ref` chaining, or retryable upsert: usually `PostFlowmodels_mutate`
+- one known model tree with a live snapshot: usually `PostFlowmodels_save`
+- missing object child already proven by schema: only then `PostFlowmodels_ensure`
+- sorting only: `PostFlowmodels_move`
+- deleting a known subtree only: `PostFlowmodels_destroy`
+- `PostFlowmodels_duplicate` is legacy; prefer `mutate + duplicate` logic when possible
 
-`schemaUid` 默认通过 [opaque-uid.md](opaque-uid.md) 的 `reserve-page` 生成，不要手写语义化值。
+Rules:
 
-它会创建或保证以下对象存在：
+- these tools are not ad-hoc direct entrypoints
+- page-shell creation and ad-hoc live tree writes must go through `node scripts/ui_write_wrapper.mjs run ...`
+- `flow_write_wrapper.mjs` is compatibility-only, not the default path
+- `mutate` and `ensure` need an explicit verify payload when the request body is not already the final model tree
+- for flowPage v2, the guard blocks both `RootPageModel.subModels.tabs` direct persistence and direct route `schemaUid` to `RootPageModel.uid` writes
 
-- page route
-- `tabs-{schemaUid}` 隐藏默认 tab route
-- 对应 `uiSchemas` FlowRoute 壳
-- `{schemaUid} -> page` flow model 根节点
-- `tabs-{schemaUid} -> grid` 默认 grid 根节点
+Final truth comes from follow-up `GetFlowmodels_findone`.
 
-flowPage v2 的关键语义：
+- wrapper should execute post-write readback automatically
+- `ok` means request accepted, not final success
+- explicit tabs must reconcile count, titles, and `BlockGridModel` presence
+- selector and data scope flows must reconcile `filterByTk` and `dataScope`
 
-- `{schemaUid} -> page` 是 page anchor child，不是“把 `schemaUid` 直接当 `RootPageModel.uid`”
-- `RootPageModel` 的可见 tabs 由 page route 的 child desktopRoutes 驱动
-- `RootPageModel.subModels.tabs` 不应被 skill 当作显式 tabs 的持久化入口
-- 每个可见 tab 的内容应写到 `parentId=<tabSchemaUid>, subKey=grid`
+## 10. Destroying a page
 
-关键约束：
+Use `PostDesktoproutes_destroyv2` only.
 
-- 相同 `schemaUid + title + icon + parentId` 时具备幂等性
-- 相同 `schemaUid` 但关键字段不同会返回 `409`
-- 它不是修复接口
-- 它不代表页面已经可打开
-- skill 层默认不允许裸调；应先通过 MCP 取到 route-ready / readback 证据，再交给 wrapper 或本地 helper 处理
+Completion requires:
 
-## 7. route-ready
-
-`createV2` 成功后，至少还要满足其一，才算 route-ready：
-
-- `GetDesktoproutes_getaccessible({ filterByTk: "<schemaUid>" })` 能读到新页面
-- `GetDesktoproutes_listaccessible({ tree: true })` 中能看到 page route 和 `tabs-{schemaUid}` 子 route
-
-没有 route-ready 证据时，只能报 `page shell created`，不能报 `ready` 或 `payload already works`。
-
-`PostDesktoproutes_updateorcreate` 只在页面路由本身需要 update-or-create 时使用；它不是 `createV2` 的替代品，也不替代 page/grid anchor 的生命周期检查。
-
-## 8. 读取页面
-
-读取页面根节点：
-
-```json
-{
-  "parentId": "k7n4x9p2q5ra",
-  "subKey": "page",
-  "includeAsyncNode": true
-}
-```
-
-读取默认页签 grid：
-
-```json
-{
-  "parentId": "tabs-k7n4x9p2q5ra",
-  "subKey": "grid",
-  "includeAsyncNode": true
-}
-```
-
-显式 tab 场景下，使用明确的 `tabSchemaUid` 读取对应 `grid`。
-
-注意：
-
-- flowPage v2 的 `RootPageModel` readback 不应依赖 `subModels.tabs` 持久化结果
-- 如果页面需要多个可见 tab，先通过 `desktopRoutes` 创建 child route，再读取对应 `tabSchemaUid -> grid`
-
-## 9. 写入策略与 readback
-
-- agent 默认不要直接决定 `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure`；默认由 wrapper 或 builder 流水线代选底层写法。
-- 多步事务、`$ref` 串联、可重试 upsert：底层通常落到 `PostFlowmodels_mutate`
-- 单个已知模型/树且已有实时快照：底层通常落到 `PostFlowmodels_save`
-- object child 缺失且 schema 已证明本应存在：底层才用 `PostFlowmodels_ensure`
-- 排序只用 `PostFlowmodels_move`
-- 删除已知子树只用 `PostFlowmodels_destroy`
-- `PostFlowmodels_duplicate` 是遗留接口；确实需要复制时，优先考虑 `mutate + duplicate`
-
-以下写操作成功后，都必须立刻做同目标 readback：
-
-- `PostFlowmodels_save`
-- `PostFlowmodels_ensure`
-- `PostFlowmodels_mutate`
-
-skill 级执行约束：
-
-- 上面这些工具不是 ad-hoc 默认入口
-- ad-hoc live tree 写入与直接页面壳创建时，统一经 `node scripts/ui_write_wrapper.mjs run ...`
-- `flow_write_wrapper.mjs` 只保留给 flow-only 兼容场景，不再是默认 agent 入口
-- `mutate` / `ensure` 如果请求体不是最终模型树，要额外提供 verify payload 给兼容 wrapper 做 guard/readback
-- 对 flowPage v2，guard 会阻断两类写法：`RootPageModel.subModels.tabs` 直写，以及把页面 route `schemaUid` 直接当成 `RootPageModel.uid` 直写
-
-对账规则：
-
-- 以后续同目标 `GetFlowmodels_findone` 为准
-- 默认由 wrapper 自动执行写后 readback；不要手工把它省掉
-- `ok` 只代表请求提交成功，不代表最终状态
-- 显式 tabs 至少对账 tab 数、tab 标题、每个 tab 是否有 `BlockGridModel`
-- selector/dataScope 至少对账 `filterByTk` / `dataScope` 是否漂移
-
-readback mismatch 时，默认降级为 `partial` 或 `failed`。
-
-## 10. 删除页面
-
-使用 `PostDesktoproutes_destroyv2`：
-
-```json
-{
-  "requestBody": {
-    "schemaUid": "k7n4x9p2q5ra"
-  }
-}
-```
-
-可选校验：
-
-- page route 已不存在
-- `parentId={schemaUid}, subKey=page` 返回 `null`
-- `parentId=tabs-{schemaUid}, subKey=grid` 返回 `null`
+- the page route no longer exists
+- `parentId={schemaUid}, subKey=page` returns `null`
+- `parentId=tabs-{schemaUid}, subKey=grid` returns `null`

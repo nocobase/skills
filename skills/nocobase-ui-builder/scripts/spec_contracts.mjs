@@ -1822,7 +1822,7 @@ function compileLayoutVariant({
     artifact.issues.push({
       code: 'ROOT_PAGE_TABS_REQUIRE_ROUTE_DRIVEN_BUILD',
       severity: 'blocker',
-      message: 'Root flowPage 的 visible tabs 不能直接编译成 RootPageModel.subModels.tabs；应先创建 child desktopRoutes，再分别写 tab route 的 grid anchor。',
+      message: 'Visible tabs in Root flowPage cannot be compiled directly into RootPageModel.subModels.tabs. Create child desktopRoutes first, then write the grid anchor for each tab route separately.',
       details: {
         tabTitles: tree.tabs.map((tab) => tab.title),
         pageUse: layout.pageUse,
@@ -2180,7 +2180,7 @@ async function resolveValidationInstanceInventory({
     source: hasProvidedInventory ? 'provided-incomplete' : 'missing',
     blocker: {
       code: 'LIVE_COLLECTION_INVENTORY_REQUIRED',
-      message: '缺少 live collection inventory，当前请求不能继续进入 planner/build。',
+      message: 'Live collection inventory is missing, so this request cannot continue into planner/build.',
       details: {
         candidatePageUrl: normalizeOptionalText(candidatePageUrl),
         hasProvidedInventory,
@@ -2452,8 +2452,8 @@ function buildSingleValidationSpecs({
       ? 'PRIMITIVE_FIRST_PLANNING_BLOCKED'
       : 'PRIMITIVE_FIRST_SCENARIO_GENERATED',
     message: plannedScenario.scenario.planningStatus === 'blocked'
-      ? `已基于请求 "${requestText}" 进入 Primitive-first 规划，但当前规划被阻断：${plannedScenario.scenario.planningBlockers.map((item) => item.code).join(', ') || 'unknown blocker'}。`
-      : `已基于请求 "${requestText}" 生成 Primitive-first 场景 ${plannedScenario.scenario.id}，默认先锁定 collection/fields，再规划区块与操作。`,
+      ? `Primitive-first planning was started from request "${requestText}", but the current plan is blocked: ${plannedScenario.scenario.planningBlockers.map((item) => item.code).join(', ') || 'unknown blocker'}.`
+      : `Primitive-first scenario ${plannedScenario.scenario.id} was generated from request "${requestText}". By default it locks collection/fields first, then plans blocks and actions.`,
   });
 
   return {
@@ -2511,7 +2511,7 @@ export async function buildValidationSpecsForRun({
       instanceInventory: inventoryResolution.instanceInventory,
       blocker: inventoryResolution.blocker,
       issueCode: 'LIVE_COLLECTION_INVENTORY_REQUIRED',
-      issueMessage: '缺少 live collection inventory，validation request 在 planner 前被阻断。',
+      issueMessage: 'Live collection inventory is missing, so the validation request was blocked before planner execution.',
       menuPlacement: blockedMenuPlacement,
       extraResult: {
         pageBuilds: [],
@@ -2579,7 +2579,7 @@ export async function buildValidationSpecsForRun({
     }));
     const multiPageBlocker = {
       code: 'MULTI_PAGE_REQUEST_REQUIRES_PAGE_LEVEL_EXECUTION',
-      message: `请求已拆成 ${pageBuilds.length} 个页面规格，必须逐页执行 build，不能把聚合请求直接送入单页 builder。`,
+      message: `The request was split into ${pageBuilds.length} page specs. Build must run page by page, and the aggregated request cannot be sent directly into the single-page builder.`,
       details: {
         pageCount: pageBuilds.length,
         pageIds: pageBuilds.map((item, index) => item.compileArtifact?.scenarioId || `page-${index + 1}`),

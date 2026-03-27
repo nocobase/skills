@@ -422,7 +422,7 @@ function inspectObjectExpression(node, env) {
   if (!resolved) {
     return {
       ok: false,
-      reason: '对象参数为空。',
+      reason: 'The object argument is empty.',
       object: null,
       properties: new Map(),
     };
@@ -430,7 +430,7 @@ function inspectObjectExpression(node, env) {
   if (resolved.type !== 'ObjectExpression') {
     return {
       ok: false,
-      reason: '参数不是静态对象字面量。',
+      reason: 'The argument is not a static object literal.',
       object: resolved,
       properties: new Map(),
     };
@@ -441,7 +441,7 @@ function inspectObjectExpression(node, env) {
     if (property.type !== 'Property') {
       return {
         ok: false,
-        reason: '对象参数包含 spread，当前无法安全改写。',
+        reason: 'The object argument contains a spread element and cannot be rewritten safely.',
         object: resolved,
         properties,
       };
@@ -449,7 +449,7 @@ function inspectObjectExpression(node, env) {
     if (property.computed) {
       return {
         ok: false,
-        reason: '对象参数包含 computed key，当前无法安全改写。',
+        reason: 'The object argument contains a computed key and cannot be rewritten safely.',
         object: resolved,
         properties,
       };
@@ -458,7 +458,7 @@ function inspectObjectExpression(node, env) {
     if (!key) {
       return {
         ok: false,
-        reason: '对象参数存在无法解析的 key。',
+        reason: 'The object argument contains a key that cannot be analyzed safely.',
         object: resolved,
         properties,
       };
@@ -666,7 +666,7 @@ function buildInnerHTMLRewrite({ assignmentNode, ancestors, code, env, localAlia
     transforms: [
       {
         code: 'RUNJS_ELEMENT_INNERHTML_TO_CTX_RENDER',
-        message: '把 ctx.element.innerHTML 赋值改写为 ctx.render(...)。',
+        message: 'Rewrote the ctx.element.innerHTML assignment to ctx.render(...).',
       },
     ],
   };
@@ -703,7 +703,7 @@ function analyzeInnerHTMLAssignment({ node, ancestors, code, env, modelUse, path
         createFinding({
           severity: 'warning',
           code: 'RUNJS_ELEMENT_INNERHTML_REWRITE_AVAILABLE',
-          message: '渲染型 JS model 不应直接写 innerHTML；当前赋值可自动改写为 ctx.render(...)。',
+          message: 'Rendering JS models should not write innerHTML directly; this assignment can be rewritten to ctx.render(...).',
           path: findingPath,
           modelUse,
           line,
@@ -721,7 +721,7 @@ function analyzeInnerHTMLAssignment({ node, ancestors, code, env, modelUse, path
     findings: [
       createFinding({
         code: 'RUNJS_ELEMENT_INNERHTML_FORBIDDEN',
-        message: '渲染型 JS model 不允许直接写 innerHTML；请改用 ctx.render(...)，或先移除后续 DOM 依赖再重写。',
+        message: 'Rendering JS models may not write innerHTML directly. Use ctx.render(...), or remove downstream DOM dependencies before rewriting.',
         path: findingPath,
         modelUse,
         line,
@@ -928,7 +928,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
         createFinding({
           severity: 'warning',
           code: 'RUNJS_AUTH_CHECK_REDUNDANT',
-          message: '读取当前登录用户时不应再请求 auth:check；优先使用 ctx.user 或 ctx.auth?.user。',
+          message: 'Do not request auth:check just to read the current user. Prefer ctx.user or ctx.auth?.user.',
           path: findingPath,
           modelUse,
           line: callNode.loc?.start?.line,
@@ -945,7 +945,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
         transforms: [
           {
             code: 'RUNJS_AUTH_CHECK_TO_CTX_USER',
-            message: '把 auth:check 请求改写为直接读取 ctx.user / ctx.auth?.user。',
+            message: 'Rewrote the auth:check request to read ctx.user / ctx.auth?.user directly.',
             details: {
               url: target.normalized,
             },
@@ -961,7 +961,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
       findings: [
         createFinding({
           code: 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-          message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但包含当前无法安全改写的顶层参数：${unsupportedTopLevelKeys.join(', ')}。请改用 resource API。`,
+          message: `ctx.request hits the resource-read endpoint "${target.normalized}", but it contains top-level params that cannot be rewritten safely: ${unsupportedTopLevelKeys.join(', ')}. Use the resource API instead.`,
           path: findingPath,
           modelUse,
           line: callNode.loc?.start?.line,
@@ -987,8 +987,8 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
           createFinding({
             code: filterUnsupported ? 'RUNJS_REQUEST_FILTER_GROUP_UNSUPPORTED' : 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
             message: filterUnsupported
-              ? `ctx.request 命中了资源读取接口 "${target.normalized}"，且 filter 使用了 builder 风格结构，但 params 不是可安全改写的静态对象。请改用 resource API 或服务端 query filter。`
-              : `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 当前不是可安全改写的静态对象。请改用 resource API。`,
+              ? `ctx.request hits the resource-read endpoint "${target.normalized}", and the filter uses builder-style structure, but params are not a static object that can be rewritten safely. Use the resource API or a server query filter instead.`
+              : `ctx.request hits the resource-read endpoint "${target.normalized}", but params are not a static object that can be rewritten safely. Use the resource API instead.`,
             path: findingPath,
             modelUse,
             line: callNode.loc?.start?.line,
@@ -1010,7 +1010,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
       findings: [
         createFinding({
           code: 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-          message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 包含当前无法安全改写的字段：${unsupportedParamKeys.join(', ')}。请改用 resource API。`,
+          message: `ctx.request hits the resource-read endpoint "${target.normalized}", but params contain fields that cannot be rewritten safely: ${unsupportedParamKeys.join(', ')}. Use the resource API instead.`,
           path: findingPath,
           modelUse,
           line: callNode.loc?.start?.line,
@@ -1029,7 +1029,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
     createFinding({
       severity: 'warning',
       code: 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST',
-      message: `读取 NocoBase 资源 "${target.normalized}" 时不应默认使用 ctx.request；应优先改写为 ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}。`,
+      message: `Do not default to ctx.request when reading the NocoBase resource "${target.normalized}". Prefer ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'} instead.`,
       path: findingPath,
       modelUse,
       line: callNode.loc?.start?.line,
@@ -1047,7 +1047,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
       code: target.action === 'get'
         ? 'RUNJS_REQUEST_GET_TO_SINGLE_RECORD_RESOURCE'
         : 'RUNJS_REQUEST_LIST_TO_MULTI_RECORD_RESOURCE',
-      message: `把 ${target.normalized} 的 ctx.request 调用改写为 ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}。`,
+      message: `Rewrote the ctx.request call for ${target.normalized} to ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}.`,
       details: {
         url: target.normalized,
         resourceName: target.resourceName,
@@ -1060,7 +1060,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, path: findingPat
   if (filterProperty && looksLikeFilterGroupExpression(filterProperty.value, env)) {
     transforms.unshift({
       code: 'RUNJS_REQUEST_FILTER_GROUP_TO_QUERY_FILTER',
-      message: `把 ${target.normalized} 请求里的 builder filter 自动收敛为服务端 query filter。`,
+      message: `Normalized the builder-style filter in the ${target.normalized} request into a server query filter.`,
       details: {
         url: target.normalized,
       },

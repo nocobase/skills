@@ -357,7 +357,7 @@ export function remapTemplateTreeToTarget({
   if (summary.nodes === 1 && summary.topLevelItems === 0 && summary.topLevelTabs === 0) {
     issues.push({
       code: 'EMPTY_TEMPLATE_TREE',
-      message: '模板 clone 后只剩 root 壳，没有任何顶层 items 或 tabs。',
+      message: 'After template clone, only the root shell remains and there are no top-level items or tabs.',
     });
   }
 

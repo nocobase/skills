@@ -1,48 +1,42 @@
 ---
-title: 树表与自关联
-description: 树表模式、自关联层级数据和新增下级动作的注意事项。
+title: Tree tables and self-relations
+description: Notes for tree-table mode, self-referential hierarchical data, and add-child actions.
 ---
 
-# 树表与自关联
+# Tree tables and self-relations
 
-## 适用区块与问题
+## Applies to
 
-适用于：
+- `TableBlockModel` tree-table mode
+- self-referential data
+- actions such as "add child" that depend on parent context
 
-- `TableBlockModel` 的树表模式
-- 自关联数据
-- “新增下级”这类依赖父节点的动作
+## Core rules
 
-优先参考动态场景：
+- verify that the collection really has a self-relation
+- verify that the table really needs `treeTable` settings
+- parent context must be explicit; never assume the current record always includes parent data
 
-- 组织运营树形运维页面
+## Minimum success standard
 
-## 核心规则
+A tree-table flow is only complete when it can answer:
 
-- 先确认 collection 里是否真的存在自关联关系
-- 再确认表格是否需要 `treeTable` 相关设置
-- 父节点上下文必须明确，不能默认假设当前记录里总有 parent 信息
+- whether tree-table settings persisted
+- whether known hierarchical samples map to the table correctly
+- what parent context an add-child action receives
 
-## 最小成功标准
+## Common mistakes
 
-树表场景至少要能回答：
+- building a normal table but describing it as a tree table
+- having a self-relation but no tree-table configuration
+- add-child actions with no parent context
 
-- 树表设置是否已落库
-- 已知的层级样本是否能映射到当前表格
-- 新增下级动作拿到的父节点上下文是什么
+## Known limits
 
-## 常见误区
+- tree tables depend heavily on runtime expansion logic
+- without browser replay, the final result can only claim flow-tree persistence and sample mapping, not guaranteed UI expansion correctness
 
-- 只创建普通表格，却在说明里说成树表
-- 自关联关系存在，但表格没有树表配置
-- 新增下级动作没有父节点上下文
-
-## 已知边界
-
-- 树表通常比普通表格更依赖运行时层级展开逻辑
-- 如果没有浏览器交互回放，最终只能说明 flow tree 和样本映射，不代表 UI 展开一定正确
-
-## 关联文档
+## Related docs
 
 - [../blocks/table.md](../blocks/table.md)
 - [record-actions.md](record-actions.md)

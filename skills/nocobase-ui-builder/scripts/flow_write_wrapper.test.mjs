@@ -94,7 +94,7 @@ test('flow_write_wrapper blocks write before consuming artifacts when guard fail
   assert.equal(result.status, 2);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.guardBlocked, true);
-  assert.equal(parsed.notes.includes('guard 命中 blocker，wrapper 已阻断实际写入。'), true);
+  assert.equal(parsed.notes.includes('A guard blocker was hit, so the wrapper stopped the real write.'), true);
   assert.equal(fs.existsSync(path.join(tempDir, 'out', 'audit.initial.json')), true);
   assert.equal(fs.existsSync(path.join(tempDir, 'out', 'save-result.json')), false);
 });

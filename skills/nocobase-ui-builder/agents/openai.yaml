@@ -1,4 +1,4 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "构建与修改 NocoBase Modern page v2 页面、区块与结构化验证路径"
-  default_prompt: "Use $nocobase-ui-builder to create or update a NocoBase Modern page v2, route the task through the canonical references for page lifecycle or block mutations, and only enter validation/review/smoke when I explicitly ask for it."
+  short_description: "Build and modify NocoBase Modern page v2 pages, blocks, and structured validation flows"
+  default_prompt: "Use $nocobase-ui-builder to create or update a NocoBase Modern page v2, route the task through the canonical references for page lifecycle or block mutations, and only enter validation, review, or smoke when I explicitly ask for it."

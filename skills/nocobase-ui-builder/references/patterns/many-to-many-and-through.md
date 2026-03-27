@@ -1,51 +1,44 @@
 ---
-title: 多对多与中间表
-description: 多对多关系表、中间表字段、成员关系编辑与关联选择器的边界说明。
+title: Many-to-many and through
+description: Boundaries for many-to-many relation tables, through fields, member editing, and relation selectors.
 ---
 
-# 多对多与中间表
+# Many-to-many and through
 
-## 适用区块与问题
+## Applies to
 
-适用于：
+- many-to-many member tables
+- through-field display
+- relation-record editing such as "add member" or "edit role"
+- relation selectors inside popup flows
 
-- 多对多成员表
-- through / 中间表字段展示
-- “添加成员”“编辑角色”这类关系记录编辑
-- 关联选择弹窗
+## Core rules
 
-优先参考动态场景：
+- distinguish target-table fields from through-table fields
+- seeing target-table data is not proof that through fields are also usable
+- when an action edits a through record, state clearly whether it edits the target record or the join record
 
-- 项目交付里的成员管理、多对多关系表
-- 复杂关系编辑和 through 字段展示
+## Minimum success standard
 
-## 核心规则
+A many-to-many relation table is only complete when the run can answer:
 
-- 先分清目标表字段和 through 表字段
-- 不要把“看到了目标表记录”误当成“中间表字段也已可用”
-- 如果动作会改 through 记录，必须明确到底编辑的是目标记录还是中间表记录
+- who the parent record is
+- which resource the relation table is reading
+- whether through fields are really visible
+- whether add-member or edit-role actions target the correct action tree
 
-## 最小成功标准
+## Common mistakes
 
-一个多对多关系表要算完成，至少要能回答：
+- showing only target-table fields while ignoring through fields
+- a selector popup opens, but nobody knows which table the result writes back to
+- an edit action exists, but it actually edits the user record instead of the membership record
 
-- 主记录是谁
-- 关系表读的是哪张资源
-- 中间表字段是否真的可见
-- 添加成员 / 编辑角色到底落到了哪种动作树
+## Known limits
 
-## 常见误区
+- many-to-many flows are usually more fragile than one-to-many flows
+- when the current API cannot express the relation block correctly, report it as a blocker instead of pretending a normal table is complete
 
-- 只展示目标表字段，忽略 through 字段
-- 选择器能弹出，但不知道写回哪张表
-- 编辑动作存在，但其实编辑的是用户而不是成员关系记录
-
-## 已知边界
-
-- 这类场景通常比一对多关系更容易暴露 schema 与 runtime 的缺口
-- 如果当前 API 还缺 relation block 的聚合表达，应该明确写成 blocker，而不是伪装为普通表格已完成
-
-## 关联文档
+## Related docs
 
 - [../blocks/table.md](../blocks/table.md)
 - [../blocks/edit-form.md](../blocks/edit-form.md)

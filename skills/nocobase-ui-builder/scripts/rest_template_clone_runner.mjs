@@ -1161,7 +1161,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
       findings.push({
         severity: 'warning',
         code: 'READBACK_POPUP_SCOPE_DRIFT',
-        message: `popup scope "${scopePath}" 在 write/readback 之间不一致。`,
+        message: `Popup scope "${scopePath}" is inconsistent between write and readback.`,
         details: {
           scopePath,
           writePresent: Boolean(writeScope),
@@ -1179,7 +1179,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
       findings.push({
         severity: 'warning',
         code: 'READBACK_POPUP_SCOPE_DRIFT',
-        message: `popup scope "${scopePath}" 的结构在 readback 中发生漂移。`,
+        message: `Popup scope "${scopePath}" drifted structurally in readback.`,
         details: {
           scopePath,
           write: {
@@ -1209,7 +1209,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
       findings.push({
         severity: 'warning',
         code: 'READBACK_FIELD_MODEL_SHAPE_DRIFT',
-        message: `runtime-sensitive field host "${fieldPath}" 在 write/readback 之间不一致。`,
+        message: `Runtime-sensitive field host "${fieldPath}" is inconsistent between write and readback.`,
         details: {
           fieldPath,
           writePresent: Boolean(writeField),
@@ -1228,7 +1228,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
       findings.push({
         severity: 'warning',
         code: 'READBACK_FIELD_MODEL_SHAPE_DRIFT',
-        message: `runtime-sensitive field host "${fieldPath}" 的 field 子树在 readback 中发生漂移。`,
+        message: `The field subtree of runtime-sensitive field host "${fieldPath}" drifted in readback.`,
         details: {
           fieldPath,
           write: writeField,
@@ -1248,7 +1248,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
       findings.push({
         severity: 'warning',
         code: 'READBACK_GRID_SCOPE_DRIFT',
-        message: `grid scope "${gridPath}" 在 write/readback 之间不一致。`,
+        message: `Grid scope "${gridPath}" is inconsistent between write and readback.`,
         details: {
           gridPath,
           writePresent: Boolean(writeGrid),
@@ -1267,7 +1267,7 @@ export function buildReadbackDriftReport(writeModel, readbackModel) {
       findings.push({
         severity: 'warning',
         code: 'READBACK_GRID_MEMBERSHIP_DRIFT',
-        message: `grid scope "${gridPath}" 的 items/layout 在 readback 中发生漂移。`,
+        message: `The items/layout of grid scope "${gridPath}" drifted in readback.`,
         details: {
           gridPath,
           write: {
@@ -1334,7 +1334,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_TOP_LEVEL_USE_MISSING',
-        message: `readback 缺少顶层 use "${requiredUse}"`,
+        message: `Readback is missing top-level use "${requiredUse}".`,
         details: {
           requiredUse,
           topLevelUses,
@@ -1348,7 +1348,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_VISIBLE_TAB_MISSING',
-        message: `readback 缺少可见 tab "${title}"`,
+        message: `Readback is missing visible tab "${title}".`,
         details: {
           title,
           visibleTabTitles,
@@ -1365,7 +1365,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_REQUIRED_TAB_PAGE_USE_MISMATCH',
-        message: `readback pageUse 为 "${normalizeOptionalText(model.use)}"，期望 "${requirement.pageUse}"`,
+        message: `Readback pageUse is "${normalizeOptionalText(model.use)}", expected "${requirement.pageUse}".`,
         details: {
           index,
           expectedPageUse: requirement.pageUse,
@@ -1381,7 +1381,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_REQUIRED_TAB_MISSING',
-        message: `readback 缺少 requiredTabs 指定的 tab: ${missingTitles.join(', ')}`,
+        message: `Readback is missing tabs required by requiredTabs: ${missingTitles.join(', ')}.`,
         details: {
           index,
           missingTitles,
@@ -1399,7 +1399,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_REQUIRED_TAB_BLOCK_GRID_MISSING',
-          message: `readback tab 缺少 BlockGridModel: ${missingGridTitles.join(', ')}`,
+          message: `Readback tabs are missing BlockGridModel: ${missingGridTitles.join(', ')}.`,
           details: {
             index,
             missingGridTitles,
@@ -1418,7 +1418,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_REQUIRED_TAB_BLOCK_USE_MISSING',
-          message: `readback tab 缺少 required block uses: ${missingBlockUses.join(', ')}`,
+          message: `Readback tabs are missing required block uses: ${missingBlockUses.join(', ')}.`,
           details: {
             index,
             expectedTitles,
@@ -1434,7 +1434,7 @@ export function validateReadbackContract(model, contract = {}) {
     findings.push({
       severity: 'blocker',
       code: 'READBACK_TAB_COUNT_MISMATCH',
-      message: `readback visible tab 数量为 ${visibleTabTitles.length}，期望 ${requiredTabCount}`,
+      message: `Readback visible-tab count is ${visibleTabTitles.length}, expected ${requiredTabCount}.`,
       details: {
         requiredTabCount,
         actualTabCount: visibleTabTitles.length,
@@ -1447,7 +1447,7 @@ export function validateReadbackContract(model, contract = {}) {
     findings.push({
       severity: 'blocker',
       code: 'READBACK_FILTER_MANAGER_MISMATCH',
-      message: `readback filterManager 条目数为 ${filterManagerEntryCount}，期望至少 ${requiredFilterManagerEntryCount}`,
+      message: `Readback filterManager entry count is ${filterManagerEntryCount}, expected at least ${requiredFilterManagerEntryCount}.`,
       details: {
         requiredFilterManagerEntryCount,
         actualFilterManagerEntryCount: filterManagerEntryCount,
@@ -1464,7 +1464,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_FILTER_SCOPE_MISSING',
-        message: `readback 缺少筛选绑定所在作用域，tab="${normalizeOptionalText(binding.tabTitle) || '$root'}"`,
+        message: `Readback is missing the scope that should contain the filter binding, tab="${normalizeOptionalText(binding.tabTitle) || '$root'}".`,
         details: {
           index,
           binding,
@@ -1498,7 +1498,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_FILTER_ITEM_MISSING',
-          message: `readback 缺少筛选项 ${collectionName ? `${collectionName}.` : ''}${fieldName}`,
+          message: `Readback is missing filter item ${collectionName ? `${collectionName}.` : ''}${fieldName}.`,
           details: {
             index,
             fieldName,
@@ -1515,7 +1515,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_FILTER_TARGET_MISMATCH',
-          message: `readback 筛选项 ${fieldName} 没有连接到期望 target use`,
+          message: `Readback filter item ${fieldName} is not connected to the expected target use.`,
           details: {
             index,
             fieldName,
@@ -1535,7 +1535,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_FILTER_BINDING_MISSING',
-          message: `readback filterManager 未找到 ${fieldName} 的稳定绑定`,
+          message: `Readback filterManager did not find a stable binding for ${fieldName}.`,
           details: {
             index,
             fieldName,
@@ -1561,7 +1561,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_SCOPE_MISSING',
-        message: `readback 缺少 scope "${scopePath}"`,
+        message: `Readback is missing scope "${scopePath}".`,
         details: {
           index,
           scopePath,
@@ -1573,7 +1573,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_SCOPE_PAGE_USE_MISMATCH',
-        message: `scope "${scopePath}" 的 pageUse 不匹配`,
+        message: `Scope "${scopePath}" has a mismatched pageUse.`,
         details: {
           index,
           scopePath,
@@ -1586,7 +1586,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_SCOPE_TAB_TITLE_MISMATCH',
-        message: `scope "${scopePath}" 的 tabTitle 不匹配`,
+        message: `Scope "${scopePath}" has a mismatched tabTitle.`,
         details: {
           index,
           scopePath,
@@ -1599,7 +1599,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_SCOPE_BLOCK_GRID_MISSING',
-        message: `scope "${scopePath}" 缺少 BlockGridModel`,
+        message: `Scope "${scopePath}" is missing BlockGridModel.`,
         details: {
           index,
           scopePath,
@@ -1613,7 +1613,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_SCOPE_BLOCK_USE_MISSING',
-          message: `scope "${scopePath}" 缺少 required block uses: ${missingBlockUses.join(', ')}`,
+          message: `Scope "${scopePath}" is missing required block uses: ${missingBlockUses.join(', ')}.`,
           details: {
             index,
             scopePath,
@@ -1638,7 +1638,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_GRID_SCOPE_MISSING',
-        message: `readback 缺少 grid membership 所在 scope "${scopePath}"`,
+        message: `Readback is missing the scope that should contain grid membership "${scopePath}".`,
         details: {
           index,
           scopePath,
@@ -1652,7 +1652,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_GRID_NODE_MISSING',
-        message: `scope "${scopePath}" 没有可读的 grid 节点`,
+        message: `Scope "${scopePath}" has no readable grid node.`,
         details: {
           index,
           scopePath,
@@ -1666,7 +1666,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_GRID_USE_MISMATCH',
-        message: `scope "${scopePath}" 的 grid use 不匹配`,
+        message: `Scope "${scopePath}" has a mismatched grid use.`,
         details: {
           index,
           scopePath,
@@ -1681,7 +1681,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_GRID_ITEM_COUNT_MISMATCH',
-        message: `scope "${scopePath}" 的 grid item 数量不匹配`,
+        message: `Scope "${scopePath}" has a mismatched grid-item count.`,
         details: {
           index,
           scopePath,
@@ -1696,7 +1696,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_GRID_ITEM_USE_MISMATCH',
-        message: `scope "${scopePath}" 的 grid item uses 不匹配`,
+        message: `Scope "${scopePath}" has mismatched grid-item uses.`,
         details: {
           index,
           scopePath,
@@ -1713,7 +1713,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_GRID_ITEM_UID_MISSING',
-          message: `scope "${scopePath}" 的 grid 缺少期望 item uid`,
+          message: `Scope "${scopePath}" grid is missing an expected item uid.`,
           details: {
             index,
             scopePath,
@@ -1731,7 +1731,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_GRID_LAYOUT_ORPHAN_UID',
-          message: `scope "${scopePath}" 的布局引用了不存在的 item uid`,
+          message: `Scope "${scopePath}" layout references an item uid that does not exist.`,
           details: {
             index,
             scopePath,
@@ -1746,7 +1746,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_GRID_ITEM_UNPLACED',
-          message: `scope "${scopePath}" 的 grid item 没有真正落进布局 rows`,
+          message: `A grid item in scope "${scopePath}" did not land in layout rows.`,
           details: {
             index,
             scopePath,
@@ -1768,7 +1768,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_DETAILS_BLOCK_MISSING',
-        message: `详情块所在 scope "${scopePath}" 不存在`,
+        message: `The scope "${scopePath}" for the details block does not exist.`,
         details: {
           index,
           scopePath,
@@ -1784,7 +1784,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_DETAILS_BLOCK_MISSING',
-        message: `scope "${scopePath}" 中缺少 ${collectionName} 的 DetailsBlockModel`,
+        message: `Scope "${scopePath}" is missing DetailsBlockModel for ${collectionName}.`,
         details: {
           index,
           scopePath,
@@ -1799,7 +1799,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_DETAILS_ITEM_COUNT_MISMATCH',
-        message: `scope "${scopePath}" 中的详情字段项数量不足`,
+        message: `Scope "${scopePath}" does not contain enough details items.`,
         details: {
           index,
           scopePath,
@@ -1816,7 +1816,7 @@ export function validateReadbackContract(model, contract = {}) {
       findings.push({
         severity: 'blocker',
         code: 'READBACK_DETAILS_FIELD_MISSING',
-        message: `scope "${scopePath}" 中的详情字段不完整`,
+        message: `The details fields in scope "${scopePath}" are incomplete.`,
         details: {
           index,
           scopePath,
@@ -1834,7 +1834,7 @@ export function validateReadbackContract(model, contract = {}) {
         findings.push({
           severity: 'blocker',
           code: 'READBACK_DETAILS_FILTER_BY_TK_MISMATCH',
-          message: `scope "${scopePath}" 中的详情块 filterByTk 不符合预期模板`,
+          message: `The details block filterByTk in scope "${scopePath}" does not match the expected template.`,
           details: {
             index,
             scopePath,

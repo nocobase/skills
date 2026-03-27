@@ -1,7 +1,7 @@
-# Validation 数据前置规则
+# Validation data prerequisites
 
-这个兼容入口保留给旧链接使用；正文已合并到：
+This compatibility entrypoint remains only for old links. The authoritative content has moved to:
 
 - [validation.md](validation.md)
 
-请以后直接以 `validation.md` 作为 validation 与数据前置的事实来源。
+Use `validation.md` as the single source of truth for validation and data-preparation rules.

@@ -460,7 +460,7 @@ function createUnsupportedFilterLogicFinding({ path: findingPath, mode, logic })
   return createFinding({
     severity: 'blocker',
     code: 'FILTER_LOGIC_UNSUPPORTED',
-    message: `filter logic "${logic}" 不受支持；只允许 "$and" 或 "$or"。`,
+    message: `Filter logic "${logic}" is unsupported; only "$and" or "$or" is allowed.`,
     path: findingPath,
     mode,
     details: {
@@ -1088,7 +1088,7 @@ function inspectRequiredMetadataCoverage(requiredMetadata, metadata, mode, block
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'REQUIRED_COLLECTION_METADATA_MISSING',
-      message: `payload 依赖 collection "${collectionRef.collectionName}" 的元数据，但当前 metadata 未提供。`,
+      message: `The payload depends on metadata for collection "${collectionRef.collectionName}", but the current metadata does not provide it.`,
       path: collectionRef.path,
       mode,
       dedupeKey: `REQUIRED_COLLECTION_METADATA_MISSING:${collectionRef.collectionName}`,
@@ -2026,7 +2026,7 @@ function hasRequiredAction(actionNode, requirement, collectionName, businessBloc
   if (requirement.kind === 'edit-record-popup') {
     return hasPopupActionWithRequirements(actionNode, {
       collectionName,
-      titlePattern: /(编辑订单项|编辑|edit)/i,
+      titlePattern: /(\u7f16\u8f91\u8ba2\u5355\u9879|\u7f16\u8f91|edit)/i,
       requireRecordContext: true,
       requiredFormUses: EDIT_FORM_MODEL_USES,
       allowedActionUses: RECORD_ACTION_MODEL_USES,
@@ -2036,7 +2036,7 @@ function hasRequiredAction(actionNode, requirement, collectionName, businessBloc
   if (requirement.kind === 'view-record-popup') {
     return hasPopupActionWithRequirements(actionNode, {
       collectionName,
-      titlePattern: /(查看|详情|view)/i,
+      titlePattern: /(\u67e5\u770b|\u8be6\u60c5|view)/i,
       requireRecordContext: true,
       requiredFormUses: null,
       allowedActionUses: RECORD_ACTION_MODEL_USES,
@@ -2046,7 +2046,7 @@ function hasRequiredAction(actionNode, requirement, collectionName, businessBloc
   if (requirement.kind === 'create-popup') {
     return hasPopupActionWithRequirements(actionNode, {
       collectionName,
-      titlePattern: /(新建|创建|添加|登记|create|add)/i,
+      titlePattern: /(\u65b0\u5efa|\u521b\u5efa|\u6dfb\u52a0|\u767b\u8bb0|create|add)/i,
       requireRecordContext: false,
       requiredFormUses: CREATE_FORM_MODEL_USES,
       allowedActionUses: COLLECTION_ACTION_MODEL_USES,
@@ -2056,7 +2056,7 @@ function hasRequiredAction(actionNode, requirement, collectionName, businessBloc
   if (requirement.kind === 'add-child-record-popup') {
     return hasPopupActionWithRequirements(actionNode, {
       collectionName,
-      titlePattern: /(新增下级|下级|addchild|add child|child)/i,
+      titlePattern: /(\u65b0\u589e\u4e0b\u7ea7|\u4e0b\u7ea7|addchild|add child|child)/i,
       requireRecordContext: true,
       requiredFormUses: CREATE_FORM_MODEL_USES,
       allowedActionUses: RECORD_ACTION_MODEL_USES,
@@ -2136,21 +2136,21 @@ function getRequiredActionMissingCode(kind) {
 
 function buildRequiredActionMissingMessage(kind, collectionName, scope) {
   if (kind === 'create-popup') {
-    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的新建 popup 动作树，但当前未发现满足条件的 action/page/CreateForm 结构。`;
+    return `${collectionName} was explicitly required to provide a stable create-popup action tree at ${scope}, but no matching action/page/CreateForm structure was found.`;
   }
   if (kind === 'view-record-popup') {
-    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的查看 popup 动作树，但当前未发现满足条件的 action/page/Details 结构。`;
+    return `${collectionName} was explicitly required to provide a stable view-record popup action tree at ${scope}, but no matching action/page/Details structure was found.`;
   }
   if (kind === 'add-child-record-popup') {
-    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的新增下级 popup 动作树，但当前未发现满足条件的 action/page/CreateForm 结构。`;
+    return `${collectionName} was explicitly required to provide a stable add-child popup action tree at ${scope}, but no matching action/page/CreateForm structure was found.`;
   }
   if (kind === 'delete-record') {
-    return `显式要求 ${collectionName} 在 ${scope} 提供稳定的删除动作，但当前未发现 DeleteActionModel。`;
+    return `${collectionName} was explicitly required to provide a stable delete action at ${scope}, but no DeleteActionModel was found.`;
   }
   if (kind === 'record-action') {
-    return `显式要求 ${collectionName} 在 ${scope} 提供 record action，但当前未发现满足条件的记录级动作。`;
+    return `${collectionName} was explicitly required to provide a record action at ${scope}, but no matching record-level action was found.`;
   }
-  return `显式要求 ${collectionName} 在 ${scope} 提供稳定的记录级编辑 popup 动作树，但当前未发现满足条件的 action/page/EditForm 结构。`;
+  return `${collectionName} was explicitly required to provide a stable record-edit popup action tree at ${scope}, but no matching action/page/EditForm structure was found.`;
 }
 
 function scopeMatchesRequirement(requirementScope, candidateScope) {
@@ -2265,7 +2265,7 @@ function inspectRequiredAction(payload, requirement, mode, blockers, seen, busin
   pushFinding(blockers, seen, createFinding({
     severity: 'blocker',
     code: 'REQUIRED_ACTION_TARGET_BLOCK_MISSING',
-    message: `显式要求 ${requirement.collectionName} 提供 ${requirement.kind}，但当前 payload 中未找到对应业务区块。`,
+    message: `${requirement.collectionName} was explicitly required to provide ${requirement.kind}, but no matching business block was found in the current payload.`,
     path: '$',
     mode,
     dedupeKey: `REQUIRED_ACTION_TARGET_BLOCK_MISSING:${requirement.kind}:${requirement.collectionName}`,
@@ -2333,7 +2333,7 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'REQUIRED_VISIBLE_TABS_MISSING',
-        message: `显式要求的 tabs 已命中标题，但缺少稳定 BlockGridModel；受影响 tabs：${titlesMissingGrid.join('、')}。`,
+        message: `The explicitly required tabs matched by title, but they are missing a stable BlockGridModel. Affected tabs: ${titlesMissingGrid.join(', ')}.`,
         path: `${pathValue}.subModels.tabs`,
         mode,
         dedupeKey: `REQUIRED_VISIBLE_TABS_MISSING:grid:${pathValue}:${titlesMissingGrid.join('|')}`,
@@ -2351,7 +2351,7 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'REQUIRED_VISIBLE_TABS_MISSING',
-      message: `显式要求的可见 tabs 未完整落入 payload；缺少：${missingTitles.join('、')}。`,
+      message: `The explicitly required visible tabs were not fully persisted into the payload. Missing: ${missingTitles.join(', ')}.`,
       path: `${pathValue}.subModels.tabs`,
       mode,
       dedupeKey: `REQUIRED_VISIBLE_TABS_MISSING:${pathValue}:${missingTitles.join('|')}`,
@@ -2372,7 +2372,7 @@ function inspectRequiredVisibleTabs(payload, requirement, mode, blockers, seen) 
   pushFinding(blockers, seen, createFinding({
     severity: 'blocker',
     code: 'REQUIRED_TABS_TARGET_PAGE_MISSING',
-    message: '要求显式可见 tabs，但 payload 中未找到目标 page/tabs 结构。',
+    message: 'Explicit visible tabs were required, but no target page/tabs structure was found in the payload.',
     path: '$',
     mode,
     dedupeKey: `REQUIRED_TABS_TARGET_PAGE_MISSING:${requirement.pageUse || 'any'}:${requirement.titles.join('|')}`,
@@ -2589,7 +2589,7 @@ function inspectRequiredFilters(payload, metadata, mode, requirements, blockers,
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'REQUIRED_FILTER_SCOPE_MISSING',
-        message: '显式要求存在筛选区块，但 payload 中未找到匹配的 filter scope。',
+        message: 'A filter block was explicitly required, but no matching filter scope was found in the payload.',
         path: '$',
         mode,
         dedupeKey: `REQUIRED_FILTER_SCOPE_MISSING:${requirement.pageSignature || '$'}:${requirement.tabTitle || '$root'}:${requirement.collectionName || '*'}`,
@@ -2619,8 +2619,8 @@ function inspectRequiredFilters(payload, metadata, mode, requirements, blockers,
         severity: 'blocker',
         code: 'REQUIRED_FILTER_FIELDS_MISSING',
         message: best.result.hasFilterItems
-          ? `显式要求的筛选字段未完整落入 scope "${best.result.scopeLabel}"。`
-          : `显式要求存在筛选区块，但 scope "${best.result.scopeLabel}" 下没有任何筛选字段。`,
+          ? `The explicitly required filter fields were not fully persisted into scope "${best.result.scopeLabel}".`
+          : `A filter block was explicitly required, but scope "${best.result.scopeLabel}" has no filter fields.`,
         path: best.scopeDescriptor.gridPath,
         mode,
         dedupeKey: `REQUIRED_FILTER_FIELDS_MISSING:${best.scopeDescriptor.gridPath}:${(requirement.fields || []).join('|')}:${requirement.collectionName || '*'}`,
@@ -2638,7 +2638,7 @@ function inspectRequiredFilters(payload, metadata, mode, requirements, blockers,
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'REQUIRED_FILTER_TARGET_USE_MISMATCH',
-      message: `显式要求的筛选项已存在，但没有连接到 scope "${best.result.scopeLabel}" 中期望的目标区块 use。`,
+      message: `The explicitly required filter item exists, but it is not connected to the expected target block use inside scope "${best.result.scopeLabel}".`,
       path: best.scopeDescriptor.gridPath,
       mode,
       dedupeKey: `REQUIRED_FILTER_TARGET_USE_MISMATCH:${best.scopeDescriptor.gridPath}:${(requirement.targetUses || []).join('|')}`,
@@ -2672,7 +2672,7 @@ function inspectTabTrees(payload, mode, warnings, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'TAB_SLOT_USE_INVALID',
-          message: `${node.use} 的 tabs 槽位只能放 ${[...allowedTabUses].join(' / ')}，当前收到 ${tabUse || '未知 use'}。`,
+          message: `The tabs slot of ${node.use} only accepts ${[...allowedTabUses].join(' / ')}, but received ${tabUse || 'unknown use'}.`,
           path: tabPath,
           mode,
           dedupeKey: `TAB_SLOT_USE_INVALID:${tabPath}:${tabUse || 'unknown'}`,
@@ -2693,7 +2693,7 @@ function inspectTabTrees(payload, mode, warnings, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'TAB_GRID_MISSING_OR_INVALID',
-          message: '显式 tab 下必须有稳定的 BlockGridModel，不能缺失或写成其他模型。',
+          message: 'An explicit tab must contain a stable BlockGridModel. It cannot be missing or replaced by another model.',
           path: gridPath,
           mode,
           dedupeKey: `TAB_GRID_MISSING_OR_INVALID:${gridPath}:${gridUse || 'missing'}`,
@@ -2718,7 +2718,7 @@ function inspectTabTrees(payload, mode, warnings, blockers, seen) {
           pushFinding(blockers, seen, createFinding({
             severity: 'blocker',
             code: 'TAB_GRID_ITEM_USE_INVALID',
-            message: '显式 tab 的 grid.items 槽位必须放业务 block，不能继续塞 page/tab/grid 结构节点。',
+            message: 'The grid.items slot under an explicit tab must contain business blocks, not more page/tab/grid structural nodes.',
             path: itemPath,
             mode,
             dedupeKey: `TAB_GRID_ITEM_USE_INVALID:${itemPath}:${itemNode.use}`,
@@ -2739,7 +2739,7 @@ function inspectTabTrees(payload, mode, warnings, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'TAB_SUBTREE_UID_REUSED',
-        message: `显式 tabs 子树复用了同一个 uid "${uid}"，这会让 page/tab/grid/block 结构塌缩。`,
+        message: `The explicit tab subtree reused the same uid "${uid}", which will collapse the page/tab/grid/block structure.`,
         path: `${pathValue}.subModels.tabs`,
         mode,
         dedupeKey: `TAB_SUBTREE_UID_REUSED:${pathValue}:${uid}`,
@@ -2773,7 +2773,7 @@ function inspectRootFlowPageSemantics(payload, metadata, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ROOT_PAGE_TABS_ROUTE_DRIVEN_ONLY',
-        message: 'RootPageModel 的可见 tabs 由 desktopRoutes 子路由驱动，不能作为 flowModels.subModels.tabs 直接落库；请改为写 page anchor，并把每个 tab 内容写到对应 tab route 的 grid anchor。',
+        message: 'Visible tabs on RootPageModel are driven by child desktopRoutes and cannot be persisted directly as flowModels.subModels.tabs. Write the page anchor instead, then write each tab content into the matching tab-route grid anchor.',
         path: `${pathValue}.subModels.tabs`,
         mode,
         dedupeKey: `ROOT_PAGE_TABS_ROUTE_DRIVEN_ONLY:${pathValue}:${tabs.length}`,
@@ -2804,7 +2804,7 @@ function inspectRootFlowPageSemantics(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'ROOT_PAGE_ANCHOR_LOCATOR_INVALID',
-          message: 'RootPageModel 的 anchor locator 不合法；page 写入必须命中 parentId=<pageSchemaUid>, subKey=page, subType=object。',
+          message: 'The RootPageModel anchor locator is invalid. Page writes must target parentId=<pageSchemaUid>, subKey=page, subType=object.',
           path: pathValue,
           mode,
           dedupeKey: `ROOT_PAGE_ANCHOR_LOCATOR_INVALID:${pathValue}:${locator.parentId}:${locator.subKey}:${locatorSubType}`,
@@ -2825,7 +2825,7 @@ function inspectRootFlowPageSemantics(payload, metadata, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ROOT_PAGE_DIRECT_ROUTE_UID_WRITE_BLOCKED',
-        message: '不能把页面 route schemaUid 直接当作 RootPageModel.uid 保存；flowPage v2 必须写 parentId=<pageSchemaUid>, subKey=page 的 anchor child，或写已有 anchor uid。',
+        message: 'Do not persist the page-route schemaUid directly as RootPageModel.uid. flowPage v2 must write the anchor child at parentId=<pageSchemaUid>, subKey=page, or reuse an existing anchor uid.',
         path: pathValue,
         mode,
         dedupeKey: `ROOT_PAGE_DIRECT_ROUTE_UID_WRITE_BLOCKED:${pathValue}:${locator.uid}`,
@@ -2875,7 +2875,7 @@ function inspectExistingUidReparenting(payload, metadata, mode, blockers, seen) 
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'EXISTING_UID_REPARENT_BLOCKED',
-      message: `uid "${current.uid}" 已存在于 live tree，不能通过直接复用旧 uid 改变 parent/subKey/subType 挂载关系。`,
+      message: `uid "${current.uid}" already exists in the live tree. Do not change parent/subKey/subType mounting by directly reusing an old uid.`,
       path: pathValue,
       mode,
       dedupeKey: `EXISTING_UID_REPARENT_BLOCKED:${current.uid}:${pathValue}`,
@@ -2915,7 +2915,7 @@ function inspectGridLayoutMembership(payload, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'GRID_LAYOUT_ORPHAN_UID',
-        message: `${gridUse} 的 gridSettings.rows 引用了不在 subModels.items 中的 uid，readback/runtime 会出现空槽或整块不显示。`,
+        message: `${gridUse}.gridSettings.rows references a uid that is not present in subModels.items. Readback/runtime can then show empty slots or hide the entire block.`,
         path: `${pathValue}.stepParams.gridSettings.grid.rows`,
         mode,
         dedupeKey: `GRID_LAYOUT_ORPHAN_UID:${pathValue}:${orphanLayoutUids.join(',')}`,
@@ -2933,7 +2933,7 @@ function inspectGridLayoutMembership(payload, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'GRID_ITEM_LAYOUT_MISSING',
-        message: `${gridUse} 的 subModels.items 中有节点没有出现在 gridSettings.rows 里，这类节点不会稳定落到可见布局槽位。`,
+        message: `${gridUse}.subModels.items contains nodes that do not appear in gridSettings.rows. Those nodes will not land stably in visible layout slots.`,
         path: `${pathValue}.subModels.items`,
         mode,
         dedupeKey: `GRID_ITEM_LAYOUT_MISSING:${pathValue}:${unplacedItemUids.join(',')}`,
@@ -3112,7 +3112,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'FORM_BLOCK_EMPTY_GRID',
-        message: `${node.use} 只有空的 FormGridModel，没有任何表单字段。`,
+        message: `${node.use} only contains an empty FormGridModel and has no form fields.`,
         path: `${pathValue}.subModels.grid.subModels.items`,
         mode,
         dedupeKey: `FORM_BLOCK_EMPTY_GRID:${pathValue}`,
@@ -3131,7 +3131,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FORM_ACTION_MUST_USE_ACTIONS_SLOT',
-        message: `${node.use} 的表单动作必须挂在 subModels.actions，不能放进 FormGridModel.subModels.items；否则按钮会渲染到字段区或位置异常。`,
+        message: `Form actions for ${node.use} must live in subModels.actions, not inside FormGridModel.subModels.items. Otherwise the buttons can render in the field area or appear in the wrong position.`,
         path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
         mode,
         dedupeKey: `FORM_ACTION_MUST_USE_ACTIONS_SLOT:${pathValue}:${index}`,
@@ -3151,7 +3151,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'FORM_SUBMIT_ACTION_DUPLICATED',
-        message: `${node.use} 存在多个 submit-like action，会导致弹窗里出现重复保存按钮。`,
+        message: `${node.use} contains multiple submit-like actions, which can create duplicate save buttons inside the popup.`,
         path: `${pathValue}.subModels.actions`,
         mode,
         dedupeKey: `FORM_SUBMIT_ACTION_DUPLICATED:${pathValue}`,
@@ -3169,7 +3169,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'FORM_SUBMIT_ACTION_MISSING',
-        message: `${node.use} 缺少稳定的表单动作；至少应在 subModels.actions 中放置 FormSubmitActionModel 或 JSFormActionModel。`,
+        message: `${node.use} is missing a stable form action. At minimum, put FormSubmitActionModel or JSFormActionModel into subModels.actions.`,
         path: `${pathValue}.subModels.actions`,
         mode,
         dedupeKey: `FORM_SUBMIT_ACTION_MISSING:${pathValue}`,
@@ -3190,7 +3190,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FORM_ITEM_FIELD_SUBMODEL_MISSING',
-          message: 'FormItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field，并使用当前 schema/field binding 给出的 editable field model。',
+          message: 'FormItemModel cannot write only fieldSettings.init. It must explicitly include subModels.field and use the editable field model selected by the current schema/field binding.',
           path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
           mode,
           dedupeKey: `FORM_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
@@ -3213,7 +3213,7 @@ function inspectFormBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FORM_ITEM_FIELD_BINDING_ENTRY_INVALID',
-        message: 'FormItemModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 editable field model。直接落具体 FieldModel use 会触发 resolveUse circular reference 等 runtime 问题。',
+        message: 'FormItemModel.subModels.field must use FieldModel as the entry point and point to the concrete editable field model through stepParams.fieldBinding.use. Persisting a concrete field-model use directly can trigger runtime issues such as resolveUse circular reference.',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `FORM_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
@@ -3239,7 +3239,7 @@ function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, se
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'FILTER_FORM_EMPTY_GRID',
-        message: 'FilterFormBlockModel 只有空 grid 壳，没有任何筛选字段。',
+        message: 'FilterFormBlockModel only has an empty grid shell and contains no filter fields.',
         path: `${pathValue}.subModels.grid.subModels.items`,
         mode,
         dedupeKey: `FILTER_FORM_EMPTY_GRID:${pathValue}`,
@@ -3259,7 +3259,7 @@ function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, se
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING',
-          message: 'FilterFormItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field。UI 通过 Fields 添加筛选字段时也会创建这个子模型。',
+          message: 'FilterFormItemModel cannot write only fieldSettings.init. It must explicitly include subModels.field. The UI also creates this child model when a filter field is added through Fields.',
           path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
           mode,
           dedupeKey: `FILTER_FORM_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
@@ -3274,7 +3274,7 @@ function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, se
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_FORM_ITEM_FILTERFIELD_MISSING',
-          message: 'FilterFormItemModel 缺少 filterFormItemSettings.init.filterField；这种 payload 往往看起来有筛选字段，但运行时不能稳定生成筛选条件。',
+          message: 'FilterFormItemModel is missing filterFormItemSettings.init.filterField. This payload can look like it has a filter field, but it will not generate runtime filter conditions reliably.',
           path: `${pathValue}.subModels.grid.subModels.items[${index}].stepParams.filterFormItemSettings.init.filterField`,
           mode,
           dedupeKey: `FILTER_FORM_ITEM_FILTERFIELD_MISSING:${pathValue}:${index}`,
@@ -3305,7 +3305,7 @@ function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, se
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FILTER_FORM_FIELD_MODEL_MISMATCH',
-        message: 'FilterFormItemModel.subModels.field.use 必须根据字段 metadata 推导；select/date/number/association 等字段不能一律回退成 InputFieldModel。',
+        message: 'FilterFormItemModel.subModels.field.use must be derived from field metadata. Fields such as select/date/number/association cannot all fall back to InputFieldModel.',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `FILTER_FORM_FIELD_MODEL_MISMATCH:${pathValue}:${index}`,
@@ -3350,7 +3350,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_TARGET_MISSING',
-          message: `filterManager 引用了不存在或不可筛选的 targetId "${config.targetId}"。`,
+          message: `filterManager references targetId "${config.targetId}", but that target does not exist or is not filterable.`,
           path: `${pathValue}.filterManager[${configIndex}]`,
           mode,
           dedupeKey: `FILTER_MANAGER_TARGET_MISSING:config:${pathValue}:${config.filterId}:${config.targetId}`,
@@ -3374,7 +3374,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FILTER_MANAGER_MISSING',
-        message: 'BlockGridModel 同时包含筛选区块与可筛选目标，但缺少顶层 filterManager 持久化配置。',
+        message: 'BlockGridModel contains both filter blocks and filterable targets, but it is missing the top-level persisted filterManager config.',
         path: `${pathValue}.filterManager`,
         mode,
         dedupeKey: `FILTER_MANAGER_MISSING:${pathValue}`,
@@ -3390,7 +3390,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
-          message: 'FilterFormItemModel 缺少 defaultTargetUid，无法建立稳定的筛选联动目标。',
+          message: 'FilterFormItemModel is missing defaultTargetUid, so a stable filter linkage target cannot be established.',
           path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
           mode,
           dedupeKey: `FILTER_MANAGER_FILTER_ITEM_UNBOUND:missing-target:${item.path}`,
@@ -3406,7 +3406,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_TARGET_MISSING',
-          message: `defaultTargetUid "${item.defaultTargetUid}" 在当前 BlockGridModel 中找不到对应的可筛选目标。`,
+          message: `defaultTargetUid "${item.defaultTargetUid}" cannot find a matching filterable target inside the current BlockGridModel.`,
           path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
           mode,
           dedupeKey: `FILTER_MANAGER_TARGET_MISSING:item:${item.path}:${item.defaultTargetUid}`,
@@ -3423,7 +3423,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
-          message: '当前 metadata 无法为筛选项解析稳定的 filterPaths，不能安全生成 filterManager。',
+          message: 'The current metadata cannot resolve stable filterPaths for this filter item, so filterManager cannot be generated safely.',
           path: item.path,
           mode,
           dedupeKey: `FILTER_MANAGER_FILTER_PATH_UNRESOLVED:missing:${item.path}`,
@@ -3441,7 +3441,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
-          message: 'FilterFormItemModel 已声明 defaultTargetUid，但 filterManager 中没有对应的绑定配置。',
+          message: 'FilterFormItemModel declares defaultTargetUid, but filterManager has no matching binding config.',
           path: `${pathValue}.filterManager`,
           mode,
           dedupeKey: `FILTER_MANAGER_FILTER_ITEM_UNBOUND:config:${pathValue}:${item.uid || item.path}`,
@@ -3459,7 +3459,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_TARGET_MISSING',
-          message: 'filterManager 中存在该筛选项的配置，但没有连接到 defaultTargetUid 指向的目标区块。',
+          message: 'filterManager contains a config for this filter item, but it is not connected to the target block referenced by defaultTargetUid.',
           path: `${pathValue}.filterManager`,
           mode,
           dedupeKey: `FILTER_MANAGER_TARGET_MISSING:binding:${pathValue}:${item.uid}:${item.defaultTargetUid}`,
@@ -3478,7 +3478,7 @@ function inspectFilterManagerBindings(payload, metadata, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
-          message: 'filterManager.filterPaths 与当前筛选项 fieldPath 推导结果不一致，查询动作可能无法命中目标数据。',
+          message: 'filterManager.filterPaths does not match the filterPaths derived from the current filter item fieldPath, so query actions may miss the target data.',
           path: `${pathValue}.filterManager[${matchingTargetConfig.index}]`,
           mode,
           dedupeKey: `FILTER_MANAGER_FILTER_PATH_UNRESOLVED:mismatch:${pathValue}:${item.uid}`,
@@ -3512,7 +3512,7 @@ function inspectCollectionResourceContracts(payload, mode, blockers, seen) {
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING',
-      message: `${node.use} 缺少完整的 stepParams.resourceSettings.init.dataSourceKey / collectionName。运行时会直接读取这两个值；缺失时常见症状就是 runtime TypeError、区块空白或整页卡骨架屏。`,
+      message: `${node.use} is missing a complete stepParams.resourceSettings.init.dataSourceKey / collectionName pair. Runtime reads both values directly, and missing them often causes TypeError, blank blocks, or a page stuck on skeleton loading.`,
       path: `${pathValue}.stepParams.resourceSettings.init`,
       mode,
       dedupeKey: `COLLECTION_BLOCK_RESOURCE_SETTINGS_MISSING:${pathValue}`,
@@ -3569,7 +3569,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
           pushFinding(blockers, blockerSeen, createFinding({
             severity: 'blocker',
             code: 'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED',
-            message: `ChartBlockModel 的 ${key}[${index}].field 只允许 scalar string 或 [association, field]；当前值 ${describeChartFieldPath(item.field)} 不受支持。`,
+            message: `ChartBlockModel ${key}[${index}].field only accepts a scalar string or [association, field]. Current value ${describeChartFieldPath(item.field)} is unsupported.`,
             path: fieldPath,
             mode,
             dedupeKey: `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED:${fieldPath}`,
@@ -3585,7 +3585,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
           pushFinding(blockers, blockerSeen, createFinding({
             severity: 'blocker',
             code: 'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED',
-            message: `ChartBlockModel 的 ${key}[${index}].field 不应使用 dotted relation path "${fieldInspection.normalized}"；请改成数组路径 ["${fieldInspection.segments[0]}", "${fieldInspection.segments[1]}"]。`,
+            message: `ChartBlockModel ${key}[${index}].field must not use dotted relation path "${fieldInspection.normalized}". Change it to array path ["${fieldInspection.segments[0]}", "${fieldInspection.segments[1]}"].`,
             path: fieldPath,
             mode,
             dedupeKey: `CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED:${fieldPath}:legacy-dotted`,
@@ -3604,7 +3604,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
             pushFinding(blockers, blockerSeen, createFinding({
               severity: 'blocker',
               code: 'CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING',
-              message: `ChartBlockModel 的 ${key}[${index}].field 直接引用了关联字段 "${fieldMeta.name}"，必须显式选择目标字段。`,
+              message: `ChartBlockModel ${key}[${index}].field directly references association field "${fieldMeta.name}". A target field must be chosen explicitly.`,
               path: fieldPath,
               mode,
               dedupeKey: `CHART_QUERY_ASSOCIATION_FIELD_TARGET_MISSING:${fieldPath}`,
@@ -3626,7 +3626,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
             pushFinding(blockers, blockerSeen, createFinding({
               severity: 'blocker',
               code: 'CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED',
-              message: `ChartBlockModel 的 ${key}[${index}].field 关系前缀 "${fieldInspection.segments[0]}" 在 collection "${collectionName}" 中不可解析为稳定关联字段。`,
+              message: `ChartBlockModel ${key}[${index}].field relation prefix "${fieldInspection.segments[0]}" cannot be resolved as a stable association field in collection "${collectionName}".`,
               path: fieldPath,
               mode,
               dedupeKey: `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED:${fieldPath}:association`,
@@ -3641,7 +3641,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
             pushFinding(blockers, blockerSeen, createFinding({
               severity: 'blocker',
               code: 'CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED',
-              message: `ChartBlockModel 的 ${key}[${index}].field 目标字段 "${fieldInspection.segments[1]}" 在关联 "${fieldInspection.segments[0]}" 的目标 collection 中不可解析。`,
+              message: `ChartBlockModel ${key}[${index}].field target field "${fieldInspection.segments[1]}" cannot be resolved in the target collection of association "${fieldInspection.segments[0]}".`,
               path: fieldPath,
               mode,
               dedupeKey: `CHART_QUERY_RELATION_TARGET_FIELD_UNRESOLVED:${fieldPath}:target`,
@@ -3659,7 +3659,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_QUERY_MODE_MISSING',
-        message: 'ChartBlockModel 缺少 stepParams.chartSettings.configure.query.mode；skill 只接受 builder 或 sql 两种显式模式。',
+        message: 'ChartBlockModel is missing stepParams.chartSettings.configure.query.mode. This skill only accepts explicit builder or sql mode.',
         path: `${pathValue}.stepParams.chartSettings.configure.query.mode`,
         mode,
         dedupeKey: `CHART_QUERY_MODE_MISSING:${pathValue}`,
@@ -3670,7 +3670,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_OPTION_MODE_MISSING',
-        message: 'ChartBlockModel 缺少 stepParams.chartSettings.configure.chart.option.mode；skill 只接受 basic 或 custom 两种显式模式。',
+        message: 'ChartBlockModel is missing stepParams.chartSettings.configure.chart.option.mode. This skill only accepts explicit basic or custom mode.',
         path: `${pathValue}.stepParams.chartSettings.configure.chart.option.mode`,
         mode,
         dedupeKey: `CHART_OPTION_MODE_MISSING:${pathValue}`,
@@ -3685,7 +3685,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS',
-        message: 'ChartBlockModel 把 collection 放进了 resourceSettings，但图表查询真正读取的是 chartSettings.configure.query；请把 collectionPath 配到 query 下。',
+        message: 'ChartBlockModel put collection into resourceSettings, but chart queries actually read chartSettings.configure.query. Move collectionPath under query.',
         path: `${pathValue}.stepParams.resourceSettings.init`,
         mode,
         dedupeKey: `CHART_QUERY_CONFIG_MISPLACED_IN_RESOURCE_SETTINGS:${pathValue}`,
@@ -3699,7 +3699,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_BUILDER_COLLECTION_PATH_MISSING',
-        message: 'ChartBlockModel 使用 builder 查询时，必须显式提供 chartSettings.configure.query.collectionPath。',
+        message: 'When ChartBlockModel uses builder query mode, chartSettings.configure.query.collectionPath must be provided explicitly.',
         path: `${pathValue}.stepParams.chartSettings.configure.query.collectionPath`,
         mode,
         dedupeKey: `CHART_BUILDER_COLLECTION_PATH_MISSING:${pathValue}`,
@@ -3710,7 +3710,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_COLLECTION_PATH_SHAPE_INVALID',
-        message: 'ChartBlockModel 使用 builder 查询时，collectionPath 必须是 [dataSourceKey, collectionName] 两段结构。',
+        message: 'When ChartBlockModel uses builder query mode, collectionPath must be a two-segment [dataSourceKey, collectionName] structure.',
         path: `${pathValue}.stepParams.chartSettings.configure.query.collectionPath`,
         mode,
         dedupeKey: `CHART_COLLECTION_PATH_SHAPE_INVALID:${pathValue}`,
@@ -3724,7 +3724,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_BUILDER_MEASURES_MISSING',
-        message: 'ChartBlockModel 使用 builder 查询时，必须显式提供至少一个 query.measures 项，否则运行时不会返回可渲染图表数据。',
+        message: 'When ChartBlockModel uses builder query mode, at least one query.measures item must be provided explicitly. Otherwise runtime will not return renderable chart data.',
         path: `${pathValue}.stepParams.chartSettings.configure.query.measures`,
         mode,
         dedupeKey: `CHART_BUILDER_MEASURES_MISSING:${pathValue}`,
@@ -3742,7 +3742,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
         pushFinding(blockers, blockerSeen, createFinding({
           severity: 'blocker',
           code: 'CHART_SQL_DATASOURCE_MISSING',
-          message: 'ChartBlockModel 使用 sql 查询时，必须显式提供 chartSettings.configure.query.sqlDatasource。',
+          message: 'When ChartBlockModel uses sql query mode, chartSettings.configure.query.sqlDatasource must be provided explicitly.',
           path: `${pathValue}.stepParams.chartSettings.configure.query.sqlDatasource`,
           mode,
           dedupeKey: `CHART_SQL_DATASOURCE_MISSING:${pathValue}`,
@@ -3752,7 +3752,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
         pushFinding(blockers, blockerSeen, createFinding({
           severity: 'blocker',
           code: 'CHART_SQL_TEXT_MISSING',
-          message: 'ChartBlockModel 使用 sql 查询时，必须显式提供 chartSettings.configure.query.sql。',
+          message: 'When ChartBlockModel uses sql query mode, chartSettings.configure.query.sql must be provided explicitly.',
           path: `${pathValue}.stepParams.chartSettings.configure.query.sql`,
           mode,
           dedupeKey: `CHART_SQL_TEXT_MISSING:${pathValue}`,
@@ -3764,7 +3764,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_BASIC_OPTION_BUILDER_MISSING',
-        message: 'ChartBlockModel 使用 basic option 时，必须显式提供 chartSettings.configure.chart.option.builder；仅有 option.mode=basic 不足以生成可渲染配置。',
+        message: 'When ChartBlockModel uses basic option mode, chartSettings.configure.chart.option.builder must be provided explicitly. option.mode=basic alone is not enough to generate a renderable config.',
         path: `${pathValue}.stepParams.chartSettings.configure.chart.option.builder`,
         mode,
         dedupeKey: `CHART_BASIC_OPTION_BUILDER_MISSING:${pathValue}`,
@@ -3775,7 +3775,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'CHART_CUSTOM_OPTION_RAW_MISSING',
-        message: 'ChartBlockModel 使用 custom option 时，必须显式提供 chartSettings.configure.chart.option.raw。',
+        message: 'When ChartBlockModel uses custom option mode, chartSettings.configure.chart.option.raw must be provided explicitly.',
         path: `${pathValue}.stepParams.chartSettings.configure.chart.option.raw`,
         mode,
         dedupeKey: `CHART_CUSTOM_OPTION_RAW_MISSING:${pathValue}`,
@@ -3786,7 +3786,7 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       pushFinding(warnings, warningSeen, createFinding({
         severity: 'warning',
         code: 'CHART_EVENTS_WITHOUT_OPTION_MODE',
-        message: 'ChartBlockModel 提供了 events.raw，但没有显式 option.mode；建议至少固定为 basic 或 custom。',
+        message: 'ChartBlockModel provides events.raw but no explicit option.mode. Set it to at least basic or custom.',
         path: `${pathValue}.stepParams.chartSettings.configure.chart.events.raw`,
         mode,
         dedupeKey: `CHART_EVENTS_WITHOUT_OPTION_MODE:${pathValue}`,
@@ -3807,7 +3807,7 @@ function inspectGridCardBlocks(payload, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'GRID_CARD_ITEM_SUBMODEL_MISSING',
-          message: 'GridCardBlockModel 缺少 subModels.item；没有 GridCardItemModel 时，页面通常会落库成功但卡片区域空白。',
+          message: 'GridCardBlockModel is missing subModels.item. Without GridCardItemModel, the page often persists successfully but leaves the card area blank.',
           path: `${pathValue}.subModels.item`,
           mode,
           dedupeKey: `GRID_CARD_ITEM_SUBMODEL_MISSING:${pathValue}`,
@@ -3818,7 +3818,7 @@ function inspectGridCardBlocks(payload, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'GRID_CARD_ITEM_USE_INVALID',
-          message: 'GridCardBlockModel.subModels.item 只能使用 GridCardItemModel。',
+          message: 'GridCardBlockModel.subModels.item must use GridCardItemModel only.',
           path: `${pathValue}.subModels.item.use`,
           mode,
           dedupeKey: `GRID_CARD_ITEM_USE_INVALID:${pathValue}`,
@@ -3836,7 +3836,7 @@ function inspectGridCardBlocks(payload, mode, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'GRID_CARD_ITEM_GRID_MISSING_OR_INVALID',
-          message: 'GridCardItemModel 必须显式挂接 subModels.grid.use=\'DetailsGridModel\'；否则卡片内容区不会稳定渲染。',
+          message: 'GridCardItemModel must explicitly attach subModels.grid.use=\'DetailsGridModel\'. Otherwise the card content area will not render reliably.',
           path: `${pathValue}.subModels.grid`,
           mode,
           dedupeKey: `GRID_CARD_ITEM_GRID_MISSING_OR_INVALID:${pathValue}`,
@@ -3861,7 +3861,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         slotPath: `${pathValue}.subModels.actions`,
         allowedUses: COLLECTION_ACTION_MODEL_USES,
         code: 'TABLE_COLLECTION_ACTION_SLOT_USE_INVALID',
-        message: `TableBlockModel 的 actions 槽位只能放 ${[...COLLECTION_ACTION_MODEL_USES].join(' / ')}，不能回退成泛型 ActionModel 或 record action。`,
+        message: `The actions slot of TableBlockModel only accepts ${[...COLLECTION_ACTION_MODEL_USES].join(' / ')}. Do not fall back to generic ActionModel or record actions.`,
         mode,
         blockers,
         seen,
@@ -3875,7 +3875,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         slotPath: `${pathValue}.subModels.actions`,
         allowedUses: RECORD_ACTION_MODEL_USES,
         code: 'TABLE_RECORD_ACTION_SLOT_USE_INVALID',
-        message: `TableActionsColumnModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
+        message: 'The actions slot of TableActionsColumnModel only accepts record-action uses. Do not fall back to generic ActionModel or collection actions.',
         mode,
         blockers,
         seen,
@@ -3889,7 +3889,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         slotPath: `${pathValue}.subModels.actions`,
         allowedUses: RECORD_ACTION_MODEL_USES,
         code: 'DETAILS_ACTION_SLOT_USE_INVALID',
-        message: `DetailsBlockModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
+        message: 'The actions slot of DetailsBlockModel only accepts record-action uses. Do not fall back to generic ActionModel or collection actions.',
         mode,
         blockers,
         seen,
@@ -3903,7 +3903,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         slotPath: `${pathValue}.subModels.actions`,
         allowedUses: FILTER_FORM_ACTION_MODEL_USES,
         code: 'FILTER_FORM_ACTION_SLOT_USE_INVALID',
-        message: `FilterFormBlockModel 的 actions 槽位只能放 filter-form action uses，不能回退成泛型 ActionModel。`,
+        message: 'The actions slot of FilterFormBlockModel only accepts filter-form action uses. Do not fall back to generic ActionModel.',
         mode,
         blockers,
         seen,
@@ -3917,7 +3917,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         slotPath: `${pathValue}.subModels.actions`,
         allowedUses: COLLECTION_ACTION_MODEL_USES,
         code: 'GRID_CARD_BLOCK_ACTION_SLOT_USE_INVALID',
-        message: `GridCardBlockModel 的 actions 槽位只能放 collection action uses，不能回退成泛型 ActionModel 或 record action。`,
+        message: 'The actions slot of GridCardBlockModel only accepts collection-action uses. Do not fall back to generic ActionModel or record actions.',
         mode,
         blockers,
         seen,
@@ -3931,7 +3931,7 @@ function inspectActionSlots(payload, mode, blockers, seen) {
         slotPath: `${pathValue}.subModels.actions`,
         allowedUses: RECORD_ACTION_MODEL_USES,
         code: 'GRID_CARD_ITEM_ACTION_SLOT_USE_INVALID',
-        message: `GridCardItemModel 的 actions 槽位只能放 record action uses，不能回退成泛型 ActionModel 或 collection action。`,
+        message: 'The actions slot of GridCardItemModel only accepts record-action uses. Do not fall back to generic ActionModel or collection actions.',
         mode,
         blockers,
         seen,
@@ -3952,7 +3952,7 @@ function inspectUnsupportedFieldSlots(payload, mode, blockers, seen) {
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'FIELD_MODEL_PAGE_SLOT_UNSUPPORTED',
-      message: `${node.use} 不支持 subModels.page；这类坏树通常来自错误的模板 clone 或 slot 误判，会在服务端 readback 时退化。`,
+      message: `${node.use} does not support subModels.page. This broken tree usually comes from a bad template clone or slot misclassification and will degrade during server-side readback.`,
       path: `${pathValue}.subModels.page`,
       mode,
       dedupeKey: `FIELD_MODEL_PAGE_SLOT_UNSUPPORTED:${pathValue}`,
@@ -3979,7 +3979,7 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'DETAILS_ITEM_FIELD_SUBMODEL_MISSING',
-          message: 'DetailsItemModel 不能只写 fieldSettings.init；必须显式补 subModels.field。否则运行时在 titleField 等逻辑里会直接访问 ctx.model.subModels.field 导致 TypeError。',
+          message: 'DetailsItemModel cannot write only fieldSettings.init. It must explicitly include subModels.field. Otherwise runtime logic such as titleField will access ctx.model.subModels.field directly and throw TypeError.',
           path: `${pathValue}.subModels.grid.subModels.items[${index}]`,
           mode,
           dedupeKey: `DETAILS_ITEM_FIELD_SUBMODEL_MISSING:${pathValue}:${index}`,
@@ -3999,7 +3999,7 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
       pushFinding(warnings, seen, createFinding({
         severity: 'warning',
         code: 'DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID',
-        message: 'DetailsItemModel.subModels.field 当前建议统一走 FieldModel + stepParams.fieldBinding.use 入口；直接落具体 display field model 仍可能造成 builder/readback/runtime 形态不一致，应视为高风险诊断而非当前硬 blocker。',
+        message: 'DetailsItemModel.subModels.field should currently use the unified FieldModel + stepParams.fieldBinding.use entry. Persisting a concrete display field model directly can still create builder/readback/runtime shape drift, so treat it as a high-risk diagnostic warning rather than a hard blocker.',
         path: `${pathValue}.subModels.grid.subModels.items[${index}].subModels.field`,
         mode,
         dedupeKey: `DETAILS_ITEM_FIELD_BINDING_ENTRY_INVALID:${pathValue}:${index}`,
@@ -4018,7 +4018,7 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
     pushFinding(targetList, seen, createFinding({
       severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
       code: 'EMPTY_DETAILS_BLOCK',
-      message: 'DetailsBlockModel 只有空 grid 壳，没有任何详情字段、动作或子业务区块。',
+      message: 'DetailsBlockModel only has an empty grid shell and contains no details fields, actions, or child business blocks.',
       path: pathValue,
       mode,
       dedupeKey: `EMPTY_DETAILS_BLOCK:${pathValue}`,
@@ -4040,7 +4040,7 @@ function inspectTableBlocks(payload, mode, blockers, seen) {
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'TABLE_COLUMN_FIELD_SUBMODEL_MISSING',
-        message: 'TableColumnModel 不能只写 fieldSettings.init；必须显式补 subModels.field。运行时渲染单元格与快速编辑都会直接读取这一层子模型。',
+        message: 'TableColumnModel cannot write only fieldSettings.init. It must explicitly include subModels.field. Runtime cell rendering and quick edit both read this child model directly.',
         path: pathValue,
         mode,
         dedupeKey: `TABLE_COLUMN_FIELD_SUBMODEL_MISSING:${pathValue}`,
@@ -4062,7 +4062,7 @@ function inspectTableBlocks(payload, mode, blockers, seen) {
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID',
-      message: 'TableColumnModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 display field model。直接落具体 Display*FieldModel use 会让 builder/runtime 结构不一致。',
+      message: 'TableColumnModel.subModels.field must use FieldModel as the entry point and point to the concrete display field model through stepParams.fieldBinding.use. Persisting a concrete Display*FieldModel use directly creates builder/runtime structural drift.',
       path: `${pathValue}.subModels.field`,
       mode,
       dedupeKey: `TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID:${pathValue}`,
@@ -4090,7 +4090,7 @@ function inspectFilterContainers(payload, metadata, mode, requirements, warnings
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FILTER_SELECTOR_CONTRACT_MISMATCH',
-        message: `当前区块的 selector 形态为 "${selectorKind}"，与声明契约要求的 "${expectedContract.selectorKind}" 不一致。`,
+        message: `The current block selector shape is "${selectorKind}", which does not match the declared contract requirement "${expectedContract.selectorKind}".`,
         path: pathValue,
         mode,
         dedupeKey: `FILTER_SELECTOR_CONTRACT_MISMATCH:${pathValue}:${expectedContract.selectorKind}:${selectorKind}`,
@@ -4107,7 +4107,7 @@ function inspectFilterContainers(payload, metadata, mode, requirements, warnings
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'FILTER_CONTRACT_METADATA_TRUST_INSUFFICIENT',
-        message: '当前区块声明了 runtime-sensitive filter 契约，但 metadataTrust 还不够高，不能仅凭低可信 metadata 放行。',
+        message: 'The current block declares a runtime-sensitive filter contract, but metadataTrust is not high enough. Do not allow it based only on low-trust metadata.',
         path: pathValue,
         mode,
         dedupeKey: `FILTER_CONTRACT_METADATA_TRUST_INSUFFICIENT:${pathValue}:${expectedContract.metadataTrust}`,
@@ -4146,7 +4146,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'METADATA_TRUST_INSUFFICIENT',
-          message: 'popup/openView 依赖 runtime-sensitive 的 filterByTk 解析时，不能只信 artifact/cache metadata；必须先拿到 live metadata。',
+          message: 'When popup/openView depends on runtime-sensitive filterByTk resolution, do not trust artifact/cache metadata alone. Live metadata must be fetched first.',
           path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
           mode,
           dedupeKey: `METADATA_TRUST_INSUFFICIENT:${pathValue}:${runtimeSensitiveTrust}`,
@@ -4163,7 +4163,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'OPEN_VIEW_COLLECTION_FILTER_TARGET_KEY_MISSING',
-          message: 'popup/openView 在使用 filterByTk 时，目标 collection 必须声明 filterTargetKey；否则 runtime 会在解析记录操作或弹窗参数时直接报错。',
+          message: 'When popup/openView uses filterByTk, the target collection must declare filterTargetKey. Otherwise runtime will fail while resolving record actions or popup arguments.',
           path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
           mode,
           dedupeKey: `OPEN_VIEW_COLLECTION_FILTER_TARGET_KEY_MISSING:${pathValue}:${openViewCollectionName}`,
@@ -4182,7 +4182,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'POPUP_PAGE_USE_INVALID',
-        message: `popup/openView 的 pageModelClass 必须是 ${SUPPORTED_POPUP_PAGE_USES.join(' / ')} 之一。`,
+        message: `popup/openView.pageModelClass must be one of ${SUPPORTED_POPUP_PAGE_USES.join(' / ')}.`,
         path: `${pathValue}.stepParams.popupSettings.openView.pageModelClass`,
         mode,
         dedupeKey: `POPUP_PAGE_USE_INVALID:${pathValue}:declared:${declaredPageUse}`,
@@ -4197,7 +4197,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'POPUP_PAGE_USE_INVALID',
-        message: `popup/openView 的 subModels.page 必须落成 ${SUPPORTED_POPUP_PAGE_USES.join(' / ')}，不能写成其他结构壳。`,
+        message: `popup/openView.subModels.page must resolve to ${SUPPORTED_POPUP_PAGE_USES.join(' / ')} and cannot be persisted as another structural shell.`,
         path: `${pathValue}.subModels.page`,
         mode,
         dedupeKey: `POPUP_PAGE_USE_INVALID:${pathValue}:actual:${actualPageUse || 'missing'}`,
@@ -4212,7 +4212,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'POPUP_PAGE_USE_MISMATCH',
-        message: 'popup/openView 的 pageModelClass 与 subModels.page.use 必须严格一致，否则很容易出现按钮位置错乱、drawer/form 结构异常或上下文不通。',
+        message: 'popup/openView.pageModelClass and subModels.page.use must match exactly. Otherwise button placement, drawer/form structure, or context wiring can break.',
         path: `${pathValue}.subModels.page`,
         mode,
         dedupeKey: `POPUP_PAGE_USE_MISMATCH:${pathValue}:${declaredPageUse}:${actualPageUse}`,
@@ -4231,7 +4231,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'POPUP_ACTION_MISSING_SUBTREE',
-        message: 'popup/openView 动作缺少完整的 page/tab/grid 子树。',
+        message: 'The popup/openView action is missing a complete page/tab/grid subtree.',
         path: pathValue,
         mode,
         dedupeKey: `POPUP_ACTION_MISSING_SUBTREE:${pathValue}`,
@@ -4247,7 +4247,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'EMPTY_POPUP_GRID',
-        message: 'popup/openView 子树只有 page/tab/grid 壳，没有实际业务 block。',
+        message: 'The popup/openView subtree only contains page/tab/grid shells and has no real business block.',
         path: pathValue,
         mode,
         dedupeKey: `EMPTY_POPUP_GRID:${pathValue}`,
@@ -4265,7 +4265,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'POPUP_CONTEXT_REFERENCE_WITHOUT_INPUT_ARG',
-          message: 'popup 子树依赖 ctx.view.inputArgs.filterByTk，但动作层没有显式传入 filterByTk。',
+          message: 'The popup subtree depends on ctx.view.inputArgs.filterByTk, but the action layer did not pass filterByTk explicitly.',
           path: pathValue,
           mode,
           dedupeKey: `POPUP_CONTEXT_REFERENCE_WITHOUT_INPUT_ARG:${pathValue}`,
@@ -4282,7 +4282,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'RELATION_BLOCK_WITH_EMPTY_FILTER',
-          message: 'popup 内关系区块缺少明确的 relation filter，当前只剩空 dataScope.filter。',
+          message: 'A relation block inside the popup is missing an explicit relation filter and currently only has an empty dataScope.filter.',
           path: relationBlock.path,
           mode,
           dedupeKey: `RELATION_BLOCK_WITH_EMPTY_FILTER:${relationBlock.path}`,
@@ -4299,7 +4299,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
         pushFinding(warnings, seen, createFinding({
           severity: 'warning',
           code: 'RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT',
-          message: '当前 child-side relation filter 已可用；若 parent->child association resource 已验证，可进一步收敛成 associationName + sourceId。',
+          message: 'The current child-side relation filter is usable. If the parent->child association resource has been verified, it can be tightened further into associationName + sourceId.',
           path: relationBlock.path,
           mode,
           dedupeKey: `RELATION_BLOCK_SHOULD_USE_ASSOCIATION_CONTEXT:${relationBlock.path}`,
@@ -4317,7 +4317,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE',
-          message: 'popup 内关联子表的 associationName 不能只复用子表指向父表的 belongsTo 字段名；先基于稳定 reference 或 live tree 验真。',
+          message: 'Inside the popup, a child relation block associationName cannot simply reuse the belongsTo field name that points from child to parent. Verify it first against a stable reference or the live tree.',
           path: relationBlock.path,
           mode,
           dedupeKey: `ASSOCIATION_CONTEXT_REQUIRES_VERIFIED_RESOURCE:${relationBlock.path}`,
@@ -4331,7 +4331,7 @@ function inspectPopupActions(payload, metadata, mode, requirements, warnings, bl
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'HARDCODED_FILTER_BY_TK',
-        message: 'popup/openView 的 filterByTk 使用了硬编码样本值。',
+        message: 'popup/openView.filterByTk uses a hard-coded sample value.',
         path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
         mode,
         dedupeKey: `HARDCODED_FILTER_BY_TK:${pathValue}.openView`,
@@ -4365,7 +4365,7 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'FILTER_GROUP_MALFORMED',
-      message: 'dataScope.filter 必须包含合法的 logic 和 items。',
+      message: 'dataScope.filter must contain valid logic and items.',
       path: filterPath,
       mode,
     }));
@@ -4389,7 +4389,7 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FILTER_GROUP_MALFORMED',
-        message: 'filter item 必须是 condition 或 group 对象。',
+        message: 'A filter item must be either a condition object or a group object.',
         path: itemPath,
         mode,
       }));
@@ -4404,7 +4404,7 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FILTER_ITEM_USES_FIELD_NOT_PATH',
-        message: 'filter condition 只能使用 path，不允许使用 field。',
+        message: 'A filter condition may use path only; field is not allowed.',
         path: itemPath,
         mode,
       }));
@@ -4424,7 +4424,7 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FIELD_PATH_NOT_FOUND',
-          message: `filter path "${item.path}" 在 collection "${collectionName}" 中不存在。`,
+          message: `Filter path "${item.path}" does not exist in collection "${collectionName}".`,
           path: itemPath,
           mode,
           dedupeKey: `FILTER_FIELD_PATH_NOT_FOUND:${collectionName}:${item.path}`,
@@ -4440,12 +4440,12 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
         const scalarPathHints = getBelongsToScalarPathHints(directField);
         const suggestedPaths = scalarPathHints?.suggestedPaths || [];
         const suggestionMessage = suggestedPaths.length > 0
-          ? `；请改为可比较的标量路径，例如 ${suggestedPaths.map((value) => `"${value}"`).join(' 或 ')}。`
-          : '；当前 metadata 未提供 foreignKey 或 targetKey，不能继续猜字段名。';
+          ? `; change it to a comparable scalar path such as ${suggestedPaths.map((value) => `"${value}"`).join(' or ')}.`
+          : '; the current metadata does not provide foreignKey or targetKey, so field names cannot be guessed safely.';
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH',
-          message: `belongsTo 字段 "${item.path}" 不能直接搭配标量操作符 "${item.operator}"${suggestionMessage}`,
+          message: `belongsTo field "${item.path}" cannot be used directly with scalar operator "${item.operator}"${suggestionMessage}`,
           path: itemPath,
           mode,
           dedupeKey: `BELONGS_TO_FILTER_REQUIRES_SCALAR_PATH:${collectionName}:${item.path}:${item.operator}`,
@@ -4484,7 +4484,7 @@ function validateFilterGroup({ filter, path: filterPath, collectionName, metadat
     pushFinding(blockers, seen, createFinding({
       severity: 'blocker',
       code: 'FILTER_GROUP_MALFORMED',
-      message: 'filter item 既不是合法 condition，也不是合法 group。',
+      message: 'The filter item is neither a valid condition nor a valid group.',
       path: itemPath,
       mode,
     }));
@@ -4522,7 +4522,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'FOREIGN_KEY_USED_AS_FIELD_PATH',
-        message: `fieldPath "${fieldPath}" 是关联字段 "${associationFromForeignKey.name}" 的 foreignKey，不应直接作为 UI 字段绑定。`,
+        message: `fieldPath "${fieldPath}" is the foreignKey of association field "${associationFromForeignKey.name}" and should not be used directly as a UI field binding.`,
         path: pathValue,
         mode,
         dedupeKey: `FOREIGN_KEY_USED_AS_FIELD_PATH:${collectionName}:${fieldPath}:${effectiveUse}`,
@@ -4541,7 +4541,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         pushFinding(blockers, seen, createFinding({
           severity: 'blocker',
           code: 'FIELD_PATH_NOT_FOUND',
-          message: `fieldPath "${fieldPath}" 在 collection "${collectionName}" 中不存在。`,
+          message: `fieldPath "${fieldPath}" does not exist in collection "${collectionName}".`,
           path: pathValue,
           mode,
           dedupeKey: `FIELD_PATH_NOT_FOUND:${collectionName}:${fieldPath}`,
@@ -4563,7 +4563,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH',
-          message: `父 collection 上的 dotted 关联展示字段 "${fieldPath}" 必须显式补 associationPathName="${expectedAssociationPathName}"，否则 runtime 可能拿不到关联 appends。`,
+          message: `Dotted association display field "${fieldPath}" on the parent collection must explicitly set associationPathName="${expectedAssociationPathName}", or runtime may not load the required relation appends.`,
           path: pathValue,
           mode,
           dedupeKey: `DOTTED_ASSOCIATION_DISPLAY_MISSING_ASSOCIATION_PATH:${collectionName}:${fieldPath}`,
@@ -4577,7 +4577,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'DOTTED_ASSOCIATION_DISPLAY_ASSOCIATION_PATH_MISMATCH',
-          message: `父 collection 上的 dotted 关联展示字段 "${fieldPath}" 必须把 associationPathName 设为 "${expectedAssociationPathName}"，当前为 "${associationPathName}"。`,
+          message: `Dotted association display field "${fieldPath}" on the parent collection must set associationPathName to "${expectedAssociationPathName}", but the current value is "${associationPathName}".`,
           path: pathValue,
           mode,
           dedupeKey: `DOTTED_ASSOCIATION_DISPLAY_ASSOCIATION_PATH_MISMATCH:${collectionName}:${fieldPath}:${associationPathName}`,
@@ -4595,7 +4595,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE',
-          message: `表格列 "${fieldPath}" 是关联标题 dotted path，并启用了 click-to-open/popup；默认不要让 dotted path 自己承担打开行为，请改成关系字段 "${expectedAssociationPathName}" 的原生列，再用标题字段展示名称并挂 openView。`,
+          message: `Table column "${fieldPath}" is an association-title dotted path with click-to-open/popup enabled. Do not let the dotted path carry the open behavior by default. Use the native relation field column "${expectedAssociationPathName}" instead, then show the title field and attach openView there.`,
           path: pathValue,
           mode,
           dedupeKey: `TABLE_CLICKABLE_ASSOCIATION_TITLE_PATH_UNSTABLE:${collectionName}:${fieldPath}:${effectiveUse}`,
@@ -4617,7 +4617,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT',
-          message: `表格列 "${fieldPath}" 当前使用 ${effectiveUse} 承担关联标题 click-to-open/popup，但本轮 requirements 未声明显式 JS 意图；默认应优先改用关系字段 "${expectedAssociationPathName}" 的原生列。`,
+          message: `Table column "${fieldPath}" currently uses ${effectiveUse} to implement association-title click-to-open/popup, but this run's requirements did not declare explicit JS intent. Prefer the native relation field column "${expectedAssociationPathName}" by default.`,
           path: pathValue,
           mode,
           dedupeKey: `TABLE_JS_WORKAROUND_REQUIRES_EXPLICIT_INTENT:${collectionName}:${fieldPath}:${effectiveUse}`,
@@ -4652,7 +4652,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         pushFinding(targetList, seen, createFinding({
           severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
           code: 'ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE',
-          message: `关联展示字段不应拆成 target collection "${collectionName}" + associationPathName "${associationPathName}" + simple fieldPath "${fieldPath}"；请改为父 collection 上的完整 dotted path。`,
+          message: `Association display binding should not be split into target collection "${collectionName}" + associationPathName "${associationPathName}" + simple fieldPath "${fieldPath}". Use the full dotted path on the parent collection instead.`,
           path: pathValue,
           mode,
           dedupeKey: `ASSOCIATION_SPLIT_DISPLAY_BINDING_UNSTABLE:${parentCollectionName}:${collectionName}:${associationPathName}.${fieldPath}`,
@@ -4685,8 +4685,8 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         severity: targetList === blockers ? 'blocker' : 'warning',
         code: targetList === blockers ? 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE' : 'ASSOCIATION_TARGET_METADATA_MISSING',
         message: targetList === blockers
-          ? `表单关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 缺少 metadata，无法在写前验证 titleField/default binding 契约。`
-          : `关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 未提供元数据，无法校验显示字段。`,
+          ? `The target collection "${directField.target}" of form association field "${fieldPath}" is missing metadata, so the titleField/default binding contract cannot be verified before write.`
+          : `The target collection "${directField.target}" of association field "${fieldPath}" does not provide metadata, so the display field cannot be validated.`,
         path: pathValue,
         mode,
         dedupeKey: `${targetList === blockers ? 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE' : 'ASSOCIATION_TARGET_METADATA_MISSING'}:${collectionName}:${fieldPath}`,
@@ -4705,8 +4705,8 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
         severity: 'blocker',
         code: 'FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH',
         message: suggestedScalarField
-          ? `筛选里的关联字段 "${fieldPath}" 目标 collection "${directField.target}" 没有 titleField；请改成显式 scalar path（例如 "${fieldPath}.${suggestedScalarField}"），不要直接生成 ${effectiveUse}。`
-          : `筛选里的关联字段 "${fieldPath}" 目标 collection "${directField.target}" 没有 titleField；请改成显式 scalar path，不要直接生成 ${effectiveUse}。`,
+          ? `Association field "${fieldPath}" in the filter targets collection "${directField.target}", but that collection has no titleField. Change it to an explicit scalar path such as "${fieldPath}.${suggestedScalarField}" instead of generating ${effectiveUse} directly.`
+          : `Association field "${fieldPath}" in the filter targets collection "${directField.target}", but that collection has no titleField. Change it to an explicit scalar path instead of generating ${effectiveUse} directly.`,
         path: pathValue,
         mode,
         dedupeKey: `FILTER_FORM_ASSOCIATION_REQUIRES_EXPLICIT_SCALAR_PATH:${collectionName}:${fieldPath}:${directField.target}`,
@@ -4730,7 +4730,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(targetList, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL',
-        message: `关联字段 "${fieldPath}" 不应直接用 ${effectiveUse} 绑定自身；请显式选择目标 collection "${directField.target}" 的稳定显示策略。`,
+        message: `Association field "${fieldPath}" should not bind to itself directly through ${effectiveUse}. Choose a stable display strategy from target collection "${directField.target}" explicitly.`,
         path: pathValue,
         mode,
         dedupeKey: `ASSOCIATION_FIELD_REQUIRES_EXPLICIT_DISPLAY_MODEL:${collectionName}:${fieldPath}:${pathValue}`,
@@ -4752,7 +4752,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ASSOCIATION_DISPLAY_TARGET_UNRESOLVED',
-        message: `关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 缺少可解析的 title/filterTargetKey 字段。`,
+        message: `Target collection "${directField.target}" of association field "${fieldPath}" is missing a resolvable title/filterTargetKey field.`,
         path: pathValue,
         mode,
         dedupeKey: `ASSOCIATION_DISPLAY_TARGET_UNRESOLVED:${collectionName}:${fieldPath}`,
@@ -4774,7 +4774,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE',
-        message: `表单关联字段 "${fieldPath}" 的目标 collection "${directField.target}" 缺少字段元数据，无法模拟 titleField -> getField(label) -> default binding 这条 runtime 链路。`,
+        message: `Target collection "${directField.target}" of form association field "${fieldPath}" is missing field metadata, so the runtime chain titleField -> getField(label) -> default binding cannot be simulated.`,
         path: pathValue,
         mode,
         dedupeKey: `ASSOCIATION_INPUT_TARGET_METADATA_INCOMPLETE:${collectionName}:${fieldPath}:${directField.target}`,
@@ -4808,7 +4808,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ASSOCIATION_INPUT_FIELDNAMES_LABEL_MISMATCH',
-        message: `关联输入字段 "${fieldPath}" 的 titleField 与 fieldNames.label 不一致，运行时可能在切换显示字段时重建出错误的 binding。`,
+        message: `Association input field "${fieldPath}" has mismatched titleField and fieldNames.label. Runtime may rebuild the wrong binding when switching display fields.`,
         path: associationInputPath,
         mode,
         dedupeKey: `ASSOCIATION_INPUT_FIELDNAMES_LABEL_MISMATCH:${collectionName}:${fieldPath}`,
@@ -4827,7 +4827,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED',
-        message: `关联输入字段 "${fieldPath}" 缺少可解析的目标标题字段；当前无法对齐 targetCollection.getField(label) 这条 runtime 契约。`,
+        message: `Association input field "${fieldPath}" is missing a resolvable target title field. The runtime contract targetCollection.getField(label) cannot be aligned currently.`,
         path: associationInputPath,
         mode,
         dedupeKey: `ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED:${collectionName}:${fieldPath}:missing`,
@@ -4852,7 +4852,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED',
-        message: `关联输入字段 "${fieldPath}" 选择的标题字段 "${runtimeSelection.effectiveTitleField}" 无法在目标 collection "${directField.target}" 中稳定解析。`,
+        message: `Selected title field "${runtimeSelection.effectiveTitleField}" for association input field "${fieldPath}" cannot be resolved stably in target collection "${directField.target}".`,
         path: associationInputPath,
         mode,
         dedupeKey: `ASSOCIATION_INPUT_TITLE_FIELD_UNRESOLVED:${collectionName}:${fieldPath}:${runtimeSelection.effectiveTitleField}`,
@@ -4872,7 +4872,7 @@ function inspectFieldBindings(payload, metadata, mode, requirements, warnings, b
       pushFinding(blockers, seen, createFinding({
         severity: 'blocker',
         code: 'ASSOCIATION_INPUT_DEFAULT_BINDING_UNRESOLVED',
-        message: `关联输入字段 "${fieldPath}" 的标题字段 "${runtimeSelection.effectiveTitleField}" 缺少 interface，skill 无法提前判断 default binding。`,
+        message: `Title field "${runtimeSelection.effectiveTitleField}" of association input field "${fieldPath}" is missing interface, so the skill cannot determine default binding in advance.`,
         path: associationInputPath,
         mode,
         dedupeKey: `ASSOCIATION_INPUT_DEFAULT_BINDING_UNRESOLVED:${collectionName}:${fieldPath}:${runtimeSelection.effectiveTitleField}`,
@@ -4899,7 +4899,7 @@ function inspectHardcodedFilterByTk(payload, mode, warnings, seen) {
       pushFinding(warnings, seen, createFinding({
         severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
         code: 'HARDCODED_FILTER_BY_TK',
-        message: 'resourceSettings.init.filterByTk 使用了硬编码样本值。',
+        message: 'resourceSettings.init.filterByTk uses a hard-coded sample value.',
         path: `${pathValue}.stepParams.resourceSettings.init.filterByTk`,
         mode,
         dedupeKey: `HARDCODED_FILTER_BY_TK:${pathValue}.resourceSettings`,
@@ -5028,7 +5028,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
             pushCanonicalizeItem(transforms, transformSeen, {
               code: 'CHART_QUERY_SCALAR_FIELD_CANONICALIZED',
               path: fieldPath,
-              message: `ChartBlockModel 的 ${key}[${index}].field 已从单元素数组归一化为标量字符串。`,
+              message: `ChartBlockModel ${key}[${index}].field was canonicalized from a single-element array to a scalar string.`,
               details: {
                 from: fieldInspection.segments,
                 to: fieldInspection.normalized,
@@ -5054,7 +5054,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(transforms, transformSeen, {
             code: 'CHART_QUERY_RELATION_FIELD_CANONICALIZED',
             path: fieldPath,
-            message: `ChartBlockModel 的 ${key}[${index}].field 已从 legacy dotted path 归一化为 relation 数组路径。`,
+            message: `ChartBlockModel ${key}[${index}].field was canonicalized from a legacy dotted path to a relation array path.`,
             details: {
               collectionName,
               from: fieldInspection.normalized,
@@ -5071,7 +5071,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'CHART_QUERY_MODE_DEFAULTED',
           path: `${pathValue}.stepParams.chartSettings.configure.query.mode`,
-          message: 'ChartBlockModel 缺少 query.mode，已补成默认值 "builder"。',
+          message: 'ChartBlockModel was missing query.mode, so the default value "builder" was added.',
           details: {
             from: previousMode,
             to: 'builder',
@@ -5085,7 +5085,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'CHART_OPTION_MODE_DEFAULTED',
           path: `${pathValue}.stepParams.chartSettings.configure.chart.option.mode`,
-          message: 'ChartBlockModel 缺少 option.mode，已补成默认值 "basic"。',
+          message: 'ChartBlockModel was missing option.mode, so the default value "basic" was added.',
           details: {
             from: previousMode,
             to: 'basic',
@@ -5108,7 +5108,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'FILTER_ITEM_FIELD_RENAMED_TO_PATH',
           path: pathValue,
-          message: `把 legacy filter 字段 "${previousField}" 归一化为 path。`,
+          message: `Canonicalized legacy filter field "${previousField}" into path.`,
           details: {
             collectionName,
             from: previousField,
@@ -5119,7 +5119,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(unresolved, unresolvedSeen, {
           code: 'FILTER_ITEM_FIELD_PATH_UNRESOLVED',
           path: pathValue,
-          message: 'legacy filter 使用了 field，但当前 metadata 无法安全推断对应 path。',
+          message: 'The legacy filter uses field, but the current metadata cannot infer the matching path safely.',
           details: {
             collectionName,
             field: node.field,
@@ -5149,7 +5149,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'ASSOCIATION_PATHNAME_CANONICALIZED',
           path: pathValue,
-          message: `为 dotted 关联字段 "${fieldInit.fieldPath}" 补齐 associationPathName="${expectedAssociationPathName}"。`,
+          message: `Filled in associationPathName="${expectedAssociationPathName}" for dotted association field "${fieldInit.fieldPath}".`,
           details: {
             collectionName,
             fieldPath: fieldInit.fieldPath,
@@ -5176,7 +5176,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'FOREIGN_KEY_FIELDPATH_CANONICALIZED',
           path: pathValue,
-          message: `把 foreignKey 绑定 "${previousFieldPath}" 归一化为稳定展示字段 "${displayBinding.fieldPath}"。`,
+          message: `Canonicalized foreignKey binding "${previousFieldPath}" into stable display field "${displayBinding.fieldPath}".`,
           details: {
             collectionName,
             from: previousFieldPath,
@@ -5190,7 +5190,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(unresolved, unresolvedSeen, {
             code: 'FOREIGN_KEY_DISPLAY_BINDING_UNRESOLVED',
             path: pathValue,
-            message: 'fieldPath 命中了关联 foreignKey，但当前 metadata 无法安全归一化为稳定展示绑定。',
+            message: 'fieldPath hit an association foreignKey, but the current metadata cannot canonicalize it into a stable display binding safely.',
             details: {
               collectionName,
               fieldPath: fieldInit.fieldPath,
@@ -5243,7 +5243,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'FOREIGN_KEY_ASSOCIATION_INPUT_CANONICALIZED',
           path: pathValue,
-          message: `把输入型 foreignKey 绑定 "${previousFieldPath}" 归一化为关联字段 "${associationBinding.fieldPath}"。`,
+          message: `Canonicalized input foreignKey binding "${previousFieldPath}" into association field "${associationBinding.fieldPath}".`,
           details: {
             use: node.use,
             collectionName,
@@ -5259,7 +5259,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(unresolved, unresolvedSeen, {
             code: 'FOREIGN_KEY_ASSOCIATION_INPUT_UNRESOLVED',
             path: pathValue,
-            message: 'fieldPath 命中了关联 foreignKey，但当前 metadata 无法安全归一化为关联输入绑定。',
+            message: 'fieldPath hit an association foreignKey, but the current metadata cannot canonicalize it into an association input binding safely.',
             details: {
               collectionName,
               fieldPath: fieldInit.fieldPath,
@@ -5316,7 +5316,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(transforms, transformSeen, {
             code: 'FILTER_FORM_FIELD_MODEL_CANONICALIZED',
             path: pathValue,
-            message: `按字段 metadata 归一化筛选项 "${fieldInit.fieldPath}" 的 field model 和 filterField descriptor。`,
+            message: `Canonicalized the field model and filterField descriptor for filter item "${fieldInit.fieldPath}" based on field metadata.`,
             details: {
               collectionName,
               fieldPath: fieldInit.fieldPath,
@@ -5350,7 +5350,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
             pushCanonicalizeItem(transforms, transformSeen, {
               code: 'FORM_ASSOCIATION_TITLEFIELD_CANONICALIZED',
               path: pathValue,
-              message: `为表单关联字段 "${fieldInit.fieldPath}" 补齐 titleField="${titleFallback.labelField}"。`,
+              message: `Filled in titleField="${titleFallback.labelField}" for form association field "${fieldInit.fieldPath}".`,
               details: {
                 collectionName,
                 fieldPath: fieldInit.fieldPath,
@@ -5375,7 +5375,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
             pushCanonicalizeItem(transforms, transformSeen, {
               code: 'FORM_ASSOCIATION_EDIT_TITLEFIELD_CANONICALIZED',
               path: `${pathValue}.stepParams.editItemSettings.titleField`,
-              message: `为表单关联字段 "${fieldInit.fieldPath}" 的 editItemSettings 补齐 titleField="${titleFallback.labelField}"。`,
+              message: `Filled in titleField="${titleFallback.labelField}" for editItemSettings of form association field "${fieldInit.fieldPath}".`,
               details: {
                 collectionName,
                 fieldPath: fieldInit.fieldPath,
@@ -5404,7 +5404,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(transforms, transformSeen, {
             code: 'FORM_ASSOCIATION_FIELDNAMES_CANONICALIZED',
             path: node.use === FORM_ASSOCIATION_FIELD_MODEL_USE ? pathValue : `${pathValue}.subModels.field`,
-            message: `为关联输入字段 "${fieldInit.fieldPath}" 补齐 fieldNames.label="${titleFallback.labelField}" / value="${titleFallback.valueField}"。`,
+            message: `Filled in fieldNames.label="${titleFallback.labelField}" / value="${titleFallback.valueField}" for association input field "${fieldInit.fieldPath}".`,
             details: {
               collectionName,
               fieldPath: fieldInit.fieldPath,
@@ -5429,7 +5429,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'FORM_SUBMIT_ACTION_INSERTED',
           path: `${pathValue}.subModels.actions`,
-          message: `${node.use} 自动补入缺失的 FormSubmitActionModel。`,
+          message: `Automatically inserted the missing FormSubmitActionModel into ${node.use}.`,
           details: {
             formUse: node.use,
           },
@@ -5480,7 +5480,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'DETAILS_BLOCK_DEFAULT_ITEM_INSERTED',
           path: pathValue,
-          message: `为空的 DetailsBlockModel 自动补入默认展示字段 "${displayBinding.fieldPath}"。`,
+          message: `Automatically inserted default display field "${displayBinding.fieldPath}" into the empty DetailsBlockModel.`,
           details: {
             collectionName,
             fieldPath: displayBinding.fieldPath,
@@ -5491,7 +5491,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(unresolved, unresolvedSeen, {
           code: 'DETAILS_BLOCK_DEFAULT_ITEM_UNRESOLVED',
           path: pathValue,
-          message: 'DetailsBlockModel 为空，但 metadata 无法提供稳定的默认展示字段。',
+          message: 'DetailsBlockModel is empty, but metadata cannot provide a stable default display field.',
           details: {
             collectionName,
           },
@@ -5519,7 +5519,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(transforms, transformSeen, {
             code: 'POPUP_FILTER_BY_TK_CANONICALIZED',
             path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
-            message: `把硬编码 popup filterByTk "${String(previousValue)}" 归一化为模板变量。`,
+            message: `Canonicalized hard-coded popup filterByTk "${String(previousValue)}" into a template variable.`,
             details: {
               from: previousValue,
               to: replacement,
@@ -5530,7 +5530,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
           pushCanonicalizeItem(unresolved, unresolvedSeen, {
             code: 'POPUP_FILTER_BY_TK_CONTEXT_UNRESOLVED',
             path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
-            message: 'popup/openView 的 filterByTk 是硬编码值，但当前上下文无法安全推断替换模板。',
+            message: 'popup/openView.filterByTk is hard-coded, but the current context cannot infer a safe replacement template.',
             details: {
               actionUse: node.use,
               value: openView.filterByTk,
@@ -5548,7 +5548,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'POPUP_FILTER_BY_TK_CANONICALIZED',
           path: `${pathValue}.stepParams.popupSettings.openView.filterByTk`,
-          message: '把 legacy popup filterByTk 收敛为当前 collection 的 record 上下文模板。',
+          message: 'Canonicalized legacy popup filterByTk into the record-context template of the current collection.',
           details: {
             from: previousValue,
             to: replacement,
@@ -5567,7 +5567,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(transforms, transformSeen, {
           code: 'RESOURCE_FILTER_BY_TK_CANONICALIZED',
           path: `${pathValue}.stepParams.resourceSettings.init.filterByTk`,
-          message: `把硬编码 resource filterByTk "${String(previousValue)}" 归一化为 popup inputArgs 模板。`,
+          message: `Canonicalized hard-coded resource filterByTk "${String(previousValue)}" into the popup inputArgs template.`,
           details: {
             from: previousValue,
             to: POPUP_INPUT_ARGS_FILTER_BY_TK,
@@ -5578,7 +5578,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(unresolved, unresolvedSeen, {
           code: 'RESOURCE_FILTER_BY_TK_CONTEXT_UNRESOLVED',
           path: `${pathValue}.stepParams.resourceSettings.init.filterByTk`,
-          message: 'resourceSettings.init.filterByTk 是硬编码值，但当前不在可确认的 popup/inputArgs 上下文中。',
+          message: 'resourceSettings.init.filterByTk is hard-coded, but the current context is not a confirmed popup/inputArgs context.',
           details: {
             use: node.use,
             value: initOptions.filterByTk,
@@ -5609,7 +5609,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(unresolved, unresolvedSeen, {
           code: 'FILTER_MANAGER_FILTER_ITEM_UNBOUND',
           path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
-          message: 'FilterFormItemModel 缺少 defaultTargetUid，当前无法自动生成 filterManager 绑定。',
+          message: 'FilterFormItemModel is missing defaultTargetUid, so filterManager binding cannot be generated automatically right now.',
           details: {
             filterId: item.uid || null,
             fieldPath: item.fieldPath || null,
@@ -5622,7 +5622,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(unresolved, unresolvedSeen, {
           code: 'FILTER_MANAGER_TARGET_MISSING',
           path: `${item.path}.stepParams.filterFormItemSettings.init.defaultTargetUid`,
-          message: `defaultTargetUid "${item.defaultTargetUid}" 在当前 BlockGridModel 中找不到可筛选目标，无法自动生成 filterManager。`,
+          message: `defaultTargetUid "${item.defaultTargetUid}" cannot find a filterable target inside the current BlockGridModel, so filterManager cannot be generated automatically.`,
           details: {
             filterId: item.uid || null,
             defaultTargetUid: item.defaultTargetUid,
@@ -5636,7 +5636,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
         pushCanonicalizeItem(unresolved, unresolvedSeen, {
           code: 'FILTER_MANAGER_FILTER_PATH_UNRESOLVED',
           path: item.path,
-          message: '当前 metadata 无法为筛选项推导稳定的 filterPaths，自动生成 filterManager 已跳过该项。',
+          message: 'The current metadata cannot derive stable filterPaths for this filter item, so automatic filterManager generation skipped it.',
           details: {
             filterId: item.uid || null,
             collectionName: item.collectionName,
@@ -5662,7 +5662,7 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       pushCanonicalizeItem(transforms, transformSeen, {
         code: 'FILTER_MANAGER_CANONICALIZED',
         path: `${pathValue}.filterManager`,
-        message: '已为当前 BlockGridModel 自动补齐并归一化 filterManager。',
+        message: 'Automatically filled in and canonicalized filterManager for the current BlockGridModel.',
         details: {
           filterItemCount: filterItems.length,
           connectionCount: normalizedNextConfigs.length,

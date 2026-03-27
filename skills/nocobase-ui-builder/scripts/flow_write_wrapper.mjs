@@ -53,8 +53,8 @@ function usage() {
     '    [--chart-data-probes-json <json> | --chart-data-probes-file <path>]',
     '',
     'Notes:',
-    '  - 这是 flow-only 兼容入口；实际 guard/readback 逻辑委托给 ui_write_wrapper.mjs。',
-    '  - 脚本本身不再直接访问 NocoBase API；写入与 readback 证据必须先由 agent 通过 MCP 获取。',
+    '  - This is a flow-only compatibility entrypoint; real guard/readback logic is delegated to ui_write_wrapper.mjs.',
+    '  - The script no longer calls the NocoBase API directly; write and readback evidence must be collected through MCP first.',
   ].join('\n');
 }
 

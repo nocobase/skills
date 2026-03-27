@@ -1,77 +1,66 @@
----
-title: CreateFormModel
-description: 新建表单壳、字段项、提交动作的分层完成标准。
----
-
 # CreateFormModel
 
-## 适用范围
+## Applies to
 
 - `CreateFormModel`
 - `FormGridModel`
 - `FormItemModel`
 - `FormSubmitActionModel`
 
-典型目标：
+Typical targets:
 
-- 表格级“新建”弹窗或抽屉
-- 详情页中的新增关系记录表单
-- popup page 内的创建表单
+- table-level create popup or drawer
+- create form for related records inside details
+- create form inside a popup page
 
-优先参考动态场景：
+## Pre-write checklist
 
-- 订单履约 / 项目交付的主表工作台新建弹窗
-- 详情区块里的关系记录新建链路
-- 组织树页面里的“新增下级”表单
+1. Read schema for `CreateFormModel`, `FormGridModel`, `FormItemModel`, and `FormSubmitActionModel`
+2. Decide whether the task needs only a form shell or a truly fillable form
+3. If the form opens through popup or openView, read [../patterns/popup-openview.md](../patterns/popup-openview.md)
+4. If the form assigns relations or parent-child bindings, read [../patterns/relation-context.md](../patterns/relation-context.md)
 
-## 写前必查
+## Minimal success tree
 
-1. `CreateFormModel`、`FormGridModel`、`FormItemModel`、`FormSubmitActionModel` schema
-2. 当前场景要求的是“表单壳”还是“可实际填写的表单”
-3. 如果表单通过 popup / openView 打开，继续看 [../patterns/popup-openview.md](../patterns/popup-openview.md)
-4. 如果表单字段涉及关系赋值、父子记录绑定，继续看 [../patterns/relation-context.md](../patterns/relation-context.md)
-
-## 最小成功树
-
-纯壳层最低结构：
+Shell-only minimum:
 
 - `CreateFormModel`
 - `subModels.grid`
 - `subModels.actions[*] = FormSubmitActionModel`
 
-真实可填写表单最低结构：
+Fillable form minimum:
 
-- 上面的壳层
-- 至少一个 `FormItemModel`
-- 每个 `FormItemModel` 都显式补 `subModels.field`
-- `subModels.field.use` 必须来自当前 schema/field binding 暴露的 editable field candidates
-- 每个关键字段都有明确 field renderer 或字段项结构
+- the shell above
+- at least one `FormItemModel`
+- each `FormItemModel` explicitly includes `subModels.field`
+- `subModels.field.use` comes from the editable field candidates exposed by the current schema and field binding
+- every critical field has a real renderer or field subtree
 
-最小正确树提醒：
+Important reminders:
 
-- `FormSubmitActionModel` 放在 `CreateFormModel.subModels.actions`，不要放进 `FormGridModel.subModels.items`
-- `FormItemModel.stepParams.fieldSettings.init.fieldPath` 只负责字段绑定，不会自动替代 `subModels.field`
+- `FormSubmitActionModel` belongs in `CreateFormModel.subModels.actions`, not `FormGridModel.subModels.items`
+- `FormItemModel.stepParams.fieldSettings.init.fieldPath` only binds the field path; it does not replace `subModels.field`
 
-## 完成标准
+## Done criteria
 
-- 如果用户只要求“提供新建入口”，表单壳可算部分完成，但必须明确说明没有字段项
-- 如果用户要求“新建订单 / 新建发票 / 新建任务”等真实业务表单，只有壳层不算完成
-- validation 场景里，不能把“打开了一个空表单壳”当成真正可用
+- if the user only asks for a create entrypoint, a shell may count as partial completion, but the lack of field items must be explicit
+- if the user asks for a real business form such as create order or create invoice, a shell alone is not complete
+- in validation, opening an empty form shell does not count as usable
 
-## 常见陷阱
+## Common traps
 
-- 只有 `CreateFormModel + grid + submit`，没有任何字段项
-- 提交动作存在，但没有说明它实际能提交什么数据
-- 父子关系依赖运行时赋值，但没有明确 assign rule 或上下文来源
-- `fieldPath` 正确，但 `FormItemModel.subModels.field` 缺失，结果只有字段壳或不可填写
-- `FormSubmitActionModel` 被塞进 `grid.items`，结果按钮位置错误
+- only `CreateFormModel + grid + submit`, with no field items
+- submit action exists, but there is no explanation of what data it can submit
+- parent-child relations depend on runtime assignment with no explicit rule or context
+- `fieldPath` is correct, but `FormItemModel.subModels.field` is missing
+- `FormSubmitActionModel` is placed into `grid.items`, so the button renders in the wrong area
 
-## 关联模式文档
+## Related patterns
 
 - [../patterns/popup-openview.md](../patterns/popup-openview.md)
 - [../patterns/relation-context.md](../patterns/relation-context.md)
 
-## 失败时如何降级
+## Fallback policy
 
-- 如果字段项 schema 仍未消歧，可以先保留稳定壳层
-- 但最终必须明确写成“表单壳已完成，字段项未完成”，不能报成功
+- if field-item schema is still ambiguous, keep a stable shell first
+- but report it explicitly as "form shell completed, field items incomplete" instead of success

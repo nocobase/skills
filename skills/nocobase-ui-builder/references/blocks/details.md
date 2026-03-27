@@ -1,71 +1,53 @@
----
-title: DetailsBlockModel
-description: 详情区块、详情内动作与详情内关系表的完成标准和注意事项。
----
-
 # DetailsBlockModel
 
-## 适用范围
+## Applies to
 
 - `DetailsBlockModel`
 - `DetailsGridModel`
 
-典型目标：
+Typical targets:
 
-- 主记录详情页
-- drawer / dialog 内的详情内容
-- 详情区块下再挂动作或关系表
+- main-record details pages
+- details content inside drawer or dialog
+- details blocks that also host actions or relation tables
 
-优先参考动态场景：
+## Pre-write checklist
 
-- 客户增长 360 工作台
-- 审批运营详情与日志联动
-- 多层 popup / details 链路
+1. Read the `DetailsBlockModel` schema
+2. Confirm the record-context source
+3. If the details block also hosts relation tables, read [../patterns/relation-context.md](../patterns/relation-context.md)
+4. If the details block also hosts actions, read [../patterns/popup-openview.md](../patterns/popup-openview.md) and [../patterns/record-actions.md](../patterns/record-actions.md)
 
-## 写前必查
-
-1. `DetailsBlockModel` schema
-2. 当前记录上下文来源
-   - 主表行动作
-   - popup `inputArgs`
-   - 页面级已知 record id
-3. 如果详情内还要挂关系表，继续看 [../patterns/relation-context.md](../patterns/relation-context.md)
-4. 如果详情里还要挂“查看客户”“通过/驳回”等动作，继续看 [../patterns/popup-openview.md](../patterns/popup-openview.md) 和 [../patterns/record-actions.md](../patterns/record-actions.md)
-
-## 最小成功树
-
-在“真实可读详情”场景里，最低结构应包括：
+## Minimal success tree
 
 - `DetailsBlockModel`
-- 明确的 `resourceSettings` 或 `filterByTk` 来源
+- explicit `resourceSettings` or `filterByTk` source
 - `subModels.grid`
-- `subModels.grid` 里至少一种可见内容：详情字段、动作或子业务区块
+- at least one visible child inside the grid: detail fields, actions, or business sub-blocks
 
-如果用户要求详情内动作或关系表，则它们是同一业务链路的一部分，不应默默省略。
+## Done criteria
 
-## 完成标准
+- the details block can bind to a real sample record
+- the report can name which sample record it is
+- an empty title plus an empty grid is only a shell, not a usable details block
+- if the user asked for actions or relation tables inside details, report their status separately
+- never report "details ready" when only the shell exists
 
-- 详情区块能绑定到一条真实样本记录
-- 至少能说明该样本记录是谁，例如某张采购单、某条审批单、某笔订单
-- 不能只有标题和空 grid；如果没有任何字段、动作或子业务区块，只能算“详情壳”
-- 如果用户要求详情内关系表或动作，需要明确说明它们是已落库、部分完成，还是阻塞
-- 不能把“详情壳已创建”误报为“详情已可用”
+## Common traps
 
-## 常见陷阱
+- no explicit record context
+- only `DetailsGridModel` exists, but no field or child node exists inside it
+- relation tables inside details have an unclear filter
+- the block assumes implicit `ctx.record` without proving where that context comes from
+- actions exist but do not open the correct record
 
-- 详情区块没有明确 record context
-- 详情区块只有 `DetailsGridModel`，没有任何字段或子节点
-- 详情区块里继续挂关系表，但 relation filter 没写清楚
-- 在详情区块里直接依赖隐式 `ctx.record`，却没有说明上下文来源
-- 详情动作已挂上，但实际打不开正确记录
-
-## 关联模式文档
+## Related patterns
 
 - [../patterns/relation-context.md](../patterns/relation-context.md)
 - [../patterns/popup-openview.md](../patterns/popup-openview.md)
 - [../patterns/record-actions.md](../patterns/record-actions.md)
 
-## 失败时如何降级
+## Fallback policy
 
-- 如果详情记录上下文仍未稳定，优先明确记录 blocker，不要伪造详情可用
-- 如果详情主体能落库，但关系表或动作尚未稳定，要分别报告完成度
+- if record context is still unstable, keep the blocker explicit rather than faking success
+- if the main details body persists but relation tables or actions are unstable, report them separately

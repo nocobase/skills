@@ -421,7 +421,7 @@ test('dedupeFormSubmitActions removes placeholder duplicate submit action', () =
           stepParams: {
             buttonSettings: {
               general: {
-                title: '保存',
+                title: 'Save',
               },
             },
           },
@@ -472,7 +472,7 @@ test('remapTemplateTreeToTarget reports empty template tree issues and cleanup c
   assert.deepEqual(result.issues, [
     {
       code: 'EMPTY_TEMPLATE_TREE',
-      message: '模板 clone 后只剩 root 壳，没有任何顶层 items 或 tabs。',
+      message: 'After template clone, only the root shell remains and there are no top-level items or tabs.',
     },
   ]);
   assert.equal(result.strippedUnsupportedFieldPopupPages, 0);

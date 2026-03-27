@@ -182,7 +182,7 @@ function toDate(value) {
 
 function formatDuration(ms) {
   if (typeof ms !== 'number' || Number.isNaN(ms) || ms < 0) {
-    return '未知';
+    return 'unknown';
   }
   if (ms < 1000) {
     return `${ms} ms`;
@@ -307,11 +307,11 @@ function resolveExplicitAxisStatus(records, axisKey, options = {}) {
       }
       const fromStatusAxes = normalizeAxisStatusInput(container.statusAxes?.[axisKey], options);
       if (fromStatusAxes) {
-        return buildStatusAxis(fromStatusAxes, `来自 ${record.type}`);
+        return buildStatusAxis(fromStatusAxes, `from ${record.type}`);
       }
       const directValue = normalizeAxisStatusInput(container[axisKey], options);
       if (directValue) {
-        return buildStatusAxis(directValue, `来自 ${record.type}`);
+        return buildStatusAxis(directValue, `from ${record.type}`);
       }
     }
   }
@@ -750,7 +750,7 @@ function compareStructuredSummaries(writeSummary, readSummary) {
   for (const [pageSignature, writePageGroup] of writePageGroups.entries()) {
     const readPageGroup = readPageGroups.get(pageSignature);
     if (!readPageGroup) {
-      evidence.push(`write.pageGroups[${pageSignature}] exists，readback missing`);
+      evidence.push(`write.pageGroups[${pageSignature}] exists, readback missing`);
       continue;
     }
 
@@ -759,13 +759,13 @@ function compareStructuredSummaries(writeSummary, readSummary) {
       && typeof readPageGroup.pageUse === 'string'
       && writePageGroup.pageUse !== readPageGroup.pageUse
     ) {
-      evidence.push(`page ${pageSignature} use write=${writePageGroup.pageUse}，readback=${readPageGroup.pageUse}`);
+      evidence.push(`page ${pageSignature} use write=${writePageGroup.pageUse}, readback=${readPageGroup.pageUse}`);
     }
 
     const writeTabCount = Number.isFinite(writePageGroup.tabCount) ? writePageGroup.tabCount : null;
     const readTabCount = Number.isFinite(readPageGroup.tabCount) ? readPageGroup.tabCount : null;
     if (writeTabCount !== null && readTabCount !== null && writeTabCount !== readTabCount) {
-      evidence.push(`page ${pageSignature} tabCount write=${writeTabCount}，readback=${readTabCount}`);
+      evidence.push(`page ${pageSignature} tabCount write=${writeTabCount}, readback=${readTabCount}`);
     }
 
     const writeTabTitles = normalizeStringList(writePageGroup.tabTitles);
@@ -775,7 +775,7 @@ function compareStructuredSummaries(writeSummary, readSummary) {
       && readTabTitles.length > 0
       && JSON.stringify(writeTabTitles) !== JSON.stringify(readTabTitles)
     ) {
-      evidence.push(`page ${pageSignature} tabTitles write=${writeTabTitles.join(' / ')}，readback=${readTabTitles.join(' / ')}`);
+      evidence.push(`page ${pageSignature} tabTitles write=${writeTabTitles.join(' / ')}, readback=${readTabTitles.join(' / ')}`);
     }
 
     const readTabsByTitle = new Map();
@@ -790,18 +790,18 @@ function compareStructuredSummaries(writeSummary, readSummary) {
       const title = typeof tab?.title === 'string' && tab.title.trim() ? tab.title.trim() : `#${tabIndex}`;
       const readTab = readTabsByTitle.get(title);
       if (!readTab) {
-        evidence.push(`page ${pageSignature} tab ${title} exists，readback missing`);
+        evidence.push(`page ${pageSignature} tab ${title} exists, readback missing`);
         return;
       }
       if (tab.hasBlockGrid !== readTab.hasBlockGrid) {
-        evidence.push(`page ${pageSignature} tab ${title} hasBlockGrid write=${String(tab.hasBlockGrid)}，readback=${String(readTab.hasBlockGrid)}`);
+        evidence.push(`page ${pageSignature} tab ${title} hasBlockGrid write=${String(tab.hasBlockGrid)}, readback=${String(readTab.hasBlockGrid)}`);
       }
     });
   }
 
   for (const [pageSignature] of readPageGroups.entries()) {
     if (!writePageGroups.has(pageSignature)) {
-      evidence.push(`readback.pageGroups[${pageSignature}] exists，write missing`);
+      evidence.push(`readback.pageGroups[${pageSignature}] exists, write missing`);
     }
   }
 
@@ -812,7 +812,7 @@ function compareStructuredSummaries(writeSummary, readSummary) {
     && readTopLevelUses.length > 0
     && JSON.stringify(writeTopLevelUses) !== JSON.stringify(readTopLevelUses)
   ) {
-    evidence.push(`write.topLevelUses=${writeTopLevelUses.join(' / ')}，readback.topLevelUses=${readTopLevelUses.join(' / ')}`);
+    evidence.push(`write.topLevelUses=${writeTopLevelUses.join(' / ')}, readback.topLevelUses=${readTopLevelUses.join(' / ')}`);
   }
 
   return evidence;
@@ -854,7 +854,7 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
       evidenceInsufficient.push(buildEvidenceInsufficientItem({
         writeCall,
         reasonCode: 'WRITE_TARGET_SIGNATURE_MISSING',
-        detail: `${writeCall.tool} 需要显式 args.targetSignature 才能参与自动 write-after-read 对账。`,
+        detail: `${writeCall.tool} needs an explicit args.targetSignature before it can join automatic write-after-read reconciliation.`,
       }));
       continue;
     }
@@ -886,14 +886,14 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
           writeCall,
           targetSignature: writeTargetSignature,
           reasonCode: 'READBACK_TARGET_SIGNATURE_MISSING',
-          detail: '后续存在 GetFlowmodels_findone，但没有显式 args.targetSignature，无法安全配对同目标 readback。',
+          detail: 'A later GetFlowmodels_findone exists, but it has no explicit args.targetSignature, so the matching-target readback cannot be paired safely.',
         }));
       } else {
         evidenceInsufficient.push(buildEvidenceInsufficientItem({
           writeCall,
           targetSignature: writeTargetSignature,
           reasonCode: 'READBACK_MISSING',
-          detail: '在下一个 side-effect write 或 run 结束前，没有发现同目标 GetFlowmodels_findone readback。',
+          detail: 'No same-target GetFlowmodels_findone readback was found before the next side-effect write or the end of the run.',
         }));
       }
       continue;
@@ -907,7 +907,7 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
         readbackCall,
         targetSignature: writeTargetSignature,
         reasonCode: 'SUMMARY_MISSING',
-        detail: 'write/readback 至少有一侧缺少 result.summary，无法进行结构化对账。',
+        detail: 'At least one side of the write/readback pair is missing result.summary, so structured reconciliation cannot run.',
       }));
       continue;
     }
@@ -921,7 +921,7 @@ function buildPostWriteReadbackAnalysis(toolCalls) {
         readbackCall,
         targetSignature: writeTargetSignature,
         reasonCode: 'SUMMARY_TARGET_SIGNATURE_MISMATCH',
-        detail: 'result.summary.targetSignature 与 tool_call.args.targetSignature 不一致，无法确认对账目标。',
+        detail: 'result.summary.targetSignature does not match tool_call.args.targetSignature, so the reconciliation target cannot be confirmed.',
       }));
       continue;
     }
@@ -1179,13 +1179,13 @@ function buildOptimizationItems({
   if (hasWrites && (!hasSchemaBundle || !hasSchemas || (firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1))) {
     items.push({
       priority: 'high',
-      title: '把探测步骤前置并批量化',
-      reason: '写入发生前未完成完整探测，或者探测顺序晚于第一次写入，会增加试错和返工。',
-      fasterPath: '在第一次写入前先执行一次 `PostFlowmodels_schemabundle` + 一次 `PostFlowmodels_schemas`；只有目标模型仍有歧义时，再补 `GetFlowmodels_schema`。',
+      title: 'Move discovery earlier and batch it',
+      reason: 'Discovery was incomplete before the first write, or it started after the first write, which increases guesswork and rework.',
+      fasterPath: 'Run one `PostFlowmodels_schemabundle` plus one `PostFlowmodels_schemas` before the first write. Only add `GetFlowmodels_schema` if the target model is still ambiguous.',
       evidence: [
-        !hasSchemaBundle ? '缺少 `PostFlowmodels_schemabundle`' : null,
-        !hasSchemas ? '缺少 `PostFlowmodels_schemas`' : null,
-        firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1 ? '首次探测晚于首次写入' : null,
+        !hasSchemaBundle ? 'missing `PostFlowmodels_schemabundle`' : null,
+        !hasSchemas ? 'missing `PostFlowmodels_schemas`' : null,
+        firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1 ? 'first discovery happened after the first write' : null,
       ].filter(Boolean),
     });
   }
@@ -1193,29 +1193,29 @@ function buildOptimizationItems({
   if (hasWrites && !guardSummary.hasGuardAudit) {
     items.push({
       priority: 'high',
-      title: '把 payload guard 放到首次写入前',
-      reason: '存在写操作，但没有记录任何 `flow_payload_guard.audit-payload` 审计结果，坏 payload 可能直接落库。',
-      fasterPath: '每轮写入前先执行一次 `flow_payload_guard.extract-required-metadata` 和 `flow_payload_guard.audit-payload`；命中 blocker 时立即停止写入。',
-      evidence: ['缺少 `flow_payload_guard.audit-payload`'],
+      title: 'Run payload guard before the first write',
+      reason: 'Writes happened without any recorded `flow_payload_guard.audit-payload` result, so a broken payload could reach persistence directly.',
+      fasterPath: 'Before each write round, run `flow_payload_guard.extract-required-metadata` and `flow_payload_guard.audit-payload`. Stop immediately when a blocker appears.',
+      evidence: ['missing `flow_payload_guard.audit-payload`'],
     });
   }
 
   if (hasWrites && !guardSummary.hasCanonicalize) {
     items.push({
       priority: 'high',
-      title: '把 canonicalize 放到 guard 审计前',
-      reason: '存在写操作，但没有记录任何 `flow_payload_guard.canonicalize-payload`；legacy 结构和样本值会直接进入 audit 或写入阶段。',
-      fasterPath: '统一采用 `extract-required-metadata -> canonicalize-payload -> audit-payload -> write` 流水线，让能自动收敛的问题先在本地归一化。',
-      evidence: ['缺少 `flow_payload_guard.canonicalize-payload`'],
+      title: 'Canonicalize before guard audit',
+      reason: 'Writes happened without any recorded `flow_payload_guard.canonicalize-payload`, so legacy shapes and sample values could flow straight into audit or write stages.',
+      fasterPath: 'Use a consistent `extract-required-metadata -> canonicalize-payload -> audit-payload -> write` pipeline so locally fixable issues converge before the final audit.',
+      evidence: ['missing `flow_payload_guard.canonicalize-payload`'],
     });
   }
 
   if (guardSummary.writeAfterBlockerWithoutRiskAcceptCount > 0) {
     items.push({
       priority: 'high',
-      title: '不要绕过 blocker 直接写入',
-      reason: `本次出现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程。`,
-      fasterPath: 'guard 报 blocker 后，默认先修 payload；只有确实接受风险时，才追加 risk-accept note 并重新审计后再写入。',
+      title: 'Do not write past a blocker',
+      reason: `${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} invalid flows wrote even after guard reported a blocker.`,
+      fasterPath: 'After guard reports a blocker, fix the payload first by default. Only continue when the risk is intentionally accepted, a risk-accept note is added, and the payload is re-audited.',
       evidence: guardSummary.violations.map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
     });
   }
@@ -1223,9 +1223,9 @@ function buildOptimizationItems({
   if (guardSummary.createPageAfterBlockerCount > 0) {
     items.push({
       priority: 'high',
-      title: '把 createV2 也纳入 guard 阻断',
-      reason: `本次有 ${guardSummary.createPageAfterBlockerCount} 次在 guard blocker 之后仍继续执行 \`PostDesktoproutes_createv2\`。`,
-      fasterPath: '不要把 page shell 创建当成“低风险探路”；guard 报 blocker 时，连 createV2 也必须暂停，先修 payload 或重新审计。',
+      title: 'Apply the same guard stop to createV2',
+      reason: `${guardSummary.createPageAfterBlockerCount} runs still executed \`PostDesktoproutes_createv2\` after a guard blocker.`,
+      fasterPath: 'Do not treat page-shell creation as a low-risk probe. When guard reports a blocker, createV2 must stop as well until the payload is fixed or re-audited.',
       evidence: guardSummary.violations
         .filter((item) => item.writeTool === 'PostDesktoproutes_createv2')
         .map((item) => `${item.writeTool} <- ${item.blockerCodes.join(', ')}`),
@@ -1235,12 +1235,12 @@ function buildOptimizationItems({
   if (routeReadySummary.createPageCount > 0 && (routeReadySummary.routeReadCount === 0 || routeReadySummary.preOpenGateCount === 0)) {
     items.push({
       priority: 'high',
-      title: '把 createV2 后的 route-ready 与首开 gate 补齐',
-      reason: 'createV2 只代表页面壳已写库，不代表新页面已经进入可首开验证状态。',
-      fasterPath: 'createV2 后先回读 accessible route tree，确认 page route 与隐藏 tab 已同步，再执行一次 pre-open gate；缺任一证据都不能把页面记为 success。',
+      title: 'Complete route-ready and pre-open checks after createV2',
+      reason: 'createV2 only means the page shell was persisted. It does not prove the new page is ready for first-open validation.',
+      fasterPath: 'After createV2, read back the accessible route tree, confirm the page route and hidden tab are in sync, then run one pre-open gate. Without both signals, do not mark the page as success.',
       evidence: [
-        routeReadySummary.routeReadCount === 0 ? '缺少 `GetDesktoproutes_getaccessible/listaccessible`' : null,
-        routeReadySummary.preOpenGateCount === 0 ? '缺少 `pre-open` gate' : null,
+        routeReadySummary.routeReadCount === 0 ? 'missing `GetDesktoproutes_getaccessible/listaccessible`' : null,
+        routeReadySummary.preOpenGateCount === 0 ? 'missing `pre-open` gate' : null,
       ].filter(Boolean),
     });
   }
@@ -1248,9 +1248,9 @@ function buildOptimizationItems({
   if (readbackMismatches.length > 0) {
     items.push({
       priority: 'high',
-      title: '把 write 后 readback 不一致直接判为失败',
-      reason: `本次发现 ${readbackMismatches.length} 组写后回读矛盾，说明不能只看 save/mutate 的乐观返回值。`,
-      fasterPath: '每次写入后立即做同目标 readback，并让 run_finished、review 文案和最终状态都以 readback 事实为准；发现计数或标题不一致时直接降级成 partial/failed。',
+      title: 'Treat post-write readback mismatches as failures',
+      reason: `${readbackMismatches.length} post-write readback mismatches were found, so optimistic save/mutate responses are not enough.`,
+      fasterPath: 'Run same-target readback immediately after each write, and make `run_finished`, review copy, and final status follow readback facts. Downgrade directly to partial/failed when counts or titles differ.',
       evidence: readbackMismatches.flatMap((item) => item.evidence).slice(0, 4),
     });
   }
@@ -1258,9 +1258,9 @@ function buildOptimizationItems({
   if (readbackEvidenceInsufficient.length > 0) {
     items.push({
       priority: 'medium',
-      title: '给自动对账补齐 targetSignature 和 summary',
-      reason: `本次有 ${readbackEvidenceInsufficient.length} 组写后对账证据不足，自动流程无法确认写入目标或结构快照。`,
-      fasterPath: '写操作与对应 GetFlowmodels_findone 都显式记录 args.targetSignature，并把结构化树摘要写入 result.summary；旧日志不要继续拿来做自动 mismatch。',
+      title: 'Add targetSignature and summary for automatic reconciliation',
+      reason: `${readbackEvidenceInsufficient.length} post-write pairs lacked enough evidence, so the automated flow could not confirm the write target or structural snapshot.`,
+      fasterPath: 'Have both the write call and the matching GetFlowmodels_findone log args.targetSignature explicitly, and write the structured tree snapshot into result.summary. Do not keep reusing old logs for automatic mismatch detection.',
       evidence: readbackEvidenceInsufficient.slice(0, 4).map((item) => `${item.writeTool}:${item.reasonCode}`),
     });
   }
@@ -1268,9 +1268,9 @@ function buildOptimizationItems({
   if (schemaReadCount >= 3) {
     items.push({
       priority: 'high',
-      title: '减少多次单模型 schema 读取',
-      reason: `本次出现 ${schemaReadCount} 次 \`GetFlowmodels_schema\`，通常说明单模型深挖过多。`,
-      fasterPath: '优先一次性拉取 `PostFlowmodels_schemas`，只对最后仍不清楚的模型再补单独 `GetFlowmodels_schema`。',
+      title: 'Reduce repeated single-model schema reads',
+      reason: `\`GetFlowmodels_schema\` was called ${schemaReadCount} times, which usually means too much single-model deep diving.`,
+      fasterPath: 'Prefer one batched `PostFlowmodels_schemas`, and only fall back to a standalone `GetFlowmodels_schema` for the last still-unclear models.',
       evidence: [`GetFlowmodels_schema x${schemaReadCount}`],
     });
   }
@@ -1278,12 +1278,12 @@ function buildOptimizationItems({
   if (cacheSummary.total === 0 && (hasSchemaBundle || hasSchemas || schemaReadCount > 0)) {
     items.push({
       priority: 'high',
-      title: '为稳定探测结果接入跨 run 缓存',
-      reason: '本次已经有 schema/metadata 探测，但没有记录任何缓存命中或回写。',
-      fasterPath: '只缓存 schemaBundle、schemas、collection fields、relation metadata；live tree 与 runtime 结果继续实时读取。',
+      title: 'Add cross-run caching for stable discovery results',
+      reason: 'This run already performed schema/metadata discovery, but no cache hit or write-back was recorded.',
+      fasterPath: 'Cache only schemaBundle, schemas, collection fields, and relation metadata. Keep live tree and runtime reads real-time.',
       evidence: [
-        hasSchemaBundle ? '执行了 `PostFlowmodels_schemabundle`' : null,
-        hasSchemas ? '执行了 `PostFlowmodels_schemas`' : null,
+        hasSchemaBundle ? 'ran `PostFlowmodels_schemabundle`' : null,
+        hasSchemas ? 'ran `PostFlowmodels_schemas`' : null,
         schemaReadCount > 0 ? `GetFlowmodels_schema x${schemaReadCount}` : null,
       ].filter(Boolean),
     });
@@ -1292,9 +1292,9 @@ function buildOptimizationItems({
   if (cacheSummary.total > 0 && cacheSummary.hitRatio !== null && cacheSummary.hitRatio < 0.5 && cacheSummary.missCount >= 2) {
     items.push({
       priority: 'medium',
-      title: '提高稳定缓存命中率',
-      reason: `当前缓存命中率仅 ${Math.round(cacheSummary.hitRatio * 100)}%，大量稳定探测仍走了实时读取。`,
-      fasterPath: '复用 instanceFingerprint 下的 stable metadata cache，并在 collection/field 写操作后只做选择性失效。',
+      title: 'Improve stable-cache hit rate',
+      reason: `The current cache hit rate is only ${Math.round(cacheSummary.hitRatio * 100)}%, so many stable discovery steps still use live reads.`,
+      fasterPath: 'Reuse the stable metadata cache keyed by instanceFingerprint, and only invalidate selectively after collection/field writes.',
       evidence: [`cache_hit=${cacheSummary.hitCount}`, `cache_miss=${cacheSummary.missCount}`],
     });
   }
@@ -1303,13 +1303,13 @@ function buildOptimizationItems({
   if (slowPhase && slowPhase.totalDurationMs >= 20_000) {
     items.push({
       priority: 'medium',
-      title: `压缩最慢阶段：${slowPhase.phase}`,
-      reason: `本次最慢阶段耗时 ${slowPhase.totalDurationLabel}，已经成为关键路径。`,
+      title: `Shrink the slowest phase: ${slowPhase.phase}`,
+      reason: `The slowest phase took ${slowPhase.totalDurationLabel} in this run and is now the critical path.`,
       fasterPath: slowPhase.phase === 'browser_attach'
-        ? '固定浏览器 attach 主路径，并减少多次 attach / fallback。'
+        ? 'Stabilize the main browser-attach path and reduce repeated attach/fallback attempts.'
         : slowPhase.phase === 'schema_discovery' || slowPhase.phase === 'stable_metadata'
-          ? '优先命中稳定缓存，并把 schema/metadata 探测批量化。'
-          : '优先把该阶段的输入归一化并减少重复推理或重复读取。',
+          ? 'Prioritize stable-cache hits and batch schema/metadata discovery.'
+          : 'Normalize the inputs of this phase earlier and reduce repeated reasoning or repeated reads.',
       evidence: [`${slowPhase.phase}=${slowPhase.totalDurationLabel}`],
     });
   }
@@ -1317,9 +1317,9 @@ function buildOptimizationItems({
   if (gateRecords.failed > 0) {
     items.push({
       priority: 'medium',
-      title: '把 gate 决策前置到更早阶段',
-      reason: `本次已有 ${gateRecords.failed} 个 gate 失败，如果失败后仍继续执行，整体耗时会被后半段放大。`,
-      fasterPath: 'write-after-read mismatch、pre-open blocker、mandatory stage 失败都要直接截停后续动作。',
+      title: 'Move gate decisions earlier',
+      reason: `${gateRecords.failed} gates already failed in this run. If execution still continued afterward, the back half of the run became unnecessarily expensive.`,
+      fasterPath: 'Stop immediately after write-after-read mismatches, pre-open blockers, or mandatory-stage failures.',
       evidence: gateRecords.records
         .filter((item) => item.status === 'failed')
         .map((item) => `${item.gate}:${item.reasonCode}`)
@@ -1330,9 +1330,9 @@ function buildOptimizationItems({
   if (repeatedFindoneTargets.length > 0) {
     items.push({
       priority: 'medium',
-      title: '压缩重复的 live snapshot 读取',
-      reason: '同一个 live target 被读取了 3 次或更多次，通常意味着中间有可合并的重复探测。',
-      fasterPath: '默认保持“目标页面写前一次、写后一次”的读取节奏；样板页只在 schema-first 无法消歧时再作为 fallback。',
+      title: 'Reduce repeated live snapshot reads',
+      reason: 'The same live target was read 3 or more times, which usually means some discovery steps could have been merged.',
+      fasterPath: 'Default to one read before writing the target page and one read after writing. Use template pages only as a fallback when schema-first discovery cannot disambiguate.',
       evidence: repeatedFindoneTargets.map((item) => `${item.target} x${item.count}`),
     });
   }
@@ -1340,9 +1340,9 @@ function buildOptimizationItems({
   if (repeatedRuns.length > 0) {
     items.push({
       priority: 'medium',
-      title: '合并连续重复调用',
-      reason: '连续重复读取通常意味着流程可以更直接，或某些结果没有被复用。',
-      fasterPath: '对连续重复工具调用优先缓存结果、合并成一次调用，或把多个相邻操作合并进一次事务写入。',
+      title: 'Merge consecutive duplicate calls',
+      reason: 'Back-to-back duplicate reads usually mean the flow could be more direct, or some results were not reused.',
+      fasterPath: 'Prefer caching or merging consecutive duplicate tool calls, or combine adjacent operations into one transactional write.',
       evidence: repeatedRuns.map((item) => `${item.tool} x${item.count}`),
     });
   }
@@ -1350,9 +1350,9 @@ function buildOptimizationItems({
   if (errors.length > 0) {
     items.push({
       priority: 'high',
-      title: '把失败前的最小成功模板固化下来',
-      reason: `本次有 ${errors.length} 次失败调用，重复试错会直接拉长完成时间。`,
-      fasterPath: '把失败调用前最近一次成功的 schema/请求体整理成模板，下次优先从模板改最少字段，而不是从空 payload 开始猜。',
+      title: 'Capture the smallest successful template before failure',
+      reason: `${errors.length} calls failed in this run, and repeated trial-and-error directly extends completion time.`,
+      fasterPath: 'Turn the most recent successful schema/request body before each failure into a template. Next time, start from that template and change the minimum number of fields instead of guessing from an empty payload.',
       evidence: errors.slice(0, 3).map((item) => `${item.tool}: ${item.error ?? item.status ?? 'error'}`),
     });
   }
@@ -1360,30 +1360,30 @@ function buildOptimizationItems({
   if (hasWrites && !hasFindone) {
     items.push({
       priority: 'medium',
-      title: '补上写前 live 读取，减少无效回滚',
-      reason: '写入前没有记录 live snapshot 读取，容易对现状判断错误。',
-      fasterPath: '每轮改动前先读一次目标页面 / grid，再决定 patch 还是 append，能减少写后修补。',
-      evidence: ['缺少 `GetFlowmodels_findone`'],
+      title: 'Add pre-write live reads to reduce invalid rollbacks',
+      reason: 'No live snapshot read was recorded before writing, so the current state may have been misread.',
+      fasterPath: 'Before each change round, read the target page/grid once, then decide between patch and append. That reduces post-write repair work.',
+      evidence: ['missing `GetFlowmodels_findone`'],
     });
   }
 
   if (missingSummaryCount > 0) {
     items.push({
       priority: 'low',
-      title: '为每条工具调用补上简短 summary',
-      reason: '虽然这不会直接减少调用次数，但能更快识别哪些步骤可以删减。',
-      fasterPath: '每次 `tool_call` 都写一个一句话 summary，复盘时能更快定位冗余步骤。',
-      evidence: [`缺少 summary 的记录数：${missingSummaryCount}`],
+      title: 'Add a short summary to every tool call',
+      reason: 'This does not directly reduce call count, but it makes removable steps much easier to spot.',
+      fasterPath: 'Write a one-line summary for every `tool_call` so review can locate redundant steps faster.',
+      evidence: [`records missing summary: ${missingSummaryCount}`],
     });
   }
 
   if (items.length === 0) {
     items.push({
       priority: 'low',
-      title: '维持当前流程，继续关注事务合并机会',
-      reason: '本次没有明显的流程绕路迹象。',
-      fasterPath: '后续优先观察是否能把相邻的新增/更新步骤继续压缩到一次 `PostFlowmodels_mutate` 中。',
-      evidence: ['未发现明显绕路模式'],
+      title: 'Keep the current flow and keep watching for transaction merge opportunities',
+      reason: 'No obvious detours were found in this run.',
+      fasterPath: 'Keep watching for chances to compress adjacent create/update steps into a single `PostFlowmodels_mutate`.',
+      evidence: ['no obvious detour pattern found'],
     });
   }
 
@@ -1395,9 +1395,9 @@ function describeRouteTarget(target) {
     return `schemaUid=${target.schemaUid}`;
   }
   if (target.sources.length > 0) {
-    return target.sources.join('；');
+    return target.sources.join('; ');
   }
-  return '未记录 schemaUid';
+  return 'schemaUid not recorded';
 }
 
 function summarizeStatusAxes({
@@ -1424,73 +1424,73 @@ function summarizeStatusAxes({
 
   const pageShellCreated = pageShellExplicit ?? (() => {
     if (routeReadySummary.createPageCount === 0) {
-      return buildStatusAxis('not-recorded', '未记录 `PostDesktoproutes_createv2`。');
+      return buildStatusAxis('not-recorded', '`PostDesktoproutes_createv2` was not recorded.');
     }
     if (routeReadySummary.target.status === 'ambiguous') {
-      return buildStatusAxis('evidence-insufficient', `createV2 目标不唯一：${describeRouteTarget(routeReadySummary.target)}`);
+      return buildStatusAxis('evidence-insufficient', `createV2 target is ambiguous: ${describeRouteTarget(routeReadySummary.target)}`);
     }
     if (routeReadySummary.createSuccessCount > 0) {
       return buildStatusAxis(
         'created',
-        `${describeRouteTarget(routeReadySummary.target)}；createV2 成功 ${formatCountLabel(routeReadySummary.createSuccessCount, '次')}`,
+        `${describeRouteTarget(routeReadySummary.target)}; createV2 succeeded ${formatCountLabel(routeReadySummary.createSuccessCount, 'times')}`,
       );
     }
     if (routeReadySummary.createErrorCount > 0) {
-      return buildStatusAxis('failed', `${describeRouteTarget(routeReadySummary.target)}；createV2 失败 ${formatCountLabel(routeReadySummary.createErrorCount, '次')}`);
+      return buildStatusAxis('failed', `${describeRouteTarget(routeReadySummary.target)}; createV2 failed ${formatCountLabel(routeReadySummary.createErrorCount, 'times')}`);
     }
-    return buildStatusAxis('not-recorded', '检测到 createV2，但无法确认成功结果。');
+    return buildStatusAxis('not-recorded', 'createV2 was detected, but no successful outcome could be confirmed.');
   })();
 
   const routeReady = routeReadyExplicit ?? (() => {
     if (routeReadySummary.createPageCount === 0 && routeReadySummary.routeReadTotalCount === 0) {
-      return buildStatusAxis('not-recorded', '未记录 route-ready 相关工具调用。');
+      return buildStatusAxis('not-recorded', 'No route-ready-related tool calls were recorded.');
     }
     if (routeReadySummary.target.status !== 'resolved' && (routeReadySummary.createPageCount > 0 || routeReadySummary.routeReadTotalCount > 0)) {
-      return buildStatusAxis('evidence-insufficient', `route-ready 目标不明确：${describeRouteTarget(routeReadySummary.target)}`);
+      return buildStatusAxis('evidence-insufficient', `route-ready target is unclear: ${describeRouteTarget(routeReadySummary.target)}`);
     }
     if (routeReadySummary.routeReadCount > 0) {
       return buildStatusAxis(
         'ready',
-        `${describeRouteTarget(routeReadySummary.target)}；${routeReadySummary.routeReadTools.join(' / ')} x${routeReadySummary.routeReadCount}`,
+        `${describeRouteTarget(routeReadySummary.target)}; ${routeReadySummary.routeReadTools.join(' / ')} x${routeReadySummary.routeReadCount}`,
       );
     }
     if (routeReadySummary.routeReadTotalCount > 0 || routeReadySummary.routeReadEvidenceInsufficient.length > 0) {
       return buildStatusAxis(
         'evidence-insufficient',
-        [...routeReadySummary.routeReadEvidenceInsufficient].slice(0, 2).join('；') || '存在 route-ready 调用，但没有显式绑定到目标页面。',
+        [...routeReadySummary.routeReadEvidenceInsufficient].slice(0, 2).join('; ') || 'Route-ready calls existed, but none was explicitly bound to the target page.',
       );
     }
     if (routeReadySummary.createSuccessCount > 0) {
-      return buildStatusAxis('not-ready', `${describeRouteTarget(routeReadySummary.target)}；createV2 后没有 route-ready 证据。`);
+      return buildStatusAxis('not-ready', `${describeRouteTarget(routeReadySummary.target)}; no route-ready evidence was recorded after createV2.`);
     }
-    return buildStatusAxis('not-recorded', '未记录 route-ready 结论。');
+    return buildStatusAxis('not-recorded', 'No route-ready conclusion was recorded.');
   })();
 
   const readbackMatched = readbackExplicit ?? (() => {
     if (readbackAnalysis.mismatches.length > 0) {
       return buildStatusAxis(
         'mismatch',
-        `${formatCountLabel(readbackAnalysis.mismatches.length, '组')} write-after-read mismatch`,
+        `${formatCountLabel(readbackAnalysis.mismatches.length, 'pairs')} write-after-read mismatches`,
       );
     }
     if (readbackAnalysis.evidenceInsufficient.length > 0) {
       const detail = [
-        readbackAnalysis.matched.length > 0 ? `matched ${readbackAnalysis.matched.length} 组` : null,
-        `证据不足 ${readbackAnalysis.evidenceInsufficient.length} 组`,
-      ].filter(Boolean).join('；');
+        readbackAnalysis.matched.length > 0 ? `matched ${readbackAnalysis.matched.length} pairs` : null,
+        `evidence insufficient for ${readbackAnalysis.evidenceInsufficient.length} pairs`,
+      ].filter(Boolean).join('; ');
       return buildStatusAxis('evidence-insufficient', detail);
     }
     if (readbackAnalysis.matched.length > 0) {
-      return buildStatusAxis('matched', `${formatCountLabel(readbackAnalysis.matched.length, '组')} readback matched`);
+      return buildStatusAxis('matched', `${formatCountLabel(readbackAnalysis.matched.length, 'pairs')} matched readback`);
     }
     if (hasWrites) {
-      return buildStatusAxis('not-recorded', '存在写操作，但没有形成可判定的 readback 结论。');
+      return buildStatusAxis('not-recorded', 'Writes existed, but no decisive readback conclusion was produced.');
     }
-    return buildStatusAxis('not-recorded', '未记录 write-after-read 对账。');
+    return buildStatusAxis('not-recorded', 'No write-after-read reconciliation was recorded.');
   })();
 
-  const dataPreparation = dataPreparationExplicit ?? buildStatusAxis('not-recorded', '日志中没有稳定的数据准备信号。');
-  const dataReady = dataReadyExplicit ?? buildStatusAxis('not-recorded', '日志中没有稳定的数据 readiness 信号。');
+  const dataPreparation = dataPreparationExplicit ?? buildStatusAxis('not-recorded', 'No stable data-preparation signal was recorded in the log.');
+  const dataReady = dataReadyExplicit ?? buildStatusAxis('not-recorded', 'No stable data-readiness signal was recorded in the log.');
 
   const browserPhaseRecords = phaseRecords.filter((record) => BROWSER_PHASE_NAMES.has(record.phase));
   const browserEndRecords = browserPhaseRecords.filter((record) => record.event === 'end');
@@ -1506,33 +1506,33 @@ function summarizeStatusAxes({
 
   const browserValidation = browserExplicit ?? (() => {
     if (!hasBrowserEvidence) {
-      return buildStatusAxis('skipped (not requested)', '未记录 browser_attach / smoke / pre-open / stage gate。');
+      return buildStatusAxis('skipped (not requested)', 'No browser_attach / smoke / pre-open / stage gate was recorded.');
     }
     if (browserFailed) {
-      return buildStatusAxis('failed', `${formatCountLabel(browserGateRecords.filter((record) => record.status === 'failed').length, '个')} browser gate 失败`);
+      return buildStatusAxis('failed', `${formatCountLabel(browserGateRecords.filter((record) => record.status === 'failed').length, 'browser gates')} failed`);
     }
     if (browserSkippedOnly) {
-      return buildStatusAxis('skipped', '浏览器阶段被显式跳过。');
+      return buildStatusAxis('skipped', 'Browser phases were explicitly skipped.');
     }
     if (browserPassed) {
-      return buildStatusAxis('passed', `${formatCountLabel(browserGateRecords.filter((record) => record.status === 'passed').length, '个')} browser gate 通过`);
+      return buildStatusAxis('passed', `${formatCountLabel(browserGateRecords.filter((record) => record.status === 'passed').length, 'browser gates')} passed`);
     }
-    return buildStatusAxis('not-recorded', '进入了浏览器相关阶段，但没有形成可判定结论。');
+    return buildStatusAxis('not-recorded', 'Browser-related phases were entered, but no decisive conclusion was produced.');
   })();
 
   const runtimeUsable = runtimeExplicit ?? (() => {
     if (!hasBrowserEvidence) {
-      return buildStatusAxis('not-run', '没有浏览器验证证据。');
+      return buildStatusAxis('not-run', 'No browser-validation evidence exists.');
     }
     if (browserFailed) {
-      return buildStatusAxis('failed', '浏览器 gate 或 smoke 阶段存在失败。');
+      return buildStatusAxis('failed', 'A browser gate or smoke phase failed.');
     }
     const runtimePassCount = browserGateRecords.filter((record) => record.gate.startsWith('stage:') && record.status === 'passed').length;
     const smokeOkCount = browserEndRecords.filter((record) => record.phase === 'smoke' && record.status === 'ok').length;
     if (runtimePassCount > 0 || smokeOkCount > 0) {
-      return buildStatusAxis('usable', `stage pass ${runtimePassCount}；smoke ok ${smokeOkCount}`);
+      return buildStatusAxis('usable', `stage pass ${runtimePassCount}; smoke ok ${smokeOkCount}`);
     }
-    return buildStatusAxis('not-recorded', '只有 pre-open 或 attach 证据，尚不足以确认 runtime usable。');
+    return buildStatusAxis('not-recorded', 'Only pre-open or attach evidence exists, which is not enough to confirm runtime usability.');
   })();
 
   return {
@@ -1608,72 +1608,72 @@ export function analyzeRun(records, sourceLogPath) {
 
   const suggestions = [];
   if (!finish) {
-    suggestions.push('本次日志没有 `run_finished` 记录，说明执行没有正常收尾。');
+    suggestions.push('This log has no `run_finished` record, so execution did not close cleanly.');
   }
   if (errors.length > 0) {
-    suggestions.push(`有 ${errors.length} 次失败调用，先检查失败调用的 args、error 和前后文。`);
+    suggestions.push(`${errors.length} calls failed. Check the failed args, error, and surrounding context first.`);
   }
   if (hasWrites && !hasSchemaBundle) {
-    suggestions.push('存在写操作，但没有记录 `PostFlowmodels_schemabundle`，建议补齐探测冷启动。');
+    suggestions.push('Writes existed, but `PostFlowmodels_schemabundle` was not recorded. Add the missing discovery cold start.');
   }
   if (hasWrites && !hasSchemas) {
-    suggestions.push('存在写操作，但没有记录 `PostFlowmodels_schemas`，建议在落盘前读取精确模型文档。');
+    suggestions.push('Writes existed, but `PostFlowmodels_schemas` was not recorded. Read the precise model documents before persistence.');
   }
   if (hasWrites && !hasFindone) {
-    suggestions.push('存在写操作，但没有记录 `GetFlowmodels_findone`，建议在每次变更前后都记录 live snapshot 读取。');
+    suggestions.push('Writes existed, but `GetFlowmodels_findone` was not recorded. Capture a live snapshot before and after every change.');
   }
   if (hasWrites && !guardSummary.hasGuardAudit) {
-    suggestions.push('存在写操作，但没有记录 `flow_payload_guard.audit-payload`，建议在首次写入前加一轮 payload 审计。');
+    suggestions.push('Writes existed, but `flow_payload_guard.audit-payload` was not recorded. Add one payload audit before the first write.');
   }
   if (hasWrites && !guardSummary.hasCanonicalize) {
-    suggestions.push('存在写操作，但没有记录 `flow_payload_guard.canonicalize-payload`，建议先做一次本地归一化，再进入最终审计。');
+    suggestions.push('Writes existed, but `flow_payload_guard.canonicalize-payload` was not recorded. Canonicalize locally before the final audit.');
   }
   if (guardSummary.writeAfterBlockerWithoutRiskAcceptCount > 0) {
-    suggestions.push(`发现 ${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} 次“guard 已报 blocker 但仍继续写入”的违规流程，建议先修 payload 或显式记录 risk-accept。`);
+    suggestions.push(`${guardSummary.writeAfterBlockerWithoutRiskAcceptCount} invalid flows kept writing after guard reported a blocker. Fix the payload first or record an explicit risk-accept.`);
   }
   if (guardSummary.createPageAfterBlockerCount > 0) {
-    suggestions.push(`发现 ${guardSummary.createPageAfterBlockerCount} 次在 guard blocker 后仍继续 \`PostDesktoproutes_createv2\`；page shell 创建也必须服从同一 guard gate。`);
+    suggestions.push(`${guardSummary.createPageAfterBlockerCount} runs still executed \`PostDesktoproutes_createv2\` after a guard blocker. Page-shell creation must obey the same guard gate.`);
   }
   if (guardSummary.riskAcceptCount > 0) {
-    suggestions.push(`本次使用了 ${guardSummary.riskAcceptCount} 次 risk-accept，建议复盘这些豁免是否还能继续缩减。`);
+    suggestions.push(`This run used risk-accept ${guardSummary.riskAcceptCount} times. Review whether those exemptions can be reduced further.`);
   }
   if (readbackMismatches.length > 0) {
-    suggestions.push(`发现 ${readbackMismatches.length} 组 write 后 readback 不一致，不能再把 save/mutate 的返回值当成最终成功依据。`);
+    suggestions.push(`${readbackMismatches.length} post-write readback mismatches were found. Do not keep treating save/mutate responses as final success evidence.`);
   }
   if (readbackEvidenceInsufficient.length > 0) {
-    suggestions.push(`有 ${readbackEvidenceInsufficient.length} 组写后对账证据不足；需要显式 args.targetSignature 和 result.summary 才能安全自动对账。`);
+    suggestions.push(`${readbackEvidenceInsufficient.length} post-write pairs lacked enough reconciliation evidence. Safe automation needs explicit args.targetSignature and result.summary.`);
   }
   if (hasWrites && firstDiscoveryIndex > firstWriteIndex && firstDiscoveryIndex !== -1) {
-    suggestions.push('首次探测发生在首次写操作之后，建议把探测顺序前置。');
+    suggestions.push('The first discovery happened after the first write. Move discovery earlier.');
   }
   if (repeatedRuns.length > 0) {
     suggestions.push(
-      `发现连续重复调用：${repeatedRuns.map((item) => `${item.tool} x${item.count}`).join('，')}。可考虑合并步骤或减少重复读取。`,
+      `Consecutive duplicate calls were found: ${repeatedRuns.map((item) => `${item.tool} x${item.count}`).join(', ')}. Consider merging steps or reducing repeated reads.`,
     );
   }
   if (missingSummaryCount > 0) {
-    suggestions.push(`有 ${missingSummaryCount} 条 tool_call 没有 ` + '`summary`' + '，复盘时可读性会变差。');
+    suggestions.push(`${missingSummaryCount} tool_call records are missing ` + '`summary`' + ', which reduces review readability.');
   }
   if (phaseSummary.spans.length === 0) {
-    suggestions.push('本次没有记录任何 phase span，无法判断关键路径。建议至少记录 schema_discovery、write、readback、browser_attach 和 smoke 阶段。');
+    suggestions.push('No phase span was recorded in this run, so the critical path cannot be determined. At minimum, record schema_discovery, write, readback, browser_attach, and smoke.');
   }
   if (cacheSummary.total === 0 && (hasSchemaBundle || hasSchemas || schemaReadCount > 0)) {
-    suggestions.push('本次没有记录任何 stable cache 事件，schema/metadata 探测仍可能重复走实时请求。');
+    suggestions.push('No stable-cache event was recorded in this run, so schema/metadata discovery may still be repeating live requests.');
   }
   if (gateSummary.failed > 0) {
-    suggestions.push(`本次有 ${gateSummary.failed} 个 gate 失败，建议确认失败后是否已经真正截停后续动作。`);
+    suggestions.push(`${gateSummary.failed} gates failed in this run. Confirm that later actions really stopped afterward.`);
   }
   if (routeReadySummary.createPageCount > 0 && routeReadySummary.routeReadCount === 0) {
-    suggestions.push('存在 `PostDesktoproutes_createv2`，但没有记录任何 accessible route 回读；建议在首开前先确认新 page 与隐藏 tab 已进入 route tree。');
+    suggestions.push('`PostDesktoproutes_createv2` exists, but no accessible-route readback was recorded. Confirm that the new page and hidden tab have entered the route tree before first open.');
   }
   if (routeReadySummary.createPageCount > 0 && routeReadySummary.preOpenGateCount === 0) {
-    suggestions.push('存在 `PostDesktoproutes_createv2`，但没有记录 `pre-open` gate；建议把“页面可首开、非空白、非卡骨架屏”作为独立阻断条件。');
+    suggestions.push('`PostDesktoproutes_createv2` exists, but no `pre-open` gate was recorded. Treat “page can open for the first time, is not blank, and is not stuck on skeleton loading” as an independent blocking condition.');
   }
   if (routeReadySummary.routeReadEvidenceInsufficient.length > 0 || routeReadySummary.preOpenEvidenceInsufficient.length > 0) {
-    suggestions.push('部分 route-ready / pre-open 证据没有显式绑定到目标页面；建议在日志中记录 schemaUid，避免串页或串 session。');
+    suggestions.push('Some route-ready / pre-open evidence was not explicitly bound to the target page. Record schemaUid in the log to avoid cross-page or cross-session confusion.');
   }
   if (suggestions.length === 0) {
-    suggestions.push('本次日志结构完整，可继续从失败率、重复调用和探测顺序三个角度优化。');
+    suggestions.push('The log structure is complete. Keep optimizing from three angles: failure rate, repeated calls, and discovery order.');
   }
 
   const optimizationItems = buildOptimizationItems({
@@ -1741,24 +1741,24 @@ function getStatusAxisEntries(summary) {
 
 function renderImprovementMarkdown(summary) {
   const lines = [
-    '# NocoBase UI Builder 自动改进清单',
+    '# NocoBase UI Builder Improvement List',
     '',
-    `- 生成时间：${summary.generatedAt}`,
-    `- 日志文件：\`${summary.sourceLogPath}\``,
-    `- 任务：${summary.start?.task ?? '未知'}`,
-    `- 运行 ID：\`${summary.start?.runId ?? '未知'}\``,
+    `- Generated at: ${summary.generatedAt}`,
+    `- Log file: \`${summary.sourceLogPath}\``,
+    `- Task: ${summary.start?.task ?? 'unknown'}`,
+    `- Run ID: \`${summary.start?.runId ?? 'unknown'}\``,
     '',
-    '## 优先改进项',
+    '## Priority Improvements',
     '',
   ];
 
   for (const [index, item] of summary.optimizationItems.entries()) {
     lines.push(`### ${index + 1}. [${item.priority}] ${item.title}`);
     lines.push('');
-    lines.push(`- 原因：${item.reason}`);
-    lines.push(`- 更快路径：${item.fasterPath}`);
+    lines.push(`- Reason: ${item.reason}`);
+    lines.push(`- Faster path: ${item.fasterPath}`);
     if (item.evidence?.length) {
-      lines.push(`- 证据：${item.evidence.join('；')}`);
+      lines.push(`- Evidence: ${item.evidence.join('; ')}`);
     }
     lines.push('');
   }
@@ -1787,76 +1787,76 @@ function buildImprovementSnapshot(summary, improvementLogPath) {
 function renderMarkdownReport(summary) {
   const statusAxisEntries = getStatusAxisEntries(summary);
   const header = [
-    '# NocoBase UI Builder 复盘报告',
+    '# NocoBase UI Builder Review Report',
     '',
-    `- 生成时间：${summary.generatedAt}`,
-    `- 日志文件：\`${summary.sourceLogPath}\``,
-    `- 任务：${summary.start?.task ?? '未知'}`,
-    `- 运行 ID：\`${summary.start?.runId ?? '未知'}\``,
-    `- 页面标题：${summary.start?.title ?? '未提供'}`,
-    `- schemaUid：${summary.start?.schemaUid ?? '未提供'}`,
-    `- 页面地址：${summary.pageUrl ? `[${summary.pageUrl.url}](${summary.pageUrl.url})` : '未记录'}`,
-    `- 状态：${summary.finish?.status ?? '未完成'}`,
-    `- 耗时：${summary.durationLabel}`,
+    `- Generated at: ${summary.generatedAt}`,
+    `- Log file: \`${summary.sourceLogPath}\``,
+    `- Task: ${summary.start?.task ?? 'unknown'}`,
+    `- Run ID: \`${summary.start?.runId ?? 'unknown'}\``,
+    `- Page title: ${summary.start?.title ?? 'not provided'}`,
+    `- schemaUid: ${summary.start?.schemaUid ?? 'not provided'}`,
+    `- Page URL: ${summary.pageUrl ? `[${summary.pageUrl.url}](${summary.pageUrl.url})` : 'not recorded'}`,
+    `- Status: ${summary.finish?.status ?? 'unfinished'}`,
+    `- Duration: ${summary.durationLabel}`,
     '',
   ];
 
   const statusAxes = [
-    '## 结果轴',
+    '## Status Axes',
     '',
-    '| 轴 | 状态 | 说明 |',
+    '| Axis | Status | Detail |',
     '| --- | --- | --- |',
     ...statusAxisEntries.map((item) => `| ${escapeMarkdownCell(item.axis)} | ${escapeMarkdownCell(item.status)} | ${escapeMarkdownCell(item.detail || '—')} |`),
     '',
   ];
 
   const overview = [
-    '## 概览',
+    '## Overview',
     '',
-    `- 事件总数：${summary.totalEvents}`,
-    `- 工具调用数：${summary.totalToolCalls}`,
-    `- 备注数：${summary.totalNotes}`,
-    `- phase 事件数：${summary.totalPhases}`,
-    `- gate 事件数：${summary.totalGates}`,
-    `- cache 事件数：${summary.totalCacheEvents}`,
-    `- 失败调用数：${summary.errorCount}`,
-    `- 跳过调用数：${summary.skippedCount}`,
+    `- Total events: ${summary.totalEvents}`,
+    `- Tool calls: ${summary.totalToolCalls}`,
+    `- Notes: ${summary.totalNotes}`,
+    `- Phase events: ${summary.totalPhases}`,
+    `- Gate events: ${summary.totalGates}`,
+    `- Cache events: ${summary.totalCacheEvents}`,
+    `- Failed calls: ${summary.errorCount}`,
+    `- Skipped calls: ${summary.skippedCount}`,
     '',
   ];
 
   const phases = [
-    '## 阶段耗时画像',
+    '## Phase Duration Profile',
     '',
   ];
   if (summary.phaseSummary.totals.length === 0) {
-    phases.push('- 未记录 phase span。');
+    phases.push('- No phase span was recorded.');
     phases.push('');
   } else {
-    phases.push('| 阶段 | 次数 | 总耗时 | 最长单次 |');
+    phases.push('| Phase | Count | Total Duration | Longest Single Run |');
     phases.push('| --- | ---: | ---: | ---: |');
     phases.push(...summary.phaseSummary.totals.map((item) => `| ${escapeMarkdownCell(item.phase)} | ${item.count} | ${item.totalDurationLabel} | ${item.maxDurationLabel} |`));
     phases.push('');
   }
 
   const cache = [
-    '## Stable Cache 摘要',
+    '## Stable Cache Summary',
     '',
-    `- 事件总数：${summary.cacheSummary.total}`,
-    `- 命中：${summary.cacheSummary.hitCount}`,
-    `- miss：${summary.cacheSummary.missCount}`,
-    `- store：${summary.cacheSummary.storeCount}`,
-    `- invalidate：${summary.cacheSummary.invalidateCount}`,
-    `- 命中率：${summary.cacheSummary.hitRatio === null ? '未知' : `${Math.round(summary.cacheSummary.hitRatio * 100)}%`}`,
+    `- Total events: ${summary.cacheSummary.total}`,
+    `- Hits: ${summary.cacheSummary.hitCount}`,
+    `- Misses: ${summary.cacheSummary.missCount}`,
+    `- Stores: ${summary.cacheSummary.storeCount}`,
+    `- Invalidates: ${summary.cacheSummary.invalidateCount}`,
+    `- Hit rate: ${summary.cacheSummary.hitRatio === null ? 'unknown' : `${Math.round(summary.cacheSummary.hitRatio * 100)}%`}`,
     '',
   ];
 
   const gates = [
-    '## Gate 摘要',
+    '## Gate Summary',
     '',
-    `- gate 总数：${summary.gateSummary.total}`,
-    `- 通过：${summary.gateSummary.passed}`,
-    `- 失败：${summary.gateSummary.failed}`,
-    `- 截停后续流程：${summary.gateSummary.stopped}`,
+    `- Total gates: ${summary.gateSummary.total}`,
+    `- Passed: ${summary.gateSummary.passed}`,
+    `- Failed: ${summary.gateSummary.failed}`,
+    `- Stopped remaining flow: ${summary.gateSummary.stopped}`,
     '',
   ];
   if (summary.gateSummary.records.length > 0) {
@@ -1865,100 +1865,100 @@ function renderMarkdownReport(summary) {
   }
 
   const guard = [
-    '## Guard 摘要',
+    '## Guard Summary',
     '',
-    `- canonicalize 调用数：${summary.guardSummary.canonicalizeCount}`,
-    `- 审计调用数：${summary.guardSummary.auditCount}`,
-    `- blocker 总数：${summary.guardSummary.blockerCount}`,
-    `- warning 总数：${summary.guardSummary.warningCount}`,
-    `- risk-accept 次数：${summary.guardSummary.riskAcceptCount}`,
-    `- 带 blocker 继续写入次数：${summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount}`,
+    `- Canonicalize calls: ${summary.guardSummary.canonicalizeCount}`,
+    `- Audit calls: ${summary.guardSummary.auditCount}`,
+    `- Total blockers: ${summary.guardSummary.blockerCount}`,
+    `- Total warnings: ${summary.guardSummary.warningCount}`,
+    `- Risk-accept count: ${summary.guardSummary.riskAcceptCount}`,
+    `- Writes continued after blocker: ${summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount}`,
     '',
   ];
   if (summary.guardSummary.violations.length > 0) {
     guard.push(...summary.guardSummary.violations.map(
-      (item, index) => `- 违规 ${index + 1}：${item.writeTool} 在 blocker [${item.blockerCodes.join(', ')}] 之后继续写入${item.violationType === 'risk_accept_without_reaudit' ? '（已写 risk-accept note，但没有重新审计）' : ''}`,
+      (item, index) => `- Violation ${index + 1}: ${item.writeTool} kept writing after blocker [${item.blockerCodes.join(', ')}]${item.violationType === 'risk_accept_without_reaudit' ? ' (risk-accept note exists, but no re-audit ran)' : ''}`,
     ));
     guard.push('');
   }
 
   const readback = [
-    '## 写后回读',
+    '## Post-write Readback',
     '',
   ];
   if (summary.readbackMismatches.length === 0) {
-    readback.push('- 未发现 save/mutate 与紧随其后的 readback 矛盾。');
+    readback.push('- No mismatch was found between save/mutate and the immediately following readback.');
     readback.push('');
   } else {
     readback.push(...summary.readbackMismatches.flatMap((item, index) => [
       `### ${index + 1}. ${item.writeTool} -> ${item.readTool}`,
       '',
-      ...(item.targetSignature ? [`- 目标签名：\`${item.targetSignature}\``] : []),
-      `- 写入时间：${item.writeTimestamp ?? '未知'}`,
-      `- 写入摘要：${item.writeSummary ?? '未提供'}`,
-      `- 回读时间：${item.readbackTimestamp ?? '未知'}`,
-      `- 回读摘要：${item.readbackSummary ?? '未提供'}`,
-      `- 证据：${item.evidence.join('；')}`,
+      ...(item.targetSignature ? [`- Target signature: \`${item.targetSignature}\``] : []),
+      `- Write time: ${item.writeTimestamp ?? 'unknown'}`,
+      `- Write summary: ${item.writeSummary ?? 'not provided'}`,
+      `- Readback time: ${item.readbackTimestamp ?? 'unknown'}`,
+      `- Readback summary: ${item.readbackSummary ?? 'not provided'}`,
+      `- Evidence: ${item.evidence.join('; ')}`,
       '',
     ]));
   }
   if (summary.readbackEvidenceInsufficient.length > 0) {
-    readback.push('### 证据不足');
+    readback.push('### Evidence Insufficient');
     readback.push('');
     readback.push(...summary.readbackEvidenceInsufficient.map(
-      (item, index) => `- ${index + 1}. ${item.writeTool}${item.targetSignature ? ` (\`${item.targetSignature}\`)` : ''}: ${item.reasonCode}；${item.detail}`,
+      (item, index) => `- ${index + 1}. ${item.writeTool}${item.targetSignature ? ` (\`${item.targetSignature}\`)` : ''}: ${item.reasonCode}; ${item.detail}`,
     ));
     readback.push('');
   }
 
   const suggestions = [
-    '## 可改进点',
+    '## Improvement Points',
     '',
     ...summary.suggestions.map((item) => `- ${item}`),
     '',
   ];
 
   const optimization = [
-    '## 自动改进建议',
+    '## Automatic Improvement Suggestions',
     '',
     ...summary.optimizationItems.flatMap((item, index) => [
       `### ${index + 1}. [${item.priority}] ${item.title}`,
       '',
-      `- 原因：${item.reason}`,
-      `- 更快路径：${item.fasterPath}`,
-      ...(item.evidence?.length ? [`- 证据：${item.evidence.join('；')}`] : []),
+      `- Reason: ${item.reason}`,
+      `- Faster path: ${item.fasterPath}`,
+      ...(item.evidence?.length ? [`- Evidence: ${item.evidence.join('; ')}`] : []),
       '',
     ]),
   ];
 
   const toolStats = [
-    '## 工具统计',
+    '## Tool Statistics',
     '',
-    '| 工具 | 总次数 | 成功 | 失败 | 跳过 |',
+    '| Tool | Total | Success | Failure | Skipped |',
     '| --- | ---: | ---: | ---: | ---: |',
     ...summary.countsByTool.map((item) => `| ${escapeMarkdownCell(item.tool)} | ${item.total} | ${item.ok} | ${item.error} | ${item.skipped} |`),
     '',
   ];
 
-  const failures = ['## 失败调用', ''];
+  const failures = ['## Failed Calls', ''];
   if (summary.errors.length === 0) {
-    failures.push('- 无');
+    failures.push('- None');
     failures.push('');
   } else {
     for (const [index, item] of summary.errors.entries()) {
       failures.push(`### ${index + 1}. ${item.tool}`);
       failures.push('');
-      failures.push(`- 时间：${item.timestamp ?? '未知'}`);
-      failures.push(`- 类型：${item.toolType ?? '未知'}`);
-      failures.push(`- 状态：${item.status ?? '未知'}`);
+      failures.push(`- Time: ${item.timestamp ?? 'unknown'}`);
+      failures.push(`- Type: ${item.toolType ?? 'unknown'}`);
+      failures.push(`- Status: ${item.status ?? 'unknown'}`);
       if (item.summary) {
-        failures.push(`- 摘要：${item.summary}`);
+        failures.push(`- Summary: ${item.summary}`);
       }
       if (item.error) {
-        failures.push(`- 错误：${item.error}`);
+        failures.push(`- Error: ${item.error}`);
       }
       if (item.args !== undefined) {
-        failures.push('- 参数：');
+        failures.push('- Args:');
         failures.push('');
         failures.push('```json');
         failures.push(compactJson(item.args, 1200));
@@ -1969,9 +1969,9 @@ function renderMarkdownReport(summary) {
   }
 
   const timeline = [
-    '## 时间线',
+    '## Timeline',
     '',
-    '| # | 时间 | 事件 | 名称/消息 | 状态 | 摘要 |',
+    '| # | Time | Event | Name / Message | Status | Summary |',
     '| --- | --- | --- | --- | --- | --- |',
     ...summary.timelineRecords.map((item, index) => (
       item.type === 'tool_call'
@@ -2013,21 +2013,21 @@ function renderHtmlReport(summary) {
       </article>
     `).join('\n');
   const failureBlocks = summary.errors.length === 0
-    ? '<p class="muted">无失败调用。</p>'
+    ? '<p class="muted">No failed calls.</p>'
     : summary.errors.map((item, index) => `
         <section class="card">
           <h3>${index + 1}. ${escapeHtml(item.tool)}</h3>
-          <p><strong>时间：</strong>${escapeHtml(item.timestamp ?? '未知')}</p>
-          <p><strong>类型：</strong>${escapeHtml(item.toolType ?? '未知')}</p>
-          <p><strong>状态：</strong>${escapeHtml(item.status ?? '未知')}</p>
-          ${item.summary ? `<p><strong>摘要：</strong>${escapeHtml(item.summary)}</p>` : ''}
-          ${item.error ? `<p><strong>错误：</strong>${escapeHtml(item.error)}</p>` : ''}
+          <p><strong>Time:</strong> ${escapeHtml(item.timestamp ?? 'unknown')}</p>
+          <p><strong>Type:</strong> ${escapeHtml(item.toolType ?? 'unknown')}</p>
+          <p><strong>Status:</strong> ${escapeHtml(item.status ?? 'unknown')}</p>
+          ${item.summary ? `<p><strong>Summary:</strong> ${escapeHtml(item.summary)}</p>` : ''}
+          ${item.error ? `<p><strong>Error:</strong> ${escapeHtml(item.error)}</p>` : ''}
           ${item.args !== undefined ? `<pre>${escapeHtml(compactJson(item.args, 1600))}</pre>` : ''}
         </section>
       `).join('\n');
 
   const toolRows = summary.countsByTool.length === 0
-    ? '<tr><td colspan="5" class="muted">未记录工具调用。</td></tr>'
+    ? '<tr><td colspan="5" class="muted">No tool calls were recorded.</td></tr>'
     : summary.countsByTool.map((item) => `
         <tr>
           <td>${escapeHtml(item.tool)}</td>
@@ -2039,7 +2039,7 @@ function renderHtmlReport(summary) {
       `).join('\n');
 
   const phaseRows = summary.phaseSummary.totals.length === 0
-    ? '<tr><td colspan="4" class="muted">未记录 phase span。</td></tr>'
+    ? '<tr><td colspan="4" class="muted">No phase span was recorded.</td></tr>'
     : summary.phaseSummary.totals.map((item) => `
         <tr>
           <td>${escapeHtml(item.phase)}</td>
@@ -2050,7 +2050,7 @@ function renderHtmlReport(summary) {
       `).join('\n');
 
   const cacheKindRows = Object.entries(summary.cacheSummary.byKind).length === 0
-    ? '<tr><td colspan="5" class="muted">未记录 stable cache 事件。</td></tr>'
+    ? '<tr><td colspan="5" class="muted">No stable-cache event was recorded.</td></tr>'
     : Object.entries(summary.cacheSummary.byKind)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([kind, value]) => `
@@ -2064,16 +2064,16 @@ function renderHtmlReport(summary) {
       `).join('\n');
 
   const gateBlocks = summary.gateSummary.records.length === 0
-    ? '<p class="muted">未记录 gate 决策。</p>'
+    ? '<p class="muted">No gate decision was recorded.</p>'
     : summary.gateSummary.records.map((item, index) => `
         <section class="card">
           <h3>${index + 1}. ${escapeHtml(item.gate)}</h3>
-          <p><strong>状态：</strong>${escapeHtml(item.status ?? 'unknown')}</p>
-          <p><strong>原因：</strong>${escapeHtml(item.reasonCode ?? 'unknown')}</p>
-          <p><strong>截停后续流程：</strong>${escapeHtml(String(Boolean(item.stoppedRemainingWork)))}</p>
+          <p><strong>Status:</strong> ${escapeHtml(item.status ?? 'unknown')}</p>
+          <p><strong>Reason:</strong> ${escapeHtml(item.reasonCode ?? 'unknown')}</p>
+          <p><strong>Stopped remaining flow:</strong> ${escapeHtml(String(Boolean(item.stoppedRemainingWork)))}</p>
           ${Array.isArray(item.findings) && item.findings.length > 0
-            ? `<p><strong>发现：</strong>${escapeHtml(item.findings.map((finding) => normalizeItem(finding)).filter(Boolean).join('；'))}</p>`
-            : '<p class="muted">未记录 findings。</p>'}
+            ? `<p><strong>Findings:</strong> ${escapeHtml(item.findings.map((finding) => normalizeItem(finding)).filter(Boolean).join('; '))}</p>`
+            : '<p class="muted">No findings were recorded.</p>'}
         </section>
       `).join('\n');
 
@@ -2140,46 +2140,46 @@ function renderHtmlReport(summary) {
 
   const suggestionItems = summary.suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join('\n');
   const readbackBlocks = summary.readbackMismatches.length === 0
-    ? '<p class="muted">未发现 save/mutate 与紧随其后的 readback 矛盾。</p>'
+    ? '<p class="muted">No mismatch was found between save/mutate and the immediately following readback.</p>'
     : summary.readbackMismatches.map((item, index) => `
       <section class="card">
         <h3>${index + 1}. ${escapeHtml(item.writeTool)} -&gt; ${escapeHtml(item.readTool)}</h3>
-        ${item.targetSignature ? `<p><strong>目标签名：</strong><code>${escapeHtml(item.targetSignature)}</code></p>` : ''}
-        <p><strong>写入时间：</strong>${escapeHtml(item.writeTimestamp ?? '未知')}</p>
-        <p><strong>写入摘要：</strong>${escapeHtml(item.writeSummary ?? '未提供')}</p>
-        <p><strong>回读时间：</strong>${escapeHtml(item.readbackTimestamp ?? '未知')}</p>
-        <p><strong>回读摘要：</strong>${escapeHtml(item.readbackSummary ?? '未提供')}</p>
-        <p><strong>证据：</strong>${escapeHtml(item.evidence.join('；'))}</p>
+        ${item.targetSignature ? `<p><strong>Target signature:</strong> <code>${escapeHtml(item.targetSignature)}</code></p>` : ''}
+        <p><strong>Write time:</strong> ${escapeHtml(item.writeTimestamp ?? 'unknown')}</p>
+        <p><strong>Write summary:</strong> ${escapeHtml(item.writeSummary ?? 'not provided')}</p>
+        <p><strong>Readback time:</strong> ${escapeHtml(item.readbackTimestamp ?? 'unknown')}</p>
+        <p><strong>Readback summary:</strong> ${escapeHtml(item.readbackSummary ?? 'not provided')}</p>
+        <p><strong>Evidence:</strong> ${escapeHtml(item.evidence.join('; '))}</p>
       </section>
     `).join('\n');
   const readbackEvidenceInsufficientBlocks = summary.readbackEvidenceInsufficient.length === 0
     ? ''
     : `
       <div class="card">
-        <h3>证据不足</h3>
+        <h3>Evidence Insufficient</h3>
         <ul>
-          ${summary.readbackEvidenceInsufficient.map((item) => `<li>${escapeHtml(`${item.writeTool}${item.targetSignature ? ` (${item.targetSignature})` : ''}: ${item.reasonCode}；${item.detail}`)}</li>`).join('\n')}
+          ${summary.readbackEvidenceInsufficient.map((item) => `<li>${escapeHtml(`${item.writeTool}${item.targetSignature ? ` (${item.targetSignature})` : ''}: ${item.reasonCode}; ${item.detail}`)}</li>`).join('\n')}
         </ul>
       </div>
     `;
   const optimizationBlocks = summary.optimizationItems.map((item, index) => `
       <section class="card">
         <h3>${index + 1}. [${escapeHtml(item.priority)}] ${escapeHtml(item.title)}</h3>
-        <p><strong>原因：</strong>${escapeHtml(item.reason)}</p>
-        <p><strong>更快路径：</strong>${escapeHtml(item.fasterPath)}</p>
-        ${item.evidence?.length ? `<p><strong>证据：</strong>${escapeHtml(item.evidence.join('；'))}</p>` : ''}
+        <p><strong>Reason:</strong> ${escapeHtml(item.reason)}</p>
+        <p><strong>Faster path:</strong> ${escapeHtml(item.fasterPath)}</p>
+        ${item.evidence?.length ? `<p><strong>Evidence:</strong> ${escapeHtml(item.evidence.join('; '))}</p>` : ''}
       </section>
     `).join('\n');
   const guardViolationItems = summary.guardSummary.violations.length === 0
-    ? '<p class="muted">未发现带 blocker 继续写入的流程。</p>'
-    : `<ul>${summary.guardSummary.violations.map((item) => `<li>${escapeHtml(`${item.writeTool} 在 blocker [${item.blockerCodes.join(', ')}] 之后继续写入`)}</li>`).join('\n')}</ul>`;
+    ? '<p class="muted">No flow kept writing after a blocker.</p>'
+    : `<ul>${summary.guardSummary.violations.map((item) => `<li>${escapeHtml(`${item.writeTool} kept writing after blocker [${item.blockerCodes.join(', ')}]`)}</li>`).join('\n')}</ul>`;
 
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NocoBase UI Builder 复盘报告</title>
+  <title>NocoBase UI Builder Review Report</title>
   <style>
     :root {
       --bg: #f5f2ea;
@@ -2272,120 +2272,120 @@ function renderHtmlReport(summary) {
 <body>
   <main>
     <div class="badge">NocoBase UI Builder</div>
-    <h1>复盘报告</h1>
-    <p class="muted">生成时间：${escapeHtml(summary.generatedAt)}</p>
+    <h1>Review Report</h1>
+    <p class="muted">Generated at: ${escapeHtml(summary.generatedAt)}</p>
 
     <section class="meta">
-      <article class="card"><strong>任务</strong><br>${escapeHtml(summary.start?.task ?? '未知')}</article>
-      <article class="card"><strong>运行 ID</strong><br><code>${escapeHtml(summary.start?.runId ?? '未知')}</code></article>
-      <article class="card"><strong>状态</strong><br>${escapeHtml(summary.finish?.status ?? '未完成')}</article>
-      <article class="card"><strong>耗时</strong><br>${escapeHtml(summary.durationLabel)}</article>
-      <article class="card"><strong>页面标题</strong><br>${escapeHtml(summary.start?.title ?? '未提供')}</article>
-      <article class="card"><strong>schemaUid</strong><br>${escapeHtml(summary.start?.schemaUid ?? '未提供')}</article>
-      <article class="card"><strong>页面地址</strong><br>${summary.pageUrl ? `<a href="${escapeHtml(summary.pageUrl.url)}">${escapeHtml(summary.pageUrl.url)}</a>` : '未记录'}</article>
+      <article class="card"><strong>Task</strong><br>${escapeHtml(summary.start?.task ?? 'unknown')}</article>
+      <article class="card"><strong>Run ID</strong><br><code>${escapeHtml(summary.start?.runId ?? 'unknown')}</code></article>
+      <article class="card"><strong>Status</strong><br>${escapeHtml(summary.finish?.status ?? 'unfinished')}</article>
+      <article class="card"><strong>Duration</strong><br>${escapeHtml(summary.durationLabel)}</article>
+      <article class="card"><strong>Page title</strong><br>${escapeHtml(summary.start?.title ?? 'not provided')}</article>
+      <article class="card"><strong>schemaUid</strong><br>${escapeHtml(summary.start?.schemaUid ?? 'not provided')}</article>
+      <article class="card"><strong>Page URL</strong><br>${summary.pageUrl ? `<a href="${escapeHtml(summary.pageUrl.url)}">${escapeHtml(summary.pageUrl.url)}</a>` : 'not recorded'}</article>
     </section>
 
-    <h2>结果轴</h2>
+    <h2>Status Axes</h2>
     <section class="stats">
       ${statusAxisCards}
     </section>
 
-    <h2>概览</h2>
+    <h2>Overview</h2>
     <section class="stats">
-      <article class="card"><strong>事件总数</strong><br>${summary.totalEvents}</article>
-      <article class="card"><strong>工具调用</strong><br>${summary.totalToolCalls}</article>
-      <article class="card"><strong>备注</strong><br>${summary.totalNotes}</article>
-      <article class="card"><strong>phase 事件</strong><br>${summary.totalPhases}</article>
-      <article class="card"><strong>gate 事件</strong><br>${summary.totalGates}</article>
-      <article class="card"><strong>cache 事件</strong><br>${summary.totalCacheEvents}</article>
-      <article class="card"><strong class="err">失败调用</strong><br>${summary.errorCount}</article>
-      <article class="card"><strong>跳过调用</strong><br>${summary.skippedCount}</article>
+      <article class="card"><strong>Total events</strong><br>${summary.totalEvents}</article>
+      <article class="card"><strong>Tool calls</strong><br>${summary.totalToolCalls}</article>
+      <article class="card"><strong>Notes</strong><br>${summary.totalNotes}</article>
+      <article class="card"><strong>Phase events</strong><br>${summary.totalPhases}</article>
+      <article class="card"><strong>Gate events</strong><br>${summary.totalGates}</article>
+      <article class="card"><strong>Cache events</strong><br>${summary.totalCacheEvents}</article>
+      <article class="card"><strong class="err">Failed calls</strong><br>${summary.errorCount}</article>
+      <article class="card"><strong>Skipped calls</strong><br>${summary.skippedCount}</article>
     </section>
 
-    <h2>阶段耗时画像</h2>
+    <h2>Phase Duration Profile</h2>
     <section class="stats">
-      <article class="card"><strong>阶段数</strong><br>${summary.phaseSummary.totals.length}</article>
-      <article class="card"><strong>已闭合 span</strong><br>${summary.phaseSummary.spans.length}</article>
-      <article class="card"><strong>最慢阶段</strong><br>${escapeHtml(summary.phaseSummary.totals[0]?.phase ?? '未记录')}</article>
-      <article class="card"><strong>最慢耗时</strong><br>${escapeHtml(summary.phaseSummary.totals[0]?.totalDurationLabel ?? '未知')}</article>
+      <article class="card"><strong>Phase count</strong><br>${summary.phaseSummary.totals.length}</article>
+      <article class="card"><strong>Closed spans</strong><br>${summary.phaseSummary.spans.length}</article>
+      <article class="card"><strong>Slowest phase</strong><br>${escapeHtml(summary.phaseSummary.totals[0]?.phase ?? 'not recorded')}</article>
+      <article class="card"><strong>Slowest total duration</strong><br>${escapeHtml(summary.phaseSummary.totals[0]?.totalDurationLabel ?? 'unknown')}</article>
     </section>
     <table>
       <thead>
-        <tr><th>阶段</th><th>次数</th><th>总耗时</th><th>最长单次</th></tr>
+        <tr><th>Phase</th><th>Count</th><th>Total Duration</th><th>Longest Single Run</th></tr>
       </thead>
       <tbody>${phaseRows}</tbody>
     </table>
 
-    <h2>Stable Cache 摘要</h2>
+    <h2>Stable Cache Summary</h2>
     <section class="stats">
-      <article class="card"><strong>事件总数</strong><br>${summary.cacheSummary.total}</article>
-      <article class="card"><strong>命中</strong><br>${summary.cacheSummary.hitCount}</article>
+      <article class="card"><strong>Total events</strong><br>${summary.cacheSummary.total}</article>
+      <article class="card"><strong>Hits</strong><br>${summary.cacheSummary.hitCount}</article>
       <article class="card"><strong>miss</strong><br>${summary.cacheSummary.missCount}</article>
       <article class="card"><strong>store</strong><br>${summary.cacheSummary.storeCount}</article>
       <article class="card"><strong>invalidate</strong><br>${summary.cacheSummary.invalidateCount}</article>
-      <article class="card"><strong>命中率</strong><br>${escapeHtml(summary.cacheSummary.hitRatio === null ? '未知' : `${Math.round(summary.cacheSummary.hitRatio * 100)}%`)}</article>
+      <article class="card"><strong>Hit rate</strong><br>${escapeHtml(summary.cacheSummary.hitRatio === null ? 'unknown' : `${Math.round(summary.cacheSummary.hitRatio * 100)}%`)}</article>
     </section>
     <table>
       <thead>
-        <tr><th>Kind</th><th>总事件</th><th>Hit</th><th>Miss</th><th>Store/Invalidate</th></tr>
+        <tr><th>Kind</th><th>Total Events</th><th>Hit</th><th>Miss</th><th>Store / Invalidate</th></tr>
       </thead>
       <tbody>${cacheKindRows}</tbody>
     </table>
 
-    <h2>Gate 摘要</h2>
+    <h2>Gate Summary</h2>
     <section class="stats">
-      <article class="card"><strong>gate 总数</strong><br>${summary.gateSummary.total}</article>
-      <article class="card"><strong class="ok">通过</strong><br>${summary.gateSummary.passed}</article>
-      <article class="card"><strong class="err">失败</strong><br>${summary.gateSummary.failed}</article>
-      <article class="card"><strong>截停后续流程</strong><br>${summary.gateSummary.stopped}</article>
+      <article class="card"><strong>Total gates</strong><br>${summary.gateSummary.total}</article>
+      <article class="card"><strong class="ok">Passed</strong><br>${summary.gateSummary.passed}</article>
+      <article class="card"><strong class="err">Failed</strong><br>${summary.gateSummary.failed}</article>
+      <article class="card"><strong>Stopped remaining flow</strong><br>${summary.gateSummary.stopped}</article>
     </section>
     ${gateBlocks}
 
-    <h2>Guard 摘要</h2>
+    <h2>Guard Summary</h2>
     <section class="stats">
       <article class="card"><strong>canonicalize</strong><br>${summary.guardSummary.canonicalizeCount}</article>
-      <article class="card"><strong>审计调用</strong><br>${summary.guardSummary.auditCount}</article>
+      <article class="card"><strong>Audit calls</strong><br>${summary.guardSummary.auditCount}</article>
       <article class="card"><strong>blocker</strong><br>${summary.guardSummary.blockerCount}</article>
       <article class="card"><strong>warning</strong><br>${summary.guardSummary.warningCount}</article>
       <article class="card"><strong>risk-accept</strong><br>${summary.guardSummary.riskAcceptCount}</article>
-      <article class="card"><strong class="err">违规继续写入</strong><br>${summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount}</article>
+      <article class="card"><strong class="err">Writes past blocker</strong><br>${summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount}</article>
     </section>
     <section class="card">
       ${guardViolationItems}
     </section>
 
-    <h2>写后回读</h2>
+    <h2>Post-write Readback</h2>
     ${readbackBlocks}
     ${readbackEvidenceInsufficientBlocks}
 
-    <h2>可改进点</h2>
+    <h2>Improvement Points</h2>
     <section class="card">
       <ul>${suggestionItems}</ul>
     </section>
 
-    <h2>自动改进建议</h2>
+    <h2>Automatic Improvement Suggestions</h2>
     ${optimizationBlocks}
 
-    <h2>工具统计</h2>
+    <h2>Tool Statistics</h2>
     <table>
       <thead>
-        <tr><th>工具</th><th>总次数</th><th>成功</th><th>失败</th><th>跳过</th></tr>
+        <tr><th>Tool</th><th>Total</th><th>Success</th><th>Failure</th><th>Skipped</th></tr>
       </thead>
       <tbody>${toolRows}</tbody>
     </table>
 
-    <h2>失败调用</h2>
+    <h2>Failed Calls</h2>
     ${failureBlocks}
 
-    <h2>时间线</h2>
+    <h2>Timeline</h2>
     <table>
       <thead>
-        <tr><th>#</th><th>时间</th><th>事件</th><th>名称/消息</th><th>状态</th><th>摘要</th></tr>
+        <tr><th>#</th><th>Time</th><th>Event</th><th>Name / Message</th><th>Status</th><th>Summary</th></tr>
       </thead>
       <tbody>${timelineRows}</tbody>
     </table>
 
-    <h2>源日志</h2>
+    <h2>Source Log</h2>
     <section class="card">
       <code>${escapeHtml(summary.sourceLogPath)}</code>
     </section>

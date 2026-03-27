@@ -211,32 +211,32 @@ test('renderReport writes markdown and html outputs from a log path', () => {
   const improvementJson = JSON.parse(fs.readFileSync(result.improvementJsonPath, 'utf8'));
   const improvementLog = fs.readFileSync(result.improvementLogPath, 'utf8');
 
-  assert.match(markdown, /NocoBase UI Builder 复盘报告/);
-  assert.match(markdown, /## 结果轴/);
+  assert.match(markdown, /NocoBase UI Builder Review Report/);
+  assert.match(markdown, /## Status Axes/);
   assert.match(markdown, /browserValidation \| skipped \(not requested\)/);
   assert.match(markdown, /runtimeUsable \| not-run/);
   assert.match(markdown, /http:\/\/127\.0\.0\.1:23000\/admin\/k7n4x9p2q5ra/);
   assert.match(markdown, /unsupported-model-use/);
-  assert.match(markdown, /存在写操作，但没有记录 `PostFlowmodels_schemas`/);
-  assert.match(markdown, /Guard 摘要/);
-  assert.match(markdown, /阶段耗时画像/);
-  assert.match(markdown, /Stable Cache 摘要/);
-  assert.match(markdown, /Gate 摘要/);
-  assert.match(markdown, /缺少 `flow_payload_guard.canonicalize-payload`/);
-  assert.match(markdown, /缺少 `flow_payload_guard.audit-payload`/);
-  assert.match(markdown, /自动改进建议/);
-  assert.match(html, /复盘报告/);
-  assert.match(html, /结果轴/);
+  assert.match(markdown, /Writes existed, but `PostFlowmodels_schemas` was not recorded/);
+  assert.match(markdown, /## Guard Summary/);
+  assert.match(markdown, /## Phase Duration Profile/);
+  assert.match(markdown, /## Stable Cache Summary/);
+  assert.match(markdown, /## Gate Summary/);
+  assert.match(markdown, /missing `flow_payload_guard.canonicalize-payload`/);
+  assert.match(markdown, /missing `flow_payload_guard.audit-payload`/);
+  assert.match(markdown, /## Automatic Improvement Suggestions/);
+  assert.match(html, /Review Report/);
+  assert.match(html, /Status Axes/);
   assert.match(html, /http:\/\/127\.0\.0\.1:23000\/admin\/k7n4x9p2q5ra/);
-  assert.match(html, /阶段耗时画像/);
-  assert.match(html, /Stable Cache 摘要/);
-  assert.match(html, /Gate 摘要/);
-  assert.match(html, /Guard 摘要/);
+  assert.match(html, /Phase Duration Profile/);
+  assert.match(html, /Stable Cache Summary/);
+  assert.match(html, /Gate Summary/);
+  assert.match(html, /Guard Summary/);
   assert.match(html, /PostFlowmodels_mutate/);
   assert.match(html, /unsupported-model-use/);
-  assert.match(html, /自动改进建议/);
-  assert.match(improvementMarkdown, /自动改进清单/);
-  assert.match(improvementMarkdown, /把探测步骤前置并批量化/);
+  assert.match(html, /Automatic Improvement Suggestions/);
+  assert.match(improvementMarkdown, /Improvement List/);
+  assert.match(improvementMarkdown, /Move discovery earlier and batch it/);
   assert.equal(Array.isArray(improvementJson.optimizationItems), true);
   assert.equal(improvementJson.optimizationItems.length > 0, true);
   assert.match(improvementLog, /improvement_snapshot/);
@@ -267,12 +267,12 @@ test('analyzeRun generates improvement suggestions from tool call order', () => 
 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.ok(summary.suggestions.some((item) => item.includes('PostFlowmodels_schemabundle')));
-  assert.ok(summary.suggestions.some((item) => item.includes('首次探测发生在首次写操作之后')));
+  assert.ok(summary.suggestions.some((item) => item.includes('first discovery happened after the first write')));
   assert.ok(summary.suggestions.some((item) => item.includes('flow_payload_guard.canonicalize-payload')));
   assert.ok(summary.suggestions.some((item) => item.includes('flow_payload_guard.audit-payload')));
   assert.ok(summary.suggestions.some((item) => item.includes('`summary`')));
-  assert.ok(summary.optimizationItems.some((item) => item.title.includes('把探测步骤前置并批量化')));
-  assert.ok(summary.optimizationItems.some((item) => item.title.includes('canonicalize')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('Move discovery earlier and batch it')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.toLowerCase().includes('canonicalize')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('payload guard')));
 });
 
@@ -302,7 +302,7 @@ test('analyzeRun recognizes prefixed MCP tool names and flags missing route-read
   });
 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
-  assert.ok(summary.suggestions.some((item) => item.includes('accessible route 回读')));
+  assert.ok(summary.suggestions.some((item) => item.includes('accessible-route readback')));
   assert.ok(summary.suggestions.some((item) => item.includes('`pre-open` gate')));
   assert.ok(summary.optimizationItems.some((item) => item.title.includes('route-ready')));
 });
@@ -433,7 +433,7 @@ test('analyzeRun keeps route-ready evidence conservative when route reads are no
   assert.equal(summary.routeReadySummary.routeReadCount, 0);
   assert.equal(summary.routeReadySummary.routeReadEvidenceInsufficient.length, 1);
   assert.equal(summary.statusAxes.routeReady.status, 'evidence-insufficient');
-  assert.ok(summary.suggestions.some((item) => item.includes('显式绑定到目标页面')));
+  assert.ok(summary.suggestions.some((item) => item.includes('explicitly bound to the target page')));
 });
 
 test('analyzeRun summarizes phase, cache and gate telemetry', () => {
@@ -526,7 +526,7 @@ test('analyzeRun does not treat different live targets as repeated reads', () =>
 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.equal(
-    summary.optimizationItems.some((item) => item.title.includes('压缩重复的 live snapshot 读取')),
+    summary.optimizationItems.some((item) => item.title.includes('Reduce repeated live snapshot reads')),
     false,
   );
 });
@@ -554,7 +554,7 @@ test('analyzeRun flags repeated reads of the same live target', () => {
 
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.equal(
-    summary.optimizationItems.some((item) => item.title.includes('压缩重复的 live snapshot 读取')),
+    summary.optimizationItems.some((item) => item.title.includes('Reduce repeated live snapshot reads')),
     true,
   );
 });
@@ -596,8 +596,8 @@ test('analyzeRun detects writes after guard blockers without risk-accept', () =>
   const summary = analyzeRun(loadJsonLines(started.logPath), started.logPath);
   assert.equal(summary.guardSummary.auditCount, 1);
   assert.equal(summary.guardSummary.writeAfterBlockerWithoutRiskAcceptCount, 1);
-  assert.ok(summary.suggestions.some((item) => item.includes('guard 已报 blocker')));
-  assert.ok(summary.optimizationItems.some((item) => item.title.includes('不要绕过 blocker 直接写入')));
+  assert.ok(summary.suggestions.some((item) => item.includes('guard reported a blocker')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('Do not write past a blocker')));
 });
 
 test('analyzeRun flags createV2 after guard blockers as a dedicated violation', () => {
@@ -781,17 +781,17 @@ test('analyzeRun flags save/readback mismatches as a high-priority workflow issu
             pageSignature: '$',
             pageUse: 'RootPageModel',
             tabCount: 4,
-            tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+            tabTitles: ['Customer Overview', 'Contacts', 'Opportunities', 'Activity'],
             tabs: [
-              { title: '客户概览', hasBlockGrid: true },
-              { title: '联系人', hasBlockGrid: true },
-              { title: '商机', hasBlockGrid: true },
-              { title: '跟进记录', hasBlockGrid: true },
+              { title: 'Customer Overview', hasBlockGrid: true },
+              { title: 'Contacts', hasBlockGrid: true },
+              { title: 'Opportunities', hasBlockGrid: true },
+              { title: 'Activity', hasBlockGrid: true },
             ],
           },
         ],
         tabCount: 4,
-        tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+        tabTitles: ['Customer Overview', 'Contacts', 'Opportunities', 'Activity'],
         topLevelUses: ['RootPageTabModel'],
       },
     },
@@ -831,8 +831,8 @@ test('analyzeRun flags save/readback mismatches as a high-priority workflow issu
   assert.equal(summary.readbackMismatches.length, 1);
   assert.equal(summary.readbackMismatches[0].targetSignature, 'page.root');
   assert.ok(summary.readbackMismatches[0].evidence.some((item) => item.includes('page $ tabCount write=4')));
-  assert.ok(summary.suggestions.some((item) => item.includes('write 后 readback 不一致')));
-  assert.ok(summary.optimizationItems.some((item) => item.title.includes('write 后 readback 不一致')));
+  assert.ok(summary.suggestions.some((item) => item.includes('post-write readback mismatches were found')));
+  assert.ok(summary.optimizationItems.some((item) => item.title.includes('post-write readback mismatches')));
 });
 
 test('analyzeRun marks legacy unsigned save/findone logs as evidence_insufficient instead of mismatch', () => {
@@ -1061,7 +1061,7 @@ test('renderReport keeps timeline records in original event order', () => {
     improvementLogPath,
   });
   const markdown = fs.readFileSync(result.markdownPath, 'utf8');
-  const timelineSection = markdown.split('## 时间线')[1];
+  const timelineSection = markdown.split('## Timeline')[1];
   const firstToolIndex = timelineSection.indexOf('GetFlowmodels_findone');
   const noteIndex = timelineSection.indexOf('middle note');
   const secondToolIndex = timelineSection.indexOf('PostFlowmodels_schemabundle');
@@ -1101,12 +1101,12 @@ test('renderReport includes readback mismatch section', () => {
             pageSignature: '$',
             pageUse: 'RootPageModel',
             tabCount: 4,
-            tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+            tabTitles: ['Customer Overview', 'Contacts', 'Opportunities', 'Activity'],
             tabs: [],
           },
         ],
         tabCount: 4,
-        tabTitles: ['客户概览', '联系人', '商机', '跟进记录'],
+        tabTitles: ['Customer Overview', 'Contacts', 'Opportunities', 'Activity'],
       },
     },
   });
@@ -1152,8 +1152,8 @@ test('renderReport includes readback mismatch section', () => {
   });
   const markdown = fs.readFileSync(result.markdownPath, 'utf8');
 
-  assert.match(markdown, /## 写后回读/);
-  assert.match(markdown, /page \$ tabCount write=4，readback=0/);
+  assert.match(markdown, /## Post-write Readback/);
+  assert.match(markdown, /page \$ tabCount write=4, readback=0/);
 });
 
 test('cli render resolves latest-run manifest automatically', () => {

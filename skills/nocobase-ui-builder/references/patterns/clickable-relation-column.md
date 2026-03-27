@@ -1,46 +1,46 @@
 ---
-title: 可点击关联列
-description: 表格中的关联标题字段如何稳定展示、点击打开 popup，以及何时禁止默认走 JS workaround。
+title: Clickable relation columns
+description: How to display relation title fields in tables, open popup views from them, and decide when JS workarounds are forbidden by default.
 ---
 
-# 可点击关联列
+# Clickable relation columns
 
-## 适用场景
+## Target scenarios
 
-- 列里显示 `publisher.name`、`customer.name` 这类关联标题
-- 用户要求“点击这一列打开详情弹窗 / dialog / drawer”
-- 同时涉及表格列渲染与 popup/openView
+- show relation titles such as `publisher.name` or `customer.name`
+- let the user click that title to open a details popup, dialog, or drawer
+- combine table-column rendering with popup/openView
 
-## 默认优先级
+## Default priority
 
-1. 如果只是展示关联标题，不带点击打开：
-   - 允许用父 collection 上的 dotted path，例如 `customer.name`
-   - 必须显式补 `associationPathName=customer`
-2. 如果要求“点击标题打开关联详情弹窗”：
-   - 默认不要让 `customer.name` 这种 dotted path 列自己承担 click-to-open
-   - 优先改成“关系字段列”方案：绑定 `customer` 这类关系字段本身，让 runtime/title display 负责显示名称，再把 `clickToOpen + popupSettings.openView` 挂在这个原生关系列上
-3. 只有用户明确要求 RunJS / JS 自定义交互时，才允许进入 `JSFieldModel` / `JSColumnModel`
+1. If the request only needs relation-title display without click-to-open:
+   - a parent-collection dotted path such as `customer.name` is allowed
+   - `associationPathName=customer` must be explicit
+2. If the request needs "click title to open relation details":
+   - do not let a dotted path such as `customer.name` own click-to-open directly
+   - prefer the native relation-column pattern: bind the relation field itself, let runtime or title display render the name, and attach `clickToOpen + popupSettings.openView` to that native relation column
+3. Only allow `JSFieldModel` or `JSColumnModel` when the user explicitly asks for a JS or RunJS solution
 
-## 默认处理
+## Default behavior
 
-当需求同时命中以下信号时：
+When the request contains all of these signals:
 
-- 表格列
-- 关联标题字段
-- 点击打开 / popup / dialog / drawer
+- table column
+- relation title field
+- click-to-open or popup
 
-默认执行：
+Default flow:
 
-1. 不直接生成 `dotted path + click-to-open`
-2. 不直接生成 `JSFieldModel` / `JSColumnModel`
-3. 先回到原生关系列方案
-4. 如果当前 reference 无法证明该原生方案稳定，再报 `partial/unverified`，不要静默切 JS
+1. do not generate `dotted path + click-to-open`
+2. do not jump straight to `JSFieldModel` or `JSColumnModel`
+3. first converge to the native relation-column solution
+4. if references cannot yet prove that native solution is stable, report it as `partial` or `unverified` instead of silently switching to JS
 
-## 显式 JS 例外
+## Explicit JS exception
 
-只有在用户明确说“用 JS column / JS field / RunJS 做这个交互”时，才允许保留 JS 方案。
+Only preserve the JS route when the user explicitly says to use JS.
 
-这类场景在 `audit-payload` 阶段要显式传：
+In guard terms, that means:
 
 ```json
 {
@@ -48,15 +48,15 @@ description: 表格中的关联标题字段如何稳定展示、点击打开 pop
 }
 ```
 
-没有这个 intent tag，guard 会把“关联标题列点击 popup 的 JS workaround”视为高风险误判。
+Without that tag, the guard should treat a JS workaround for clickable relation titles as high-risk.
 
-## 常见误区
+## Common traps
 
-- 把 `customer.name` 当成稳定只读路径后，顺手再给它挂 click-to-open
-- 为了避开 dotted path 风险，直接切成 `JSFieldModel` / `JSColumnModel`
-- 用户只说“点列打开弹窗”，却自动理解成“要自定义 JS 单元格”
+- treating `customer.name` as a stable display path and then also hanging click-to-open from it
+- switching to `JSFieldModel` or `JSColumnModel` only to avoid dotted-path risk
+- interpreting "click the column to open a popup" as "build a custom JS cell" without being asked
 
-## 关联文档
+## Related docs
 
 - [table-column-rendering.md](table-column-rendering.md)
 - [popup-openview.md](popup-openview.md)

@@ -1,57 +1,57 @@
 ---
-title: nocobase-ui-builder 参考索引
-description: 唯一权威任务路由表；先按任务分类，再进入 canonical docs、recipes、block docs、pattern docs 与 JS docs。
+title: nocobase-ui-builder reference index
+description: Canonical task router for nocobase-ui-builder. Classify the task first, then read the matching canonical docs, recipes, block docs, pattern docs, and JS docs.
 ---
 
-# nocobase-ui-builder 参考索引
+# nocobase-ui-builder reference index
 
-先按任务分类，再打开对应文档。不要继续从顶层 `SKILL.md` 自行脑补 payload。
+Classify the task first, then open the matching docs. Do not invent payload structure from the top-level `SKILL.md`.
 
-## 通用入口
+## Core entrypoints
 
 - [ui-api-overview.md](ui-api-overview.md)
-  - API 生命周期、schema-first、route-ready、readback、工具选择
+  API lifecycle, schema-first discovery, route-ready, readback, and tool selection
 - [page-first-planning.md](page-first-planning.md)
-  - 页面骨架、section 规划、block 映射顺序
+  Page skeletons, section planning, and block mapping order
 - [flow-schemas/index.md](flow-schemas/index.md)
-  - 当前实例的本地 graph、model / slot / artifact 查询入口
+  Local graph entrypoint for model, slot, and artifact lookup
 - [patterns/payload-guard.md](patterns/payload-guard.md)
-  - 写前 guard、blocker / warning / risk-accept
+  Pre-write guard, blocker and warning rules, and risk accept rules
 - [opaque-uid.md](opaque-uid.md)
-  - page / node uid 生成规则
+  Page and node uid generation rules
 
-## 任务路由
+## Task routing
 
-- 创建或删除页面：
+- Create or destroy a page:
   [recipes/page-lifecycle.md](recipes/page-lifecycle.md),
   [ui-api-overview.md](ui-api-overview.md),
   [opaque-uid.md](opaque-uid.md)
-- 读取、更新、移动、删除现有区块：
+- Read, update, move, or destroy an existing block:
   [recipes/block-mutations.md](recipes/block-mutations.md),
   [page-first-planning.md](page-first-planning.md),
   [ui-api-overview.md](ui-api-overview.md)
-- 表单、动作、popup/openView、record actions：
+- Forms, actions, popup/openView, and record actions:
   [recipes/forms-and-actions.md](recipes/forms-and-actions.md),
   [patterns/index.md](patterns/index.md)
-- 总览 / 看板 / 趋势 / KPI / 说明型页面：
+- Insight, dashboard, trend, KPI, and explanatory pages:
   [insight-first-recipe.md](insight-first-recipe.md),
   [blocks/chart.md](blocks/chart.md),
   [blocks/grid-card.md](blocks/grid-card.md),
   [js-models/index.md](js-models/index.md)
-- validation / review / improve / smoke：
+- Validation, review, improve, or smoke:
   [validation.md](validation.md),
   [ops-and-review.md](ops-and-review.md)
 
-## 兼容入口
+## Compatibility entrypoints
 
 - [flow-model-recipes.md](flow-model-recipes.md)
-  - 旧入口；现在只负责把旧路径重定向到新的 recipes 和 canonical docs
+  Legacy entrypoint that now redirects to recipes and canonical docs
 - [validation-scenarios.md](validation-scenarios.md)
-  - validation 动态场景规划细节
+  Dynamic scenario planning details for validation
 - [validation-data-preconditions.md](validation-data-preconditions.md)
-  - 旧入口；数据前置规则已合并进 `validation.md`
+  Legacy entrypoint. Data-preparation rules now live in `validation.md`
 
-## 区块文档
+## Block docs
 
 - [blocks/index.md](blocks/index.md)
 - [blocks/public-blocks-inventory.md](blocks/public-blocks-inventory.md)
@@ -64,7 +64,7 @@ description: 唯一权威任务路由表；先按任务分类，再进入 canoni
 - [blocks/chart.md](blocks/chart.md)
 - [blocks/grid-card.md](blocks/grid-card.md)
 
-## 横切模式文档
+## Cross-cutting patterns
 
 - [patterns/index.md](patterns/index.md)
 - [patterns/payload-guard.md](patterns/payload-guard.md)
@@ -76,7 +76,7 @@ description: 唯一权威任务路由表；先按任务分类，再进入 canoni
 - [patterns/tree-table.md](patterns/tree-table.md)
 - [patterns/many-to-many-and-through.md](patterns/many-to-many-and-through.md)
 
-## JS / RunJS 文档
+## JS / RunJS docs
 
 - [js-models/index.md](js-models/index.md)
 - [js-models/rendering-contract.md](js-models/rendering-contract.md)
@@ -88,10 +88,10 @@ description: 唯一权威任务路由表；先按任务分类，再进入 canoni
 - [js-models/js-item.md](js-models/js-item.md)
 - [js-models/js-action.md](js-models/js-action.md)
 
-## 使用约定
+## Operating rules
 
-1. 任何探测或写操作前，先读 [ops-and-review.md](ops-and-review.md) 并执行 `start-run`。
-2. 默认先看本地 graph，再决定是否调用 `PostFlowmodels_schemabundle` / `PostFlowmodels_schemas`。
-3. 默认写入口是“agent 先调 MCP，随后把 artifacts 交给 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...`”；不要裸调这些底层写接口，也不要让脚本自己请求 NocoBase。
-4. 任何写操作都要先经过 [patterns/payload-guard.md](patterns/payload-guard.md)。
-5. validation、review、improve 的事实来源固定是 [validation.md](validation.md) + [ops-and-review.md](ops-and-review.md)。
+1. Read [ops-and-review.md](ops-and-review.md) and run `start-run` before any discovery or write action.
+2. Prefer the local graph first, then call `PostFlowmodels_schemabundle` or `PostFlowmodels_schemas` only when needed.
+3. The default write path is: call MCP first, then feed artifacts into `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...`. Do not call the low-level write interfaces directly and do not let the wrapper call NocoBase itself.
+4. Every write must pass [patterns/payload-guard.md](patterns/payload-guard.md) first.
+5. Validation, review, and improve conclusions always come from [validation.md](validation.md) plus [ops-and-review.md](ops-and-review.md).

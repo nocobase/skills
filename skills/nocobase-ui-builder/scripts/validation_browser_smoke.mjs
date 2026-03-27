@@ -183,7 +183,7 @@ async function bodyText(page) {
 
 async function dismissNoise(page) {
   await page.keyboard.press('Escape').catch(() => {});
-  const closePatterns = [/close/i, /关闭/, /ok/i, /确定/, /知道了/, /got it/i];
+  const closePatterns = [/close/i, /\u5173\u95ed/, /ok/i, /\u786e\u5b9a/, /\u77e5\u9053\u4e86/, /got it/i];
   for (const pattern of closePatterns) {
     const locator = page.getByRole('button', { name: pattern }).first();
     try {
