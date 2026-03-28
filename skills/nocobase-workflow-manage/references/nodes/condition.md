@@ -1,43 +1,43 @@
 ---
-title: "条件判断"
-description: "说明条件判断节点的引擎选择、计算结构与分支规则。"
+title: "Condition"
+description: "Explains the engine selection, calculation structure, and branch rules for the condition node."
 ---
 
-# 条件判断
+# Condition
 
-## 节点类型
+## Node Type
 
 `condition`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Use the above `type` value when creating the node; do not use the documentation filename as the type.
 
-## 节点描述
-根据条件判断结果决定流程走向：可以“条件为真才继续”，或按“是/否”分支继续。
+## Node Description
+Determines the flow direction based on the judgment result: it can either "continue only if true" or proceed via "Yes/No" branches.
 
-## 业务场景举例
-判断库存是否充足决定是否继续流程，可类比编程语言中的 if/else。
+## Business Scenario Examples
+Deciding whether to continue the process based on whether inventory is sufficient, similar to if/else in programming languages.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration Items
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| rejectOnFalse | boolean | true | 是 | 模式选择。`true` 表示条件为真才继续，条件为假时以失败状态结束；`false` 表示开启“是/否”分支。 |
-| engine | string | basic | 是 | 运算引擎：`basic`、`math.js`、`formula.js`。 |
-| calculation | object | 无 | 是（engine=basic） | 当 `engine=basic` 时使用，逻辑计算配置，见下方“basic 结构说明”。 |
-| expression | string | 无 | 是（engine!=basic） | 当 `engine` 非 `basic` 时使用的表达式。 |
+| rejectOnFalse | boolean | true | Yes | Mode selection. `true` means continue only if the condition is true, otherwise end with a failed status; `false` enables "Yes/No" branching. |
+| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. |
+| calculation | object | None | Yes (if engine=basic) | Logical calculation configuration used when `engine=basic`. See "basic structure description" below. |
+| expression | string | None | Yes (if engine!=basic) | Expression used when `engine` is not `basic`. |
 
-### basic 结构说明
-`calculation` 支持分组与嵌套：
-- `calculation.group.type`: `and` 或 `or`
-- `calculation.group.calculations`: 条件数组，元素可以是“计算项”或嵌套分组
-- 计算项结构：`{ "calculator": string, "operands": [left, right] }`
-- 内置 `calculator`：`equal`、`notEqual`、`gt`、`gte`、`lt`、`lte`、`includes`、`notIncludes`、`startsWith`、`notStartsWith`、`endsWith`、`notEndsWith`（也可扩展注册）
+### basic Structure Description
+`calculation` supports grouping and nesting:
+- `calculation.group.type`: `and` or `or`
+- `calculation.group.calculations`: Array of conditions, elements can be "calculation items" or nested groups.
+- Calculation item structure: `{ "calculator": string, "operands": [left, right] }`
+- Built-in `calculator`: `equal`, `notEqual`, `gt`, `gte`, `lt`, `lte`, `includes`, `notIncludes`, `startsWith`, `notStartsWith`, `endsWith`, `notEndsWith` (can also be extended and registered).
 
-## 分支说明
-- `rejectOnFalse=true` 时不产生分支，下游节点 `branchIndex` 应为 `null`。
-- `rejectOnFalse=false` 时开启分支：
-  - `branchIndex=1`：条件为真（Yes）
-  - `branchIndex=0`：条件为假（No）
+## Branch Description
+- When `rejectOnFalse=true`, no branches are generated, and the `branchIndex` of downstream nodes should be `null`.
+- When `rejectOnFalse=false`, branching is enabled:
+  - `branchIndex=1`: Condition is true (Yes)
+  - `branchIndex=0`: Condition is false (No)
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "rejectOnFalse": false,

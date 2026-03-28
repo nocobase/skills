@@ -1,32 +1,32 @@
 ---
-title: "响应消息"
-description: "说明响应消息节点在同步拦截流程中的返回提示配置。"
+title: "Response Message"
+description: "Explains the return prompt configuration of the response message node in synchronous intercept flows."
 ---
 
-# 响应消息
+# Response Message
 
-## 节点类型
+## Node Type
 
 `response-message`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-配置请求结束时返回给客户端的消息内容（仅拦截类同步流程可用）。
+## Node Description
+Configures the message content returned to the client when a request ends (only available for intercept-type synchronous workflows).
 
-## 业务场景举例
-在拦截类流程中返回“操作成功/失败”的提示。
+## Business Scenario Example
+Returning an "Operation Successful/Failed" prompt in an intercept-type workflow.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| message | string | 无 | 否 | 响应消息内容，支持变量模板。 |
+| message | string | None | No | Response message content, supports variable templates. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
-  "message": "操作成功：{{ $context.data.title }}"
+  "message": "Operation Successful: {{ $context.data.title }}"
 }
 ```

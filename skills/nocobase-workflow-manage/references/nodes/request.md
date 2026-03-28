@@ -1,44 +1,44 @@
 ---
-title: "HTTP 请求"
-description: "说明 HTTP 请求节点的方法、参数、请求体格式与示例。"
+title: "HTTP Request"
+description: "Explains the method, parameters, request body format, and examples for the HTTP Request node."
 ---
 
-# HTTP 请求
+# HTTP Request
 
-## 节点类型
+## Node Type
 
 `request`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-向指定 URL 发送 HTTP 请求，并返回响应结果。
+## Node Description
+Sends an HTTP request to a specified URL and returns the response.
 
-## 业务场景举例
-调用支付、物流等外部系统接口。
+## Business Scenario Example
+Calling external system interfaces such as payment or logistics.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| method | string | POST | 是 | HTTP 方法：GET/POST/PUT/PATCH/DELETE。 |
-| url | string | 无 | 是 | 请求地址，支持变量模板。 |
-| contentType | string | application/json | 否 | 请求体类型：`application/json`、`application/x-www-form-urlencoded`、`multipart/form-data`、`application/xml`、`text/plain`。 |
-| headers | array | [] | 否 | 请求头列表，每项 `{ name, value }`，`Content-Type` 会被忽略。 |
-| params | array | [] | 否 | URL 参数列表，每项 `{ name, value }`。 |
-| data | any | 无 | 否 | 请求体，格式随 `contentType` 变化，见下方说明。 |
-| timeout | number | 5000 | 否 | 超时时间（毫秒）。 |
-| ignoreFail | boolean | false | 否 | 请求失败是否忽略并继续流程。 |
-| onlyData | boolean | false | 否 | 仅返回 `data` 字段（接口返回体），默认返回完整响应信息。 |
+| method | string | POST | Yes | HTTP Method: GET/POST/PUT/PATCH/DELETE. |
+| url | string | None | Yes | Request URL, supports variable templates. |
+| contentType | string | application/json | No | Request body type: `application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`, `application/xml`, `text/plain`. |
+| headers | array | [] | No | List of request headers, each item `{ name, value }`. `Content-Type` will be ignored. |
+| params | array | [] | No | List of URL parameters, each item `{ name, value }`. |
+| data | any | None | No | Request body, format varies with `contentType`, see description below. |
+| timeout | number | 5000 | No | Timeout (milliseconds). |
+| ignoreFail | boolean | false | No | Whether to ignore request failure and continue the process. |
+| onlyData | boolean | false | No | Return only the `data` field (interface response body); defaults to returning full response information. |
 
-### data 格式说明
-- `application/json`：对象或数组。
-- `application/x-www-form-urlencoded`：数组 `[{ name, value }]`。
-- `multipart/form-data`：数组 `[{ name, valueType: 'text'|'file', text?, file? }]`，文件支持附件记录或数组。
-- `application/xml` / `text/plain`：字符串。
+### data Format Description
+- `application/json`: Object or array.
+- `application/x-www-form-urlencoded`: Array `[{ name, value }]`.
+- `multipart/form-data`: Array `[{ name, valueType: 'text'|'file', text?, file? }]`; files support attachment records or arrays.
+- `application/xml` / `text/plain`: String.
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "method": "POST",

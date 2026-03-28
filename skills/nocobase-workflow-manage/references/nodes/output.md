@@ -1,30 +1,30 @@
 ---
-title: "流程输出"
-description: "说明流程输出节点的输出值配置与使用场景。"
+title: "Workflow Output"
+description: "Explains the output value configuration and usage scenarios for the Workflow Output node."
 ---
 
-# 流程输出
+# Workflow Output
 
-## 节点类型
+## Node Type
 
 `output`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-设置当前工作流的输出值；当该工作流被子流程调用时，输出值可作为上层流程变量使用。多次输出时以最后一个执行的输出节点为准。
+## Node Description
+Sets the output value of the current workflow; when this workflow is called by a sub-workflow, the output value can be used as an upper-level process variable. In the case of multiple outputs, the last executed output node prevails.
 
-## 业务场景举例
-子流程计算结果并返回给上层流程作为后续变量。
+## Business Scenario Example
+A sub-workflow calculates a result and returns it to the upper-level workflow as a subsequent variable.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| value | any | 无 | 否 | 输出值，支持常量或变量表达式，任意 JSON 类型。 |
+| value | any | None | No | Output value, supports constants or variable expressions, any JSON type. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "value": {

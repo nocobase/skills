@@ -1,37 +1,37 @@
 ---
-title: "jobs"
-description: "节点执行记录表，保存每个节点在一次执行中的结果与状态。"
+title: "Jobs"
+description: "The node execution record table, saving the results and status of each node in an execution."
 ---
 
-# jobs
+# Jobs
 
-节点执行记录由工作流执行时自动生成，并且由执行器管理，无需手动创建，本文档仅用于字段说明。
+Node execution records are automatically generated when a workflow executes and are managed by the executor. They do not need to be created manually. This document is for field description only.
 
-## 字段说明
+## Field Descriptions
 
-| 字段名 | 类型 | 是否必填 | 默认值 | 说明 |
+| Field Name | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| id | bigInt | 否（系统生成） | - | 主键 ID。由工作流引擎使用 snowflake 生成；手动插入需显式提供。 |
-| execution | belongsTo | 是 | - | 所属执行（`executions`），外键为 `executionId`。 |
-| node | belongsTo | 是 | - | 对应节点（`flow_nodes`），外键为 `nodeId`。 |
-| nodeKey | string | 是 | - | 对应节点的 `flow_nodes.key`，用于跨版本映射与结果引用。 |
-| upstream | belongsTo | 否 | - | 上游 job（`jobs`），外键为 `upstreamId`，部分节点链路会用到。 |
-| status | integer | 是 | - | 节点执行状态，见下方枚举。 |
-| meta | json | 否 | - | 节点执行元数据（如等待/表单信息等）。 |
-| result | json | 否 | - | 节点执行结果数据（供后续节点与输出使用）。 |
+| id | bigInt | No (System generated) | - | Primary key ID. Generated using snowflake by the workflow engine; must be explicitly provided if inserted manually. |
+| execution | belongsTo | Yes | - | Associated execution (`executions`), foreign key is `executionId`. |
+| node | belongsTo | Yes | - | Corresponding node (`flow_nodes`), foreign key is `nodeId`. |
+| nodeKey | string | Yes | - | The `flow_nodes.key` of the corresponding node, used for cross-version mapping and result referencing. |
+| upstream | belongsTo | No | - | Upstream job (`jobs`), foreign key is `upstreamId`, used in some node link scenarios. |
+| status | integer | Yes | - | Node execution status, see the enum below. |
+| meta | json | No | - | Node execution metadata (e.g., wait/form information, etc.). |
+| result | json | No | - | Node execution result data (for subsequent nodes and output usage). |
 
-## 状态枚举（status）
+## Status Enum (status)
 
-- `0`：PENDING（等待中）
-- `1`：RESOLVED（成功）
-- `-1`：FAILED（条件失败/未通过）
-- `-2`：ERROR（执行错误）
-- `-3`：ABORTED（中止）
-- `-4`：CANCELED（取消）
-- `-5`：REJECTED（拒绝）
-- `-6`：RETRY_NEEDED（需要重试）
+- `0`: PENDING (Waiting)
+- `1`: RESOLVED (Success)
+- `-1`: FAILED (Condition failed/Not passed)
+- `-2`: ERROR (Execution error)
+- `-3`: ABORTED (Aborted)
+- `-4`: CANCELED (Canceled)
+- `-5`: REJECTED (Rejected)
+- `-6`: RETRY_NEEDED (Retry needed)
 
-## 示例值
+## Example Values
 
 ```ts
 const values = {

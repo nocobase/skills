@@ -1,31 +1,31 @@
 ---
-title: "删除数据"
-description: "介绍删除数据节点的筛选条件与配置要点。"
+title: "Delete Data"
+description: "Introduces the filtering conditions and configuration points of the delete data node."
 ---
 
-# 删除数据
+# Delete Data
 
-## 节点类型
+## Node Type
 
 `destroy`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the above `type` value to create the node; do not use the document filename as the type.
 
-## 节点描述
-按筛选条件删除数据表中的记录。
+## Node Description
+Deletes records from a data table according to filtering conditions.
 
-## 业务场景举例
-定期清理已取消的历史记录。
+## Business Scenario Example
+Periodically clean up canceled historical records.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | 无 | 是 | 目标数据表，单数据源时可直接写集合名，多数据源可写 `dataSource:collection`。 |
-| params.filter | object | 无 | 是 | 筛选条件（至少包含一个条件）。格式与数据表过滤器 DSL 一致。 |
+| collection | string | None | Yes | Target data table. For a single data source, you can write the collection name directly. For multiple data sources, use `dataSource:collection`. |
+| params.filter | object | None | Yes | Filtering conditions (must contain at least one condition). The format matches the data table filter DSL. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Branches are not supported.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "collection": "orders",

@@ -1,57 +1,57 @@
 ---
-title: "定时任务"
-description: "按时间规则触发流程，支持固定时间与数据表时间字段两种模式。"
+title: "Scheduled Task"
+description: "Trigger flows based on time rules, supporting both custom time and data table time field modes."
 ---
 
-# 定时任务
+# Scheduled Task
 
-## 触发器类型
+## Trigger Type
 
 `schedule`
-请使用以上 `type` 值创建触发器，不要使用文档文件名作为 type。
+Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
-## 适用场景
-- 周期性任务：定时清理、定时发送通知、定时统计。
-- 以某条记录的时间字段为基准触发（如订单超时、到期提醒）。
+## Use Cases
+- Periodic tasks: scheduled cleanup, scheduled notifications, scheduled statistics.
+- Triggering based on a time field of a specific record (e.g., order timeout, expiration reminder).
 
-## 触发时机 / 事件
-- 当当前时间满足配置的时间条件时触发。
-- 触发精度为秒级；应用停机期间错过的时间点不会补触发。
-- 该触发器为异步执行模式（`sync=false`）。
+## Trigger Timing / Events
+- Triggered when the current time satisfies the configured time conditions.
+- Trigger precision is at the second level; missed time points during application downtime will not be retroactively triggered.
+- This trigger operates in asynchronous execution mode (`sync=false`).
 
-## 配置项列表
-### 通用配置
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration Items
+### General Configuration
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| mode | number | 0 | 是 | 触发模式：`0` 自定义时间，`1` 数据表时间字段。 |
+| mode | number | 0 | Yes | Trigger mode: `0` Custom Time, `1` Data Table Time Field. |
 
-### 模式：自定义时间（mode=0）
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+### Mode: Custom Time (mode=0)
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| startsOn | string (datetime) | - | 是 | 开始时间（ISO 或可解析的时间字符串）。若开始时间已过去且未配置重复规则，则不会再次触发。 |
-| repeat | string \| number \| null | null | 否 | 重复规则：字符串表示 cron 表达式；数字表示毫秒间隔。 |
-| endsOn | string (datetime) | null | 否 | 结束时间（仅在配置重复规则时生效）。 |
-| limit | number | null | 否 | 最大触发次数（统计同一工作流所有版本的累计执行次数）。 |
+| startsOn | string (datetime) | - | Yes | Start time (ISO or parsable time string). If the start time has passed and no repeat rule is configured, it will not trigger again. |
+| repeat | string | number | null | null | No | Repeat rule: string represents a cron expression; number represents millisecond interval. |
+| endsOn | string (datetime) | null | No | End time (only effective when a repeat rule is configured). |
+| limit | number | null | No | Maximum trigger count (accumulated execution count for all versions of the same workflow). |
 
-### 模式：数据表时间字段（mode=1）
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+### Mode: Data Table Time Field (mode=1)
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | - | 是 | 数据表，格式为 `"<dataSource>:<collection>"`，数据源为主数据源时可省略 `dataSource`。 |
-| startsOn | object | - | 是 | 开始时间字段配置。 |
-| startsOn.field | string | - | 是 | 作为触发基准的时间字段名。 |
-| startsOn.offset | number | 0 | 否 | 偏移量（可正可负），与 `unit` 配合使用。 |
-| startsOn.unit | number | 86400000 | 否 | 偏移单位（毫秒）：`1000` 秒、`60000` 分钟、`3600000` 小时、`86400000` 天。 |
-| repeat | string \| number \| null | null | 否 | 重复规则：cron 表达式或毫秒间隔。 |
-| endsOn | string \| object | null | 否 | 结束条件：固定时间（string）或时间字段配置（object，结构同 `startsOn`）。 |
-| limit | number | null | 否 | 最大触发次数。 |
-| appends | string[] | [] | 否 | 预加载关联字段路径，用于触发上下文中的 `data`。 |
+| collection | string | - | Yes | Data table, format is `"<dataSource>:<collection>"`; `dataSource` can be omitted if it's the primary data source. |
+| startsOn | object | - | Yes | Start time field configuration. |
+| startsOn.field | string | - | Yes | The name of the time field used as the trigger baseline. |
+| startsOn.offset | number | 0 | No | Offset (can be positive or negative), used in conjunction with `unit`. |
+| startsOn.unit | number | 86400000 | No | Offset unit (milliseconds): `1000` for seconds, `60000` for minutes, `3600000` for hours, `86400000` for days. |
+| repeat | string | number | null | null | No | Repeat rule: cron expression or millisecond interval. |
+| endsOn | string | object | null | No | End condition: fixed time (string) or time field configuration (object, structure same as `startsOn`). |
+| limit | number | null | No | Maximum trigger count. |
+| appends | string[] | [] | No | Path of preloaded associated fields, used for `data` in the trigger context. |
 
-## 触发器变量
-- `$context.date`：触发时刻（Date）。
-- `$context.data`：仅在数据表时间字段模式（mode=1）下存在，为触发的记录数据；包含 `appends` 预加载的关联字段。
+## Trigger Variables
+- `$context.date`: Trigger timestamp (Date).
+- `$context.data`: Only exists in Data Table Time Field mode (mode=1), representing the triggered record data; includes associated fields preloaded via `appends`.
 
-## 示例配置
-### 自定义时间
+## Example Configuration
+### Custom Time
 ```json
 {
   "mode": 0,
@@ -62,7 +62,7 @@ description: "按时间规则触发流程，支持固定时间与数据表时间
 }
 ```
 
-### 数据表时间字段
+### Data Table Time Field
 ```json
 {
   "mode": 1,

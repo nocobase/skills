@@ -1,32 +1,32 @@
 ---
-title: "SQL 操作"
-description: "介绍 SQL 节点的数据源、语句执行与返回结构。"
+title: "SQL Operation"
+description: "Introduces the data source, statement execution, and return structure of the SQL node."
 ---
 
-# SQL 操作
+# SQL Operation
 
-## 节点类型
+## Node Type
 
 `sql`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-在数据库数据源上执行 SQL 语句并返回结果。
+## Node Description
+Executes an SQL statement on a database data source and returns the result.
 
-## 业务场景举例
-执行统计 SQL 或批量修正数据。普通的 CRUD 操作建议使用对应的节点类型（如查询、更新、删除节点），以便更好地利用工作流的变量映射和结果处理功能。
+## Business Scenario Example
+Executing statistical SQL or batch correcting data. For standard CRUD operations, it is recommended to use the corresponding node types (such as Query, Update, or Destroy nodes) to better utilize the workflow's variable mapping and result processing features.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| dataSource | string | main | 是 | 数据源 key，必须为数据库类型数据源。 |
-| sql | string | 无 | 是 | SQL 语句，支持变量模板。 |
-| withMeta | boolean | false | 否 | 是否返回元信息（返回 `[result, meta]`）。 |
+| dataSource | string | main | Yes | Data source key; must be a database-type data source. |
+| sql | string | None | Yes | SQL statement, supports variable templates. |
+| withMeta | boolean | false | No | Whether to return metadata (returns `[result, meta]`). |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "dataSource": "main",

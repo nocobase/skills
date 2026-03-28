@@ -1,31 +1,31 @@
 ---
-title: "动态表达式计算"
-description: "说明动态表达式计算节点如何读取表达式并执行计算。"
+title: "Dynamic Expression Calculation"
+description: "Explains how the dynamic expression calculation node reads expressions and executes calculations."
 ---
 
-# 动态表达式计算
+# Dynamic Expression Calculation
 
-## 节点类型
+## Node Type
 
 `dynamic-calculation`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the above `type` value to create the node; do not use the document filename as the type.
 
-## 节点描述
-从“表达式集合”中读取动态表达式并执行计算，返回结果。
+## Node Description
+Reads a dynamic expression from an "Expression Collection" and executes the calculation, returning the result.
 
-## 业务场景举例
-根据配置表中的表达式动态计算折扣或评分。
+## Business Scenario Example
+Dynamically calculate discounts or ratings based on expressions in a configuration table.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| expression | string | 无 | 是 | 动态表达式来源（通常为表达式集合的变量）。解析结果需包含 `engine` 与 `expression`。 |
-| scope | string | 无 | 否 | 变量数据源，作为表达式执行时的作用域。 |
+| expression | string | None | Yes | Source of the dynamic expression (usually a variable from an expression collection). The parsed result must contain `engine` and `expression`. |
+| scope | string | None | No | Variable data source, used as the scope for expression execution. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Branches are not supported.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "expression": "{{ $context.data.expressionRecord }}",

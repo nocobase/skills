@@ -1,31 +1,31 @@
 ---
-title: "并行分支"
-description: "介绍并行分支节点的汇总模式与分支规则。"
+title: "Parallel Branch"
+description: "Introduces the aggregation mode and branching rules of the Parallel Branch node."
 ---
 
-# 并行分支
+# Parallel Branch
 
-## 节点类型
+## Node Type
 
 `parallel`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-同时执行多个分支，并按模式汇总分支结果。
+## Node Description
+Executes multiple branches simultaneously and aggregates the results of the branches according to a specified mode.
 
-## 业务场景举例
-同时调用多个第三方接口后汇总结果，可类比 fork/join。
+## Business Scenario Example
+Calling multiple third-party interfaces simultaneously and aggregating the results, similar to fork/join.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| mode | string | all | 否 | 汇总模式：`all`(全部成功才继续)、`any`(任一成功即可继续)、`race`(任一成功继续，任一失败则失败)、`allSettled`(忽略失败，全部结束后继续)。 |
+| mode | string | all | No | Aggregation mode: `all` (continues only if all succeed), `any` (continues if any succeed), `race` (continues if any succeed, fails if any fail), `allSettled` (ignores failures, continues after all are completed). |
 
-## 分支说明
-并行节点开启多个分支：
-- `branchIndex` 为正整数（从 1 开始递增），每个分支对应一个并行流程。
+## Branch Description
+The parallel node opens multiple branches:
+- `branchIndex` is a positive integer (starting from 1), with each branch corresponding to a parallel process.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "mode": "all"

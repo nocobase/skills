@@ -1,37 +1,37 @@
 ---
-title: "查询数据"
-description: "说明查询数据节点的筛选、排序、分页与返回模式。"
+title: "Query Data"
+description: "Explains the filtering, sorting, pagination, and return modes of the Query Data node."
 ---
 
-# 查询数据
+# Query Data
 
-## 节点类型
+## Node Type
 
 `query`
-请使用以上 `type` 值创建节点，不要使用文档文件名作为 type。
+Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
-## 节点描述
-按筛选条件查询数据表记录，可返回单条或多条结果。
+## Node Description
+Queries data table records based on filter conditions; can return single or multiple results.
 
-## 业务场景举例
-查询当前用户的订单列表或检查记录是否存在。
+## Business Scenario Example
+Querying the current user's order list or checking if a record exists.
 
-## 配置项列表
-| 字段 | 类型 | 默认值 | 必填 | 说明 |
+## Configuration List
+| Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | 无 | 是 | 目标数据表，单数据源时可直接写集合名，多数据源可写 `dataSource:collection`。 |
-| multiple | boolean | false | 是 | 结果类型：`false` 返回单条记录或 `null`；`true` 返回数组。 |
-| params.filter | object | 无 | 否 | 筛选条件，格式与数据表过滤器 DSL 一致。 |
-| params.sort | array | [] | 否 | 排序规则数组，元素形如 `{ "field": "createdAt", "direction": "desc" }`。 |
-| params.page | number | 1 | 否 | 页码。 |
-| params.pageSize | number | 20 | 否 | 每页数量。 |
-| params.appends | string[] | [] | 否 | 预加载关联字段列表。 |
-| failOnEmpty | boolean | false | 否 | 查询结果为空时是否以失败状态退出。 |
+| collection | string | None | Yes | Target data table. For a single data source, write the collection name directly; for multiple data sources, write `dataSource:collection`. |
+| multiple | boolean | false | Yes | Result type: `false` returns a single record or `null`; `true` returns an array. |
+| params.filter | object | None | No | Filter conditions, format consistent with data table filter DSL. |
+| params.sort | array | [] | No | Array of sorting rules, elements like `{ "field": "createdAt", "direction": "desc" }`. |
+| params.page | number | 1 | No | Page number. |
+| params.pageSize | number | 20 | No | Number of items per page. |
+| params.appends | string[] | [] | No | List of association fields to pre-load. |
+| failOnEmpty | boolean | false | No | Whether to exit with a failure status if the query result is empty. |
 
-## 分支说明
-不支持分支。
+## Branch Description
+Does not support branches.
 
-## 示例配置
+## Example Configuration
 ```json
 {
   "collection": "posts",
