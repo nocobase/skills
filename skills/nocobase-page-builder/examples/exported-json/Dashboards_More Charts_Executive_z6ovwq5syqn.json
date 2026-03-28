@@ -1,0 +1,224 @@
+{
+  "title": "Executive",
+  "path": "Dashboards_More Charts_Executive",
+  "uid": "z6ovwq5syqn",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "phd40h781sb",
+      "grid_uid": "8b9882c936a",
+      "stats": {
+        "nodes": 6,
+        "js": 1,
+        "events": 0,
+        "popups": 0
+      },
+      "tree": {
+        "uid": "8b9882c936a",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "efo1gwtf93i": [
+                  [
+                    "3029ee19dd8"
+                  ]
+                ],
+                "mcg00m67oql": [
+                  [
+                    "2c8ddbd9c05"
+                  ],
+                  [
+                    "d730254d6da"
+                  ],
+                  [
+                    "d0782133ab7"
+                  ]
+                ],
+                "airls5wptmd": [
+                  [
+                    "e7675888991"
+                  ]
+                ]
+              },
+              "sizes": {
+                "efo1gwtf93i": [
+                  24
+                ],
+                "mcg00m67oql": [
+                  8,
+                  8,
+                  8
+                ],
+                "airls5wptmd": [
+                  24
+                ]
+              },
+              "rowOrder": [
+                "efo1gwtf93i",
+                "mcg00m67oql",
+                "airls5wptmd"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "3029ee19dd8",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "version": "v1",
+                  "code": "\nvar cardStyle = function(color) {\n  return {\n    borderRadius: 12, padding: '16px 20px', position: 'relative', overflow: 'hidden',\n    background: '#fff', border: '1px solid #f0f0f0',\n    display: 'flex', flexDirection: 'column', height: '100%', minHeight: 90, transition: 'all 0.2s ease'\n  };\n};\nvar labelStyle = { fontSize: '0.875rem', fontWeight: 600, color: '#333', marginBottom: 4 };\nvar valueStyle = function(color) {\n  return { fontSize: '1.6rem', fontWeight: 700, color: color, letterSpacing: '-0.02em' };\n};\nvar suffixStyle = { fontSize: '0.75rem', color: '#999', marginLeft: 4 };\n\nvar React = ctx.React;\nvar useState = React.useState;\nvar useEffect = React.useEffect;\nvar Row = ctx.antd.Row, Col = ctx.antd.Col, Spin = ctx.antd.Spin;\n\nvar t = function(key) { return ctx.t(key, { ns: 'nb_crm' }); };\nvar fmt = function(v) {\n  var n = Number(v) || 0;\n  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';\n  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';\n  return '$' + n.toFixed(0);\n};\n\nvar CONFIG = {\n  reportUid: 'crm_exec_overview',\n  sql: \"SELECT COALESCE(SUM(amount) FILTER (WHERE stage = 'won' AND DATE_TRUNC('year', actual_close_date) = DATE_TRUNC('year', CURRENT_DATE)), 0) AS revenue_ytd, COALESCE(SUM(amount) FILTER (WHERE stage = 'won' AND DATE_TRUNC('month', actual_close_date) = DATE_TRUNC('month', CURRENT_DATE)), 0) AS revenue_mtd, COALESCE(SUM(amount) FILTER (WHERE stage NOT IN ('won','lost')), 0) AS pipeline_value, CASE WHEN COUNT(*) FILTER (WHERE stage IN ('won','lost')) > 0 THEN ROUND(COUNT(*) FILTER (WHERE stage='won') * 100.0 / COUNT(*) FILTER (WHERE stage IN ('won','lost')), 1) ELSE 0 END AS win_rate, COUNT(*) FILTER (WHERE stage NOT IN ('won','lost')) AS open_deals FROM nb_crm_opportunities\"\n};\n\nvar CONFIG2 = {\n  reportUid: 'crm_exec_overview2',\n  sql: \"SELECT COUNT(*) FILTER (WHERE status = 'active') AS active_customers, ROUND(AVG(ai_health_score)::numeric, 0) AS avg_health FROM nb_crm_customers WHERE is_deleted = false OR is_deleted IS NULL\"\n};\n\nvar CONFIG3 = {\n  reportUid: 'crm_exec_overview3',\n  sql: \"SELECT COUNT(*) FILTER (WHERE rating = 'hot' AND status NOT IN ('unqualified','converted')) AS hot_leads FROM nb_crm_leads\"\n};\n\nfunction useData() {\n  var _s = useState(null), data = _s[0], setData = _s[1];\n  var _l = useState(true), loading = _l[0], setLoading = _l[1];\n  useEffect(function() {\n    var configs = [CONFIG, CONFIG2, CONFIG3];\n    if (ctx.flowSettingsEnabled) {\n      configs.forEach(function(c) {\n        ctx.sql.save({ uid: c.reportUid, sql: c.sql, dataSourceKey: 'main' }).catch(function(){});\n      });\n    }\n    Promise.all(configs.map(function(c) {\n      return ctx.sql.runById(c.reportUid, { type: 'selectRows', dataSourceKey: 'main' });\n    })).then(function(results) {\n      var d1 = (results[0] && results[0][0]) || {};\n      var d2 = (results[1] && results[1][0]) || {};\n      var d3 = (results[2] && results[2][0]) || {};\n      setData({\n        revenueYtd: Number(d1.revenue_ytd) || 0,\n        revenueMtd: Number(d1.revenue_mtd) || 0,\n        pipelineValue: Number(d1.pipeline_value) || 0,\n        winRate: Number(d1.win_rate) || 0,\n        openDeals: Number(d1.open_deals) || 0,\n        activeCustomers: Number(d2.active_customers) || 0,\n        avgHealth: Number(d2.avg_health) || 0,\n        hotLeads: Number(d3.hot_leads) || 0,\n      });\n      setLoading(false);\n    }).catch(function() { setLoading(false); });\n  }, []);\n  return { data: data, loading: loading };\n}\n\n\nvar NAV = {\n  'Open Deals': '/admin/vga8g2pgnnu',\n  'Pipeline Value': '/admin/vga8g2pgnnu',\n  'Won (MTD)': '/admin/vga8g2pgnnu?filter=won',\n  'Closing This Week': '/admin/vga8g2pgnnu?filter=closing',\n  'Avg Win Prob': '/admin/vga8g2pgnnu',\n  'Pipeline / Deal': '/admin/vga8g2pgnnu',\n  'Revenue YTD': '/admin/x9u01x7l8wj',\n  'Revenue MTD': '/admin/x9u01x7l8wj',\n  'Win Rate': '/admin/vga8g2pgnnu',\n  'Active Customers': '/admin/c137kk6hghm',\n  'Avg Health': '/admin/c137kk6hghm',\n  'Hot Leads': '/admin/e9478uhrdve?filter=hot',\n};\nvar nav = function(title) { return function() { var url = NAV[title]; if (url) ctx.router.navigate(url); }; };\nvar clickable = function(style) { return Object.assign({}, style, {cursor: 'pointer'}); };\nvar cardProps = function(style, onClick) { return {style: clickable(style), className: 'kpi-hover', onClick: onClick}; };\n\nvar Comp = function() {\n  var r = useData();\n  if (r.loading) return React.createElement('div', {style:{textAlign:'center',padding:24}}, React.createElement(Spin));\n  var s = r.data || {};\n  return React.createElement('div', null,\n    React.createElement(Row, {gutter: [12, 12]},\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#22c55e'), nav('Revenue YTD')),\n        React.createElement('div', {style: labelStyle}, t('Revenue YTD')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#22c55e')}, fmt(s.revenueYtd))\n        )\n      )),\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#10b981'), nav('Revenue MTD')),\n        React.createElement('div', {style: labelStyle}, t('Revenue MTD')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#10b981')}, fmt(s.revenueMtd))\n        )\n      )),\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#3b82f6'), nav('Pipeline Value')),\n        React.createElement('div', {style: labelStyle}, t('Pipeline Value')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#3b82f6')}, fmt(s.pipelineValue))\n        )\n      )),\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#8b5cf6'), nav('Win Rate')),\n        React.createElement('div', {style: labelStyle}, t('Win Rate')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#8b5cf6')}, s.winRate),\n          React.createElement('span', {style: suffixStyle}, '%')\n        )\n      ))\n    ),\n    React.createElement(Row, {gutter: [12, 12], style: {marginTop: 12}},\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#6366f1'), nav('Active Customers')),\n        React.createElement('div', {style: labelStyle}, t('Active Customers')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#6366f1')}, s.activeCustomers)\n        )\n      )),\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#f59e0b'), nav('Avg Health')),\n        React.createElement('div', {style: labelStyle}, t('Avg Health')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#f59e0b')}, s.avgHealth)\n        )\n      )),\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#3b82f6'), nav('Open Deals')),\n        React.createElement('div', {style: labelStyle}, t('Open Deals')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#3b82f6')}, s.openDeals)\n        )\n      )),\n      React.createElement(Col, {xs:12, md:6}, React.createElement('div', cardProps(cardStyle('#ef4444'), nav('Hot Leads')),\n        React.createElement('div', {style: labelStyle}, t('Hot Leads')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#ef4444')}, s.hotLeads)\n        )\n      ))\n    )\n  );\n};\n\nctx.render(React.createElement(React.Fragment, null, React.createElement('style', null, '.kpi-hover{transition:all .2s ease}.kpi-hover:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateY(-2px);border-color:#d0d0d0!important}'), React.createElement(Comp)));\n"
+                }
+              }
+            }
+          },
+          {
+            "uid": "2c8ddbd9c05",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "WITH weekly_revenue AS (\n  SELECT\n    DATE_TRUNC('week', actual_close_date) as week,\n    SUM(amount) as won_amount,\n    COUNT(*) as deal_count,\n    ROUND(AVG(amount)::numeric, 0) as avg_deal_size\n  FROM nb_crm_opportunities\n  WHERE stage = 'won'\n    AND actual_close_date IS NOT NULL\n    AND actual_close_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '12 weeks'\n  GROUP BY DATE_TRUNC('week', actual_close_date)\n),\nweekly_forecast AS (\n  SELECT\n    DATE_TRUNC('week', expected_close_date) as week,\n    SUM(amount * COALESCE(ai_win_probability, 50) / 100) as forecast_amount\n  FROM nb_crm_opportunities\n  WHERE stage NOT IN ('won', 'lost')\n    AND expected_close_date IS NOT NULL\n    AND expected_close_date >= CURRENT_DATE\n    AND expected_close_date < CURRENT_DATE + INTERVAL '8 weeks'\n  GROUP BY DATE_TRUNC('week', expected_close_date)\n),\nall_weeks AS (\n  SELECT generate_series(\n    DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '12 weeks',\n    DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '4 weeks',\n    '1 week'::interval\n  ) as week\n)\nSELECT\n  TO_CHAR(w.week, 'MM-DD') as week_label,\n  w.week,\n  COALESCE(r.won_amount, 0) as won_amount,\n  COALESCE(r.deal_count, 0) as deal_count,\n  COALESCE(r.avg_deal_size, 0) as avg_deal_size,\n  COALESCE(f.forecast_amount, 0) as forecast_amount,\n  CASE WHEN w.week > DATE_TRUNC('week', CURRENT_DATE) THEN true ELSE false END as is_forecast\nFROM all_weeks w\nLEFT JOIN weekly_revenue r ON r.week = w.week\nLEFT JOIN weekly_forecast f ON f.week = w.week\nORDER BY w.week"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "month_label",
+                        "yField": "month",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\nconst data = ctx.data.objects || [];\n\nconst formatCurrency = function(val) {\n  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';\n  if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';\n  return '$' + val.toFixed(0);\n};\n\nconst weeks = data.map(function(d) { return d.week_label; });\nconst wonAmounts = data.map(function(d) { return Number(d.won_amount) || null; });\nconst forecastAmounts = data.map(function(d) { return d.is_forecast ? Number(d.forecast_amount) : null; });\n\n// Find current week index\nconst currentIdx = data.findIndex(function(d) { return !d.is_forecast && data[data.indexOf(d) + 1]?.is_forecast; });\n\n// Calculate total for period\nconst periodTotal = data\n  .filter(function(d) { return !d.is_forecast && d.won_amount > 0; })\n  .reduce(function(sum, d) { return sum + Number(d.won_amount); }, 0);\n\nreturn {\n  title: {\n    text: t('Weekly Revenue Trend'),\n    subtext: `${t('Last 12 Weeks')}: ${formatCurrency(periodTotal)}`,\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    formatter: function(params) {\n      let result = `<b>${params[0].axisValue}</b><br/>`;\n      params.forEach(function(p) {\n        if (p.value !== null && p.value !== undefined) {\n          result += `${p.seriesName}: ${formatCurrency(p.value)}<br/>`;\n        }\n      });\n      return result;\n    }\n  },\n  legend: {\n    data: [t('Closed Revenue'), t('Forecast')],\n    bottom: 10\n  },\n  grid: {\n    left: '10%',\n    right: '5%',\n    top: 80,\n    bottom: 60\n  },\n  xAxis: {\n    type: 'category',\n    data: weeks,\n    axisLabel: {\n      rotate: 45\n    }\n  },\n  yAxis: {\n    type: 'value',\n    name: t('Revenue'),\n    axisLabel: {\n      formatter: function(val) { return formatCurrency(val); }\n    }\n  },\n  series: [\n    {\n      name: t('Closed Revenue'),\n      type: 'line',\n      data: wonAmounts,\n      smooth: true,\n      symbol: 'circle',\n      symbolSize: 8,\n      itemStyle: { color: '#52c41a' },\n      lineStyle: { width: 3 },\n      areaStyle: {\n        color: {\n          type: 'linear',\n          x: 0, y: 0, x2: 0, y2: 1,\n          colorStops: [\n            { offset: 0, color: 'rgba(82, 196, 26, 0.3)' },\n            { offset: 1, color: 'rgba(82, 196, 26, 0.05)' }\n          ]\n        }\n      }\n    },\n    {\n      name: t('Forecast'),\n      type: 'line',\n      data: forecastAmounts,\n      smooth: true,\n      symbol: 'diamond',\n      symbolSize: 8,\n      itemStyle: { color: '#faad14' },\n      lineStyle: {\n        width: 2,\n        type: 'dashed'\n      }\n    }\n  ],\n  // Mark current week\n  markLine: currentIdx >= 0 ? {\n    silent: true,\n    data: [\n      {\n        xAxis: currentIdx,\n        lineStyle: { color: '#999', type: 'dashed' },\n        label: { formatter: t('This Week') }\n      }\n    ]\n  } : undefined\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function(params) {\n    var month = params.name;\n    if (month) ctx.router.navigate('/admin/x9u01x7l8wj?month=' + encodeURIComponent(month));\n});"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "uid": "e7675888991",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 4,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "WITH monthly_stats AS (\n  SELECT\n    DATE_TRUNC('month', actual_close_date) as month,\n    COUNT(*) FILTER (WHERE stage = 'won') as won_count,\n    COUNT(*) FILTER (WHERE stage = 'lost') as lost_count,\n    COUNT(*) as total_closed,\n    SUM(amount) FILTER (WHERE stage = 'won') as won_amount,\n    SUM(amount) FILTER (WHERE stage = 'lost') as lost_amount\n  FROM nb_crm_opportunities\n  WHERE stage IN ('won', 'lost')\n    AND actual_close_date IS NOT NULL\n    AND actual_close_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '12 months'\n  GROUP BY DATE_TRUNC('month', actual_close_date)\n)\nSELECT\n  TO_CHAR(month, 'YYYY-MM') as month_label,\n  month,\n  won_count,\n  lost_count,\n  total_closed,\n  ROUND(won_count * 100.0 / NULLIF(total_closed, 0), 1) as win_rate,\n  ROUND(won_amount * 100.0 / NULLIF(won_amount + lost_amount, 0), 1) as win_rate_by_value,\n  COALESCE(won_amount, 0) as won_amount,\n  COALESCE(lost_amount, 0) as lost_amount\nFROM monthly_stats\nWHERE total_closed > 0\nORDER BY month"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "month_label",
+                        "yField": "month",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\nconst data = ctx.data.objects || [];\n\nconst formatCurrency = function(val) {\n  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';\n  if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';\n  return '$' + val.toFixed(0);\n};\n\nconst months = data.map(function(d) { return d.month_label; });\nconst winRates = data.map(function(d) { return Number(d.win_rate) || 0; });\nconst winRatesByValue = data.map(function(d) { return Number(d.win_rate_by_value) || 0; });\n\n// Calculate averages\nconst avgWinRate = data.length > 0\n  ? (data.reduce(function(sum, d) { return sum + Number(d.win_rate || 0); }, 0) / data.length).toFixed(1)\n  : 0;\n\nreturn {\n  title: {\n    text: t('Win Rate Trend'),\n    subtext: `${t('Average')}: ${avgWinRate}%`,\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    formatter: function(params) {\n      const idx = params[0].dataIndex;\n      const d = data[idx];\n      return `<b>${d.month_label}</b><br/>\n        ${t('Win Rate (Deals)')}: ${d.win_rate}%<br/>\n        ${t('Win Rate (Value)')}: ${d.win_rate_by_value}%<br/>\n        ${t('Won')}: ${d.won_count} (${formatCurrency(d.won_amount)})<br/>\n        ${t('Lost')}: ${d.lost_count} (${formatCurrency(d.lost_amount)})`;\n    }\n  },\n  legend: {\n    data: [t('Win Rate (Deals)'), t('Win Rate (Value)')],\n    bottom: 10\n  },\n  grid: {\n    left: '10%',\n    right: '5%',\n    top: 80,\n    bottom: 60\n  },\n  xAxis: {\n    type: 'category',\n    data: months,\n    axisLabel: { rotate: 45 }\n  },\n  yAxis: {\n    type: 'value',\n    name: t('Win Rate (%)'),\n    min: 0,\n    max: 100,\n    axisLabel: {\n      formatter: '{value}%'\n    }\n  },\n  series: [\n    {\n      name: t('Win Rate (Deals)'),\n      type: 'line',\n      data: winRates,\n      smooth: true,\n      symbol: 'circle',\n      symbolSize: 8,\n      itemStyle: { color: '#1890ff' },\n      lineStyle: { width: 3 },\n      markLine: {\n        silent: true,\n        data: [\n          {\n            yAxis: Number(avgWinRate),\n            lineStyle: { color: '#1890ff', type: 'dashed' },\n            label: { formatter: 'Avg: {c}%' }\n          }\n        ]\n      }\n    },\n    {\n      name: t('Win Rate (Value)'),\n      type: 'line',\n      data: winRatesByValue,\n      smooth: true,\n      symbol: 'diamond',\n      symbolSize: 8,\n      itemStyle: { color: '#52c41a' },\n      lineStyle: { width: 2 }\n    }\n  ]\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function(params) {\n    ctx.router.navigate('/admin/vga8g2pgnnu');\n});"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "uid": "d730254d6da",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 5,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "WITH health_stats AS (\n  SELECT\n    COUNT(*) as total_customers,\n    COUNT(*) FILTER (WHERE ai_health_score >= 80) as healthy,\n    COUNT(*) FILTER (WHERE ai_health_score >= 50 AND ai_health_score < 80) as moderate,\n    COUNT(*) FILTER (WHERE ai_health_score < 50) as at_risk,\n    ROUND(AVG(ai_health_score)::numeric, 1) as avg_health_score,\n    ROUND(AVG(ai_churn_risk)::numeric, 1) as avg_churn_risk,\n    COUNT(*) FILTER (WHERE ai_churn_risk >= 50) as high_churn_risk,\n    COUNT(*) FILTER (WHERE status = 'active') as active_customers\n  FROM nb_crm_customers\n  WHERE status != 'churned'\n)\nSELECT\n  total_customers,\n  healthy,\n  moderate,\n  at_risk,\n  avg_health_score,\n  avg_churn_risk,\n  high_churn_risk,\n  active_customers,\n  ROUND(healthy * 100.0 / NULLIF(total_customers, 0), 1) as healthy_pct,\n  ROUND(at_risk * 100.0 / NULLIF(total_customers, 0), 1) as at_risk_pct\nFROM health_stats"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "total_customers",
+                        "yField": "healthy",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\nconst rawData = ctx.data.objects[0] || {};\n\nconst data = {\n  total: Number(rawData.total_customers) || 0,\n  healthy: Number(rawData.healthy) || 0,\n  moderate: Number(rawData.moderate) || 0,\n  atRisk: Number(rawData.at_risk) || 0,\n  avgHealth: Number(rawData.avg_health_score) || 0,\n  avgChurn: Number(rawData.avg_churn_risk) || 0,\n  highChurnRisk: Number(rawData.high_churn_risk) || 0,\n  healthyPct: Number(rawData.healthy_pct) || 0,\n  atRiskPct: Number(rawData.at_risk_pct) || 0\n};\n\nconst getHealthColor = function(score) {\n  if (score >= 80) return '#52c41a';\n  if (score >= 50) return '#faad14';\n  return '#f5222d';\n};\n\nreturn {\n  title: {\n    text: t('Customer Health Overview'),\n    subtext: `${data.total} ${t('Total Customers')}`,\n    left: 'center'\n  },\n  tooltip: {\n    formatter: function(params) {\n      return `${params.seriesName}: ${params.value}`;\n    }\n  },\n  series: [\n    // Main health gauge\n    {\n      name: t('Avg Health Score'),\n      type: 'gauge',\n      center: ['50%', '55%'],\n      radius: '65%',\n      startAngle: 200,\n      endAngle: -20,\n      min: 0,\n      max: 100,\n      splitNumber: 10,\n      axisLine: {\n        lineStyle: {\n          width: 20,\n          color: [\n            [0.5, '#f5222d'],\n            [0.8, '#faad14'],\n            [1, '#52c41a']\n          ]\n        }\n      },\n      pointer: {\n        itemStyle: { color: 'auto' },\n        width: 5,\n        length: '55%'\n      },\n      axisTick: {\n        distance: -20,\n        length: 8,\n        lineStyle: { color: '#fff', width: 2 }\n      },\n      splitLine: {\n        distance: -25,\n        length: 15,\n        lineStyle: { color: '#fff', width: 3 }\n      },\n      axisLabel: {\n        color: 'inherit',\n        distance: 30,\n        fontSize: 11\n      },\n      detail: {\n        valueAnimation: true,\n        formatter: function() { return `{value|${data.avgHealth}}\\n{title|${t('Avg Health Score')}}`; },\n        rich: {\n          value: {\n            fontSize: 28,\n            fontWeight: 'bold',\n            color: getHealthColor(data.avgHealth)\n          },\n          title: {\n            fontSize: 12,\n            color: '#666',\n            padding: [5, 0, 0, 0]\n          }\n        },\n        offsetCenter: [0, '70%']\n      },\n      data: [{ value: data.avgHealth }]\n    }\n  ],\n  graphic: [\n    // Healthy count\n    {\n      type: 'group',\n      left: '10%',\n      bottom: 30,\n      children: [\n        {\n          type: 'circle',\n          shape: { r: 8 },\n          style: { fill: '#52c41a' }\n        },\n        {\n          type: 'text',\n          left: 20,\n          top: -8,\n          style: {\n            text: `${t('Healthy')}: ${data.healthy} (${data.healthyPct}%)`,\n            fontSize: 12,\n            fill: '#333'\n          }\n        }\n      ]\n    },\n    // Moderate count\n    {\n      type: 'group',\n      left: 'center',\n      bottom: 30,\n      children: [\n        {\n          type: 'circle',\n          shape: { r: 8 },\n          style: { fill: '#faad14' }\n        },\n        {\n          type: 'text',\n          left: 20,\n          top: -8,\n          style: {\n            text: `${t('Moderate')}: ${data.moderate}`,\n            fontSize: 12,\n            fill: '#333'\n          }\n        }\n      ]\n    },\n    // At Risk count\n    {\n      type: 'group',\n      right: '10%',\n      bottom: 30,\n      children: [\n        {\n          type: 'circle',\n          shape: { r: 8 },\n          style: { fill: '#f5222d' }\n        },\n        {\n          type: 'text',\n          left: 20,\n          top: -8,\n          style: {\n            text: `${t('At Risk')}: ${data.atRisk} (${data.atRiskPct}%)`,\n            fontSize: 12,\n            fill: data.atRisk > 0 ? '#f5222d' : '#333'\n          }\n        }\n      ]\n    },\n    // Churn risk warning\n    data.highChurnRisk > 0 ? {\n      type: 'text',\n      left: 'center',\n      bottom: 5,\n      style: {\n        text: `⚠️ ${data.highChurnRisk} ${t('customers with high churn risk')} (≥50%)`,\n        fontSize: 11,\n        fill: '#f5222d'\n      }\n    } : null\n  ].filter(Boolean)\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function() {\n    ctx.router.navigate('/admin/c137kk6hghm');\n});"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "uid": "d0782133ab7",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 7,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "SELECT\n  u.id as user_id,\n  u.nickname as rep_name,\n  COUNT(*) FILTER (WHERE o.stage = 'won') as won_deals,\n  COUNT(*) FILTER (WHERE o.stage NOT IN ('won', 'lost')) as open_deals,\n  COALESCE(SUM(o.amount) FILTER (WHERE o.stage = 'won'), 0) as won_revenue,\n  COALESCE(SUM(o.amount) FILTER (WHERE o.stage NOT IN ('won', 'lost')), 0) as pipeline_value,\n  CASE\n    WHEN COUNT(*) FILTER (WHERE o.stage IN ('won', 'lost')) > 0\n    THEN ROUND(COUNT(*) FILTER (WHERE o.stage = 'won') * 100.0 /\n         COUNT(*) FILTER (WHERE o.stage IN ('won', 'lost')), 1)\n    ELSE 0\n  END as win_rate\nFROM nb_crm_opportunities o\nJOIN users u ON o.owner_id = u.id\nWHERE 1=1\n  AND o.\"createdAt\" >= DATE_TRUNC('year', CURRENT_DATE)\nGROUP BY u.id, u.nickname\nHAVING COUNT(*) FILTER (WHERE o.stage = 'won') > 0\n   OR COUNT(*) FILTER (WHERE o.stage NOT IN ('won', 'lost')) > 0\nORDER BY won_revenue DESC\nLIMIT 10"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\nconst data = ctx.data.objects || [];\n\nconst formatCurrency = function(val) {\n  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';\n  if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';\n  return '$' + val;\n};\n\nconst names = data.map(function(d) { return d.rep_name; }).reverse();\nconst wonRevenue = data.map(function(d) { return Number(d.won_revenue) || 0; }).reverse();\nconst pipelineValue = data.map(function(d) { return Number(d.pipeline_value) || 0; }).reverse();\n\nreturn {\n  title: {\n    text: t('Sales Leaderboard (YTD)'),\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    axisPointer: { type: 'shadow' },\n    formatter: function(params) {\n      const idx = data.length - 1 - params[0].dataIndex;\n      const d = data[idx];\n      return `<b>${d.rep_name}</b><br/>\n        ${t('Won')}: ${formatCurrency(d.won_revenue)} (${d.won_deals} ${t('deals')})<br/>\n        ${t('Pipeline')}: ${formatCurrency(d.pipeline_value)} (${d.open_deals} ${t('deals')})<br/>\n        ${t('Win Rate')}: ${d.win_rate}%`;\n    }\n  },\n  legend: {\n    data: [t('Won Revenue'), t('Pipeline')],\n    bottom: 10\n  },\n  grid: {\n    left: '25%',\n    right: '5%',\n    top: 50,\n    bottom: 50\n  },\n  xAxis: {\n    type: 'value',\n    axisLabel: {\n      formatter: function(val) { return formatCurrency(val); }\n    }\n  },\n  yAxis: {\n    type: 'category',\n    data: names\n  },\n  series: [\n    {\n      name: t('Won Revenue'),\n      type: 'bar',\n      stack: 'total',\n      data: wonRevenue,\n      itemStyle: { color: '#52c41a' },\n      label: {\n        show: true,\n        position: 'insideRight',\n        formatter: function(p) { return p.value > 0 ? formatCurrency(p.value) : ''; }\n      }\n    },\n    {\n      name: t('Pipeline'),\n      type: 'bar',\n      stack: 'total',\n      data: pipelineValue,\n      itemStyle: { color: '#1890ff' }\n    }\n  ]\n}\n"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

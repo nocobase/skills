@@ -1,0 +1,2338 @@
+{
+  "title": "Orders",
+  "path": "Orders",
+  "uid": "x9u01x7l8wj",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "v2cip6snhwt",
+      "grid_uid": "a576535033e",
+      "stats": {
+        "nodes": 102,
+        "js": 3,
+        "events": 1,
+        "popups": 4
+      },
+      "tree": {
+        "uid": "a576535033e",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "7wi2o3u41ek": [
+                  [
+                    "89a416dc6a5"
+                  ]
+                ],
+                "ulx5rk4ran9": [
+                  [
+                    "76b91d81037"
+                  ]
+                ]
+              },
+              "sizes": {
+                "7wi2o3u41ek": [
+                  24
+                ]
+              },
+              "rowOrder": [
+                "7wi2o3u41ek",
+                "ulx5rk4ran9"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "76b91d81037",
+            "use": "ReferenceBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 0,
+            "stepParams": {
+              "referenceSettings": {
+                "target": {
+                  "targetUid": "4326c50faf8",
+                  "mode": "reference"
+                },
+                "useTemplate": {
+                  "templateUid": "yjwjoi4erle",
+                  "templateName": "Table: Orders",
+                  "templateDescription": "",
+                  "targetUid": "4326c50faf8",
+                  "mode": "reference"
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "4326c50faf8",
+                "use": "TableBlockModel",
+                "subKey": "items",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {
+                  "resourceSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_orders"
+                    }
+                  },
+                  "tableSettings": {
+                    "dataScope": {
+                      "filter": {
+                        "logic": "$and",
+                        "items": [
+                          {
+                            "path": "order_date",
+                            "operator": "$dateBetween",
+                            "value": "{{ ctx.urlSearchParams.month }}",
+                            "noValue": false
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "flowRegistry": {
+                  "hclqnhu563i": {
+                    "key": "hclqnhu563i",
+                    "title": "Event flow",
+                    "on": {
+                      "eventName": "beforeRender",
+                      "defaultParams": {
+                        "condition": {
+                          "items": [],
+                          "logic": "$and"
+                        }
+                      }
+                    },
+                    "steps": {
+                      "csgv61i1xv9": {
+                        "key": "csgv61i1xv9",
+                        "use": "runjs",
+                        "sort": 1,
+                        "flowKey": "hclqnhu563i",
+                        "defaultParams": {
+                          "code": "\n  // Sanitize filter: $dateBetween string → array for flowSql compatibility\n  var _sanitizeFilter = function(f) {\n    if (!f || typeof f !== 'object') return f;\n    if (Array.isArray(f)) return f.map(function(item) { return _sanitizeFilter(item); });\n    var result = {};\n    for (var k in f) {\n      if (k === '$dateBetween' && typeof f[k] === 'string') {\n        // \"2026-02\" → [\"2026-02-01\", \"2026-02-28\"]\n        var v = f[k];\n        if (/^\\d{4}-\\d{2}$/.test(v)) {\n          var parts = v.split('-');\n          var lastDay = new Date(Number(parts[0]), Number(parts[1]), 0).getDate();\n          result[k] = [v + '-01', v + '-' + String(lastDay).padStart(2, '0')];\n        } else {\n          result[k] = v;\n        }\n      } else {\n        result[k] = _sanitizeFilter(f[k]);\n      }\n    }\n    return result;\n  };\n\n\nconst { Table, Tag, Space, Typography, Tooltip } = ctx.libs.antd;\nconst _ = ctx.libs.lodash;\nconst { useState, useEffect, useCallback, useRef } = ctx.libs.React;\n\nconst fmtNum = (v) => {\n  const n = Number(v || 0);\n  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';\n  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';\n  return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });\n};\n\nconst STATUS_COLORS = {\n  Draft: 'default', Confirmed: 'blue', Shipped: 'cyan',\n  Delivered: 'green', Cancelled: 'red', Returned: 'orange',\n};\nconst PAY_COLORS = {\n  Unpaid: 'default', Partial: 'orange', Paid: 'green', Refunded: 'red',\n};\n\nconst calc = (rows) => ({\n  n: rows.length,\n  totalAmount: _.sumBy(rows, r => Number(r.order_amount) || 0),\n  avgAmount: rows.length > 0 ? _.meanBy(rows, r => Number(r.order_amount) || 0) : 0,\n  paidAmount: _.sumBy(rows, r => Number(r.paid_amount) || 0),\n});\n\nconst Summary = () => {\n  const [allData, setAllData] = useState([]);\n  const [selectedRows, setSelectedRows] = useState([]);\n  const patchedRef = useRef(false);\n\n  const fetchAll = useCallback(async () => {\n    try {\n      const filter = _sanitizeFilter(ctx.resource.getFilter());\n      const items = await ctx.sql.run(\n        'SELECT \"id\",\"order_amount\",\"paid_amount\",\"status\",\"payment_status\" FROM \"nb_crm_orders\"',\n        { filter }\n      );\n      setAllData(items || []);\n    } catch (e) { console.error('Order summary fetch failed', e); }\n  }, []);\n\n  useEffect(() => {\n    fetchAll();\n    ctx.resource.on('refresh', fetchAll);\n    setSelectedRows(ctx.resource?.getSelectedRows?.() || []);\n    if (!patchedRef.current && ctx.resource?.setSelectedRows) {\n      const orig = ctx.resource.setSelectedRows.bind(ctx.resource);\n      ctx.resource.setSelectedRows = (rows) => { const r = orig(rows); setSelectedRows([...rows]); return r; };\n      patchedRef.current = true;\n    }\n    return () => ctx.resource.off('refresh', fetchAll);\n  }, []);\n\n  const sel = calc(selectedRows);\n  const all = calc(allData);\n\n  const renderRow = (label, s, bg, color) => (\n    <Table.Summary.Row style={{ background: bg }}>\n      <Table.Summary.Cell index={0} />\n      <Table.Summary.Cell index={1}>\n        <Typography.Text strong style={{ color, whiteSpace: 'nowrap' }}>\n          {label} <Tag color={color === '#1890ff' ? 'blue' : 'default'} style={{ marginLeft: 4, fontSize: 11 }}>{s.n}</Tag>\n        </Typography.Text>\n      </Table.Summary.Cell>\n      <Table.Summary.Cell index={2} />\n      <Table.Summary.Cell index={3} />\n      <Table.Summary.Cell index={4}>\n        <Tooltip title={`Total ${fmtNum(s.totalAmount)}, Avg ${fmtNum(s.avgAmount)}`}>\n          <Typography.Text strong style={{ fontSize: 12 }}>{fmtNum(s.totalAmount)}</Typography.Text>\n        </Tooltip>\n      </Table.Summary.Cell>\n      <Table.Summary.Cell index={5} />\n      <Table.Summary.Cell index={6} />\n      <Table.Summary.Cell index={7} />\n    </Table.Summary.Row>\n  );\n\n  return (\n    <Table.Summary fixed>\n      {renderRow(sel.n > 0 ? 'Selected' : 'None selected', sel, sel.n > 0 ? '#e6f7ff' : '#fafafa', '#1890ff')}\n      {renderRow('All', all, '#fafafa', '#333')}\n      <Table.Summary.Row style={{ background: '#fafafa' }}>\n        <Table.Summary.Cell index={1} colSpan={8}>\n          <Space size={4} wrap>\n            <Typography.Text type=\"secondary\" style={{ fontSize: 11 }}>Payment:</Typography.Text>\n            {Object.entries(_.countBy(allData, r => r.payment_status || 'N/A'))\n              .sort(([,a],[,b]) => b - a)\n              .map(([ps, count]) => {\n                const psAmt = _.sumBy(allData.filter(r => r.payment_status === ps), r => Number(r.order_amount) || 0);\n                return (\n                  <Tooltip key={ps} title={`${ps}: ${count} orders, ${fmtNum(psAmt)}`}>\n                    <Tag color={PAY_COLORS[ps] || 'default'} style={{ margin: 0, fontSize: 11 }}>{ps}: {count}</Tag>\n                  </Tooltip>\n                );\n              })}\n            <Typography.Text type=\"secondary\" style={{ fontSize: 11, marginLeft: 8 }}>Status:</Typography.Text>\n            {Object.entries(_.countBy(allData, r => r.status || 'N/A'))\n              .sort(([,a],[,b]) => b - a)\n              .map(([st, count]) => (\n                <Tag key={st} color={STATUS_COLORS[st] || 'default'} style={{ margin: 0, fontSize: 11 }}>{st}: {count}</Tag>\n              ))}\n          </Space>\n        </Table.Summary.Cell>\n      </Table.Summary.Row>\n    </Table.Summary>\n  );\n};\n\nctx.model.props.summary = () => <Summary />;\n"
+                        }
+                      }
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "49965dece14",
+                    "use": "TableColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "customer"
+                        }
+                      },
+                      "tableColumnSettings": {
+                        "model": {
+                          "use": "DisplayTextFieldModel"
+                        },
+                        "width": {
+                          "width": 200
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "5fbdd6c7723",
+                        "use": "DisplayTextFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 1,
+                        "stepParams": {
+                          "popupSettings": {
+                            "openView": {
+                              "collectionName": "nb_crm_customers",
+                              "associationName": "nb_crm_orders.customer",
+                              "dataSourceKey": "main",
+                              "mode": "drawer",
+                              "size": "large",
+                              "pageModelClass": "ChildPageModel",
+                              "uid": "wsb6b480gtj",
+                              "popupTemplateUid": "wew44bhsga9",
+                              "filterByTk": "{{ ctx.record.id }}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "855d1cb9ba4",
+                            "use": "ChildPageModel",
+                            "subKey": "page",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageSettings": {
+                                "general": {
+                                  "displayTitle": false,
+                                  "enableTabs": true
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "25582403810",
+                                "use": "ChildPageTabModel",
+                                "subKey": "tabs",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "pageTabSettings": {
+                                    "tab": {
+                                      "title": "Details"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "b7f8f812686",
+                                    "use": "BlockGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {},
+                                          "sizes": {},
+                                          "rowOrder": []
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "678dfbd0da5",
+                    "use": "FilterActionModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 1,
+                    "stepParams": {}
+                  },
+                  {
+                    "uid": "59bac4846a4",
+                    "use": "RefreshActionModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 2,
+                    "stepParams": {}
+                  },
+                  {
+                    "uid": "a3cb679ecda",
+                    "use": "TableColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 2,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "order_no"
+                        }
+                      },
+                      "tableColumnSettings": {
+                        "model": {
+                          "use": "DisplayTextFieldModel"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "86635af8b0c",
+                        "use": "DisplayTextFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 1,
+                        "stepParams": {
+                          "popupSettings": {
+                            "openView": {
+                              "collectionName": "nb_crm_orders",
+                              "dataSourceKey": "main",
+                              "mode": "drawer",
+                              "size": "large",
+                              "pageModelClass": "ChildPageModel",
+                              "uid": "86635af8b0c"
+                            }
+                          },
+                          "displayFieldSettings": {
+                            "clickToOpen": {
+                              "clickToOpen": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "6b5b2d1335c",
+                            "use": "ChildPageModel",
+                            "subKey": "page",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageSettings": {
+                                "general": {
+                                  "displayTitle": false,
+                                  "enableTabs": true
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "55ab2ca405a",
+                                "use": "ChildPageTabModel",
+                                "subKey": "tabs",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "pageTabSettings": {
+                                    "tab": {
+                                      "title": "Details"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "1b6a02c7fee",
+                                    "use": "BlockGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "5adcmyudbu4": [
+                                              [
+                                                "8c410bef48d",
+                                                "25f6d5c5b67"
+                                              ]
+                                            ],
+                                            "cnujoi34g43": [
+                                              [
+                                                "b652131dadb"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "5adcmyudbu4": [
+                                              24
+                                            ],
+                                            "cnujoi34g43": [
+                                              24
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "5adcmyudbu4",
+                                            "cnujoi34g43"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "b652131dadb",
+                                        "use": "DetailsBlockModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "resourceSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_quotations",
+                                              "associationName": "nb_crm_orders.quotation",
+                                              "sourceId": "{{ctx.popup.record.id}}"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "6f8a5ed7be4",
+                                            "use": "ReferenceFormGridModel",
+                                            "subKey": "grid",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "referenceSettings": {
+                                                "useTemplate": {
+                                                  "templateUid": "lvqgjptnoio",
+                                                  "templateName": "Details: Quotations",
+                                                  "targetUid": "6c640569c31",
+                                                  "mode": "reference"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "8c410bef48d",
+                                        "use": "DetailsBlockModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "resourceSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_orders",
+                                              "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "3c8b50717bb",
+                                            "use": "DetailsGridModel",
+                                            "subKey": "grid",
+                                            "subType": "object",
+                                            "sortIndex": 1,
+                                            "stepParams": {
+                                              "gridSettings": {
+                                                "grid": {
+                                                  "rows": {
+                                                    "f983svdh4bt": [
+                                                      [
+                                                        "e7366d7e705"
+                                                      ]
+                                                    ],
+                                                    "0dhho3psx9h": [
+                                                      [
+                                                        "5fe8f70f763"
+                                                      ],
+                                                      [
+                                                        "09315bbce87"
+                                                      ],
+                                                      [
+                                                        "c79ab022c84"
+                                                      ]
+                                                    ],
+                                                    "2bmiw3u2bo0": [
+                                                      [
+                                                        "a67d37e8ef1"
+                                                      ],
+                                                      [
+                                                        "118d3be700b"
+                                                      ],
+                                                      [
+                                                        "985c9588bd8"
+                                                      ]
+                                                    ],
+                                                    "c2rouwhk9xb": [
+                                                      [
+                                                        "8ce025eb04e"
+                                                      ]
+                                                    ],
+                                                    "au5ravcnklw": [
+                                                      [
+                                                        "e64acd7524e"
+                                                      ]
+                                                    ]
+                                                  },
+                                                  "sizes": {
+                                                    "f983svdh4bt": [
+                                                      24
+                                                    ],
+                                                    "0dhho3psx9h": [
+                                                      8,
+                                                      8,
+                                                      8
+                                                    ],
+                                                    "2bmiw3u2bo0": [
+                                                      8,
+                                                      8,
+                                                      8
+                                                    ]
+                                                  },
+                                                  "rowOrder": [
+                                                    "f983svdh4bt",
+                                                    "0dhho3psx9h",
+                                                    "2bmiw3u2bo0",
+                                                    "c2rouwhk9xb",
+                                                    "au5ravcnklw"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "e7366d7e705",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 1,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "order_no"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayTextFieldModel"
+                                                    },
+                                                    "showLabel": {
+                                                      "showLabel": false
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "12c6fed9b52",
+                                                    "use": "DisplayTextFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "5fe8f70f763",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 2,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "currency"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayEnumFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "d97a1e69af7",
+                                                    "use": "DisplayEnumFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "c79ab022c84",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 3,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "status"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayEnumFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "9021e8a054a",
+                                                    "use": "DisplayEnumFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "985c9588bd8",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 4,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "paid_amount"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayNumberFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "79e99445d91",
+                                                    "use": "DisplayNumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "118d3be700b",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 5,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "unpaid_amount"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayNumberFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "2777eec92f7",
+                                                    "use": "DisplayNumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "a67d37e8ef1",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 6,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "order_amount"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayNumberFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "75dc0d85a3c",
+                                                    "use": "DisplayNumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "09315bbce87",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 7,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "exchange_rate"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayNumberFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "38eb915a119",
+                                                    "use": "DisplayNumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "8ce025eb04e",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 8,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "shipping_address"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayTextFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "043c071873e",
+                                                    "use": "DisplayTextFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "e64acd7524e",
+                                                "use": "DetailsItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 9,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "payment_status"
+                                                    }
+                                                  },
+                                                  "detailItemSettings": {
+                                                    "model": {
+                                                      "use": "DisplayEnumFieldModel"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "378e3148b8e",
+                                                    "use": "DisplayEnumFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "nb_crm_orders",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "615a60a2e2e",
+                                            "use": "EditActionModel",
+                                            "subKey": "actions",
+                                            "subType": "array",
+                                            "sortIndex": 1,
+                                            "stepParams": {
+                                              "popupSettings": {
+                                                "openView": {
+                                                  "collectionName": "nb_crm_orders",
+                                                  "dataSourceKey": "main"
+                                                }
+                                              },
+                                              "buttonSettings": {
+                                                "general": {
+                                                  "type": "default"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "58594b70479",
+                                                "use": "ChildPageModel",
+                                                "subKey": "page",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "pageSettings": {
+                                                    "general": {
+                                                      "displayTitle": false,
+                                                      "enableTabs": true
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "4e95cb3580d",
+                                                    "use": "ChildPageTabModel",
+                                                    "subKey": "tabs",
+                                                    "subType": "array",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "pageTabSettings": {
+                                                        "tab": {
+                                                          "title": "{{t(\"Edit\")}}"
+                                                        }
+                                                      }
+                                                    },
+                                                    "children": [
+                                                      {
+                                                        "uid": "cf7c14576d0",
+                                                        "use": "BlockGridModel",
+                                                        "subKey": "grid",
+                                                        "subType": "object",
+                                                        "sortIndex": 0,
+                                                        "stepParams": {},
+                                                        "children": [
+                                                          {
+                                                            "uid": "8cf51f254dd",
+                                                            "use": "EditFormModel",
+                                                            "subKey": "items",
+                                                            "subType": "array",
+                                                            "sortIndex": 1,
+                                                            "stepParams": {
+                                                              "resourceSettings": {
+                                                                "init": {
+                                                                  "dataSourceKey": "main",
+                                                                  "collectionName": "nb_crm_orders",
+                                                                  "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                                                }
+                                                              }
+                                                            },
+                                                            "children": [
+                                                              {
+                                                                "uid": "6960de88829",
+                                                                "use": "FormSubmitActionModel",
+                                                                "subKey": "actions",
+                                                                "subType": "array",
+                                                                "sortIndex": 1,
+                                                                "stepParams": {}
+                                                              },
+                                                              {
+                                                                "uid": "f34ryp21thz",
+                                                                "use": "FormGridModel",
+                                                                "subKey": "grid",
+                                                                "subType": "object",
+                                                                "sortIndex": 1,
+                                                                "stepParams": {
+                                                                  "gridSettings": {
+                                                                    "grid": {
+                                                                      "rows": {
+                                                                        "9s2zwjz4pxt": [
+                                                                          [
+                                                                            "gajvmb9lnyl"
+                                                                          ]
+                                                                        ],
+                                                                        "mm7wevp4wm2": [
+                                                                          [
+                                                                            "oblabcxgzum"
+                                                                          ],
+                                                                          [
+                                                                            "io82j4qnu07"
+                                                                          ],
+                                                                          [
+                                                                            "1nyneky2xds"
+                                                                          ]
+                                                                        ],
+                                                                        "fje4e8u7ot5": [
+                                                                          [
+                                                                            "tqyy2q31gi7"
+                                                                          ]
+                                                                        ],
+                                                                        "ml29v3v6ujj": [
+                                                                          [
+                                                                            "6aa971a2d61"
+                                                                          ]
+                                                                        ],
+                                                                        "3477n9ua9nn": [
+                                                                          [
+                                                                            "f1aeec3380e"
+                                                                          ]
+                                                                        ],
+                                                                        "b2taa60w5dq": [
+                                                                          [
+                                                                            "9db54297c33"
+                                                                          ],
+                                                                          [
+                                                                            "32c9066e69f"
+                                                                          ],
+                                                                          [
+                                                                            "77495f63caa"
+                                                                          ]
+                                                                        ]
+                                                                      },
+                                                                      "sizes": {
+                                                                        "9s2zwjz4pxt": [
+                                                                          24
+                                                                        ],
+                                                                        "mm7wevp4wm2": [
+                                                                          8,
+                                                                          8,
+                                                                          8
+                                                                        ],
+                                                                        "fje4e8u7ot5": [
+                                                                          24
+                                                                        ],
+                                                                        "ml29v3v6ujj": [
+                                                                          24
+                                                                        ],
+                                                                        "3477n9ua9nn": [
+                                                                          24
+                                                                        ],
+                                                                        "b2taa60w5dq": [
+                                                                          8,
+                                                                          8,
+                                                                          8
+                                                                        ]
+                                                                      },
+                                                                      "rowOrder": [
+                                                                        "9s2zwjz4pxt",
+                                                                        "mm7wevp4wm2",
+                                                                        "fje4e8u7ot5",
+                                                                        "ml29v3v6ujj",
+                                                                        "3477n9ua9nn",
+                                                                        "b2taa60w5dq"
+                                                                      ]
+                                                                    }
+                                                                  },
+                                                                  "eventSettings": {
+                                                                    "linkageRules": {
+                                                                      "value": [
+                                                                        {
+                                                                          "key": "d3rxlfzox52",
+                                                                          "title": "Linkage rule",
+                                                                          "enable": true,
+                                                                          "condition": {
+                                                                            "logic": "$and",
+                                                                            "items": []
+                                                                          },
+                                                                          "actions": [
+                                                                            {
+                                                                              "key": "r4mhxlsel8c",
+                                                                              "name": "linkageAssignField",
+                                                                              "params": {
+                                                                                "value": {
+                                                                                  "field": "oblabcxgzum",
+                                                                                  "assignValue": "{{ ctx.formValues.quotation.currencyInfo.name }}"
+                                                                                }
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "key": "shxshn7eqy4",
+                                                                              "name": "linkageAssignField",
+                                                                              "params": {
+                                                                                "value": {
+                                                                                  "field": "io82j4qnu07",
+                                                                                  "assignValue": "{{ ctx.formValues.quotation.exchange_rate }}"
+                                                                                }
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "key": "keo3lxs632y",
+                                                                              "name": "linkageAssignField",
+                                                                              "params": {
+                                                                                "value": {
+                                                                                  "field": "1nyneky2xds",
+                                                                                  "assignValue": "{{ ctx.formValues.quotation.total_amount }}"
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          ]
+                                                                        }
+                                                                      ]
+                                                                    }
+                                                                  }
+                                                                },
+                                                                "children": [
+                                                                  {
+                                                                    "uid": "gajvmb9lnyl",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 1,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "quotation"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "required": {
+                                                                          "required": true
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "px1fjlxcmnq",
+                                                                        "use": "RecordSelectFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {}
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "oblabcxgzum",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 2,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "currency"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "pattern": {
+                                                                          "pattern": "readPretty"
+                                                                        },
+                                                                        "model": {
+                                                                          "use": "DisplayEnumFieldModel"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "hpryuq7fp2l",
+                                                                        "use": "SelectFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldBinding": {
+                                                                            "use": "DisplayEnumFieldModel"
+                                                                          },
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "fieldPath": "currency"
+                                                                            }
+                                                                          },
+                                                                          "popupSettings": {
+                                                                            "openView": {
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "dataSourceKey": "main"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "io82j4qnu07",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 3,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "exchange_rate"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "pattern": {
+                                                                          "pattern": "readPretty"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "5af7k4pjj6t",
+                                                                        "use": "NumberFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldBinding": {
+                                                                            "use": "DisplayNumberFieldModel"
+                                                                          },
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "fieldPath": "exchange_rate"
+                                                                            }
+                                                                          },
+                                                                          "popupSettings": {
+                                                                            "openView": {
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "dataSourceKey": "main"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "1nyneky2xds",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 4,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "order_amount"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "pattern": {
+                                                                          "pattern": "readPretty"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "0vop3e0zt6l",
+                                                                        "use": "NumberFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldBinding": {
+                                                                            "use": "DisplayNumberFieldModel"
+                                                                          },
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "fieldPath": "order_amount"
+                                                                            }
+                                                                          },
+                                                                          "popupSettings": {
+                                                                            "openView": {
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "dataSourceKey": "main"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "tqyy2q31gi7",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 5,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "owner"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "initialValue": {
+                                                                          "defaultValue": "{{ ctx.user }}"
+                                                                        },
+                                                                        "pattern": {
+                                                                          "pattern": "readPretty"
+                                                                        },
+                                                                        "titleField": {
+                                                                          "titleField": "nickname"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "df4ubs2fg39",
+                                                                        "use": "RecordSelectFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldBinding": {
+                                                                            "use": "DisplayTextFieldModel"
+                                                                          },
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "nb_crm_orders",
+                                                                              "fieldPath": "owner"
+                                                                            }
+                                                                          },
+                                                                          "popupSettings": {
+                                                                            "openView": {
+                                                                              "collectionName": "users",
+                                                                              "associationName": "nb_crm_orders.owner",
+                                                                              "dataSourceKey": "main"
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                        "children": [
+                                                                          {
+                                                                            "uid": "10vr36l6hwa",
+                                                                            "use": "DisplayTextFieldModel",
+                                                                            "subKey": "field",
+                                                                            "subType": "object",
+                                                                            "sortIndex": 0,
+                                                                            "stepParams": {
+                                                                              "fieldSettings": {
+                                                                                "init": {
+                                                                                  "dataSourceKey": "main",
+                                                                                  "collectionName": "users",
+                                                                                  "fieldPath": "nickname"
+                                                                                }
+                                                                              },
+                                                                              "popupSettings": {
+                                                                                "openView": {
+                                                                                  "collectionName": "users",
+                                                                                  "associationName": "nb_crm_orders.owner",
+                                                                                  "dataSourceKey": "main"
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        ]
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "6aa971a2d61",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 6,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "shipping_address"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "906f0e406f5",
+                                                                        "use": "TextareaFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {}
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "f1aeec3380e",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 7,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "description"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "a8dc7810c54",
+                                                                        "use": "TextareaFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {}
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "9db54297c33",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 8,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "order_date"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "d66f74d7fad",
+                                                                        "use": "DateOnlyFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {}
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "32c9066e69f",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 9,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "delivery_date"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "27ac1b05c06",
+                                                                        "use": "DateOnlyFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {}
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "77495f63caa",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 10,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "nb_crm_orders",
+                                                                          "fieldPath": "actual_delivery_date"
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "51b78d99bf7",
+                                                                        "use": "DateOnlyFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {}
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "25f6d5c5b67",
+                                        "use": "DetailsBlockModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "resourceSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_orders",
+                                              "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "25294b7d124",
+                                            "use": "DetailsGridModel",
+                                            "subKey": "grid",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {},
+                                            "children": [
+                                              {
+                                                "uid": "1c884606144",
+                                                "use": "JSItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 1,
+                                                "stepParams": {
+                                                  "jsSettings": {
+                                                    "runJs": {
+                                                      "version": "v1",
+                                                      "code": "/**\n * Order Status Flow Block\n * Table: nb_crm_orders\n *\n * Displays order status with clickable steps to switch status.\n * Status flow: pending → confirmed → processing → shipped → completed\n * Terminal: cancelled\n */\n\nconst { useState, useEffect } = ctx.React;\nconst { Steps, Tag, Space, message, Spin, Modal } = ctx.antd;\n\n// ==================== Config ====================\n\nconst STATUS_FLOW = [\n  { code: 'pending', label: 'Pending', color: 'default' },\n  { code: 'confirmed', label: 'Confirmed', color: 'blue' },\n  { code: 'processing', label: 'Processing', color: 'orange' },\n  { code: 'shipped', label: 'Shipped', color: 'cyan' },\n  { code: 'completed', label: 'Completed', color: 'green', isTerminal: true },\n];\n\n// ==================== Main Component ====================\n\nconst OrderStatusFlow = () => {\n  const record = ctx.record || {};\n  const initialStatus = record.status || 'pending';\n  const recordId = record.id;\n\n  const [updating, setUpdating] = useState(false);\n  const [currentStatus, setCurrentStatus] = useState(initialStatus);\n\n  useEffect(() => {\n    setCurrentStatus(record.status || 'pending');\n  }, [record.status]);\n\n  const currentIndex = STATUS_FLOW.findIndex(s => s.code === currentStatus);\n  const isCancelled = currentStatus === 'cancelled';\n  const isCompleted = currentStatus === 'completed';\n  const isTerminal = isCancelled || isCompleted;\n\n  const handleStepClick = async (stepIndex) => {\n    if (isTerminal || !recordId || updating) return;\n\n    const targetStatus = STATUS_FLOW[stepIndex];\n    if (!targetStatus || targetStatus.code === currentStatus) return;\n\n    // Confirm if completing\n    if (targetStatus.isTerminal) {\n      Modal.confirm({\n        title: `Mark as \"${targetStatus.label}\"?`,\n        content: 'This will mark the order as completed.',\n        okText: 'Confirm',\n        cancelText: 'Cancel',\n        onOk: () => updateStatus(targetStatus),\n      });\n      return;\n    }\n\n    await updateStatus(targetStatus);\n  };\n\n  const handleCancel = () => {\n    if (isTerminal || !recordId || updating) return;\n\n    Modal.confirm({\n      title: 'Cancel this order?',\n      content: 'This action cannot be undone.',\n      okText: 'Yes, Cancel Order',\n      cancelText: 'No',\n      okButtonProps: { danger: true },\n      onOk: () => updateStatus({ code: 'cancelled', label: 'Cancelled' }),\n    });\n  };\n\n  const updateStatus = async (targetStatus) => {\n    setUpdating(true);\n    try {\n      const updateData = { status: targetStatus.code };\n\n      if (targetStatus.code === 'shipped') {\n        updateData.shipped_at = new Date().toISOString();\n      } else if (targetStatus.code === 'completed') {\n        updateData.actual_delivery_date = new Date().toISOString().split('T')[0];\n      }\n\n      await ctx.api.request({\n        url: 'nb_crm_orders:update',\n        method: 'POST',\n        params: { filterByTk: recordId },\n        data: updateData,\n      });\n\n      setCurrentStatus(targetStatus.code);\n      message.success(`Status updated to \"${targetStatus.label}\"`);\n\n      if (ctx.refresh) ctx.refresh();\n      else if (ctx.service?.refresh) ctx.service.refresh();\n    } catch (error) {\n      console.error('Failed to update status:', error);\n      message.error('Failed to update status');\n    } finally {\n      setUpdating(false);\n    }\n  };\n\n  // Build steps items\n  const stepsItems = STATUS_FLOW.map((status, index) => {\n    let stepStatus = 'wait';\n\n    if (isCancelled) {\n      stepStatus = 'error';\n    } else if (index < currentIndex) {\n      stepStatus = 'finish';\n    } else if (index === currentIndex) {\n      stepStatus = status.isTerminal ? 'finish' : 'process';\n    }\n\n    const isClickable = !isTerminal && status.code !== currentStatus;\n\n    return {\n      title: (\n        <Space size={4}>\n          <span>{status.label}</span>\n          {status.code === currentStatus && !isCancelled && (\n            <Tag color=\"blue\" style={{ fontSize: 10 }}>Current</Tag>\n          )}\n        </Space>\n      ),\n      status: stepStatus,\n      style: isClickable ? { cursor: 'pointer' } : {},\n    };\n  });\n\n  // Add cancelled if current\n  if (isCancelled) {\n    stepsItems.push({\n      title: (\n        <Space size={4}>\n          <span>Cancelled</span>\n          <Tag color=\"red\" style={{ fontSize: 10 }}>Current</Tag>\n        </Space>\n      ),\n      status: 'error',\n    });\n  }\n\n  return (\n    <div style={{ position: 'relative' }}>\n      {updating && (\n        <div style={{\n          position: 'absolute',\n          inset: 0,\n          background: 'rgba(255,255,255,0.7)',\n          display: 'flex',\n          alignItems: 'center',\n          justifyContent: 'center',\n          zIndex: 10,\n        }}>\n          <Spin size=\"small\" />\n        </div>\n      )}\n\n      <Steps\n        size=\"small\"\n        current={currentIndex >= 0 ? currentIndex : 0}\n        items={stepsItems}\n        onChange={handleStepClick}\n      />\n\n      {!isTerminal && (\n        <div style={{ marginTop: 12, textAlign: 'right' }}>\n          <Tag color=\"red\" style={{ cursor: 'pointer' }} onClick={handleCancel}>\n            Cancel Order\n          </Tag>\n        </div>\n      )}\n    </div>\n  );\n};\n\nctx.render(<OrderStatusFlow />);\n"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "a53955a897d",
+                    "use": "AddNewActionModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 3,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_orders",
+                          "dataSourceKey": "main",
+                          "mode": "dialog",
+                          "size": "small",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "a53955a897d"
+                        }
+                      },
+                      "buttonSettings": {
+                        "linkageRules": {
+                          "value": [
+                            {
+                              "key": "ev6spoiekoc",
+                              "title": "Linkage rule",
+                              "enable": true,
+                              "condition": {
+                                "logic": "$and",
+                                "items": [
+                                  {
+                                    "path": "{{ ctx.popup.uid }}",
+                                    "operator": "$eq",
+                                    "value": "jrgu2gr3t0c",
+                                    "noValue": false
+                                  }
+                                ]
+                              },
+                              "actions": [
+                                {
+                                  "key": "s3u3ojkm552",
+                                  "name": "linkageSetActionProps",
+                                  "params": {
+                                    "value": "hidden"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "48588160ef6",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "e1bc6610371",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "{{t(\"Add new\")}}"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "c6f2d8e982e",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "gridSettings": {
+                                    "grid": {
+                                      "rows": {
+                                        "sgc99yssqla": [
+                                          [
+                                            "d64081075a2"
+                                          ]
+                                        ]
+                                      },
+                                      "sizes": {},
+                                      "rowOrder": [
+                                        "sgc99yssqla"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "d64081075a2",
+                                    "use": "ReferenceBlockModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 0,
+                                    "stepParams": {
+                                      "referenceSettings": {
+                                        "target": {
+                                          "targetUid": "c0141648ed2",
+                                          "mode": "reference"
+                                        },
+                                        "useTemplate": {
+                                          "templateUid": "gu87q52q2tg",
+                                          "templateName": "Form (Add new): New Orders from Quotations",
+                                          "templateDescription": "",
+                                          "targetUid": "c0141648ed2",
+                                          "mode": "reference"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "uid": "c0141648ed2",
+                                    "use": "CreateFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_orders"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "1c58ae50217",
+                                        "use": "FormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "gridSettings": {
+                                            "grid": {
+                                              "rows": {
+                                                "9s2zwjz4pxt": [
+                                                  [
+                                                    "d8ba98d7157"
+                                                  ]
+                                                ],
+                                                "mm7wevp4wm2": [
+                                                  [
+                                                    "2975331a412"
+                                                  ],
+                                                  [
+                                                    "de4ea7c82af"
+                                                  ],
+                                                  [
+                                                    "605ab8f79f2"
+                                                  ]
+                                                ],
+                                                "fje4e8u7ot5": [
+                                                  [
+                                                    "3f203f2df0b"
+                                                  ]
+                                                ]
+                                              },
+                                              "sizes": {
+                                                "9s2zwjz4pxt": [
+                                                  24
+                                                ],
+                                                "mm7wevp4wm2": [
+                                                  8,
+                                                  8,
+                                                  8
+                                                ],
+                                                "fje4e8u7ot5": [
+                                                  24
+                                                ]
+                                              },
+                                              "rowOrder": [
+                                                "9s2zwjz4pxt",
+                                                "mm7wevp4wm2",
+                                                "fje4e8u7ot5"
+                                              ]
+                                            }
+                                          },
+                                          "eventSettings": {
+                                            "linkageRules": {
+                                              "value": [
+                                                {
+                                                  "key": "d3rxlfzox52",
+                                                  "title": "Linkage rule",
+                                                  "enable": true,
+                                                  "condition": {
+                                                    "logic": "$and",
+                                                    "items": []
+                                                  },
+                                                  "actions": [
+                                                    {
+                                                      "key": "r4mhxlsel8c",
+                                                      "name": "linkageAssignField",
+                                                      "params": {
+                                                        "value": {
+                                                          "field": "2975331a412",
+                                                          "assignValue": "{{ ctx.formValues.quotation.currencyInfo.name }}"
+                                                        }
+                                                      }
+                                                    },
+                                                    {
+                                                      "key": "shxshn7eqy4",
+                                                      "name": "linkageAssignField",
+                                                      "params": {
+                                                        "value": {
+                                                          "field": "de4ea7c82af",
+                                                          "assignValue": "{{ ctx.formValues.quotation.exchange_rate }}"
+                                                        }
+                                                      }
+                                                    },
+                                                    {
+                                                      "key": "keo3lxs632y",
+                                                      "name": "linkageAssignField",
+                                                      "params": {
+                                                        "value": {
+                                                          "field": "605ab8f79f2",
+                                                          "assignValue": "{{ ctx.formValues.quotation.total_amount }}"
+                                                        }
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "d8ba98d7157",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 1,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_orders",
+                                                  "fieldPath": "quotation"
+                                                }
+                                              },
+                                              "editItemSettings": {
+                                                "required": {
+                                                  "required": true
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "1f9ffcb489a",
+                                                "use": "RecordSelectFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "2975331a412",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 2,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_orders",
+                                                  "fieldPath": "currency"
+                                                }
+                                              },
+                                              "editItemSettings": {
+                                                "pattern": {
+                                                  "pattern": "readPretty"
+                                                },
+                                                "model": {
+                                                  "use": "DisplayEnumFieldModel"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "af4f28460a7",
+                                                "use": "SelectFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldBinding": {
+                                                    "use": "DisplayEnumFieldModel"
+                                                  },
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "currency"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "nb_crm_orders",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "de4ea7c82af",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 3,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_orders",
+                                                  "fieldPath": "exchange_rate"
+                                                }
+                                              },
+                                              "editItemSettings": {
+                                                "pattern": {
+                                                  "pattern": "readPretty"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "b47b28568fb",
+                                                "use": "NumberFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldBinding": {
+                                                    "use": "DisplayNumberFieldModel"
+                                                  },
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "exchange_rate"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "nb_crm_orders",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "605ab8f79f2",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 4,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_orders",
+                                                  "fieldPath": "order_amount"
+                                                }
+                                              },
+                                              "editItemSettings": {
+                                                "pattern": {
+                                                  "pattern": "readPretty"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "7898ad2bc6d",
+                                                "use": "NumberFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldBinding": {
+                                                    "use": "DisplayNumberFieldModel"
+                                                  },
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "order_amount"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "nb_crm_orders",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "3f203f2df0b",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 5,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_orders",
+                                                  "fieldPath": "owner"
+                                                }
+                                              },
+                                              "editItemSettings": {
+                                                "initialValue": {
+                                                  "defaultValue": "{{ ctx.user }}"
+                                                },
+                                                "pattern": {
+                                                  "pattern": "readPretty"
+                                                },
+                                                "titleField": {
+                                                  "titleField": "nickname"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "9a26ecd8ca7",
+                                                "use": "RecordSelectFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldBinding": {
+                                                    "use": "DisplayTextFieldModel"
+                                                  },
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_orders",
+                                                      "fieldPath": "owner"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "users",
+                                                      "associationName": "nb_crm_orders.owner",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "c59d1a7425d",
+                                                    "use": "DisplayTextFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "users",
+                                                          "fieldPath": "nickname"
+                                                        }
+                                                      },
+                                                      "popupSettings": {
+                                                        "openView": {
+                                                          "collectionName": "users",
+                                                          "associationName": "nb_crm_orders.owner",
+                                                          "dataSourceKey": "main"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "cc2e9b9860f",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "d1a1c749f95",
+                    "use": "JSColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 3,
+                    "stepParams": {
+                      "tableColumnSettings": {
+                        "title": {
+                          "title": "Order Progress"
+                        },
+                        "width": {
+                          "width": 250
+                        }
+                      },
+                      "jsSettings": {
+                        "runJs": {
+                          "version": "v1",
+                          "code": "/**\n * Order Progress Column\n * Table: nb_crm_orders\n *\n * Displays order status as a visual progress indicator with dots and lines.\n * Status flow: pending → confirmed → processing → shipped → completed\n * Terminal: cancelled\n *\n * Design reference: order.html - Order Progress column\n */\n\nconst { Tooltip } = ctx.antd;\n\n// Theme detection\nconst algorithm = ctx.antdConfig?.theme?.algorithm;\nconst darkAlgo = ctx.antd.theme.darkAlgorithm;\nconst isDark = Array.isArray(algorithm)\n  ? algorithm.some(fn => fn === darkAlgo)\n  : algorithm === darkAlgo;\nconst T = ctx.themeToken || {};\n\n// i18n\nconst t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });\n\n// ==================== Config ====================\n\nconst STATUS_FLOW = [\n  { code: 'pending', label: t('Pending'), step: 1 },\n  { code: 'confirmed', label: t('Confirmed'), step: 2 },\n  { code: 'processing', label: t('Processing'), step: 3 },\n  { code: 'shipped', label: t('Shipped'), step: 4 },\n  { code: 'completed', label: t('Completed'), step: 5 },\n];\n\n// ==================== Styles ====================\n\nconst dotBase = {\n  width: 18,\n  height: 18,\n  borderRadius: '50%',\n  display: 'inline-flex',\n  alignItems: 'center',\n  justifyContent: 'center',\n  fontSize: 10,\n  fontWeight: 600,\n  flexShrink: 0,\n};\n\nconst lineBase = {\n  width: 20,\n  height: 2,\n  display: 'inline-block',\n  verticalAlign: 'middle',\n};\n\nconst styles = {\n  container: {\n    display: 'inline-flex',\n    alignItems: 'center',\n    gap: 4,\n  },\n  dotPending: {\n    ...dotBase,\n    background: T.colorBorderSecondary || '#e5e7eb',\n    color: T.colorTextSecondary || '#6b7280',\n  },\n  dotCompleted: {\n    ...dotBase,\n    background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',\n    color: 'white',\n  },\n  dotCurrent: {\n    ...dotBase,\n    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',\n    color: 'white',\n    boxShadow: '0 0 10px rgba(102, 126, 234, 0.5)',\n  },\n  dotCancelled: {\n    ...dotBase,\n    background: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',\n    color: 'white',\n  },\n  linePending: {\n    ...lineBase,\n    background: T.colorBorderSecondary || '#e5e7eb',\n  },\n  lineCompleted: {\n    ...lineBase,\n    background: 'linear-gradient(90deg, #10b981, #34d399)',\n  },\n  cancelledText: {\n    fontSize: 12,\n    color: T.colorError || '#ef4444',\n    marginLeft: 4,\n    fontWeight: 500,\n  },\n};\n\n// ==================== Main Component ====================\n\nconst OrderProgress = () => {\n  const record = ctx.record || {};\n  const status = record.status || 'pending';\n\n  // Handle cancelled orders\n  if (status === 'cancelled') {\n    return (\n      <Tooltip title={t('Order Cancelled')}>\n        <div style={styles.container}>\n          <span style={styles.dotCancelled}>✕</span>\n          <span style={styles.cancelledText}>{t('Cancelled')}</span>\n        </div>\n      </Tooltip>\n    );\n  }\n\n  // Find current step index\n  const currentIndex = STATUS_FLOW.findIndex(s => s.code === status);\n  const currentStep = currentIndex >= 0 ? currentIndex : 0;\n\n  // Build tooltip showing all steps\n  const tooltipContent = (\n    <div style={{ fontSize: 12 }}>\n      {STATUS_FLOW.map((item, index) => {\n        const isCompleted = index < currentStep;\n        const isCurrent = index === currentStep;\n        return (\n          <div key={item.code} style={{\n            color: isCurrent ? '#667eea' : isCompleted ? '#10b981' : (T.colorTextTertiary || '#9ca3af'),\n            fontWeight: isCurrent ? 600 : 400,\n          }}>\n            {isCompleted ? '✓' : isCurrent ? '●' : '○'} {item.label}\n          </div>\n        );\n      })}\n    </div>\n  );\n\n  return (\n    <Tooltip title={tooltipContent}>\n      <div style={styles.container}>\n        {STATUS_FLOW.map((item, index) => {\n          const isCompleted = index < currentStep;\n          const isCurrent = index === currentStep;\n\n          // Determine dot style\n          let dotStyle = styles.dotPending;\n          if (isCompleted) {\n            dotStyle = styles.dotCompleted;\n          } else if (isCurrent) {\n            dotStyle = styles.dotCurrent;\n          }\n\n          // Determine line style (line comes after dot, except for last)\n          const lineStyle = isCompleted ? styles.lineCompleted : styles.linePending;\n\n          return (\n            <ctx.React.Fragment key={item.code}>\n              <span style={dotStyle}>\n                {isCompleted ? '✓' : item.step}\n              </span>\n              {index < STATUS_FLOW.length - 1 && (\n                <span style={lineStyle} />\n              )}\n            </ctx.React.Fragment>\n          );\n        })}\n      </div>\n    </Tooltip>\n  );\n};\n\nctx.render(<OrderProgress />);\n"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "uid": "a855266ec7b",
+                    "use": "AIEmployeeButtonModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 4,
+                    "stepParams": {
+                      "shortcutSettings": {
+                        "editTasks": {
+                          "tasks": [
+                            {
+                              "message": {
+                                "workContext": [
+                                  {
+                                    "type": "flow-model",
+                                    "uid": "4326c50faf8",
+                                    "title": "\n    Table:\n    Orders"
+                                  }
+                                ],
+                                "skillSettings": {},
+                                "user": "Analyze my order performance and revenue.",
+                                "system": "Please begin an immediate and comprehensive visual analysis of our **Orders data**.\n\n**Guiding Principles & Tool Selection:**\n\n* **Primary Tool:** For this task, your first choice should be the **`Overall Analytics`** tool, as it is optimized for Orders data.\n* **Fallback Tool:** If you require data beyond the scope of `Overall Analytics`, use the **`SQL` tool** to query the database directly.\n\n**Analysis Workflow & Instructions:**\n\n1.  **Prerequisite: Verify Table Name**\n    * The database table for \"Orders\" is `nb_crm_orders`. Use this exact name when calling tools.\n\n2.  **Initial Analysis & Visualization**\n    * Perform a broad analysis of the orders data focusing on:\n      - Total orders and revenue (current period vs previous)\n      - Order status distribution (pending, confirmed, shipped, delivered)\n      - Payment collection status and outstanding amounts\n      - Monthly/quarterly revenue trends\n      - Top customers by order value\n      - Delivery performance metrics\n    * Create a separate, clear ECharts visual (`<echarts>{...JSON...}</echarts>`) for each significant finding.\n\n3.  **Deep-Dive & User Guidance**\n    * After presenting your initial findings, guide me toward deeper insights.\n    * **Formulate and ask me specific business questions** such as:\n        * *\"Revenue is up 15% but order count is flat - average order value increased. Would you like to analyze which products or customers are driving this?\"*\n        * *\"You have $45K in unpaid invoices over 30 days. Would you like a breakdown by customer with recommended collection actions?\"*\n        * *\"Delivery delays increased this month. Would you like to correlate this with specific product categories or shipping methods?\"*\n        * *\"Your top 3 customers haven't ordered in 60 days. Would you like me to flag these for proactive outreach?\"*\n\nPlease start the analysis now."
+                              },
+                              "title": "Orders Analysis",
+                              "autoSend": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "uid": "d5f244af9a9",
+                    "use": "TableColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 4,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "order_amount"
+                        }
+                      },
+                      "tableColumnSettings": {
+                        "model": {
+                          "use": "DisplayNumberFieldModel"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "d55ad2bd204",
+                        "use": "DisplayNumberFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "popupSettings": {
+                            "openView": {
+                              "collectionName": "nb_crm_orders",
+                              "dataSourceKey": "main"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "5f031022786",
+                    "use": "TableColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 5,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "createdAt"
+                        }
+                      },
+                      "tableColumnSettings": {
+                        "model": {
+                          "use": "DisplayDateTimeFieldModel"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "d93d41f8d5d",
+                        "use": "DisplayDateTimeFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "popupSettings": {
+                            "openView": {
+                              "collectionName": "nb_crm_orders",
+                              "dataSourceKey": "main"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "ee739e1d27d",
+                    "use": "TableColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 7,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "owner"
+                        }
+                      },
+                      "tableColumnSettings": {
+                        "model": {
+                          "use": "DisplayTextFieldModel"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "5be810d2edb",
+                        "use": "DisplayTextFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "popupSettings": {
+                            "openView": {
+                              "collectionName": "users",
+                              "associationName": "nb_crm_orders.owner",
+                              "dataSourceKey": "main"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "57a86daf9b2",
+                    "use": "TableColumnModel",
+                    "subKey": "columns",
+                    "subType": "array",
+                    "sortIndex": 8,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "payment_status"
+                        }
+                      },
+                      "tableColumnSettings": {
+                        "model": {
+                          "use": "DisplayEnumFieldModel"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "0b89a21dc35",
+                        "use": "DisplayEnumFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "popupSettings": {
+                            "openView": {
+                              "collectionName": "nb_crm_orders",
+                              "dataSourceKey": "main"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uid": "89a416dc6a5",
+            "use": "FilterFormBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "formFilterBlockModelSettings": {
+                "layout": {
+                  "layout": "horizontal",
+                  "labelAlign": "left",
+                  "labelWidth": 120,
+                  "labelWrap": true,
+                  "colon": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "32910f00ea1",
+                "use": "FilterFormGridModel",
+                "subKey": "grid",
+                "subType": "object",
+                "sortIndex": 0,
+                "stepParams": {
+                  "gridSettings": {
+                    "grid": {
+                      "rows": {
+                        "h7q4jf3cwre": [
+                          [
+                            "30d65b9f8f5",
+                            "9e2a0b06a0f"
+                          ]
+                        ]
+                      },
+                      "sizes": {
+                        "h7q4jf3cwre": [
+                          24
+                        ]
+                      },
+                      "rowOrder": [
+                        "h7q4jf3cwre"
+                      ]
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9e2a0b06a0f",
+                    "use": "FilterFormItemModel",
+                    "subKey": "items",
+                    "subType": "array",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_orders",
+                          "fieldPath": "order_no"
+                        }
+                      },
+                      "filterFormItemSettings": {
+                        "init": {
+                          "filterField": {
+                            "name": "order_no",
+                            "title": "Order No",
+                            "interface": "sequence",
+                            "type": "string"
+                          },
+                          "defaultTargetUid": "4326c50faf8"
+                        },
+                        "label": {
+                          "label": "Search"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "2e95493c717",
+                        "use": "InputFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {}
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "30d65b9f8f5",
+                    "use": "JSItemModel",
+                    "subKey": "items",
+                    "subType": "array",
+                    "sortIndex": 2,
+                    "stepParams": {
+                      "jsSettings": {
+                        "runJs": {
+                          "code": "/**\n * Order Stats Filter Block\n * Supports URL params: ?month=YYYY-MM&payment_status=xxx\n */\n\nvar TARGET_BLOCK_UID = '76b91d81037';\n\nvar _React = ctx.React;\nvar useState = _React.useState;\nvar useEffect = _React.useEffect;\nvar _antd = ctx.antd;\nvar Button = _antd.Button, Badge = _antd.Badge, Space = _antd.Space, Spin = _antd.Spin, Divider = _antd.Divider;\n\nvar t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\n// ==================== URL Params ====================\nvar _search = ctx.router?.state?.location?.search || '';\nvar _getParam = function(key) {\n  var m = _search.match(new RegExp('[?&]' + key + '=([^&]*)'));\n  return m ? decodeURIComponent(m[1]) : null;\n};\nvar _urlMonth = _getParam('month');\nvar _urlPayment = _getParam('payment_status');\n\n// ==================== Filter Config ====================\nvar STATS = [\n  { key: 'all', label: 'All', filter: null, group: 'status' },\n  { key: 'processing', label: 'Processing', filter: { status: { $in: ['pending', 'confirmed'] } }, group: 'status' },\n  { key: 'pending_payment', label: 'Pending Payment', filter: { payment_status: { $in: ['unpaid', 'partial'] } }, group: 'status' },\n  { key: 'shipped', label: 'Shipped', filter: { status: { $eq: 'shipped' } }, group: 'status' },\n  { key: 'completed', label: 'Completed', filter: { status: { $eq: 'completed' } }, group: 'status' },\n];\n\n// Add month filter from URL\nif (_urlMonth) {\n  var parts = _urlMonth.split('-');\n  var y = Number(parts[0]);\n  var m = Number(parts[1]);\n  var lastDay = new Date(y, m, 0).getDate();\n  var mStart = _urlMonth + '-01';\n  var mEnd = _urlMonth + '-' + String(lastDay).padStart(2, '0');\n  STATS.push({ key: 'month_' + _urlMonth, label: _urlMonth,\n    filter: { order_date: { $dateBetween: [mStart, mEnd] } }, group: 'url' });\n}\n\n// Add payment_status filter from URL\nif (_urlPayment) {\n  var payLabel = _urlPayment.charAt(0).toUpperCase() + _urlPayment.slice(1);\n  STATS.push({ key: 'pay_' + _urlPayment, label: payLabel,\n    filter: { payment_status: { $eq: _urlPayment } }, group: 'url' });\n}\n\n// Determine initial key\nvar INIT_KEY = 'all';\nif (_urlMonth) INIT_KEY = 'month_' + _urlMonth;\nelse if (_urlPayment) INIT_KEY = 'pay_' + _urlPayment;\n\n// ==================== Data Hook ====================\nfunction useStats() {\n  var _s = useState({}), counts = _s[0], setCounts = _s[1];\n  var _l = useState(true), loading = _l[0], setLoading = _l[1];\n\n  useEffect(function() {\n    var statusStats = STATS.filter(function(s) { return s.group === 'status'; });\n    Promise.all(\n      statusStats.map(function(s) {\n        return ctx.api.request({\n          url: 'nb_crm_orders:list',\n          params: { pageSize: 1, ...(s.filter && { filter: JSON.stringify(s.filter) }) },\n        });\n      })\n    ).then(function(results) {\n      var c = {};\n      statusStats.forEach(function(s, i) { c[s.key] = results[i]?.data?.meta?.count || 0; });\n      setCounts(c);\n      setLoading(false);\n    }).catch(function(e) { console.error('Stats fetch failed:', e); setLoading(false); });\n  }, []);\n\n  return { counts: counts, loading: loading };\n}\n\n// ==================== Main Component ====================\nvar StatsFilter = function() {\n  var stats = useStats();\n  var counts = stats.counts, loading = stats.loading;\n  var _a = useState(INIT_KEY), active = _a[0], setActive = _a[1];\n  var appliedRef = _React.useRef(false);\n\n  var applyFilter = function(stat) {\n    var target = ctx.engine?.getModel(TARGET_BLOCK_UID);\n    if (!target) return;\n    target.resource.addFilterGroup(ctx.model.uid, stat.filter || { $and: [] });\n    target.resource.refresh();\n  };\n\n  useEffect(function() {\n    if (!appliedRef.current && INIT_KEY !== 'all') {\n      appliedRef.current = true;\n      var stat = STATS.find(function(s) { return s.key === INIT_KEY; });\n      if (stat) setTimeout(function() { applyFilter(stat); }, 500);\n    }\n  }, []);\n\n  var handleClick = function(stat) {\n    setActive(stat.key);\n    applyFilter(stat);\n  };\n\n  if (loading) return <Spin />;\n\n  var statusGroup = STATS.filter(function(s) { return s.group === 'status'; });\n  var urlGroup = STATS.filter(function(s) { return s.group === 'url'; });\n\n  return (\n    <Space wrap size={[8, 8]} split={urlGroup.length > 0 ? <Divider type=\"vertical\" style={{ margin: 0 }} /> : null}>\n      <Space wrap size={[8, 8]}>\n        {statusGroup.map(function(s) {\n          return (\n            <Button key={s.key} type={active === s.key ? 'primary' : 'default'}\n              onClick={function() { handleClick(s); }}>\n              {s.label}{counts[s.key] != null ? ' ' : ''}\n              {counts[s.key] != null && (\n                <Badge count={counts[s.key]} showZero overflowCount={9999}\n                  style={{ marginLeft: 4,\n                    backgroundColor: active === s.key ? '#fff' : '#f0f0f0',\n                    color: active === s.key ? '#1677ff' : 'rgba(0,0,0,0.65)',\n                    boxShadow: 'none' }} />\n              )}\n            </Button>\n          );\n        })}\n      </Space>\n      {urlGroup.length > 0 && (\n        <Space wrap size={[8, 8]}>\n          {urlGroup.map(function(s) {\n            return (\n              <Button key={s.key} type={active === s.key ? 'primary' : 'default'}\n                style={active !== s.key ? { borderStyle: 'dashed' } : {}}\n                onClick={function() { handleClick(s); }}>\n                {s.label}\n              </Button>\n            );\n          })}\n        </Space>\n      )}\n    </Space>\n  );\n};\n\nctx.render(<StatsFilter />);\n",
+                          "version": "v1"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

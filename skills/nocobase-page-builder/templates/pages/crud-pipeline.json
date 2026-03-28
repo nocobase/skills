@@ -1,0 +1,37 @@
+[
+  {
+    "tab_uid": "{TAB_UID}",
+    "blocks": [
+      {
+        "id": "pipeline", "type": "js", "title": "{PIPELINE_TITLE}",
+        "code": "{PIPELINE_CODE}"
+      },
+      {
+        "id": "dist", "type": "js", "title": "{DIST_TITLE}",
+        "code": "{DIST_CODE}"
+      },
+      {
+        "id": "stats", "type": "js", "title": "{STATS_TITLE}",
+        "code": "{STATS_CODE}"
+      },
+      {
+        "id": "search", "type": "filter", "collection": "{COLLECTION}",
+        "fields": "{FILTER_FIELDS}", "target": "tbl"
+      },
+      {
+        "id": "tbl", "type": "table", "collection": "{COLLECTION}",
+        "fields": "{TABLE_FIELDS}", "first_click": true,
+        "addnew_fields": "{FORM_FIELDS}",
+        "edit_fields": "{FORM_FIELDS}",
+        "detail_tabs": "{DETAIL_TABS}",
+        "js_columns": "{JS_COLUMNS}"
+      }
+    ],
+    "layout": [
+      [["pipeline", 24]],
+      [["dist", 10], ["stats", 14]],
+      [["search", 24]],
+      [["tbl", 24]]
+    ]
+  }
+]

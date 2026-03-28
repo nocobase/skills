@@ -1,0 +1,1 @@
+const v=Number((ctx.record||{}).{FIELD})||0;if(!v){ctx.render(ctx.React.createElement('span',{style:{color:'#bbb',fontSize:12}},'Not rated'));return;}const color=v>=4?'#faad14':v>=3?'#faad14':'#d9d9d9';ctx.render(ctx.React.createElement('span',{style:{color,letterSpacing:2,fontSize:14}},'★'.repeat(v)+'☆'.repeat(Math.max(0,5-v))));

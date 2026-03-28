@@ -1,0 +1,771 @@
+{
+  "title": "Stage Settings",
+  "path": "Settings_Stage Settings",
+  "uid": "4qgkfj71w23",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "hbflaql54y9",
+      "grid_uid": "06cac4138a4",
+      "stats": {
+        "nodes": 43,
+        "js": 0,
+        "events": 0,
+        "popups": 3
+      },
+      "tree": {
+        "uid": "06cac4138a4",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "lfkkbkkwz74": [
+                  [
+                    "686093b0942"
+                  ]
+                ]
+              },
+              "sizes": {},
+              "rowOrder": [
+                "lfkkbkkwz74"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "686093b0942",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_opportunity_stages"
+                }
+              },
+              "tableSettings": {
+                "quickEdit": {
+                  "editable": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "c745f4679fd",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 0,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "fieldPath": "color"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayColorFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "dac79f20f12",
+                    "use": "DisplayColorFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {}
+                  }
+                ]
+              },
+              {
+                "uid": "1014ef9822f",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "76ab9093879",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "64b5d77cde5",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "fieldPath": "name"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "1bd6d1faa98",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_opportunity_stages",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "medium",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "1bd6d1faa98"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "635f11afb74",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "3032ff8a477",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "b8b30c4b999",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "0690aa49e1b",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_opportunity_stages",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "8c09b67c979",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "afkt6evyern",
+                                              "templateName": "Form (Add new): nb_crm_opportunity_stages",
+                                              "targetUid": "064a59ddf9a",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "fd75ed7382b",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "75cf98c4e3f",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "dataSourceKey": "main"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "2b7b608653a",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "81d92fcdc72",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "af3c093a2ee",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "y5gxqwhnbjz": [
+                                      [
+                                        "11b125634ab"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "y5gxqwhnbjz"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "11b125634ab",
+                                "use": "ReferenceBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "referenceSettings": {
+                                    "target": {
+                                      "targetUid": "064a59ddf9a",
+                                      "mode": "reference"
+                                    },
+                                    "useTemplate": {
+                                      "templateUid": "afkt6evyern",
+                                      "templateName": "Form (Add new): nb_crm_opportunity_stages",
+                                      "templateDescription": "",
+                                      "targetUid": "064a59ddf9a",
+                                      "mode": "reference"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "uid": "064a59ddf9a",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_opportunity_stages"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "060997f3a6e",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  },
+                                  {
+                                    "uid": "3f17d813d07",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "4gnyurvm5as": [
+                                              [
+                                                "4e3d73bc510"
+                                              ],
+                                              [
+                                                "2b610e887c8"
+                                              ]
+                                            ],
+                                            "ufvcor624ig": [
+                                              [
+                                                "36fc22f3b85"
+                                              ]
+                                            ],
+                                            "8tpvpacttr0": [
+                                              [
+                                                "2ff35e36b74"
+                                              ]
+                                            ],
+                                            "hk2ripmelbz": [
+                                              [
+                                                "8afe0551d0d"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "4gnyurvm5as": [
+                                              12,
+                                              12
+                                            ],
+                                            "8tpvpacttr0": [
+                                              24
+                                            ],
+                                            "hk2ripmelbz": [
+                                              24
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "4gnyurvm5as",
+                                            "ufvcor624ig",
+                                            "8tpvpacttr0",
+                                            "hk2ripmelbz"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "4e3d73bc510",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_opportunity_stages",
+                                              "fieldPath": "name"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "15ad0d2aa72",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "36fc22f3b85",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_opportunity_stages",
+                                              "fieldPath": "win_probability"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "ce567cc08a5",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "2ff35e36b74",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_opportunity_stages",
+                                              "fieldPath": "color"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "ec333394012",
+                                            "use": "ColorFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "8afe0551d0d",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_opportunity_stages",
+                                              "fieldPath": "description"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "03c186c8c75",
+                                            "use": "TextareaFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "2b610e887c8",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 5,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_opportunity_stages",
+                                              "fieldPath": "code"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "2de75a6f20e",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "4b631c17788",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "fieldPath": "code"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "56ab1bdb0d8",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_opportunity_stages",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "4a635502a68",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 5,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "fieldPath": "win_probability"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayNumberFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "ec086afc1b2",
+                    "use": "DisplayNumberFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_opportunity_stages",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "2bf816a1cc8",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 6,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "fieldPath": "space"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "5ce057e97a5",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "spaces",
+                          "associationName": "nb_crm_opportunity_stages.space",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": false
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "287280653e4",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "28e8703802d",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "1a06ccd027c",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {}
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "b4d3b550fa8",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 6,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_opportunity_stages",
+                      "fieldPath": "description"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "6ba31941cfa",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_opportunity_stages",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

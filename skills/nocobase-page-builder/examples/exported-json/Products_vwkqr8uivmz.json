@@ -1,0 +1,2162 @@
+{
+  "title": "Products",
+  "path": "Products",
+  "uid": "vwkqr8uivmz",
+  "tabs": [
+    {
+      "title": "Products",
+      "uid": "4eblyofx1zx",
+      "grid_uid": "64bd033fcee",
+      "stats": {
+        "nodes": 75,
+        "js": 1,
+        "events": 0,
+        "popups": 2
+      },
+      "tree": {
+        "uid": "64bd033fcee",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "68q457zhd76": [
+                  [
+                    "67558b719dd"
+                  ],
+                  [
+                    "121ad8f2da1"
+                  ]
+                ]
+              },
+              "sizes": {
+                "68q457zhd76": [
+                  5,
+                  19
+                ]
+              },
+              "rowOrder": [
+                "68q457zhd76"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "121ad8f2da1",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_products"
+                }
+              },
+              "tableSettings": {
+                "quickEdit": {
+                  "editable": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "4a8c4dc9255",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "c8ec4fcec8c",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "e9117a6d0d6",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "name"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 200
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "64e29a3db80",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "large",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "64e29a3db80"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "5e6b25fe43c",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "ca80c3452b4",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "ff067cae4e9",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "e83f8480678",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_products",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "eed41c0709f",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "wutkljuh1tj",
+                                              "templateName": "Form (Add new): nb_crm_products",
+                                              "targetUid": "e2c05329a23",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "2de3fc93e9d",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "01b2cc3c3ea",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_products",
+                      "dataSourceKey": "main",
+                      "mode": "drawer",
+                      "size": "large",
+                      "pageModelClass": "ChildPageModel",
+                      "uid": "01b2cc3c3ea"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "d5cb3b2ff09",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "39cdabc9c37",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "fd6a7dfaba9",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "9tmbr5lrid7": [
+                                      [
+                                        "376a4cf2874"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "9tmbr5lrid7"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "376a4cf2874",
+                                "use": "ReferenceBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "referenceSettings": {
+                                    "target": {
+                                      "targetUid": "e2c05329a23",
+                                      "mode": "reference"
+                                    },
+                                    "useTemplate": {
+                                      "templateUid": "wutkljuh1tj",
+                                      "templateName": "Form (Add new): nb_crm_products",
+                                      "templateDescription": "",
+                                      "targetUid": "e2c05329a23",
+                                      "mode": "reference"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "uid": "e2c05329a23",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_products"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "0aaa1a5036d",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "8igjyuvqpym": [
+                                              [
+                                                "289ae8facf1"
+                                              ]
+                                            ],
+                                            "rzu74efbg8o": [
+                                              [
+                                                "72871ad2519"
+                                              ]
+                                            ],
+                                            "n0wljciziyz": [
+                                              [
+                                                "a2905500a0f"
+                                              ],
+                                              [
+                                                "a1fb9c30928"
+                                              ]
+                                            ],
+                                            "itvrmonf4jc": [
+                                              [
+                                                "a8b9fc892de"
+                                              ]
+                                            ],
+                                            "erizhjvdjvt": [
+                                              [
+                                                "f4ab83e1da1"
+                                              ]
+                                            ],
+                                            "38e3nguyi16": [
+                                              [
+                                                "0252dda7cd8"
+                                              ],
+                                              [
+                                                "6773e455727"
+                                              ]
+                                            ],
+                                            "ntzuaxwhslb": [
+                                              [
+                                                "fa7a6a27ded"
+                                              ]
+                                            ],
+                                            "hdfunvjj0m9": [
+                                              [
+                                                "a48da57425b"
+                                              ]
+                                            ],
+                                            "wgfmzla7dg0": [
+                                              [
+                                                "2490b744507"
+                                              ],
+                                              [
+                                                "b68f40b23de"
+                                              ],
+                                              [
+                                                "63f2cc4e54e"
+                                              ]
+                                            ],
+                                            "jltn0hj7h70": [
+                                              [
+                                                "e11ae854e2b"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "8igjyuvqpym": [
+                                              24
+                                            ],
+                                            "rzu74efbg8o": [
+                                              24
+                                            ],
+                                            "n0wljciziyz": [
+                                              12,
+                                              12
+                                            ],
+                                            "itvrmonf4jc": [
+                                              24
+                                            ],
+                                            "erizhjvdjvt": [
+                                              24
+                                            ],
+                                            "38e3nguyi16": [
+                                              12,
+                                              12
+                                            ],
+                                            "ntzuaxwhslb": [
+                                              24
+                                            ],
+                                            "hdfunvjj0m9": [
+                                              24
+                                            ],
+                                            "wgfmzla7dg0": [
+                                              8,
+                                              8,
+                                              8
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "8igjyuvqpym",
+                                            "rzu74efbg8o",
+                                            "n0wljciziyz",
+                                            "itvrmonf4jc",
+                                            "erizhjvdjvt",
+                                            "38e3nguyi16",
+                                            "ntzuaxwhslb",
+                                            "hdfunvjj0m9",
+                                            "wgfmzla7dg0",
+                                            "jltn0hj7h70"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "72871ad2519",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "name"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "9c779b6893d",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "a1fb9c30928",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "product_family"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "ab5bc7d2510",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "a2905500a0f",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "category"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "ba78169875f",
+                                            "use": "CascadeSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "selectSettings": {
+                                                "fieldNames": {
+                                                  "label": "name"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "c5931a49d70",
+                                                "use": "DisplayTextFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_product_categories",
+                                                      "fieldPath": "name"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "nb_crm_product_categories",
+                                                      "associationName": "nb_crm_products.category",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "a8b9fc892de",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "description"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "a3bcb30545b",
+                                            "use": "TextareaFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "289ae8facf1",
+                                        "use": "DividerItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 5,
+                                        "stepParams": {
+                                          "markdownItemSetting": {
+                                            "title": {
+                                              "color": "rgba(0, 0, 0, 0.88)",
+                                              "label": "{{t(\"Basic Info\", { ns: \"resources.lm-flow-engine\" })}}",
+                                              "borderColor": "rgba(5, 5, 5, 0.06)",
+                                              "orientation": "left"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "f4ab83e1da1",
+                                        "use": "DividerItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 6,
+                                        "stepParams": {
+                                          "markdownItemSetting": {
+                                            "title": {
+                                              "color": "rgba(0, 0, 0, 0.88)",
+                                              "label": "Specifications",
+                                              "borderColor": "rgba(5, 5, 5, 0.06)",
+                                              "orientation": "left"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "6773e455727",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 8,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "unit"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "d7d28041c6e",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "fa7a6a27ded",
+                                        "use": "DividerItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 9,
+                                        "stepParams": {
+                                          "markdownItemSetting": {
+                                            "title": {
+                                              "color": "rgba(0, 0, 0, 0.88)",
+                                              "label": "Pricing",
+                                              "borderColor": "rgba(5, 5, 5, 0.06)",
+                                              "orientation": "left"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "a48da57425b",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 10,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "base_currency"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "53217d472d1",
+                                            "use": "SelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "2490b744507",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 11,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "list_price"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "a0af09e9688",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "b68f40b23de",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 12,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "cost_price"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "534cf46eb37",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "63f2cc4e54e",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 13,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "min_price"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "eea31c31911",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "0252dda7cd8",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 14,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "specification"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "b019c8f4c50",
+                                            "use": "SelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "e11ae854e2b",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 14,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_products",
+                                              "fieldPath": "price_tiers"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "model": {
+                                              "use": "SubTableFieldModel"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "21f8e6df5e7",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldBinding": {
+                                                "use": "SubTableFieldModel"
+                                              },
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_products",
+                                                  "fieldPath": "price_tiers"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "02c474d1e1c",
+                                                "use": "DisplayNumberFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_price_tiers",
+                                                      "fieldPath": "id"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "nb_crm_price_tiers",
+                                                      "associationName": "nb_crm_products.price_tiers",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              {
+                                                "uid": "48c81fc90ae",
+                                                "use": "SubTableColumnModel",
+                                                "subKey": "columns",
+                                                "subType": "array",
+                                                "sortIndex": 1,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_products",
+                                                      "fieldPath": "price_tiers.currencyInfo"
+                                                    }
+                                                  },
+                                                  "subTableColumnSettings": {
+                                                    "width": {
+                                                      "width": 150
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "41b97e25917",
+                                                    "use": "RecordSelectFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {},
+                                                    "children": [
+                                                      {
+                                                        "uid": "b89d2745e2a",
+                                                        "use": "DisplayTextFieldModel",
+                                                        "subKey": "field",
+                                                        "subType": "object",
+                                                        "sortIndex": 0,
+                                                        "stepParams": {
+                                                          "fieldSettings": {
+                                                            "init": {
+                                                              "dataSourceKey": "main",
+                                                              "collectionName": "nb_cbo_currencies",
+                                                              "fieldPath": "name"
+                                                            }
+                                                          },
+                                                          "popupSettings": {
+                                                            "openView": {
+                                                              "collectionName": "nb_cbo_currencies",
+                                                              "associationName": "nb_crm_price_tiers.currencyInfo",
+                                                              "dataSourceKey": "main"
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "dcb01f70468",
+                                                "use": "SubTableColumnModel",
+                                                "subKey": "columns",
+                                                "subType": "array",
+                                                "sortIndex": 2,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_products",
+                                                      "fieldPath": "price_tiers.min_quantity"
+                                                    }
+                                                  },
+                                                  "subTableColumnSettings": {
+                                                    "required": {
+                                                      "required": true
+                                                    },
+                                                    "width": {
+                                                      "width": 100
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "0f693b6c6b1",
+                                                    "use": "NumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {}
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "03878e7a19e",
+                                                "use": "SubTableColumnModel",
+                                                "subKey": "columns",
+                                                "subType": "array",
+                                                "sortIndex": 3,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_products",
+                                                      "fieldPath": "price_tiers.max_quantity"
+                                                    }
+                                                  },
+                                                  "subTableColumnSettings": {
+                                                    "width": {
+                                                      "width": 100
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "2908bbc7275",
+                                                    "use": "NumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {}
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "1f127196ab1",
+                                                "use": "SubTableColumnModel",
+                                                "subKey": "columns",
+                                                "subType": "array",
+                                                "sortIndex": 4,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_products",
+                                                      "fieldPath": "price_tiers.tier_description"
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "1ec907262b1",
+                                                    "use": "InputFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {}
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "fad7989f070",
+                                                "use": "SubTableColumnModel",
+                                                "subKey": "columns",
+                                                "subType": "array",
+                                                "sortIndex": 4,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_products",
+                                                      "fieldPath": "price_tiers.unit_price"
+                                                    }
+                                                  },
+                                                  "subTableColumnSettings": {
+                                                    "required": {
+                                                      "required": true
+                                                    },
+                                                    "width": {
+                                                      "width": 100
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "dd7d4b1d5cc",
+                                                    "use": "NumberFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {}
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "56503af5e93",
+                                                "use": "SubTableColumnModel",
+                                                "subKey": "columns",
+                                                "subType": "array",
+                                                "sortIndex": 6,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_products",
+                                                      "fieldPath": "price_tiers.discount_rate"
+                                                    }
+                                                  },
+                                                  "subTableColumnSettings": {
+                                                    "width": {
+                                                      "width": 100
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "0e45fbf75ec",
+                                                    "use": "PercentFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {}
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "uid": "8183368f919",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "3214473c4cb",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "list_price"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayNumberFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "d422f6d413e",
+                    "use": "DisplayNumberFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "numberSettings": {
+                        "format": {
+                          "formatStyle": "normal",
+                          "separator": "0,0.00",
+                          "numberStep": "0.01"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "886f71536a6",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "product_code"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "43d41aea64c",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "e871edc9cc5",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "cost_price"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayNumberFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "068def73323",
+                    "use": "DisplayNumberFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "numberSettings": {
+                        "format": {
+                          "formatStyle": "normal",
+                          "separator": "0,0.00",
+                          "numberStep": "0.01"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "4a4ffc6a878",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 7,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "base_currency"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayEnumFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "1a424fc92ba",
+                    "use": "DisplayEnumFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "85f3cda4bf9",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 7,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "specification"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayEnumFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "7b0116e6e44",
+                    "use": "DisplayEnumFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "80fbb7a1df9",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 8,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "unit"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "debb9dfab01",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_products",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "a26c93fb2d3",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 8,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_products",
+                      "fieldPath": "category"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayNumberFieldModel"
+                    },
+                    "fieldNames": {
+                      "label": "name"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "eb658d61424",
+                    "use": "DisplayNumberFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_product_categories",
+                          "associationName": "nb_crm_products.category",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "displayStyle": {
+                          "displayStyle": "tag"
+                        }
+                      },
+                      "fieldBinding": {
+                        "use": "DisplayTextFieldModel"
+                      },
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_product_categories",
+                          "fieldPath": "name"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uid": "67558b719dd",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "version": "v1",
+                  "code": "/**\n * Category Tree Filter - Product Category Sidebar\n *\n * Tree filter to filter product list by category hierarchy.\n *\n * Features:\n * - Expandable/collapsible tree structure\n * - Shows product count per category (including children)\n * - Click to filter product list by category\n * - Search categories by name\n * - \"All Products\" option to clear filter\n *\n * Tables: nb_crm_product_categories, nb_crm_products\n */\n\n// ==================== Config ====================\nconst TARGET_BLOCK_UID = '121ad8f2da1';  // TODO: Replace with actual product list block UID\nconst TABLE_NAME = 'nb_crm_product_categories';\nconst PRODUCT_TABLE = 'nb_crm_products';\n\n// ==================== Setup ====================\nconst { useState, useEffect, useMemo, useCallback } = ctx.React;\nconst { Card, Spin, Tree, Input, Badge, Typography, Space } = ctx.antd;\nconst { Search } = Input;\nconst { Text } = Typography;\n\n// Theme detection\nconst algorithm = ctx.antdConfig?.theme?.algorithm;\nconst darkAlgo = ctx.antd.theme.darkAlgorithm;\nconst isDark = Array.isArray(algorithm)\n  ? algorithm.some(fn => fn === darkAlgo)\n  : algorithm === darkAlgo;\nconst T = ctx.themeToken || {};\n\n// i18n\nconst t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });\n\n// ==================== Styles ====================\nconst styles = {\n  card: {\n    borderRadius: 12,\n  },\n  cardBody: {\n    padding: 0,\n  },\n  searchBox: {\n    padding: '12px 16px 8px',\n  },\n  treeContainer: {\n    padding: '0 8px 12px',\n    maxHeight: 400,\n    overflowY: 'auto',\n  },\n  loadingContainer: {\n    display: 'flex',\n    justifyContent: 'center',\n    padding: 40,\n  },\n  nodeTitle: {\n    width: '100%',\n    justifyContent: 'space-between',\n  },\n};\n\n// ==================== Hooks ====================\nfunction useCategoryData() {\n  const [categories, setCategories] = useState([]);\n  const [productCounts, setProductCounts] = useState({});\n  const [totalCount, setTotalCount] = useState(0);\n  const [loading, setLoading] = useState(true);\n\n  useEffect(() => {\n    const fetchData = async () => {\n      try {\n        // Fetch categories with tree structure\n        const categoryRes = await ctx.api.request({\n          url: `${TABLE_NAME}:list`,\n          params: { tree: true, pageSize: 500, sort: ['sort_order'] },\n        });\n        const categoryData = categoryRes?.data?.data || [];\n\n        // Fetch total product count\n        const productRes = await ctx.api.request({\n          url: `${PRODUCT_TABLE}:list`,\n          params: { pageSize: 1, appends: ['category'] },\n        });\n        const total = productRes?.data?.meta?.count || 0;\n        setTotalCount(total);\n\n        // Get counts per category\n        const countRes = await ctx.api.request({\n          url: `${PRODUCT_TABLE}:list`,\n          params: { pageSize: 9999, fields: ['id', 'category_id'] },\n        });\n        const products = countRes?.data?.data || [];\n        const counts = {};\n\n        products.forEach(product => {\n          const catId = product.category_id;\n          if (catId) {\n            counts[catId] = (counts[catId] || 0) + 1;\n          }\n        });\n\n        // Calculate parent category counts (sum of children)\n        const calculateParentCounts = (cats) => {\n          cats.forEach(cat => {\n            if (cat.children && cat.children.length > 0) {\n              calculateParentCounts(cat.children);\n              const childSum = cat.children.reduce((sum, child) => {\n                return sum + (counts[child.id] || 0);\n              }, 0);\n              counts[cat.id] = (counts[cat.id] || 0) + childSum;\n            }\n          });\n        };\n\n        calculateParentCounts(categoryData);\n        setProductCounts(counts);\n        setCategories(categoryData);\n      } catch (err) {\n        console.error('Category fetch error:', err);\n        setCategories([]);\n      } finally {\n        setLoading(false);\n      }\n    };\n\n    fetchData();\n  }, []);\n\n  return { categories, productCounts, totalCount, loading };\n}\n\n// ==================== Helper Functions ====================\nfunction flattenCategories(categories, result = []) {\n  categories.forEach(cat => {\n    result.push(cat);\n    if (cat.children) {\n      flattenCategories(cat.children, result);\n    }\n  });\n  return result;\n}\n\nfunction getAllChildIds(categories, parentId) {\n  const ids = [parentId];\n  const findChildren = (cats) => {\n    cats.forEach(cat => {\n      if (cat.parentId === parentId || ids.includes(cat.parentId)) {\n        ids.push(cat.id);\n      }\n      if (cat.children) {\n        findChildren(cat.children);\n      }\n    });\n  };\n  findChildren(categories);\n  return ids;\n}\n\nfunction convertToTreeData(categories, productCounts, searchValue) {\n  const filterBySearch = (cats, text) => {\n    if (!text) return cats;\n    const lowerText = text.toLowerCase();\n\n    return cats.reduce((acc, cat) => {\n      const matchesName = cat.name?.toLowerCase().includes(lowerText);\n      const filteredChildren = cat.children ? filterBySearch(cat.children, text) : [];\n\n      if (matchesName || filteredChildren.length > 0) {\n        acc.push({\n          ...cat,\n          children: filteredChildren.length > 0 ? filteredChildren : cat.children,\n        });\n      }\n      return acc;\n    }, []);\n  };\n\n  const filteredCategories = filterBySearch(categories, searchValue);\n\n  const mapToTreeNode = (cat) => ({\n    key: cat.id,\n    title: (\n      <Space style={styles.nodeTitle}>\n        <Text>{cat.name}</Text>\n        <Badge count={productCounts[cat.id] || 0} showZero color={T.colorBorderSecondary || '#d9d9d9'} style={{ color: T.colorTextSecondary || '#666' }} />\n      </Space>\n    ),\n    children: cat.children?.map(mapToTreeNode),\n  });\n\n  return filteredCategories.map(mapToTreeNode);\n}\n\n// ==================== Components ====================\nconst CategoryTreeFilter = () => {\n  const { categories, productCounts, totalCount, loading } = useCategoryData();\n  const [selectedKeys, setSelectedKeys] = useState([]);\n  const [expandedKeys, setExpandedKeys] = useState([]);\n  const [searchValue, setSearchValue] = useState('');\n\n  const flatCategories = useMemo(() => flattenCategories(categories), [categories]);\n\n  // Auto-expand first level on load\n  useEffect(() => {\n    if (categories.length > 0 && expandedKeys.length === 0) {\n      setExpandedKeys(categories.map(c => c.id));\n    }\n  }, [categories]);\n\n  const treeData = useMemo(\n    () => convertToTreeData(categories, productCounts, searchValue),\n    [categories, productCounts, searchValue]\n  );\n\n  const applyFilter = useCallback(async (categoryIds) => {\n    try {\n      const targetModel = ctx.engine?.getModel(TARGET_BLOCK_UID);\n      if (!targetModel) {\n        console.warn('Target block not found:', TARGET_BLOCK_UID);\n        return;\n      }\n\n      if (categoryIds === null || categoryIds.length === 0) {\n        targetModel.resource.addFilterGroup(ctx.model.uid, { $and: [] });\n      } else {\n        targetModel.resource.addFilterGroup(ctx.model.uid, {\n          category_id: { $in: categoryIds },\n        });\n      }\n\n      await targetModel.resource.refresh();\n    } catch (error) {\n      console.error('Filter failed:', error);\n    }\n  }, []);\n\n  const handleSelect = useCallback((keys) => {\n    if (keys.length === 0 || (selectedKeys.length > 0 && keys[0] === selectedKeys[0])) {\n      setSelectedKeys([]);\n      applyFilter(null);\n    } else {\n      const categoryId = keys[0];\n      setSelectedKeys(keys);\n      const allIds = getAllChildIds(flatCategories, categoryId);\n      applyFilter([...new Set(allIds)]);\n    }\n  }, [selectedKeys, flatCategories, applyFilter]);\n\n  const handleSelectAll = useCallback(() => {\n    setSelectedKeys([]);\n    applyFilter(null);\n  }, [applyFilter]);\n\n  const allProductsNode = {\n    key: '__all__',\n    title: (\n      <Space style={styles.nodeTitle}>\n        <Text strong>{t('All Products')}</Text>\n        <Badge count={totalCount} showZero color={T.colorPrimary || '#1890ff'} />\n      </Space>\n    ),\n  };\n\n  if (loading) {\n    return (\n      <Card style={styles.card}>\n        <div style={styles.loadingContainer}>\n          <Spin />\n        </div>\n      </Card>\n    );\n  }\n\n  return (\n    <Card\n      title={t('Product Categories')}\n      size=\"small\"\n      style={styles.card}\n      styles={{ body: styles.cardBody }}\n    >\n      <div style={styles.searchBox}>\n        <Search\n          placeholder={t('Search categories')}\n          value={searchValue}\n          onChange={e => setSearchValue(e.target.value)}\n          allowClear\n          size=\"small\"\n        />\n      </div>\n\n      <div style={styles.treeContainer}>\n        <Tree\n          treeData={[allProductsNode, ...treeData]}\n          selectedKeys={selectedKeys.length === 0 ? ['__all__'] : selectedKeys}\n          expandedKeys={expandedKeys}\n          onSelect={(keys) => {\n            if (keys[0] === '__all__') {\n              handleSelectAll();\n            } else {\n              handleSelect(keys);\n            }\n          }}\n          onExpand={setExpandedKeys}\n          blockNode\n        />\n      </div>\n    </Card>\n  );\n};\n\n// ==================== Main ====================\nctx.render(<CategoryTreeFilter />);\n"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "title": "Categories",
+      "uid": "o0kcydqy27y",
+      "grid_uid": "9e566f4d00d",
+      "stats": {
+        "nodes": 49,
+        "js": 0,
+        "events": 0,
+        "popups": 3
+      },
+      "tree": {
+        "uid": "9e566f4d00d",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {},
+        "children": [
+          {
+            "uid": "ecfbedc60f6",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_product_categories"
+                }
+              },
+              "tableSettings": {
+                "treeTable": {
+                  "treeTable": true
+                },
+                "defaultExpandAllRows": {
+                  "defaultExpandAllRows": true
+                },
+                "quickEdit": {
+                  "editable": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "09528c65ee8",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "f1ff459d98a",
+                "use": "TableActionsColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {
+                  "tableColumnSettings": {
+                    "title": {
+                      "title": "{{t(\"Actions\")}}"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "c74590160e0",
+                    "use": "AddChildActionModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_product_categories",
+                          "associationName": "nb_crm_product_categories.children",
+                          "dataSourceKey": "main",
+                          "mode": "dialog",
+                          "size": "medium",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "c74590160e0",
+                          "filterByTk": "{{ ctx.record.id }}"
+                        }
+                      },
+                      "buttonSettings": {
+                        "general": {
+                          "type": "link",
+                          "icon": "pluscircleoutlined",
+                          "title": "Add child"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "3ece3870ba5",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "532ebcdf7d9",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "984b8240359",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "8f2d42aad34",
+                                    "use": "CreateFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_product_categories",
+                                          "associationName": "nb_crm_product_categories.children",
+                                          "sourceId": "{{ctx.view.inputArgs.sourceId}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "d3a67878cd8",
+                                        "use": "FormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {},
+                                        "children": [
+                                          {
+                                            "uid": "347c19635aa",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 1,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_product_categories",
+                                                  "fieldPath": "name"
+                                                }
+                                              },
+                                              "editItemSettings": {
+                                                "required": {
+                                                  "required": true
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "0b24f77a762",
+                                                "use": "InputFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "da1b1db5e2c",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 2,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_product_categories",
+                                                  "fieldPath": "description"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "f64d5fa4611",
+                                                "use": "TextareaFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "c5e3446b148",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 3,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_product_categories",
+                                                  "fieldPath": "sort_order"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "9f55d1787b6",
+                                                "use": "NumberFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "3c9aa079730",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "e3051a14209",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_product_categories",
+                      "fieldPath": "name"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "1d414a8d1fc",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_product_categories",
+                          "dataSourceKey": "main",
+                          "mode": "dialog",
+                          "size": "medium",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "1d414a8d1fc"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "1434c95993c",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "6f027794b85",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "cec1ee20d50",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "2d3ec126d28",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_product_categories",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "1794fa67d02",
+                                        "use": "FormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {},
+                                        "children": [
+                                          {
+                                            "uid": "4d332f90963",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 1,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_product_categories",
+                                                  "fieldPath": "name"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "c0f499e5f6b",
+                                                "use": "InputFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "17290156e67",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 2,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_product_categories",
+                                                  "fieldPath": "description"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "46c00d34baf",
+                                                "use": "TextareaFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "43ab1ce51cb",
+                                            "use": "FormItemModel",
+                                            "subKey": "items",
+                                            "subType": "array",
+                                            "sortIndex": 3,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_product_categories",
+                                                  "fieldPath": "sort_order"
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "15cd620b07c",
+                                                "use": "NumberFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {}
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "0f94ed5483a",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "e95ed3a9a77",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "08759cdbfa5",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_product_categories",
+                      "fieldPath": "category_code"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "f9f2d03504c",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_product_categories",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "515c3cc4ad1",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_product_categories",
+                      "dataSourceKey": "main",
+                      "mode": "dialog",
+                      "size": "medium",
+                      "pageModelClass": "ChildPageModel",
+                      "uid": "515c3cc4ad1"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "eecef5ce207",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "d81f8015f03",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "ebccbd28d6d",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {},
+                            "children": [
+                              {
+                                "uid": "27e658e99f6",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_product_categories"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "c90a60f2c9b",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {},
+                                    "children": [
+                                      {
+                                        "uid": "d289ac36f03",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_product_categories",
+                                              "fieldPath": "name"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "7c9f1906df2",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "ebe7a7aa46c",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_product_categories",
+                                              "fieldPath": "description"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "a606cdb8818",
+                                            "use": "TextareaFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "bd97e4e2a11",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_product_categories",
+                                              "fieldPath": "sort_order"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "f64282da84e",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "uid": "a68c75cfa2a",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "0a5adffa071",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 5,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_product_categories",
+                      "fieldPath": "description"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "07dca53d092",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_product_categories",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

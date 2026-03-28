@@ -1,0 +1,6 @@
+
+# Personal local files (sync scripts, path mappings)
+.local/
+skills/*/.local/
+__pycache__/
+*.pyc

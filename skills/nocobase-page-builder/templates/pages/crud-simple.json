@@ -1,0 +1,19 @@
+[
+  {
+    "tab_uid": "{TAB_UID}",
+    "blocks": [
+      {
+        "id": "search", "type": "filter", "collection": "{COLLECTION}",
+        "fields": "{FILTER_FIELDS}", "target": "tbl"
+      },
+      {
+        "id": "tbl", "type": "table", "collection": "{COLLECTION}",
+        "fields": "{TABLE_FIELDS}", "first_click": true,
+        "addnew_fields": "{FORM_FIELDS}",
+        "edit_fields": "{FORM_FIELDS}",
+        "detail_tabs": "{DETAIL_TABS}"
+      }
+    ],
+    "layout": [[["search", 24]], [["tbl", 24]]]
+  }
+]

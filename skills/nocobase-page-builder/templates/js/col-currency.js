@@ -1,0 +1,1 @@
+const v=Number((ctx.record||{}).{FIELD})||0;ctx.render(ctx.React.createElement('span',{style:{fontFamily:'monospace',color:v>={THRESHOLD}?'#cf1322':'#333'}},'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2})));

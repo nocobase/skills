@@ -1,0 +1,2184 @@
+{
+  "title": "Activity",
+  "path": "Settings_Activity",
+  "uid": "n6bh6s6isej",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "79t9fodw6br",
+      "grid_uid": "788e8d2fc88",
+      "stats": {
+        "nodes": 111,
+        "js": 0,
+        "events": 0,
+        "popups": 4
+      },
+      "tree": {
+        "uid": "788e8d2fc88",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "cchws07rcao": [
+                  [
+                    "6c98b192c93"
+                  ]
+                ],
+                "wrv583y6x8a": [
+                  [
+                    "169a3eac929"
+                  ]
+                ]
+              },
+              "sizes": {
+                "cchws07rcao": [
+                  24
+                ],
+                "wrv583y6x8a": [
+                  24
+                ]
+              },
+              "rowOrder": [
+                "cchws07rcao",
+                "wrv583y6x8a"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "169a3eac929",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_activities"
+                }
+              },
+              "tableSettings": {
+                "quickEdit": {
+                  "editable": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "40ffe0264f0",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "b3f206b5350",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "e0a1daa5686",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "subject"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 300
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "ibbbzxrx5p3",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_activities",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "medium",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "ibbbzxrx5p3"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "p4irrgvx97s",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "e23ia5byy8a",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "484i0dweznh",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "gridSettings": {
+                                    "grid": {
+                                      "rows": {},
+                                      "sizes": {},
+                                      "rowOrder": []
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "ije8a251cxg",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_activities",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "g3z7i7o4ny8",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "fpq7iu2da59",
+                                              "templateName": "Form (Add new): Activities",
+                                              "targetUid": "b9e42f19aab",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "hatg11ioodd",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "649d4ff0f82",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_activities",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "medium",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "ibbbzxrx5p3",
+                          "popupTemplateUid": "gn64s38sjki",
+                          "popupTemplateHasFilterByTk": false,
+                          "popupTemplateHasSourceId": false
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "ec085d3c8d5",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "0202c45b6d5",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "5a49ac02616",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "gridSettings": {
+                                    "grid": {
+                                      "rows": {},
+                                      "sizes": {},
+                                      "rowOrder": []
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "2896cf35ae3",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_activities",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "0f68c3b4de7",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "fpq7iu2da59",
+                                              "templateName": "Form (Add new): Activities",
+                                              "targetUid": "b9e42f19aab",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "d61b8abe955",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "0774068c003",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "type"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayEnumFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "5300d925497",
+                    "use": "DisplayEnumFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_activities",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "630ligbb0op",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_activities",
+                      "dataSourceKey": "main"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "5p15jlozu73",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "usimpxiyhws",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "7bxl4fz64n3",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "7t6b32i8372": [
+                                      [
+                                        "ng4zpb87z6k"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "7t6b32i8372"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "ng4zpb87z6k",
+                                "use": "ReferenceBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "referenceSettings": {
+                                    "target": {
+                                      "targetUid": "b9e42f19aab",
+                                      "mode": "reference"
+                                    },
+                                    "useTemplate": {
+                                      "templateUid": "fpq7iu2da59",
+                                      "templateName": "Form (Add new): Activities",
+                                      "templateDescription": "",
+                                      "targetUid": "b9e42f19aab",
+                                      "mode": "reference"
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "9deb7d42812",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_activities",
+                      "dataSourceKey": "main",
+                      "uid": "630ligbb0op",
+                      "popupTemplateUid": "fepx596jfd5",
+                      "popupTemplateHasFilterByTk": false,
+                      "popupTemplateHasSourceId": false
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "ad13a47bbf9",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "6d1718cc51a",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "f02975b17e5",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "7t6b32i8372": [
+                                      [
+                                        "e1332bb0355"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "7t6b32i8372"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "e1332bb0355",
+                                "use": "ReferenceBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "referenceSettings": {
+                                    "target": {
+                                      "targetUid": "b9e42f19aab",
+                                      "mode": "reference"
+                                    },
+                                    "useTemplate": {
+                                      "templateUid": "fpq7iu2da59",
+                                      "templateName": "Form (Add new): Activities",
+                                      "templateDescription": "",
+                                      "targetUid": "b9e42f19aab",
+                                      "mode": "reference"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "uid": "b9e42f19aab",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_activities"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "0ba3b825160",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  },
+                                  {
+                                    "uid": "3cbd9420e83",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "ysqk3v85zx6": [
+                                              [
+                                                "e9f887ed8b3"
+                                              ]
+                                            ],
+                                            "gkq40j71p46": [
+                                              [
+                                                "062539a8a80"
+                                              ],
+                                              [
+                                                "89352a313f5"
+                                              ]
+                                            ],
+                                            "jy0roh6uh4r": [
+                                              [
+                                                "22df99edcf5"
+                                              ]
+                                            ],
+                                            "d09lrqwbv4s": [
+                                              [
+                                                "cef9747c075",
+                                                "e6cc711073f"
+                                              ],
+                                              [
+                                                "4c9de3cb917",
+                                                "28cb3857dbe"
+                                              ],
+                                              [
+                                                "0530cfb7fd7"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "gkq40j71p46": [
+                                              12,
+                                              12
+                                            ],
+                                            "jy0roh6uh4r": [
+                                              24
+                                            ],
+                                            "d09lrqwbv4s": [
+                                              8,
+                                              8,
+                                              8
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "ysqk3v85zx6",
+                                            "gkq40j71p46",
+                                            "jy0roh6uh4r",
+                                            "d09lrqwbv4s"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "e9f887ed8b3",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "subject"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "c830176d555",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "062539a8a80",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "type"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "1ab6a0ed655",
+                                            "use": "SelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "89352a313f5",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "activity_date"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "810a0ce511d",
+                                            "use": "DateTimeTzFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "22df99edcf5",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "content"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "9d758473a76",
+                                            "use": "VditorFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "cef9747c075",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 5,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "customer"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "1a9c86605f8",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "4c9de3cb917",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 6,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "opportunity"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "f9b4e7cfc66",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "0530cfb7fd7",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 7,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "contact"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "cce295ea445",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "28cb3857dbe",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 8,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "owner"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.user }}"
+                                            },
+                                            "pattern": {
+                                              "pattern": "readPretty"
+                                            },
+                                            "titleField": {
+                                              "titleField": "nickname"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "a9145f13aa3",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldBinding": {
+                                                "use": "DisplayTextFieldModel"
+                                              },
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_activities",
+                                                  "fieldPath": "owner"
+                                                }
+                                              },
+                                              "popupSettings": {
+                                                "openView": {
+                                                  "collectionName": "users",
+                                                  "associationName": "nb_crm_activities.owner",
+                                                  "dataSourceKey": "main"
+                                                }
+                                              },
+                                              "displayFieldSettings": {
+                                                "clickToOpen": {
+                                                  "clickToOpen": false
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "8bdfee9c730",
+                                                "use": "DisplayTextFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "users",
+                                                      "fieldPath": "nickname"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "users",
+                                                      "associationName": "nb_crm_activities.owner",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "e6cc711073f",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 9,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "lead"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "f8776dda009",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "uid": "7r5dtetineu",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "ysqk3v85zx6": [
+                                              [
+                                                "uj73szi0xce"
+                                              ]
+                                            ],
+                                            "gkq40j71p46": [
+                                              [
+                                                "3nxzawce7j4"
+                                              ],
+                                              [
+                                                "ezokwiyghob"
+                                              ]
+                                            ],
+                                            "jy0roh6uh4r": [
+                                              [
+                                                "v19wkb00325"
+                                              ]
+                                            ],
+                                            "d09lrqwbv4s": [
+                                              [
+                                                "vahee99e9cz",
+                                                "998bp5j30he"
+                                              ],
+                                              [
+                                                "a7j0o7iqh1n",
+                                                "itijrfz8jid"
+                                              ],
+                                              [
+                                                "mlw7mhqt1m7"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "gkq40j71p46": [
+                                              12,
+                                              12
+                                            ],
+                                            "jy0roh6uh4r": [
+                                              24
+                                            ],
+                                            "d09lrqwbv4s": [
+                                              8,
+                                              8,
+                                              8
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "ysqk3v85zx6",
+                                            "gkq40j71p46",
+                                            "jy0roh6uh4r",
+                                            "d09lrqwbv4s"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "uj73szi0xce",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "subject"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "ff33n54689b",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "3nxzawce7j4",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "type"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "meeting"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "nkz0omm5moz",
+                                            "use": "SelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "ezokwiyghob",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "activity_date"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "omgi13bwgdb",
+                                            "use": "DateTimeTzFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "v19wkb00325",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "content"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "bci0pze00hn",
+                                            "use": "VditorFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "vahee99e9cz",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 5,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "customer"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "0x9ouz0dhw7",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "a7j0o7iqh1n",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 6,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "opportunity"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "oqjxixg4ive",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "mlw7mhqt1m7",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 7,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "contact"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": null
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "yd3qnki3cl9",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "itijrfz8jid",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 8,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "owner"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.user }}"
+                                            },
+                                            "pattern": {
+                                              "pattern": "readPretty"
+                                            },
+                                            "titleField": {
+                                              "titleField": "nickname"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "41d3sehb0r8",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldBinding": {
+                                                "use": "DisplayTextFieldModel"
+                                              },
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_activities",
+                                                  "fieldPath": "owner"
+                                                }
+                                              },
+                                              "popupSettings": {
+                                                "openView": {
+                                                  "collectionName": "users",
+                                                  "associationName": "nb_crm_activities.owner",
+                                                  "dataSourceKey": "main"
+                                                }
+                                              },
+                                              "displayFieldSettings": {
+                                                "clickToOpen": {
+                                                  "clickToOpen": false
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "wgqt8hj1bod",
+                                                "use": "DisplayTextFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "users",
+                                                      "fieldPath": "nickname"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "users",
+                                                      "associationName": "nb_crm_activities.owner",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "998bp5j30he",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 9,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "lead"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.popup.parent.record }}"
+                                            },
+                                            "pattern": {
+                                              "pattern": "readPretty"
+                                            },
+                                            "titleField": {
+                                              "titleField": "name"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "n29be7q489k",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldBinding": {
+                                                "use": "DisplayTextFieldModel"
+                                              },
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_activities",
+                                                  "fieldPath": "lead"
+                                                }
+                                              },
+                                              "popupSettings": {
+                                                "openView": {
+                                                  "collectionName": "nb_crm_leads",
+                                                  "associationName": "nb_crm_activities.lead",
+                                                  "dataSourceKey": "main"
+                                                }
+                                              },
+                                              "displayFieldSettings": {
+                                                "clickToOpen": {
+                                                  "clickToOpen": false
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "0aecddadfc9",
+                                                "use": "DisplayTextFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "nb_crm_leads",
+                                                      "fieldPath": "name"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "nb_crm_leads",
+                                                      "associationName": "nb_crm_activities.lead",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "uid": "e9xd9ureox2",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "ysqk3v85zx6": [
+                                              [
+                                                "kprlmtotzkn"
+                                              ]
+                                            ],
+                                            "gkq40j71p46": [
+                                              [
+                                                "tdso6siwggs"
+                                              ],
+                                              [
+                                                "hmby338pfca"
+                                              ]
+                                            ],
+                                            "jy0roh6uh4r": [
+                                              [
+                                                "4pdohst2r2x"
+                                              ]
+                                            ],
+                                            "d09lrqwbv4s": [
+                                              [
+                                                "r6ioyufyht1",
+                                                "1b56foklpel"
+                                              ],
+                                              [
+                                                "pq2npl7qkim",
+                                                "vi2kmbqj0gj"
+                                              ],
+                                              [
+                                                "igml42a0akr"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "gkq40j71p46": [
+                                              12,
+                                              12
+                                            ],
+                                            "jy0roh6uh4r": [
+                                              24
+                                            ],
+                                            "d09lrqwbv4s": [
+                                              8,
+                                              8,
+                                              8
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "ysqk3v85zx6",
+                                            "gkq40j71p46",
+                                            "jy0roh6uh4r",
+                                            "d09lrqwbv4s"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "kprlmtotzkn",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "subject"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "Subject"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "85w1txsnelu",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "tdso6siwggs",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "type"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "6v6qfrs6jn0",
+                                            "use": "SelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "hmby338pfca",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "activity_date"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "5g69lpvm7tk",
+                                            "use": "DateTimeTzFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "4pdohst2r2x",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "content"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "8ao5hraof88",
+                                            "use": "VditorFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "r6ioyufyht1",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 5,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "customer"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.popup.record.converted_customer }}"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "c6rp72b3r4e",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "pq2npl7qkim",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 6,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "opportunity"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.popup.record.converted_opportunity }}"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "o6wwv9akn34",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "igml42a0akr",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 7,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "contact"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.popup.record.converted_contact }}"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "m29k6ojtzz1",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "vi2kmbqj0gj",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 8,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "owner"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.user }}"
+                                            },
+                                            "pattern": {
+                                              "pattern": "readPretty"
+                                            },
+                                            "titleField": {
+                                              "titleField": "nickname"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "szjp1wl4tuw",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldBinding": {
+                                                "use": "DisplayTextFieldModel"
+                                              },
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "nb_crm_activities",
+                                                  "fieldPath": "owner"
+                                                }
+                                              },
+                                              "popupSettings": {
+                                                "openView": {
+                                                  "collectionName": "users",
+                                                  "associationName": "nb_crm_activities.owner",
+                                                  "dataSourceKey": "main"
+                                                }
+                                              },
+                                              "displayFieldSettings": {
+                                                "clickToOpen": {
+                                                  "clickToOpen": false
+                                                }
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "6tuydpi0h7p",
+                                                "use": "DisplayTextFieldModel",
+                                                "subKey": "field",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "users",
+                                                      "fieldPath": "nickname"
+                                                    }
+                                                  },
+                                                  "popupSettings": {
+                                                    "openView": {
+                                                      "collectionName": "users",
+                                                      "associationName": "nb_crm_activities.owner",
+                                                      "dataSourceKey": "main"
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "1b56foklpel",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 9,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_activities",
+                                              "fieldPath": "lead"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "initialValue": {
+                                              "defaultValue": "{{ ctx.popup.parent.record }}"
+                                            },
+                                            "pattern": {
+                                              "pattern": "disabled"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "t7ez0xizg57",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "742eed7cd44",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "activity_date"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayDateTimeFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "cbd9268a8dd",
+                    "use": "DisplayDateTimeFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_activities",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "c38a6bd0954",
+                "use": "AIEmployeeButtonModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "shortcutSettings": {
+                    "editTasks": {
+                      "tasks": [
+                        {
+                          "message": {
+                            "workContext": [
+                              {
+                                "type": "flow-model",
+                                "uid": "169a3eac929",
+                                "title": "\n    Table:\n    Activities"
+                              }
+                            ],
+                            "skillSettings": {},
+                            "system": "Please begin an immediate and comprehensive visual analysis of our **Activities data**.\n\n**Guiding Principles & Tool Selection:**\n\n* **Primary Tool:** For this task, your first choice should be the **`Overall Analytics`** tool, as it is optimized for Activities data.\n* **Fallback Tool:** If you require data beyond the scope of `Overall Analytics`, use the **`SQL` tool** to query the database directly.\n\n**Analysis Workflow & Instructions:**\n\n1.  **Prerequisite: Verify Table Name**\n    * The database table for \"Activities\" is `nb_crm_activities`. Use this exact name when calling tools.\n\n2.  **Initial Analysis & Visualization**\n    * Perform a broad analysis of the activities data focusing on:\n      - Activity volume by type (calls, meetings, emails, tasks)\n      - Completion rates and overdue activities\n      - Activity trends over time (weekly/monthly patterns)\n      - Productivity by user/sales rep\n      - Activity coverage on active opportunities\n      - Sentiment distribution (if available)\n    * Create a separate, clear ECharts visual (`<echarts>{...JSON...}</echarts>`) for each significant finding.\n\n3.  **Deep-Dive & User Guidance**\n    * After presenting your initial findings, guide me toward deeper insights.\n    * **Formulate and ask me specific business questions** such as:\n        * *\"Activity volume dropped 25% last week. Would you like me to break this down by rep to see who needs support?\"*\n        * *\"You have 15 overdue follow-up tasks. Would you like to see which opportunities these are linked to and prioritize them?\"*\n        * *\"Calls have the highest conversion impact but represent only 20% of activities. Would you like to analyze optimal activity mix?\"*\n        * *\"3 opportunities have had no activity in 2 weeks. Would you like me to flag these as at-risk?\"*\n\nPlease start the analysis now.",
+                            "user": "Show me activity trends and productivity metrics."
+                          },
+                          "title": "Activities Analysis",
+                          "autoSend": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "uid": "dc6f7c805a7",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 5,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "lead"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9cbe25c3786",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_leads",
+                          "associationName": "nb_crm_activities.lead",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "cff054e6d7e",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 6,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "customer"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "3c2a21936a5",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_customers",
+                          "associationName": "nb_crm_activities.customer",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "257d68f2d5a",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 7,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "opportunity"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "fa415f82ba1",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_opportunities",
+                          "associationName": "nb_crm_activities.opportunity",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "4e05bd012b9",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 8,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "contact"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "f45aaa2d79e",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_contacts",
+                          "associationName": "nb_crm_activities.contact",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "716b4998ce9",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 9,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "owner"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9c3e2fb7dcd",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "users",
+                          "associationName": "nb_crm_activities.owner",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uid": "6c98b192c93",
+            "use": "FilterFormBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "formFilterBlockModelSettings": {
+                "layout": {
+                  "layout": "horizontal",
+                  "labelAlign": "left",
+                  "labelWidth": 120,
+                  "labelWrap": true,
+                  "colon": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "427ad39d4b0",
+                "use": "FilterFormGridModel",
+                "subKey": "grid",
+                "subType": "object",
+                "sortIndex": 0,
+                "stepParams": {},
+                "children": [
+                  {
+                    "uid": "a57e4e01575",
+                    "use": "FilterFormItemModel",
+                    "subKey": "items",
+                    "subType": "array",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "fieldSettings": {
+                        "init": {
+                          "dataSourceKey": "main",
+                          "collectionName": "nb_crm_activities",
+                          "fieldPath": "subject"
+                        }
+                      },
+                      "filterFormItemSettings": {
+                        "init": {
+                          "filterField": {
+                            "name": "subject",
+                            "title": "Subject",
+                            "interface": "input",
+                            "type": "string"
+                          },
+                          "defaultTargetUid": "169a3eac929"
+                        },
+                        "label": {
+                          "label": "Search"
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "c41908ae2d3",
+                        "use": "InputFieldModel",
+                        "subKey": "field",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {}
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1305 @@
+{
+  "title": "Exchange Rate",
+  "path": "Settings_Exchange Rate",
+  "uid": "uba29ch3x3s",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "bt6yooev1id",
+      "grid_uid": "a1bc038e933",
+      "stats": {
+        "nodes": 74,
+        "js": 0,
+        "events": 0,
+        "popups": 5
+      },
+      "tree": {
+        "uid": "a1bc038e933",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "t7n0zbobpcn": [
+                  [
+                    "da8e1d8402d"
+                  ],
+                  [
+                    "077d67f7bd9"
+                  ]
+                ]
+              },
+              "sizes": {
+                "t7n0zbobpcn": [
+                  11,
+                  13
+                ]
+              },
+              "rowOrder": [
+                "t7n0zbobpcn"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "077d67f7bd9",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_exchange_rates"
+                }
+              },
+              "tableSettings": {
+                "quickEdit": {
+                  "editable": true
+                }
+              },
+              "cardSettings": {
+                "titleDescription": {
+                  "title": "Exchange Rates"
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "9d725a60993",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "b4412011a3f",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_exchange_rates",
+                      "fieldPath": "rate_to_usd"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayNumberFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "ef05a04a1a5",
+                    "use": "DisplayNumberFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_exchange_rates",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "numberSettings": {
+                        "format": {
+                          "formatStyle": "normal",
+                          "separator": "0,0.00",
+                          "numberStep": "0.01"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "14694adc35a",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "1e49c948a63",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_exchange_rates",
+                      "fieldPath": "currency_code"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "6bea805401b",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_exchange_rates",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "b550336ea7d",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "a50a4a76ac6",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "b20db658cbf",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "5ccf2de3468",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_exchange_rates",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "80190d61e98",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "ls0z7rdsrs3",
+                                              "templateName": "Form (Add new): Exchange Rates",
+                                              "targetUid": "0da9d0a6105",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "32f67467030",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "a482b544ed7",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_exchange_rates",
+                      "dataSourceKey": "main"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "748303512e2",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "3384bd0a314",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "f57146fe243",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "2c5q89cvzr4": [
+                                      [
+                                        "f2c8f497cbb"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "2c5q89cvzr4"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "f2c8f497cbb",
+                                "use": "ReferenceBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "referenceSettings": {
+                                    "target": {
+                                      "targetUid": "0da9d0a6105",
+                                      "mode": "reference"
+                                    },
+                                    "useTemplate": {
+                                      "templateUid": "ls0z7rdsrs3",
+                                      "templateName": "Form (Add new): Exchange Rates",
+                                      "templateDescription": "",
+                                      "targetUid": "0da9d0a6105",
+                                      "mode": "reference"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "uid": "0da9d0a6105",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_exchange_rates"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "3186cff9410",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  },
+                                  {
+                                    "uid": "ce8a1cb50a8",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "wonxmmy7e9u": [
+                                              [
+                                                "c23b7b2bf93"
+                                              ]
+                                            ],
+                                            "wwatxok45xd": [
+                                              [
+                                                "00b2e8d13df"
+                                              ]
+                                            ],
+                                            "96l9vziu8mz": [
+                                              [
+                                                "baaf127f144"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "wonxmmy7e9u": [
+                                              24
+                                            ],
+                                            "wwatxok45xd": [
+                                              24
+                                            ],
+                                            "96l9vziu8mz": [
+                                              24
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "wonxmmy7e9u",
+                                            "wwatxok45xd",
+                                            "96l9vziu8mz"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "c23b7b2bf93",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_exchange_rates",
+                                              "fieldPath": "rate_to_usd"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "27c9ade4471",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "ceba477654f",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_exchange_rates",
+                                              "fieldPath": "source"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "65f9842d6a7",
+                                            "use": "SelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "00b2e8d13df",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 6,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_exchange_rates",
+                                              "fieldPath": "currency"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "e287108b693",
+                                            "use": "RecordSelectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "baaf127f144",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 7,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_crm_exchange_rates",
+                                              "fieldPath": "effective_date"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "3e5c6aebf95",
+                                            "use": "DateOnlyFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "231b2fc4729",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_exchange_rates",
+                      "fieldPath": "source"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayEnumFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "25c313f9ade",
+                    "use": "DisplayEnumFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_exchange_rates",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "cb9a31f6204",
+                "use": "BulkDeleteActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {}
+              },
+              {
+                "uid": "a78e8fd1ce3",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 5,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_exchange_rates",
+                      "fieldPath": "currency"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9822043999a",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_cbo_currencies",
+                          "associationName": "nb_crm_exchange_rates.currency",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": false
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "a893c0d36d0",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "986c6564890",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "597de6644ec",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "a1406a3c502",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_cbo_currencies",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}",
+                                          "associationName": "nb_crm_exchange_rates.currency",
+                                          "sourceId": "{{ctx.view.inputArgs.sourceId}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "b71a6e35792",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "fggawimkpeo",
+                                              "templateName": "Form (Add new): Currencies",
+                                              "targetUid": "c0547bc25a4",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "78e57a8adb3",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "uid": "da8e1d8402d",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_cbo_currencies"
+                }
+              },
+              "cardSettings": {
+                "titleDescription": {
+                  "title": "Currencies"
+                }
+              },
+              "tableSettings": {
+                "quickEdit": {
+                  "editable": true
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "3631a9b161a",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "6b67d0e6a83",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_cbo_currencies",
+                      "fieldPath": "name"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9868f668808",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_cbo_currencies",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "597f3e737a7",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "58c3a226532",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "74f0d28c703",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {},
+                                "children": [
+                                  {
+                                    "uid": "188017a7088",
+                                    "use": "EditFormModel",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "resourceSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_cbo_currencies",
+                                          "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "299c1c9a2af",
+                                        "use": "ReferenceFormGridModel",
+                                        "subKey": "grid",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "referenceSettings": {
+                                            "useTemplate": {
+                                              "templateUid": "fggawimkpeo",
+                                              "templateName": "Form (Add new): Currencies",
+                                              "targetUid": "c0547bc25a4",
+                                              "mode": "reference"
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "uid": "090e653b621",
+                                        "use": "FormSubmitActionModel",
+                                        "subKey": "actions",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "be2b1ef1c1b",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "daf5cc2f08b",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_cbo_currencies",
+                      "fieldPath": "code"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "8bf938ff992",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_cbo_currencies",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "579837e199f",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_cbo_currencies",
+                      "fieldPath": "current_rate"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayNumberFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "1f45f1366d7",
+                    "use": "DisplayNumberFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_cbo_currencies",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "58b21bd1c7d",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_cbo_currencies",
+                      "dataSourceKey": "main"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9a428eadb1c",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "3c753e186bd",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "3ff2f4e3d90",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "6o8fw0q4yvt": [
+                                      [
+                                        "37acac5f198"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "6o8fw0q4yvt"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "37acac5f198",
+                                "use": "ReferenceBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "referenceSettings": {
+                                    "target": {
+                                      "targetUid": "c0547bc25a4",
+                                      "mode": "reference"
+                                    },
+                                    "useTemplate": {
+                                      "templateUid": "fggawimkpeo",
+                                      "templateName": "Form (Add new): Currencies",
+                                      "templateDescription": "",
+                                      "targetUid": "c0547bc25a4",
+                                      "mode": "reference"
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "uid": "c0547bc25a4",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_cbo_currencies"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "985172bded4",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  },
+                                  {
+                                    "uid": "b9cfde41350",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 1,
+                                    "stepParams": {
+                                      "gridSettings": {
+                                        "grid": {
+                                          "rows": {
+                                            "rvmf8exsmqr": [
+                                              [
+                                                "776aef9c699"
+                                              ]
+                                            ],
+                                            "w2svdq399oj": [
+                                              [
+                                                "3e934b745ec",
+                                                "d2e89cdc807"
+                                              ]
+                                            ],
+                                            "759yemmogpc": [
+                                              [
+                                                "76ac5df53c1"
+                                              ]
+                                            ]
+                                          },
+                                          "sizes": {
+                                            "rvmf8exsmqr": [
+                                              24
+                                            ],
+                                            "w2svdq399oj": [
+                                              24
+                                            ],
+                                            "759yemmogpc": [
+                                              24
+                                            ]
+                                          },
+                                          "rowOrder": [
+                                            "rvmf8exsmqr",
+                                            "w2svdq399oj",
+                                            "759yemmogpc"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "children": [
+                                      {
+                                        "uid": "776aef9c699",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_cbo_currencies",
+                                              "fieldPath": "name"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "524b63b8275",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "3e934b745ec",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_cbo_currencies",
+                                              "fieldPath": "code"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "dae97551720",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "76ac5df53c1",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_cbo_currencies",
+                                              "fieldPath": "current_rate"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "409431f2fe9",
+                                            "use": "NumberFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "d2e89cdc807",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "nb_cbo_currencies",
+                                              "fieldPath": "symbol"
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "db2224eb052",
+                                            "use": "InputFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "7bb6ada53e5",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_cbo_currencies",
+                      "fieldPath": "symbol"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "920a6c6c1a0",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_cbo_currencies",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

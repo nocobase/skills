@@ -1,0 +1,24 @@
+[
+  {
+    "tab_uid": "{TAB_UID}",
+    "blocks": [
+      {
+        "id": "kpi", "type": "js", "title": "Overview",
+        "code": "(async()=>{const h=ctx.React.createElement;const{Statistic,Row,Col}=ctx.antd;const qs={KPI_QUERIES};const vs=[];for(const q of qs){const r=await ctx.api.request({url:'{COLLECTION}:list',params:{paginate:false,filter:q.f}});vs.push(r?.data?.data?.length||0)}ctx.render(h(Row,{gutter:16,style:{padding:'8px 0'}},qs.map((q,i)=>h(Col,{span:Math.floor(24/qs.length),key:i},h(Statistic,{title:q.t,value:vs[i],valueStyle:{color:q.c,fontSize:28}})))))})();"
+      },
+      {
+        "id": "search", "type": "filter", "collection": "{COLLECTION}",
+        "fields": "{FILTER_FIELDS}", "target": "tbl"
+      },
+      {
+        "id": "tbl", "type": "table", "collection": "{COLLECTION}",
+        "fields": "{TABLE_FIELDS}", "first_click": true,
+        "addnew_fields": "{FORM_FIELDS}",
+        "edit_fields": "{FORM_FIELDS}",
+        "detail_tabs": "{DETAIL_TABS}",
+        "js_columns": "{JS_COLUMNS}"
+      }
+    ],
+    "layout": [[["kpi", 24]], [["search", 24]], [["tbl", 24]]]
+  }
+]

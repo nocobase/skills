@@ -1,0 +1,32 @@
+[
+  {
+    "tab_uid": "{TAB_UID}",
+    "blocks": [
+      {
+        "id": "progress", "type": "js", "title": "{PROGRESS_TITLE}",
+        "code": "{PROGRESS_CODE}"
+      },
+      {
+        "id": "ranking", "type": "js", "title": "{RANKING_TITLE}",
+        "code": "{RANKING_CODE}"
+      },
+      {
+        "id": "search", "type": "filter", "collection": "{COLLECTION}",
+        "fields": "{FILTER_FIELDS}", "target": "tbl"
+      },
+      {
+        "id": "tbl", "type": "table", "collection": "{COLLECTION}",
+        "fields": "{TABLE_FIELDS}", "first_click": true,
+        "addnew_fields": "{FORM_FIELDS}",
+        "edit_fields": "{FORM_FIELDS}",
+        "detail_tabs": "{DETAIL_TABS}",
+        "js_columns": "{JS_COLUMNS}"
+      }
+    ],
+    "layout": [
+      [["progress", 10], ["ranking", 14]],
+      [["search", 24]],
+      [["tbl", 24]]
+    ]
+  }
+]

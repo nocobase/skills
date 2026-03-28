@@ -1,0 +1,6 @@
+// Item: Computed Stats — shows 2-4 derived statistics from record fields
+// Tool: nb_inject_js(uid, code)
+// Placeholders: {STATS}
+// {STATS} = JSON array: [{"title":"Original Value","field":"purchase_price","prefix":"¥","color":"#333"},{"title":"Net Value","expr":"purchase_price-depreciation","prefix":"¥","color":"#52c41a"}]
+// Each stat: "field" for direct value, or "expr" for simple A-B / A*B / A/B expression
+(async()=>{const h=ctx.React.createElement;const{Statistic,Card}=ctx.antd;const r=ctx.record||{};const stats={STATS};const calc=(expr)=>{const m=expr.match(/^(\w+)\s*([+\-*/])\s*(\w+)$/);if(!m)return Number(r[expr])||0;const a=Number(r[m[1]])||0;const b=Number(r[m[3]])||0;if(m[2]==='+')return a+b;if(m[2]==='-')return a-b;if(m[2]==='*')return a*b;if(m[2]==='/')return b?a/b:0;return 0;};const vals=stats.map(s=>{const v=s.expr?calc(s.expr):((s.field&&r[s.field])!=null?Number(r[s.field]):0);return v;});ctx.render(h(Card,{size:'small'},h('div',{style:{display:'flex',justifyContent:'space-between'}},...stats.map((s,i)=>h(Statistic,{key:i,title:s.title,value:(s.prefix||'')+Number(vals[i]).toLocaleString('en-US',{minimumFractionDigits:s.decimal||0,maximumFractionDigits:s.decimal||0})+(s.suffix||''),valueStyle:{fontSize:14,color:s.color||'#333'}})))));})();

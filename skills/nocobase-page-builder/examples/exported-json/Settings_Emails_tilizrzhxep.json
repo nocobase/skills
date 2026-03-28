@@ -1,0 +1,1989 @@
+{
+  "title": "Emails",
+  "path": "Settings_Emails",
+  "uid": "tilizrzhxep",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "nmx7b851e3a",
+      "grid_uid": "31bbddc276e",
+      "stats": {
+        "nodes": 98,
+        "js": 1,
+        "events": 4,
+        "popups": 4
+      },
+      "tree": {
+        "uid": "31bbddc276e",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "5k7hb8xywf0": [
+                  [
+                    "50183ddfeec"
+                  ]
+                ]
+              },
+              "sizes": {},
+              "rowOrder": [
+                "5k7hb8xywf0"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "50183ddfeec",
+            "use": "ReferenceBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 0,
+            "stepParams": {
+              "referenceSettings": {
+                "target": {
+                  "targetUid": "cb09a1ee275",
+                  "mode": "reference"
+                },
+                "useTemplate": {
+                  "templateUid": "vj6vwmysk9t",
+                  "templateName": "Email table: Mail messages",
+                  "templateDescription": "",
+                  "targetUid": "cb09a1ee275",
+                  "mode": "reference"
+                }
+              }
+            }
+          },
+          {
+            "uid": "cb09a1ee275",
+            "use": "MailMessagesBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "mailMessages"
+                }
+              },
+              "tableSettings": {
+                "defaultSorting": {
+                  "sort": [
+                    {
+                      "field": "relatedMessageLatestDate",
+                      "direction": "desc"
+                    }
+                  ]
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "6e5080d89ec",
+                "use": "CustomMailMessagesColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "mailMessages",
+                      "fieldPath": "from"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "CustomMailFromFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "a2496ee3f66",
+                    "use": "CustomMailFromFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "mailMessages",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "7709dbaed9a",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "7fec497c4cc",
+                "use": "CustomMailMessagesColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "mailMessages",
+                      "fieldPath": "subject"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "CustomMailSubjectFieldModel"
+                    },
+                    "width": {
+                      "width": 300
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9d2b568d25c",
+                    "use": "CustomMailSubjectFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "mailMessages",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "large",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "9d2b568d25c"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "1a086ee073f",
+                        "use": "ChildPageModel",
+                        "subKey": "page",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageSettings": {
+                            "general": {
+                              "displayTitle": false,
+                              "enableTabs": true
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "c3cbb35052f",
+                            "use": "ChildPageTabModel",
+                            "subKey": "tabs",
+                            "subType": "array",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "pageTabSettings": {
+                                "tab": {
+                                  "title": "Details"
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "b421caa1f7e",
+                                "use": "BlockGridModel",
+                                "subKey": "grid",
+                                "subType": "object",
+                                "sortIndex": 0,
+                                "stepParams": {
+                                  "gridSettings": {
+                                    "grid": {
+                                      "rows": {},
+                                      "sizes": {},
+                                      "rowOrder": []
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "0492aee8b1b",
+                                    "use": "MailDetailBlockModelWithDraft",
+                                    "subKey": "items",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {},
+                                    "children": [
+                                      {
+                                        "uid": "2a2697e6e88",
+                                        "use": "MailDetailBlockModel",
+                                        "subKey": "detail",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {},
+                                        "children": [
+                                          {
+                                            "uid": "3f14c6db5bd",
+                                            "use": "MailReplyActionModel",
+                                            "subKey": "actions",
+                                            "subType": "array",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "popupSettings": {
+                                                "openView": {}
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "b529f3250c2",
+                                                "use": "ChildPageModel",
+                                                "subKey": "page",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "pageSettings": {
+                                                    "general": {
+                                                      "displayTitle": false,
+                                                      "enableTabs": true
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "4750a67897a",
+                                                    "use": "ChildPageTabModel",
+                                                    "subKey": "tabs",
+                                                    "subType": "array",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "pageTabSettings": {
+                                                        "tab": {
+                                                          "title": "{{t(\"Reply\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                        }
+                                                      }
+                                                    },
+                                                    "children": [
+                                                      {
+                                                        "uid": "d75bca3535a",
+                                                        "use": "BlockGridModel",
+                                                        "subKey": "grid",
+                                                        "subType": "object",
+                                                        "sortIndex": 0,
+                                                        "stepParams": {
+                                                          "gridSettings": {
+                                                            "grid": {
+                                                              "rows": {},
+                                                              "sizes": {}
+                                                            }
+                                                          }
+                                                        },
+                                                        "children": [
+                                                          {
+                                                            "uid": "ebac8dea15f",
+                                                            "use": "MailSendBlockModel",
+                                                            "subKey": "items",
+                                                            "subType": "array",
+                                                            "sortIndex": 0,
+                                                            "stepParams": {
+                                                              "resourceSettings": {
+                                                                "init": {
+                                                                  "dataSourceKey": "main",
+                                                                  "collectionName": "mailMessages",
+                                                                  "filterByTk": "{{ ctx.view.inputArgs.filterByTk }}"
+                                                                }
+                                                              }
+                                                            },
+                                                            "flowRegistry": {
+                                                              "cajlopvm4it": {
+                                                                "title": "Event flow",
+                                                                "key": "cajlopvm4it",
+                                                                "on": {
+                                                                  "eventName": "beforeRender",
+                                                                  "defaultParams": {
+                                                                    "condition": {
+                                                                      "logic": "$and",
+                                                                      "items": []
+                                                                    }
+                                                                  }
+                                                                },
+                                                                "steps": {
+                                                                  "m5lol98vd3w": {
+                                                                    "use": "runjs",
+                                                                    "sort": 1,
+                                                                    "key": "m5lol98vd3w",
+                                                                    "defaultParams": {
+                                                                      "code": "ctx.model.setFieldsValue(ctx.defaultValues);"
+                                                                    },
+                                                                    "flowKey": "cajlopvm4it"
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "children": [
+                                                              {
+                                                                "uid": "033ebb00ee5",
+                                                                "use": "MailFormSendActionModel",
+                                                                "subKey": "actions",
+                                                                "subType": "array",
+                                                                "sortIndex": 0,
+                                                                "stepParams": {}
+                                                              },
+                                                              {
+                                                                "uid": "42593984c8e",
+                                                                "use": "FormGridModel",
+                                                                "subKey": "grid",
+                                                                "subType": "object",
+                                                                "sortIndex": 0,
+                                                                "stepParams": {},
+                                                                "children": [
+                                                                  {
+                                                                    "uid": "7761591e803",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 0,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "from"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"From\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {
+                                                                          "required": true
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "dc23283fe02",
+                                                                        "use": "MailFromFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "from"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "8046b2b59b3",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 1,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "to"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"To\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {
+                                                                          "required": true
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "1bac076029d",
+                                                                        "use": "MailToFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "to"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "6fddb7b9dcd",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 2,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "cc"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Cc\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "aa564592790",
+                                                                        "use": "MailCcFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "cc"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "36e32771304",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 3,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "subject"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Subject\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "8cb6f6f143a",
+                                                                        "use": "MailSubjectFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "subject"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "85d859fa96e",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 4,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "bodyHtml"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Content\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "681fb14c01a",
+                                                                        "use": "MailContentFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "bodyHtml"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "3aaafb26da4",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 5,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "attachments"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Attachments\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "0532cbe3c7e",
+                                                                        "use": "MailAttachmentsFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "attachments"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              },
+                                                              {
+                                                                "uid": "4ba3bcc0cd6",
+                                                                "use": "AIEmployeeButtonModel",
+                                                                "subKey": "actions",
+                                                                "subType": "array",
+                                                                "sortIndex": 2,
+                                                                "stepParams": {
+                                                                  "shortcutSettings": {
+                                                                    "editTasks": {
+                                                                      "tasks": [
+                                                                        {
+                                                                          "message": {
+                                                                            "workContext": [
+                                                                              {
+                                                                                "type": "flow-model",
+                                                                                "uid": "ebac8dea15f",
+                                                                                "title": "\n    Email form (Add new):\n    Mail messages"
+                                                                              },
+                                                                              {
+                                                                                "type": "flow-model",
+                                                                                "uid": "0492aee8b1b",
+                                                                                "title": "Email detail"
+                                                                              }
+                                                                            ],
+                                                                            "skillSettings": {},
+                                                                            "system": "Ellis, draft a proposal email that:\n1) Recaps the customer’s key needs\n2) Mentions or attaches the proposal/quotation file\n3) Emphasizes main value points or flexible options\n4) Invites feedback or a follow-up call\n5) Keeps the tone confident and courteous",
+                                                                            "user": "Ellis, draft a proposal email"
+                                                                          },
+                                                                          "title": "Proposal / Quotation Email",
+                                                                          "autoSend": true
+                                                                        },
+                                                                        {
+                                                                          "message": {
+                                                                            "workContext": [
+                                                                              {
+                                                                                "type": "flow-model",
+                                                                                "uid": "ebac8dea15f",
+                                                                                "title": "\n    Email form (Add new):\n    Mail messages"
+                                                                              },
+                                                                              {
+                                                                                "type": "flow-model",
+                                                                                "uid": "0492aee8b1b",
+                                                                                "title": "Email detail"
+                                                                              }
+                                                                            ],
+                                                                            "skillSettings": {},
+                                                                            "system": "Ellis, draft a friendly customer follow-up email that:\n1) States the reason for reaching out (e.g., post-meeting, holiday, long time no talk)\n2) References previous context or accomplishments\n3) Asks about current status or next needs\n4) Keeps tone warm, professional, and non-intrusive\n",
+                                                                            "user": "Ellis, draft a friendly customer follow-up email"
+                                                                          },
+                                                                          "title": "Customer Follow-up",
+                                                                          "autoSend": true
+                                                                        }
+                                                                      ]
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "a59c988ac41",
+                                            "use": "MailForwardActionModel",
+                                            "subKey": "actions",
+                                            "subType": "array",
+                                            "sortIndex": 1,
+                                            "stepParams": {
+                                              "popupSettings": {
+                                                "openView": {}
+                                              }
+                                            },
+                                            "children": [
+                                              {
+                                                "uid": "f26cce1d23d",
+                                                "use": "ChildPageModel",
+                                                "subKey": "page",
+                                                "subType": "object",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "pageSettings": {
+                                                    "general": {
+                                                      "displayTitle": false,
+                                                      "enableTabs": true
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "d57241f00fd",
+                                                    "use": "ChildPageTabModel",
+                                                    "subKey": "tabs",
+                                                    "subType": "array",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "pageTabSettings": {
+                                                        "tab": {
+                                                          "title": "{{t(\"Forward\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                        }
+                                                      }
+                                                    },
+                                                    "children": [
+                                                      {
+                                                        "uid": "55ad3768f7e",
+                                                        "use": "BlockGridModel",
+                                                        "subKey": "grid",
+                                                        "subType": "object",
+                                                        "sortIndex": 0,
+                                                        "stepParams": {
+                                                          "gridSettings": {
+                                                            "grid": {
+                                                              "rows": {},
+                                                              "sizes": {}
+                                                            }
+                                                          }
+                                                        },
+                                                        "children": [
+                                                          {
+                                                            "uid": "a09c934f2d5",
+                                                            "use": "MailSendBlockModel",
+                                                            "subKey": "items",
+                                                            "subType": "array",
+                                                            "sortIndex": 0,
+                                                            "stepParams": {
+                                                              "resourceSettings": {
+                                                                "init": {
+                                                                  "dataSourceKey": "main",
+                                                                  "collectionName": "mailMessages",
+                                                                  "filterByTk": "{{ ctx.view.inputArgs.filterByTk }}"
+                                                                }
+                                                              }
+                                                            },
+                                                            "flowRegistry": {
+                                                              "cajlopvm4it": {
+                                                                "title": "Event flow",
+                                                                "key": "cajlopvm4it",
+                                                                "on": {
+                                                                  "eventName": "beforeRender",
+                                                                  "defaultParams": {
+                                                                    "condition": {
+                                                                      "logic": "$and",
+                                                                      "items": []
+                                                                    }
+                                                                  }
+                                                                },
+                                                                "steps": {
+                                                                  "m5lol98vd3w": {
+                                                                    "use": "runjs",
+                                                                    "sort": 1,
+                                                                    "key": "m5lol98vd3w",
+                                                                    "defaultParams": {
+                                                                      "code": "ctx.model.setFieldsValue(ctx.defaultValues);"
+                                                                    },
+                                                                    "flowKey": "cajlopvm4it"
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "children": [
+                                                              {
+                                                                "uid": "af48b8ff49d",
+                                                                "use": "MailFormSendActionModel",
+                                                                "subKey": "actions",
+                                                                "subType": "array",
+                                                                "sortIndex": 0,
+                                                                "stepParams": {}
+                                                              },
+                                                              {
+                                                                "uid": "e2ce23ffa23",
+                                                                "use": "FormGridModel",
+                                                                "subKey": "grid",
+                                                                "subType": "object",
+                                                                "sortIndex": 0,
+                                                                "stepParams": {},
+                                                                "children": [
+                                                                  {
+                                                                    "uid": "7bedec4fc3c",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 0,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "from"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"From\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {
+                                                                          "required": true
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "9b03c5eb144",
+                                                                        "use": "MailFromFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "from"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "e27925701f2",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 1,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "to"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"To\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {
+                                                                          "required": true
+                                                                        }
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "af5ade0ffad",
+                                                                        "use": "MailToFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "to"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "5c0bf396f84",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 2,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "cc"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Cc\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "47c2972b4da",
+                                                                        "use": "MailCcFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "cc"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "ba9c21b34f8",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 3,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "subject"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Subject\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "96470123eef",
+                                                                        "use": "MailSubjectFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "subject"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "9c85ce3f632",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 4,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "bodyHtml"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Content\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "a5b8c4c74d1",
+                                                                        "use": "MailContentFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "bodyHtml"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  },
+                                                                  {
+                                                                    "uid": "8d6422bfcb8",
+                                                                    "use": "FormItemModel",
+                                                                    "subKey": "items",
+                                                                    "subType": "array",
+                                                                    "sortIndex": 5,
+                                                                    "stepParams": {
+                                                                      "fieldSettings": {
+                                                                        "init": {
+                                                                          "dataSourceKey": "main",
+                                                                          "collectionName": "mailMessages",
+                                                                          "fieldPath": "attachments"
+                                                                        }
+                                                                      },
+                                                                      "editItemSettings": {
+                                                                        "label": {
+                                                                          "label": "{{t(\"Attachments\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                                        },
+                                                                        "required": {}
+                                                                      }
+                                                                    },
+                                                                    "children": [
+                                                                      {
+                                                                        "uid": "1f465b4cc64",
+                                                                        "use": "MailAttachmentsFieldModel",
+                                                                        "subKey": "field",
+                                                                        "subType": "object",
+                                                                        "sortIndex": 0,
+                                                                        "stepParams": {
+                                                                          "fieldSettings": {
+                                                                            "init": {
+                                                                              "dataSourceKey": "main",
+                                                                              "collectionName": "mailMessages",
+                                                                              "fieldPath": "attachments"
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    ]
+                                                                  }
+                                                                ]
+                                                              },
+                                                              {
+                                                                "uid": "92809670cf0",
+                                                                "use": "AIEmployeeButtonModel",
+                                                                "subKey": "actions",
+                                                                "subType": "array",
+                                                                "sortIndex": 2,
+                                                                "stepParams": {}
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "uid": "ac590a355d5",
+                                            "use": "AIEmployeeButtonModel",
+                                            "subKey": "actions",
+                                            "subType": "array",
+                                            "sortIndex": 3,
+                                            "stepParams": {
+                                              "shortcutSettings": {
+                                                "editTasks": {
+                                                  "tasks": [
+                                                    {
+                                                      "message": {
+                                                        "workContext": [
+                                                          {
+                                                            "type": "flow-model",
+                                                            "uid": "0492aee8b1b",
+                                                            "title": "Email detail"
+                                                          }
+                                                        ],
+                                                        "skillSettings": {},
+                                                        "system": "Ellis, analyze the currently opened email (which may not be the latest) together with its full thread:\n1) Identify its stage in the thread (initial, follow-up, escalation, closure, etc.)\n2) Summarize customer intent and key concerns\n3) Detect tone and sentiment (positive / neutral / dissatisfied)\n4) Explain its link to previous and next messages (if inferable)\n5) Highlight any critical events (quote, complaint, trial expiry, etc.)",
+                                                        "user": "Ellis, analyze the currently opened email"
+                                                      },
+                                                      "title": "Context Understanding",
+                                                      "autoSend": true
+                                                    },
+                                                    {
+                                                      "message": {
+                                                        "workContext": [
+                                                          {
+                                                            "type": "flow-model",
+                                                            "uid": "0492aee8b1b",
+                                                            "title": "Email detail"
+                                                          }
+                                                        ],
+                                                        "skillSettings": {},
+                                                        "system": "Ellis, analyze the *currently opened email* (which may not be the latest in the thread) together with the customer’s full communication history and profile.\n\nProvide:\n1) The position of this email in the overall thread (initial inquiry, follow-up, escalation, closure, etc.)\n2) A 3–6 bullet summary of key points and intent\n3) Detected risks, such as:\n   - Unfulfilled promises or delays\n   - Tone change or escalation signals\n   - Business or deal-stage risks\n4) Highlight any critical events (e.g., quote sent, complaint, trial expiry)\n5) Recommend:\n   - 2–3 possible response strategies (with pros/cons)\n   - One recommended next action (one sentence)\n   - Key follow-up tasks (owners & due dates if inferable)\n",
+                                                        "user": "Ellis, analyze the currently opened email"
+                                                      },
+                                                      "title": "Email Summary & Risk Analysis (Full-Context)",
+                                                      "autoSend": true
+                                                    }
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "62ad6985c9c",
+                                        "use": "MailDraftSendBlockModel",
+                                        "subKey": "draft",
+                                        "subType": "object",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "resourceSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "filterByTk": "{{ ctx.view.inputArgs.filterByTk }}"
+                                            }
+                                          }
+                                        },
+                                        "flowRegistry": {
+                                          "cajlopvm4it": {
+                                            "title": "Event flow",
+                                            "key": "cajlopvm4it",
+                                            "on": {
+                                              "eventName": "beforeRender",
+                                              "defaultParams": {
+                                                "condition": {
+                                                  "logic": "$and",
+                                                  "items": []
+                                                }
+                                              }
+                                            },
+                                            "steps": {
+                                              "m5lol98vd3w": {
+                                                "use": "runjs",
+                                                "sort": 1,
+                                                "key": "m5lol98vd3w",
+                                                "defaultParams": {
+                                                  "code": "\n    ctx.model.scheduleModelOperation(ctx.model.uid, (model) => {\n      ctx.model.setFieldsValue(ctx.defaultValues);\n    }, {\n      when: 'event:beforeRender:end'\n    });\n          "
+                                                },
+                                                "flowKey": "cajlopvm4it"
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "2120858c570",
+                                            "use": "MailFormSendActionModel",
+                                            "subKey": "actions",
+                                            "subType": "array",
+                                            "sortIndex": 0,
+                                            "stepParams": {}
+                                          },
+                                          {
+                                            "uid": "efcbf3ae8ba",
+                                            "use": "FormGridModel",
+                                            "subKey": "grid",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {},
+                                            "children": [
+                                              {
+                                                "uid": "1fd2e60a459",
+                                                "use": "FormItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 0,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "mailMessages",
+                                                      "fieldPath": "from"
+                                                    }
+                                                  },
+                                                  "editItemSettings": {
+                                                    "label": {
+                                                      "label": "{{t(\"From\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                    },
+                                                    "required": {
+                                                      "required": true
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "5c446e00314",
+                                                    "use": "MailFromFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "mailMessages",
+                                                          "fieldPath": "from"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "353f7f7129c",
+                                                "use": "FormItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 1,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "mailMessages",
+                                                      "fieldPath": "to"
+                                                    }
+                                                  },
+                                                  "editItemSettings": {
+                                                    "label": {
+                                                      "label": "{{t(\"To\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                    },
+                                                    "required": {
+                                                      "required": true
+                                                    }
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "80e3272b761",
+                                                    "use": "MailToFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "mailMessages",
+                                                          "fieldPath": "to"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "e99e3ba2933",
+                                                "use": "FormItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 2,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "mailMessages",
+                                                      "fieldPath": "cc"
+                                                    }
+                                                  },
+                                                  "editItemSettings": {
+                                                    "label": {
+                                                      "label": "{{t(\"Cc\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                    },
+                                                    "required": {}
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "91c021f8f8c",
+                                                    "use": "MailCcFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "mailMessages",
+                                                          "fieldPath": "cc"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "2e2cc183e86",
+                                                "use": "FormItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 3,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "mailMessages",
+                                                      "fieldPath": "subject"
+                                                    }
+                                                  },
+                                                  "editItemSettings": {
+                                                    "label": {
+                                                      "label": "{{t(\"Subject\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                    },
+                                                    "required": {}
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "80773e5b304",
+                                                    "use": "MailSubjectFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "mailMessages",
+                                                          "fieldPath": "subject"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "940a10b2cd9",
+                                                "use": "FormItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 4,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "mailMessages",
+                                                      "fieldPath": "bodyHtml"
+                                                    }
+                                                  },
+                                                  "editItemSettings": {
+                                                    "label": {
+                                                      "label": "{{t(\"Content\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                    },
+                                                    "required": {}
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "451ae588118",
+                                                    "use": "MailContentFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "mailMessages",
+                                                          "fieldPath": "bodyHtml"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "uid": "87d776b11ce",
+                                                "use": "FormItemModel",
+                                                "subKey": "items",
+                                                "subType": "array",
+                                                "sortIndex": 5,
+                                                "stepParams": {
+                                                  "fieldSettings": {
+                                                    "init": {
+                                                      "dataSourceKey": "main",
+                                                      "collectionName": "mailMessages",
+                                                      "fieldPath": "attachments"
+                                                    }
+                                                  },
+                                                  "editItemSettings": {
+                                                    "label": {
+                                                      "label": "{{t(\"Attachments\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                                    },
+                                                    "required": {}
+                                                  }
+                                                },
+                                                "children": [
+                                                  {
+                                                    "uid": "bbeef58ca8a",
+                                                    "use": "MailAttachmentsFieldModel",
+                                                    "subKey": "field",
+                                                    "subType": "object",
+                                                    "sortIndex": 0,
+                                                    "stepParams": {
+                                                      "fieldSettings": {
+                                                        "init": {
+                                                          "dataSourceKey": "main",
+                                                          "collectionName": "mailMessages",
+                                                          "fieldPath": "attachments"
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "eb75c62fb1b",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "9897f107fde",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "mailMessages",
+                      "dataSourceKey": "main"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "d51d8e03983",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "21c00f6e0b2",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "ef7c4b4b2dd",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {},
+                                  "sizes": {},
+                                  "rowOrder": []
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "1d042f833ed",
+                                "use": "MailSendBlockModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "mailMessages",
+                                      "filterByTk": "{{ ctx.view.inputArgs.filterByTk }}"
+                                    }
+                                  }
+                                },
+                                "flowRegistry": {
+                                  "cajlopvm4it": {
+                                    "title": "Event flow",
+                                    "key": "cajlopvm4it",
+                                    "on": {
+                                      "eventName": "beforeRender",
+                                      "defaultParams": {
+                                        "condition": {
+                                          "logic": "$and",
+                                          "items": []
+                                        }
+                                      }
+                                    },
+                                    "steps": {
+                                      "m5lol98vd3w": {
+                                        "use": "runjs",
+                                        "sort": 1,
+                                        "key": "m5lol98vd3w",
+                                        "defaultParams": {
+                                          "code": "ctx.model.setFieldsValue(ctx.defaultValues);"
+                                        },
+                                        "flowKey": "cajlopvm4it"
+                                      }
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "dcc0b26de0d",
+                                    "use": "MailFormSendActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 0,
+                                    "stepParams": {}
+                                  },
+                                  {
+                                    "uid": "e276d4c66fb",
+                                    "use": "FormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {},
+                                    "children": [
+                                      {
+                                        "uid": "e26c3251822",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 0,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "fieldPath": "from"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "{{t(\"From\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                            },
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "84eeda539a6",
+                                            "use": "MailFromFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "mailMessages",
+                                                  "fieldPath": "from"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "dbeb4c1bb09",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 1,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "fieldPath": "to"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "{{t(\"To\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                            },
+                                            "required": {
+                                              "required": true
+                                            }
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "a115ce6db96",
+                                            "use": "MailToFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "mailMessages",
+                                                  "fieldPath": "to"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "f65db890f24",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 2,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "fieldPath": "cc"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "{{t(\"Cc\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                            },
+                                            "required": {}
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "a6dbe4babf2",
+                                            "use": "MailCcFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "mailMessages",
+                                                  "fieldPath": "cc"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "e03de309494",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 3,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "fieldPath": "subject"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "{{t(\"Subject\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                            },
+                                            "required": {}
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "b3917dbf915",
+                                            "use": "MailSubjectFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "mailMessages",
+                                                  "fieldPath": "subject"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "108c7e0a251",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 4,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "fieldPath": "bodyHtml"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "{{t(\"Content\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                            },
+                                            "required": {}
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "7c1a6ffa9a5",
+                                            "use": "MailContentFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "mailMessages",
+                                                  "fieldPath": "bodyHtml"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "uid": "7dae89075e8",
+                                        "use": "FormItemModel",
+                                        "subKey": "items",
+                                        "subType": "array",
+                                        "sortIndex": 5,
+                                        "stepParams": {
+                                          "fieldSettings": {
+                                            "init": {
+                                              "dataSourceKey": "main",
+                                              "collectionName": "mailMessages",
+                                              "fieldPath": "attachments"
+                                            }
+                                          },
+                                          "editItemSettings": {
+                                            "label": {
+                                              "label": "{{t(\"Attachments\", {\"ns\":[\"@nocobase/plugin-email-manager\",\"client\"]})}}"
+                                            },
+                                            "required": {}
+                                          }
+                                        },
+                                        "children": [
+                                          {
+                                            "uid": "098aa760029",
+                                            "use": "MailAttachmentsFieldModel",
+                                            "subKey": "field",
+                                            "subType": "object",
+                                            "sortIndex": 0,
+                                            "stepParams": {
+                                              "fieldSettings": {
+                                                "init": {
+                                                  "dataSourceKey": "main",
+                                                  "collectionName": "mailMessages",
+                                                  "fieldPath": "attachments"
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "uid": "5a5fe2e8611",
+                                    "use": "AIEmployeeButtonModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 2,
+                                    "stepParams": {
+                                      "shortcutSettings": {
+                                        "editTasks": {
+                                          "tasks": [
+                                            {
+                                              "message": {
+                                                "workContext": [
+                                                  {
+                                                    "type": "flow-model",
+                                                    "uid": "1d042f833ed",
+                                                    "title": "\n    Email form (Add new):\n    Mail messages"
+                                                  }
+                                                ],
+                                                "skillSettings": {},
+                                                "system": "Ellis, produce an exec-ready summary for internal hand-off:\n- Background (2 lines), current status (1 line), what the customer wants (bullets),\n- Timeline of key messages (date · event), \n- Risks/dependencies, and \n- Next actions with owners.\n\nThen include a short suggested reply the AM/CSM can send.\n",
+                                                "user": "Ellis, produce an exec-ready summary for internal hand-off"
+                                              },
+                                              "title": "Decision & Draft (Customer-Aware)",
+                                              "autoSend": true
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "d6b4ade6703",
+                "use": "JSColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "tableColumnSettings": {
+                    "title": {
+                      "title": "Time"
+                    }
+                  },
+                  "jsSettings": {
+                    "runJs": {
+                      "version": "v1",
+                      "code": "// Get time fields: Prioritize the last interaction date\nconst lastInteractionDate = ctx.record?.relatedMessageLatestDate;\nconst date = ctx.record?.date;\nconst createdAt = ctx.record?.createdAt;\nconst updatedAt = ctx.record?.updatedAt;\n\n// Determine display date\nconst displayDate = lastInteractionDate || date || updatedAt || createdAt;\n\n// Utility function: Calculate relative time\nconst formatRelativeTime = (date) => {\n  if (!date) return 'No Date';\n  \n  const now = new Date();\n  const target = new Date(date);\n  const diffMs = now - target;\n  \n  const diffSec = Math.floor(diffMs / 1000);\n  const diffMin = Math.floor(diffSec / 60);\n  const diffHour = Math.floor(diffMin / 60);\n  const diffDay = Math.floor(diffHour / 24);\n\n  // Helper for pluralization (e.g., \"1 day\" vs \"2 days\")\n  const pluralize = (num, unit) => `${num} ${unit}${num !== 1 ? 's' : ''} ago`;\n\n  if (diffSec < 60) return 'Just now';\n  if (diffMin < 60) return pluralize(diffMin, 'minute');\n  if (diffHour < 24) return pluralize(diffHour, 'hour');\n  if (diffDay === 1) return 'Yesterday';\n  if (diffDay < 7) return pluralize(diffDay, 'day');\n  if (diffDay < 30) return pluralize(Math.floor(diffDay / 7), 'week');\n  if (diffDay < 365) return pluralize(Math.floor(diffDay / 30), 'month');\n  \n  return pluralize(Math.floor(diffDay / 365), 'year');\n};\n\n// Format date string for tooltip\nconst formatFullTime = (date) => {\n  if (!date) return 'Unknown Time';\n  const d = new Date(date);\n  return d.toLocaleString('en-US'); // Formatting for US English locale\n};\n\n// Set color based on date recency\nconst getStyleByDate = (date) => {\n  if (!date) return { color: '#bfbfbf' };\n  \n  const diff = (new Date() - new Date(date)) / (1000 * 60 * 60 * 24); // Difference in days\n  \n  if (diff < 1) {\n    return { color: '#1677ff' }; // Blue for today\n  } else if (diff < 7) {\n    return { color: '#fa8c16' }; // Orange for within a week\n  } else {\n    return { color: '#8c8c8c' }; // Grey for older than a week\n  }\n};\n\nconst style = getStyleByDate(displayDate);\nconst relativeText = formatRelativeTime(displayDate);\nconst tooltipText = formatFullTime(displayDate);\n\nctx.element.innerHTML = `\n  <div style=\"\n    display: inline-block;\n    font-size: 13px;\n    color: ${style.color};\n    background: transparent;\n    padding: 2px 6px;\n    border-radius: 3px;\n    transition: all 0.2s ease;\n  \" title=\"${tooltipText}\">\n    ${relativeText}\n  </div>\n`;"
+                    }
+                  }
+                }
+              },
+              {
+                "uid": "83cdb8d1579",
+                "use": "AIEmployeeButtonModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "shortcutSettings": {
+                    "editTasks": {
+                      "tasks": [
+                        {
+                          "message": {
+                            "workContext": [
+                              {
+                                "type": "flow-model",
+                                "uid": "cb09a1ee275",
+                                "title": "\n    Email table:\n    Mail messages"
+                              }
+                            ],
+                            "skillSettings": {},
+                            "system": "Ellis, summarize the customer’s background and communication history:\n\n1) Customer profile (company, role, tier, lifecycle stage)  \n2) Timeline of recent key interactions  \n3) Outstanding promises or delays  \n4) Overall relationship status (stable / watch / escalation risk)  \n5) One-sentence summary of the relationship health  \n\nIf the customer is not specified or related information cannot be retrieved, ask directly:  \n“Which customer would you like me to analyze?”  \nand wait for confirmation before continuing.",
+                            "user": "Ellis, summarize the customer’s background and communication history."
+                          },
+                          "title": "Customer & History Summary",
+                          "autoSend": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "uid": "fa3486b4328",
+                "use": "CustomMailMessagesColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "mailMessages",
+                      "fieldPath": "to"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "CustomMailToFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "bd69771a289",
+                    "use": "CustomMailToFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "mailMessages",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "0100926d6f4",
+                "use": "CustomMailMessagesColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 5,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "mailMessages",
+                      "fieldPath": "date"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayDateTimeFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "4db9d7723d5",
+                    "use": "DisplayDateTimeFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "mailMessages",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "1d8f3afb80f",
+                "use": "CustomMailMessagesColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 6,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "mailMessages",
+                      "fieldPath": "labels"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "CustomMailLabelsFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "716e3a2ce2e",
+                    "use": "CustomMailLabelsFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {}
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

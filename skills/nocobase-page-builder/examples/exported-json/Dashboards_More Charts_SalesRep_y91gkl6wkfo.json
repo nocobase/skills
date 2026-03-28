@@ -1,0 +1,239 @@
+{
+  "title": "SalesRep",
+  "path": "Dashboards_More Charts_SalesRep",
+  "uid": "y91gkl6wkfo",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "io34leesnah",
+      "grid_uid": "873f18976a8",
+      "stats": {
+        "nodes": 6,
+        "js": 1,
+        "events": 0,
+        "popups": 0
+      },
+      "tree": {
+        "uid": "873f18976a8",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "b04hc9judht": [
+                  [
+                    "fb94c4f8958"
+                  ]
+                ],
+                "nfw30wwzl7c": [
+                  [
+                    "2610053c6ec"
+                  ],
+                  [
+                    "c8c67e7c95b"
+                  ],
+                  [
+                    "4cc4c46f90d"
+                  ]
+                ],
+                "9s90zuvlmx9": [
+                  [
+                    "1bcaf75c70d"
+                  ]
+                ]
+              },
+              "sizes": {
+                "b04hc9judht": [
+                  24
+                ],
+                "nfw30wwzl7c": [
+                  8,
+                  8,
+                  8
+                ],
+                "9s90zuvlmx9": [
+                  24
+                ]
+              },
+              "rowOrder": [
+                "b04hc9judht",
+                "nfw30wwzl7c",
+                "9s90zuvlmx9"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "2610053c6ec",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "SELECT\n  COALESCE(s.name, o.stage) as stage_name,\n  s.sort_order,\n  s.color,\n  COUNT(*) as deal_count,\n  SUM(o.amount) as total_value,\n  ROUND(AVG(o.ai_win_probability)::numeric, 1) as avg_ai_prob\nFROM nb_crm_opportunities o\nLEFT JOIN nb_crm_opportunity_stages s ON s.code = o.stage\nWHERE 1=1\n  AND o.stage NOT IN ('won', 'lost')\n{% if ctx.role != 'root' and ctx.role != 'admin' %}\n  AND o.owner_id = {{ ctx.user.id }}\n{% endif %}\nGROUP BY s.name, o.stage, s.sort_order, s.color\nORDER BY COALESCE(s.sort_order, 99)"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "active_opps",
+                        "yField": "pipeline_value",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\nconst data = ctx.data.objects || [];\n\nconst formatCurrency = function(val) {\n  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';\n  if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';\n  return '$' + val.toFixed(0);\n};\n\n// Prepare donut data\nconst pieData = data.map(function(item) { return {\n  name: item.stage_name,\n  value: Number(item.deal_count),\n  amount: Number(item.total_value),\n  avgProb: Number(item.avg_ai_prob),\n  itemStyle: {\n    color: item.color || '#1890ff'\n  }\n}; });\n\nconst totalDeals = pieData.reduce(function(sum, item) { return sum + item.value; }, 0);\nconst totalValue = pieData.reduce(function(sum, item) { return sum + item.amount; }, 0);\n\nreturn {\n  title: {\n    text: t('My Opportunities by Stage'),\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'item',\n    formatter: function(params) {\n      const d = params.data;\n      return `<b>${d.name}</b><br/>\n        ${t('Deals')}: ${d.value} (${params.percent}%)<br/>\n        ${t('Value')}: ${formatCurrency(d.amount)}<br/>\n        ${t('Avg AI Prob')}: ${d.avgProb}%`;\n    }\n  },\n  legend: {\n    orient: 'vertical',\n    right: 10,\n    top: 'center'\n  },\n  series: [\n    {\n      name: t('Stage'),\n      type: 'pie',\n      radius: ['40%', '70%'],\n      center: ['40%', '55%'],\n      avoidLabelOverlap: true,\n      itemStyle: {\n        borderRadius: 6,\n        borderColor: '#fff',\n        borderWidth: 2\n      },\n      label: {\n        show: true,\n        formatter: '{b}: {c}'\n      },\n      emphasis: {\n        label: {\n          show: true,\n          fontSize: 16,\n          fontWeight: 'bold'\n        }\n      },\n      data: pieData\n    }\n  ],\n  graphic: [\n    {\n      type: 'text',\n      left: '35%',\n      top: '48%',\n      style: {\n        text: totalDeals.toString(),\n        textAlign: 'center',\n        fontSize: 28,\n        fontWeight: 'bold',\n        fill: '#333'\n      }\n    },\n    {\n      type: 'text',\n      left: '35%',\n      top: '57%',\n      style: {\n        text: t('Deals'),\n        textAlign: 'center',\n        fontSize: 12,\n        fill: '#999'\n      }\n    },\n    {\n      type: 'text',\n      left: 'center',\n      bottom: 10,\n      style: {\n        text: `${t('Total Pipeline')}: ${formatCurrency(totalValue)}`,\n        fontSize: 13,\n        fill: '#666'\n      }\n    }\n  ]\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function(params) {\n    var stage = params.name || params.data.name;\n    if (stage) ctx.router.navigate('/admin/vga8g2pgnnu?filter=' + encodeURIComponent(stage));\n});"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "uid": "fb94c4f8958",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "version": "v1",
+                  "code": "\nvar cardStyle = function(color) {\n  return {\n    borderRadius: 12, padding: '16px 20px', position: 'relative', overflow: 'hidden',\n    background: '#fff', border: '1px solid #f0f0f0',\n    display: 'flex', flexDirection: 'column', height: '100%', minHeight: 90, transition: 'all 0.2s ease'\n  };\n};\nvar labelStyle = { fontSize: '0.875rem', fontWeight: 600, color: '#333', marginBottom: 4 };\nvar valueStyle = function(color) {\n  return { fontSize: '1.6rem', fontWeight: 700, color: color, letterSpacing: '-0.02em' };\n};\nvar suffixStyle = { fontSize: '0.75rem', color: '#999', marginLeft: 4 };\n\nvar React = ctx.React;\nvar useState = React.useState;\nvar useEffect = React.useEffect;\nvar Row = ctx.antd.Row, Col = ctx.antd.Col, Spin = ctx.antd.Spin;\n\nvar t = function(key) { return ctx.t(key, { ns: 'nb_crm' }); };\nvar fmt = function(v) {\n  var n = Number(v) || 0;\n  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';\n  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';\n  return '$' + n.toFixed(0);\n};\n\nvar CONFIG = {\n  reportUid: 'crm_my_performance',\n  sql: \"SELECT COUNT(*) FILTER (WHERE stage NOT IN ('won','lost')) AS open_deals, COALESCE(SUM(amount) FILTER (WHERE stage NOT IN ('won','lost')), 0) AS pipeline_value, COUNT(*) FILTER (WHERE stage = 'won' AND DATE_TRUNC('month', actual_close_date) = DATE_TRUNC('month', CURRENT_DATE)) AS deals_won_mtd, COUNT(*) FILTER (WHERE stage NOT IN ('won','lost') AND expected_close_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days') AS closing_this_week, ROUND(AVG(ai_win_probability)::numeric, 1) AS avg_win_prob FROM nb_crm_opportunities\"\n};\n\nfunction useData() {\n  var _s = useState(null), data = _s[0], setData = _s[1];\n  var _l = useState(true), loading = _l[0], setLoading = _l[1];\n  useEffect(function() {\n    if (ctx.flowSettingsEnabled) {\n      ctx.sql.save({ uid: CONFIG.reportUid, sql: CONFIG.sql, dataSourceKey: 'main' }).catch(function(){});\n    }\n    ctx.sql.runById(CONFIG.reportUid, { type: 'selectRows', dataSourceKey: 'main' })\n      .then(function(r) {\n        var d = (r && r[0]) || {};\n        setData({\n          openDeals: Number(d.open_deals) || 0,\n          pipelineValue: Number(d.pipeline_value) || 0,\n          dealsWonMtd: Number(d.deals_won_mtd) || 0,\n          closingThisWeek: Number(d.closing_this_week) || 0,\n          avgWinProb: Number(d.avg_win_prob) || 0,\n        });\n        setLoading(false);\n      }).catch(function() { setLoading(false); });\n  }, []);\n  return { data: data, loading: loading };\n}\n\n\nvar NAV = {\n  'Open Deals': '/admin/vga8g2pgnnu',\n  'Pipeline Value': '/admin/vga8g2pgnnu',\n  'Won (MTD)': '/admin/vga8g2pgnnu?filter=won',\n  'Closing This Week': '/admin/vga8g2pgnnu?filter=closing',\n  'Avg Win Prob': '/admin/vga8g2pgnnu',\n  'Pipeline / Deal': '/admin/vga8g2pgnnu',\n  'Revenue YTD': '/admin/x9u01x7l8wj',\n  'Revenue MTD': '/admin/x9u01x7l8wj',\n  'Win Rate': '/admin/vga8g2pgnnu',\n  'Active Customers': '/admin/c137kk6hghm',\n  'Avg Health': '/admin/c137kk6hghm',\n  'Hot Leads': '/admin/e9478uhrdve?filter=hot',\n};\nvar nav = function(title) { return function() { var url = NAV[title]; if (url) ctx.router.navigate(url); }; };\nvar clickable = function(style) { return Object.assign({}, style, {cursor: 'pointer'}); };\nvar cardProps = function(style, onClick) { return {style: clickable(style), className: 'kpi-hover', onClick: onClick}; };\n\nvar Comp = function() {\n  var r = useData();\n  if (r.loading) return React.createElement('div', {style:{textAlign:'center',padding:24}}, React.createElement(Spin));\n  var s = r.data || {};\n  return React.createElement(Row, {gutter: [12, 12]},\n    React.createElement(Col, {xs:12, md:4}, React.createElement('div', cardProps(cardStyle('#3b82f6'), nav('Open Deals')),\n        React.createElement('div', {style: labelStyle}, t('Open Deals')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#3b82f6')}, s.openDeals)\n        )\n      )),\n    React.createElement(Col, {xs:12, md:4}, React.createElement('div', cardProps(cardStyle('#6366f1'), nav('Pipeline Value')),\n        React.createElement('div', {style: labelStyle}, t('Pipeline Value')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#6366f1')}, fmt(s.pipelineValue))\n        )\n      )),\n    React.createElement(Col, {xs:12, md:4}, React.createElement('div', cardProps(cardStyle('#22c55e'), nav('Won (MTD)')),\n        React.createElement('div', {style: labelStyle}, t('Won (MTD)')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#22c55e')}, s.dealsWonMtd)\n        )\n      )),\n    React.createElement(Col, {xs:12, md:4}, React.createElement('div', cardProps(cardStyle('#f59e0b'), nav('Closing This Week')),\n        React.createElement('div', {style: labelStyle}, t('Closing This Week')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#f59e0b')}, s.closingThisWeek)\n        )\n      )),\n    React.createElement(Col, {xs:12, md:4}, React.createElement('div', cardProps(cardStyle('#8b5cf6'), nav('Avg Win Prob')),\n        React.createElement('div', {style: labelStyle}, t('Avg Win Prob')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#8b5cf6')}, s.avgWinProb),\n          React.createElement('span', {style: suffixStyle}, '%')\n        )\n      )),\n    React.createElement(Col, {xs:12, md:4}, React.createElement('div', cardProps(cardStyle('#10b981'), nav('Pipeline / Deal')),\n        React.createElement('div', {style: labelStyle}, t('Pipeline / Deal')),\n        React.createElement('div', {style: {display:'flex', alignItems:'baseline'}},\n          React.createElement('span', {style: valueStyle('#10b981')}, s.openDeals > 0 ? fmt(s.pipelineValue / s.openDeals) : '$0')\n        )\n      ))\n  );\n};\n\nctx.render(React.createElement(React.Fragment, null, React.createElement('style', null, '.kpi-hover{transition:all .2s ease}.kpi-hover:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateY(-2px);border-color:#d0d0d0!important}'), React.createElement(Comp)));\n"
+                }
+              }
+            }
+          },
+          {
+            "uid": "c8c67e7c95b",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 3,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "WITH activity_stats AS (\n  SELECT\n    type,\n    COUNT(*) FILTER (\n      WHERE activity_date >= DATE_TRUNC('week', CURRENT_DATE)\n    ) as this_week,\n    COUNT(*) FILTER (\n      WHERE activity_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days'\n        AND activity_date < DATE_TRUNC('week', CURRENT_DATE)\n    ) as last_week\n  FROM nb_crm_activities\n  WHERE 1=1\n    AND activity_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '14 days'\n  {% if ctx.role != 'root' and ctx.role != 'admin' %}\n    AND owner_id = {{ ctx.user.id }}\n  {% endif %}\n  GROUP BY type\n)\nSELECT\n  CASE type\n    WHEN 'call' THEN 'Calls'\n    WHEN 'email' THEN 'Emails'\n    WHEN 'meeting' THEN 'Meetings'\n    WHEN 'visit' THEN 'Visits'\n    WHEN 'note' THEN 'Notes'\n    WHEN 'task' THEN 'Tasks'\n    ELSE type\n  END as activity_type,\n  type as type_code,\n  COALESCE(this_week, 0) as this_week,\n  COALESCE(last_week, 0) as last_week,\n  CASE\n    WHEN last_week > 0 THEN ROUND((this_week - last_week) * 100.0 / last_week, 1)\n    WHEN this_week > 0 THEN 100\n    ELSE 0\n  END as change_pct\nFROM activity_stats\nORDER BY this_week DESC"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "activity_type",
+                        "yField": "type_code",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\nconst data = ctx.data.objects || [];\n\nconst types = data.map(function(d) { return d.activity_type; });\nconst thisWeek = data.map(function(d) { return Number(d.this_week); });\nconst lastWeek = data.map(function(d) { return Number(d.last_week); });\n\nconst totalThis = thisWeek.reduce(function(a, b) { return a + b; }, 0);\nconst totalLast = lastWeek.reduce(function(a, b) { return a + b; }, 0);\nconst overallChange = totalLast > 0 ? ((totalThis - totalLast) / totalLast * 100).toFixed(1) : 0;\n\nreturn {\n  title: {\n    text: t('Weekly Activity Comparison'),\n    subtext: `${t('This Week')}: ${totalThis} | ${t('Last Week')}: ${totalLast} | ${overallChange >= 0 ? '+' : ''}${overallChange}%`,\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    axisPointer: { type: 'shadow' },\n    formatter: function(params) {\n      const idx = params[0].dataIndex;\n      const item = data[idx];\n      const changeIcon = item.change_pct >= 0 ? '↑' : '↓';\n      const changeColor = item.change_pct >= 0 ? '#52c41a' : '#f5222d';\n      return `<b>${item.activity_type}</b><br/>\n        ${t('This Week')}: ${item.this_week}<br/>\n        ${t('Last Week')}: ${item.last_week}<br/>\n        <span style=\"color:${changeColor}\">${changeIcon} ${Math.abs(item.change_pct)}%</span>`;\n    }\n  },\n  legend: {\n    data: [t('This Week'), t('Last Week')],\n    bottom: 10\n  },\n  grid: {\n    left: '10%',\n    right: '10%',\n    top: 80,\n    bottom: 60\n  },\n  xAxis: {\n    type: 'category',\n    data: types\n  },\n  yAxis: {\n    type: 'value',\n    name: t('Count')\n  },\n  series: [\n    {\n      name: t('This Week'),\n      type: 'bar',\n      data: thisWeek,\n      itemStyle: { color: '#1890ff' },\n      label: {\n        show: true,\n        position: 'top'\n      }\n    },\n    {\n      name: t('Last Week'),\n      type: 'bar',\n      data: lastWeek,\n      itemStyle: { color: '#d9d9d9' },\n      label: {\n        show: true,\n        position: 'top'\n      }\n    }\n  ]\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function() {\n    ctx.router.navigate('/admin/n6bh6s6isej');\n});"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "uid": "1bcaf75c70d",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 4,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "SELECT\n  DATE(actual_close_date) as close_date,\n  COUNT(*) as deal_count,\n  SUM(amount) as won_amount\nFROM nb_crm_opportunities\nWHERE 1=1\n  AND stage = 'won'\n  AND actual_close_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '3 months'\n  AND actual_close_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'\n{% if ctx.role != 'root' and ctx.role != 'admin' %}\n  AND owner_id = {{ ctx.user.id }}\n{% endif %}\nGROUP BY DATE(actual_close_date)\nORDER BY close_date"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "close_date",
+                        "yField": "deal_count",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\nconst data = ctx.data.objects || [];\n\nconst dates = data.map(function(d) { return d.close_date?.substring(5, 10) || ''; });\nconst amounts = data.map(function(d) { return Number(d.won_amount) || 0; });\nconst counts = data.map(function(d) { return Number(d.deal_count) || 0; });\n\nconst totalAmount = amounts.reduce(function(a, b) { return a + b; }, 0);\nconst totalDeals = counts.reduce(function(a, b) { return a + b; }, 0);\n\nconst formatCurrency = function(val) {\n  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';\n  if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';\n  return '$' + val;\n};\n\nreturn {\n  title: {\n    text: t('Won Deals (Recent 3 Months)'),\n    subtext: `${t('Total')}: ${formatCurrency(totalAmount)} (${totalDeals} ${t('deals')})`,\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    formatter: function(params) {\n      const idx = params[0].dataIndex;\n      return `${dates[idx]}<br/>${t('Amount')}: ${formatCurrency(amounts[idx])}<br/>${t('Deals')}: ${counts[idx]}`;\n    }\n  },\n  grid: {\n    left: '10%',\n    right: '5%',\n    top: 70,\n    bottom: 40\n  },\n  xAxis: {\n    type: 'category',\n    data: dates\n  },\n  yAxis: {\n    type: 'value',\n    name: t('Amount'),\n    axisLabel: {\n      formatter: function(val) { return formatCurrency(val); }\n    }\n  },\n  series: [\n    {\n      name: t('Won Amount'),\n      type: 'line',\n      data: amounts,\n      smooth: true,\n      areaStyle: { opacity: 0.3 },\n      itemStyle: { color: '#52c41a' },\n      label: {\n        show: true,\n        position: 'top',\n        formatter: function(params) { return counts[params.dataIndex] > 0 ? counts[params.dataIndex] : ''; }\n      }\n    }\n  ]\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function(params) {\n    ctx.router.navigate('/admin/vga8g2pgnnu?filter=won');\n});"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "uid": "4cc4c46f90d",
+            "use": "ChartBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 5,
+            "stepParams": {
+              "chartSettings": {
+                "configure": {
+                  "query": {
+                    "mode": "sql",
+                    "sql": "SELECT\n  status,\n  CASE status\n    WHEN 'new' THEN 'New'\n    WHEN 'working' THEN 'Working'\n    WHEN 'qualified' THEN 'Qualified'\n    WHEN 'unqualified' THEN 'Unqualified'\n    ELSE status\n  END as status_name,\n  CASE status\n    WHEN 'new' THEN '#1890ff'\n    WHEN 'working' THEN '#faad14'\n    WHEN 'qualified' THEN '#52c41a'\n    WHEN 'unqualified' THEN '#8c8c8c'\n    ELSE '#d9d9d9'\n  END as color,\n  COUNT(*) as lead_count\nFROM nb_crm_leads\nWHERE 1=1\n  AND is_converted = false\n{% if ctx.role != 'root' and ctx.role != 'admin' %}\n  AND owner_id = {{ ctx.user.id }}\n{% endif %}\nGROUP BY status\nORDER BY\n  CASE status\n    WHEN 'new' THEN 1\n    WHEN 'working' THEN 2\n    WHEN 'qualified' THEN 3\n    WHEN 'unqualified' THEN 4\n    ELSE 5\n  END"
+                  },
+                  "chart": {
+                    "option": {
+                      "mode": "custom",
+                      "builder": {
+                        "legend": true,
+                        "tooltip": true,
+                        "label": false,
+                        "type": "line",
+                        "xField": "status",
+                        "yField": "status_name",
+                        "smooth": false,
+                        "xAxisLabelRotate": 0,
+                        "yAxisSplitLine": true
+                      },
+                      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\nconst data = ctx.data.objects || [];\n\nconst categories = data.map(function(d) { return d.status_name; });\nconst counts = data.map(function(d) { return Number(d.lead_count) || 0; });\nconst colors = data.map(function(d) { return d.color; });\n\nconst total = counts.reduce(function(a, b) { return a + b; }, 0);\n\nreturn {\n  title: {\n    text: t('My Lead Status'),\n    subtext: `${t('Total')}: ${total} ${t('leads')}`,\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    axisPointer: { type: 'shadow' }\n  },\n  grid: {\n    left: '10%',\n    right: '5%',\n    top: 70,\n    bottom: 40\n  },\n  xAxis: {\n    type: 'category',\n    data: categories\n  },\n  yAxis: {\n    type: 'value',\n    name: t('Count')\n  },\n  series: [\n    {\n      name: t('Leads'),\n      type: 'bar',\n      data: counts.map(function(val, idx) { return {\n        value: val,\n        itemStyle: { color: colors[idx] }\n      }; }),\n      label: {\n        show: true,\n        position: 'top'\n      },\n      barWidth: '50%'\n    }\n  ]\n}\n"
+                    },
+                    "events": {
+                      "mode": "custom",
+                      "raw": "chart.off('click');\nchart.on('click', function(params) {\n    var status = params.name;\n    if (status) ctx.router.navigate('/admin/e9478uhrdve?status=' + encodeURIComponent(status.toLowerCase()));\n});"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

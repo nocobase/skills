@@ -1,0 +1,986 @@
+{
+  "title": "Overview",
+  "path": "Dashboards_Overview",
+  "uid": "ohlak5xbwo1",
+  "tabs": [
+    {
+      "title": null,
+      "uid": "cjdbr34xywn",
+      "grid_uid": "91b10515cc4",
+      "stats": {
+        "nodes": 45,
+        "js": 5,
+        "events": 0,
+        "popups": 1
+      },
+      "tree": {
+        "uid": "91b10515cc4",
+        "use": "BlockGridModel",
+        "subKey": "grid",
+        "stepParams": {
+          "gridSettings": {
+            "grid": {
+              "rows": {
+                "bi7krq0lhim": [
+                  [
+                    "a8a5bd931dc"
+                  ]
+                ],
+                "tkfo2kycx6w": [
+                  [
+                    "1bd65d69015"
+                  ],
+                  [
+                    "63bd120202a"
+                  ]
+                ],
+                "l33g9s722fe": [
+                  [
+                    "6d323a21694"
+                  ]
+                ]
+              },
+              "sizes": {
+                "bi7krq0lhim": [
+                  24
+                ],
+                "tkfo2kycx6w": [
+                  16,
+                  8
+                ]
+              },
+              "rowOrder": [
+                "bi7krq0lhim",
+                "tkfo2kycx6w",
+                "l33g9s722fe"
+              ]
+            }
+          }
+        },
+        "children": [
+          {
+            "uid": "05aef6e5ea7",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 1,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "code": "/**\n * Activity Calendar Block\n * Table: nb_crm_activities\n *\n * Displays CRM activities in a calendar view using FullCalendar.\n * Activity types: meeting, call, task, email, note\n */\n\n// ==================== Load FullCalendar ====================\n\nconst coreMod = await ctx.importAsync('@fullcalendar/core@6.1.20');\nconst dayGridPlugin = await ctx.importAsync('@fullcalendar/daygrid@6.1.20');\nconst timeGridPlugin = await ctx.importAsync('@fullcalendar/timegrid@6.1.20');\nconst listPlugin = await ctx.importAsync('@fullcalendar/list@6.1.20');\nconst interactionModule = await ctx.importAsync('@fullcalendar/interaction@6.1.20');\n\nconst Calendar = coreMod.Calendar;\nconst interactionPlugin = interactionModule.default || interactionModule;\n\n// ==================== Theme Detection ====================\n\nconst algorithm = ctx.antdConfig?.theme?.algorithm;\nconst darkAlgo = ctx.antd.theme.darkAlgorithm;\nconst isDark = Array.isArray(algorithm)\n  ? algorithm.some(fn => fn === darkAlgo)\n  : algorithm === darkAlgo;\nconst T = ctx.themeToken || {};\n\n// i18n\nconst t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });\n\n// ==================== Config ====================\n\nconst TABLE_NAME = 'nb_crm_activities';\n\nconst VIEW_CONFIG = {\n  detailPopup: 'ibbbzxrx5p3',   // Activity detail view\n  addPopup: '9deb7d42812',      // Activity add form\n};\n\n// Monochrome + accent colors (theme-aware)\nconst ACTIVITY_COLORS = {\n  meeting: { bg: T.colorBgLayout || '#f5f5f5', border: T.colorText || '#000', text: T.colorText || '#000' },\n  call: { bg: T.colorSuccessBg || '#f6ffed', border: T.colorSuccess || '#52c41a', text: isDark ? (T.colorSuccess || '#52c41a') : '#389e0d' },\n  task: { bg: T.colorWarningBg || '#fffbe6', border: T.colorWarning || '#faad14', text: isDark ? (T.colorWarning || '#faad14') : '#ad6800' },\n  email: { bg: T.colorPrimaryBg || '#e6f7ff', border: T.colorPrimary || '#1890ff', text: isDark ? (T.colorPrimary || '#1890ff') : '#0958d9' },\n  note: { bg: isDark ? 'rgba(114,46,209,0.15)' : '#f9f0ff', border: '#722ed1', text: isDark ? '#b37feb' : '#531dab' },\n};\n\nconst ACTIVITY_LABELS = {\n  meeting: t('Meeting'),\n  call: t('Call'),\n  task: t('Task'),\n  email: t('Email'),\n  note: t('Note'),\n};\n\n// ==================== Load Data ====================\n\n// Filter options: 'pending' (default), 'all', 'upcoming'\nconst SHOW_MODE = 'pending'; // Only show incomplete activities\n\nconst loadActivities = async () => {\n  try {\n    // Calculate date range: 2 weeks ago to 4 weeks ahead\n    const twoWeeksAgo = new Date();\n    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);\n\n    const fourWeeksAhead = new Date();\n    fourWeeksAhead.setDate(fourWeeksAhead.getDate() + 28);\n\n    // Build filter based on mode\n    let filter = {\n      activity_date: {\n        $gte: twoWeeksAgo.toISOString(),\n        $lte: fourWeeksAhead.toISOString(),\n      },\n    };\n\n    // For 'pending' mode, only show incomplete activities\n    if (SHOW_MODE === 'pending') {\n      filter.is_completed = false;\n    }\n\n    const res = await ctx.api.request({\n      url: `${TABLE_NAME}:list`,\n      params: {\n        pageSize: 200,\n        filter,\n        appends: ['customer', 'contact', 'opportunity', 'owner'],\n        sort: ['activity_date'],\n      },\n    });\n    return res?.data?.data || [];\n  } catch (err) {\n    console.error('Failed to fetch activities:', err);\n    return [];\n  }\n};\n\nlet activities = await loadActivities();\n\n// ==================== Format Events ====================\n\nconst formatActivity = (a) => {\n  const type = a.type || 'meeting';\n  const colors = ACTIVITY_COLORS[type] || ACTIVITY_COLORS.meeting;\n  const isPending = !a.is_completed;\n\n  // Pending activities get solid colors, completed get muted\n  const bgColor = isPending ? colors.bg : (T.colorBgLayout || '#fafafa');\n  const borderColor = isPending ? colors.border : (T.colorBorderSecondary || '#e8e8e8');\n  const textColor = isPending ? colors.text : (T.colorTextTertiary || '#999');\n\n  // Add icon prefix for pending tasks\n  const titlePrefix = isPending && type === 'task' ? '○ ' :\n                      isPending && type === 'meeting' ? '◎ ' :\n                      isPending && type === 'call' ? '◉ ' : '';\n\n  return {\n    id: String(a.id),\n    title: titlePrefix + (a.subject || t('Untitled')),\n    start: a.activity_date,\n    end: a.duration ? new Date(new Date(a.activity_date).getTime() + a.duration * 60000).toISOString() : null,\n    allDay: !a.duration,\n    backgroundColor: bgColor,\n    borderColor: borderColor,\n    textColor: textColor,\n    extendedProps: { type, activity: a, isPending },\n  };\n};\n\nconst formatAll = (items) => items.map(formatActivity);\n\n// ==================== Create Container ====================\n\nconst wrapper = document.createElement('div');\nwrapper.style.cssText = `padding: 16px; background: ${T.colorBgContainer || '#fff'}; border-radius: 8px;`;\n\n// Add CSS - Minimalist antd style\nconst style = document.createElement('style');\nstyle.textContent = `\n  .activity-calendar .fc {\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n  }\n  .activity-calendar .fc-toolbar-title {\n    font-size: 16px !important;\n    font-weight: 600 !important;\n    color: ${T.colorText || '#000'} !important;\n  }\n  .activity-calendar .fc-button {\n    padding: 4px 12px !important;\n    font-size: 13px !important;\n    border-radius: 6px !important;\n    font-weight: 400 !important;\n  }\n  .activity-calendar .fc-button-primary {\n    background: ${T.colorBgContainer || '#fff'} !important;\n    border: 1px solid ${T.colorBorderSecondary || '#d9d9d9'} !important;\n    color: ${T.colorText || 'rgba(0,0,0,0.88)'} !important;\n  }\n  .activity-calendar .fc-button-primary:hover {\n    background: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'} !important;\n    color: ${T.colorText || '#000'} !important;\n  }\n  .activity-calendar .fc-button-primary:not(:disabled).fc-button-active,\n  .activity-calendar .fc-button-primary:not(:disabled):active {\n    background: ${T.colorPrimary || '#1890ff'} !important;\n    border-color: ${T.colorPrimary || '#1890ff'} !important;\n    color: #fff !important;\n  }\n  .activity-calendar .fc-theme-standard td,\n  .activity-calendar .fc-theme-standard th {\n    border-color: ${T.colorBorderSecondary || '#f0f0f0'};\n  }\n  .activity-calendar .fc-theme-standard .fc-scrollgrid {\n    border-color: ${T.colorBorderSecondary || '#d9d9d9'};\n  }\n  .activity-calendar .fc-col-header-cell-cushion {\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.45)'};\n    font-weight: 400;\n    font-size: 12px;\n  }\n  .activity-calendar .fc-daygrid-day-number {\n    font-size: 13px;\n    color: ${T.colorText || 'rgba(0,0,0,0.88)'};\n    padding: 4px 8px;\n  }\n  .activity-calendar .fc-daygrid-day.fc-day-today {\n    background: ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'} !important;\n  }\n  .activity-calendar .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {\n    background: ${T.colorPrimary || '#1890ff'};\n    color: #fff;\n    border-radius: 50%;\n    width: 24px;\n    height: 24px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n  }\n  .activity-calendar .fc-event {\n    border-radius: 4px !important;\n    padding: 2px 6px !important;\n    font-size: 11px !important;\n    cursor: grab !important;\n    margin: 1px 2px !important;\n    border-left-width: 3px !important;\n    border-left-style: solid !important;\n    user-select: none;\n  }\n  .activity-calendar .fc-event:active {\n    cursor: grabbing !important;\n  }\n  .activity-calendar .fc-event-dragging {\n    opacity: 0.7;\n    box-shadow: 0 4px 12px rgba(0,0,0,0.15);\n  }\n  .activity-calendar .fc-event-resizing {\n    opacity: 0.8;\n  }\n  .activity-calendar .fc-daygrid-more-link {\n    font-size: 11px;\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.45)'};\n  }\n  .activity-calendar .fc-list-event-title {\n    font-size: 13px !important;\n  }\n  .activity-legend {\n    display: flex;\n    gap: 16px;\n    flex-wrap: wrap;\n  }\n  .activity-legend-item {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    font-size: 12px;\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.65)'};\n  }\n  .activity-legend-dot {\n    width: 8px;\n    height: 8px;\n    border-radius: 2px;\n  }\n`;\nwrapper.appendChild(style);\n\n// Header with filter info, legend and add button\nconst header = document.createElement('div');\nheader.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid ${T.colorBorderSecondary || '#f0f0f0'}; flex-wrap: wrap; gap: 12px;`;\n\n// Left section: Title + Filter badge\nconst leftSection = document.createElement('div');\nleftSection.style.cssText = 'display: flex; align-items: center; gap: 8px;';\nleftSection.innerHTML = `\n  <span style=\"font-size: 14px; font-weight: 500; color: ${T.colorText || '#000'};\">${t('Activities')}</span>\n  <span style=\"padding: 2px 8px; border-radius: 4px; font-size: 11px; background: ${SHOW_MODE === 'pending' ? (T.colorWarningBg || '#fff7e6') : (T.colorBgLayout || '#f5f5f5')}; color: ${SHOW_MODE === 'pending' ? (isDark ? (T.colorWarning || '#d46b08') : '#d46b08') : (T.colorTextSecondary || '#666')}; border: 1px solid ${SHOW_MODE === 'pending' ? (isDark ? (T.colorWarning || '#ffd591') : '#ffd591') : (T.colorBorderSecondary || '#d9d9d9')};\">\n    ${SHOW_MODE === 'pending' ? t('Pending Only') : t('All Activities')}\n  </span>\n`;\nheader.appendChild(leftSection);\n\n// Right section: Legend + Add button\nconst rightSection = document.createElement('div');\nrightSection.style.cssText = 'display: flex; align-items: center; gap: 16px; flex-wrap: wrap;';\n\n// Legend\nconst legend = document.createElement('div');\nlegend.className = 'activity-legend';\nlegend.style.cssText = 'display: flex; gap: 16px; margin: 0; padding: 0; border: none; flex-wrap: wrap;';\nlegend.innerHTML = Object.entries(ACTIVITY_COLORS).map(([type, colors]) => `\n  <div class=\"activity-legend-item\">\n    <div class=\"activity-legend-dot\" style=\"background: ${colors.border}\"></div>\n    <span>${ACTIVITY_LABELS[type] || type}</span>\n  </div>\n`).join('');\nrightSection.appendChild(legend);\n\n// Refresh button\nconst refreshBtn = document.createElement('button');\nrefreshBtn.style.cssText = `display: flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 13px; border-radius: 6px; border: 1px solid ${T.colorBorderSecondary || '#d9d9d9'}; background: ${T.colorBgContainer || '#fff'}; color: ${T.colorTextSecondary || 'rgba(0,0,0,0.65)'}; cursor: pointer; transition: all 0.2s;`;\nrefreshBtn.innerHTML = `↻`;\nrefreshBtn.title = t('Refresh');\nrefreshBtn.onmouseenter = () => { refreshBtn.style.borderColor = T.colorPrimary || '#1890ff'; refreshBtn.style.color = T.colorPrimary || '#1890ff'; };\nrefreshBtn.onmouseleave = () => { refreshBtn.style.borderColor = T.colorBorderSecondary || '#d9d9d9'; refreshBtn.style.color = T.colorTextSecondary || 'rgba(0,0,0,0.65)'; };\nrefreshBtn.onclick = () => refreshCalendar();\nrightSection.appendChild(refreshBtn);\n\n// Add button\nconst addBtn = document.createElement('button');\naddBtn.style.cssText = `display: flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 13px; border-radius: 6px; border: 1px solid ${T.colorPrimary || '#1890ff'}; background: ${T.colorPrimary || '#1890ff'}; color: #fff; cursor: pointer; transition: all 0.2s;`;\naddBtn.innerHTML = `<span style=\"font-size: 14px;\">+</span> ${t('Add')}`;\naddBtn.onmouseenter = () => { addBtn.style.background = T.colorPrimaryHover || '#40a9ff'; addBtn.style.borderColor = T.colorPrimaryHover || '#40a9ff'; };\naddBtn.onmouseleave = () => { addBtn.style.background = T.colorPrimary || '#1890ff'; addBtn.style.borderColor = T.colorPrimary || '#1890ff'; };\naddBtn.onclick = async () => {\n  const viewUid = VIEW_CONFIG.addPopup;\n  if (!viewUid || viewUid.startsWith('REPLACE_WITH')) {\n    ctx.message.warning(t('Add popup not configured'));\n    return;\n  }\n  try {\n    if (ctx.openView) {\n      await ctx.openView(viewUid, {\n        mode: 'drawer',\n        size: 'medium',\n      });\n      // Refresh after closing\n      setTimeout(refreshCalendar, 500);\n    }\n  } catch (err) {\n    console.error('Failed to open add popup:', err);\n    ctx.message.error(t('Failed to open add form'));\n  }\n};\nrightSection.appendChild(addBtn);\n\nheader.appendChild(rightSection);\nwrapper.appendChild(header);\n\n// Calendar container\nconst calendarEl = document.createElement('div');\ncalendarEl.className = 'activity-calendar';\nwrapper.appendChild(calendarEl);\n\nctx.element.innerHTML = '';\nctx.element.appendChild(wrapper);\n\n// ==================== Refresh Function ====================\n\nconst refreshCalendar = async () => {\n  activities = await loadActivities();\n  calendar.removeAllEvents();\n  calendar.addEventSource(formatAll(activities));\n  ctx.message.success(t('Refreshed'));\n};\n\n// ==================== Initialize Calendar ====================\n\nconst calendar = new Calendar(calendarEl, {\n  plugins: [\n    dayGridPlugin.default || dayGridPlugin,\n    timeGridPlugin.default || timeGridPlugin,\n    listPlugin.default || listPlugin,\n    interactionPlugin,\n  ],\n  initialView: 'dayGridMonth',\n  headerToolbar: {\n    left: 'prev,next today',\n    center: 'title',\n    right: 'dayGridMonth,timeGridWeek,listWeek',\n  },\n  buttonText: {\n    today: t('Today'),\n    month: t('Month'),\n    week: t('Week'),\n    list: t('List'),\n  },\n  height: 'auto',\n  dayMaxEvents: 3,\n  events: formatAll(activities),\n\n  // Enable drag & resize\n  editable: true,\n  eventStartEditable: true,\n  eventDurationEditable: true,\n  eventResizableFromStart: true,\n  dragRevertDuration: 0,\n  eventDragMinDistance: 5,\n\n  // Click event - open detail popup\n  eventClick: async (info) => {\n    info.jsEvent.preventDefault();\n    info.jsEvent.stopPropagation();\n\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const viewUid = VIEW_CONFIG.detailPopup;\n    if (!viewUid || viewUid.startsWith('REPLACE_WITH')) {\n      ctx.message.warning(t('Detail popup not configured'));\n      return;\n    }\n\n    try {\n      if (ctx.openView) {\n        await ctx.openView(viewUid, {\n          mode: 'drawer',\n          size: 'medium',\n          filterByTk: activity.id,\n        });\n        // Refresh after closing\n        setTimeout(refreshCalendar, 500);\n      }\n    } catch (err) {\n      console.error('Failed to open detail popup:', err);\n      ctx.message.error(t('Failed to open activity details'));\n    }\n  },\n\n  // Event render - style based on pending status\n  eventDidMount: (info) => {\n    const { type, isPending } = info.event.extendedProps;\n    const colors = ACTIVITY_COLORS[type] || ACTIVITY_COLORS.meeting;\n\n    if (info.el) {\n      if (isPending) {\n        // Pending: use vibrant colors\n        info.el.style.backgroundColor = colors.bg;\n        info.el.style.borderColor = colors.border;\n        info.el.style.color = colors.text;\n        info.el.style.fontWeight = '500';\n      } else {\n        // Completed: muted style\n        info.el.style.backgroundColor = T.colorBgLayout || '#fafafa';\n        info.el.style.borderColor = T.colorBorderSecondary || '#e8e8e8';\n        info.el.style.color = T.colorTextTertiary || '#999';\n        info.el.style.textDecoration = 'line-through';\n        info.el.style.opacity = '0.7';\n      }\n    }\n  },\n\n  // Drag event - update activity_date\n  eventDrop: async (info) => {\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const newStart = info.event.start;\n    const newEnd = info.event.end;\n\n    // Calculate new duration in minutes if end exists\n    const duration = newEnd ? Math.round((newEnd - newStart) / 60000) : null;\n\n    try {\n      await ctx.api.request({\n        url: `${TABLE_NAME}:update`,\n        method: 'POST',\n        params: { filterByTk: activity.id },\n        data: {\n          activity_date: newStart.toISOString(),\n          ...(duration !== null && { duration }),\n        },\n      });\n      ctx.message.success(t('Activity moved'));\n    } catch (err) {\n      console.error('Failed to update:', err);\n      ctx.message.error(t('Failed to update'));\n      info.revert();\n    }\n  },\n\n  // Resize event - update duration\n  eventResize: async (info) => {\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const newStart = info.event.start;\n    const newEnd = info.event.end;\n\n    // Calculate new duration in minutes\n    const duration = newEnd ? Math.round((newEnd - newStart) / 60000) : null;\n\n    try {\n      await ctx.api.request({\n        url: `${TABLE_NAME}:update`,\n        method: 'POST',\n        params: { filterByTk: activity.id },\n        data: {\n          activity_date: newStart.toISOString(),\n          ...(duration !== null && { duration }),\n        },\n      });\n      ctx.message.success(t('Duration updated'));\n    } catch (err) {\n      console.error('Failed to update:', err);\n      ctx.message.error(t('Failed to update'));\n      info.revert();\n    }\n  },\n});\n\ncalendar.render();\n",
+                  "version": "v1"
+                }
+              }
+            }
+          },
+          {
+            "uid": "a8a5bd931dc",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 2,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "version": "v1",
+                  "code": "var React = ctx.React;\nvar useState = React.useState;\nvar useEffect = React.useEffect;\nvar Row = ctx.antd.Row, Col = ctx.antd.Col, Spin = ctx.antd.Spin;\n\nvar t = function(key) { return ctx.t(key, { ns: 'nb_crm' }); };\nvar fmt = function(v) {\n  var n = Number(v) || 0;\n  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';\n  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';\n  return '$' + n.toFixed(0);\n};\n\nvar kpiStyle = {\n  borderRadius: 12, padding: '16px 20px', background: '#fff',\n  border: '1px solid #f0f0f0', minHeight: 90, transition: 'all 0.2s ease'\n};\nvar label = { fontSize: '0.875rem', fontWeight: 600, color: '#333', marginBottom: 4 };\nvar val = function(color) {\n  return { fontSize: '1.6rem', fontWeight: 700, color: color, letterSpacing: '-0.02em' };\n};\nvar sfx = { fontSize: '0.75rem', color: '#999', marginLeft: 4 };\nvar changeStyle = function(positive) {\n  return { fontSize: '0.7rem', color: positive ? '#22c55e' : '#ef4444', marginTop: 4 };\n};\n\nfunction useData() {\n  var _s = useState(null), data = _s[0], setData = _s[1];\n  var _l = useState(true), loading = _l[0], setLoading = _l[1];\n  useEffect(function() {\n    var now = new Date();\n    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();\n    var lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();\n    var lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString();\n\n    Promise.all([\n      ctx.api.request({ url: 'nb_crm_leads:list', params: { pageSize: 1, filter: JSON.stringify({ createdAt: { $gte: monthStart } }) } }),\n      ctx.api.request({ url: 'nb_crm_leads:list', params: { pageSize: 1, filter: JSON.stringify({ createdAt: { $gte: lastMonthStart, $lt: monthStart } }) } }),\n      ctx.api.request({ url: 'nb_crm_leads:list', params: { pageSize: 1, filter: JSON.stringify({ is_converted: true, createdAt: { $gte: monthStart } }) } }),\n      ctx.api.request({ url: 'nb_crm_opportunities:list', params: { pageSize: 200, filter: JSON.stringify({ stage: 'won', actual_close_date: { $gte: monthStart } }), fields: ['amount'] } }),\n      ctx.api.request({ url: 'nb_crm_opportunities:list', params: { pageSize: 1, filter: JSON.stringify({ stage: { $notIn: ['won', 'lost'] } }) } }),\n    ]).then(function(results) {\n      var newLeads = (results[0] && results[0].data && results[0].data.meta && results[0].data.meta.count) || 0;\n      var lastMonth = (results[1] && results[1].data && results[1].data.meta && results[1].data.meta.count) || 0;\n      var converted = (results[2] && results[2].data && results[2].data.meta && results[2].data.meta.count) || 0;\n      var wonData = (results[3] && results[3].data && results[3].data.data) || [];\n      var revenue = wonData.reduce(function(s, o) { return s + (Number(o.amount) || 0); }, 0);\n      var activeOpps = (results[4] && results[4].data && results[4].data.meta && results[4].data.meta.count) || 0;\n      var leadsChange = lastMonth > 0 ? ((newLeads - lastMonth) / lastMonth * 100) : 0;\n      var convRate = newLeads > 0 ? (converted / newLeads * 100) : 0;\n      setData({ newLeads: newLeads, leadsChange: leadsChange, convRate: convRate, revenue: revenue, activeOpps: activeOpps });\n      setLoading(false);\n    }).catch(function() { setLoading(false); });\n  }, []);\n  return { data: data, loading: loading };\n}\n\nvar NAV = {\n  'Pipeline Value': '/admin/vga8g2pgnnu',\n  'Open Deals': '/admin/vga8g2pgnnu',\n  'Active Opps': '/admin/vga8g2pgnnu',\n  'Win Rate': '/admin/vga8g2pgnnu',\n  'Avg Deal Size': '/admin/vga8g2pgnnu',\n  'Weighted Pipeline': '/admin/vga8g2pgnnu',\n  'Deals Won': '/admin/vga8g2pgnnu?filter=won',\n  'Won (MTD)': '/admin/vga8g2pgnnu?filter=won',\n  'Avg AI Win Prob': '/admin/vga8g2pgnnu',\n  'Avg Win Prob': '/admin/vga8g2pgnnu',\n  'High Risk': '/admin/vga8g2pgnnu',\n  'Stagnant (14d+)': '/admin/vga8g2pgnnu',\n  'Closing This Month': '/admin/vga8g2pgnnu?filter=closing',\n  'Closing This Week': '/admin/vga8g2pgnnu?filter=closing',\n  'Value at Risk': '/admin/vga8g2pgnnu',\n  'Pipeline / Deal': '/admin/vga8g2pgnnu',\n  'New Leads': '/admin/e9478uhrdve?status=new',\n  'Conversion Rate': '/admin/vga8g2pgnnu',\n  'Monthly Revenue': '/admin/x9u01x7l8wj',\n  'Revenue YTD': '/admin/x9u01x7l8wj',\n  'Revenue MTD': '/admin/x9u01x7l8wj',\n  'Active Customers': '/admin/c137kk6hghm',\n  'Avg Health': '/admin/c137kk6hghm',\n  'Hot Leads': '/admin/e9478uhrdve?filter=hot',\n};\n\nvar KPI = function(props) {\n  var navUrl = NAV[props.title] || null;\n  var clickStyle = Object.assign({}, kpiStyle, navUrl ? {cursor: 'pointer'} : {});\n  return React.createElement('div', { style: clickStyle, className: 'kpi-hover', onClick: function() { if (navUrl) ctx.router.navigate(navUrl); } },\n    React.createElement('div', { style: label }, props.title),\n    React.createElement('div', { style: { display: 'flex', alignItems: 'baseline' } },\n      React.createElement('span', { style: val(props.color) }, props.value),\n      props.suffix ? React.createElement('span', { style: sfx }, props.suffix) : null\n    ),\n    null\n  );\n};\n\nvar Comp = function() {\n  var r = useData();\n  if (r.loading) return React.createElement('div', {style:{textAlign:'center',padding:24}}, React.createElement(Spin));\n  var s = r.data || {};\n  return React.createElement(Row, { gutter: [12, 12] },\n    React.createElement(Col, {xs:12, md:6}, React.createElement(KPI, {title:t('New Leads'), value:s.newLeads, color:'#3b82f6', change:s.leadsChange})),\n    React.createElement(Col, {xs:12, md:6}, React.createElement(KPI, {title:t('Conversion Rate'), value:(s.convRate||0).toFixed(1), color:'#8b5cf6', suffix:'%'})),\n    React.createElement(Col, {xs:12, md:6}, React.createElement(KPI, {title:t('Monthly Revenue'), value:fmt(s.revenue), color:'#22c55e'})),\n    React.createElement(Col, {xs:12, md:6}, React.createElement(KPI, {title:t('Active Opps'), value:s.activeOpps, color:'#f59e0b'}))\n  );\n};\n\nctx.render(React.createElement(React.Fragment, null, React.createElement('style', null, '.kpi-hover{transition:all .2s ease}.kpi-hover:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateY(-2px);border-color:#d0d0d0!important}'), React.createElement(Comp)));\n"
+                }
+              }
+            }
+          },
+          {
+            "uid": "6d323a21694",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 3,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "version": "v1",
+                  "code": "/**\n * Activity Calendar Block\n * Table: nb_crm_activities\n *\n * Displays CRM activities in a calendar view using FullCalendar.\n * Activity types: meeting, call, task, email, note\n */\n\n// ==================== Load FullCalendar ====================\n\nconst coreMod = await ctx.importAsync('@fullcalendar/core@6.1.20');\nconst dayGridPlugin = await ctx.importAsync('@fullcalendar/daygrid@6.1.20');\nconst timeGridPlugin = await ctx.importAsync('@fullcalendar/timegrid@6.1.20');\nconst listPlugin = await ctx.importAsync('@fullcalendar/list@6.1.20');\nconst interactionModule = await ctx.importAsync('@fullcalendar/interaction@6.1.20');\n\nconst Calendar = coreMod.Calendar;\nconst interactionPlugin = interactionModule.default || interactionModule;\n\n// ==================== Theme Detection ====================\n\nconst algorithm = ctx.antdConfig?.theme?.algorithm;\nconst darkAlgo = ctx.antd.theme.darkAlgorithm;\nconst isDark = Array.isArray(algorithm)\n  ? algorithm.some(fn => fn === darkAlgo)\n  : algorithm === darkAlgo;\nconst T = ctx.themeToken || {};\n\n// i18n\nconst t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });\n\n// ==================== Config ====================\n\nconst TABLE_NAME = 'nb_crm_activities';\n\nconst VIEW_CONFIG = {\n  detailPopup: 'ibbbzxrx5p3',   // Activity detail view\n  addPopup: '9deb7d42812',      // Activity add form\n};\n\n// Monochrome + accent colors (theme-aware)\nconst ACTIVITY_COLORS = {\n  meeting: { bg: T.colorBgLayout || '#f5f5f5', border: T.colorText || '#000', text: T.colorText || '#000' },\n  call: { bg: T.colorSuccessBg || '#f6ffed', border: T.colorSuccess || '#52c41a', text: isDark ? (T.colorSuccess || '#52c41a') : '#389e0d' },\n  task: { bg: T.colorWarningBg || '#fffbe6', border: T.colorWarning || '#faad14', text: isDark ? (T.colorWarning || '#faad14') : '#ad6800' },\n  email: { bg: T.colorPrimaryBg || '#e6f7ff', border: T.colorPrimary || '#1890ff', text: isDark ? (T.colorPrimary || '#1890ff') : '#0958d9' },\n  note: { bg: isDark ? 'rgba(114,46,209,0.15)' : '#f9f0ff', border: '#722ed1', text: isDark ? '#b37feb' : '#531dab' },\n};\n\nconst ACTIVITY_LABELS = {\n  meeting: t('Meeting'),\n  call: t('Call'),\n  task: t('Task'),\n  email: t('Email'),\n  note: t('Note'),\n};\n\n// ==================== Load Data ====================\n\n// Filter options: 'pending' (default), 'all', 'upcoming'\nconst SHOW_MODE = 'pending'; // Only show incomplete activities\n\nconst loadActivities = async () => {\n  try {\n    // Calculate date range: 2 weeks ago to 4 weeks ahead\n    const twoWeeksAgo = new Date();\n    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);\n\n    const fourWeeksAhead = new Date();\n    fourWeeksAhead.setDate(fourWeeksAhead.getDate() + 28);\n\n    // Build filter based on mode\n    let filter = {\n      activity_date: {\n        $gte: twoWeeksAgo.toISOString(),\n        $lte: fourWeeksAhead.toISOString(),\n      },\n    };\n\n    // For 'pending' mode, only show incomplete activities\n    if (SHOW_MODE === 'pending') {\n      filter.is_completed = false;\n    }\n\n    const res = await ctx.api.request({\n      url: `${TABLE_NAME}:list`,\n      params: {\n        pageSize: 200,\n        filter,\n        appends: ['customer', 'contact', 'opportunity', 'owner'],\n        sort: ['activity_date'],\n      },\n    });\n    return res?.data?.data || [];\n  } catch (err) {\n    console.error('Failed to fetch activities:', err);\n    return [];\n  }\n};\n\nlet activities = await loadActivities();\n\n// ==================== Format Events ====================\n\nconst formatActivity = (a) => {\n  const type = a.type || 'meeting';\n  const colors = ACTIVITY_COLORS[type] || ACTIVITY_COLORS.meeting;\n  const isPending = !a.is_completed;\n\n  // Pending activities get solid colors, completed get muted\n  const bgColor = isPending ? colors.bg : (T.colorBgLayout || '#fafafa');\n  const borderColor = isPending ? colors.border : (T.colorBorderSecondary || '#e8e8e8');\n  const textColor = isPending ? colors.text : (T.colorTextTertiary || '#999');\n\n  // Add icon prefix for pending tasks\n  const titlePrefix = isPending && type === 'task' ? '○ ' :\n                      isPending && type === 'meeting' ? '◎ ' :\n                      isPending && type === 'call' ? '◉ ' : '';\n\n  return {\n    id: String(a.id),\n    title: titlePrefix + (a.subject || t('Untitled')),\n    start: a.activity_date,\n    end: a.duration ? new Date(new Date(a.activity_date).getTime() + a.duration * 60000).toISOString() : null,\n    allDay: !a.duration,\n    backgroundColor: bgColor,\n    borderColor: borderColor,\n    textColor: textColor,\n    extendedProps: { type, activity: a, isPending },\n  };\n};\n\nconst formatAll = (items) => items.map(formatActivity);\n\n// ==================== Create Container ====================\n\nconst wrapper = document.createElement('div');\nwrapper.style.cssText = `padding: 16px; background: ${T.colorBgContainer || '#fff'}; border-radius: 8px;`;\n\n// Add CSS - Minimalist antd style\nconst style = document.createElement('style');\nstyle.textContent = `\n  .activity-calendar .fc {\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n  }\n  .activity-calendar .fc-toolbar-title {\n    font-size: 16px !important;\n    font-weight: 600 !important;\n    color: ${T.colorText || '#000'} !important;\n  }\n  .activity-calendar .fc-button {\n    padding: 4px 12px !important;\n    font-size: 13px !important;\n    border-radius: 6px !important;\n    font-weight: 400 !important;\n  }\n  .activity-calendar .fc-button-primary {\n    background: ${T.colorBgContainer || '#fff'} !important;\n    border: 1px solid ${T.colorBorderSecondary || '#d9d9d9'} !important;\n    color: ${T.colorText || 'rgba(0,0,0,0.88)'} !important;\n  }\n  .activity-calendar .fc-button-primary:hover {\n    background: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'} !important;\n    color: ${T.colorText || '#000'} !important;\n  }\n  .activity-calendar .fc-button-primary:not(:disabled).fc-button-active,\n  .activity-calendar .fc-button-primary:not(:disabled):active {\n    background: ${T.colorPrimary || '#1890ff'} !important;\n    border-color: ${T.colorPrimary || '#1890ff'} !important;\n    color: #fff !important;\n  }\n  .activity-calendar .fc-theme-standard td,\n  .activity-calendar .fc-theme-standard th {\n    border-color: ${T.colorBorderSecondary || '#f0f0f0'};\n  }\n  .activity-calendar .fc-theme-standard .fc-scrollgrid {\n    border-color: ${T.colorBorderSecondary || '#d9d9d9'};\n  }\n  .activity-calendar .fc-col-header-cell-cushion {\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.45)'};\n    font-weight: 400;\n    font-size: 12px;\n  }\n  .activity-calendar .fc-daygrid-day-number {\n    font-size: 13px;\n    color: ${T.colorText || 'rgba(0,0,0,0.88)'};\n    padding: 4px 8px;\n  }\n  .activity-calendar .fc-daygrid-day.fc-day-today {\n    background: ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'} !important;\n  }\n  .activity-calendar .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {\n    background: ${T.colorPrimary || '#1890ff'};\n    color: #fff;\n    border-radius: 50%;\n    width: 24px;\n    height: 24px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n  }\n  .activity-calendar .fc-event {\n    border-radius: 4px !important;\n    padding: 2px 6px !important;\n    font-size: 11px !important;\n    cursor: grab !important;\n    margin: 1px 2px !important;\n    border-left-width: 3px !important;\n    border-left-style: solid !important;\n    user-select: none;\n  }\n  .activity-calendar .fc-event:active {\n    cursor: grabbing !important;\n  }\n  .activity-calendar .fc-event-dragging {\n    opacity: 0.7;\n    box-shadow: 0 4px 12px rgba(0,0,0,0.15);\n  }\n  .activity-calendar .fc-event-resizing {\n    opacity: 0.8;\n  }\n  .activity-calendar .fc-daygrid-more-link {\n    font-size: 11px;\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.45)'};\n  }\n  .activity-calendar .fc-list-event-title {\n    font-size: 13px !important;\n  }\n  .activity-legend {\n    display: flex;\n    gap: 16px;\n    flex-wrap: wrap;\n  }\n  .activity-legend-item {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    font-size: 12px;\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.65)'};\n  }\n  .activity-legend-dot {\n    width: 8px;\n    height: 8px;\n    border-radius: 2px;\n  }\n`;\nwrapper.appendChild(style);\n\n// Header with filter info, legend and add button\nconst header = document.createElement('div');\nheader.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid ${T.colorBorderSecondary || '#f0f0f0'}; flex-wrap: wrap; gap: 12px;`;\n\n// Left section: Title + Filter badge\nconst leftSection = document.createElement('div');\nleftSection.style.cssText = 'display: flex; align-items: center; gap: 8px;';\nleftSection.innerHTML = `\n  <span style=\"font-size: 14px; font-weight: 500; color: ${T.colorText || '#000'};\">${t('Activities')}</span>\n  <span style=\"padding: 2px 8px; border-radius: 4px; font-size: 11px; background: ${SHOW_MODE === 'pending' ? (T.colorWarningBg || '#fff7e6') : (T.colorBgLayout || '#f5f5f5')}; color: ${SHOW_MODE === 'pending' ? (isDark ? (T.colorWarning || '#d46b08') : '#d46b08') : (T.colorTextSecondary || '#666')}; border: 1px solid ${SHOW_MODE === 'pending' ? (isDark ? (T.colorWarning || '#ffd591') : '#ffd591') : (T.colorBorderSecondary || '#d9d9d9')};\">\n    ${SHOW_MODE === 'pending' ? t('Pending Only') : t('All Activities')}\n  </span>\n`;\nheader.appendChild(leftSection);\n\n// Right section: Legend + Add button\nconst rightSection = document.createElement('div');\nrightSection.style.cssText = 'display: flex; align-items: center; gap: 16px; flex-wrap: wrap;';\n\n// Legend\nconst legend = document.createElement('div');\nlegend.className = 'activity-legend';\nlegend.style.cssText = 'display: flex; gap: 16px; margin: 0; padding: 0; border: none; flex-wrap: wrap;';\nlegend.innerHTML = Object.entries(ACTIVITY_COLORS).map(([type, colors]) => `\n  <div class=\"activity-legend-item\">\n    <div class=\"activity-legend-dot\" style=\"background: ${colors.border}\"></div>\n    <span>${ACTIVITY_LABELS[type] || type}</span>\n  </div>\n`).join('');\nrightSection.appendChild(legend);\n\n// Refresh button\nconst refreshBtn = document.createElement('button');\nrefreshBtn.style.cssText = `display: flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 13px; border-radius: 6px; border: 1px solid ${T.colorBorderSecondary || '#d9d9d9'}; background: ${T.colorBgContainer || '#fff'}; color: ${T.colorTextSecondary || 'rgba(0,0,0,0.65)'}; cursor: pointer; transition: all 0.2s;`;\nrefreshBtn.innerHTML = `↻`;\nrefreshBtn.title = t('Refresh');\nrefreshBtn.onmouseenter = () => { refreshBtn.style.borderColor = T.colorPrimary || '#1890ff'; refreshBtn.style.color = T.colorPrimary || '#1890ff'; };\nrefreshBtn.onmouseleave = () => { refreshBtn.style.borderColor = T.colorBorderSecondary || '#d9d9d9'; refreshBtn.style.color = T.colorTextSecondary || 'rgba(0,0,0,0.65)'; };\nrefreshBtn.onclick = () => refreshCalendar();\nrightSection.appendChild(refreshBtn);\n\n// Add button\nconst addBtn = document.createElement('button');\naddBtn.style.cssText = `display: flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 13px; border-radius: 6px; border: 1px solid ${T.colorPrimary || '#1890ff'}; background: ${T.colorPrimary || '#1890ff'}; color: #fff; cursor: pointer; transition: all 0.2s;`;\naddBtn.innerHTML = `<span style=\"font-size: 14px;\">+</span> ${t('Add')}`;\naddBtn.onmouseenter = () => { addBtn.style.background = T.colorPrimaryHover || '#40a9ff'; addBtn.style.borderColor = T.colorPrimaryHover || '#40a9ff'; };\naddBtn.onmouseleave = () => { addBtn.style.background = T.colorPrimary || '#1890ff'; addBtn.style.borderColor = T.colorPrimary || '#1890ff'; };\naddBtn.onclick = async () => {\n  const viewUid = VIEW_CONFIG.addPopup;\n  if (!viewUid || viewUid.startsWith('REPLACE_WITH')) {\n    ctx.message.warning(t('Add popup not configured'));\n    return;\n  }\n  try {\n    if (ctx.openView) {\n      await ctx.openView(viewUid, {\n        mode: 'drawer',\n        size: 'medium',\n      });\n      // Refresh after closing\n      setTimeout(refreshCalendar, 500);\n    }\n  } catch (err) {\n    console.error('Failed to open add popup:', err);\n    ctx.message.error(t('Failed to open add form'));\n  }\n};\nrightSection.appendChild(addBtn);\n\nheader.appendChild(rightSection);\nwrapper.appendChild(header);\n\n// Calendar container\nconst calendarEl = document.createElement('div');\ncalendarEl.className = 'activity-calendar';\nwrapper.appendChild(calendarEl);\n\nctx.element.innerHTML = '';\nctx.element.appendChild(wrapper);\n\n// ==================== Refresh Function ====================\n\nconst refreshCalendar = async () => {\n  activities = await loadActivities();\n  calendar.removeAllEvents();\n  calendar.addEventSource(formatAll(activities));\n  ctx.message.success(t('Refreshed'));\n};\n\n// ==================== Initialize Calendar ====================\n\nconst calendar = new Calendar(calendarEl, {\n  plugins: [\n    dayGridPlugin.default || dayGridPlugin,\n    timeGridPlugin.default || timeGridPlugin,\n    listPlugin.default || listPlugin,\n    interactionPlugin,\n  ],\n  initialView: 'dayGridMonth',\n  headerToolbar: {\n    left: 'prev,next today',\n    center: 'title',\n    right: 'dayGridMonth,timeGridWeek,listWeek',\n  },\n  buttonText: {\n    today: t('Today'),\n    month: t('Month'),\n    week: t('Week'),\n    list: t('List'),\n  },\n  height: 'auto',\n  dayMaxEvents: 3,\n  events: formatAll(activities),\n\n  // Enable drag & resize\n  editable: true,\n  eventStartEditable: true,\n  eventDurationEditable: true,\n  eventResizableFromStart: true,\n  dragRevertDuration: 0,\n  eventDragMinDistance: 5,\n\n  // Click event - open detail popup\n  eventClick: async (info) => {\n    info.jsEvent.preventDefault();\n    info.jsEvent.stopPropagation();\n\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const viewUid = VIEW_CONFIG.detailPopup;\n    if (!viewUid || viewUid.startsWith('REPLACE_WITH')) {\n      ctx.message.warning(t('Detail popup not configured'));\n      return;\n    }\n\n    try {\n      if (ctx.openView) {\n        await ctx.openView(viewUid, {\n          mode: 'drawer',\n          size: 'medium',\n          filterByTk: activity.id,\n        });\n        // Refresh after closing\n        setTimeout(refreshCalendar, 500);\n      }\n    } catch (err) {\n      console.error('Failed to open detail popup:', err);\n      ctx.message.error(t('Failed to open activity details'));\n    }\n  },\n\n  // Event render - style based on pending status\n  eventDidMount: (info) => {\n    const { type, isPending } = info.event.extendedProps;\n    const colors = ACTIVITY_COLORS[type] || ACTIVITY_COLORS.meeting;\n\n    if (info.el) {\n      if (isPending) {\n        // Pending: use vibrant colors\n        info.el.style.backgroundColor = colors.bg;\n        info.el.style.borderColor = colors.border;\n        info.el.style.color = colors.text;\n        info.el.style.fontWeight = '500';\n      } else {\n        // Completed: muted style\n        info.el.style.backgroundColor = T.colorBgLayout || '#fafafa';\n        info.el.style.borderColor = T.colorBorderSecondary || '#e8e8e8';\n        info.el.style.color = T.colorTextTertiary || '#999';\n        info.el.style.textDecoration = 'line-through';\n        info.el.style.opacity = '0.7';\n      }\n    }\n  },\n\n  // Drag event - update activity_date\n  eventDrop: async (info) => {\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const newStart = info.event.start;\n    const newEnd = info.event.end;\n\n    // Calculate new duration in minutes if end exists\n    const duration = newEnd ? Math.round((newEnd - newStart) / 60000) : null;\n\n    try {\n      await ctx.api.request({\n        url: `${TABLE_NAME}:update`,\n        method: 'POST',\n        params: { filterByTk: activity.id },\n        data: {\n          activity_date: newStart.toISOString(),\n          ...(duration !== null && { duration }),\n        },\n      });\n      ctx.message.success(t('Activity moved'));\n    } catch (err) {\n      console.error('Failed to update:', err);\n      ctx.message.error(t('Failed to update'));\n      info.revert();\n    }\n  },\n\n  // Resize event - update duration\n  eventResize: async (info) => {\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const newStart = info.event.start;\n    const newEnd = info.event.end;\n\n    // Calculate new duration in minutes\n    const duration = newEnd ? Math.round((newEnd - newStart) / 60000) : null;\n\n    try {\n      await ctx.api.request({\n        url: `${TABLE_NAME}:update`,\n        method: 'POST',\n        params: { filterByTk: activity.id },\n        data: {\n          activity_date: newStart.toISOString(),\n          ...(duration !== null && { duration }),\n        },\n      });\n      ctx.message.success(t('Duration updated'));\n    } catch (err) {\n      console.error('Failed to update:', err);\n      ctx.message.error(t('Failed to update'));\n      info.revert();\n    }\n  },\n});\n\ncalendar.render();\n"
+                }
+              }
+            }
+          },
+          {
+            "uid": "63bd120202a",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 4,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_activities"
+                }
+              },
+              "tableSettings": {
+                "dataScope": {
+                  "filter": {
+                    "logic": "$and",
+                    "items": [
+                      {
+                        "path": "type",
+                        "operator": "$eq",
+                        "value": "task",
+                        "noValue": false
+                      },
+                      {
+                        "path": "activity_date",
+                        "operator": "$dateOn",
+                        "value": {
+                          "type": "today"
+                        },
+                        "noValue": false
+                      }
+                    ]
+                  }
+                },
+                "pageSize": {
+                  "pageSize": 5
+                }
+              },
+              "cardSettings": {
+                "titleDescription": {
+                  "title": "Today's Tasks"
+                }
+              }
+            },
+            "children": [
+              {
+                "uid": "06c3db12213",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "53a5658c580",
+                "use": "TableActionsColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {
+                  "tableColumnSettings": {
+                    "width": {
+                      "width": 100
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "adb049ca247",
+                    "use": "UpdateRecordActionModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "buttonSettings": {
+                        "general": {
+                          "type": "link",
+                          "icon": "borderoutlined",
+                          "title": "",
+                          "tooltip": "Done"
+                        },
+                        "linkageRules": {
+                          "value": [
+                            {
+                              "key": "b3sslz489mz",
+                              "title": "Linkage rule",
+                              "enable": true,
+                              "condition": {
+                                "logic": "$and",
+                                "items": [
+                                  {
+                                    "path": "{{ ctx.record.is_completed }}",
+                                    "operator": "$isTruly",
+                                    "value": true,
+                                    "noValue": true
+                                  }
+                                ]
+                              },
+                              "actions": [
+                                {
+                                  "key": "7vkb9ycu38p",
+                                  "name": "linkageSetActionProps",
+                                  "params": {
+                                    "value": "hidden"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "apply": {
+                        "apply": {
+                          "requestConfig": {
+                            "params": {}
+                          }
+                        }
+                      },
+                      "assignSettings": {
+                        "assignFieldValues": {
+                          "assignedValues": {
+                            "is_completed": true
+                          }
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "a2733ef6181",
+                        "use": "AssignFormModel",
+                        "subKey": "assignForm",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "resourceSettings": {
+                            "init": {
+                              "dataSourceKey": "main",
+                              "collectionName": "nb_crm_activities"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "32f12717078",
+                            "use": "AssignFormGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 1,
+                            "stepParams": {
+                              "gridSettings": {
+                                "grid": {
+                                  "rows": {
+                                    "l237b9vxblg": [
+                                      [
+                                        "aee8945b1df"
+                                      ]
+                                    ]
+                                  },
+                                  "sizes": {},
+                                  "rowOrder": [
+                                    "l237b9vxblg"
+                                  ]
+                                }
+                              }
+                            },
+                            "children": [
+                              {
+                                "uid": "aee8945b1df",
+                                "use": "AssignFormItemModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "fieldSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_activities",
+                                      "fieldPath": "is_completed"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "585f09ca5ee",
+                                    "use": "CheckboxFieldModel",
+                                    "subKey": "field",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {
+                                      "fieldSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_activities",
+                                          "fieldPath": "is_completed"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "uid": "34bd1cfc636",
+                    "use": "UpdateRecordActionModel",
+                    "subKey": "actions",
+                    "subType": "array",
+                    "sortIndex": 2,
+                    "stepParams": {
+                      "buttonSettings": {
+                        "general": {
+                          "type": "link",
+                          "icon": "checksquareoutlined",
+                          "title": "",
+                          "tooltip": "Undone"
+                        },
+                        "linkageRules": {
+                          "value": [
+                            {
+                              "key": "58gvmf25gyv",
+                              "title": "Linkage rule",
+                              "enable": true,
+                              "condition": {
+                                "logic": "$or",
+                                "items": [
+                                  {
+                                    "path": "{{ ctx.record.is_completed }}",
+                                    "operator": "$isFalsy",
+                                    "value": true,
+                                    "noValue": true
+                                  },
+                                  {
+                                    "path": "{{ ctx.record.is_completed }}",
+                                    "operator": "$empty",
+                                    "value": true,
+                                    "noValue": true
+                                  }
+                                ]
+                              },
+                              "actions": [
+                                {
+                                  "key": "icy53b81fdq",
+                                  "name": "linkageSetActionProps",
+                                  "params": {
+                                    "value": "hidden"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "apply": {
+                        "apply": {
+                          "requestConfig": {
+                            "params": {}
+                          }
+                        }
+                      },
+                      "assignSettings": {
+                        "assignFieldValues": {
+                          "assignedValues": {}
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "0c8274edf74",
+                        "use": "AssignFormModel",
+                        "subKey": "assignForm",
+                        "subType": "object",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "resourceSettings": {
+                            "init": {
+                              "dataSourceKey": "main",
+                              "collectionName": "nb_crm_activities"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "cc6541a0c08",
+                            "use": "AssignFormGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {},
+                            "children": [
+                              {
+                                "uid": "b7057bfc275",
+                                "use": "AssignFormItemModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "fieldSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_activities",
+                                      "fieldPath": "is_completed"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "59f2e1343b9",
+                                    "use": "CheckboxFieldModel",
+                                    "subKey": "field",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {
+                                      "fieldSettings": {
+                                        "init": {
+                                          "dataSourceKey": "main",
+                                          "collectionName": "nb_crm_activities",
+                                          "fieldPath": "is_completed"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "9f0aa9b2468",
+                "use": "LinkActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "linkButtonSettings": {
+                    "editLink": {
+                      "searchParams": [],
+                      "url": "/admin/n6bh6s6isej"
+                    }
+                  },
+                  "buttonSettings": {
+                    "general": {
+                      "title": "View All",
+                      "icon": "arrowrightoutlined"
+                    }
+                  }
+                }
+              },
+              {
+                "uid": "a80bf198d55",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "a9d393294ae",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "subject"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 300
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "8917f8c4e73",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_activities",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "medium",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "ibbbzxrx5p3",
+                          "popupTemplateUid": "gn64s38sjki",
+                          "filterByTk": "{{ ctx.record.id }}"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "688742fc95a",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_activities",
+                      "fieldPath": "activity_date"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayDateTimeFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "15492e2e6fc",
+                    "use": "DisplayDateTimeFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_activities",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "b59985c215d",
+                "use": "AddNewActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "popupSettings": {
+                    "openView": {
+                      "collectionName": "nb_crm_activities",
+                      "dataSourceKey": "main"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "481eabd11c3",
+                    "use": "ChildPageModel",
+                    "subKey": "page",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "pageSettings": {
+                        "general": {
+                          "displayTitle": false,
+                          "enableTabs": true
+                        }
+                      }
+                    },
+                    "children": [
+                      {
+                        "uid": "43ff406a22c",
+                        "use": "ChildPageTabModel",
+                        "subKey": "tabs",
+                        "subType": "array",
+                        "sortIndex": 0,
+                        "stepParams": {
+                          "pageTabSettings": {
+                            "tab": {
+                              "title": "{{t(\"Add new\")}}"
+                            }
+                          }
+                        },
+                        "children": [
+                          {
+                            "uid": "0282451f6b7",
+                            "use": "BlockGridModel",
+                            "subKey": "grid",
+                            "subType": "object",
+                            "sortIndex": 0,
+                            "stepParams": {},
+                            "children": [
+                              {
+                                "uid": "b5d5f894d01",
+                                "use": "CreateFormModel",
+                                "subKey": "items",
+                                "subType": "array",
+                                "sortIndex": 1,
+                                "stepParams": {
+                                  "resourceSettings": {
+                                    "init": {
+                                      "dataSourceKey": "main",
+                                      "collectionName": "nb_crm_activities"
+                                    }
+                                  }
+                                },
+                                "children": [
+                                  {
+                                    "uid": "7997f05fdae",
+                                    "use": "ReferenceFormGridModel",
+                                    "subKey": "grid",
+                                    "subType": "object",
+                                    "sortIndex": 0,
+                                    "stepParams": {
+                                      "referenceSettings": {
+                                        "useTemplate": {
+                                          "templateUid": "fpq7iu2da59",
+                                          "templateName": "Form (Add new): Activities",
+                                          "targetUid": "b9e42f19aab",
+                                          "mode": "reference"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "uid": "011d88362ca",
+                                    "use": "FormSubmitActionModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 1,
+                                    "stepParams": {}
+                                  },
+                                  {
+                                    "uid": "4b9ae2a96ae",
+                                    "use": "AIEmployeeButtonModel",
+                                    "subKey": "actions",
+                                    "subType": "array",
+                                    "sortIndex": 2,
+                                    "stepParams": {}
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "uid": "7ecf26fbfa3",
+                "use": "AIEmployeeButtonModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 6,
+                "stepParams": {
+                  "shortcutSettings": {
+                    "editTasks": {
+                      "tasks": [
+                        {
+                          "message": {
+                            "workContext": [
+                              {
+                                "type": "flow-model",
+                                "uid": "63bd120202a",
+                                "title": "\n    Table:\n    Activities"
+                              }
+                            ],
+                            "skillSettings": {},
+                            "user": "Show me activity trends and productivity metrics.",
+                            "system": "Please begin an immediate and comprehensive visual analysis of our **Activities data**.\n\n**Guiding Principles & Tool Selection:**\n\n* **Primary Tool:** For this task, your first choice should be the **`Overall Analytics`** tool, as it is optimized for Activities data.\n* **Fallback Tool:** If you require data beyond the scope of `Overall Analytics`, use the **`SQL` tool** to query the database directly.\n\n**Analysis Workflow & Instructions:**\n\n1.  **Prerequisite: Verify Table Name**\n    * The database table for \"Activities\" is `nb_crm_activities`. Use this exact name when calling tools.\n\n2.  **Initial Analysis & Visualization**\n    * Perform a broad analysis of the activities data focusing on:\n      - Activity volume by type (calls, meetings, emails, tasks)\n      - Completion rates and overdue activities\n      - Activity trends over time (weekly/monthly patterns)\n      - Productivity by user/sales rep\n      - Activity coverage on active opportunities\n      - Sentiment distribution (if available)\n    * Create a separate, clear ECharts visual (`<echarts>{...JSON...}</echarts>`) for each significant finding.\n\n3.  **Deep-Dive & User Guidance**\n    * After presenting your initial findings, guide me toward deeper insights.\n    * **Formulate and ask me specific business questions** such as:\n        * *\"Activity volume dropped 25% last week. Would you like me to break this down by rep to see who needs support?\"*\n        * *\"You have 15 overdue follow-up tasks. Would you like to see which opportunities these are linked to and prioritize them?\"*\n        * *\"Calls have the highest conversion impact but represent only 20% of activities. Would you like to analyze optimal activity mix?\"*\n        * *\"3 opportunities have had no activity in 2 weeks. Would you like me to flag these as at-risk?\"*\n\nPlease start the analysis now."
+                          },
+                          "title": "Activities Analysis",
+                          "autoSend": true
+                        },
+                        {
+                          "message": {
+                            "workContext": [],
+                            "skillSettings": {},
+                            "system": "Provide a comprehensive morning briefing to start the day.\n\nInclude: Today's schedule, Priority actions, Key updates, At-risk items, Quick wins\n\nFormat for quick scanning - busy salespeople need efficiency.",
+                            "user": "What's on my plate today?"
+                          },
+                          "title": "Morning Briefing",
+                          "autoSend": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "uid": "1bd65d69015",
+            "use": "TableBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 5,
+            "stepParams": {
+              "resourceSettings": {
+                "init": {
+                  "dataSourceKey": "main",
+                  "collectionName": "nb_crm_leads"
+                }
+              },
+              "cardSettings": {
+                "titleDescription": {
+                  "title": "High Score Leads"
+                }
+              },
+              "tableSettings": {
+                "dataScope": {
+                  "filter": {
+                    "logic": "$and",
+                    "items": [
+                      {
+                        "path": "status",
+                        "operator": "$in",
+                        "value": [
+                          "new",
+                          "working"
+                        ],
+                        "noValue": false
+                      },
+                      {
+                        "path": "ai_score",
+                        "operator": "$gte",
+                        "value": "75",
+                        "noValue": false
+                      }
+                    ]
+                  }
+                },
+                "pageSize": {
+                  "pageSize": 5
+                }
+              },
+              "dataLoadingModeSettings": {
+                "mode": "auto"
+              }
+            },
+            "children": [
+              {
+                "uid": "82549a0f520",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_leads",
+                      "fieldPath": "name"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 200
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "ff905812ef7",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_leads",
+                          "dataSourceKey": "main",
+                          "mode": "drawer",
+                          "size": "large",
+                          "pageModelClass": "ChildPageModel",
+                          "uid": "4tqukehsmqm",
+                          "popupTemplateUid": "z3ah4m1jm20",
+                          "filterByTk": "{{ ctx.record.id }}"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "clickToOpen": {
+                          "clickToOpen": true
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "92bd6939426",
+                "use": "FilterActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 1,
+                "stepParams": {}
+              },
+              {
+                "uid": "15367f77d1d",
+                "use": "RefreshActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {}
+              },
+              {
+                "uid": "1b7871f06af",
+                "use": "JSColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "tableColumnSettings": {
+                    "title": {
+                      "title": "AI Score"
+                    }
+                  },
+                  "jsSettings": {
+                    "runJs": {
+                      "version": "v1",
+                      "code": "/**\n * AI Score Column\n *\n * Displays AI lead score with color-coded progress bar.\n * High (80-100): Green\n * Medium (50-79): Yellow/Orange\n * Low (0-49): Gray/Red\n *\n * Table: nb_crm_leads\n * Field: ai_score (integer 0-100)\n */\n\nconst { Tooltip, Progress, Tag, Space, Typography } = ctx.antd;\nconst { Text } = Typography;\n\n// Theme detection\nconst algorithm = ctx.antdConfig?.theme?.algorithm;\nconst darkAlgo = ctx.antd.theme.darkAlgorithm;\nconst isDark = Array.isArray(algorithm)\n  ? algorithm.some(fn => fn === darkAlgo)\n  : algorithm === darkAlgo;\nconst T = ctx.themeToken || {};\n\n// i18n\nconst t = (key, opts) => ctx.t(key, { ns: 'nb_crm.leads', ...opts });\n\n// ==================== Config ====================\nconst SCORE_CONFIG = {\n  high: {\n    min: 80,\n    color: T.colorSuccess || '#22c55e',\n    strokeColor: T.colorSuccess || '#22c55e',\n    label: t('High Intent'),\n  },\n  medium: {\n    min: 50,\n    color: T.colorWarning || '#f59e0b',\n    strokeColor: T.colorWarning || '#f59e0b',\n    label: t('Medium Intent'),\n  },\n  low: {\n    min: 0,\n    color: T.colorError || '#ef4444',\n    strokeColor: T.colorError || '#ef4444',\n    label: t('Low Intent'),\n  },\n};\n\nfunction getScoreConfig(score) {\n  if (score >= 80) return SCORE_CONFIG.high;\n  if (score >= 50) return SCORE_CONFIG.medium;\n  return SCORE_CONFIG.low;\n}\n\n// ==================== Styles ====================\nconst styles = {\n  container: {\n    display: 'flex',\n    flexDirection: 'column',\n    gap: 6,\n    minWidth: 120,\n  },\n  header: {\n    display: 'flex',\n    justifyContent: 'space-between',\n    alignItems: 'center',\n  },\n};\n\n// ==================== Component ====================\nconst AiScoreColumn = () => {\n  const record = ctx.record || {};\n  const score = record.ai_score || 0;\n  const config = getScoreConfig(score);\n\n  const tooltipContent = `${config.label} - AI Score: ${score}`;\n\n  return (\n    <Tooltip title={tooltipContent}>\n      <div style={styles.container}>\n        {/* Header with score and AI badge */}\n        <div style={styles.header}>\n          <Text strong style={{ fontSize: 16, color: config.color }}>{score}</Text>\n          <Tag color=\"cyan\" style={{ fontSize: 10, marginRight: 0, padding: '0 4px' }}>{t('AI')}</Tag>\n        </div>\n        {/* Progress bar using Antd Progress */}\n        <Progress\n          percent={score}\n          size=\"small\"\n          showInfo={false}\n          strokeColor={config.strokeColor}\n          trailColor={T.colorBorderSecondary || '#e5e7eb'}\n          style={{ marginBottom: 0 }}\n        />\n      </div>\n    </Tooltip>\n  );\n};\n\n// ==================== Render ====================\nctx.render(<AiScoreColumn />);\n"
+                    }
+                  }
+                }
+              },
+              {
+                "uid": "27b61589f4b",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 2,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_leads",
+                      "fieldPath": "ai_next_best_action"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayTextFieldModel"
+                    },
+                    "width": {
+                      "width": 300
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "393c68f4b89",
+                    "use": "DisplayTextFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 1,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_leads",
+                          "dataSourceKey": "main"
+                        }
+                      },
+                      "displayFieldSettings": {
+                        "overflowMode": {
+                          "overflowMode": false
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "70420aa0aca",
+                "use": "LinkActionModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "buttonSettings": {
+                    "general": {
+                      "title": "View All",
+                      "icon": "arrowrightoutlined"
+                    }
+                  },
+                  "linkButtonSettings": {
+                    "editLink": {
+                      "searchParams": [],
+                      "url": "/admin/e9478uhrdve"
+                    }
+                  }
+                }
+              },
+              {
+                "uid": "d007e675b5e",
+                "use": "TableColumnModel",
+                "subKey": "columns",
+                "subType": "array",
+                "sortIndex": 3,
+                "stepParams": {
+                  "fieldSettings": {
+                    "init": {
+                      "dataSourceKey": "main",
+                      "collectionName": "nb_crm_leads",
+                      "fieldPath": "updatedAt"
+                    }
+                  },
+                  "tableColumnSettings": {
+                    "model": {
+                      "use": "DisplayDateTimeFieldModel"
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "uid": "9d7445f7534",
+                    "use": "DisplayDateTimeFieldModel",
+                    "subKey": "field",
+                    "subType": "object",
+                    "sortIndex": 0,
+                    "stepParams": {
+                      "popupSettings": {
+                        "openView": {
+                          "collectionName": "nb_crm_leads",
+                          "dataSourceKey": "main"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "uid": "54408e528c2",
+                "use": "AIEmployeeButtonModel",
+                "subKey": "actions",
+                "subType": "array",
+                "sortIndex": 4,
+                "stepParams": {}
+              }
+            ]
+          },
+          {
+            "uid": "4fb8ffb1c1b",
+            "use": "JSBlockModel",
+            "subKey": "items",
+            "subType": "array",
+            "sortIndex": 6,
+            "stepParams": {
+              "jsSettings": {
+                "runJs": {
+                  "version": "v1",
+                  "code": "/**\n * Activity Calendar Block\n * Table: nb_crm_activities\n *\n * Displays CRM activities in a calendar view using FullCalendar.\n * Activity types: meeting, call, task, email, note\n */\n\n// ==================== Load FullCalendar ====================\n\nconst coreMod = await ctx.importAsync('@fullcalendar/core@6.1.20');\nconst dayGridPlugin = await ctx.importAsync('@fullcalendar/daygrid@6.1.20');\nconst timeGridPlugin = await ctx.importAsync('@fullcalendar/timegrid@6.1.20');\nconst listPlugin = await ctx.importAsync('@fullcalendar/list@6.1.20');\nconst interactionModule = await ctx.importAsync('@fullcalendar/interaction@6.1.20');\n\nconst Calendar = coreMod.Calendar;\nconst interactionPlugin = interactionModule.default || interactionModule;\n\n// ==================== Theme Detection ====================\n\nconst algorithm = ctx.antdConfig?.theme?.algorithm;\nconst darkAlgo = ctx.antd.theme.darkAlgorithm;\nconst isDark = Array.isArray(algorithm)\n  ? algorithm.some(fn => fn === darkAlgo)\n  : algorithm === darkAlgo;\nconst T = ctx.themeToken || {};\n\n// i18n\nconst t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });\n\n// ==================== Config ====================\n\nconst TABLE_NAME = 'nb_crm_activities';\n\nconst VIEW_CONFIG = {\n  detailPopup: 'ibbbzxrx5p3',   // Activity detail view\n  addPopup: '9deb7d42812',      // Activity add form\n};\n\n// Monochrome + accent colors (theme-aware)\nconst ACTIVITY_COLORS = {\n  meeting: { bg: T.colorBgLayout || '#f5f5f5', border: T.colorText || '#000', text: T.colorText || '#000' },\n  call: { bg: T.colorSuccessBg || '#f6ffed', border: T.colorSuccess || '#52c41a', text: isDark ? (T.colorSuccess || '#52c41a') : '#389e0d' },\n  task: { bg: T.colorWarningBg || '#fffbe6', border: T.colorWarning || '#faad14', text: isDark ? (T.colorWarning || '#faad14') : '#ad6800' },\n  email: { bg: T.colorPrimaryBg || '#e6f7ff', border: T.colorPrimary || '#1890ff', text: isDark ? (T.colorPrimary || '#1890ff') : '#0958d9' },\n  note: { bg: isDark ? 'rgba(114,46,209,0.15)' : '#f9f0ff', border: '#722ed1', text: isDark ? '#b37feb' : '#531dab' },\n};\n\nconst ACTIVITY_LABELS = {\n  meeting: t('Meeting'),\n  call: t('Call'),\n  task: t('Task'),\n  email: t('Email'),\n  note: t('Note'),\n};\n\n// ==================== Load Data ====================\n\n// Filter options: 'pending' (default), 'all', 'upcoming'\nconst SHOW_MODE = 'pending'; // Only show incomplete activities\n\nconst loadActivities = async () => {\n  try {\n    // Calculate date range: 2 weeks ago to 4 weeks ahead\n    const twoWeeksAgo = new Date();\n    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);\n\n    const fourWeeksAhead = new Date();\n    fourWeeksAhead.setDate(fourWeeksAhead.getDate() + 28);\n\n    // Build filter based on mode\n    let filter = {\n      activity_date: {\n        $gte: twoWeeksAgo.toISOString(),\n        $lte: fourWeeksAhead.toISOString(),\n      },\n    };\n\n    // For 'pending' mode, only show incomplete activities\n    if (SHOW_MODE === 'pending') {\n      filter.is_completed = false;\n    }\n\n    const res = await ctx.api.request({\n      url: `${TABLE_NAME}:list`,\n      params: {\n        pageSize: 200,\n        filter,\n        appends: ['customer', 'contact', 'opportunity', 'owner'],\n        sort: ['activity_date'],\n      },\n    });\n    return res?.data?.data || [];\n  } catch (err) {\n    console.error('Failed to fetch activities:', err);\n    return [];\n  }\n};\n\nlet activities = await loadActivities();\n\n// ==================== Format Events ====================\n\nconst formatActivity = (a) => {\n  const type = a.type || 'meeting';\n  const colors = ACTIVITY_COLORS[type] || ACTIVITY_COLORS.meeting;\n  const isPending = !a.is_completed;\n\n  // Pending activities get solid colors, completed get muted\n  const bgColor = isPending ? colors.bg : (T.colorBgLayout || '#fafafa');\n  const borderColor = isPending ? colors.border : (T.colorBorderSecondary || '#e8e8e8');\n  const textColor = isPending ? colors.text : (T.colorTextTertiary || '#999');\n\n  // Add icon prefix for pending tasks\n  const titlePrefix = isPending && type === 'task' ? '○ ' :\n                      isPending && type === 'meeting' ? '◎ ' :\n                      isPending && type === 'call' ? '◉ ' : '';\n\n  return {\n    id: String(a.id),\n    title: titlePrefix + (a.subject || t('Untitled')),\n    start: a.activity_date,\n    end: a.duration ? new Date(new Date(a.activity_date).getTime() + a.duration * 60000).toISOString() : null,\n    allDay: !a.duration,\n    backgroundColor: bgColor,\n    borderColor: borderColor,\n    textColor: textColor,\n    extendedProps: { type, activity: a, isPending },\n  };\n};\n\nconst formatAll = (items) => items.map(formatActivity);\n\n// ==================== Create Container ====================\n\nconst wrapper = document.createElement('div');\nwrapper.style.cssText = `padding: 16px; background: ${T.colorBgContainer || '#fff'}; border-radius: 8px;`;\n\n// Add CSS - Minimalist antd style\nconst style = document.createElement('style');\nstyle.textContent = `\n  .activity-calendar .fc {\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n  }\n  .activity-calendar .fc-toolbar-title {\n    font-size: 16px !important;\n    font-weight: 600 !important;\n    color: ${T.colorText || '#000'} !important;\n  }\n  .activity-calendar .fc-button {\n    padding: 4px 12px !important;\n    font-size: 13px !important;\n    border-radius: 6px !important;\n    font-weight: 400 !important;\n  }\n  .activity-calendar .fc-button-primary {\n    background: ${T.colorBgContainer || '#fff'} !important;\n    border: 1px solid ${T.colorBorderSecondary || '#d9d9d9'} !important;\n    color: ${T.colorText || 'rgba(0,0,0,0.88)'} !important;\n  }\n  .activity-calendar .fc-button-primary:hover {\n    background: ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'} !important;\n    color: ${T.colorText || '#000'} !important;\n  }\n  .activity-calendar .fc-button-primary:not(:disabled).fc-button-active,\n  .activity-calendar .fc-button-primary:not(:disabled):active {\n    background: ${T.colorPrimary || '#1890ff'} !important;\n    border-color: ${T.colorPrimary || '#1890ff'} !important;\n    color: #fff !important;\n  }\n  .activity-calendar .fc-theme-standard td,\n  .activity-calendar .fc-theme-standard th {\n    border-color: ${T.colorBorderSecondary || '#f0f0f0'};\n  }\n  .activity-calendar .fc-theme-standard .fc-scrollgrid {\n    border-color: ${T.colorBorderSecondary || '#d9d9d9'};\n  }\n  .activity-calendar .fc-col-header-cell-cushion {\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.45)'};\n    font-weight: 400;\n    font-size: 12px;\n  }\n  .activity-calendar .fc-daygrid-day-number {\n    font-size: 13px;\n    color: ${T.colorText || 'rgba(0,0,0,0.88)'};\n    padding: 4px 8px;\n  }\n  .activity-calendar .fc-daygrid-day.fc-day-today {\n    background: ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'} !important;\n  }\n  .activity-calendar .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {\n    background: ${T.colorPrimary || '#1890ff'};\n    color: #fff;\n    border-radius: 50%;\n    width: 24px;\n    height: 24px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n  }\n  .activity-calendar .fc-event {\n    border-radius: 4px !important;\n    padding: 2px 6px !important;\n    font-size: 11px !important;\n    cursor: grab !important;\n    margin: 1px 2px !important;\n    border-left-width: 3px !important;\n    border-left-style: solid !important;\n    user-select: none;\n  }\n  .activity-calendar .fc-event:active {\n    cursor: grabbing !important;\n  }\n  .activity-calendar .fc-event-dragging {\n    opacity: 0.7;\n    box-shadow: 0 4px 12px rgba(0,0,0,0.15);\n  }\n  .activity-calendar .fc-event-resizing {\n    opacity: 0.8;\n  }\n  .activity-calendar .fc-daygrid-more-link {\n    font-size: 11px;\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.45)'};\n  }\n  .activity-calendar .fc-list-event-title {\n    font-size: 13px !important;\n  }\n  .activity-legend {\n    display: flex;\n    gap: 16px;\n    flex-wrap: wrap;\n  }\n  .activity-legend-item {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    font-size: 12px;\n    color: ${T.colorTextSecondary || 'rgba(0,0,0,0.65)'};\n  }\n  .activity-legend-dot {\n    width: 8px;\n    height: 8px;\n    border-radius: 2px;\n  }\n`;\nwrapper.appendChild(style);\n\n// Header with filter info, legend and add button\nconst header = document.createElement('div');\nheader.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid ${T.colorBorderSecondary || '#f0f0f0'}; flex-wrap: wrap; gap: 12px;`;\n\n// Left section: Title + Filter badge\nconst leftSection = document.createElement('div');\nleftSection.style.cssText = 'display: flex; align-items: center; gap: 8px;';\nleftSection.innerHTML = `\n  <span style=\"font-size: 14px; font-weight: 500; color: ${T.colorText || '#000'};\">${t('Activities')}</span>\n  <span style=\"padding: 2px 8px; border-radius: 4px; font-size: 11px; background: ${SHOW_MODE === 'pending' ? (T.colorWarningBg || '#fff7e6') : (T.colorBgLayout || '#f5f5f5')}; color: ${SHOW_MODE === 'pending' ? (isDark ? (T.colorWarning || '#d46b08') : '#d46b08') : (T.colorTextSecondary || '#666')}; border: 1px solid ${SHOW_MODE === 'pending' ? (isDark ? (T.colorWarning || '#ffd591') : '#ffd591') : (T.colorBorderSecondary || '#d9d9d9')};\">\n    ${SHOW_MODE === 'pending' ? t('Pending Only') : t('All Activities')}\n  </span>\n`;\nheader.appendChild(leftSection);\n\n// Right section: Legend + Add button\nconst rightSection = document.createElement('div');\nrightSection.style.cssText = 'display: flex; align-items: center; gap: 16px; flex-wrap: wrap;';\n\n// Legend\nconst legend = document.createElement('div');\nlegend.className = 'activity-legend';\nlegend.style.cssText = 'display: flex; gap: 16px; margin: 0; padding: 0; border: none; flex-wrap: wrap;';\nlegend.innerHTML = Object.entries(ACTIVITY_COLORS).map(([type, colors]) => `\n  <div class=\"activity-legend-item\">\n    <div class=\"activity-legend-dot\" style=\"background: ${colors.border}\"></div>\n    <span>${ACTIVITY_LABELS[type] || type}</span>\n  </div>\n`).join('');\nrightSection.appendChild(legend);\n\n// Refresh button\nconst refreshBtn = document.createElement('button');\nrefreshBtn.style.cssText = `display: flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 13px; border-radius: 6px; border: 1px solid ${T.colorBorderSecondary || '#d9d9d9'}; background: ${T.colorBgContainer || '#fff'}; color: ${T.colorTextSecondary || 'rgba(0,0,0,0.65)'}; cursor: pointer; transition: all 0.2s;`;\nrefreshBtn.innerHTML = `↻`;\nrefreshBtn.title = t('Refresh');\nrefreshBtn.onmouseenter = () => { refreshBtn.style.borderColor = T.colorPrimary || '#1890ff'; refreshBtn.style.color = T.colorPrimary || '#1890ff'; };\nrefreshBtn.onmouseleave = () => { refreshBtn.style.borderColor = T.colorBorderSecondary || '#d9d9d9'; refreshBtn.style.color = T.colorTextSecondary || 'rgba(0,0,0,0.65)'; };\nrefreshBtn.onclick = () => refreshCalendar();\nrightSection.appendChild(refreshBtn);\n\n// Add button\nconst addBtn = document.createElement('button');\naddBtn.style.cssText = `display: flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 13px; border-radius: 6px; border: 1px solid ${T.colorPrimary || '#1890ff'}; background: ${T.colorPrimary || '#1890ff'}; color: #fff; cursor: pointer; transition: all 0.2s;`;\naddBtn.innerHTML = `<span style=\"font-size: 14px;\">+</span> ${t('Add')}`;\naddBtn.onmouseenter = () => { addBtn.style.background = T.colorPrimaryHover || '#40a9ff'; addBtn.style.borderColor = T.colorPrimaryHover || '#40a9ff'; };\naddBtn.onmouseleave = () => { addBtn.style.background = T.colorPrimary || '#1890ff'; addBtn.style.borderColor = T.colorPrimary || '#1890ff'; };\naddBtn.onclick = async () => {\n  const viewUid = VIEW_CONFIG.addPopup;\n  if (!viewUid || viewUid.startsWith('REPLACE_WITH')) {\n    ctx.message.warning(t('Add popup not configured'));\n    return;\n  }\n  try {\n    if (ctx.openView) {\n      await ctx.openView(viewUid, {\n        mode: 'drawer',\n        size: 'medium',\n      });\n      // Refresh after closing\n      setTimeout(refreshCalendar, 500);\n    }\n  } catch (err) {\n    console.error('Failed to open add popup:', err);\n    ctx.message.error(t('Failed to open add form'));\n  }\n};\nrightSection.appendChild(addBtn);\n\nheader.appendChild(rightSection);\nwrapper.appendChild(header);\n\n// Calendar container\nconst calendarEl = document.createElement('div');\ncalendarEl.className = 'activity-calendar';\nwrapper.appendChild(calendarEl);\n\nctx.element.innerHTML = '';\nctx.element.appendChild(wrapper);\n\n// ==================== Refresh Function ====================\n\nconst refreshCalendar = async () => {\n  activities = await loadActivities();\n  calendar.removeAllEvents();\n  calendar.addEventSource(formatAll(activities));\n  ctx.message.success(t('Refreshed'));\n};\n\n// ==================== Initialize Calendar ====================\n\nconst calendar = new Calendar(calendarEl, {\n  plugins: [\n    dayGridPlugin.default || dayGridPlugin,\n    timeGridPlugin.default || timeGridPlugin,\n    listPlugin.default || listPlugin,\n    interactionPlugin,\n  ],\n  initialView: 'dayGridMonth',\n  headerToolbar: {\n    left: 'prev,next today',\n    center: 'title',\n    right: 'dayGridMonth,timeGridWeek,listWeek',\n  },\n  buttonText: {\n    today: t('Today'),\n    month: t('Month'),\n    week: t('Week'),\n    list: t('List'),\n  },\n  height: 'auto',\n  dayMaxEvents: 3,\n  events: formatAll(activities),\n\n  // Enable drag & resize\n  editable: true,\n  eventStartEditable: true,\n  eventDurationEditable: true,\n  eventResizableFromStart: true,\n  dragRevertDuration: 0,\n  eventDragMinDistance: 5,\n\n  // Click event - open detail popup\n  eventClick: async (info) => {\n    info.jsEvent.preventDefault();\n    info.jsEvent.stopPropagation();\n\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const viewUid = VIEW_CONFIG.detailPopup;\n    if (!viewUid || viewUid.startsWith('REPLACE_WITH')) {\n      ctx.message.warning(t('Detail popup not configured'));\n      return;\n    }\n\n    try {\n      if (ctx.openView) {\n        await ctx.openView(viewUid, {\n          mode: 'drawer',\n          size: 'medium',\n          filterByTk: activity.id,\n        });\n        // Refresh after closing\n        setTimeout(refreshCalendar, 500);\n      }\n    } catch (err) {\n      console.error('Failed to open detail popup:', err);\n      ctx.message.error(t('Failed to open activity details'));\n    }\n  },\n\n  // Event render - style based on pending status\n  eventDidMount: (info) => {\n    const { type, isPending } = info.event.extendedProps;\n    const colors = ACTIVITY_COLORS[type] || ACTIVITY_COLORS.meeting;\n\n    if (info.el) {\n      if (isPending) {\n        // Pending: use vibrant colors\n        info.el.style.backgroundColor = colors.bg;\n        info.el.style.borderColor = colors.border;\n        info.el.style.color = colors.text;\n        info.el.style.fontWeight = '500';\n      } else {\n        // Completed: muted style\n        info.el.style.backgroundColor = T.colorBgLayout || '#fafafa';\n        info.el.style.borderColor = T.colorBorderSecondary || '#e8e8e8';\n        info.el.style.color = T.colorTextTertiary || '#999';\n        info.el.style.textDecoration = 'line-through';\n        info.el.style.opacity = '0.7';\n      }\n    }\n  },\n\n  // Drag event - update activity_date\n  eventDrop: async (info) => {\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const newStart = info.event.start;\n    const newEnd = info.event.end;\n\n    // Calculate new duration in minutes if end exists\n    const duration = newEnd ? Math.round((newEnd - newStart) / 60000) : null;\n\n    try {\n      await ctx.api.request({\n        url: `${TABLE_NAME}:update`,\n        method: 'POST',\n        params: { filterByTk: activity.id },\n        data: {\n          activity_date: newStart.toISOString(),\n          ...(duration !== null && { duration }),\n        },\n      });\n      ctx.message.success(t('Activity moved'));\n    } catch (err) {\n      console.error('Failed to update:', err);\n      ctx.message.error(t('Failed to update'));\n      info.revert();\n    }\n  },\n\n  // Resize event - update duration\n  eventResize: async (info) => {\n    const { activity } = info.event.extendedProps;\n    if (!activity?.id) return;\n\n    const newStart = info.event.start;\n    const newEnd = info.event.end;\n\n    // Calculate new duration in minutes\n    const duration = newEnd ? Math.round((newEnd - newStart) / 60000) : null;\n\n    try {\n      await ctx.api.request({\n        url: `${TABLE_NAME}:update`,\n        method: 'POST',\n        params: { filterByTk: activity.id },\n        data: {\n          activity_date: newStart.toISOString(),\n          ...(duration !== null && { duration }),\n        },\n      });\n      ctx.message.success(t('Duration updated'));\n    } catch (err) {\n      console.error('Failed to update:', err);\n      ctx.message.error(t('Failed to update'));\n      info.revert();\n    }\n  },\n});\n\ncalendar.render();\n"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

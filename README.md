@@ -12,6 +12,7 @@ This repository provides reusable NocoBase skills for coding agent CLIs such as 
 - `nocobase-data-modeling`: runs data modeling operations through MCP tools.
 - `nocobase-workflow-manage`: creates and manages NocoBase workflows through MCP tools.
 - `nocobase-ui-builder`: builds and updates Modern page (v2) UI structures through MCP tools.
+- `nocobase-page-builder`: high-level page building with XML markup DSL, JS auto-generation, and 52 Python MCP tools. Includes templates, phase guides, and multi-agent coordination.
 
 ## Installation
 

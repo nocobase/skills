@@ -1,0 +1,33 @@
+<!--
+  CRM Customers page — typical sidebar layout example
+
+  Usage: nb_page(tab_uid, open("crm-customers.xml").read())
+
+  Features:
+  - filter + stats (status statistics filter bar)
+  - table (17:7 ratio) + sidebar (stacked charts)
+  - js-col auto-generates composite/progress/countdown columns
+  - detail popup with 5 tabs (overview + 4 association tables)
+  - addnew/edit forms with field lists
+-->
+<page collection="crm_customers">
+  <filter fields="name,status,level,industry,type,owner" target="tbl" stats="status" />
+  <row>
+    <table id="tbl" span="17" fields="name,industry,status,level,type,phone,country,owner,createdAt">
+      <js-col type="composite" field="name" title="Customer">Bold name, gray industry+country. VIP badge for level=vip.</js-col>
+      <addnew fields="name\nshort_name\nindustry\ncompany_size\ntype\ncountry\nphone\nstatus\nlevel\nowner\ndescription" />
+      <edit fields="name\nshort_name\nindustry\ncompany_size\ntype\ncountry\ncity\naddress\nwebsite\nphone\nfax\nstatus\nlevel\nowner\ndescription" />
+      <detail>
+        <tab title="Overview" fields="name\nshort_name\nindustry\ncompany_size\ntype\ncountry\ncity\naddress\nwebsite\nphone\nfax\nstatus\nlevel\nowner\ndescription" />
+        <tab title="Contacts" assoc="contacts" collection="crm_contacts" fields="name,title,phone,email,role,is_primary" />
+        <tab title="Opportunities" assoc="opportunities" collection="crm_opportunities" fields="name,stage,amount,expected_close_date,owner" />
+        <tab title="Orders" assoc="orders" collection="crm_orders" fields="order_no,title,order_amount,status,order_date" />
+        <tab title="Activities" assoc="activities" collection="crm_activities" fields="type,subject,activity_date,outcome,owner" />
+      </detail>
+    </table>
+    <stack span="7">
+      <js-block title="Industry Distribution">Bar chart by industry field</js-block>
+      <js-block title="Customer Levels">Donut chart by level field</js-block>
+    </stack>
+  </row>
+</page>
