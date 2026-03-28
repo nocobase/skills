@@ -87,8 +87,25 @@ markup = """
   <row>
     <table id="tbl" span="17" fields="name,industry,status,level,phone,owner,createdAt">
       <js-col type="composite" field="name" title="Customer">Bold name, gray industry</js-col>
-      <addnew fields="name|industry\\nstatus|level\\nphone|owner" />
-      <edit fields="name|industry\\nstatus|level\\nphone|website\\nowner" />
+      <addnew>
+        <section title="Company">
+          <row><field name="name" required="true" /><field name="industry" /></row>
+          <row><field name="status" /><field name="level" /></row>
+        </section>
+        <section title="Contact">
+          <row><field name="phone" /><field name="owner" /></row>
+        </section>
+      </addnew>
+      <edit>
+        <section title="Company">
+          <row><field name="name" required="true" /><field name="industry" /></row>
+          <row><field name="status" /><field name="level" /></row>
+        </section>
+        <section title="Contact">
+          <row><field name="phone" /><field name="website" /></row>
+          <field name="owner" />
+        </section>
+      </edit>
       <detail>
         <tab title="Overview" fields="name|industry\\nstatus|level\\nphone|website\\nowner" />
         <tab title="Contacts" assoc="contacts" collection="crm_contacts"
@@ -110,21 +127,34 @@ root, meta = parser.parse(tu_customers, markup)
 nb.save_nested(root, tu_customers, filter_manager=meta.get("_filter_manager"))
 ```
 
-> **Form field layout — pipe syntax (important!)**
+> **Form field layout — MUST use `<section>/<row>/<field>` children**
 >
-> Use `|` (pipe) to put fields side-by-side on one row. The parser rejects 4+ single-column fields.
+> Forms with 4+ fields MUST use XML children with section dividers. Do NOT use `fields="..."` attribute for forms — it produces flat layouts without grouping.
 >
-> ```python
-> # Two-column layout (recommended for 4+ fields):
-> fields="name|status\\npriority|budget\\nstart_date|end_date\\ndescription"
-> #  → row 1: name + status side by side
-> #  → row 2: priority + budget side by side
-> #  → row 3: start_date + end_date side by side
-> #  → row 4: description full width
->
-> # Single-column (only for 3 or fewer fields):
-> fields="name\\nstatus\\ndescription"
+> ```xml
+> <addnew>
+>   <section title="Basic Info">
+>     <row><field name="name" required="true" /><field name="employee_no" /></row>
+>     <row><field name="status" /><field name="gender" /></row>
+>   </section>
+>   <section title="Work">
+>     <row><field name="department" /><field name="position" /></row>
+>     <row><field name="hire_date" /><field name="education" /></row>
+>   </section>
+>   <section title="Contact">
+>     <row><field name="phone" /><field name="email" /></row>
+>   </section>
+> </addnew>
 > ```
+>
+> Rules:
+> - Each `<section>` creates a visual divider with title
+> - Each `<row>` puts fields side by side (max 4 per row, 2 recommended)
+> - `<field>` outside `<row>` = full width
+> - `required="true"` marks a field as mandatory
+> - Use the same pattern for `<edit>` (usually same fields as addnew)
+>
+> For detail `<tab>` fields, use pipe syntax: `fields="name|status\\ndept|position"` (sections not yet supported in detail tabs).
 >
 > **Known limitation**: `<tab assoc="...">` for association sub-tables in detail popups is not yet functional. Use `<subtable>` inside a tab instead, or build sub-tables programmatically.
 
@@ -209,13 +239,14 @@ There is no JSON-to-XML conversion. If changes are extensive, it is faster to `n
 | `<table>` | Data table | `id`, `fields`, `span` |
 | `<form>` | Standalone form | `collection`, `fields`, `mode` |
 | `<detail-block>` | Standalone detail | `collection`, `fields` |
+| `<chart>` | ECharts SQL chart | `title`, `sql`, `option`, `events` (or child elements) |
 | `<js-block>` | JS block | `title`, `collection` |
 | `<js-col>` | JS column | `type`, `field`, `title` |
 | `<js-item>` | JS item (in detail) | `title` |
 | `<kpi>` | Statistic card | `title`, `filter`, `color` |
 | `<row>` | Horizontal row | Child `span` controls width |
 | `<stack>` | Vertical stack | `span` |
-| `<addnew>` | Create form popup | `fields` with pipe syntax (see below) |
+| `<addnew>` | Create form popup | MUST use `<section>/<row>/<field>` children (see below) |
 | `<edit>` | Edit form popup | Same as addnew |
 | `<detail>` | Detail popup | Contains `<tab>` children |
 | `<tab>` | Popup tab | `title`, `fields`, `assoc`, `collection` |
@@ -291,6 +322,32 @@ Three valid reasons for `<js-col>`:
 - `PageMarkupParser(nb).parse(tu, xml)` — Parse XML → TreeNode tree
 - `nb.save_nested(root, tu, filter_manager)` — Save tree in one API call
 - `nb.clean_tab(tu)` — Delete all content under a tab (before rebuild)
+
+### Charts (ECharts via SQL)
+- `nb.chart(parent_grid, sql, option_js, title, events_js)` — Create ChartBlockModel + flowSql (two-step)
+
+**Chart option JS rules (CRITICAL — charts won't render if violated):**
+
+```javascript
+// CORRECT: plain var + return, use ctx.data.objects
+var data = ctx.data.objects || [];
+var names = data.map(function(r){ return r.name; });
+var counts = data.map(function(r){ return r.count; });
+return {
+  title: { text: 'My Chart', left: 'center' },
+  xAxis: { type: 'category', data: names },
+  yAxis: { type: 'value' },
+  series: [{ type: 'bar', data: counts }]
+};
+```
+
+| Rule | Correct | Wrong |
+|------|---------|-------|
+| Data access | `ctx.data.objects` | `ctx.data` |
+| Format | plain `var ... return {...}` | `(function(){...})()` IIFE |
+| Functions | `function(r){ return r.x; }` | `r => r.x` (arrow forbidden) |
+| Variables | `var` | `const` / `let` (may fail in SES) |
+| SQL syntax | PostgreSQL (`date_trunc`, `"camelCase"`) | MySQL (`DATE_FORMAT`) |
 
 ### JS injection
 - `nb.auto_js(scope, output_dir, templates_dir)` — Auto-generate JS from placeholders

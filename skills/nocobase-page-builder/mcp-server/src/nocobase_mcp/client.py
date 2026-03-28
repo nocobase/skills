@@ -1305,6 +1305,87 @@ class NB:
               "editItemSettings": {"showLabel": {"showLabel": True, "title": title}}}
         return self.save("JSItemModel", form_grid, "items", "array", sp, sort)
 
+    # ── Chart (ECharts via SQL) ─────────────────────────────────
+
+    def chart(self, parent_grid: str, sql: str, option_js: str,
+              title: str = "", sort: int = 0,
+              events_js: str = "", data_source: str = "main") -> str:
+        """Create a ChartBlockModel with SQL query and ECharts option.
+
+        Two-step process:
+        1. flowModels:save — create ChartBlockModel node
+        2. flowSql:save — store SQL template (required for chart to execute query)
+
+        Args:
+            parent_grid: Parent BlockGridModel UID
+            sql: SQL query template (supports Liquid syntax for filter binding)
+            option_js: ECharts option JS string (runs in chart context, return option object)
+            title: Chart title (optional)
+            sort: Sort index
+            events_js: ECharts event handler JS (optional, e.g. click events)
+            data_source: Data source key (default "main")
+
+        Returns:
+            Chart UID
+        """
+        # Validate option_js — catch common mistakes before saving
+        import re
+        if "=>" in option_js:
+            raise ValueError(
+                "Chart option JS contains arrow functions (=>). "
+                "SES sandbox forbids arrow syntax. Use function(){} instead. "
+                "Example: data.map(function(r){ return r.name; })")
+        if re.search(r'\(function\s*\(', option_js):
+            raise ValueError(
+                "Chart option JS uses IIFE (function(){...})(). "
+                "Write plain JS ending with 'return {...}' instead. "
+                "The chart engine evals the code and expects the returned ECharts option object.")
+        if "ctx.data.objects" not in option_js and "ctx.data" in option_js:
+            self.warnings.append(
+                f"Chart option uses 'ctx.data' — should be 'ctx.data.objects' "
+                f"to access SQL result rows.")
+        if re.search(r'\b(const|let)\b', option_js):
+            self.warnings.append(
+                "Chart option uses const/let — 'var' is safer for SES sandbox compatibility.")
+        if "DATE_FORMAT" in sql or "NOW()" in sql:
+            self.warnings.append(
+                "Chart SQL may use MySQL syntax. PostgreSQL uses date_trunc(), CURRENT_DATE, etc.")
+
+        from .utils import uid as gen_uid
+        chart_uid = gen_uid()
+
+        sp = {
+            "chartSettings": {
+                "configure": {
+                    "query": {"mode": "sql", "sql": sql},
+                    "chart": {
+                        "option": {"mode": "custom", "raw": option_js},
+                    }
+                }
+            }
+        }
+        if title:
+            sp["chartSettings"]["configure"]["title"] = title
+        if events_js:
+            sp["chartSettings"]["configure"]["chart"]["events"] = {
+                "mode": "custom", "raw": events_js
+            }
+
+        # Step 1: Create chart node
+        self.save("ChartBlockModel", parent_grid, "items", "array",
+                  sp, sort, u=chart_uid)
+
+        # Step 2: Store SQL template (required for chart to auto-execute)
+        r = self._post("api/flowSql:save", json={
+            "uid": chart_uid,
+            "sql": sql,
+            "dataSourceKey": data_source,
+        })
+        if not r.ok:
+            self.warnings.append(f"flowSql:save failed for chart {chart_uid}: {r.status_code}")
+
+        return chart_uid
+
     # ── KPI ────────────────────────────────────────────────────
 
     def _generate_kpi_code(self, title: str, coll: str,

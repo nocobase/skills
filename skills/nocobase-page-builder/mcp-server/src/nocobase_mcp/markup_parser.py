@@ -615,6 +615,52 @@ class PageMarkupParser:
             desc = (el.text or "").strip()
             node = self.tb.placeholder_js_item(title, desc, sort=sort_idx)
 
+        elif tag == "chart":
+            title = el.get("title", "Chart")
+            sql = el.get("sql", "")
+            option = el.get("option", "")
+            events = el.get("events", "")
+            # SQL and option can also be in child text elements
+            for sub in el:
+                if sub.tag == "sql":
+                    sql = (sub.text or "").strip()
+                elif sub.tag == "option":
+                    option = (sub.text or "").strip()
+                elif sub.tag == "events":
+                    events = (sub.text or "").strip()
+            # If no explicit sql/option, use text content as description placeholder
+            if not sql and not option:
+                desc = (el.text or "").strip()
+                m = {"collection": coll} if coll else {}
+                m["chart_title"] = title
+                node = self.tb.placeholder_js_block(title, f"[chart] {desc}", meta=m, sort=sort_idx)
+            else:
+                # Create real ChartBlockModel via NB client
+                chart_uid = self.nb.chart(
+                    "__PARENT_PLACEHOLDER__", sql, option,
+                    title=title, sort=sort_idx, events_js=events)
+                # Create a TreeNode wrapper so it integrates with the tree
+                from .tree_builder import TreeNode
+                sp = {
+                    "chartSettings": {
+                        "configure": {
+                            "query": {"mode": "sql", "sql": sql},
+                            "chart": {"option": {"mode": "custom", "raw": option}},
+                        }
+                    }
+                }
+                if title:
+                    sp["chartSettings"]["configure"]["title"] = title
+                if events:
+                    sp["chartSettings"]["configure"]["chart"]["events"] = {
+                        "mode": "custom", "raw": events
+                    }
+                node = TreeNode("ChartBlockModel", sp, sort_idx)
+                node.uid = chart_uid  # Use the UID from nb.chart()
+                node._is_chart = True  # Flag for save_nested to skip (already saved)
+                node._chart_sql = sql
+                node._chart_data_source = el.get("data-source", "main")
+
         elif tag == "form":
             mode = el.get("mode", "create")
             fields_dsl = el.get("fields", "")
