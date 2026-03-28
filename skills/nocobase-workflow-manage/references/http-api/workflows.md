@@ -124,7 +124,7 @@ POST /api/workflows:destroy?filterByTk=1
 
 Create a new version based on an existing version (same `key`). The new version is initially `enabled: false, current: false`, with the same node configuration as the original version.
 
-**Applicable scenario: When a version that has already been executed needs to be modified, a new version must first be created through this interface, and then modified on the new version.**
+**Applicable scenario: When a version that has already been executed needs to be modified, a new version must first be created through this interface, and then modify on the new version.**
 
 | Parameter | Description |
 |---|---|
@@ -136,6 +136,8 @@ POST /api/workflows:revision?filterByTk=1&filter[key]=abc123
 ```
 
 Returns the new version's workflow object, including the new `id`.
+
+If `filter[key]` not provided, the API will create a new independent workflow (not a revision) with a new random `key`. Only use when you want to create a new workflow with the same configuration as an existing workflow but do not want it to be a revision of the existing workflow.
 
 ---
 
