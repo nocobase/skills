@@ -137,6 +137,8 @@ POST /api/workflows:revision?filterByTk=1&filter[key]=abc123
 
 返回新版本的 workflow 对象，包含新的 `id`。
 
+当传入 `filter[key]` 时，用于将新版本归属到同一工作流（key 不变）。如果不传 `filter[key]`，则会生成新的 key，成为一个新的独立的工作流。
+
 ---
 
 ## workflows:execute

@@ -25,9 +25,8 @@ description: "由审批发起触发的专用流程，支持审批发起人、审
 | mode | number | 0 | 是 | 触发模式：`1` 保存前审批（审批通过后才写入数据），`0` 保存后审批（先写入再进入审批）。 |
 | centralized | boolean | false | 否 | 是否允许在待办中心发起审批；为 `false` 时仅能在数据块/按钮上发起。 |
 | audienceType | number | 1 | 否 | 发起人范围：`0` 受限（需配置审批发起人范围），`1` 不受限（所有可见用户）。 |
-| applyForm | string | - | 否 | 发起人界面（v1 旧版 UI Schema 的 uid）。 |
-| approvalUid | string | - | 否 | 发起人界面（v2 配置 uid）。 |
-| taskCardUid | string | - | 否 | “我的申请”列表卡片配置 uid。 |
+| approvalUid | string | 需要自行生成一个唯一的 uid | 否 | 发起人界面（v2 配置 uid）。 |
+| taskCardUid | string | 需要自行生成一个唯一的 uid | 否 | “我的申请”列表卡片配置 uid。 |
 | recordShowMode | boolean | false | 否 | 流程中记录展示模式：`false` 快照，`true` 最新数据。 |
 | appends | string[] | [] | 否 | 预加载关联字段路径，供流程中读取关系数据。 |
 | withdrawable | boolean | false | 否 | 是否允许发起人撤回（由发起人界面配置自动生成）。 |
@@ -39,6 +38,7 @@ description: "由审批发起触发的专用流程，支持审批发起人、审
 | notifications[].template | number \| object | - | 是 | 模板配置：模板 ID 或自定义模板结构（随渠道类型而定）。 |
 
 ## 触发器变量
+
 - `$context.data`：审批关联的数据记录（是否包含预加载关系取决于 `appends` 与 `mode`）。
 - `$context.approvalId`：审批记录 ID。
 - `$context.applicant`：发起人用户信息。
@@ -47,7 +47,7 @@ description: "由审批发起触发的专用流程，支持审批发起人、审
 ## 示例配置
 ```json
 {
-  "collection": "main.expenses",
+  "collection": "expenses",
   "mode": 0,
   "centralized": true,
   "audienceType": 1,
