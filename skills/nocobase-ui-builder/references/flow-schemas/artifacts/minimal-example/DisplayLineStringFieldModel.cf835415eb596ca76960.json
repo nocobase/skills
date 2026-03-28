@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "cf835415eb596ca76960",
+  "ownerUses": [
+    "DisplayLineStringFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaylinestringfieldmodel",
+    "use": "DisplayLineStringFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayLineStringFieldModel.cf835415eb596ca76960.json"
+}

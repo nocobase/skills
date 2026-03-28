@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "TextareaFieldModel",
+  "title": "Textarea Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "6bb3c457",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/TextareaFieldModel.8b5c7c514a2f956eb2b8.json",
+      "hash": "8b5c7c514a2f956eb2b8"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/TextareaFieldModel.75f6806e948e85b25465.json",
+      "hash": "75f6806e948e85b25465"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/TextareaFieldModel.c31fbdc21b2eb484dc23.json",
+      "hash": "c31fbdc21b2eb484dc23"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

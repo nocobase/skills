@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "57073e60eaf16c3529ee",
+  "ownerUses": [
+    "UploadFieldModel"
+  ],
+  "value": {
+    "uid": "todo-uploadfieldmodel",
+    "use": "UploadFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/UploadFieldModel.57073e60eaf16c3529ee.json"
+}

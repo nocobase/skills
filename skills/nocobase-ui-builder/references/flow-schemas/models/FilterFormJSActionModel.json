@@ -1,0 +1,53 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormJSActionModel",
+  "title": "Filter form JS action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "5c19d24e",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "FilterFormJSActionModel.stepParams.clickSettings.runJs",
+      "message": "Filter form JS action runs inside the runtime form and collection context.",
+      "x-flow": {
+        "contextRequirements": [
+          "filter form context",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-filter-form-js-action",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormJSActionModel.65f7aa5d1d0aff7d7c7b.json",
+      "hash": "65f7aa5d1d0aff7d7c7b"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormJSActionModel.1163f3cb220999a18a88.json",
+      "hash": "1163f3cb220999a18a88"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormJSActionModel.75f7bb6aa963c782afaf.json",
+      "hash": "75f7bb6aa963c782afaf"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

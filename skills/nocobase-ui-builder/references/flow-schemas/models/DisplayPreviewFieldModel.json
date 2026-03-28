@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayPreviewFieldModel",
+  "title": "Display preview",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "32fc148e",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayPreviewFieldModel.6217f2829bc051369245.json",
+      "hash": "6217f2829bc051369245"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayPreviewFieldModel.726140ca5bf451dc32c7.json",
+      "hash": "726140ca5bf451dc32c7"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayPreviewFieldModel.47bfc12d489bcf3a9d85.json",
+      "hash": "47bfc12d489bcf3a9d85"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

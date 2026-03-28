@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "c00f506dd96ff437fe75",
+  "ownerUses": [
+    "DateTimeNoTzFieldModel"
+  ],
+  "value": {
+    "uid": "todo-datetimenotzfieldmodel",
+    "use": "DateTimeNoTzFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DateTimeNoTzFieldModel.c00f506dd96ff437fe75.json"
+}

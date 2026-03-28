@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c246812c6445152abbf4",
+  "ownerUses": [
+    "ReferenceBlockModel"
+  ],
+  "value": {
+    "uid": "todo-reference-block-uid",
+    "use": "ReferenceBlockModel",
+    "stepParams": {
+      "referenceSettings": {
+        "target": {
+          "targetUid": "todo-target-block-uid",
+          "mode": "reference"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/ReferenceBlockModel.c246812c6445152abbf4.json"
+}

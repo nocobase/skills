@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "98dd97211550143f032c",
+  "ownerUses": [
+    "GridCardItemModel"
+  ],
+  "value": {
+    "uid": "todo-grid-card-item-uid",
+    "use": "GridCardItemModel",
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "DetailsGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/DetailsGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DetailsGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/GridCardItemModel.98dd97211550143f032c.json"
+}

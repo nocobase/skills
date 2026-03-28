@@ -1,0 +1,21 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "f9421a7f158191419d1f",
+  "ownerUses": [
+    "MarkdownBlockModel"
+  ],
+  "value": {
+    "uid": "markdown-intro",
+    "use": "MarkdownBlockModel",
+    "stepParams": {
+      "markdownBlockSettings": {
+        "editMarkdown": {
+          "content": "# Welcome"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/MarkdownBlockModel.f9421a7f158191419d1f.json"
+}

@@ -1,0 +1,23 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "3df347ec8e8fb53089f3",
+  "ownerUses": [
+    "IframeBlockModel"
+  ],
+  "value": {
+    "uid": "iframe-homepage",
+    "use": "IframeBlockModel",
+    "stepParams": {
+      "iframeBlockSettings": {
+        "editIframe": {
+          "mode": "url",
+          "url": "https://www.nocobase.com",
+          "params": []
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/IframeBlockModel.3df347ec8e8fb53089f3.json"
+}

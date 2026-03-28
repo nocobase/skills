@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "3772479f568f8f517d75",
+  "ownerUses": [
+    "DateOnlyFilterFieldModel"
+  ],
+  "value": {
+    "uid": "todo-dateonlyfilterfieldmodel",
+    "use": "DateOnlyFilterFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DateOnlyFilterFieldModel.3772479f568f8f517d75.json"
+}

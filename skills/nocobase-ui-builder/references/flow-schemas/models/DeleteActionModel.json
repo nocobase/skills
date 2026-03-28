@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DeleteActionModel",
+  "title": "Delete action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "6667221f",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DeleteActionModel.6347a00927f34472e667.json",
+      "hash": "6347a00927f34472e667"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DeleteActionModel.767de22f9c84fe76d510.json",
+      "hash": "767de22f9c84fe76d510"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DeleteActionModel.65c3c883137f8d28e03e.json",
+      "hash": "65c3c883137f8d28e03e"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

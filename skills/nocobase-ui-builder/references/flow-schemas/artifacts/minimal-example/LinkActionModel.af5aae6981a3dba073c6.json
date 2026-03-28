@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "af5aae6981a3dba073c6",
+  "ownerUses": [
+    "LinkActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "LinkActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/LinkActionModel.af5aae6981a3dba073c6.json"
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "ba45c95d66cf015868ad",
+  "ownerUses": [
+    "JSFormActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "JSFormActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/JSFormActionModel.ba45c95d66cf015868ad.json"
+}

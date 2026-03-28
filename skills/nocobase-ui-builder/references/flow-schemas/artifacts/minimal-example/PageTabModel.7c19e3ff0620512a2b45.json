@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "7c19e3ff0620512a2b45",
+  "ownerUses": [
+    "PageTabModel"
+  ],
+  "value": {
+    "uid": "todo-page-tab-uid",
+    "use": "PageTabModel",
+    "stepParams": {
+      "pageTabSettings": {
+        "tab": {
+          "title": "Tab"
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "BlockGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/BlockGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "BlockGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/PageTabModel.7c19e3ff0620512a2b45.json"
+}

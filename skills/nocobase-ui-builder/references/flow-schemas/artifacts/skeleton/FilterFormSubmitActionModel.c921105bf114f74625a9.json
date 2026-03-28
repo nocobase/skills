@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c921105bf114f74625a9",
+  "ownerUses": [
+    "FilterFormSubmitActionModel"
+  ],
+  "value": {
+    "uid": "todo-filter-submit-action-uid",
+    "use": "FilterFormSubmitActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Filter",
+          "type": "primary"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/FilterFormSubmitActionModel.c921105bf114f74625a9.json"
+}

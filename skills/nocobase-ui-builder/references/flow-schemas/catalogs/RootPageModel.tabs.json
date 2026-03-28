@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "RootPageModel",
+  "slot": "tabs",
+  "slotType": "array",
+  "shape": "items.direct",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array"
+  },
+  "candidates": [
+    {
+      "use": "RootPageTabModel",
+      "title": "Root page tab",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/RootPageTabModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RootPageTabModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

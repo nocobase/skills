@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayPolygonFieldModel",
+  "title": "Display polygon",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "e8dacb7a",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayPolygonFieldModel.c2ea25d0676d95345efa.json",
+      "hash": "c2ea25d0676d95345efa"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayPolygonFieldModel.f826e5de5e7b1d1df8ce.json",
+      "hash": "f826e5de5e7b1d1df8ce"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayPolygonFieldModel.e2e38de71b7c1b10bca1.json",
+      "hash": "e2e38de71b7c1b10bca1"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

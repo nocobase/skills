@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayNumberFieldModel",
+  "title": "Display Number Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "acf61ba6",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayNumberFieldModel.d81871bdd265e7ba5962.json",
+      "hash": "d81871bdd265e7ba5962"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayNumberFieldModel.b0d06bce598a38c23008.json",
+      "hash": "b0d06bce598a38c23008"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayNumberFieldModel.23e4f208c088f0935d41.json",
+      "hash": "23e4f208c088f0935d41"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,40 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "57b1f61d39ab78f674b6",
+  "ownerUses": [
+    "TableBlockModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "TableBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "tableSettings": {
+        "pageSize": {
+          "pageSize": 20
+        },
+        "showRowNumbers": {
+          "showIndex": true
+        },
+        "dataScope": {
+          "filter": {
+            "logic": "$and",
+            "items": []
+          }
+        }
+      }
+    },
+    "subModels": {
+      "columns": [],
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/TableBlockModel.57b1f61d39ab78f674b6.json"
+}

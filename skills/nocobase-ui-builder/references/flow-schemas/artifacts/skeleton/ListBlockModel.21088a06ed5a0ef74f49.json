@@ -1,0 +1,40 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "21088a06ed5a0ef74f49",
+  "ownerUses": [
+    "ListBlockModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "ListBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "listSettings": {
+        "pageSize": {
+          "pageSize": 20
+        }
+      }
+    },
+    "subModels": {
+      "item": {
+        "xFlowGraphModelRef": {
+          "use": "ListItemModel",
+          "artifact": "skeleton",
+          "modelRef": "models/ListItemModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ListItemModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/ListBlockModel.21088a06ed5a0ef74f49.json"
+}

@@ -1,0 +1,43 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "2af48d01b7632ab9bcc2",
+  "ownerUses": [
+    "AddNewActionModel"
+  ],
+  "value": {
+    "uid": "add-new-users",
+    "use": "AddNewActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Add new",
+          "type": "default"
+        }
+      },
+      "popupSettings": {
+        "openView": {
+          "mode": "drawer",
+          "size": "medium",
+          "pageModelClass": "ChildPageModel",
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      }
+    },
+    "subModels": {
+      "page": {
+        "xFlowGraphModelRef": {
+          "use": "ChildPageModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/ChildPageModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ChildPageModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/AddNewActionModel.2af48d01b7632ab9bcc2.json"
+}

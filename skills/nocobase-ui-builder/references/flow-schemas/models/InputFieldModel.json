@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "InputFieldModel",
+  "title": "Input Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "e2fe63a7",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/InputFieldModel.ed26e0e147e12225cb0a.json",
+      "hash": "ed26e0e147e12225cb0a"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/InputFieldModel.c4ec676bb48c72082a23.json",
+      "hash": "c4ec676bb48c72082a23"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/InputFieldModel.2e789fa68ed71d3bc827.json",
+      "hash": "2e789fa68ed71d3bc827"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

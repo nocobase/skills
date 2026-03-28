@@ -1,27 +1,27 @@
 # NocoBase Installation Methods
 
-Source index: https://v2.docs.nocobase.com/llms.txt
+Source index: https://docs.nocobase.com/llms.txt
 
 ## Preferred Method (Default)
 
 1. Docker installation (recommended)
 - Use when: most users, reproducible environment, team consistency.
-- Docs: https://v2.docs.nocobase.com/get-started/installation/docker
+- Docs: https://docs.nocobase.com/get-started/installation/docker
 
 ## Alternative Methods
 
 2. `create-nocobase-app`
 - Use when: fastest local bootstrap and quick trial.
-- Docs: https://v2.docs.nocobase.com/get-started/installation/create-nocobase-app
+- Docs: https://docs.nocobase.com/get-started/installation/create-nocobase-app
 
 3. Git installation
 - Use when: source-level customization, framework/plugin core development.
-- Docs: https://v2.docs.nocobase.com/get-started/installation/git
+- Docs: https://docs.nocobase.com/get-started/installation/git
 
 ## Release Channel
 
 - Ask user to choose release channel before commands: `latest (stable)`, `beta`, or `alpha`.
-- Quickstart reference: https://v2.docs.nocobase.com/get-started/quickstart
+- Quickstart reference: https://docs.nocobase.com/get-started/quickstart
 
 ## Database Decision (Mandatory)
 

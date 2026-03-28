@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "01c93078a0501f41d23f",
+  "ownerUses": [
+    "JSFieldModel"
+  ],
+  "value": {
+    "uid": "todo-jsfieldmodel",
+    "use": "JSFieldModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/JSFieldModel.01c93078a0501f41d23f.json"
+}

@@ -1,0 +1,350 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "RecordPickerFieldModel",
+  "slot": "field",
+  "slotType": "object",
+  "shape": "anyOf",
+  "defaultUses": [
+    "DisplayTextFieldModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "DisplayCheckboxFieldModel",
+      "title": "Display Checkbox Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/DisplayCheckboxFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayCheckboxFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayDateTimeFieldModel",
+      "title": "Display Date Time Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/DisplayDateTimeFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayDateTimeFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayTextFieldModel",
+      "title": "Display Text Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 2,
+      "modelRef": "models/DisplayTextFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayTextFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayNumberFieldModel",
+      "title": "Display Number Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/DisplayNumberFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayNumberFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayPreviewFieldModel",
+      "title": "Display preview",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 4,
+      "modelRef": "models/DisplayPreviewFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayPreviewFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayPointFieldModel",
+      "title": "Display point",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 5,
+      "modelRef": "models/DisplayPointFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayPointFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayCircleFieldModel",
+      "title": "Display circle",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 6,
+      "modelRef": "models/DisplayCircleFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayCircleFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayPolygonFieldModel",
+      "title": "Display polygon",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 7,
+      "modelRef": "models/DisplayPolygonFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayPolygonFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayLineStringFieldModel",
+      "title": "Display line string",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 8,
+      "modelRef": "models/DisplayLineStringFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayLineStringFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayVditorFieldModel",
+      "title": "Display vditor",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 9,
+      "modelRef": "models/DisplayVditorFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayVditorFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayCodeFieldModel",
+      "title": "Display code",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 10,
+      "modelRef": "models/DisplayCodeFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayCodeFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayTimeFieldModel",
+      "title": "Display Time Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 11,
+      "modelRef": "models/DisplayTimeFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayTimeFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayColorFieldModel",
+      "title": "Display Color Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 12,
+      "modelRef": "models/DisplayColorFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayColorFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayEnumFieldModel",
+      "title": "Display Enum Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 13,
+      "modelRef": "models/DisplayEnumFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayEnumFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayPasswordFieldModel",
+      "title": "Display Password Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 14,
+      "modelRef": "models/DisplayPasswordFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayPasswordFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayJSONFieldModel",
+      "title": "Display JSONField",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 15,
+      "modelRef": "models/DisplayJSONFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayJSONFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayHtmlFieldModel",
+      "title": "Display Html Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 16,
+      "modelRef": "models/DisplayHtmlFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayHtmlFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayIconFieldModel",
+      "title": "Display Icon Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 17,
+      "modelRef": "models/DisplayIconFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayIconFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayPercentFieldModel",
+      "title": "Display Percent Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 18,
+      "modelRef": "models/DisplayPercentFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayPercentFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DisplayURLFieldModel",
+      "title": "Display URLField",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 19,
+      "modelRef": "models/DisplayURLFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DisplayURLFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSFieldModel",
+      "title": "JS field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 20,
+      "modelRef": "models/JSFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSFieldModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

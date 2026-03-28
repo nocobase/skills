@@ -1,0 +1,49 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "5a22f2670b35f1db5b93",
+  "ownerUses": [
+    "CreateFormModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "CreateFormModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "formModelSettings": {
+        "layout": {
+          "layout": "vertical",
+          "colon": true
+        },
+        "assignRules": {
+          "value": []
+        }
+      },
+      "eventSettings": {
+        "linkageRules": {
+          "value": []
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "FormGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/FormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "FormGridModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/CreateFormModel.5a22f2670b35f1db5b93.json"
+}

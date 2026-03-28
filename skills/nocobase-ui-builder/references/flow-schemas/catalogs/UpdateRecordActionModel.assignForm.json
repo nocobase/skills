@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "UpdateRecordActionModel",
+  "slot": "assignForm",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "AssignFormModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "AssignFormModel",
+      "title": "Field assignments",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/AssignFormModel.json",
+      "skeletonRef": {
+        "modelRef": "models/AssignFormModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

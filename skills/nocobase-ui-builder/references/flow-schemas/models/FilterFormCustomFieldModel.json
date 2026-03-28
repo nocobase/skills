@@ -1,0 +1,49 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormCustomFieldModel",
+  "title": "Filter form custom field item",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "86bb3e87",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "FilterFormCustomFieldModel.stepParams.formItemSettings.fieldSettings",
+      "message": "Custom filter field settings depend on runtime field-model registries and operator metadata.",
+      "x-flow": {
+        "contextRequirements": [
+          "field model registry",
+          "custom operator registry"
+        ],
+        "unresolvedReason": "runtime-filter-form-custom-field-settings"
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormCustomFieldModel.18078542447ac93fb129.json",
+      "hash": "18078542447ac93fb129"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormCustomFieldModel.fc1df9bde1b0f4978927.json",
+      "hash": "fc1df9bde1b0f4978927"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormCustomFieldModel.4f773a5e64edad3a1d31.json",
+      "hash": "4f773a5e64edad3a1d31"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

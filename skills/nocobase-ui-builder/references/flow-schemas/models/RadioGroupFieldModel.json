@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "RadioGroupFieldModel",
+  "title": "Radio Group Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "bd8dbd0d",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/RadioGroupFieldModel.a89643ba6492e05d65cf.json",
+      "hash": "a89643ba6492e05d65cf"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/RadioGroupFieldModel.9394649de46cb9068406.json",
+      "hash": "9394649de46cb9068406"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/RadioGroupFieldModel.1dc6aabcb61891c12094.json",
+      "hash": "1dc6aabcb61891c12094"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

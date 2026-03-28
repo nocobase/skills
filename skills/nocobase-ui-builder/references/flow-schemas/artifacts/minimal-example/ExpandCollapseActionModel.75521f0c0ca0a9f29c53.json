@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "75521f0c0ca0a9f29c53",
+  "ownerUses": [
+    "ExpandCollapseActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "ExpandCollapseActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/ExpandCollapseActionModel.75521f0c0ca0a9f29c53.json"
+}

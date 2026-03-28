@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "73b9950aa54449c078ac",
+  "ownerUses": [
+    "DisplayVditorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayvditorfieldmodel",
+    "use": "DisplayVditorFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayVditorFieldModel.73b9950aa54449c078ac.json"
+}

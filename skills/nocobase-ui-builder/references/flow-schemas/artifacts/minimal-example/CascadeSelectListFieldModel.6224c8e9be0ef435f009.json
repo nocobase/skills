@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "6224c8e9be0ef435f009",
+  "ownerUses": [
+    "CascadeSelectListFieldModel"
+  ],
+  "value": {
+    "uid": "todo-cascadeselectlistfieldmodel",
+    "use": "CascadeSelectListFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/CascadeSelectListFieldModel.6224c8e9be0ef435f009.json"
+}

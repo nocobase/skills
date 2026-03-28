@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "ListBlockModel",
+  "slot": "item",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "ListItemModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "ListItemModel",
+      "title": "List item",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/ListItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ListItemModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

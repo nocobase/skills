@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "42e7ece33a1377f63f5e",
+  "ownerUses": [
+    "TableColumnModel"
+  ],
+  "value": {
+    "uid": "todo-table-column-uid",
+    "use": "TableColumnModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "nickname"
+        }
+      },
+      "tableColumnSettings": {
+        "width": {
+          "width": 150
+        }
+      }
+    },
+    "subModels": {}
+  },
+  "relativePath": "artifacts/skeleton/TableColumnModel.42e7ece33a1377f63f5e.json"
+}

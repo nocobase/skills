@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayCircleFieldModel",
+  "title": "Display circle",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "4e4b7e5e",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayCircleFieldModel.b3f3d50de1492f36cf29.json",
+      "hash": "b3f3d50de1492f36cf29"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayCircleFieldModel.3e4cd80617bef90201f0.json",
+      "hash": "3e4cd80617bef90201f0"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayCircleFieldModel.0221122e7e052a47f731.json",
+      "hash": "0221122e7e052a47f731"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

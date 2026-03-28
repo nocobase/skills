@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "dda4b6bb6b5d3e3c1581",
+  "ownerUses": [
+    "ActionModel"
+  ],
+  "value": {
+    "uid": "action-primary-save",
+    "use": "ActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Save",
+          "type": "primary",
+          "danger": false
+        },
+        "linkageRules": {
+          "value": []
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ActionModel.dda4b6bb6b5d3e3c1581.json"
+}

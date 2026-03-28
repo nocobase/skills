@@ -1,0 +1,101 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "e093e62e15c506019e57",
+  "ownerUses": [
+    "RootPageModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "RootPageModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "pageSettings": {
+            "type": "object",
+            "properties": {
+              "general": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "documentTitle": {
+                    "type": "string"
+                  },
+                  "displayTitle": {
+                    "type": "boolean"
+                  },
+                  "enableTabs": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "rootPageSettings": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "tabs": {
+            "type": "array",
+            "xFlowGraphSlotRef": {
+              "ownerUse": "RootPageModel",
+              "slot": "tabs",
+              "slotRef": "catalogs/RootPageModel.tabs.json",
+              "slotType": "array",
+              "shape": "items.direct",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/RootPageModel.e093e62e15c506019e57.json"
+}

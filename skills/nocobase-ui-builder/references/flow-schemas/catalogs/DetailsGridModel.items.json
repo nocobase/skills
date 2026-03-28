@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "DetailsGridModel",
+  "slot": "items",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [
+    "DetailsItemModel"
+  ],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "DetailsItemModel",
+      "title": "Details item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/DetailsItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DetailsItemModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

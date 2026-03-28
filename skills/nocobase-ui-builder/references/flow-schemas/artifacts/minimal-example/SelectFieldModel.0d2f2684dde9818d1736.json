@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "0d2f2684dde9818d1736",
+  "ownerUses": [
+    "SelectFieldModel"
+  ],
+  "value": {
+    "uid": "todo-selectfieldmodel",
+    "use": "SelectFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/SelectFieldModel.0d2f2684dde9818d1736.json"
+}

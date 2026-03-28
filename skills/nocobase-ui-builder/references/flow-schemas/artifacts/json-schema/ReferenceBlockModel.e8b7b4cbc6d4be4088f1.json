@@ -1,0 +1,113 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "e8b7b4cbc6d4be4088f1",
+  "ownerUses": [
+    "ReferenceBlockModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "ReferenceBlockModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "referenceSettings": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "object",
+                "properties": {
+                  "targetUid": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "reference",
+                      "copy"
+                    ]
+                  }
+                },
+                "required": [
+                  "targetUid"
+                ],
+                "additionalProperties": true
+              },
+              "useTemplate": {
+                "type": "object",
+                "properties": {
+                  "templateUid": {
+                    "type": "string"
+                  },
+                  "templateName": {
+                    "type": "string"
+                  },
+                  "templateDescription": {
+                    "type": "string"
+                  },
+                  "targetUid": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "reference",
+                      "copy"
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "target"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/ReferenceBlockModel.e8b7b4cbc6d4be4088f1.json"
+}

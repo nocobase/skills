@@ -1,0 +1,73 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "MapBlockModel",
+  "title": "Map block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "9d4a105e",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "MapBlockModel.stepParams.createMapBlock.init.mapField",
+      "message": "Map field and marker options depend on collection field interfaces and association traversal.",
+      "x-flow": {
+        "contextRequirements": [
+          "collection fields",
+          "association traversal"
+        ],
+        "unresolvedReason": "runtime-map-field-options",
+        "recommendedFallback": {
+          "mapField": []
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "MapBlockModel.subModels.actions",
+      "message": "Map actions depend on runtime action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "collection action registry"
+        ],
+        "unresolvedReason": "runtime-map-actions"
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/MapBlockModel.13805648999738d0e0ac.json",
+      "hash": "13805648999738d0e0ac"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/MapBlockModel.f0d4b19a77082b838e59.json",
+      "hash": "f0d4b19a77082b838e59"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/MapBlockModel.2aa23a2ef0a7e7d96384.json",
+      "hash": "2aa23a2ef0a7e7d96384"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "actions": {
+        "slotRef": "catalogs/MapBlockModel.actions.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "actions": []
+  }
+}

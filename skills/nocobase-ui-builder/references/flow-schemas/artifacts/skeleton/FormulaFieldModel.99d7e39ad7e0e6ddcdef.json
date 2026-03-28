@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "99d7e39ad7e0e6ddcdef",
+  "ownerUses": [
+    "FormulaFieldModel"
+  ],
+  "value": {
+    "uid": "todo-formulafieldmodel",
+    "use": "FormulaFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/FormulaFieldModel.99d7e39ad7e0e6ddcdef.json"
+}

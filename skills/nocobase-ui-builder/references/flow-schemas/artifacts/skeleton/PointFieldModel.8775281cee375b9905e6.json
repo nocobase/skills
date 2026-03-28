@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "8775281cee375b9905e6",
+  "ownerUses": [
+    "PointFieldModel"
+  ],
+  "value": {
+    "uid": "todo-pointfieldmodel",
+    "use": "PointFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/PointFieldModel.8775281cee375b9905e6.json"
+}

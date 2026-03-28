@@ -1,0 +1,27 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "1692a697fe75c55632c8",
+  "ownerUses": [
+    "JSColumnModel"
+  ],
+  "value": {
+    "uid": "todo-js-column-uid",
+    "use": "JSColumnModel",
+    "stepParams": {
+      "tableColumnSettings": {
+        "title": {
+          "title": "JS column"
+        }
+      },
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/JSColumnModel.1692a697fe75c55632c8.json"
+}

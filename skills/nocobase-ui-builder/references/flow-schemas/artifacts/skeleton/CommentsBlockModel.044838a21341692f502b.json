@@ -1,0 +1,24 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "044838a21341692f502b",
+  "ownerUses": [
+    "CommentsBlockModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "CommentsBlockModel",
+    "stepParams": {
+      "commentsSettings": {
+        "pageSize": {
+          "pageSize": 20
+        }
+      }
+    },
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/CommentsBlockModel.044838a21341692f502b.json"
+}

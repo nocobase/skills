@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "IconFieldModel",
+  "title": "Icon Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "089b8c38",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/IconFieldModel.d0b8336d8a534b2969cc.json",
+      "hash": "d0b8336d8a534b2969cc"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/IconFieldModel.8ac2bf97a4438373ef15.json",
+      "hash": "8ac2bf97a4438373ef15"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/IconFieldModel.2e160d67f5c6dd529589.json",
+      "hash": "2e160d67f5c6dd529589"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

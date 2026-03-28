@@ -1,0 +1,81 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "05bf267cd6d3c24521c1",
+  "ownerUses": [
+    "DisplayPointFieldModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "DisplayPointFieldModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "fieldSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "fieldPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/DisplayPointFieldModel.05bf267cd6d3c24521c1.json"
+}

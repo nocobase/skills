@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "BulkDeleteActionModel",
+  "title": "Bulk delete action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "09e71851",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/BulkDeleteActionModel.97375ecaaab4eaebf7e6.json",
+      "hash": "97375ecaaab4eaebf7e6"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/BulkDeleteActionModel.f6d5e5e0cad8d6ecc4c0.json",
+      "hash": "f6d5e5e0cad8d6ecc4c0"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/BulkDeleteActionModel.2e25099196c2ac7b73ca.json",
+      "hash": "2e25099196c2ac7b73ca"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

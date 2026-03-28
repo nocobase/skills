@@ -1,0 +1,257 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "BlockGridModel",
+  "slot": "items",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [
+    "CreateFormModel"
+  ],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "CreateFormModel",
+      "title": "Form (Add new)",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/CreateFormModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CreateFormModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DetailsBlockModel",
+      "title": "Details block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/DetailsBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DetailsBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "EditFormModel",
+      "title": "Form (Edit)",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/EditFormModel.json",
+      "skeletonRef": {
+        "modelRef": "models/EditFormModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterFormBlockModel",
+      "title": "Filter form block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/FilterFormBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSBlockModel",
+      "title": "JS block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 4,
+      "modelRef": "models/JSBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "TableBlockModel",
+      "title": "Table block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 5,
+      "modelRef": "models/TableBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TableBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ActionPanelBlockModel",
+      "title": "Action panel block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 6,
+      "modelRef": "models/ActionPanelBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ActionPanelBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ChartBlockModel",
+      "title": "Chart block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 7,
+      "modelRef": "models/ChartBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ChartBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CommentsBlockModel",
+      "title": "Comments block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 8,
+      "modelRef": "models/CommentsBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CommentsBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "GridCardBlockModel",
+      "title": "Grid card block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 9,
+      "modelRef": "models/GridCardBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/GridCardBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "IframeBlockModel",
+      "title": "Iframe block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 10,
+      "modelRef": "models/IframeBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/IframeBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ListBlockModel",
+      "title": "List block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 11,
+      "modelRef": "models/ListBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ListBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "MapBlockModel",
+      "title": "Map block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 12,
+      "modelRef": "models/MapBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/MapBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "MarkdownBlockModel",
+      "title": "Markdown block",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 13,
+      "modelRef": "models/MarkdownBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/MarkdownBlockModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ReferenceBlockModel",
+      "title": "Block template",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 14,
+      "modelRef": "models/ReferenceBlockModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ReferenceBlockModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

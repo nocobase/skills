@@ -1,5 +1,26 @@
 # ACL Configuration
 
+## Configuration standard
+
+When the user asks for a realistic business-role configuration, do not stop after creating roles and adding a few actions.
+
+Build a permission matrix first:
+
+- which system snippets are allowed or denied
+- which desktop/mobile routes are granted
+- which collections rely on global table strategy
+- which collections use independent permissions
+- which actions are allowed on each collection
+- which fields are visible or editable for each important action
+- which row scopes apply, or why no scope is needed
+
+General rule:
+
+- If a layer is intentionally empty, write down the reason.
+- Do not leave global strategy empty, field lists empty, or scope empty by accident.
+- "No scope" is only valid when the business truly wants full-row access for that action.
+- "No field restriction" is only valid when the business truly accepts full-field access for that action.
+
 ## 1. Create or update the role itself
 
 Use role CRUD when the task is about:
@@ -101,6 +122,14 @@ Prefer the global strategy when:
 
 Do not jump straight to resource-level overrides for every collection. That makes ACL harder to audit and easier to drift.
 
+Realistic-role guidance:
+
+- If the final design keeps global strategy empty, state why. Common reasons:
+  - the role should only touch a small set of business collections
+  - non-business collections must not inherit broad rights
+  - every relevant collection has materially different rules and therefore uses independent permissions
+- Do not leave global strategy empty simply because independent permissions were easier to prototype.
+
 ## 7. Configure table independent permissions
 
 Use collection-level resource config only when one collection needs exceptions beyond the global table strategy.
@@ -119,6 +148,12 @@ Key flag:
 
 Inspect `availableActions:list` before writing action names. Do not guess action names or assume every action supports field-level configuration.
 
+Realistic-role guidance:
+
+- Independent permissions should usually include not only action names but also an explicit field strategy for important actions.
+- For business roles, `view`, `create`, `update`, and `export` often need different field lists.
+- If fields are omitted intentionally, confirm that full-field access is acceptable for that action.
+
 ## 8. Configure field permissions
 
 Field permission is action-specific.
@@ -129,6 +164,20 @@ Before restricting fields:
 - use only actions where `allowConfigureFields` is true
 
 Be conservative with field whitelists. Overly narrow field lists often break UI blocks, association labels, or update forms in ways that look like data issues rather than ACL issues.
+
+Realistic-role guidance:
+
+- Configure field lists wherever the business distinguishes between readable fields and editable fields.
+- Treat the following as strong signals that field permissions should be explicit:
+  - sensitive identity fields
+  - financial fields
+  - approval or status fields
+  - file/attachment relation fields
+  - association fields whose mutation should be controlled
+- A realistic role config should be able to answer:
+  - what this role may see
+  - what this role may edit
+  - what this role may export
 
 Relation-field guidance:
 
@@ -160,6 +209,12 @@ Bad patterns:
 - own-record semantics on collections without ownership fields
 - copying a scope from one collection to another without checking field compatibility
 
+Realistic-role guidance:
+
+- Decide scope explicitly for every important action.
+- If there is no scope, confirm that full-row visibility or mutation is intended.
+- If different roles should see different organizational slices, do not postpone scope design until after action configuration.
+
 Scope creation rules:
 
 - Business scopes should be created under the target data source, for example `dataSources/{dataSourceKey}/rolesResourcesScopes:create`.
@@ -173,6 +228,38 @@ Scope creation rules:
 - Do not default to low-level foreign-key filters such as `ownerId` or `assigneeId` in generic ACL guidance unless the user explicitly wants field-based filters.
 - Use built-in `own` only when the intended rule really means `createdById = current user id`.
 - Do not substitute built-in `own` for other business semantics such as owner, assignee, approver, or manager.
+
+Scope variables and built-in scopes:
+
+- In the ACL scope editor, the frontend variable selector primarily exposes:
+  - `$user`
+    - Current user
+    - Backed by the `users` collection
+    - Default depth is 3, so nested paths such as `{{$user.department.manager.id}}` may be selectable when those relations exist on `users`
+  - `$nRole`
+    - Current role
+    - Bound to the `roles` collection
+    - Intended mainly for the current role value itself; the frontend marks it as no-children
+- Recommended variable usage:
+  - Use `$user` for most business scopes
+  - Example: `{{$user.id}}`
+  - Example: `{{$user.site.id}}`
+  - Example: `{{$user.company.id}}`
+- Do not document or recommend deprecated variable names in new ACL guidance. Use the current frontend-exposed names.
+
+Built-in scopes:
+
+- `all`
+  - Means no row restriction
+  - Use it only when full-row visibility or mutation is the intended business rule
+- `own`
+  - Means own-record semantics based on `createdById`
+  - Use it only when the collection really uses creator ownership as the business boundary
+
+Important boundary:
+
+- `own` does not mean owner, assignee, approver, manager, or department member.
+- For those business semantics, create a custom scope and reference `$user` against the real business relation path.
 
 Association mutation guidance:
 
@@ -189,13 +276,15 @@ Association mutation guidance:
 3. Configure system snippets if needed.
 4. Configure route permissions if needed.
 5. Inspect available actions.
-6. Read or set global table strategy for the data source.
-7. List role collections and identify exceptions.
-8. Add or reuse scopes.
-9. Add collection-level independent permissions only where needed.
-10. Re-read the resulting config.
-11. For scoped actions, verify both `scopeId` on the action and the scope record itself.
-12. If possible, verify against a real record path that should be allowed and one that should be denied.
+6. Draft the full permission matrix for the target role.
+7. Read or set global table strategy for the data source.
+8. List role collections and identify exceptions.
+9. Add or reuse scopes.
+10. Add collection-level independent permissions only where needed.
+11. Add field restrictions where the business boundary requires them.
+12. Re-read the resulting config.
+13. For scoped actions, verify both `scopeId` on the action and the scope record itself.
+14. If possible, verify against a real record path that should be allowed and one that should be denied.
 
 ## CRM Example
 

@@ -1,0 +1,204 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "04e4ce87267d4521b371",
+  "ownerUses": [
+    "FilterFormItemModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "FilterFormItemModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "fieldSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "fieldPath": {
+                    "type": "string"
+                  },
+                  "associationPathName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "dataSourceKey",
+                  "collectionName",
+                  "fieldPath"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "filterFormItemSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "filterField": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "interface": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "defaultTargetUid": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "label": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "showLabel": {
+                "type": "object",
+                "properties": {
+                  "showLabel": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "tooltip": {
+                "type": "object",
+                "properties": {
+                  "tooltip": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "initialValue": {
+                "type": "object",
+                "properties": {
+                  "defaultValue": {}
+                },
+                "additionalProperties": false
+              },
+              "model": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "connectFields": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "defaultOperator": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "operatorComponentProps": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "customizeFilterRender": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "initField": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "FilterFormItemModel",
+              "slot": "field",
+              "slotRef": "catalogs/FilterFormItemModel.field.json",
+              "slotType": "object",
+              "shape": "anyOf",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/FilterFormItemModel.04e4ce87267d4521b371.json"
+}

@@ -21,7 +21,7 @@ Please use the `type` value above to create the trigger; do not use the document
 ## Configuration Items
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | - | Yes | The data table where the trigger data resides, format is `"<dataSource>:<collection>"` (e.g., `"main:posts"`); `dataSource` can be omitted if it's the primary data source. |
+| collection | string | - | Yes | The data table where the trigger data resides, format is `"<dataSource>:<collection>"` (e.g., `"mysql:posts"`); `dataSource` can be omitted if it's the main data source. |
 | mode | number | - | Yes | Trigger timing bitmap: `1` for add, `2` for update, `3` for add or update, `4` for delete. |
 | changed | string[] | [] | No | Effective only when update is included. If fields are selected, the trigger occurs only when these fields change; if empty, any field change triggers. |
 | condition | object | null | No | Filter conditions (Filter syntax) effective only for add/update. The trigger occurs only when conditions are met. |

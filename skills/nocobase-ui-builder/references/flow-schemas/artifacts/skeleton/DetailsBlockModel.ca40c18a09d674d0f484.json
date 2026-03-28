@@ -1,0 +1,50 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "ca40c18a09d674d0f484",
+  "ownerUses": [
+    "DetailsBlockModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "DetailsBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "detailsSettings": {
+        "layout": {
+          "layout": "vertical",
+          "colon": true
+        },
+        "dataScope": {
+          "filter": {
+            "logic": "$and",
+            "items": []
+          }
+        },
+        "linkageRules": {
+          "value": []
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "DetailsGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/DetailsGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DetailsGridModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/DetailsBlockModel.ca40c18a09d674d0f484.json"
+}

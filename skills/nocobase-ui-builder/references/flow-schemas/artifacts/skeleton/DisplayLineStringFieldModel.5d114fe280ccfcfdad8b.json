@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "5d114fe280ccfcfdad8b",
+  "ownerUses": [
+    "DisplayLineStringFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaylinestringfieldmodel",
+    "use": "DisplayLineStringFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayLineStringFieldModel.5d114fe280ccfcfdad8b.json"
+}

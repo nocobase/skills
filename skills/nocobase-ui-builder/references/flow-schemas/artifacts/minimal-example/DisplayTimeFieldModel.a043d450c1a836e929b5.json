@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "a043d450c1a836e929b5",
+  "ownerUses": [
+    "DisplayTimeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaytimefieldmodel",
+    "use": "DisplayTimeFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayTimeFieldModel.a043d450c1a836e929b5.json"
+}

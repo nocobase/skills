@@ -1,0 +1,24 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "48be75c665efcedbefa2",
+  "ownerUses": [
+    "CommentsBlockModel"
+  ],
+  "value": {
+    "uid": "comments-users",
+    "use": "CommentsBlockModel",
+    "stepParams": {
+      "commentsSettings": {
+        "pageSize": {
+          "pageSize": 20
+        }
+      }
+    },
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/CommentsBlockModel.48be75c665efcedbefa2.json"
+}

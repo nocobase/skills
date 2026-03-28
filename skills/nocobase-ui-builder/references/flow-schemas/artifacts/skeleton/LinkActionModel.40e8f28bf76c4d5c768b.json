@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "40e8f28bf76c4d5c768b",
+  "ownerUses": [
+    "LinkActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "LinkActionModel"
+  },
+  "relativePath": "artifacts/skeleton/LinkActionModel.40e8f28bf76c4d5c768b.json"
+}

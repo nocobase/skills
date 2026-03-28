@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c2931f9251d6ed1e0396",
+  "ownerUses": [
+    "CommentItemModel"
+  ],
+  "value": {
+    "uid": "comment-item-uid",
+    "use": "CommentItemModel"
+  },
+  "relativePath": "artifacts/skeleton/CommentItemModel.c2931f9251d6ed1e0396.json"
+}

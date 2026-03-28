@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "75608bdbd68e7094a4da",
+  "ownerUses": [
+    "LineStringFieldModel"
+  ],
+  "value": {
+    "uid": "todo-linestringfieldmodel",
+    "use": "LineStringFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/LineStringFieldModel.75608bdbd68e7094a4da.json"
+}

@@ -1,0 +1,558 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "SubTableColumnModel",
+  "slot": "field",
+  "slotType": "object",
+  "shape": "anyOf",
+  "defaultUses": [
+    "DisplayTextFieldModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "RecordSelectFieldModel",
+      "title": "Record Select Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/RecordSelectFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RecordSelectFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "UploadFieldModel",
+      "title": "Upload",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/UploadFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/UploadFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CascadeSelectFieldModel",
+      "title": "Cascade Select Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/CascadeSelectFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CascadeSelectFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CascadeSelectListFieldModel",
+      "title": "Cascade Select List Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/CascadeSelectListFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CascadeSelectListFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FormulaFieldModel",
+      "title": "Formula",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 4,
+      "modelRef": "models/FormulaFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FormulaFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "SortFieldModel",
+      "title": "Sort",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 5,
+      "modelRef": "models/SortFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/SortFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "InputFieldModel",
+      "title": "Input Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 6,
+      "modelRef": "models/InputFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/InputFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PointFieldModel",
+      "title": "Point",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 7,
+      "modelRef": "models/PointFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PointFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CircleFieldModel",
+      "title": "Circle",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 8,
+      "modelRef": "models/CircleFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CircleFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PolygonFieldModel",
+      "title": "Polygon",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 9,
+      "modelRef": "models/PolygonFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PolygonFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "LineStringFieldModel",
+      "title": "Line string",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 10,
+      "modelRef": "models/LineStringFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/LineStringFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "VditorFieldModel",
+      "title": "Vditor",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 11,
+      "modelRef": "models/VditorFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/VditorFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "AttachmentURLFieldModel",
+      "title": "Attachment URL",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 12,
+      "modelRef": "models/AttachmentURLFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/AttachmentURLFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CodeFieldModel",
+      "title": "Code",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 13,
+      "modelRef": "models/CodeFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CodeFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "NumberFieldModel",
+      "title": "Number Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 14,
+      "modelRef": "models/NumberFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/NumberFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PercentFieldModel",
+      "title": "Percent Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 15,
+      "modelRef": "models/PercentFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PercentFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PasswordFieldModel",
+      "title": "Password Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 16,
+      "modelRef": "models/PasswordFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PasswordFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CollectionSelectorFieldModel",
+      "title": "Collection Selector Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 17,
+      "modelRef": "models/CollectionSelectorFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CollectionSelectorFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateOnlyFieldModel",
+      "title": "Date Only Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 18,
+      "modelRef": "models/DateOnlyFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateOnlyFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateTimeNoTzFieldModel",
+      "title": "Date Time No Tz Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 19,
+      "modelRef": "models/DateTimeNoTzFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateTimeNoTzFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DateTimeTzFieldModel",
+      "title": "Date Time Tz Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 20,
+      "modelRef": "models/DateTimeTzFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DateTimeTzFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "TimeFieldModel",
+      "title": "Time Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 21,
+      "modelRef": "models/TimeFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TimeFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CheckboxFieldModel",
+      "title": "Checkbox Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 22,
+      "modelRef": "models/CheckboxFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CheckboxFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "CheckboxGroupFieldModel",
+      "title": "Checkbox Group Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 23,
+      "modelRef": "models/CheckboxGroupFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CheckboxGroupFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "RadioGroupFieldModel",
+      "title": "Radio Group Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 24,
+      "modelRef": "models/RadioGroupFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RadioGroupFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "SelectFieldModel",
+      "title": "Select Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 25,
+      "modelRef": "models/SelectFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/SelectFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "TextareaFieldModel",
+      "title": "Textarea Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 26,
+      "modelRef": "models/TextareaFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/TextareaFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JsonFieldModel",
+      "title": "JSON Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 27,
+      "modelRef": "models/JsonFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JsonFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "RichTextFieldModel",
+      "title": "Rich Text Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 28,
+      "modelRef": "models/RichTextFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RichTextFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ColorFieldModel",
+      "title": "Color Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 29,
+      "modelRef": "models/ColorFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ColorFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "IconFieldModel",
+      "title": "Icon Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 30,
+      "modelRef": "models/IconFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/IconFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "RecordPickerFieldModel",
+      "title": "Record Picker Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 31,
+      "modelRef": "models/RecordPickerFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RecordPickerFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PopupSubTableFieldModel",
+      "title": "Popup Sub Table Field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 32,
+      "modelRef": "models/PopupSubTableFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PopupSubTableFieldModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSEditableFieldModel",
+      "title": "JS editable field",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 33,
+      "modelRef": "models/JSEditableFieldModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSEditableFieldModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

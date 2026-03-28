@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "7183c472b252ddd239b9",
+  "ownerUses": [
+    "ColorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-colorfieldmodel",
+    "use": "ColorFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/ColorFieldModel.7183c472b252ddd239b9.json"
+}

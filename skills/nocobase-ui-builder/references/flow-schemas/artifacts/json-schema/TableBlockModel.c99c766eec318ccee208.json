@@ -1,0 +1,405 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "c99c766eec318ccee208",
+  "ownerUses": [
+    "TableBlockModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "TableBlockModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "resourceSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "associationName": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  },
+                  "filterByTk": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "required": [
+                  "dataSourceKey",
+                  "collectionName"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "resourceSettings2": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "tableSettings": {
+            "type": "object",
+            "properties": {
+              "quickEdit": {
+                "type": "object",
+                "properties": {
+                  "editable": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "showRowNumbers": {
+                "type": "object",
+                "properties": {
+                  "showIndex": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "pageSize": {
+                "type": "object",
+                "properties": {
+                  "pageSize": {
+                    "type": "number",
+                    "enum": [
+                      5,
+                      10,
+                      20,
+                      50,
+                      100,
+                      200
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "dataScope": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "$id": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json",
+                    "definitions": {
+                      "filterCondition": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "value": {},
+                          "noValue": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "logic"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "items"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "filterGroup": {
+                        "type": "object",
+                        "properties": {
+                          "logic": {
+                            "type": "string",
+                            "enum": [
+                              "$and",
+                              "$or"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterCondition"
+                                },
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterGroup"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "logic",
+                          "items"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "path"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "operator"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "noValue"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "type": "object",
+                    "properties": {
+                      "logic": {
+                        "type": "string",
+                        "enum": [
+                          "$and",
+                          "$or"
+                        ]
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterCondition"
+                            },
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-flow-engine/generic-filter.json#/definitions/filterGroup"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "logic",
+                      "items"
+                    ],
+                    "additionalProperties": true,
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "path"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "operator"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "value"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "noValue"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "defaultSorting": {
+                "type": "object",
+                "properties": {
+                  "sort": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "field": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "asc",
+                            "desc"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "field",
+                        "direction"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "treeTable": {
+                "type": "object",
+                "properties": {
+                  "treeTable": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "defaultExpandAllRows": {
+                "type": "object",
+                "properties": {
+                  "defaultExpandAllRows": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "tableDensity": {
+                "type": "object",
+                "properties": {
+                  "size": {
+                    "type": "string",
+                    "enum": [
+                      "large",
+                      "middle",
+                      "small"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "dragSort": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "dragSortBy": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "refreshData": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {},
+            "xFlowGraphSlotRef": {
+              "ownerUse": "TableBlockModel",
+              "slot": "columns",
+              "slotRef": "catalogs/TableBlockModel.columns.json",
+              "slotType": "array",
+              "shape": "items.anyOf",
+              "defaultUses": []
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {},
+            "xFlowGraphSlotRef": {
+              "ownerUse": "TableBlockModel",
+              "slot": "actions",
+              "slotRef": "catalogs/TableBlockModel.actions.json",
+              "slotType": "array",
+              "shape": "items.anyOf",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/TableBlockModel.c99c766eec318ccee208.json"
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c31fbdc21b2eb484dc23",
+  "ownerUses": [
+    "TextareaFieldModel"
+  ],
+  "value": {
+    "uid": "todo-textareafieldmodel",
+    "use": "TextareaFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/TextareaFieldModel.c31fbdc21b2eb484dc23.json"
+}

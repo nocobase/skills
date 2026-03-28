@@ -11,6 +11,7 @@ This repository provides reusable NocoBase skills for coding agent CLIs such as 
 - `nocobase-mcp-setup`: configures NocoBase as an MCP server for your coding agent CLI.
 - `nocobase-data-modeling`: runs data modeling operations through MCP tools.
 - `nocobase-workflow-manage`: creates and manages NocoBase workflows through MCP tools.
+- `nocobase-ui-builder`: builds and updates Modern page (v2) UI structures through MCP tools.
 
 ## Installation
 

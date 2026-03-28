@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "32980faab8fce2921fb9",
+  "ownerUses": [
+    "DisplayColorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaycolorfieldmodel",
+    "use": "DisplayColorFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayColorFieldModel.32980faab8fce2921fb9.json"
+}

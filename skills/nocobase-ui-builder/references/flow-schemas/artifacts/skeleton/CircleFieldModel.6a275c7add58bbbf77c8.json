@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "6a275c7add58bbbf77c8",
+  "ownerUses": [
+    "CircleFieldModel"
+  ],
+  "value": {
+    "uid": "todo-circlefieldmodel",
+    "use": "CircleFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/CircleFieldModel.6a275c7add58bbbf77c8.json"
+}

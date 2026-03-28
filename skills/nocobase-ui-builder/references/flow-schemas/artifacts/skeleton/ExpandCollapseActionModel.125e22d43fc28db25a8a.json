@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "125e22d43fc28db25a8a",
+  "ownerUses": [
+    "ExpandCollapseActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "ExpandCollapseActionModel"
+  },
+  "relativePath": "artifacts/skeleton/ExpandCollapseActionModel.125e22d43fc28db25a8a.json"
+}

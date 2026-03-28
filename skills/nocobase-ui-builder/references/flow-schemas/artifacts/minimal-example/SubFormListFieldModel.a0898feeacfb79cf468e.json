@@ -1,0 +1,35 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "a0898feeacfb79cf468e",
+  "ownerUses": [
+    "SubFormListFieldModel"
+  ],
+  "value": {
+    "uid": "todo-subformlistfieldmodel",
+    "use": "SubFormListFieldModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "roles"
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "FormGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/FormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "FormGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/SubFormListFieldModel.a0898feeacfb79cf468e.json"
+}

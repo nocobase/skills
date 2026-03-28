@@ -117,8 +117,27 @@ Implications:
 - they should not be edited or deleted as part of normal role configuration
 - if custom business scopes appear to replace them in the UI, inspect the client-side protection logic before changing data
 
+## Scope variable source of truth
+
+When documenting or debugging ACL scope variables, prefer the frontend variable selector as the user-facing source of truth.
+
+Practical rule:
+
+- document `$user` and `$nRole`
+- do not lead users toward deprecated variable aliases in new guidance
+- when a proposed variable path is uncertain, confirm that the path is selectable from the ACL scope editor or resolvable from the current user's schema path
+
+Implications:
+
+- if a scope uses `$user`, the referenced fields and relation paths must actually exist on `users`
+- if a role rule tries to use `own` for a non-creator business boundary, the design is wrong even if the syntax is valid
+
 ## Common Pitfalls
 
+- Treating a role as "configured" after only setting action names without deciding field lists, scopes, route access, and system snippets.
+- Leaving global strategy empty without confirming that independent permissions intentionally cover all required collections.
+- Leaving field lists empty by accident and thereby granting full-field access where the business expected tighter control.
+- Leaving scopes empty by accident and thereby granting full-row access where the business expected organizational isolation.
 - Treating union-role behavior as a role-definition problem before checking system role mode.
 - Treating route visibility as a data-table ACL bug before checking route bindings.
 - Configuring `*:own` on collections that do not have ownership fields.

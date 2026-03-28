@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "78fea0d468115aa10f2e",
+  "ownerUses": [
+    "DisplayPointFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaypointfieldmodel",
+    "use": "DisplayPointFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayPointFieldModel.78fea0d468115aa10f2e.json"
+}

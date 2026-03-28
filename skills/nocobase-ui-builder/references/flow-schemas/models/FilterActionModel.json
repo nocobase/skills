@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterActionModel",
+  "title": "Filter action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "10f30d45",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterActionModel.4d9279a4607c696ac264.json",
+      "hash": "4d9279a4607c696ac264"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterActionModel.d802de93c393f833091b.json",
+      "hash": "d802de93c393f833091b"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterActionModel.459604acbad3d882936b.json",
+      "hash": "459604acbad3d882936b"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "UploadFieldModel",
+  "title": "Upload",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "e586a3d3",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/UploadFieldModel.2e2ccd6ef72880a6ded8.json",
+      "hash": "2e2ccd6ef72880a6ded8"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/UploadFieldModel.57073e60eaf16c3529ee.json",
+      "hash": "57073e60eaf16c3529ee"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/UploadFieldModel.537ee2817da1062c7511.json",
+      "hash": "537ee2817da1062c7511"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

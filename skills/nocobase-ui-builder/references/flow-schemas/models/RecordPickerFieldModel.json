@@ -1,0 +1,3133 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "RecordPickerFieldModel",
+  "title": "Record Picker Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "faa4a64a",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items",
+      "message": "Grid items depend on runtime block registries and collection-aware factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "block registry",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-block-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items",
+      "message": "Block grid items are resolved from runtime block registries and plugin block providers.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "CreateFormModel",
+            "DetailsBlockModel",
+            "EditFormModel",
+            "FilterFormBlockModel",
+            "JSBlockModel",
+            "TableBlockModel",
+            "ActionPanelBlockModel",
+            "ChartBlockModel",
+            "CommentsBlockModel",
+            "GridCardBlockModel",
+            "IframeBlockModel",
+            "ListBlockModel",
+            "MapBlockModel",
+            "MarkdownBlockModel",
+            "ReferenceBlockModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels",
+      "message": "Form block child models are assembled from runtime model classes and field metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "FormSubmitActionModel",
+            "JSFormActionModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-form-children"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid",
+      "message": "Primary form grid container.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Form actions are resolved from the runtime form action registry.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "FormSubmitActionModel",
+            "JSFormActionModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items",
+      "message": "Form grid items depend on the form field tree and runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "field model factories"
+        ],
+        "unresolvedReason": "runtime-form-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items",
+      "message": "Form grid items are resolved from the runtime field tree and custom item registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field",
+      "message": "FormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "form field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "SubFormFieldModel",
+            "SubFormListFieldModel",
+            "SubTableFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.grid",
+      "message": "Nested form grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items depend on the form field tree and runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "field model factories"
+        ],
+        "unresolvedReason": "runtime-form-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items are resolved from the runtime field tree and custom item registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.columns",
+      "message": "Inline editable sub-table columns.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "SubTableColumnModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field",
+      "message": "Inline sub-table column editor field.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field",
+      "message": "FormAssociationItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "association title field",
+          "target collection bindings"
+        ],
+        "unresolvedReason": "runtime-form-association-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.stepParams.jsSettings.runJs",
+      "message": "JS item code runs inside the runtime form context and renders custom content inside the form grid.",
+      "x-flow": {
+        "contextRequirements": [
+          "form context",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-js-item-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS item.</div>');"
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Details actions depend on runtime record-action registries and collection context.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "AddChildActionModel",
+            "DeleteActionModel",
+            "EditActionModel",
+            "JSRecordActionModel",
+            "LinkActionModel",
+            "PopupCollectionActionModel",
+            "UpdateRecordActionModel",
+            "ViewActionModel"
+          ]
+        },
+        "contextRequirements": [
+          "record action registry",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid",
+      "message": "Primary details field grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Details actions depend on runtime record-action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "AddChildActionModel",
+            "DeleteActionModel",
+            "EditActionModel",
+            "JSRecordActionModel",
+            "LinkActionModel",
+            "PopupCollectionActionModel",
+            "UpdateRecordActionModel",
+            "ViewActionModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.page",
+      "message": "Popup child page.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "page",
+          "type": "object",
+          "allowedUses": [
+            "ChildPageModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.page.subModels.tabs",
+      "message": "Popup child page tabs.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "tabs",
+          "type": "array",
+          "allowedUses": [
+            "ChildPageTabModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.page.subModels.tabs.subModels.grid",
+      "message": "Popup tab content block grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.page.subModels.tabs.subModels.grid.subModels.items",
+      "message": "Grid items depend on runtime block registries and collection-aware factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "block registry",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-block-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.page.subModels.tabs.subModels.grid.subModels.items",
+      "message": "Block grid items are resolved from runtime block registries and plugin block providers.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "CreateFormModel",
+            "DetailsBlockModel",
+            "EditFormModel",
+            "FilterFormBlockModel",
+            "JSBlockModel",
+            "TableBlockModel",
+            "ActionPanelBlockModel",
+            "ChartBlockModel",
+            "CommentsBlockModel",
+            "GridCardBlockModel",
+            "IframeBlockModel",
+            "ListBlockModel",
+            "MapBlockModel",
+            "MarkdownBlockModel",
+            "ReferenceBlockModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.stepParams.assignSettings.assignFieldValues.assignedValues",
+      "message": "Assigned field/value pairs depend on the runtime collection field tree and RunJS-enabled field editors.",
+      "x-flow": {
+        "contextRequirements": [
+          "collection fields",
+          "assign form child tree"
+        ],
+        "unresolvedReason": "runtime-update-record-assigned-values",
+        "recommendedFallback": {}
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm",
+      "message": "Internal assignment form used to configure field/value pairs.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "assignForm",
+          "type": "object",
+          "allowedUses": [
+            "AssignFormModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.stepParams.resourceSettings.init",
+      "message": "Assign form resource settings are typically injected from the parent action collection context.",
+      "x-flow": {
+        "contextRequirements": [
+          "parent action collection context"
+        ],
+        "unresolvedReason": "runtime-assign-form-resource-context",
+        "recommendedFallback": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid",
+      "message": "Grid container used to define assigned field/value pairs.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "AssignFormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items",
+      "message": "Assign form items depend on runtime collection fields and editable field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "AssignFormItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "collection fields",
+          "editable field bindings"
+        ],
+        "unresolvedReason": "runtime-assign-form-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items",
+      "message": "Assign form items are resolved from runtime collection field factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "AssignFormItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field",
+      "message": "AssignFormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "editable field bindings",
+          "assignment value editor"
+        ],
+        "unresolvedReason": "runtime-assign-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "SubFormFieldModel",
+            "SubFormListFieldModel",
+            "SubTableFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid",
+      "message": "Nested form grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items depend on the form field tree and runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "field model factories"
+        ],
+        "unresolvedReason": "runtime-form-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items are resolved from the runtime field tree and custom item registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field",
+      "message": "FormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "form field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "SubFormFieldModel",
+            "SubFormListFieldModel",
+            "SubTableFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid",
+      "message": "Nested form grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items depend on the form field tree and runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "field model factories"
+        ],
+        "unresolvedReason": "runtime-form-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items are resolved from the runtime field tree and custom item registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns",
+      "message": "Inline editable sub-table columns.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "SubTableColumnModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field",
+      "message": "Inline sub-table column editor field.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field",
+      "message": "FormAssociationItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "association title field",
+          "target collection bindings"
+        ],
+        "unresolvedReason": "runtime-form-association-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.stepParams.jsSettings.runJs",
+      "message": "JS item code runs inside the runtime form context and renders custom content inside the form grid.",
+      "x-flow": {
+        "contextRequirements": [
+          "form context",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-js-item-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS item.</div>');"
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns",
+      "message": "Inline editable sub-table columns.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "SubTableColumnModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field",
+      "message": "Inline sub-table column editor field.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Filter form actions depend on runtime filter-form action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormSubmitActionModel",
+            "FilterFormResetActionModel",
+            "FilterFormCollapseActionModel",
+            "FilterFormJSActionModel"
+          ]
+        },
+        "contextRequirements": [
+          "filter form action registry"
+        ],
+        "unresolvedReason": "runtime-filter-form-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid",
+      "message": "Primary filter field grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FilterFormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items",
+      "message": "Filter form items depend on filter-target blocks and runtime filter field factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormItemModel",
+            "FilterFormCustomFieldModel"
+          ]
+        },
+        "contextRequirements": [
+          "target block registry",
+          "filter field factories"
+        ],
+        "unresolvedReason": "runtime-filter-form-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items",
+      "message": "Filter form items are resolved from runtime filter field registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormItemModel",
+            "FilterFormCustomFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.subModels.field",
+      "message": "FilterFormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "filter target block",
+          "filter operator bindings",
+          "field metadata"
+        ],
+        "unresolvedReason": "runtime-filter-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.grid.subModels.items.stepParams.formItemSettings.fieldSettings",
+      "message": "Custom filter field settings depend on runtime field-model registries and operator metadata.",
+      "x-flow": {
+        "contextRequirements": [
+          "field model registry",
+          "custom operator registry"
+        ],
+        "unresolvedReason": "runtime-filter-form-custom-field-settings"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions.stepParams.clickSettings.runJs",
+      "message": "Filter form JS action runs inside the runtime form and collection context.",
+      "x-flow": {
+        "contextRequirements": [
+          "filter form context",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-filter-form-js-action",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.jsSettings.runJs",
+      "message": "JS block code runs in the runtime JS sandbox and can use the flow block render context.",
+      "x-flow": {
+        "contextRequirements": [
+          "runjs sandbox",
+          "block render context"
+        ],
+        "unresolvedReason": "runtime-js-block-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS block.</div>');"
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns",
+      "message": "Column use values depend on collection field interfaces and runtime table column factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "TableColumnModel",
+            "TableActionsColumnModel",
+            "JSColumnModel",
+            "TableCustomColumnModel"
+          ]
+        },
+        "contextRequirements": [
+          "collection fields",
+          "column factories"
+        ],
+        "unresolvedReason": "runtime-table-columns"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Collection actions depend on runtime action registries and collection capabilities.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "AddNewActionModel",
+            "BulkDeleteActionModel",
+            "ExpandCollapseActionModel",
+            "FilterActionModel",
+            "JSCollectionActionModel",
+            "LinkActionModel",
+            "PopupCollectionActionModel",
+            "RefreshActionModel"
+          ]
+        },
+        "contextRequirements": [
+          "collection action registry",
+          "collection capabilities"
+        ],
+        "unresolvedReason": "runtime-table-collection-actions"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns",
+      "message": "Table columns or action columns.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "TableColumnModel",
+            "TableActionsColumnModel",
+            "JSColumnModel",
+            "TableCustomColumnModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Collection actions depend on runtime action registries and table capabilities.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "AddNewActionModel",
+            "BulkDeleteActionModel",
+            "ExpandCollapseActionModel",
+            "FilterActionModel",
+            "JSCollectionActionModel",
+            "LinkActionModel",
+            "PopupCollectionActionModel",
+            "RefreshActionModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.field",
+      "message": "TableColumnModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "table column bindings",
+          "collection field metadata"
+        ],
+        "unresolvedReason": "runtime-table-column-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions",
+      "message": "Row actions depend on runtime record-action registries and collection capabilities.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "AddChildActionModel",
+            "DeleteActionModel",
+            "EditActionModel",
+            "JSRecordActionModel",
+            "LinkActionModel",
+            "PopupCollectionActionModel",
+            "UpdateRecordActionModel",
+            "ViewActionModel"
+          ]
+        },
+        "contextRequirements": [
+          "record action registry",
+          "collection capabilities"
+        ],
+        "unresolvedReason": "runtime-table-record-actions"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions",
+      "message": "Row action models are resolved from runtime record-action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "AddChildActionModel",
+            "DeleteActionModel",
+            "EditActionModel",
+            "JSRecordActionModel",
+            "LinkActionModel",
+            "PopupCollectionActionModel",
+            "UpdateRecordActionModel",
+            "ViewActionModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.page",
+      "message": "Popup child page.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "page",
+          "type": "object",
+          "allowedUses": [
+            "ChildPageModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.page.subModels.tabs",
+      "message": "Popup child page tabs.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "tabs",
+          "type": "array",
+          "allowedUses": [
+            "ChildPageTabModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.page.subModels.tabs.subModels.grid",
+      "message": "Popup tab content block grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.page.subModels.tabs.subModels.grid.subModels.items",
+      "message": "Grid items depend on runtime block registries and collection-aware factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "block registry",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-block-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.page.subModels.tabs.subModels.grid.subModels.items",
+      "message": "Block grid items are resolved from runtime block registries and plugin block providers.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "CreateFormModel",
+            "DetailsBlockModel",
+            "EditFormModel",
+            "FilterFormBlockModel",
+            "JSBlockModel",
+            "TableBlockModel",
+            "ActionPanelBlockModel",
+            "ChartBlockModel",
+            "CommentsBlockModel",
+            "GridCardBlockModel",
+            "IframeBlockModel",
+            "ListBlockModel",
+            "MapBlockModel",
+            "MarkdownBlockModel",
+            "ReferenceBlockModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.stepParams.assignSettings.assignFieldValues.assignedValues",
+      "message": "Assigned field/value pairs depend on the runtime collection field tree and RunJS-enabled field editors.",
+      "x-flow": {
+        "contextRequirements": [
+          "collection fields",
+          "assign form child tree"
+        ],
+        "unresolvedReason": "runtime-update-record-assigned-values",
+        "recommendedFallback": {}
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm",
+      "message": "Internal assignment form used to configure field/value pairs.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "assignForm",
+          "type": "object",
+          "allowedUses": [
+            "AssignFormModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.stepParams.resourceSettings.init",
+      "message": "Assign form resource settings are typically injected from the parent action collection context.",
+      "x-flow": {
+        "contextRequirements": [
+          "parent action collection context"
+        ],
+        "unresolvedReason": "runtime-assign-form-resource-context",
+        "recommendedFallback": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid",
+      "message": "Grid container used to define assigned field/value pairs.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "AssignFormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items",
+      "message": "Assign form items depend on runtime collection fields and editable field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "AssignFormItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "collection fields",
+          "editable field bindings"
+        ],
+        "unresolvedReason": "runtime-assign-form-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items",
+      "message": "Assign form items are resolved from runtime collection field factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "AssignFormItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field",
+      "message": "AssignFormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "editable field bindings",
+          "assignment value editor"
+        ],
+        "unresolvedReason": "runtime-assign-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "SubFormFieldModel",
+            "SubFormListFieldModel",
+            "SubTableFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid",
+      "message": "Nested form grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items depend on the form field tree and runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "field model factories"
+        ],
+        "unresolvedReason": "runtime-form-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items are resolved from the runtime field tree and custom item registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field",
+      "message": "FormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "form field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "SubFormFieldModel",
+            "SubFormListFieldModel",
+            "SubTableFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid",
+      "message": "Nested form grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items depend on the form field tree and runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "form field tree",
+          "field model factories"
+        ],
+        "unresolvedReason": "runtime-form-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items",
+      "message": "Form grid items are resolved from the runtime field tree and custom item registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FormItemModel",
+            "FormAssociationItemModel",
+            "JSItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns",
+      "message": "Inline editable sub-table columns.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "SubTableColumnModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field",
+      "message": "Inline sub-table column editor field.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.subModels.field",
+      "message": "FormAssociationItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "association title field",
+          "target collection bindings"
+        ],
+        "unresolvedReason": "runtime-form-association-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.grid.subModels.items.stepParams.jsSettings.runJs",
+      "message": "JS item code runs inside the runtime form context and renders custom content inside the form grid.",
+      "x-flow": {
+        "contextRequirements": [
+          "form context",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-js-item-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS item.</div>');"
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns",
+      "message": "Inline editable sub-table columns.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "columns",
+          "type": "array",
+          "allowedUses": [
+            "SubTableColumnModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field",
+      "message": "Inline sub-table column editor field.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "RecordSelectFieldModel",
+            "UploadFieldModel",
+            "CascadeSelectFieldModel",
+            "CascadeSelectListFieldModel",
+            "FormulaFieldModel",
+            "SortFieldModel",
+            "InputFieldModel",
+            "PointFieldModel",
+            "CircleFieldModel",
+            "PolygonFieldModel",
+            "LineStringFieldModel",
+            "VditorFieldModel",
+            "AttachmentURLFieldModel",
+            "CodeFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "PasswordFieldModel",
+            "CollectionSelectorFieldModel",
+            "DateOnlyFieldModel",
+            "DateTimeNoTzFieldModel",
+            "DateTimeTzFieldModel",
+            "TimeFieldModel",
+            "CheckboxFieldModel",
+            "CheckboxGroupFieldModel",
+            "RadioGroupFieldModel",
+            "SelectFieldModel",
+            "TextareaFieldModel",
+            "JsonFieldModel",
+            "RichTextFieldModel",
+            "ColorFieldModel",
+            "IconFieldModel",
+            "RecordPickerFieldModel",
+            "PopupSubTableFieldModel",
+            "JSEditableFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected option label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.field",
+      "message": "Selected record label renderer.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.subModels.actions.subModels.assignForm.subModels.grid.subModels.items.subModels.field.subModels.columns.subModels.field.subModels.grid-block",
+      "message": "Popup selector content grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid-block",
+          "type": "object",
+          "allowedUses": [
+            "BlockGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.columns.stepParams.jsSettings.runJs",
+      "message": "JS column code editor embeds runtime globals such as record, collection and navigator.",
+      "x-flow": {
+        "contextRequirements": [
+          "record context",
+          "collection metadata",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-js-column-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Action panel items are concrete action models rendered inside the panel.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "PopupActionModel",
+            "LinkActionModel",
+            "JSActionModel",
+            "ActionPanelScanActionModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.chartSettings.configure.query",
+      "message": "Chart query configuration depends on runtime collections, query builders, and optional SQL editors.",
+      "x-flow": {
+        "contextRequirements": [
+          "collection metadata",
+          "query builder",
+          "optional SQL resource"
+        ],
+        "unresolvedReason": "runtime-chart-query-config",
+        "recommendedFallback": {
+          "mode": "builder"
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.chartSettings.configure.chart",
+      "message": "Chart option builders and event scripts depend on runtime chart builders and RunJS execution.",
+      "x-flow": {
+        "contextRequirements": [
+          "chart builder",
+          "RunJS"
+        ],
+        "unresolvedReason": "runtime-chart-option-builder",
+        "recommendedFallback": {
+          "option": {
+            "mode": "basic"
+          }
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.items",
+      "message": "Comment item renderers.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "CommentItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Grid card actions depend on runtime collection-action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "collection action registry"
+        ],
+        "unresolvedReason": "runtime-grid-card-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item",
+      "message": "Grid card item layout.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "item",
+          "type": "object",
+          "allowedUses": [
+            "GridCardItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item.subModels.grid",
+      "message": "Grid card details grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item.subModels.grid.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item.subModels.grid.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item.subModels.grid.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.iframeBlockSettings.editIframe.htmlId",
+      "message": "HTML mode persists raw HTML to the iframeHtml resource and stores the returned htmlId.",
+      "x-flow": {
+        "contextRequirements": [
+          "iframeHtml resource"
+        ],
+        "unresolvedReason": "runtime-iframe-html-storage",
+        "recommendedFallback": null
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "List actions depend on runtime collection-action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "collection action registry"
+        ],
+        "unresolvedReason": "runtime-list-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item",
+      "message": "List item layout.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "item",
+          "type": "object",
+          "allowedUses": [
+            "ListItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.item.subModels.grid",
+      "message": "Per-record details grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.createMapBlock.init.mapField",
+      "message": "Map field and marker options depend on collection field interfaces and association traversal.",
+      "x-flow": {
+        "contextRequirements": [
+          "collection fields",
+          "association traversal"
+        ],
+        "unresolvedReason": "runtime-map-field-options",
+        "recommendedFallback": {
+          "mapField": []
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.subModels.actions",
+      "message": "Map actions depend on runtime action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "collection action registry"
+        ],
+        "unresolvedReason": "runtime-map-actions"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.markdownBlockSettings.editMarkdown.content",
+      "message": "Markdown content can contain liquid variables resolved against the runtime flow context.",
+      "x-flow": {
+        "contextRequirements": [
+          "liquid variables",
+          "markdown renderer"
+        ],
+        "unresolvedReason": "runtime-markdown-context",
+        "recommendedFallback": "# Welcome"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "RecordPickerFieldModel.subModels.grid-block.subModels.items.stepParams.referenceSettings.target.targetUid",
+      "message": "Reference targets must point to an existing block UID or a template-derived target block.",
+      "x-flow": {
+        "contextRequirements": [
+          "existing block uid",
+          "template usage context"
+        ],
+        "unresolvedReason": "runtime-reference-target-resolution",
+        "recommendedFallback": {
+          "targetUid": "todo-target-block-uid",
+          "mode": "reference"
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/RecordPickerFieldModel.e2f020a793edb3d163b7.json",
+      "hash": "e2f020a793edb3d163b7"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/RecordPickerFieldModel.0c9bd2b90c9623d3447b.json",
+      "hash": "0c9bd2b90c9623d3447b"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/RecordPickerFieldModel.83255389bd6867ad5c88.json",
+      "hash": "83255389bd6867ad5c88"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "field": {
+        "slotRef": "catalogs/RecordPickerFieldModel.field.json"
+      },
+      "grid-block": {
+        "slotRef": "catalogs/RecordPickerFieldModel.grid-block.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "field": [
+      "DisplayTextFieldModel"
+    ],
+    "grid-block": [
+      "BlockGridModel"
+    ]
+  }
+}

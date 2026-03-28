@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "268fecab45ee3db121a2",
+  "ownerUses": [
+    "CascadeSelectFieldModel"
+  ],
+  "value": {
+    "uid": "todo-cascadeselectfieldmodel",
+    "use": "CascadeSelectFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/CascadeSelectFieldModel.268fecab45ee3db121a2.json"
+}

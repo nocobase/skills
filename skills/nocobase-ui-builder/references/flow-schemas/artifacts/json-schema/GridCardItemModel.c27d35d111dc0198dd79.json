@@ -1,0 +1,72 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "c27d35d111dc0198dd79",
+  "ownerUses": [
+    "GridCardItemModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "GridCardItemModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "grid": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "GridCardItemModel",
+              "slot": "grid",
+              "slotRef": "catalogs/GridCardItemModel.grid.json",
+              "slotType": "object",
+              "shape": "direct",
+              "defaultUses": [
+                "DetailsGridModel"
+              ]
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/GridCardItemModel.c27d35d111dc0198dd79.json"
+}

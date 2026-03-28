@@ -1,0 +1,53 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSBlockModel",
+  "title": "JS block",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "1335bb5b",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "JSBlockModel.stepParams.jsSettings.runJs",
+      "message": "JS block code runs in the runtime JS sandbox and can use the flow block render context.",
+      "x-flow": {
+        "contextRequirements": [
+          "runjs sandbox",
+          "block render context"
+        ],
+        "unresolvedReason": "runtime-js-block-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS block.</div>');"
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSBlockModel.78559b5d1b41ba54d78e.json",
+      "hash": "78559b5d1b41ba54d78e"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSBlockModel.cb67bc6fe4ea246ec763.json",
+      "hash": "cb67bc6fe4ea246ec763"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSBlockModel.8a4f4e886310b3db5012.json",
+      "hash": "8a4f4e886310b3db5012"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

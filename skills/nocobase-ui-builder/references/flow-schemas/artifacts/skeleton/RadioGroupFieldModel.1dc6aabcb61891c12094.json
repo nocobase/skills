@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "1dc6aabcb61891c12094",
+  "ownerUses": [
+    "RadioGroupFieldModel"
+  ],
+  "value": {
+    "uid": "todo-radiogroupfieldmodel",
+    "use": "RadioGroupFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/RadioGroupFieldModel.1dc6aabcb61891c12094.json"
+}

@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CircleFieldModel",
+  "title": "Circle",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "515f16c2",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CircleFieldModel.e8b4ccb25297f42efaad.json",
+      "hash": "e8b4ccb25297f42efaad"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CircleFieldModel.144a269a258c94200bd0.json",
+      "hash": "144a269a258c94200bd0"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CircleFieldModel.6a275c7add58bbbf77c8.json",
+      "hash": "6a275c7add58bbbf77c8"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

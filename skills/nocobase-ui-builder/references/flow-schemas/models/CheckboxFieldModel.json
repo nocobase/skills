@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CheckboxFieldModel",
+  "title": "Checkbox Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "2ade39ae",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CheckboxFieldModel.d0a4546b0a92735790a7.json",
+      "hash": "d0a4546b0a92735790a7"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CheckboxFieldModel.16184a4d5e6b8d262417.json",
+      "hash": "16184a4d5e6b8d262417"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CheckboxFieldModel.b610bc8051bdb2c0ac88.json",
+      "hash": "b610bc8051bdb2c0ac88"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

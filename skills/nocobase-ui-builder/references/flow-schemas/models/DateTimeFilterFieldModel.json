@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DateTimeFilterFieldModel",
+  "title": "Date Time Filter Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "20cfac7e",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DateTimeFilterFieldModel.3cdefab02f64dfb5fd0c.json",
+      "hash": "3cdefab02f64dfb5fd0c"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DateTimeFilterFieldModel.38d963e0a8c9c8cb5b19.json",
+      "hash": "38d963e0a8c9c8cb5b19"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DateTimeFilterFieldModel.611bf311f711a6a0a117.json",
+      "hash": "611bf311f711a6a0a117"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

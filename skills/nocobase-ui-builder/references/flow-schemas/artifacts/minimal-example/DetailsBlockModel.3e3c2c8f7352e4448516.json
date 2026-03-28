@@ -1,0 +1,50 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "3e3c2c8f7352e4448516",
+  "ownerUses": [
+    "DetailsBlockModel"
+  ],
+  "value": {
+    "uid": "details-users",
+    "use": "DetailsBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "detailsSettings": {
+        "layout": {
+          "layout": "vertical",
+          "colon": true
+        },
+        "dataScope": {
+          "filter": {
+            "logic": "$and",
+            "items": []
+          }
+        },
+        "linkageRules": {
+          "value": []
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "DetailsGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/DetailsGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DetailsGridModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/DetailsBlockModel.3e3c2c8f7352e4448516.json"
+}

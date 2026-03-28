@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "4b4228ad8aeef8981a3e",
+  "ownerUses": [
+    "JSEditableFieldModel"
+  ],
+  "value": {
+    "uid": "todo-jseditablefieldmodel",
+    "use": "JSEditableFieldModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/JSEditableFieldModel.4b4228ad8aeef8981a3e.json"
+}

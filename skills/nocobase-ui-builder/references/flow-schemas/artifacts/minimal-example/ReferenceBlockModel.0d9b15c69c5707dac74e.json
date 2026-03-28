@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "0d9b15c69c5707dac74e",
+  "ownerUses": [
+    "ReferenceBlockModel"
+  ],
+  "value": {
+    "uid": "reference-users-template",
+    "use": "ReferenceBlockModel",
+    "stepParams": {
+      "referenceSettings": {
+        "target": {
+          "targetUid": "users-details-template-block",
+          "mode": "reference"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ReferenceBlockModel.0d9b15c69c5707dac74e.json"
+}

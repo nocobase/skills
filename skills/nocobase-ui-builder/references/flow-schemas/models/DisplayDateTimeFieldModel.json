@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayDateTimeFieldModel",
+  "title": "Display Date Time Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "bce9f794",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayDateTimeFieldModel.32754677724448ec3b50.json",
+      "hash": "32754677724448ec3b50"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayDateTimeFieldModel.3a3273f14ebbd55f6557.json",
+      "hash": "3a3273f14ebbd55f6557"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayDateTimeFieldModel.af000b23ae2cf579188e.json",
+      "hash": "af000b23ae2cf579188e"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

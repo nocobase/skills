@@ -1,0 +1,197 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormBlockModel",
+  "title": "Filter form block",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "c7dca2c7",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormBlockModel.subModels.actions",
+      "message": "Filter form actions depend on runtime filter-form action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormSubmitActionModel",
+            "FilterFormResetActionModel",
+            "FilterFormCollapseActionModel",
+            "FilterFormJSActionModel"
+          ]
+        },
+        "contextRequirements": [
+          "filter form action registry"
+        ],
+        "unresolvedReason": "runtime-filter-form-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "FilterFormBlockModel.subModels.grid",
+      "message": "Primary filter field grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "FilterFormGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormBlockModel.subModels.grid.subModels.items",
+      "message": "Filter form items depend on filter-target blocks and runtime filter field factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormItemModel",
+            "FilterFormCustomFieldModel"
+          ]
+        },
+        "contextRequirements": [
+          "target block registry",
+          "filter field factories"
+        ],
+        "unresolvedReason": "runtime-filter-form-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormBlockModel.subModels.grid.subModels.items",
+      "message": "Filter form items are resolved from runtime filter field registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "FilterFormItemModel",
+            "FilterFormCustomFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormBlockModel.subModels.grid.subModels.items.subModels.field",
+      "message": "FilterFormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "filter target block",
+          "filter operator bindings",
+          "field metadata"
+        ],
+        "unresolvedReason": "runtime-filter-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormBlockModel.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "InputFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "TimeFieldModel",
+            "SelectFieldModel",
+            "DateOnlyFilterFieldModel",
+            "DateTimeNoTzFilterFieldModel",
+            "DateTimeTzFilterFieldModel",
+            "FilterFormRecordSelectFieldModel",
+            "DateTimeFilterFieldModel",
+            "CheckboxFieldModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "FilterFormBlockModel.subModels.grid.subModels.items.stepParams.formItemSettings.fieldSettings",
+      "message": "Custom filter field settings depend on runtime field-model registries and operator metadata.",
+      "x-flow": {
+        "contextRequirements": [
+          "field model registry",
+          "custom operator registry"
+        ],
+        "unresolvedReason": "runtime-filter-form-custom-field-settings"
+      }
+    },
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "FilterFormBlockModel.subModels.actions.stepParams.clickSettings.runJs",
+      "message": "Filter form JS action runs inside the runtime form and collection context.",
+      "x-flow": {
+        "contextRequirements": [
+          "filter form context",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-filter-form-js-action",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  ],
+  "commonPatterns": [
+    {
+      "title": "Filter form with submit/reset actions",
+      "snippet": {
+        "subModels": {
+          "actions": []
+        }
+      }
+    }
+  ],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormBlockModel.ec06cf12c6882b9dbd92.json",
+      "hash": "ec06cf12c6882b9dbd92"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormBlockModel.6ed400425e36a2f726d3.json",
+      "hash": "6ed400425e36a2f726d3"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormBlockModel.8b75d3b02edaf4aca8ac.json",
+      "hash": "8b75d3b02edaf4aca8ac"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "grid": {
+        "slotRef": "catalogs/FilterFormBlockModel.grid.json"
+      },
+      "actions": {
+        "slotRef": "catalogs/FilterFormBlockModel.actions.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "grid": [
+      "FilterFormGridModel"
+    ],
+    "actions": []
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ActionModel",
+  "title": "Action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "6efb51d3",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "ActionModel.buttonSettings.general",
+      "message": "Editable fields depend on ActionModel runtime flags such as enableEditTitle and enableEditIcon.",
+      "x-flow": {
+        "contextRequirements": [
+          "enableEditTitle",
+          "enableEditTooltip",
+          "enableEditIcon",
+          "enableEditColor"
+        ],
+        "unresolvedReason": "runtime-action-editability-flags",
+        "recommendedFallback": {
+          "title": "Action",
+          "type": "default",
+          "danger": false
+        }
+      }
+    }
+  ],
+  "commonPatterns": [
+    {
+      "title": "Primary submit action",
+      "snippet": {
+        "stepParams": {
+          "buttonSettings": {
+            "general": {
+              "title": "Save",
+              "type": "primary"
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Danger action",
+      "snippet": {
+        "stepParams": {
+          "buttonSettings": {
+            "general": {
+              "title": "Delete",
+              "danger": true
+            }
+          }
+        }
+      }
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Do not depend on hidden dynamic fields",
+      "description": "buttonSettings.general fields are gated by model flags such as enableEditIcon / enableEditColor."
+    }
+  ],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ActionModel.08e84dbdd4d893027277.json",
+      "hash": "08e84dbdd4d893027277"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ActionModel.dda4b6bb6b5d3e3c1581.json",
+      "hash": "dda4b6bb6b5d3e3c1581"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ActionModel.5d7cfaaab8074c777fa7.json",
+      "hash": "5d7cfaaab8074c777fa7"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,46 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "f4aa46e1c5a71b6cde99",
+  "ownerUses": [
+    "AssignFormGridModel"
+  ],
+  "value": {
+    "uid": "assign-form-grid-grid",
+    "use": "AssignFormGridModel",
+    "stepParams": {
+      "gridSettings": {
+        "grid": {
+          "rows": {
+            "rowMain": [
+              [
+                "assign-form-grid-minimal-item-1"
+              ]
+            ]
+          },
+          "sizes": {
+            "rowMain": [
+              24
+            ]
+          },
+          "rowOrder": [
+            "rowMain"
+          ]
+        }
+      }
+    },
+    "subModels": {
+      "items": [
+        {
+          "xFlowGraphModelRef": {
+            "use": "AssignFormItemModel",
+            "artifact": "minimalExample",
+            "modelRef": "models/AssignFormItemModel.json"
+          }
+        }
+      ]
+    }
+  },
+  "relativePath": "artifacts/minimal-example/AssignFormGridModel.f4aa46e1c5a71b6cde99.json"
+}

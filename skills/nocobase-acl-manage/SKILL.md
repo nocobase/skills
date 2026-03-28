@@ -35,10 +35,17 @@ Think in layers. Configure from identity to business access:
 7. Row and field restrictions
 
 Do not jump into table independent permissions until system, route, and global table intent are clear.
+Do not stop at action-only skeletons when the user asks for a realistic business role. A realistic role usually needs an explicit decision for every relevant layer, even when that decision is "leave empty".
 
 # What To Read
 
-- For normal permission configuration, read [references/configuration.md](references/configuration.md).
+- For normal permission configuration, read the dimension-specific references you actually need:
+  - [references/system-permissions.md](references/system-permissions.md)
+  - [references/route-permissions.md](references/route-permissions.md)
+  - [references/global-table-permissions.md](references/global-table-permissions.md)
+  - [references/independent-permissions.md](references/independent-permissions.md)
+  - [references/field-permissions.md](references/field-permissions.md)
+  - [references/scopes.md](references/scopes.md)
 - For debugging access mismatches or understanding middleware/security behavior, read [references/safety-and-debug.md](references/safety-and-debug.md).
 
 # Mandatory MCP Gate
@@ -75,6 +82,9 @@ If the swagger-generated tools are incomplete, fall back to the generic CRUD too
 3. Verify with real ACL metadata after every write.
    - Re-read the updated role, route binding, or resource permission record.
    - Re-check the current role context when union mode or default role is involved.
+4. Prefer a complete permission matrix before writing.
+   - For each role, decide system snippets, route bindings, global table strategy, independent collection actions, field lists, and row scopes.
+   - If a layer is intentionally left empty, record why it is empty instead of silently skipping it.
 
 # Verification Checklist
 
@@ -91,4 +101,8 @@ If the swagger-generated tools are incomplete, fall back to the generic CRUD too
 - Business scopes are created under the target data source, not in global `rolesResourcesScopes`.
 - Collections using own-record semantics have the necessary ownership fields.
 - Association mutation permissions are explicitly covered where needed.
+- For realistic business roles, the final config includes an explicit decision for system permissions, route permissions, global permissions, independent permissions, field permissions, and scopes.
+- Empty global strategy is intentional and justified, not accidental.
+- Empty scope means "full-row access by design", not "scope was forgotten".
+- Field lists are configured where field visibility or mutation boundaries matter, especially on update/create/view/export.
 - Effective access is tested on at least one allowed case and one denied case.

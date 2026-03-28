@@ -1,0 +1,50 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "MarkdownBlockModel",
+  "title": "Markdown block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "feb6d1c1",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "MarkdownBlockModel.stepParams.markdownBlockSettings.editMarkdown.content",
+      "message": "Markdown content can contain liquid variables resolved against the runtime flow context.",
+      "x-flow": {
+        "contextRequirements": [
+          "liquid variables",
+          "markdown renderer"
+        ],
+        "unresolvedReason": "runtime-markdown-context",
+        "recommendedFallback": "# Welcome"
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/MarkdownBlockModel.e4973e2c5e878b513149.json",
+      "hash": "e4973e2c5e878b513149"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/MarkdownBlockModel.f9421a7f158191419d1f.json",
+      "hash": "f9421a7f158191419d1f"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/MarkdownBlockModel.cb140e667f44ec93831a.json",
+      "hash": "cb140e667f44ec93831a"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

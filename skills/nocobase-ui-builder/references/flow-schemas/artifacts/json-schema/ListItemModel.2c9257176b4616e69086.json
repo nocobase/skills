@@ -1,0 +1,72 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "2c9257176b4616e69086",
+  "ownerUses": [
+    "ListItemModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "ListItemModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "grid": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "ListItemModel",
+              "slot": "grid",
+              "slotRef": "catalogs/ListItemModel.grid.json",
+              "slotType": "object",
+              "shape": "direct",
+              "defaultUses": [
+                "DetailsGridModel"
+              ]
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/ListItemModel.2c9257176b4616e69086.json"
+}

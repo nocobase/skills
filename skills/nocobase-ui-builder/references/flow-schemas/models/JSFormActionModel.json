@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSFormActionModel",
+  "title": "JS form action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "c52add82",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSFormActionModel.ff6da386561d6483f10a.json",
+      "hash": "ff6da386561d6483f10a"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSFormActionModel.ba45c95d66cf015868ad.json",
+      "hash": "ba45c95d66cf015868ad"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSFormActionModel.fe1bf51b9b78cfe0fb7d.json",
+      "hash": "fe1bf51b9b78cfe0fb7d"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

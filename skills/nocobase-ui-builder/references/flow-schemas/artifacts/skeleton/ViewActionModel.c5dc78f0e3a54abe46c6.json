@@ -1,0 +1,43 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c5dc78f0e3a54abe46c6",
+  "ownerUses": [
+    "ViewActionModel"
+  ],
+  "value": {
+    "uid": "todo-view-action-uid",
+    "use": "ViewActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "View",
+          "type": "default"
+        }
+      },
+      "popupSettings": {
+        "openView": {
+          "mode": "drawer",
+          "size": "medium",
+          "pageModelClass": "ChildPageModel",
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      }
+    },
+    "subModels": {
+      "page": {
+        "xFlowGraphModelRef": {
+          "use": "ChildPageModel",
+          "artifact": "skeleton",
+          "modelRef": "models/ChildPageModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ChildPageModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/ViewActionModel.c5dc78f0e3a54abe46c6.json"
+}

@@ -1,0 +1,38 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "8b75d3b02edaf4aca8ac",
+  "ownerUses": [
+    "FilterFormBlockModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "FilterFormBlockModel",
+    "stepParams": {
+      "formFilterBlockModelSettings": {
+        "layout": {
+          "layout": "horizontal",
+          "colon": false
+        },
+        "defaultValues": {
+          "value": []
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "FilterFormGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/FilterFormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "FilterFormGridModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/FilterFormBlockModel.8b75d3b02edaf4aca8ac.json"
+}

@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "fa5c9032d5fb9369a6ac",
+  "ownerUses": [
+    "FilterFormResetActionModel"
+  ],
+  "value": {
+    "uid": "todo-filter-reset-action-uid",
+    "use": "FilterFormResetActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Reset",
+          "type": "default"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/FilterFormResetActionModel.fa5c9032d5fb9369a6ac.json"
+}

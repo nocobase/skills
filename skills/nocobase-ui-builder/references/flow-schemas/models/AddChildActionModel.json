@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "AddChildActionModel",
+  "title": "Add child action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "6a3df9a9",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/AddChildActionModel.ae0bd359be3d7291c1f1.json",
+      "hash": "ae0bd359be3d7291c1f1"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/AddChildActionModel.7286c7bf8948363a9652.json",
+      "hash": "7286c7bf8948363a9652"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/AddChildActionModel.f9d833dc2b85aa32490e.json",
+      "hash": "f9d833dc2b85aa32490e"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

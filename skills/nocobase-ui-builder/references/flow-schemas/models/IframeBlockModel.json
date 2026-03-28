@@ -1,0 +1,49 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "IframeBlockModel",
+  "title": "Iframe block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "19d68f73",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "IframeBlockModel.stepParams.iframeBlockSettings.editIframe.htmlId",
+      "message": "HTML mode persists raw HTML to the iframeHtml resource and stores the returned htmlId.",
+      "x-flow": {
+        "contextRequirements": [
+          "iframeHtml resource"
+        ],
+        "unresolvedReason": "runtime-iframe-html-storage",
+        "recommendedFallback": null
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/IframeBlockModel.d499a1c541c1229794f4.json",
+      "hash": "d499a1c541c1229794f4"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/IframeBlockModel.3df347ec8e8fb53089f3.json",
+      "hash": "3df347ec8e8fb53089f3"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/IframeBlockModel.363c12a5cc3610e9fee2.json",
+      "hash": "363c12a5cc3610e9fee2"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

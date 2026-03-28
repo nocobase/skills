@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "PopupSubTableFieldModel",
+  "title": "Popup Sub Table Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "befe6f37",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/PopupSubTableFieldModel.630f28cf41f5b8726b02.json",
+      "hash": "630f28cf41f5b8726b02"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/PopupSubTableFieldModel.463799b9cb9ce600b551.json",
+      "hash": "463799b9cb9ce600b551"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/PopupSubTableFieldModel.65a435244aad79584b64.json",
+      "hash": "65a435244aad79584b64"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}
