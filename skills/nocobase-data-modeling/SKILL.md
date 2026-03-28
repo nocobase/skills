@@ -43,6 +43,10 @@ Useful references:
 
 # Operational guidance
 
+- Focus on the final usable data model only. Do not provide temporary, fallback, placeholder, transitional, or "upgrade later" schema designs as the modeling result.
+- Do not weaken the target schema just to make the turn succeed. If the correct business model is a file model, relation model, tree model, or other stronger structure, model that structure directly.
+- Do not use plain text fields as substitutes for a real business structure unless the user explicitly wants that plain text design as the final model.
+- The result delivered in the turn should be the model the user can actually keep and use, not an intermediate compromise.
 - Choose the collection type before designing fields. Do not default to `general` until you have checked whether the business object is actually hierarchical, calendar-oriented, file-oriented, SQL-backed, or view-backed.
 - Common collection-type selection rules:
   - `general`: ordinary transactional or master-data tables with custom business fields and relations.
@@ -52,6 +56,14 @@ Useful references:
   - `sql`: SQL-defined collections whose schema/query logic is intentionally driven by SQL rather than ordinary field-by-field modeling.
   - `view`: database-view-backed read models or reporting/query projections that should sync from an existing database view.
 - For attachments, scans, certificates files, photos, contracts, and similar file-centric records, prefer a `file` collection instead of modeling them as a `general` collection unless the user explicitly wants to decouple metadata from the file storage object.
+- For attachments, scans, certificates files, photos, contracts, vouchers, and similar file-centric records, you must use either an attachment field or a real `file` collection as the final model.
+- When the file itself is a first-class business object or needs independent records, the default and required choice is a real `file` collection, not a `general` collection that imitates file storage.
+- Do not model file storage with a `general` collection unless the user explicitly requires metadata-only external file storage as the final design.
+- For images, attachments, scanned copies, vouchers, contracts, device photos, and similar file-bearing business data, do not default to plain text URL/path fields.
+- Prefer one of these two patterns:
+  - use an attachment field when the file is only a simple subordinate field of the current business record;
+  - create a dedicated `file` collection and relate it to the business table when the file needs reusable metadata, independent querying, batch export, lifecycle management, or may be attached multiple times.
+- In most cases, prefer modeling file-bearing data with a dedicated `file` collection rather than a plain attachment field, because it is easier to extend, verify, query, and reuse across downstream UI, workflow, and export scenarios.
 - A `general` collection with `fileName`, `fileUrl`, or `storageName` fields can be acceptable only when the design intentionally stores external file metadata rather than using NocoBase's file collection semantics. Treat this as an explicit design choice, not the default.
 - A reliable file-collection create shape should mirror the real collection-manager request body instead of assuming `template: "file"` will always inject every expected field automatically.
 - Preset fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy` should follow the same request shape used by the real collection manager flow when the task is meant to validate realistic modeling or ACL behavior.
@@ -85,6 +97,7 @@ Useful references:
 - For inheritance collections, keep shared fields on the parent and only child-specific fields on derived collections. Re-check query scope and selector behavior after changes because inheritance increases query complexity.
 - For tree collections, treat the hierarchy as first-class structure rather than emulating it with ad hoc self-relations in a general collection.
 - For file collections, model the uploaded file as the primary record. Add business relations around that file record instead of replacing the file collection with a plain general table unless the business requirement clearly calls for metadata-only storage.
+- If the user asks to "store images/files" without further constraints, bias toward a dedicated `file` collection first, and fall back to an attachment field only when the file is clearly just a lightweight subordinate field on a business record.
 
 # Common pitfalls
 
