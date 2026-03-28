@@ -33,16 +33,40 @@ Please use the `type` value above to create the trigger; do not use the document
   - Delete: A snapshot of the data before deletion, `appends` are not loaded.
 
 ## Example Configuration
+
+### When add a post in main data source
+
 ```json
 {
-  "collection": "main.posts",
-  "mode": 3,
+  "collection": "posts",
+  "mode": 1,
   "changed": ["status", "title"],
   "condition": {
-    "status": {
-      "$ne": "archived"
-    }
+    "$and": [
+      {
+        "status": { "$ne": "archived" }
+      },
+      {
+        "$or": [
+          { "title": { "$includes": "Nocobase" } },
+          { "category.name": "Tech" }
+        ]
+      }
+    ],
   },
   "appends": ["category", "author"]
+}
+```
+
+### When update a post in "mysql" (external) data source
+
+```json
+{
+  "collection": "mysql:posts",
+  "mode": 2,
+  "changed": ["status"],
+  "condition": {
+    "status": { "$eq": "published" }
+  }
 }
 ```
