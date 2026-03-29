@@ -34,6 +34,8 @@ Subsequent nodes can reference these variables in their configuration items base
 
 | Type Value | Name | Plugin | Description |
 |---|---|---|---|
-| `action` | Post-action Events | plugin-workflow-action-trigger | [action-trigger.md](action-trigger.md) |
-| `webhook` | Webhook | plugin-workflow-webhook | [webhook-trigger.md](webhook-trigger.md) |
-| `approval` | Approval | plugin-workflow-approval | [approval-trigger.md](approval-trigger.md) |
+| `action` | Post-action Events | plugin-workflow-action-trigger | [action.md](action.md) |
+| `custom-action` | Custom Action Event | plugin-workflow-custom-action-trigger | [custom-action.md](custom-action.md) |
+| `request-interception` | Pre-action Event | plugin-workflow-request-interceptor | [request-interception.md](request-interception.md) |
+| `webhook` | Webhook | plugin-workflow-webhook | [webhook.md](webhook.md) |
+| `approval` | Approval | plugin-workflow-approval | [approval.md](approval.md) |

@@ -1,6 +1,6 @@
 ---
 title: "Approval Events"
-description: "Dedicated flow triggered by approval initiation, supporting approval initiators, approval forms, and notification configurations."
+description: "Dedicated flow triggered by approval initiation, used for managing approval processes."
 ---
 
 # Approval Events
@@ -21,7 +21,7 @@ Please use the `type` value above to create the trigger; do not use the document
 ## Configuration Items
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| collection | string | - | Yes | The data table associated with the approval, format is `"<dataSource>.<collection>"`. |
+| collection | string | - | Yes | The data table associated with the approval, format is `"<dataSource>:<collection>"` (main data source can be omitted). |
 | mode | number | 0 | Yes | Trigger mode: `1` Approval before saving (data is written only after approval), `0` Approval after saving (data is written before entering approval). |
 | centralized | boolean | false | No | Whether to allow initiating approvals in the Pending Center; if `false`, approvals can only be initiated on data blocks/buttons. |
 | audienceType | number | 1 | No | Scope of initiators: `0` Restricted (requires configuration of initiator scope), `1` Unrestricted (all visible users). |
@@ -47,12 +47,12 @@ Please use the `type` value above to create the trigger; do not use the document
 ## Example Configuration
 ```json
 {
-  "collection": "main.expenses",
+  "collection": "expenses",
   "mode": 0,
   "centralized": true,
   "audienceType": 1,
   "recordShowMode": false,
-  "appends": ["applicant", "department"],
+  "appends": ["details", "department"],
   "withdrawable": true,
   "useSameTaskTitle": true,
   "taskTitle": "Expense Approval: {{$context.data.title}}",

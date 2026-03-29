@@ -61,12 +61,12 @@ Subsequent nodes can reference these variables in their configuration to impleme
 | `notification` | System Notification | plugin-workflow-notification | [notification.md](notification.md) |
 | `aggregate` | Aggregate Query | plugin-workflow-aggregate | [aggregate.md](aggregate.md) |
 | `sql` | SQL Operation | plugin-workflow-sql | [sql.md](sql.md) |
-| `dynamic-calculation` | Dynamic Calculation | plugin-workflow-dynamic-calculation | [dynamic-calculation.md](dynamic-calculation.md) |
 | `cc` | CC Notification | plugin-workflow-cc | [cc.md](cc.md) |
 | `json-query` | JSON Query | plugin-workflow-json-query | [json-query.md](json-query.md) |
 | `json-variable-mapping` | JSON Variable Mapping | plugin-workflow-json-variable-mapping | [json-variable-mapping.md](json-variable-mapping.md) |
+| `script` | JavaScript | plugin-workflow-javascript | [script.md](script.md) |
 | `manual` | Manual Process | plugin-workflow-manual | [manual.md](manual.md) |
 | `response-message` | Response Message | plugin-workflow-response-message | [response-message.md](response-message.md) |
 | `subflow` | Call Workflow | plugin-workflow-subflow | [subflow.md](subflow.md) |
-| `webhook-response` | Webhook Response | plugin-workflow-webhook | [webhook-response.md](webhook-response.md) |
+| `response` | Response (for webhook) | plugin-workflow-webhook | [response.md](response.md) |
 | `approval` | Approval | plugin-workflow-approval | [approval.md](approval.md) |
