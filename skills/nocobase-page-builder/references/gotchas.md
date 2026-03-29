@@ -163,13 +163,40 @@ Without this, only `name` (InputFieldModel) works via auto-matching. Select/date
 
 **Source**: `BlockGridModel.tsx` line 35-40 (init) and line 56-58 (serialize). `FilterManager.ts` for the config format.
 
-### 16. m2o Fields Must Be Created Correctly (NOT our skill's responsibility)
+### 16. m2o Fields Must Be Created Correctly (data-modeling skill's responsibility)
 
 If `RecordSelectFieldModel` crashes with `TypeError: Cannot read properties of undefined (reading 'interface')`, the problem is the **collection field metadata**, not the page builder.
 
-This skill assumes m2o fields are already correctly created. See `.local/tests/m2o-field-creation-spec.md` for the correct payload format. Key rule: `fieldNames` must NOT be inside `uiSchema.x-component-props` — put it at the field's top level.
+Correct m2o field format (from `nocobase-data-modeling` skill `tree.md`):
 
-This is the `nocobase-data-modeling` skill's responsibility to get right.
+```json
+{
+  "interface": "m2o",
+  "type": "belongsTo",
+  "name": "department",
+  "foreignKey": "departmentId",
+  "target": "hr_departments",
+  "onDelete": "SET NULL",
+  "uiSchema": {
+    "title": "Department",
+    "x-component": "AssociationField",
+    "x-component-props": {
+      "multiple": false,
+      "fieldNames": {
+        "label": "name",
+        "value": "id"
+      }
+    }
+  }
+}
+```
+
+Common mistakes that break rendering:
+- `"fieldNames": ["id", "departmentId"]` — **WRONG**: array format, must be `{"label":"name","value":"id"}` object
+- Missing `fieldNames` entirely — may default to raw ID display
+- `fieldNames` at top level instead of inside `x-component-props`
+
+Use `nocobase-data-modeling` skill for field creation. This skill only builds pages on top of existing fields.
 
 ## Best Practices
 
