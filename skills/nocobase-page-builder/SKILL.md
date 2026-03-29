@@ -47,6 +47,26 @@ parser = PageMarkupParser(nb)
 
 Environment variables `NB_URL`, `NB_USER`, `NB_PASSWORD` are also supported.
 
+## Layered build approach
+
+Pages are built in 5 layers. Each layer adds depth. Use `scripts/page_gap.py` to see what's missing at each layer.
+
+```
+Layer 1: Skeleton     →  filter + table + basic popups (XML markup, one call)
+Layer 2: Popups       →  detail tabs, association subtables, relation click popups
+Layer 3: Forms        →  section grouping, popup-internal forms, validation
+Layer 4: JS           →  composite columns, sidebar charts, detail items, KPI
+Layer 5: Events       →  form calculations, auto-fill, status sync, workflow actions
+```
+
+Run gap analysis against a reference page:
+```bash
+python scripts/page_gap.py --base http://localhost:14206 --page "Customers" \
+  --ref examples/exported-json/Customers_c137kk6hghm.json
+```
+
+See `layers/` directory for detailed guides at each layer.
+
 ## Build pipeline
 
 **Prerequisite**: Verify collections and fields exist first:
