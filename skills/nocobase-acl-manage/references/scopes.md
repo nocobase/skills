@@ -12,6 +12,64 @@ General rule:
 - Decide scope explicitly for every important action.
 - If there is no scope, confirm that full-row visibility or mutation is intended.
 
+## ⚠️ CRITICAL: Scope Format Rule
+
+**ALL custom scopes MUST wrap conditions with logical operators (`$and` or `$or`).**
+
+This is a mandatory NocoBase filter structure requirement. Violating this rule will result in incorrect scope behavior.
+
+- **Single condition**: Use `$and` array wrapper
+- **Multiple conditions with AND logic**: Use `$and` array wrapper
+- **Multiple conditions with OR logic**: Use `$or` array wrapper
+
+❌ **Wrong** (missing logical operator wrapper):
+```json
+{
+  "department": {
+    "id": {
+      "$eq": "{{$user.department.id}}"
+    }
+  }
+}
+```
+
+✅ **Correct** (single condition with `$and`):
+```json
+{
+  "$and": [
+    {
+      "department": {
+        "id": {
+          "$eq": "{{$user.department.id}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+✅ **Correct** (multiple conditions with `$or`):
+```json
+{
+  "$or": [
+    {
+      "status": {
+        "$eq": "published"
+      }
+    },
+    {
+      "createdBy": {
+        "id": {
+          "$eq": "{{$user.id}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Always use `$and` or `$or` wrapper, no exceptions.**
+
 ## CRITICAL: Always Check Built-in Scopes First
 
 **Before creating any custom scope, ALWAYS list existing scopes first:**

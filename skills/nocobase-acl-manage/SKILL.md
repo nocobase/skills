@@ -95,7 +95,7 @@ Hard rules:
    - Then route permissions.
    - Then global table permissions.
    - Then table independent permissions **with field lists**.
-   - Then scopes and field restrictions.
+   - Then scopes and field restrictions. **CRITICAL: When creating custom scopes, ALWAYS wrap conditions with logical operators (`$and` or `$or`). Single conditions use `$and`.** See [references/scopes.md](references/scopes.md) for the mandatory format.
 3. Verify with real ACL metadata after every write.
    - Re-read the updated role, route binding, or resource permission record.
    - Re-check the current role context when union mode or default role is involved.
@@ -124,6 +124,7 @@ Hard rules:
   - Built-in scopes were checked first before creating custom scopes.
   - For "own records" requirements, the built-in `own` scope is used (not a custom scope).
   - Custom scopes are only created when built-in scopes cannot satisfy the requirement.
+  - **CRITICAL: All custom scope definitions use logical operator wrappers (`$and` or `$or`). Single conditions use `$and`.** This is mandatory NocoBase filter structure.
   - Scoped actions carry the expected `scopeId` (the actual numeric ID from scopes list).
   - Scope definitions are re-read separately and their filters reference real fields and real relation paths.
   - Business scopes are created under the target data source, not in global `rolesResourcesScopes`.
