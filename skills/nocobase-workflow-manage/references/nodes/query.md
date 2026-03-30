@@ -25,7 +25,7 @@ Querying the current user's order list or checking if a record exists.
 | params.sort | array | [] | No | Array of sorting rules, elements like `{ "field": "createdAt", "direction": "desc" }`. |
 | params.page | number | 1 | No | Page number. |
 | params.pageSize | number | 20 | No | Number of items per page. |
-| params.appends | string[] | [] | No | List of association fields to pre-load. |
+| params.appends | string[] | [] | No | List of association fields to pre-load. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 | failOnEmpty | boolean | false | No | Whether to exit with a failure status if the query result is empty. |
 
 ## Branch Description
