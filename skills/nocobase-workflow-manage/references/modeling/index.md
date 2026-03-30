@@ -59,6 +59,8 @@ The `sync` field of a workflow determines the execution mode and **cannot be cha
 
 Some trigger types have fixed execution modes (e.g., `schedule` can only be async); refer to the specific trigger documentation for details.
 
+In most cases, async mode is recommended for better performance and user experience. Use sync mode only when necessary for immediate feedback in the same action.
+
 ## Status Codes
 
 ### Execution (execution) Status

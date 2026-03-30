@@ -129,10 +129,10 @@ Create a new version based on an existing version (same `key`). The new version 
 | Parameter | Description |
 |---|---|
 | `filterByTk` | Source version workflow ID |
-| `filter[key]` | The key of the workflow, ensuring the new version belongs to the same key |
+| `filter` | JSON object containing the key of the workflow, ensuring the new version belongs to the same key |
 
 ```
-POST /api/workflows:revision?filterByTk=1&filter[key]=abc123
+POST /api/workflows:revision?filterByTk=1&filter={"key":"abc123"}
 ```
 
 Returns the new version's workflow object, including the new `id`.

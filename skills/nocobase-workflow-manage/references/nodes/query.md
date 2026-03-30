@@ -21,7 +21,7 @@ Querying the current user's order list or checking if a record exists.
 | --- | --- | --- | --- | --- |
 | collection | string | None | Yes | Target data table. For a single data source, write the collection name directly; for multiple data sources, write `dataSource:collection`. |
 | multiple | boolean | false | Yes | Result type: `false` returns a single record or `null`; `true` returns an array. |
-| params.filter | object | None | No | Filter conditions, format consistent with data table filter DSL. |
+| params.filter | object | None | No | Filter conditions. See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | params.sort | array | [] | No | Array of sorting rules, elements like `{ "field": "createdAt", "direction": "desc" }`. |
 | params.page | number | 1 | No | Page number. |
 | params.pageSize | number | 20 | No | Number of items per page. |

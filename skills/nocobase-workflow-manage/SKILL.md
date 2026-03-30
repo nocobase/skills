@@ -50,11 +50,13 @@ Then map the requested action to the corresponding MCP-exposed endpoint:
 
 ## Editing an Existing Workflow
 
+Including editing trigger config, adding/updating/moving/deleting nodes in a workflow.
+
 1. **Fetch workflow with nodes and version stats**
    → `GET /api/workflows:get?filterByTk=<id>&appends[]=nodes&appends[]=versionStats`
 2. **Check if version is frozen** (`versionStats.executed > 0`)
    - **Yes → create a new revision first**:
-     `POST /api/workflows:revision?filterByTk=<id>&filter[key]=<key>`
+     `POST /api/workflows:revision?filterByTk=<id>&filter={"key":"<key>"}`
      Use the returned new `id` for all subsequent operations.
    - **No → proceed directly**
 3. **Edit as needed**:
