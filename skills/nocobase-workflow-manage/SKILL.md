@@ -24,7 +24,7 @@ Confirm the NocoBase MCP server is reachable and authenticated before attempting
 # Hard Rules
 
 1. **Never create a workflow with `enabled: true`** — always create with `enabled: false`, complete all trigger and node configuration, then enable.
-2. **Never edit a frozen version directly** — if `versionStats.executed > 0`, create a new revision first via `workflows:revision`. Use the returned new `id` for all subsequent operations; discard the old `id`.
+2. **Never edit a frozen version directly** — if `versionStats.executed > 0`, create a new revision first via `workflows:revision`. The `filter` parameter **must** include `{"key":"<key>"}` (the workflow's `key`) to ensure the new version belongs to the same workflow; omitting `key` will create an independent copy instead. Use the returned new `id` for all subsequent operations; discard the old `id`.
 3. **Never use an empty `filter`** — update and destroy nodes require `filter` with at least one condition. Confirm the filter is non-empty before calling the API.
 4. **Always chain nodes via `upstreamId`** — every node (except the first) must reference its upstream node. Do not skip or leave `upstreamId` unset.
 5. **Never create nodes concurrently** — node creation calls must be executed one at a time, sequentially. Wait for the previous node to be fully created before creating the next one, because the server adjusts internal link relationships during each creation. Batch/parallel node creation is not supported.
@@ -68,6 +68,7 @@ Then map the requested action to the corresponding MCP-exposed endpoint:
 2. **Check if version is frozen** (`versionStats.executed > 0`)
    - **Yes → create a new revision first**:
      `POST /api/workflows:revision?filterByTk=<id>&filter={"key":"<key>"}`
+     The `key` is the workflow's `key` field (obtained from the workflow record in step 1). It **must** be provided to create a revision of the same workflow. Omitting `key` creates an independent copy instead.
      Use the returned new `id` for all subsequent operations. Discard the old `id`.
    - **No → proceed directly**
 3. **Edit as needed**:

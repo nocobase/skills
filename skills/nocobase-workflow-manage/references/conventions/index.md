@@ -157,7 +157,7 @@ Many triggers and nodes accept an `appends` field to preload associated (relatio
 3. Only preloaded associations are accessible in variable expressions. For example, `{{$context.data.author.name}}` requires `"author"` in `appends`.
 4. An empty array `[]` (the default) means no associations are preloaded.
 5. In triggers that support `appends`, preloading only applies to certain events — check each trigger's documentation for specifics (e.g., collection event trigger does not load `appends` for delete events).
-6. Mostly, do not preload to-many associations more than one level deep (e.g., `"author.books.publisher"`), as it may lead to large data loads and performance issues.
+6. Mostly, do not preload to-many associations more than one level deep (e.g., `"posts.comments"`), as it may lead to large data loads and performance issues.
 
 ### Example
 
