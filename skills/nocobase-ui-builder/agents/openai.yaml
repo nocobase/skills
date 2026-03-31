@@ -1,0 +1,7 @@
+interface:
+  display_name: "NocoBase UI Builder"
+  short_description: "语义化搭建 NocoBase 页面、区块与动作"
+  default_prompt: "Use $nocobase-ui-builder to build or modify a NocoBase Modern page with blocks, fields, actions, layout, and validated readback."
+
+policy:
+  allow_implicit_invocation: true
