@@ -25,7 +25,7 @@ Please use the `type` value above to create the trigger; do not use the document
 | collection | string | - | Yes | The data table where the trigger data resides, format is `"<dataSource>:<collection>"`. |
 | global | boolean | false | Yes | Trigger mode: `false` Local mode (binding required), `true` Global mode (effective based on `actions`). |
 | actions | string[] | - | Required only in Global mode | Operation types allowed to trigger in Global mode, currently supported: `"create"`, `"update"`. |
-| appends | string[] | [] | No | Paths of associated fields to be preloaded, used to supplement trigger data. |
+| appends | string[] | [] | No | Paths of associated fields to be preloaded. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Trigger Variables
 - `$context.data`: The triggered data record (preloaded via `appends` when necessary).

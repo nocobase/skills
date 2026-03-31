@@ -23,7 +23,7 @@ Updating the status and timestamp fields after an order is successfully paid.
 | usingAssignFormSchema | boolean | true | No | Whether to use a custom assignment form (primarily affects the frontend configuration display). |
 | assignFormSchema | object | {} | No | UI Schema for the custom assignment form (primarily for frontend use). |
 | params.individualHooks | boolean | false | No | Update mode: `false` for batch update; `true` for individual update (triggers record-level hooks/workflows). |
-| params.filter | object | None | Yes | Filter conditions (must contain at least one condition). |
+| params.filter | object | None | Yes | Filter conditions (must contain at least one condition). See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | params.values | object | {} | No | Field assignment object, where keys are field names and values can be constants or variables; must include at least one field to be updated. |
 
 ## Branching

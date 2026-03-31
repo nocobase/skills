@@ -44,7 +44,7 @@ Please use the `type` value above to create the trigger; do not use the document
 | repeat | string | number | null | null | No | Repeat rule: cron expression or millisecond interval. |
 | endsOn | string | object | null | No | End condition: fixed time (string) or time field configuration (object, structure same as `startsOn`). |
 | limit | number | null | No | Maximum trigger count. |
-| appends | string[] | [] | No | Path of preloaded associated fields, used for `data` in the trigger context. |
+| appends | string[] | [] | No | Paths of preloaded associated fields. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Trigger Variables
 - `$context.date`: Trigger timestamp (Date).

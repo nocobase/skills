@@ -23,7 +23,7 @@ Add an order log or related record after an order is submitted.
 | usingAssignFormSchema | boolean | true | No | Whether to use a custom assignment form (primarily affects the frontend configuration display). |
 | assignFormSchema | object | {} | No | UI Schema for the custom assignment form (primarily for frontend use). |
 | params.values | object | {} | No | Field assignment object where keys are field names and values can be constants or variables. Unassigned fields will use their default value or `null`. |
-| params.appends | string[] | [] | No | List of relationship fields to pre-load, used to include relationship data in the node result. |
+| params.appends | string[] | [] | No | List of relationship fields to pre-load. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Branch Description
 Branches are not supported.

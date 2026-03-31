@@ -1,13 +1,13 @@
 ---
 name: nocobase-workflow-manage
-description: Orchestrate and manage NocoBase workflows via MCP — create/update/delete workflows, add and configure nodes, inspect executions and job results. Use when users want to build, edit, test, or analyze workflow automation logic in NocoBase.
-argument-hint: "[task: create|list|get|update|delete|revision|execute|node-create|node-update|node-move|node-copy|node-delete|node-test|execution-list|execution-get|execution-cancel|jobs-get]"
+description: Create, edit, and debug NocoBase workflows via MCP — configure triggers, chain nodes, manage revisions, and inspect execution results.
+argument-hint: "[action: create|edit|diagnose|list]"
 allowed-tools: All MCP tools provided by NocoBase server
 ---
 
 # Goal
 
-Help users orchestrate NocoBase workflows end-to-end through NocoBase MCP tools: design trigger logic, build node chains, manage versions, and inspect execution results.
+Orchestrate NocoBase workflows end-to-end through NocoBase MCP tools: design trigger logic, build node chains, manage versions, and inspect execution results.
 
 # Dependency Gate
 
@@ -19,8 +19,19 @@ Help users orchestrate NocoBase workflows end-to-end through NocoBase MCP tools:
 
 # Mandatory MCP Gate
 
-- Confirm the NocoBase MCP server is reachable and authenticated before attempting workflow operations.
-- Do not proceed with any workflow mutation until the MCP server exposes the relevant workflow endpoints.
+Confirm the NocoBase MCP server is reachable and authenticated before attempting workflow operations. Do not proceed with any workflow mutation until the MCP server exposes the relevant workflow endpoints.
+
+# Hard Rules
+
+1. **Never create a workflow with `enabled: true`** — always create with `enabled: false`, complete all trigger and node configuration, then enable.
+2. **Never edit a frozen version directly** — if `versionStats.executed > 0`, create a new revision first via `workflows:revision`. The `filter` parameter **must** include `{"key":"<key>"}` (the workflow's `key`) to ensure the new version belongs to the same workflow; omitting `key` will create an independent copy instead. Use the returned new `id` for all subsequent operations; discard the old `id`.
+3. **Never use an empty `filter`** — update and destroy nodes require `filter` with at least one condition. Confirm the filter is non-empty before calling the API.
+4. **Always chain nodes via `upstreamId`** — every node (except the first) must reference its upstream node. Do not skip or leave `upstreamId` unset.
+5. **Never create nodes concurrently** — node creation calls must be executed one at a time, sequentially. Wait for the previous node to be fully created before creating the next one, because the server adjusts internal link relationships during each creation. Batch/parallel node creation is not supported.
+6. **Always wrap filter in `$and` or `$or`** — the root of any filter object must be a condition group. See [Common Conventions - filter](references/conventions/index.md#the-filter-field-in-trigger-and-node-configuration).
+7. **Always reference node results by `key`, not `id`** — use `{{$jobsMapByNodeKey.<nodeKey>.<path>}}` where `nodeKey` is the node's `key` property (a short random string). Never use the numeric `id`, never invent a key — always read the actual `key` from the node record after creating it. See [Common Conventions - Variable Expressions](references/conventions/index.md#variable-expressions).
+8. **Always verify after mutation** — after creating, updating, or deleting a workflow or node, read back the result to confirm the change took effect.
+9. **Do not auto-enable without user confirmation** — always ask the user before setting `enabled: true`.
 
 # Orchestration Process
 
@@ -30,8 +41,9 @@ Before making any MCP calls, clarify with the user:
 1. **Trigger type** — what event starts the workflow? → see [Trigger Reference](references/triggers/index.md)
 2. **Node chain** — what processing steps are needed? → see [Node Reference](references/nodes/index.md)
 3. **Execution mode** — synchronous or async? See [sync vs async](references/modeling/index.md#synchronous-vs-asynchronous-mode)
+4. **Key parameters** — collection names, filter conditions, field mappings, variable expressions
 
-Summarize the plan in natural language before executing.
+Summarize the complete plan in natural language and confirm with the user before making any MCP calls.
 
 Then map the requested action to the corresponding MCP-exposed endpoint:
 - Workflow CRUD and revisions → `workflows:*`
@@ -45,8 +57,9 @@ Then map the requested action to the corresponding MCP-exposed endpoint:
 2. **Configure trigger** → `POST /api/workflows:update?filterByTk=<id>` with `config`
 3. **Add nodes in order** → `POST /api/workflows/<workflowId>/nodes:create` for each node, chaining via `upstreamId`
 4. **Configure each node** → `POST /api/flow_nodes:update?filterByTk=<nodeId>` with `config`
-5. **Enable workflow** → `POST /api/workflows:update?filterByTk=<id>` with `enabled: true`
-6. **Test / verify** → `POST /api/workflows:execute?filterByTk=<id>&autoRevision=1`
+5. **Verify** → read back the workflow with nodes to confirm trigger config, node count, order, and each node's config are correct
+6. **Enable workflow** → confirm with the user, then `POST /api/workflows:update?filterByTk=<id>` with `enabled: true`
+7. **Test / verify** → `POST /api/workflows:execute?filterByTk=<id>&autoRevision=1`
 
 ## Editing an Existing Workflow
 
@@ -54,17 +67,19 @@ Then map the requested action to the corresponding MCP-exposed endpoint:
    → `GET /api/workflows:get?filterByTk=<id>&appends[]=nodes&appends[]=versionStats`
 2. **Check if version is frozen** (`versionStats.executed > 0`)
    - **Yes → create a new revision first**:
-     `POST /api/workflows:revision?filterByTk=<id>&filter[key]=<key>`
-     Use the returned new `id` for all subsequent operations.
+     `POST /api/workflows:revision?filterByTk=<id>&filter={"key":"<key>"}`
+     The `key` is the workflow's `key` field (obtained from the workflow record in step 1). It **must** be provided to create a revision of the same workflow. Omitting `key` creates an independent copy instead.
+     Use the returned new `id` for all subsequent operations. Discard the old `id`.
    - **No → proceed directly**
 3. **Edit as needed**:
    - Update trigger config → `POST /api/workflows:update?filterByTk=<id>` with `config`
    - Add node → `POST /api/workflows/<workflowId>/nodes:create`
    - Update node config → `POST /api/flow_nodes:update?filterByTk=<nodeId>`
    - Delete node → `POST /api/flow_nodes:destroy?filterByTk=<nodeId>`
-   - Move node → `POST /api/flow_nodes:move?filterByTk=<nodeId>`
-   - Copy node → `POST /api/flow_nodes:duplicate?filterByTk=<nodeId>`
-4. **Enable (if needed)** → `POST /api/workflows:update?filterByTk=<id>` with `enabled: true`
+   - Move node → `POST /api/flow_nodes:move?filterByTk=<nodeId>` with body `{ "values": { "upstreamId": <targetId>, "branchIndex": null } }` (`upstreamId: null` moves to the front; `branchIndex` specifies a branch, `null` for the main chain)
+   - Copy node → `POST /api/flow_nodes:duplicate?filterByTk=<nodeId>` with body `{ "values": { "upstreamId": <targetId>, "branchIndex": null } }`
+4. **Verify** → read back modified nodes to confirm changes took effect
+5. **Enable (if needed)** → confirm with the user, then `POST /api/workflows:update?filterByTk=<id>` with `enabled: true`
 
 ## Diagnosing a Failed Execution
 
@@ -78,10 +93,30 @@ Then map the requested action to the corresponding MCP-exposed endpoint:
    Inspect `result` for the error message or output that caused the failure.
 5. Fix the issue (update node config or create a new revision if version is frozen), then re-execute.
 
+## Error Handling
+
+- **MCP returns 400/422**: Read the error message carefully. Common causes: invalid node `type`, missing required config fields, referencing a non-existent `upstreamId`. Fix the parameter and retry.
+- **MCP returns 401/403**: Stop all operations. Ask the user to re-authenticate or refresh the MCP connection.
+- **Node creation fails**: Do not continue adding downstream nodes. Fix or remove the failed node first, then resume.
+- **Revision creation fails**: The original workflow may be in an inconsistent state. Re-fetch the workflow to verify its current state before retrying.
+
+## Verification Checklist
+
+After completing any workflow operation, verify:
+
+1. Workflow exists and has the correct `type`, `title`, and `sync` mode
+2. Trigger `config` matches the planned configuration
+3. Node count and order match the plan (check `upstreamId` chain)
+4. Each node's `type` and `config` are correct
+5. Filter conditions are non-empty where required (update, destroy nodes)
+6. `enabled` status matches the intended state
+7. For edits on frozen versions: the new revision `id` is being used, not the old one
+
 # Reference Index
 
 | Topic | File |
 |---|---|
+| Common conventions (collection, filter format) | [references/conventions/index.md](references/conventions/index.md) |
 | Architecture, data model & concepts | [references/modeling/index.md](references/modeling/index.md) |
 | Triggers | [references/triggers/index.md](references/triggers/index.md) |
 | Nodes | [references/nodes/index.md](references/nodes/index.md) |
