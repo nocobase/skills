@@ -24,3 +24,4 @@
 - 只接受根级 locator。
 - 不要写 `target`。
 - 读回后优先记录关键 uid：`gridUid`、`actionsColumnUid`、`wrapperUid`、`fieldUid`、popup ids。
+- 页面级读回时要同时看 `pageRoute`、`tabs`、`tabTrees`，不要只看 `tree`。

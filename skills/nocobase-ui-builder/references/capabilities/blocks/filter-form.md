@@ -4,7 +4,8 @@
 
 ## 适用场景
 
-- 为 `table/details/list/gridCard/chart/map/comments` 提供筛选条件
+- 默认为 `table/details/list/gridCard/map/comments` 提供筛选条件
+- `chart` 只有在现场读回确认它带可解析 target resource 时，才作为保守筛选目标
 - 作为页面左侧筛选面板
 - 配合 `submit/reset/collapse` 操作
 
@@ -28,7 +29,9 @@
 - `defaultTargetUid`
 - `filterField`
 
-如果页面里不止一个 table/list/gridCard，先 `get` 或 `catalog` 拿到目标 block uid，再显式绑定。
+如果页面里不止一个 `table/details/list/gridCard/map/comments` 目标，先 `get` 或 `catalog` 拿到目标 block uid，再显式绑定。
+
+`chart` 不要当默认 target 猜；只有现场 `get` 证明它可被 `filterForm` 解析成目标时才显式绑定。
 
 ## 不支持的能力
 

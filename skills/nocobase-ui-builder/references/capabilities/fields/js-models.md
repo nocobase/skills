@@ -19,6 +19,7 @@ JS 字段能力分三类：
 规则：
 
 - `table/details` 支持
+- `list/gridCard` 支持
 - `form/createForm/editForm` 支持
 - `filterForm` 不支持
 
@@ -33,7 +34,7 @@ JS 字段能力分三类：
 规则：
 
 - 只允许在 table
-- 是 standalone field，不绑定真实 fieldPath
+- 是 standalone field，不绑定真实 `fieldPath`
 
 ## 3. `jsItem`
 

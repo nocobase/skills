@@ -41,7 +41,7 @@
 
 - `pageSize`
 - `dataScope`
-- `defaultSorting`
+- `sorting`
 - `layout`
 
 如果用户想要“列表 + 每项按钮”，优先考虑 `list`，不要默认 table。

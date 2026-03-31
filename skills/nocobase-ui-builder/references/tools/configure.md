@@ -12,7 +12,9 @@
 
 - 表格 `pageSize`
 - `dataScope`
-- `defaultSorting`
+- `sorting`
+- `density`
+- `columns`
 - `clickToOpen`
 - `openView`
 - action 标题/按钮类型

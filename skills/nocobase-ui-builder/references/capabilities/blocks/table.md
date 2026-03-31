@@ -74,12 +74,12 @@
 
 - `pageSize`
 - `dataScope`
-- `defaultSorting`
+- `sorting`
 - `quickEdit`
 - `showRowNumbers`
 - `treeTable`
 - `defaultExpandAllRows`
-- `tableDensity`
+- `density`
 - `dragSort`
 - `dragSortBy`
 

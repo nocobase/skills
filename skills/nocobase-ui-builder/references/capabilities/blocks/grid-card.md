@@ -19,10 +19,10 @@
 
 ## 高频配置
 
-- `columnCount`
+- `columns`
 - `rowCount`
 - `dataScope`
-- `defaultSorting`
+- `sorting`
 - `layout`
 
 ## 适合的 record actions

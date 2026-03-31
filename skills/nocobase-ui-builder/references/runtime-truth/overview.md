@@ -26,6 +26,12 @@
 - 已有页面精确追加：`get -> catalog -> add* -> configure -> get`
 - 高风险复杂改造：`get -> catalog -> apply/mutate -> get`
 
+## 默认 block 策略
+
+- 默认可创建：`table`、`createForm`、`editForm`、`details`、`filterForm`、`list`、`gridCard`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`
+- 兼容但不默认推荐：`form`
+- 只读说明：`map`、`comments`
+
 ## 为什么 `catalog` 是硬前置
 
 `catalog` 是当前 target 的公开 contract 快照。它告诉你：
@@ -45,6 +51,7 @@
 - 在不支持 `renderer: "js"` 的容器里加 JS 字段
 - 给不支持 layout 的节点调用 `setLayout`
 - 在不支持的 group/path 上调用 `updateSettings`
+- 把 `map/comments` 误判成默认可创建 block
 
 ## 为什么 `get` 是硬前置
 
@@ -63,3 +70,4 @@
 - 优先生成“可以直接工作”的页面，不生成临时过渡结构。
 - 优先公开语义，不优先 raw path。
 - 任何自然语言映射都必须回到当前 `catalog` 的能力矩阵上收敛。
+- 如果文档、示例和现场能力冲突，以现场 `catalog/get` 和更保守的策略为准。
