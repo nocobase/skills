@@ -30,5 +30,5 @@
 - JS 相关配置优先走 `configure`
 - 公开配置不够时，再看 `settingsContract` 用 `updateSettings`
 - `renderer: "js"` 不是 standalone field type；`jsColumn` / `jsItem` 才是 standalone field type
-- `filterForm` 不支持 `renderer: "js"`
+- `filterForm` 的字段级限制统一看 [fields.md](./fields.md)
 - JS 能力冲突时，以现场 `catalog` 暴露为准；不明确时停止猜测

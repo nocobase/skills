@@ -1,6 +1,6 @@
 # Aliases
 
-本词典先做意图判别，再映射具体 capability。只有低歧义词才能直接映射；高歧义词必须结合现场 `get/catalog` 和用户动词收敛。
+本词典只负责把自然语言映射到 capability 或对象语义，不负责决定 lifecycle API、payload shape 或 readback。运行时分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)。
 
 使用前提：
 
@@ -21,39 +21,31 @@
 | 说明区、帮助文案、富文本说明 | `markdown` | 当前 target 是否支持 block 创建 |
 | 嵌入网页、嵌入链接、内嵌 HTML | `iframe` | 当前 target 是否支持 block 创建 |
 | 图表、统计图、趋势图、报表图 | `chart` | 当前 target 是否支持 block 创建 |
-| 工具栏、操作面板、按钮面板、工作台按钮区 | `actionPanel` | 当前 target 是否支持 block 创建 |
+| 工具栏、操作面板、按钮面板 | `actionPanel` | 当前 target 是否支持 block 创建 |
 | 自定义组件、自定义渲染块、代码区块 | `jsBlock` | 当前 target 是否支持 block 创建 |
 | 刷新、重新加载 | `refresh` | 是否位于 block action scope |
 | 批量删 | `bulkDelete` | 是否位于 block action scope |
 | 重置、清空 | `reset` | 是否处于 `filterForm` |
-| 联动 | `linkageRules` | `settingsContract` 是否暴露该域 |
-| 事件流 | `flowRegistry` | 相关 action/field/path 是否已存在 |
-| 数据范围、筛选条件 | `dataScope` | 输入是否为 FilterGroup |
-| 排序 | `sorting` | 容器或字段是否支持该配置 |
-| 每页条数 | `pageSize` | 容器是否支持该配置 |
-| 卡片列数 | `columns` | 是否是 `gridCard` |
-| 行数 | `rowCount` | 是否是响应式卡片场景 |
-| JS 代码、运行时代码 | `code + version` | 当前 block/field/action 是否支持 JS |
+| JS 代码、运行时代码 | JS 能力 | 当前 block/field/action 是否支持 JS |
 
 ## 高歧义词：必须先收敛
 
-| 用户表达 | 先收敛什么 | 默认动作 |
+| 用户表达 | 必须先澄清什么 | 可能落点 |
 | --- | --- | --- |
-| 页面、页面入口 | 是新建页面还是修改已有页面 | 只有明确“创建/新建页面”时才走 `createPage`；否则先 `get` 现状 |
-| 新增、创建、新建 | 新增的是页面、tab、表单、记录，还是别的节点 | 对象不清楚时停止直接映射 |
-| 列表、列表页 | 用户要的是 `table`、`list` 还是 `gridCard` | 默认不要直接映射；只有明确“轻列表 / 条目列表 / 移动端列表”时才优先 `list` |
-| 菜单页、工作台页、入口页 | 是否真的是 route-backed Modern page(v2) | 不是本 skill 范围就停止 |
-| 标签页、页签、tab | 动词是新增、改名、排序还是删除；目标是 outer tab 还是 popup child tab | 先判断 tab 所在层级 |
-| 弹窗标签页、popup tab | 当前目标是否属于 popup page | 默认映射 popup child tab lifecycle；不要混用 outer tab API |
-| 页面头、header | 是 page 元信息还是 tab 元信息 | 先定位目标节点，再决定 `configure` 或 tab lifecycle 接口 |
-| 页面布局、分栏、行列排布 | 是新搭建还是已有容器全量重排 | 新搭建优先 `compose.layout`；全量重排才用 `setLayout` |
-| 打开详情、点击打开 | 触发点是字段点击还是记录动作 | 字段点击优先 `clickToOpen + openView`；记录级入口优先 `recordActions.view` |
-| 抽屉打开 | 来源是字段还是 action | 字段来源优先 `openView.mode = "drawer"`；action 来源优先 popup |
-| 弹窗打开、自定义弹窗、弹出层 | 来源是 action 还是字段 | action 来源优先 popup；字段来源优先 `openView.mode = "dialog"` |
-| 代码按钮、自定义 JS 按钮 | 容器 scope 是 `block`、`record`、`form` 还是 `actionPanel` | 先选对 scope，再加对应 `js` action |
-| 地图、评论 | 用户是否明确要求创建，且现场 `catalog` 是否暴露创建能力 | 默认不创建；只有明确要求且现场允许时才继续 |
+| 页面、页面入口 | 是新建页面还是修改已有页面 | `page` |
+| 新增、创建、新建 | 新增的是页面、tab、表单、记录，还是别的节点 | 任一 surface family |
+| 列表、列表页 | 用户要的是 `table`、`list` 还是 `gridCard` | `table` / `list` / `gridCard` |
+| 工作台、工作台页、工作台按钮区 | 用户说的是 page 外层导航，还是 page 内部按钮区 | 出 scope，或 `actionPanel` |
+| 标签页、页签、tab | 目标是 `outer tab` 还是 `popup child tab` | `outer tab` / `popup child tab` |
+| 页面头、header | 是 page 元信息还是 tab 元信息 | `page` / `outer tab` / `popup child tab` |
+| 页面布局、分栏、行列排布 | 是新搭建，还是已有容器重排 | `compose` 结构搭建 / layout 改配 |
+| 打开详情、点击打开 | 来源是字段点击还是记录动作 | `openView` / `recordActions.view` |
+| 抽屉打开、弹窗打开、自定义弹窗、弹出层 | 来源是字段还是 action | field `openView` / popup action |
+| 代码按钮、自定义 JS 按钮 | scope 是 `block`、`record`、`form`、`filterForm` 还是 `actionPanel` | 对应 scope 下的 `js` action |
+| 地图、评论 | 是读改已有能力，还是创建新能力 | `map` / `comments` |
 
 ## 映射后的保守动作
 
-- 如果 block / field / action / 配置域没有被现场 `catalog` 明确暴露，停止猜测并说明边界
-- 如果对象和动词都不清楚，先收敛目标，不要直接生成写请求
+- 映射只决定 capability 或对象语义，不决定具体 API、请求 envelope 或 readback。
+- 如果 block / field / action / 配置域没有被现场 `catalog` 明确暴露，停止猜测并说明边界。
+- 如果对象和动词都不清楚，先收敛目标，不要直接生成写请求。

@@ -1,6 +1,6 @@
 # Boundaries
 
-当现场信息不足、用户表述高歧义、或能力未公开暴露时，优先停止猜测，而不是继续“补完”写入。
+当现场信息不足、用户表述高歧义、或能力未公开暴露时，优先停止猜测，而不是继续“补完”写入。popup / openView / event flow 的顺序看 [popup-and-event-flow.md](./popup-and-event-flow.md)。
 
 ## 通用停止条件
 
@@ -8,8 +8,8 @@
 
 - `catalog` 没有明确暴露目标 block / field / action 能力
 - `configureOptions` 与 `settingsContract` 都没有明确暴露目标配置域
-- 无法判断目标是 outer tab 还是 popup child tab
-- same-use sibling 无法确定性配对
+- 在读回 `tree.use` 之后，仍无法判断目标是 outer tab 还是 popup child tab
+- target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜
 - 用户只说“新增/列表/弹窗/页面头”这类高歧义词，却没给对象与动作
 
 ## block 选型边界
@@ -30,16 +30,10 @@
 - `chart` 不是默认 filter target；只有现场读回确认它带可解析 target resource 时，才把它算进候选集合
 - 删除、移动或替换目标 block 后，要重新 `get/catalog`，不要假设旧的 filter target 仍然有效
 
-## popup / openView / event flow 边界
-
-- popup surface 与顶层 page/tab 不是同一个作用域；如果只有宿主 uid，先读回 popup 相关 uid 再继续
-- 先写 popup/openView settings，再绑定引用它们的 `setEventFlows`
-- 如果 popup settings 被清空但 flow 仍引用旧 path，优先修正 settings 或 flow 引用
-
 ## `apply` / `mutate` 边界
 
 - `apply` 只接受 `catalog` 或主链文档已公开、且有稳定 contract 的 `type/use`
-- `apply` 遇到同层 same-use sibling 时，只有能按持久化顺序确定性配对时才继续；否则必须先收敛唯一 target
+- `apply` 如果目标选择仍依赖 sibling 顺序猜测，必须先收敛唯一 target，再继续
 - `mutate` 只在确实需要跨多步原子化编排时使用
 
 ## 非默认创建能力边界

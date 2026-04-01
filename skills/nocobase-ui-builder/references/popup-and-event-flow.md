@@ -1,6 +1,6 @@
 # Popup And Event Flow
 
-本文档只补 popup、openView、linkageRules、event flow 的场景增量。默认流程、target 角色与 lifecycle 分流统一看 [runtime-playbook.md](./runtime-playbook.md)。
+本文档是 popup、openView、linkageRules、event flow 场景的 topic owner。surface family 分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)。
 
 ## popup 相关能力出现在哪里
 
@@ -12,16 +12,16 @@
 ## 常见 popup uid
 
 - `hostUid`：打开 popup 的宿主 action / field / block uid
-- `popupPageUid`：popup page canonical uid
-- `popupTabUid` / `tabUid`：popup child tab canonical uid
-- `popupGridUid` / popup `gridUid`：popup 内容区 uid
+- `popupPageUid`：popup page 的 write target uid
+- popup tab uid：popup child tab 的 write target uid，优先 `popupTabUid`，只有现场只暴露 `tabUid` 时才用 `tabUid`
+- popup content grid uid：popup 内容区的 write target uid，优先 `popupGridUid`，只有现场只暴露 `gridUid` 时才用 `gridUid`
 
-如果只有宿主 uid，先 `get({ uid: hostUid })` 拿到 popup 相关 uid，再继续 target-based 写入。
+如果当前执行链里没有直接拿到 popup 相关 uid，先 `get({ uid: hostUid })` 拿到 popup subtree，再继续 target-based 写入。
 
 ## 推荐顺序
 
 1. 先创建会打开 popup 的 action 或 field
-2. 优先复用返回值里的 `popupPageUid/popupTabUid/popupGridUid`
+2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target
 3. 确认本次写的是 popup page、popup child tab，还是 popup 内容区
 4. 对对应 popup target 先 `catalog`
 5. 再 `compose/configure/add*`

@@ -1,115 +1,89 @@
 # Runtime Playbook
 
-这是 `nocobase-ui-builder` 的运行时主文档。它负责：目标分层、uid 语义、默认写流程、生命周期分流，以及“什么时候必须停止猜测”。请求形状只看 [tool-shapes.md](./tool-shapes.md)。
+这是 `nocobase-ui-builder` 的运行时 owner 文档。它负责：surface family 判别、write target / read locator 角色、工具升级顺序，以及默认写流程。请求形状只看 [tool-shapes.md](./tool-shapes.md)，写后验证只看 [readback.md](./readback.md)。
 
-## 术语速记
+## Surface Families
 
-- **page**：route-backed 顶层页面
-- **outer tab**：页面下的 route-backed tab，canonical uid 是 `tabSchemaUid`
-- **popup page**：宿主 action/field 打开的弹窗容器，常见 uid 是 `popupPageUid`
-- **popup child tab**：popup 内部 tab，常见 uid 是 `popupTabUid` 或 `tabUid`
-- **内容区**：route-backed page/tab 或 popup tab 内继续 `compose/add*` 的 grid target，常见 uid 是 `gridUid` 或 `popupGridUid`
+| 家族 | 语义 | canonical write target uid | preferred read locator | 常见用途 |
+| --- | --- | --- | --- | --- |
+| `page` | route-backed 顶层页面 | `pageUid` | `pageSchemaUid`，必要时 `routeId` | `addTab`、`destroyPage`、整页读回 |
+| `outer tab` | 页面下的 route-backed tab | `tabSchemaUid` | `tabSchemaUid` | outer tab lifecycle、tab surface `catalog/configure` |
+| `route-backed content` | page / outer tab 内继续搭内容的 grid target | `gridUid` | `uid = gridUid` | `catalog/compose/add*` |
+| `popup page` | 宿主 action / field 打开的 popup 容器 | `popupPageUid` | `uid = popupPageUid` | `addPopupTab`、popup page `catalog/configure` |
+| `popup child tab` | popup 内部 tab | popup tab uid；优先 `popupTabUid`，只有现场只暴露 `tabUid` 时才用 `tabUid` | `uid = popup tab uid` | popup child tab lifecycle、popup tab `catalog/configure` |
+| `popup content` | popup page / popup child tab 内的内容 grid | popup content grid uid；优先 `popupGridUid`，只有现场只暴露 `gridUid` 时才用 `gridUid` | `uid = popup content grid uid` | popup 内继续 `compose/add*` |
+| `generic node` | 非 lifecycle 节点，例如 block / field / action / wrapper / host | 节点自身 `uid` | `uid = node uid` | 精确改配、局部读回、宿主节点继续写入 |
 
-## Surface Families 与 canonical uid
+说明：
 
-| 家族 | 常见标识 | canonical uid / 主要定位 | 典型用途 |
-| --- | --- | --- | --- |
-| route-backed page | `pageUid` / `pageSchemaUid` / `routeId` | page 级写接口用 `pageUid`；页面级读回用 `pageSchemaUid` 或 `routeId` | 新增 outer tab、整页删除、页面级读回 |
-| outer tab | `tabSchemaUid` | `tabSchemaUid` | outer tab 生命周期、outer tab surface `catalog/configure` |
-| route-backed 内容区 | `gridUid` | `gridUid` | `catalog/compose/add*` |
-| popup page | `popupPageUid` | `popupPageUid` | `addPopupTab`、popup page 级 `catalog/configure` |
-| popup child tab | `popupTabUid` / `tabUid` | `popupTabUid` 或 `tabUid` | popup child tab 生命周期、popup tab surface `catalog/configure` |
-| popup 内容区 | `popupGridUid` / `gridUid` | `popupGridUid` 或 `gridUid` | popup 内继续 `compose/add*` |
+- `canonical write target uid` 指写接口里应该放进 `target.uid`，或 lifecycle request body 应该使用的主 uid。
+- `preferred read locator` 指读回前后优先采用的定位方式；具体 envelope 仍以 [tool-shapes.md](./tool-shapes.md) 为准。
 
-## `get` locator 与 `target.uid` 的区别
+## 当前执行链与新 target
 
-| 值 | 读取时怎么传 | 常见写入用途 | 不要混用 |
-| --- | --- | --- | --- |
-| `uid` | `get({ uid })` | 已有普通节点、popup 宿主、grid、popup page/tab | 不是 `pageSchemaUid` / `routeId` 的替代字段 |
-| `pageUid` | `get({ uid: pageUid })` | `addTab`、`destroyPage` | 不用于 `updateTab` / `addPopupTab` |
-| `pageSchemaUid` | `get({ pageSchemaUid })` | 页面级读回 | 不直接放进 `target.uid` |
-| `routeId` | `get({ routeId })` | 页面级读回 | 不直接放进 `target.uid` |
-| `tabSchemaUid` | `get({ tabSchemaUid })` | `updateTab/removeTab`、outer tab `catalog/configure` | 不用于 `addTab` / `addPopupTab` |
-| `gridUid` | `get({ uid: gridUid })` | route-backed 内容区 `catalog/compose/add*` | 不用于 tab lifecycle |
-| `popupPageUid` | `get({ uid: popupPageUid })` | `addPopupTab`、popup page `catalog/configure` | 不用于 `updatePopupTab/removePopupTab` |
-| `popupTabUid` / `tabUid` | `get({ uid: ... })` | `updatePopupTab/removePopupTab`、popup tab `catalog/configure` | 不用于 `addPopupTab` |
-| `popupGridUid` / popup `gridUid` | `get({ uid: ... })` | popup 内容区 `catalog/compose/add*` | 不用于 popup tab lifecycle |
+- **当前执行链** 指单次 assistant 执行这套 skill 的连续操作链，不跨后续用户回合复用 shortcut。
+- 只有当前执行链里刚由写接口直接返回的下一个 write target uid，才算 **new target**。
+- `createPage` / `addTab` / `addPopupTab` 返回的 `pageUid`、`tabSchemaUid`、`gridUid`、popup 相关 uid 都属于 new target。
+- 宿主写接口只有在响应里直接带回 `popupPageUid`、popup tab uid 或 popup content grid uid 时，才允许把这些 popup uid 当成 new target。
+- 用户提供的 uid、历史缓存 uid、或之前读回过但不是当前执行链刚返回的 uid，都按已有 target 处理：先 `get`，再写。
+- new target 只允许跳过一次前置 `get`；`catalog` 仍然必须执行。
 
-除了 `pageSchemaUid`、`tabSchemaUid`、`routeId` 这 3 个专用字段外，其余 opaque id 在读取时都默认放进 `uid`。
+## outer tab 与 popup child tab 的判别
 
-## 先判断 tab 属于哪一层
+- 如果 `get(...).tree.use = RootPageTabModel`，这是 `outer tab`。
+- 如果 `get(...).tree.use = ChildPageTabModel`，这是 `popup child tab`。
+- 如果 uid 直接来自 `createPage` / `addTab` 返回的 `tabSchemaUid`，按 `outer tab` 处理。
+- 如果 uid 直接来自 `addPopupTab` 或 popup subtree 读回返回的 popup tab uid，按 `popup child tab` 处理。
+- 只看到 `kind = "tab"` 不足以选 API；必须先确认 `tree.use` 或 uid 来源。
 
-- `RootPageTabModel`，或 uid 来自 `createPage/addTab` 的，是 **outer tab**：用 `addTab/updateTab/moveTab/removeTab`
-- `ChildPageTabModel`，或 uid 来自 `addPopupTab` / popup 宿主读回的，是 **popup child tab**：用 `addPopupTab/updatePopupTab/movePopupTab/removePopupTab`
+## 工具升级顺序
 
-**只看到 `kind = "tab"` 不能决定 API。**
-
-## 按操作类型选接口
-
-| 操作类别 | 首选接口 | 何时进入下一层 |
+| 操作类别 | 首选工具层 | 何时升级 |
 | --- | --- | --- |
-| 生命周期操作 | `createPage/addTab/updateTab/removeTab/addPopupTab/...` | 生命周期接口表达不了时，才继续看结构或配置接口 |
-| 新结构搭建 | `compose`；精确追加时用 `add*` | 公开语义不够表达时，才下钻 path-level 配置 |
+| 生命周期操作 | `createPage/addTab/updateTab/removeTab/addPopupTab/...` | lifecycle API 表达不了时，才继续看结构或配置层 |
+| 新结构搭建 | `compose`；精确追加时用 `add*` | 公开语义不够表达时，才进入精确改配 |
 | 公开配置改动 | `configure` | `configureOptions` 不够时再看 `settingsContract` |
-| path-level 配置 | `updateSettings` / `setLayout` / `setEventFlows` | 需要跨多步原子编排时才看 `apply/mutate` |
-| 复杂编排 | `apply` / `mutate` | 仅在高层语义不足且需要受控 subtree 替换或事务一致性时使用 |
+| 精确 path-level 改配 | `updateSettings` / `setLayout` / `setEventFlows` | 只有确实需要 subtree 替换或跨多步原子编排时，才进入 `apply/mutate` |
+| 复杂编排 | `apply` / `mutate` | 仅在高层语义不足且需要受控编排时使用 |
 
 ## 默认写流程
 
 ### 1. 新建完整页面
 
 - `createPage`
-- 内容区继续搭建：对返回的 `gridUid` 做 `catalog -> compose/configure -> get({ pageSchemaUid })`
-- 只改 outer tab 元信息：对返回的 `tabSchemaUid` 做 `catalog -> configure -> get({ pageSchemaUid })`
+- 如果继续搭 route-backed content：对返回的 `gridUid` 走 `catalog -> compose/add* 或 configure -> readback`
+- 如果只改 outer tab 元信息：对返回的 `tabSchemaUid` 走 `catalog -> configure -> readback`
 
 ### 2. 已有 page 新增 outer tab
 
-- 先 `get({ pageSchemaUid })`、`get({ routeId })` 或 `get({ uid: pageUid })` 拿到 `pageUid`
-- `addTab(target.uid=pageUid)`
-- 内容区继续搭建：对返回的 `gridUid` 做 `catalog -> compose/configure -> get({ pageSchemaUid })`
-- 只改 tab 元信息：对返回的 `tabSchemaUid` 做 `catalog -> configure -> get({ pageSchemaUid })`
+- 先读回 `page`，拿到 `pageUid`
+- `addTab(target.uid = pageUid)`
+- 对返回的 `gridUid` 或 `tabSchemaUid` 再继续 `catalog -> write -> readback`
 
-### 3. 已有 target 小改
+### 3. 已有 target 小改或精确追加
 
-`get -> catalog -> configure -> 最小必要读回`
+- `get -> catalog -> configure / add* / compose / updateSettings / setLayout / setEventFlows / apply / mutate -> readback`
 
-### 4. 已有 target 精确追加
+### 4. 已有 popup subtree 写入
 
-`get -> catalog -> add* 或 compose -> configure(如需要) -> 最小必要读回`
+- 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 或 `popupPageUid` 读回 popup subtree
+- 先明确本次目标到底是 `popup page`、`popup child tab`，还是 `popup content`
+- 再对对应 target 执行 `catalog -> write -> readback`
 
-### 5. 已有 popup subtree 写入
+### 5. 只读校验 / review
 
-- 先 `get({ uid: hostUid })` 或 `get({ uid: popupPageUid })`
-- 确认本次目标是 `popupPageUid`、`popupTabUid/tabUid` 还是 `popupGridUid/gridUid`
-- 对对应 popup target 做 `catalog`
-- 再按 `compose/configure/add*` 分流
+- `get`
+- 只有在需要 capability / contract 判别时才 `catalog`
+- 断言项一律按 [readback.md](./readback.md)
+- 无明确写入意图时，不调用写接口
 
-### 6. 只读校验 / review
+## Runtime Rules
 
-`get -> 需要 contract 或能力判别时再 catalog -> 按 readback 条目断言；无明确写入意图时不调用写接口`
-
-### 7. 事件流、布局与复杂编排
-
-`get -> catalog -> 先写 popup/openView 或公开配置 -> 再 setEventFlows/setLayout/apply/mutate -> 最小必要读回`
-
-## “新 target” 的严格定义
-
-只有**当前回合**中刚由以下接口返回的 uid，才算“新 target”，可以跳过一次前置 `get`：
-
-- `createPage`
-- `addTab`
-- `addPopupTab`
-- popup-capable 宿主写接口
-
-用户提供的 uid、历史缓存 uid、之前读回过但不是刚创建的 uid，都按“已有 target”处理：**先 `get`，再写**。
-
-## Authoritative Rules
-
+- 现场 `get/catalog/readback` 永远比文档描述更高优先级。
 - 已有 target 上的写入，默认先 `get -> catalog -> write`。
-- 对刚拿到的新 target，也先 `catalog` 再决定 `compose/configure/add*`；不要因为 uid 是新返回的就跳过能力确认。
-- 先看 `configureOptions`；公开配置表达不了时才看 `settingsContract`，再决定是否用 `updateSettings`。
-- `setEventFlows`、`setLayout` 属于标准精确编辑能力，不是最后兜底；但事件流仍然要在 popup / openView 相关 settings 落盘后再写。
-- 如果某个 block 暴露 `dataScope.filter`，这个 `filter` 必须是 FilterGroup；空筛选默认写 `dataScope.filter = null`，不要优先生成 `{}` 或 query object。
-- `filterForm` 多目标场景下，只使用当前 contract 明确暴露的 target 绑定字段，优先 `defaultTargetUid`。
-- 写入后按变更类型做最小必要读回；只有 page / tab / popup child tab 生命周期变更才升级为完整 route/tree 校验。
-- 如果现场 `get/catalog` 没有明确暴露目标能力、target 绑定字段或 settings contract，停止猜测并向用户说明。
+- 对刚拿到的 new target，也先 `catalog` 再决定具体写法。
+- 先看 `configureOptions`；公开配置表达不了时才看 `settingsContract`。
+- `setLayout`、`setEventFlows` 属于标准精确编辑能力，不与 `apply/mutate` 视为同一层兜底工具。
+- 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target，再考虑 `apply/mutate`。
+- 如果现场没有明确暴露目标能力、target 绑定字段或 settings contract，停止猜测并向用户说明。
+- `createPage` 之前没有现成 page target，不要预先猜 page / tab / grid 去调 `catalog`。

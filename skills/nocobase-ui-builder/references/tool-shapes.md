@@ -1,6 +1,6 @@
 # Tool Shapes
 
-只要 request shape 传错，再正确的业务判断也会失败。本文件是 flow surfaces 请求形状的唯一 owner。
+只要 request shape 传错，再正确的业务判断也会失败。本文件是 flow surfaces 请求形状的唯一 owner。surface family 分流只看 [runtime-playbook.md](./runtime-playbook.md)，写后验证只看 [readback.md](./readback.md)。
 
 ## 目录
 
@@ -75,7 +75,7 @@
 
 - `createPage` 创建 target 本身，所以不接受 `target`
 - 只在 MCP 层包一层 `requestBody`
-- `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于内容区搭建
+- `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
 
 ## 3. target-based `requestBody.target.uid`
 
@@ -108,6 +108,7 @@
 - `mcp__nocobase__flow_surfaces_set_layout`
 - `mcp__nocobase__flow_surfaces_remove_node`
 - `mcp__nocobase__flow_surfaces_apply`
+- `mcp__nocobase__flow_surfaces_mutate`
 
 常见 target 选择：
 

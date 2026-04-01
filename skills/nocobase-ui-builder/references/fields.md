@@ -1,6 +1,6 @@
 # Fields
 
-字段选择顺序：**先看容器，再看字段类型，再看是否需要 JS、关系叶子或 openView。**
+字段选择顺序：**先看容器，再看字段类型，再看是否需要 JS、关系叶子或 openView。** block 选型看 [blocks.md](./blocks.md)，JS 能力矩阵看 [js.md](./js.md)。
 
 ## 容器心智
 

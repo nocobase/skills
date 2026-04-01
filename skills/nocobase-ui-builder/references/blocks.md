@@ -1,6 +1,6 @@
 # Blocks
 
-按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)。动作库存统一看 [actions.md](./actions.md)。
+按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)，默认策略标签看 [capability-policy.md](./capability-policy.md)，动作库存统一看 [actions.md](./actions.md)。
 
 ## 先判断用户要哪种页面体验
 
@@ -68,7 +68,6 @@
 - `filterForm` 自己是 block，字段是筛选项而不是展示字段
 - 多目标时必须显式绑定当前 contract 暴露的 target 字段，优先 `defaultTargetUid`
 - `chart` 只有现场确认可解析 target resource 时，才作为保守筛选目标
-- 不支持 `renderer: "js"`、`jsColumn`、`jsItem`
 
 ## 简单 / 静态 / 保守能力
 

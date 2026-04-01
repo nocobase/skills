@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "通过 NocoBase MCP 搭建、修改或静态校验 Modern page(v2) UI surface"
-  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI surface work. First classify the request by change kind, target family, and operation class. Treat live get/catalog/readback as the truth, route to the flat runtime docs, and stop guessing when capability or contract is not explicitly exposed."
+  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI surface work. First classify the request by change kind and surface family: page, outer tab, route-backed content, popup page, popup child tab, popup content, or generic node. Treat live get/catalog/readback as the truth. Use runtime-playbook for routing, tool-shapes for payload shape, readback for verification, and stop guessing when capability or contract is not explicitly exposed."
 
 policy:
   allow_implicit_invocation: true
