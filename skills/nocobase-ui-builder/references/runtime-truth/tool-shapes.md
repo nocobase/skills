@@ -62,7 +62,8 @@
 - 后续读取可使用返回的 `pageSchemaUid`、`tabSchemaUid`、`routeId`。
 - page 级写接口用返回的 `pageUid`。
 - route-backed tab 级写接口和 outer tab surface target 直接用返回的 `tabSchemaUid`。
-- 新页面首次 `catalog/compose` 优先使用返回的 `gridUid` 或 `tabSchemaUid`。
+- 新页面首次往 tab 内容区搭 block / field / action 时，优先使用返回的 `gridUid`。
+- 如果要做 tab 级 `catalog`、tab 元信息改配，或当前任务关心的是整个 outer tab surface，则使用 `tabSchemaUid`。
 
 ## 3. target-based `requestBody.target.uid`
 

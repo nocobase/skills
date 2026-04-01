@@ -2,6 +2,12 @@
 
 按变更类型选择最小必要读回，不要每次都做同样重的全量检查。
 
+## 怎么用
+
+- 写入后：按这份清单选择与本次变更直接相关的检查项。
+- 只读校验 / review：先 `get`，必要时再 `catalog`，然后按对应条目断言；无明确写入意图时不要调用写接口。
+- `最小必要读回` 指至少读回直接受影响的 target，或它的宿主 / 父级 target，并核对本次变更涉及的结构、配置或 route 字段。
+
 ## 页面 / Route-Backed Tab 生命周期
 
 - page route 是否存在
@@ -36,6 +42,7 @@
 
 ## 配置改动
 
-- `dataScope.filter` 是否被规范化成 FilterGroup
+- 非空 `dataScope.filter` 是否被规范化成 FilterGroup
+- 空筛选是否保持为 `null` 或服务端标准空表示，而不是原样 query object
 - `flowRegistry` 是否写入成功
 - layout 是否覆盖完整且无遗漏

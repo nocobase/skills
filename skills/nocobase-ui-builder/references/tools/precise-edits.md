@@ -34,13 +34,15 @@
 - 需要区分 block action 与 record action
 - 需要 path-level contract 写入
 - 需要完整 layout 重排或节点级移动 / 删除
+- 需要标准事件流或布局写入
 
 ## 关键 gotchas
 
 - `addAction` 只放非 `recordActions`
 - `addRecordAction` 只放记录级动作；`details` 也算 `recordActions`
-- `updateSettings` 前先看 `catalog.settingsContract`
+- `updateSettings` 前先确认 `configureOptions` 不覆盖需求，再看 `catalog.settingsContract`
 - `setEventFlows` 前先确认相关 popup / openView / step 已落盘
+- `setEventFlows` / `setLayout` 属于标准精确编辑能力，不是最后兜底
 - `setLayout` 是全量写入，不是增量 patch
 - `moveNode` 用 `sourceUid` / `targetUid`；`removeNode` 仍然是 target-based
 

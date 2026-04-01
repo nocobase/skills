@@ -8,7 +8,7 @@
 ## 高级决策边界
 
 - block 选型不确定时，先收敛到用户的展示/交互目标，再用 `catalog.blocks` 验证。
-- 高级配置不确定时，先 `catalog.settingsContract`，再决定 `configure` 还是 `updateSettings`。
+- 高级配置不确定时，先看 `configureOptions`；只有公开配置不够时，才查 `catalog.settingsContract` 再决定是否用 `updateSettings`。
 - 事件流不确定时，先确认相关 step 是否还存在。
 - JS 字段能力冲突时，先看现场 `catalog.fields` 和实际可写 contract，再决定是否暴露。
 
@@ -20,8 +20,9 @@
 
 ## 数据范围边界
 
-- `dataScope` 必须是 FilterGroup。
-- 空筛选可以用 `null` 或 `{}`，但不要直接传 query object。
+- 如果某个 block 暴露 `dataScope.filter`，这个 `filter` 必须是 FilterGroup。
+- 空筛选默认写 `dataScope.filter = null`；`{}` 只当兼容旧形状，不要优先生成。
+- 不要直接传 query object。
 - 如果配置错误，优先修正输入结构，不要猜测底层 step path。
 
 ## Popup / OpenView / Event Flow 边界
@@ -41,7 +42,7 @@
 
 ## JS 与只读 block 边界
 
-- JS 相关配置优先走 `configure`；只有 `settingsContract` 已明确时才降级到 `updateSettings`。
+- JS 相关配置优先走 `configure`；只有公开配置不覆盖且 `settingsContract` 已明确时才降级到 `updateSettings`。
 - `map/comments` 可能在 `catalog` 和 `get` 中出现，也可能带 settings contract。
-- 当前 skill 不为它们提供默认 happy-path，不当作 `compose/addBlock` 默认选项。
-- 如果用户明确要求新建 map/comments，先看现场 `catalog` 是否暴露创建能力，再决定是否继续。
+- `map/comments` 属于非默认创建能力，不当作 `compose/addBlock` 默认选项。
+- 已有 map/comments 可以保守维护；只有用户明确要求且现场 `catalog` 暴露创建能力时，才继续创建 map/comments。

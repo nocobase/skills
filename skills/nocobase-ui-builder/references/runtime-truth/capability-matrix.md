@@ -1,5 +1,11 @@
 # Capability Matrix
 
+字段说明：
+
+- `formal builtin`：是否属于当前公开 capability 语义里的标准内建类型。
+- `fixture captured`：是否已经有上游 fixture、测试或稳定样例作为证据。
+- `create = 现场确认`：不是默认创建路径，只有现场 `catalog` 明确暴露能力时才创建。
+
 ## Block 能力矩阵
 
 | public type | formal key | model use | owner plugin | formal builtin | fixture captured | 顶层可加 | readback | create | 需要 resource | 默认策略 | 备注 |
@@ -8,7 +14,7 @@
 | `table` | `table` | `TableBlockModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 支持 block actions 和 `recordActions` |
 | `createForm` | `create-form` | `CreateFormModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 新增表单 |
 | `editForm` | `edit-form` | `EditFormModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 编辑表单 |
-| `form` | - | `FormBlockModel` | `@nocobase/core/client` | 否 | 否 | 是 | 是 | 是 | 是 | 兼容使用 | 可创建，但不是 formal builtin |
+| `form` | - | `FormBlockModel` | `@nocobase/core/client` | 否 | 否 | 是 | 是 | 是 | 是 | 兼容使用 | 可创建，但不是标准内建 public type |
 | `details` | `details` | `DetailsBlockModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 支持 `recordActions` |
 | `filterForm` | `filter-form` | `FilterFormBlockModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 默认给 table/details/list/gridCard/map/comments 提供筛选；chart 仅在现场读回确认 targetable 时再用 |
 | `list` | `list` | `ListBlockModel` | `@nocobase/plugin-block-list` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | item 级 `recordActions` |

@@ -19,9 +19,11 @@ popup 相关能力主要出现在三处：
 1. 先创建会打开 popup 的 action 或 field
 2. 优先复用返回值中的 `popupPageUid/popupTabUid/popupGridUid`
 3. 如果只有宿主 uid，先 `get(hostUid)` 拿到 popup 相关 uid
-4. 在 popup target 上继续 `compose`
-5. 如需 popup child tab lifecycle，走 `addPopupTab/updatePopupTab/movePopupTab/removePopupTab`
-6. 如需更细配置，再 `configure` 或 `updateSettings`
+4. 先确认本次要写的是 `popupPageUid`、`popupTabUid/tabUid` 还是 `popupGridUid`
+5. 在对应 popup target 上先 `catalog`
+6. 再 `compose/configure/add*`
+7. 如需 popup child tab lifecycle，走 `addPopupTab/updatePopupTab/movePopupTab/removePopupTab`；如果新增后还要继续写内容，对返回的 `tabUid/gridUid` 再 `catalog`
+8. 如需更细配置，再 `updateSettings`
 
 ## 字段 openView
 
@@ -35,5 +37,6 @@ popup 相关能力主要出现在三处：
 
 - 如果 popup settings 被清空，但仍保留引用 `popupSettings.openView` 的 flow，会失败。
 - popup surface 与顶层 page/tab 不是同一个作用域，不要混用 locator。
+- 已有 popup subtree 写入不要跳过 `catalog`；popup target 的能力和 settings contract 仍要现场确认。
 - popup child tab 与 route-backed tab 不是同一套生命周期 API，不要混用 `addTab/removeTab`。
 - `popupTabUid` 和 `tabUid` 都表示 popup child tab 的 canonical uid；字段名取决于返回它的是 popup-capable 宿主写接口还是 `addPopupTab`。

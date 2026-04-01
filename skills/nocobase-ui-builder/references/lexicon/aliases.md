@@ -53,4 +53,4 @@
 | 抽屉打开 | `openView.mode = "drawer"` / popup drawer | 来源是字段还是 action | 先判断触发源，再决定写到 field settings 还是 action popup |
 | 弹窗打开、自定义弹窗、弹出层 | popup action / `openView.mode = "dialog"` | 来源是 action 还是字段 | action 来源优先 popup；字段来源优先 `openView.mode = "dialog"` |
 | 代码按钮、自定义 JS 按钮 | `js` action | 容器 scope 是 block、record、form 还是 action-panel | 先看 scope，再加对应类型的 JS action |
-| 地图、评论 | `map` / `comments` | 当前页面是否已存在对应 block | 只做保守维护；默认不创建 |
+| 地图、评论 | `map` / `comments` | 用户是否明确要求创建，以及现场 `catalog` 是否暴露创建能力 | 默认不创建；只有用户明确要求且现场 contract 允许时才继续 |

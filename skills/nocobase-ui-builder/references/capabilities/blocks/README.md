@@ -23,15 +23,18 @@
 ## 兼容但不默认推荐
 
 - 通用表单：[form.md](./form.md)
-  - `FormBlockModel` 目前仍可创建，但不是 formal builtin。
+  - `FormBlockModel` 目前仍可创建，但不属于默认推荐的标准 block 创建路径。
   - 默认优先 `createForm` 或 `editForm`。
 
-## 只读/边界说明
+## 非默认创建能力
 
 - 地图区块：[map.md](./map.md)
 - 评论区块：[comments.md](./comments.md)
 
-这两类 block 不提供默认 happy-path；是否可创建、如何配置，以现场 `catalog/get` 为准。
+这两类 block 默认不创建。
+
+- `保守维护` 指只在现有 block 上做读回、公开改配，或 `settingsContract` 已明确的小范围修改；不把它们当默认创建路径，也不在无明确需求时做替换 / 重建。
+- 只有用户明确要求且现场 `catalog` 明确暴露创建能力时，才继续新建。
 
 ## 选型原则
 

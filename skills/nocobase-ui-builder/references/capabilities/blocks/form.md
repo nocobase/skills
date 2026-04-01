@@ -1,6 +1,6 @@
 # Form Block
 
-`form` 对应 `FormBlockModel`，目前仍可创建，但不是 formal builtin。
+`form` 对应 `FormBlockModel`，目前仍可创建，但不属于默认推荐的标准内建 block 类型。
 
 ## 适用场景
 
