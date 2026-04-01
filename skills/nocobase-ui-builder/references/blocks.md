@@ -2,10 +2,16 @@
 
 按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)，动作库存统一看 [actions.md](./actions.md)，横切 guardrail 以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准。
 
+规则强度：
+
+- `Hard rule`：不能违背
+- `Default heuristic`：默认偏好
+- `Fallback`：前两者不适用时再用
+
 ## 默认创建策略
 
-- 默认可创建：`table`、`details`、`list`、`gridCard`、`filterForm`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`
-- 保守维护 / 现场确认后再创建：`map`、`comments`
+- `Default heuristic`：默认可创建 `table`、`details`、`list`、`gridCard`、`filterForm`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`
+- `Fallback`：`map`、`comments` 仅在现场 `catalog` 明确允许时才创建或小范围改配
 
 ## 先判断用户要哪种页面体验
 
@@ -40,8 +46,8 @@
 
 关键点：
 
-- 必须绑定 collection resource
-- 动作只能走 `recordActions`
+- `Hard rule`：必须绑定 collection resource
+- `Hard rule`：动作只能走 `recordActions`
 - 高频配置：`layout`、`labelAlign`、`labelWidth`、`labelWrap`、`colon`、`sorting`、`dataScope`、`linkageRules`
 
 ## `list`
@@ -70,9 +76,9 @@
 
 关键点：
 
-- `filterForm` 自己是 block，字段是筛选项而不是展示字段
-- 多目标时必须显式绑定当前 contract 暴露的 target 字段，优先 `defaultTargetUid`
-- `chart` 只有现场确认可解析 target resource 时，才作为保守筛选目标
+- `Hard rule`：`filterForm` 自己是 block，字段是筛选项而不是展示字段
+- `Hard rule`：多目标时必须显式绑定当前 contract 暴露的 target 字段，优先 `defaultTargetUid`
+- `Fallback`：`chart` 只有现场确认可解析 target resource 时，才作为筛选目标
 
 ## 简单 / 静态 / 保守能力
 
@@ -89,7 +95,7 @@
 
 关键点：
 
-- 不需要 collection resource
+- `Hard rule`：不需要 collection resource
 - 高频配置：`title`、`description`、`className`、`code`、`version`
-- 创建后要读回确认相关 JS 配置已落盘
-- 需要数据访问时，不要自动假设 collection 资源会被推导出来
+- `Hard rule`：创建后要读回确认相关 JS 配置已落盘
+- `Fallback`：需要数据访问时，不要自动假设 collection 资源会被推导出来

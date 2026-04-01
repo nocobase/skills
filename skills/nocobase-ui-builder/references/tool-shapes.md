@@ -16,6 +16,7 @@
 - `get` 不接受 `requestBody`，也不接受 `target`
 - 除 `pageSchemaUid/tabSchemaUid/routeId` 外，其他 id 读取时都默认写进 `uid`
 - 大多数写接口都要包 `requestBody`；其中很多再在 `requestBody` 内放 `target.uid`
+- 当前实现里 `tabSchemaUid` 也是 outer tab 的 canonical write uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
 
 ## 1. 根级 locator `get`
 
@@ -55,8 +56,8 @@
 | --- | --- | --- |
 | `createPage` | `mcp__nocobase__flow_surfaces_create_page` | `requestBody.title`、`requestBody.tabTitle` |
 | `destroyPage` | `mcp__nocobase__flow_surfaces_destroy_page` | `requestBody.uid`，必须是 `pageUid` |
-| `moveTab` | `mcp__nocobase__flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position` |
-| `removeTab` | `mcp__nocobase__flow_surfaces_remove_tab` | `requestBody.uid`，直接用 `tabSchemaUid` |
+| `moveTab` | `mcp__nocobase__flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`，outer tab 直接用 `tabSchemaUid` |
+| `removeTab` | `mcp__nocobase__flow_surfaces_remove_tab` | `requestBody.uid`，outer tab 直接用 `tabSchemaUid` |
 | `movePopupTab` | `mcp__nocobase__flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
 | `moveNode` | `mcp__nocobase__flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
 
@@ -76,6 +77,7 @@
 - `createPage` 创建 target 本身，所以不接受 `target`
 - 只在 MCP 层包一层 `requestBody`
 - `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
+- 当前实现里 outer tab 的 canonical uid 就是 `tabSchemaUid`，所以 `moveTab/removeTab` 直接使用它
 
 ## 3. target-based `requestBody.target.uid`
 
@@ -125,6 +127,7 @@
 
 - `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
+- 当前实现里 `tabSchemaUid` 属于 outer tab 的 canonical uid，可以直接放进 outer tab 写接口的 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
 
 ## 4. `apply` / `mutate`

@@ -1,7 +1,7 @@
 ---
 name: nocobase-ui-builder
-description: 当用户要通过 NocoBase MCP 从自然语言搭建、修改、重排或只读检查 Modern page (v2) 的 route-backed page / tab / popup UI surface 时使用；覆盖 page、outer tab、popup page、popup child tab，以及内容区内的 block/field/action/layout/configuration；不负责浏览器 validation case 复现或页面报错复盘。
-argument-hint: "[task: build|update|reorder|inspect] [target: page|tab|popup|block|field|action|layout|config]"
+description: 当用户要通过 NocoBase MCP 从自然语言搭建、修改、重排或只读检查 Modern page (v2) UI surface 时使用；覆盖 route-backed `page` / `outer-tab` / `route-content`、popup subtree，以及内容区内的 block/field/action/layout/configuration；不负责浏览器 validation case 复现或页面报错复盘。
+argument-hint: "[task: build|update|reorder|inspect] [target: page|outer-tab|route-content|popup-page|popup-tab|popup-content|node]"
 allowed-tools: All MCP tools provided by NocoBase server
 ---
 
@@ -19,24 +19,30 @@ allowed-tools: All MCP tools provided by NocoBase server
 
 # Scope
 
-- 只处理 route-backed Modern page(v2) surface。
-- 覆盖的运行时目标家族固定为：
+- 只处理 Modern page(v2) surface。
+- 统一 target family 名称：
   - `page`
-  - `outer tab`
-  - `route-backed content`
-  - `popup page`
-  - `popup child tab`
-  - `popup content`
-  - `generic node`
-- 支持 route-backed `page` / `outer tab` / `popup` surface 的 lifecycle 与内容写入。
+  - `outer-tab`
+  - `route-content`
+  - `popup-page`
+  - `popup-tab`
+  - `popup-content`
+  - `node`
+- 其中 route-backed 家族是 `page` / `outer-tab` / `route-content`；popup 家族是 `popup-page` / `popup-tab` / `popup-content`。
 - 不单独操作桌面路由、页面菜单、工作台导航这类 page 外层资源；只有它们已经作为 Modern page(v2) surface 的内部节点暴露出来时，才继续处理。
+
+# Implementation-Locked Facts
+
+- 当前 `flowSurfaces` 实现里，outer tab 的 canonical uid 就是 `tabSchemaUid`；outer tab 写接口直接使用它。
+- `pageSchemaUid` / `routeId` 仍主要用于 `get`；page 级写接口继续使用 `pageUid`。
+- popup subtree 的 uid 家族独立于 route-backed page/tab；不要把 popup tab uid 传给外层 `addTab / updateTab / moveTab / removeTab`。
 
 # Default Skeleton
 
 开始执行前，先固定这 4 个判断：
 
 1. **变更类型**：`build` / `update` / `reorder` / `inspect`
-2. **目标家族**：看 [references/runtime-playbook.md](./references/runtime-playbook.md)
+2. **目标家族**：只用本文件里的统一 target family 名称；具体 uid / locator 看 [references/runtime-playbook.md](./references/runtime-playbook.md)
 3. **请求形状**：只看 [references/tool-shapes.md](./references/tool-shapes.md)
 4. **写后验证**：只看 [references/readback.md](./references/readback.md)
 
@@ -49,6 +55,7 @@ allowed-tools: All MCP tools provided by NocoBase server
 
 # Global Rules
 
+- 本节全部都是 `Hard rule`。
 - 如果文档与现场 `get/catalog/readback` 不一致，以现场读回为准。
 - 所有横切硬规则只以本节为准；其他文档只做场景化补充，不重复定义规范。
 - **当前执行链** 指单次 assistant 执行这套 skill 的连续操作链，不跨后续用户回合复用 shortcut。
@@ -56,7 +63,7 @@ allowed-tools: All MCP tools provided by NocoBase server
 - 只有在**当前执行链**里刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`；但仍然必须先 `catalog`。
 - `request shape` 的唯一 owner 是 [references/tool-shapes.md](./references/tool-shapes.md)；不要在其他文档里自行拼 envelope。
 - `readback` 的唯一 owner 是 [references/readback.md](./references/readback.md)；不要在其他文档里自行扩写操作到读回的映射。
-- 工具升级顺序固定为：lifecycle API -> `compose/add*` -> `configure` -> `updateSettings/setLayout/setEventFlows` -> `apply/mutate`。
+- 工具默认优先顺序是：lifecycle API -> `compose` / `configure` / `add*` -> `updateSettings/setLayout/setEventFlows` -> `apply/mutate`。同一目标下优先选择最小公开语义入口：批量搭建优先 `compose`，高频改配优先 `configure`，精确追加优先 `add*`。
 - `inspect` 是只读检查：默认只调用 `get`，必要时才 `catalog`；只有用户明确要求修复、创建、修改或重排时才进入写流程。
 - `inspect` 不等于浏览器运行时验证，也不覆盖 validation case 复现。
 - 新页面在 `createPage` 之前没有现成 target，不要先猜一个 page/tab/grid 去调 `catalog`。

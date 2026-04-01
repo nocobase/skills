@@ -27,6 +27,6 @@
 
 ## 执行规则
 
-- JS 相关配置优先走 `configure`
-- `renderer: "js"` 不是 standalone field type；`jsColumn` / `jsItem` 才是 standalone field type
-- `filterForm` 的字段级限制统一看 [fields.md](./fields.md)
+- `Default heuristic`：JS 相关配置优先走 `configure`
+- `Hard rule`：`renderer: "js"` 不是 standalone field type；`jsColumn` / `jsItem` 才是 standalone field type
+- `Hard rule`：`filterForm` 的字段级限制统一看 [fields.md](./fields.md)

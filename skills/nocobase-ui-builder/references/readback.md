@@ -6,15 +6,15 @@
 
 - 写入后：按操作类型选最小必要读回
 - `inspect`：先 `get`，需要 contract 或能力判别时再 `catalog`
-- 完整 route/tree 校验只用于 page / outer tab / popup child tab 生命周期变化
+- 完整 route/tree 校验只用于 `page` / `outer-tab` / `popup-tab` 生命周期变化
 
 ## 操作 -> 最小读回目标
 
 | 操作 | 最小读回目标 | 何时升级为完整 route/tree 校验 |
 | --- | --- | --- |
 | `createPage` | `get({ pageSchemaUid })` | 总是升级 |
-| `addTab/updateTab/moveTab/removeTab` | page 或对应 outer tab | 总是升级 |
-| `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | popup page 或对应 popup child tab | 总是升级 |
+| `addTab/updateTab/moveTab/removeTab` | `page` 或对应 `outer-tab` | 总是升级 |
+| `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | `popup-page` 或对应 `popup-tab` | 总是升级 |
 | `compose/addBlock/addField/addAction/addRecordAction` | 直接宿主 target | 不升级 |
 | `configure/updateSettings` | 被修改的 target | 不升级 |
 | `setLayout` | 对应 grid target | 不升级 |
@@ -23,19 +23,19 @@
 
 ## 生命周期读回
 
-### 页面 / outer tab
+### 页面 / `outer-tab`
 
 - page route 是否存在
 - tab route 是否存在且顺序正确
-- 页面或 outer tab 的标题、图标、documentTitle 是否同步
-- 新增 outer tab 是否补齐对应 grid anchor
+- 页面或 `outer-tab` 的标题、图标、documentTitle 是否同步
+- 新增 `outer-tab` 是否补齐对应 grid anchor
 
-### popup child tab
+### `popup-tab`
 
 - popup page 是否仍存在
 - popup tabs 数量与顺序是否正确
-- popup child tab 的 `tree.use` 是否是 `ChildPageTabModel`
-- 新增 popup child tab 是否补齐对应 grid anchor
+- `popup-tab` 的 `tree.use` 是否是 `ChildPageTabModel`
+- 新增 `popup-tab` 是否补齐对应 grid anchor
 
 ## Popup subtree 读回
 

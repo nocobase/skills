@@ -2,10 +2,16 @@
 
 表单类 block 的默认顺序是：**能明确新增/编辑，就不用兼容 `form`**。
 
+规则强度：
+
+- `Hard rule`：不能违背
+- `Default heuristic`：默认偏好
+- `Fallback`：前两者不适用时再用
+
 ## 默认创建策略
 
-- 默认可创建：`createForm`、`editForm`
-- 兼容使用：`form`
+- `Default heuristic`：默认可创建 `createForm`、`editForm`
+- `Fallback`：`form` 只作为兼容路径使用
 
 ## 对照表
 
@@ -17,10 +23,10 @@
 
 ## 选型规则
 
-- 用户要“新建记录 / 录入页 / addNew popup”时，优先 `createForm`
-- 用户要“编辑弹窗 / 编辑页 / record action edit popup”时，优先 `editForm`
-- 用户明确要求“通用表单”或现场已存在 `FormBlockModel` 时，才考虑 `form`
-- 只是查看详情时，不要用 `editForm` 或 `form` 伪装详情页，优先 `details`
+- `Default heuristic`：用户要“新建记录 / 录入页 / addNew popup”时，优先 `createForm`
+- `Default heuristic`：用户要“编辑弹窗 / 编辑页 / record action edit popup”时，优先 `editForm`
+- `Fallback`：用户明确要求“通用表单”或现场已存在 `FormBlockModel` 时，才考虑 `form`
+- `Hard rule`：只是查看详情时，不要用 `editForm` 或 `form` 伪装详情页，优先 `details`
 
 ## 公开语义
 
@@ -29,15 +35,15 @@
 - `fields`
 - `actions`
 
-它们只有 **form actions**，不承载 `recordActions`。
+`Hard rule`：它们只有 **form actions**，不承载 `recordActions`。
 
 ## JS 能力
 
-- `renderer: "js"` 可用于表单绑定字段
-- `jsItem` 只允许在 `form/createForm/editForm`
-- 需要更细 path-level 配置时，再看 `settingsContract`
+- `Default heuristic`：`renderer: "js"` 可用于表单绑定字段
+- `Hard rule`：`jsItem` 只允许在 `form/createForm/editForm`
+- `Fallback`：需要更细 path-level 配置时，再看 `settingsContract`
 
 ## 写入提醒
 
-- 新建表单前仍要先确认 target 能创建对应 block
-- `form` 不是默认 happy path；任何写入前仍要先看现场 `catalog(target)`，不要假设它与 `createForm/editForm` 完全等价
+- `Hard rule`：新建表单前仍要先确认 target 能创建对应 block
+- `Fallback`：`form` 不是默认 happy path；任何写入前仍要先看现场 `catalog(target)`，不要假设它与 `createForm/editForm` 完全等价

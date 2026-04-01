@@ -7,7 +7,7 @@
 - action popup
 - 关系字段 `openView`
 - popup surface 内继续 `compose/add*`
-- popup child tab lifecycle
+- `popup-tab` lifecycle
 
 popup 相关 uid 的含义、首选名称和兼容别名，统一看 `runtime-playbook` 顶部的 glossary。
 
@@ -15,7 +15,7 @@ popup 相关 uid 的含义、首选名称和兼容别名，统一看 `runtime-pl
 
 1. 先创建会打开 popup 的 action 或 field
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target
-3. 确认本次写的是 popup page、popup child tab，还是 popup 内容区
+3. 确认本次写的是 `popup-page`、`popup-tab`，还是 `popup-content`
 4. 对对应 popup target 先 `catalog`
 5. 再 `compose/configure/add*`
 6. 如需更细配置，再看 `updateSettings`
