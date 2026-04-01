@@ -1,7 +1,6 @@
 # Tools
 
-按职责选 tool，不按“我记得某个底层接口可能能干这事”来选。基础规则统一看 runtime-truth，不在这里重复定义。
-如果 UI 搭建需要额外上下文，可以配合其他 NocoBase MCP tools 先取数据模型、资源或现场状态；但 UI surface 的结构写入仍以本目录与 runtime-truth 为准。
+按职责选 tool，不按“我记得某个底层接口可能能干这事”来选。这里是职责索引，不重复定义 runtime truth。
 
 ## 目录
 
@@ -11,7 +10,8 @@
 - [precise-edits.md](./precise-edits.md)
 - [orchestration.md](./orchestration.md)
 
-## 基础规则入口
+## 规范所有权
 
-- 默认流程统一看 [../runtime-truth/overview.md](../runtime-truth/overview.md)
-- 请求形状统一看 [../runtime-truth/tool-shapes.md](../runtime-truth/tool-shapes.md)
+- 默认流程、locator、target 角色：看 [../runtime-truth/overview.md](../runtime-truth/overview.md)
+- 请求形状：看 [../runtime-truth/tool-shapes.md](../runtime-truth/tool-shapes.md)
+- 能力策略：看 [../runtime-truth/capability-matrix.md](../runtime-truth/capability-matrix.md)

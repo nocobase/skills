@@ -15,8 +15,8 @@
   - [contract-playbook.md](./contract-playbook.md)
 - 联动与事件流：
   - [linkage-and-event-flows.md](./linkage-and-event-flows.md)
-- JS 相关补充：
-  - [js-models.md](./js-models.md)
+- JS 能力总览：
+  - [../capabilities/js.md](../capabilities/js.md)
 
 ## 使用原则
 

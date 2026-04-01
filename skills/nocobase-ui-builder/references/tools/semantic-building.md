@@ -22,7 +22,7 @@
 
 - `compose` 的 `recordActions` 只对 `table/details/list/gridCard` 有意义
 - `form` 不是新增页面默认首选；默认优先 `createForm` / `editForm`
-- `map/comments` 属于非默认创建能力；只有用户明确要求且现场 `catalog` 暴露创建能力时才创建
+- `map/comments` 等非默认创建能力的策略统一看 [../runtime-truth/capability-matrix.md](../runtime-truth/capability-matrix.md)
 - `configure` 只写公开 `configureOptions`，不猜 path
 
 基础 shape 统一看 [../runtime-truth/tool-shapes.md](../runtime-truth/tool-shapes.md)。

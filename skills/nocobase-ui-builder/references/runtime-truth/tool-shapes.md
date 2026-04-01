@@ -8,7 +8,7 @@
 
 - `mcp__nocobase__flow_surfaces_get`
 
-调用形状：
+合法调用形状示例：
 
 ```json
 {
@@ -16,11 +16,21 @@
 }
 ```
 
-或者：
-
 ```json
 {
   "pageSchemaUid": "employees-page-schema"
+}
+```
+
+```json
+{
+  "tabSchemaUid": "overview-tab-schema"
+}
+```
+
+```json
+{
+  "routeId": "123"
 }
 ```
 
@@ -29,7 +39,9 @@
 - 只接受根级定位字段。
 - 不接受 `requestBody`。
 - 不接受 `target` 包装。
-- 至少给出一个：`uid`、`pageSchemaUid`、`tabSchemaUid`、`routeId`。
+- 一次只传一个 root locator；不要混传多个 locator 兜底。
+- 只有这 4 个根级 locator：`uid`、`pageSchemaUid`、`tabSchemaUid`、`routeId`。
+- 像 `hostUid`、`pageUid`、`popupPageUid`、`popupTabUid`、`tabUid`、`gridUid`、`popupGridUid` 这类值，在读取时默认都填进 `uid`。
 
 ## 2. `requestBody` 但不带 `target`
 
@@ -58,12 +70,11 @@
 规则：
 
 - `createPage` 是写接口，但它创建 target 本身，因此不接受 `target`。
-- 只在 MCP 层包 `requestBody`。
+- 只在 MCP 层包一层 `requestBody`。
 - 后续读取可使用返回的 `pageSchemaUid`、`tabSchemaUid`、`routeId`。
 - page 级写接口用返回的 `pageUid`。
-- route-backed tab 级写接口和 outer tab surface target 直接用返回的 `tabSchemaUid`。
-- 新页面首次往 tab 内容区搭 block / field / action 时，优先使用返回的 `gridUid`。
-- 如果要做 tab 级 `catalog`、tab 元信息改配，或当前任务关心的是整个 outer tab surface，则使用 `tabSchemaUid`。
+- route-backed tab 级写接口和 outer tab surface target 用返回的 `tabSchemaUid`。
+- 新页面或新外层 tab 的内容区写入，优先使用返回的 `gridUid`。
 
 ## 3. target-based `requestBody.target.uid`
 
@@ -103,16 +114,23 @@
 - `mcp__nocobase__flow_surfaces_remove_node`
 - `mcp__nocobase__flow_surfaces_apply`
 
+常见 target 选择：
+
+- `addTab.target.uid = pageUid`
+- `updateTab.target.uid = tabSchemaUid`
+- `addPopupTab.target.uid = popupPageUid`
+- `updatePopupTab/removePopupTab.target.uid = popupTabUid / tabUid`
+- route-backed 内容区 `catalog/compose/add*` 优先 `target.uid = gridUid`
+- popup 内容区 `catalog/compose/add*` 优先 `target.uid = popupGridUid / gridUid`
+- outer tab surface 的 `catalog/configure` 用 `target.uid = tabSchemaUid`
+- popup tab surface 的 `catalog/configure` 用 `target.uid = popupTabUid / tabUid`
+
 规则：
 
-- `target` 是业务 payload 的一部分。
-- MCP 层再包一层 `requestBody`。
-- `addTab.target.uid` 填 `pageUid`。
-- `updateTab.target.uid` 填 route-backed tab 的 `tabSchemaUid`。
-- `addPopupTab.target.uid` 填 `popupPageUid` 或读回得到的 `ChildPageModel.uid`。
-- `updatePopupTab/removePopupTab.target.uid` 填 popup child tab 的 `popupTabUid` / `tabUid` / `ChildPageTabModel.uid`。
+- `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`。
 - outer tab 与 popup child tab 都可能表现为 `kind = "tab"`；要结合 `tree.use` 或 uid 来源选对 API。
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`。
+- `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 都不是“任意 target-based tool 可互换”的通用 uid；按上面的接口族选择。
 
 ## 4. `mutate` 的特例
 
@@ -158,59 +176,7 @@
 }
 ```
 
-另一个错误：
-
-```json
-{
-  "requestBody": {
-    "uid": "table-uid",
-    "type": "view"
-  }
-}
-```
-
-这里少了 `target`。
-
-正确：
-
-```json
-{
-  "requestBody": {
-    "target": {
-      "uid": "table-uid"
-    },
-    "type": "view"
-  }
-}
-```
-
-还有一个常见错误：
-
-```json
-{
-  "requestBody": {
-    "target": {
-      "uid": "employees-page-uid"
-    },
-    "title": "Employees"
-  }
-}
-```
-
-这不是合法的 `createPage` 形状。
-
-正确：
-
-```json
-{
-  "requestBody": {
-    "title": "Employees",
-    "tabTitle": "Overview"
-  }
-}
-```
-
-再一个常见错误：
+错误：
 
 ```json
 {
@@ -238,7 +204,7 @@
 }
 ```
 
-还有一个 popup child tab 的常见错误：
+错误：
 
 ```json
 {

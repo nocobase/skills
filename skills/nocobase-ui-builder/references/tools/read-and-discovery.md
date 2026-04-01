@@ -21,7 +21,7 @@
 
 ## 关键 gotchas
 
-- `get` 只接受根级 locator，不接受 `requestBody` 或 `target`
+- `get` 只接受一个根级 locator；如果手上是 `hostUid`、`pageUid`、`popupPageUid`、`popupTabUid`、`gridUid` 这类值，读取时都写成 `get({ uid: ... })`
 - `catalog` 是 target-based request shape，必须传 `requestBody.target.uid`
 - 新页面在 `createPage` 之前没有现成 target，不要先猜一个 page/tab/grid 去读 `catalog`
 - popup 宿主的写接口返回值里可能直接带 `popupPageUid/popupTabUid/popupGridUid`

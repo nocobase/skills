@@ -21,7 +21,7 @@
 
 1. `get`
 2. `catalog`
-3. 查 `settingsContract`
+3. 如确需 path-level contract，再查 `settingsContract`
 4. `updateSettings`
 5. 必要读回
 

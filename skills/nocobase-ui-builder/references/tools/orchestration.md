@@ -19,7 +19,7 @@
 
 ## 关键 gotchas
 
-- `apply` 只接受公开 capability 对应的 subtree spec，不接受任意 raw patch
+- `apply` 只接受 `catalog` 或主链文档已公开、且有稳定 contract 的 `type/use`；不接受未公开 model use 或任意 raw patch
 - same-use sibling 只有在能确定性配对时才继续；否则先收敛目标
 - `mutate` 是编排工具，不是默认 patch 工具
 

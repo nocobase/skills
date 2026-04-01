@@ -17,11 +17,14 @@
 - 在已有 page 下新增、改名、排序、删除外层 tab 时用对应 tab lifecycle tools
 - 删除整页时用 `destroyPage`，不要只删 route 或只删某棵 tree
 
-关键 gotchas：
+关键 target 选择：
 
-- 新建页面和“给已有页面新增外层 tab”不是同一条流程；前者走 `createPage`，后者先 `get` 再 `addTab`
-- `addTab` 刚返回的新 `gridUid/tabSchemaUid` 仍然要先 `catalog`，再继续 `compose/configure`
-- page / tab locator 与请求形状统一看 `overview.md` 和 `tool-shapes.md`，这里不重复定义
+- `addTab.target.uid = pageUid`
+- `updateTab.target.uid = tabSchemaUid`
+- `moveTab.sourceUid / targetUid = tabSchemaUid`
+- `removeTab.requestBody.uid = tabSchemaUid`
+- 新外层 tab 的内容区继续写入时，优先对返回的 `gridUid` 做 `catalog`
+- 外层 tab 的标题 / 图标 / documentTitle / surface 能力判断，优先对 `tabSchemaUid` 做 `catalog`
 
 ## Popup Child Tab
 
@@ -35,11 +38,18 @@
 - 已有 popup page 下新增、改名、排序、删除 popup child tab
 - popup tab 内继续 `compose` / `configure` / `add*`
 
+关键 target 选择：
+
+- 如果只有宿主 uid，先 `get({ uid: hostUid })` 拿到 `popupPageUid/popupTabUid/popupGridUid`
+- `addPopupTab.target.uid = popupPageUid`
+- `updatePopupTab/removePopupTab.target.uid = popupTabUid / tabUid`
+- `movePopupTab.sourceUid / targetUid = popupTabUid / tabUid`
+- popup child tab 新增后如需继续写内容，优先对返回的 `gridUid` 做 `catalog`
+
 关键 gotchas：
 
 - popup child tab 不要混用外层 `addTab/updateTab/moveTab/removeTab`
-- `addPopupTab` 返回新的 `tabUid/gridUid` 后，如需继续写内容，仍然先 `catalog`
-- popup page / popup child tab 的 locator 与请求形状统一看 `overview.md` 和 `tool-shapes.md`
 - `kind = "tab"` 不足以区分两类 tab；继续看 `tree.use` 是 `RootPageTabModel` 还是 `ChildPageTabModel`
+- popup page / popup child tab 的 locator 与请求形状统一看 `overview.md` 和 `tool-shapes.md`
 
 基础 shape 统一看 [../runtime-truth/tool-shapes.md](../runtime-truth/tool-shapes.md)。

@@ -13,17 +13,25 @@ popup 相关能力主要出现在三处：
 - `popupTabUid`
 - `popupGridUid`
 - `tabUid`（来自 `addPopupTab` 返回值）
+- `gridUid`（来自 `addPopupTab` 返回值，与 `popupGridUid` 同一语义域）
 
 ## 推荐顺序
 
 1. 先创建会打开 popup 的 action 或 field
 2. 优先复用返回值中的 `popupPageUid/popupTabUid/popupGridUid`
-3. 如果只有宿主 uid，先 `get(hostUid)` 拿到 popup 相关 uid
-4. 先确认本次要写的是 `popupPageUid`、`popupTabUid/tabUid` 还是 `popupGridUid`
+3. 如果只有宿主 uid，先 `get({ uid: hostUid })` 拿到 popup 相关 uid
+4. 先确认本次要写的是 `popupPageUid`、`popupTabUid` / `tabUid` 还是 `popupGridUid` / `gridUid`
 5. 在对应 popup target 上先 `catalog`
 6. 再 `compose/configure/add*`
-7. 如需 popup child tab lifecycle，走 `addPopupTab/updatePopupTab/movePopupTab/removePopupTab`；如果新增后还要继续写内容，对返回的 `tabUid/gridUid` 再 `catalog`
-8. 如需更细配置，再 `updateSettings`
+7. 如需更细配置，再 `updateSettings`
+
+## popup child tab lifecycle
+
+- 新增：`addPopupTab(target.uid=popupPageUid)`
+- 更新：`updatePopupTab(target.uid=popupTabUid 或 tabUid)`
+- 排序：`movePopupTab(sourceUid=popupTabUid 或 tabUid, targetUid=popupTabUid 或 tabUid)`
+- 删除：`removePopupTab(target.uid=popupTabUid 或 tabUid)`
+- 如果新增后还要继续写内容，对返回的 `gridUid` 再 `catalog`
 
 ## 字段 openView
 
@@ -39,4 +47,4 @@ popup 相关能力主要出现在三处：
 - popup surface 与顶层 page/tab 不是同一个作用域，不要混用 locator。
 - 已有 popup subtree 写入不要跳过 `catalog`；popup target 的能力和 settings contract 仍要现场确认。
 - popup child tab 与 route-backed tab 不是同一套生命周期 API，不要混用 `addTab/removeTab`。
-- `popupTabUid` 和 `tabUid` 都表示 popup child tab 的 canonical uid；字段名取决于返回它的是 popup-capable 宿主写接口还是 `addPopupTab`。
+- `popupTabUid` 和 `tabUid` 都表示 popup child tab 的 canonical uid；`popupGridUid` 和 `gridUid` 都表示 popup 内容区 uid；字段名取决于返回它的是 popup-capable 宿主写接口还是 `addPopupTab`。

@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "搭建或修改 Modern page(v2) 的 page/tab/popup UI surface"
-  default_prompt: "Use $nocobase-ui-builder to build, modify, or audit NocoBase Modern page (v2) UI surfaces. Treat runtime get/catalog/readback as the truth; for existing targets do get -> catalog before write, prefer createPage/compose/configure before precise edits, run minimal readback after writes, and distinguish route-backed tabs from popup child tabs when choosing lifecycle APIs."
+  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI surface work. Treat live get/catalog/readback as the truth and use the canonical runtime docs for lifecycle, target, and request-shape decisions."
 
 policy:
   allow_implicit_invocation: true

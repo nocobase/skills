@@ -6,7 +6,7 @@
 
 - 绑定字段：[bound-field.md](./bound-field.md)
 - 关系叶子字段：[relation-leaf.md](./relation-leaf.md)
-- JS 字段能力：[js-models.md](./js-models.md)
+- JS 能力总览：[../js.md](../js.md)
 
 ## 基本规则
 

@@ -1,10 +1,16 @@
 # Capability Matrix
 
+本文件是 block / action / field 能力策略的唯一 owner。`默认可创建`、`兼容使用`、`保守维护`、`create = 现场确认` 统一以这里为准。
+
 字段说明：
 
 - `formal builtin`：是否属于当前公开 capability 语义里的标准内建类型。
 - `fixture captured`：是否已经有上游 fixture、测试或稳定样例作为证据。
 - `create = 现场确认`：不是默认创建路径，只有现场 `catalog` 明确暴露能力时才创建。
+- `默认策略`：
+  - `默认可创建`：发布版默认 happy path 可直接使用。
+  - `兼容使用`：能力存在，但不是默认推荐路径。
+  - `保守维护`：默认不创建；已有节点只做读回、公开改配或 contract 已明确的小范围修改。
 
 ## Block 能力矩阵
 
@@ -16,7 +22,7 @@
 | `editForm` | `edit-form` | `EditFormModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 编辑表单 |
 | `form` | - | `FormBlockModel` | `@nocobase/core/client` | 否 | 否 | 是 | 是 | 是 | 是 | 兼容使用 | 可创建，但不是标准内建 public type |
 | `details` | `details` | `DetailsBlockModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 支持 `recordActions` |
-| `filterForm` | `filter-form` | `FilterFormBlockModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 默认给 table/details/list/gridCard/map/comments 提供筛选；chart 仅在现场读回确认 targetable 时再用 |
+| `filterForm` | `filter-form` | `FilterFormBlockModel` | `@nocobase/core/client` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | 常见筛选目标是 `table/details/list/gridCard`；`map/comments/chart` 是否可绑定，以当前 `catalog` / contract 暴露为准 |
 | `list` | `list` | `ListBlockModel` | `@nocobase/plugin-block-list` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | item 级 `recordActions` |
 | `gridCard` | `grid-card` | `GridCardBlockModel` | `@nocobase/plugin-block-grid-card` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | card item 级 `recordActions` |
 | `markdown` | `markdown` | `MarkdownBlockModel` | `@nocobase/plugin-block-markdown` | 是 | 是 | 是 | 是 | 是 | 否 | 默认可创建 | 静态说明内容 |

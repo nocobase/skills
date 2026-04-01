@@ -1,12 +1,15 @@
 # Readback Checklist
 
+这里放“怎么验”的规范。它既用于写后读回，也用于用户只要求 review / audit / 校验时的只读检查。
+
 按变更类型选择最小必要读回，不要每次都做同样重的全量检查。
 
-## 怎么用
+## 使用原则
 
 - 写入后：按这份清单选择与本次变更直接相关的检查项。
 - 只读校验 / review：先 `get`，必要时再 `catalog`，然后按对应条目断言；无明确写入意图时不要调用写接口。
 - `最小必要读回` 指至少读回直接受影响的 target，或它的宿主 / 父级 target，并核对本次变更涉及的结构、配置或 route 字段。
+- 只有 page / tab / popup target 层级变化、route 同步或生命周期变更时，才升级为完整 route/tree 校验。
 
 ## 页面 / Route-Backed Tab 生命周期
 
@@ -24,7 +27,9 @@
 
 ## Popup Subtree
 
-- 是否拿到了或读回了 `popupPageUid/popupTabUid/popupGridUid`
+- 是否拿到了或读回了 `popupPageUid`
+- 是否拿到了或读回了 `popupTabUid / tabUid`
+- 是否拿到了或读回了 `popupGridUid / gridUid`
 - popup subtree 是否挂在正确 popup page/tab/grid 下
 
 ## Block / Field / Action 结构
