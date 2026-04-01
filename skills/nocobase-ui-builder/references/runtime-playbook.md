@@ -12,7 +12,7 @@
 | `routeId` | route-backed page 或 tab 的读定位符 | `get` 根级 locator | `createPage` / `addTab` 返回值；路由读回 |
 | `pageUid` | route-backed page 的写 target uid | `target.uid` 或 root `uid` | `createPage` 返回值；先 `get(pageSchemaUid/routeId)` 后再取页面节点 uid |
 | `gridUid` | `route-content` 的写 target uid | 通常放 `target.uid`；读取时放 `get({ uid })` | `createPage` / `addTab` 返回值 |
-| `hostUid` | popup 宿主节点的读定位符，不是 popup page 本身 | `get({ uid: hostUid })` | 会打开 popup 的 action / field / block uid |
+| `hostUid` | popup host 节点的读定位符，不是 popup page 本身 | `get({ uid: hostUid })` | 会打开 popup 的 action / field / block uid |
 | `popupPageUid` | popup page 的写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action / record action 返回值；从 host `get` 后读 `tree.subModels.page.uid` |
 | `popupTabUid` | `popup-tab` 的 canonical write uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
 | `popupGridUid` | `popup-content` 的 canonical write uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
@@ -33,7 +33,7 @@
 | `popup-page` | 宿主 action / field 打开的 popup 容器 | `popupPageUid` | `uid = popupPageUid` | `addPopupTab`、popup page `catalog/configure` |
 | `popup-tab` | popup 内部 tab | `popupTabUid` | `uid = popupTabUid` | popup child tab lifecycle、popup tab `catalog/configure` |
 | `popup-content` | popup page / popup child tab 内的内容 grid | `popupGridUid` | `uid = popupGridUid` | popup 内继续 `compose/add*` |
-| `node` | 非 lifecycle 节点，例如 block / field / action / wrapper / host | 节点自身 `uid` | `uid = node uid` | 精确改配、局部读回、宿主节点继续写入 |
+| `node` | 非 lifecycle 节点，例如 block / field / action / wrapper / popup host | 节点自身 `uid` | `uid = node uid` | 精确改配、局部读回、popup host 节点继续写入 |
 
 说明：
 
@@ -69,7 +69,7 @@
 
 ### 4. 已有 popup subtree 写入
 
-- 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 或 `popupPageUid` 读回 popup subtree
+- 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 这个 popup host，或 `popupPageUid` 读回 popup subtree
 - 先明确本次目标到底是 `popup-page`、`popup-tab`，还是 `popup-content`
 - 再对对应 target 执行 `catalog -> write -> readback`
 

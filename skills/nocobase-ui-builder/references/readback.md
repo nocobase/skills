@@ -1,11 +1,10 @@
 # Readback
 
-本文档是写后验证的唯一 owner。写后只核对本次变更直接相关的目标；只有生命周期或 route/tree 层级变化时，才升级为完整校验。`inspect` 的只读流程与是否允许写入，遵循 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
+本文档是写后验证的唯一 owner。写后只核对本次变更直接相关的目标；只有生命周期或 route/tree 层级变化时，才升级为完整校验。`inspect` 的只读流程不在本文件定义，统一遵循 [../SKILL.md](../SKILL.md) 的 `Global Rules` 和 [runtime-playbook.md](./runtime-playbook.md)。
 
 ## 使用原则
 
 - 写入后：按操作类型选最小必要读回
-- `inspect`：先 `get`，需要 contract 或能力判别时再 `catalog`
 - 完整 route/tree 校验只用于 `page` / `outer-tab` / `popup-tab` 生命周期变化
 
 ## 操作 -> 最小读回目标
@@ -15,10 +14,10 @@
 | `createPage` | `get({ pageSchemaUid })` | 总是升级 |
 | `addTab/updateTab/moveTab/removeTab` | `page` 或对应 `outer-tab` | 总是升级 |
 | `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | `popup-page` 或对应 `popup-tab` | 总是升级 |
-| `compose/addBlock/addField/addAction/addRecordAction` | 直接宿主 target | 不升级 |
+| `compose/addBlock/addField/addAction/addRecordAction` | 直接父级 / 直接容器 target | 不升级 |
 | `configure/updateSettings` | 被修改的 target | 不升级 |
 | `setLayout` | 对应 grid target | 不升级 |
-| `setEventFlows` | 被绑定事件流的 target，必要时再读宿主 | 不升级 |
+| `setEventFlows` | 被绑定事件流的 target，必要时再读其 popup host 或直接父级 | 不升级 |
 | `apply/mutate` | 直接受影响 target；如涉及 subtree 层级变化，再读父级 | 仅结构层级真的改变时升级 |
 
 ## 生命周期读回
@@ -40,8 +39,10 @@
 ## Popup subtree 读回
 
 - 是否读回了 `popupPageUid`
-- 是否读回了 `popupTabUid/tabUid`
-- 是否读回了 `popupGridUid/gridUid`
+- 是否读回了 `popupTabUid`
+- popup 场景下如果现场只暴露 `tabUid`，是否已按 popup tab 兼容别名处理
+- 是否读回了 `popupGridUid`
+- popup 场景下如果现场只暴露 `gridUid`，是否已按 popup content 兼容别名处理
 - popup subtree 是否挂在正确的 popup page/tab/grid 下
 
 ## 结构读回

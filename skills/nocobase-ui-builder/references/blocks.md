@@ -2,11 +2,7 @@
 
 按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)，动作库存统一看 [actions.md](./actions.md)，横切 guardrail 以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准。
 
-规则强度：
-
-- `Hard rule`：不能违背
-- `Default heuristic`：默认偏好
-- `Fallback`：前两者不适用时再用
+以下直接沿用 `Hard rule` / `Default heuristic` / `Fallback` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## 默认创建策略
 
@@ -76,8 +72,8 @@
 
 关键点：
 
-- `Hard rule`：`filterForm` 自己是 block，字段是筛选项而不是展示字段
-- `Hard rule`：多目标时必须显式绑定当前 contract 暴露的 target 字段，优先 `defaultTargetUid`
+- `Hard rule`：`filterForm` 自己是 block，负责筛选输入而不是数据展示
+- 具体字段限制与多目标 target 绑定规则统一看 [fields.md](./fields.md)
 - `Fallback`：`chart` 只有现场确认可解析 target resource 时，才作为筛选目标
 
 ## 简单 / 静态 / 保守能力

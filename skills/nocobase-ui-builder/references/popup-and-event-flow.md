@@ -11,7 +11,7 @@
 
 popup 相关 uid 的含义、首选名称和兼容别名，统一看 `runtime-playbook` 顶部的 glossary。
 
-## 推荐顺序
+## 新建 popup 入口时的推荐顺序
 
 1. 先创建会打开 popup 的 action 或 field
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target
@@ -19,6 +19,8 @@ popup 相关 uid 的含义、首选名称和兼容别名，统一看 `runtime-pl
 4. 对对应 popup target 先 `catalog`
 5. 再 `compose/configure/add*`
 6. 如需更细配置，再看 `updateSettings`
+
+如果当前已经明确拿到了 `popupPageUid` / `popupTabUid` / `popupGridUid`，可直接从目标判别和 `catalog` 开始，不必先创建触发 popup 的 action / field。
 
 ## openView 与 popup 的区分
 

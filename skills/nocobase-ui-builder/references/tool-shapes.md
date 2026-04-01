@@ -46,7 +46,8 @@
 - 不接受 `requestBody`
 - 不接受 `target`
 - 一次只传一个 root locator
-- `hostUid`、`pageUid`、`popupPageUid`、`popupTabUid`、`tabUid`、`gridUid`、`popupGridUid` 这类值，读取时都默认填进 `uid`
+- `hostUid`、`pageUid`、`gridUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 这类值，读取时都默认填进 `uid`
+- popup 场景下如果现场只暴露 `tabUid` 或 `gridUid`，也按 `uid` 处理
 
 ## 2. `requestBody` 但不带 `target`
 
@@ -117,11 +118,11 @@
 - `addTab.target.uid = pageUid`
 - `updateTab.target.uid = tabSchemaUid`
 - `addPopupTab.target.uid = popupPageUid`
-- `updatePopupTab/removePopupTab.target.uid = popupTabUid/tabUid`
+- `updatePopupTab/removePopupTab.target.uid = popupTabUid`；popup 场景下如果现场只暴露 `tabUid`，用该值代替
 - route-backed 内容区 `catalog/compose/add*` 优先 `target.uid = gridUid`
-- popup 内容区 `catalog/compose/add*` 优先 `target.uid = popupGridUid/gridUid`
+- popup 内容区 `catalog/compose/add*` 优先 `target.uid = popupGridUid`；popup 场景下如果现场只暴露 `gridUid`，用该值代替
 - outer tab surface `catalog/configure` 用 `target.uid = tabSchemaUid`
-- popup tab surface `catalog/configure` 用 `target.uid = popupTabUid/tabUid`
+- popup tab surface `catalog/configure` 用 `target.uid = popupTabUid`；popup 场景下如果现场只暴露 `tabUid`，用该值代替
 
 规则：
 

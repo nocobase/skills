@@ -2,11 +2,7 @@
 
 字段选择顺序：**先看容器，再看字段类型，再看是否需要 JS、关系叶子或 openView。** block 选型看 [blocks.md](./blocks.md)，JS 能力矩阵看 [js.md](./js.md)。
 
-规则强度：
-
-- `Hard rule`：不能违背
-- `Default heuristic`：默认偏好
-- `Fallback`：前两者不适用时再用
+以下直接沿用 `Hard rule` / `Default heuristic` / `Fallback` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## 容器心智
 
@@ -16,13 +12,13 @@
 
 ## 绑定字段
 
-最常见写法：
+在 `compose(...).fields` 里，最常见的 shorthand 写法是：
 
 ```json
 "nickname"
 ```
 
-或显式写法：
+在 `addField/addFields`，或需要显式声明字段路径时，统一用：
 
 ```json
 { "fieldPath": "nickname" }
@@ -64,12 +60,7 @@
 - `Hard rule`：字段本质是筛选项，不是展示字段
 - `Hard rule`：多目标时，优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`
 - `Hard rule`：不支持 `renderer: "js"`、`jsColumn`、`jsItem`
-
-## JS 字段能力
-
-- `Hard rule`：`renderer: "js"` 是绑定字段的 JS 变体，不是 standalone field type
-- `Hard rule`：`jsColumn` 只允许在 `table`
-- `Hard rule`：`jsItem` 只允许在 `form/createForm/editForm`
+- JS 字段能力矩阵与位置限制统一看 [js.md](./js.md)，本文不重复展开
 
 ## 读回定位
 

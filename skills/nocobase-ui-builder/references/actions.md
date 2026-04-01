@@ -2,10 +2,7 @@
 
 动作选择顺序：**先看 scope，再看容器，再看是不是记录级。**
 
-规则强度：
-
-- `Hard rule`：不能违背
-- `Default heuristic`：默认偏好
+以下直接沿用 `Hard rule` / `Default heuristic` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## Scope 速查
 

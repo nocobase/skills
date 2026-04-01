@@ -2,11 +2,7 @@
 
 表单类 block 的默认顺序是：**能明确新增/编辑，就不用兼容 `form`**。
 
-规则强度：
-
-- `Hard rule`：不能违背
-- `Default heuristic`：默认偏好
-- `Fallback`：前两者不适用时再用
+以下直接沿用 `Hard rule` / `Default heuristic` / `Fallback` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## 默认创建策略
 
@@ -39,8 +35,8 @@
 
 ## JS 能力
 
-- `Default heuristic`：`renderer: "js"` 可用于表单绑定字段
-- `Hard rule`：`jsItem` 只允许在 `form/createForm/editForm`
+- 表单支持绑定字段 `renderer: "js"` 与 standalone `jsItem`
+- 具体 JS 字段能力矩阵与位置限制统一看 [js.md](./js.md)
 - `Fallback`：需要更细 path-level 配置时，再看 `settingsContract`
 
 ## 写入提醒
