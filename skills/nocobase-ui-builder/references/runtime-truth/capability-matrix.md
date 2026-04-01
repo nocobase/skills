@@ -15,9 +15,9 @@
 | `gridCard` | `grid-card` | `GridCardBlockModel` | `@nocobase/plugin-block-grid-card` | 是 | 是 | 是 | 是 | 是 | 是 | 默认可创建 | card item 级 `recordActions` |
 | `markdown` | `markdown` | `MarkdownBlockModel` | `@nocobase/plugin-block-markdown` | 是 | 是 | 是 | 是 | 是 | 否 | 默认可创建 | 静态说明内容 |
 | `iframe` | `iframe` | `IframeBlockModel` | `@nocobase/plugin-block-iframe` | 是 | 是 | 是 | 是 | 是 | 否 | 默认可创建 | URL 或 HTML 嵌入 |
-| `map` | `map` | `MapBlockModel` | `@nocobase/plugin-map` | 是 | 是 | 是 | 是 | 否 | 是 | 只读说明 | 可读回，不应默认创建 |
+| `map` | `map` | `MapBlockModel` | `@nocobase/plugin-map` | 是 | 是 | 是 | 是 | 现场确认 | 是 | 保守维护 | 不提供默认 happy-path；以现场 contract 为准 |
 | `chart` | `chart` | `ChartBlockModel` | `@nocobase/plugin-data-visualization` | 是 | 是 | 是 | 是 | 是 | 否 | 默认可创建 | 核心配置走 `configure` |
-| `comments` | `comments` | `CommentsBlockModel` | `@nocobase/plugin-comments` | 是 | 是 | 是 | 是 | 否 | 是 | 只读说明 | 可读回，不应默认创建 |
+| `comments` | `comments` | `CommentsBlockModel` | `@nocobase/plugin-comments` | 是 | 是 | 是 | 是 | 现场确认 | 是 | 保守维护 | 不提供默认 happy-path；以现场 contract 为准 |
 | `actionPanel` | `action-panel` | `ActionPanelBlockModel` | `@nocobase/plugin-block-workbench` | 是 | 是 | 是 | 是 | 是 | 否 | 默认可创建 | 常用于工具面板 |
 
 ## Action scope 与容器矩阵

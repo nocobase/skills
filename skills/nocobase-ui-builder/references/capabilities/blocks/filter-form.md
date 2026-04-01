@@ -31,6 +31,8 @@
 
 如果页面里不止一个 `table/details/list/gridCard/map/comments` 目标，先 `get` 或 `catalog` 拿到目标 block uid，再显式绑定。
 
+只使用当前 contract 明确暴露的 target 绑定字段，优先 `defaultTargetUid`；不要自造“等价字段”。
+
 `chart` 不要当默认 target 猜；只有现场 `get` 证明它可被 `filterForm` 解析成目标时才显式绑定。
 
 ## 不支持的能力

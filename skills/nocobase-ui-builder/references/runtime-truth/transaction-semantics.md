@@ -4,18 +4,19 @@
 
 这些调用默认是单项、精确写入：
 
-- `addblock`
-- `addfield`
-- `addaction`
-- `addrecordaction`
-- `updatesettings`
-- `seteventflows`
-- `setlayout`
-- `movenode`
-- `removenode`
-- `addtab/updatetab/movetab/removetab`
+- `addBlock`
+- `addField`
+- `addAction`
+- `addRecordAction`
+- `updateSettings`
+- `setEventFlows`
+- `setLayout`
+- `moveNode`
+- `removeNode`
+- `addTab/updateTab/moveTab/removeTab`
+- `addPopupTab/updatePopupTab/movePopupTab/removePopupTab`
 
-写入后要立刻 `get` 校验。
+写入后按变更类型做最小必要读回；page / tab / popup child tab 生命周期变更再做完整 `get` 校验。
 
 ## `compose`
 

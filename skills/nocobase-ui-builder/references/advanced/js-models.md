@@ -11,7 +11,7 @@
 
 - public key: `jsBlock`
 - model use: `JSBlockModel`
-- 推荐入口：`compose.blocks[].type = "jsBlock"` 或 `addblock(type="jsBlock")`
+- 推荐入口：`compose.blocks[].type = "jsBlock"` 或 `addBlock(type="jsBlock")`
 - 高频改配：`title`、`description`、`className`、`code`、`version`
 
 ## `js` action

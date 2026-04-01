@@ -18,6 +18,5 @@
 
 ## 关键约束
 
-- 当前 `createSupported = false`。
 - 不要在 `compose` 或 `addBlock` 的默认方案里创建它。
-- 如果用户明确要求新建地图，应先说明当前 flowSurfaces 默认不支持创建。
+- 如果用户明确要求新建地图，先看现场 `catalog` 是否暴露创建能力，再决定是否继续。

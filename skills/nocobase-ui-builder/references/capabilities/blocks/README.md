@@ -31,7 +31,7 @@
 - 地图区块：[map.md](./map.md)
 - 评论区块：[comments.md](./comments.md)
 
-这两类 block 可读回、可看 contract，但当前 `createSupported = false`，不应作为默认创建能力。
+这两类 block 不提供默认 happy-path；是否可创建、如何配置，以现场 `catalog/get` 为准。
 
 ## 选型原则
 
