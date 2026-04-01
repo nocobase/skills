@@ -1,6 +1,6 @@
 # Aliases
 
-本词典只负责把自然语言映射到 capability 或对象语义，不负责决定 lifecycle API、payload shape 或 readback。运行时分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)。
+本词典只负责把自然语言映射到 capability 或对象语义，不负责决定 lifecycle API、payload shape 或 readback。运行时分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，横切停止条件以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准。
 
 使用前提：
 
@@ -47,5 +47,4 @@
 ## 映射后的保守动作
 
 - 映射只决定 capability 或对象语义，不决定具体 API、请求 envelope 或 readback。
-- 如果 block / field / action / 配置域没有被现场 `catalog` 明确暴露，停止猜测并说明边界。
 - 如果对象和动词都不清楚，先收敛目标，不要直接生成写请求。

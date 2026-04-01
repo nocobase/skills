@@ -1,6 +1,6 @@
 # Popup And Event Flow
 
-本文档是 popup、openView、linkageRules、event flow 场景的 topic owner。surface family 分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)。
+本文档是 popup、openView、linkageRules、event flow 场景的 topic owner。surface family 分流和 popup uid 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)，横切硬规则以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准。
 
 ## popup 相关能力出现在哪里
 
@@ -9,14 +9,7 @@
 - popup surface 内继续 `compose/add*`
 - popup child tab lifecycle
 
-## 常见 popup uid
-
-- `hostUid`：打开 popup 的宿主 action / field / block uid
-- `popupPageUid`：popup page 的 write target uid
-- popup tab uid：popup child tab 的 write target uid，优先 `popupTabUid`，只有现场只暴露 `tabUid` 时才用 `tabUid`
-- popup content grid uid：popup 内容区的 write target uid，优先 `popupGridUid`，只有现场只暴露 `gridUid` 时才用 `gridUid`
-
-如果当前执行链里没有直接拿到 popup 相关 uid，先 `get({ uid: hostUid })` 拿到 popup subtree，再继续 target-based 写入。
+popup 相关 uid 的含义、首选名称和兼容别名，统一看 `runtime-playbook` 顶部的 glossary。
 
 ## 推荐顺序
 
@@ -68,4 +61,3 @@
 
 - popup surface 与顶层 page/tab 不是同一作用域；不要混用 locator 与 lifecycle API
 - 如果 popup settings 被清空，但 flow 仍引用旧 path，优先修正 settings 或 flow 引用，不要强行猜兼容路径
-- 已有 popup subtree 写入不要跳过 `catalog`；popup target 的能力和 settings contract 仍要现场确认

@@ -1,6 +1,6 @@
 # Tool Shapes
 
-只要 request shape 传错，再正确的业务判断也会失败。本文件是 flow surfaces 请求形状的唯一 owner。surface family 分流只看 [runtime-playbook.md](./runtime-playbook.md)，写后验证只看 [readback.md](./readback.md)。
+只要 request shape 传错，再正确的业务判断也会失败。本文件是 flow surfaces 请求形状的唯一 owner。surface family 分流和 uid / locator 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，写后验证只看 [readback.md](./readback.md)。
 
 ## 目录
 

@@ -1,6 +1,11 @@
 # Blocks
 
-按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)，默认策略标签看 [capability-policy.md](./capability-policy.md)，动作库存统一看 [actions.md](./actions.md)。
+按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)，动作库存统一看 [actions.md](./actions.md)，横切 guardrail 以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准。
+
+## 默认创建策略
+
+- 默认可创建：`table`、`details`、`list`、`gridCard`、`filterForm`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`
+- 保守维护 / 现场确认后再创建：`map`、`comments`
 
 ## 先判断用户要哪种页面体验
 

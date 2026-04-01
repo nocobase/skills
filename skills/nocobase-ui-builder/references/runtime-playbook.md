@@ -1,6 +1,24 @@
 # Runtime Playbook
 
-这是 `nocobase-ui-builder` 的运行时 owner 文档。它负责：surface family 判别、write target / read locator 角色、工具升级顺序，以及默认写流程。请求形状只看 [tool-shapes.md](./tool-shapes.md)，写后验证只看 [readback.md](./readback.md)。
+这是 `nocobase-ui-builder` 的运行时 owner 文档。它负责：surface family 判别、write target / read locator 角色，以及默认写流程。横切硬规则以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准；请求形状只看 [tool-shapes.md](./tool-shapes.md)，写后验证只看 [readback.md](./readback.md)。
+
+## UID / Locator Glossary
+
+| 名称 | 角色 | 放在哪里 | 典型来源 |
+| --- | --- | --- | --- |
+| `uid` | 通用节点读定位符；普通节点写 target 也直接用它 | `get` 根级 locator；或 `target.uid` / root `uid` | 已知 block / field / action / wrapper / host uid，或 `get` 读回树里的任意节点 uid |
+| `pageSchemaUid` | route-backed page 的读定位符 | `get` 根级 locator | `createPage` 返回值；page route / readback |
+| `tabSchemaUid` | route-backed outer tab 的读定位符；outer tab surface 写入时也常直接作为 `target.uid` | `get` 根级 locator；或 `target.uid` | `createPage` / `addTab` 返回值；tab route / readback |
+| `routeId` | route-backed page 或 tab 的读定位符 | `get` 根级 locator | `createPage` / `addTab` 返回值；路由读回 |
+| `pageUid` | route-backed page 的写 target uid | `target.uid` 或 root `uid` | `createPage` 返回值；先 `get(pageSchemaUid/routeId)` 后再取页面节点 uid |
+| `gridUid`（route-backed content） | route-backed content 的写 target uid；在 popup 场景里也可能作为 popup content 的兼容别名出现 | 通常放 `target.uid`；读取时放 `get({ uid })` | `createPage` / `addTab` 返回值；某些 popup helper / `addPopupTab` 结果里的兼容别名 |
+| `hostUid` | popup 宿主节点的读定位符，不是 popup page 本身 | `get({ uid: hostUid })` | 会打开 popup 的 action / field / block uid |
+| `popupPageUid` | popup page 的写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action / record action 返回值；从 host `get` 后读 `tree.subModels.page.uid` |
+| `popupTabUid` | popup child tab 的首选写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
+| `popupGridUid` | popup content 的首选写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
+| `tabUid` | popup child tab 的兼容别名 | `target.uid` 或 `get({ uid })` | `addPopupTab` 一类结果或 service 层兼容字段；语义上按 popup child tab 处理 |
+| `gridUid`（popup alias） | popup content 的兼容别名 | `target.uid` 或 `get({ uid })` | `addPopupTab` 一类结果或 service 层兼容字段；语义上按 popup content 处理 |
+| `new target` | 当前执行链里刚由写接口直接返回、允许跳过一次前置 `get` 的下一个写 target | 不是 payload 字段，是执行态概念 | `createPage` / `addTab` / popup-capable action / `addPopupTab` 等直接返回值 |
 
 ## Surface Families
 
@@ -19,15 +37,6 @@
 - `canonical write target uid` 指写接口里应该放进 `target.uid`，或 lifecycle request body 应该使用的主 uid。
 - `preferred read locator` 指读回前后优先采用的定位方式；具体 envelope 仍以 [tool-shapes.md](./tool-shapes.md) 为准。
 
-## 当前执行链与新 target
-
-- **当前执行链** 指单次 assistant 执行这套 skill 的连续操作链，不跨后续用户回合复用 shortcut。
-- 只有当前执行链里刚由写接口直接返回的下一个 write target uid，才算 **new target**。
-- `createPage` / `addTab` / `addPopupTab` 返回的 `pageUid`、`tabSchemaUid`、`gridUid`、popup 相关 uid 都属于 new target。
-- 宿主写接口只有在响应里直接带回 `popupPageUid`、popup tab uid 或 popup content grid uid 时，才允许把这些 popup uid 当成 new target。
-- 用户提供的 uid、历史缓存 uid、或之前读回过但不是当前执行链刚返回的 uid，都按已有 target 处理：先 `get`，再写。
-- new target 只允许跳过一次前置 `get`；`catalog` 仍然必须执行。
-
 ## outer tab 与 popup child tab 的判别
 
 - 如果 `get(...).tree.use = RootPageTabModel`，这是 `outer tab`。
@@ -35,16 +44,6 @@
 - 如果 uid 直接来自 `createPage` / `addTab` 返回的 `tabSchemaUid`，按 `outer tab` 处理。
 - 如果 uid 直接来自 `addPopupTab` 或 popup subtree 读回返回的 popup tab uid，按 `popup child tab` 处理。
 - 只看到 `kind = "tab"` 不足以选 API；必须先确认 `tree.use` 或 uid 来源。
-
-## 工具升级顺序
-
-| 操作类别 | 首选工具层 | 何时升级 |
-| --- | --- | --- |
-| 生命周期操作 | `createPage/addTab/updateTab/removeTab/addPopupTab/...` | lifecycle API 表达不了时，才继续看结构或配置层 |
-| 新结构搭建 | `compose`；精确追加时用 `add*` | 公开语义不够表达时，才进入精确改配 |
-| 公开配置改动 | `configure` | `configureOptions` 不够时再看 `settingsContract` |
-| 精确 path-level 改配 | `updateSettings` / `setLayout` / `setEventFlows` | 只有确实需要 subtree 替换或跨多步原子编排时，才进入 `apply/mutate` |
-| 复杂编排 | `apply` / `mutate` | 仅在高层语义不足且需要受控编排时使用 |
 
 ## 默认写流程
 
@@ -70,20 +69,9 @@
 - 先明确本次目标到底是 `popup page`、`popup child tab`，还是 `popup content`
 - 再对对应 target 执行 `catalog -> write -> readback`
 
-### 5. 只读校验 / review
+### 5. `inspect`
 
 - `get`
 - 只有在需要 capability / contract 判别时才 `catalog`
 - 断言项一律按 [readback.md](./readback.md)
 - 无明确写入意图时，不调用写接口
-
-## Runtime Rules
-
-- 现场 `get/catalog/readback` 永远比文档描述更高优先级。
-- 已有 target 上的写入，默认先 `get -> catalog -> write`。
-- 对刚拿到的 new target，也先 `catalog` 再决定具体写法。
-- 先看 `configureOptions`；公开配置表达不了时才看 `settingsContract`。
-- `setLayout`、`setEventFlows` 属于标准精确编辑能力，不与 `apply/mutate` 视为同一层兜底工具。
-- 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target，再考虑 `apply/mutate`。
-- 如果现场没有明确暴露目标能力、target 绑定字段或 settings contract，停止猜测并向用户说明。
-- `createPage` 之前没有现成 page target，不要预先猜 page / tab / grid 去调 `catalog`。

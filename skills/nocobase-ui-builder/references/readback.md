@@ -1,12 +1,11 @@
 # Readback
 
-本文档是写后验证的唯一 owner。写后只核对本次变更直接相关的目标；只有生命周期或 route/tree 层级变化时，才升级为完整校验。
+本文档是写后验证的唯一 owner。写后只核对本次变更直接相关的目标；只有生命周期或 route/tree 层级变化时，才升级为完整校验。`inspect` 的只读流程与是否允许写入，遵循 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## 使用原则
 
 - 写入后：按操作类型选最小必要读回
-- 只读校验：先 `get`，需要 contract 或能力判别时再 `catalog`
-- 无明确写入意图时，不要调用写接口
+- `inspect`：先 `get`，需要 contract 或能力判别时再 `catalog`
 - 完整 route/tree 校验只用于 page / outer tab / popup child tab 生命周期变化
 
 ## 操作 -> 最小读回目标
