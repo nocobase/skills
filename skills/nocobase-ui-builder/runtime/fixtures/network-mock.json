@@ -1,0 +1,11 @@
+{
+  "mode": "mock",
+  "responses": [
+    {
+      "url": "https://example.com/api/users",
+      "body": {
+        "nickname": "Alice"
+      }
+    }
+  ]
+}

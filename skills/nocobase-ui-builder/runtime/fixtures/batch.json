@@ -1,0 +1,11 @@
+{
+  "tasks": [
+    {
+      "id": "block-preview",
+      "mode": "preview",
+      "model": "JSBlockModel",
+      "codeFile": "./fixtures/js-block-code.js",
+      "contextFile": "./fixtures/js-block-context.json"
+    }
+  ]
+}
