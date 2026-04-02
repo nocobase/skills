@@ -69,6 +69,10 @@
 
 - `Default heuristic`：默认都通过 `addRecordAction` 或 `recordActions` 创建
 - `Hard rule`：不要塞进 `addAction`
+- `Hard rule`：`view/edit/popup` 如果会打开 popup，只创建 action 不算完成；后续通常还要继续搭 popup content
+- `Default heuristic`：“查看当前记录 / 查看本条 / 查看这一行”默认映射为 `view + details(currentRecord)`
+- `Default heuristic`：“编辑当前记录 / 编辑本条 / 编辑这一行”默认映射为 `edit + editForm(currentRecord) + submit`
+- `Fallback`：用户只说“加一个弹窗按钮”但没说明内容时，才允许只创建 `popup` shell；此时不要假设已有详情或表单会自动出现
 - `Default heuristic`：“查看 / 编辑 / 删除 / 复制 / 新增子级”这类表达，默认先检查容器是否支持 `recordActions`
 
 ## form / filterForm / actionPanel actions

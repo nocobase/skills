@@ -130,6 +130,55 @@
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
 - 当前实现里 `tabSchemaUid` 属于 outer tab 的 canonical uid，可以直接放进 outer tab 写接口的 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
+- `currentRecord` 这类 popup 资源语义不属于 locator，也不属于 `target.uid`；它应该出现在 block 级 `resource.binding`
+
+popup 当前记录详情示例：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "mode": "replace",
+    "blocks": [
+      {
+        "key": "details",
+        "type": "details",
+        "resource": {
+          "binding": "currentRecord"
+        },
+        "fields": ["nickname", "department.title"]
+      }
+    ]
+  }
+}
+```
+
+popup 当前记录编辑示例：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "mode": "replace",
+    "blocks": [
+      {
+        "key": "edit",
+        "type": "editForm",
+        "resource": {
+          "binding": "currentRecord"
+        },
+        "fields": ["nickname", "email"],
+        "actions": ["submit"]
+      }
+    ]
+  }
+}
+```
+
+补充：
+
+- 只有 record popup catalog 暴露 `currentRecord` binding 时，才这样写
+- 普通 popup 不要臆造 `currentRecord`；先看 `catalog.blocks[].resourceBindings`
 
 ## 4. `apply` / `mutate`
 

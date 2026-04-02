@@ -71,6 +71,8 @@
 
 - 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 这个 popup host，或 `popupPageUid` 读回 popup subtree
 - 先明确本次目标到底是 `popup-page`、`popup-tab`，还是 `popup-content`
+- 如果 popup uid 来自刚创建的 `recordActions.view/edit/popup`，不要在 action 创建后停下；继续对 `popupGridUid` 执行 `catalog -> write -> readback`
+- 用户明确说“当前记录 / 本条记录 / 这一行”时，popup 内默认按 `currentRecord` 绑定去搭 `details/editForm`，不是复用页面上已有 block
 - 再对对应 target 执行 `catalog -> write -> readback`
 
 ### 5. `inspect`

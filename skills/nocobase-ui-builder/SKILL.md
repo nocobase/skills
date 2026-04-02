@@ -49,6 +49,7 @@ allowed-tools: All MCP tools provided by NocoBase server
 常用 topical refs：
 
 - popup / openView / event flow：看 [references/popup-and-event-flow.md](./references/popup-and-event-flow.md)
+- record popup 默认做法：看 [references/record-popup-recipes.md](./references/record-popup-recipes.md)
 - block 选型：看 [references/blocks.md](./references/blocks.md) 或 [references/forms.md](./references/forms.md)
 - action / field / JS 能力：看 [references/actions.md](./references/actions.md)、[references/fields.md](./references/fields.md)、[references/js.md](./references/js.md)
 - 用户自然语言映射：看 [references/aliases.md](./references/aliases.md)
@@ -65,6 +66,7 @@ allowed-tools: All MCP tools provided by NocoBase server
 - 只有在**当前执行链**里刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`；但仍然必须先 `catalog`。
 - `request shape` 的唯一 owner 是 [references/tool-shapes.md](./references/tool-shapes.md)；不要在其他文档里自行拼 envelope。
 - `readback` 的唯一 owner 是 [references/readback.md](./references/readback.md)；不要在其他文档里自行扩写操作到读回的映射。
+- 记录级 `view/edit/popup` 创建成功且拿到 popup uid，不代表 popup 内容已经完成；如果用户意图是查看或编辑当前记录，必须继续对 `popup-content` 执行 `catalog -> compose/add* -> readback`。
 - 工具默认优先顺序是：lifecycle API -> `compose` / `configure` / `add*` -> `updateSettings/setLayout/setEventFlows` -> `apply/mutate`。同一目标下优先选择最小公开语义入口：批量搭建优先 `compose`，高频改配优先 `configure`，精确追加优先 `add*`。
 - `inspect` 是只读检查：默认只调用 `get`，必要时才 `catalog`；只有用户明确要求修复、创建、修改或重排时才进入写流程。
 - 新页面在 `createPage` 之前没有现成 target，不要先猜一个 page/tab/grid 去调 `catalog`。

@@ -44,6 +44,7 @@
 - 是否读回了 `popupGridUid`
 - popup 场景下如果现场只暴露 `gridUid`，是否已按 popup content 兼容别名处理
 - popup subtree 是否挂在正确的 popup page/tab/grid 下
+- 如果本次目标是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell
 
 ## 结构读回
 
@@ -51,6 +52,9 @@
 - `nodeMap` 是否能找到新增节点
 - table 是否生成了 `actionsColumnUid`
 - block action 与 record action 是否落在正确 scope
+- `recordActions.view` 场景下，popup 内容里是否实际出现了 `details`
+- `recordActions.edit` 场景下，popup 内容里是否实际出现了 `editForm`
+- `recordActions.edit` 场景下，`editForm` 内是否实际出现了 `submit`
 
 ## 字段读回
 
@@ -64,3 +68,4 @@
 - 空筛选是否保持为 `null` 或服务端标准空表示，而不是原样 query object
 - `flowRegistry` 是否写入成功
 - layout 是否覆盖完整且无遗漏
+- record popup 场景下，如果现场读回暴露 `resource.binding`、`filterByTk` 或同类记录上下文字段，是否已落到“当前记录”语义，而不是 collection 级语义
