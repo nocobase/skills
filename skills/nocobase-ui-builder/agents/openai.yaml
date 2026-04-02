@@ -1,7 +1,13 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "通过 NocoBase MCP 搭建、修改、重排或只读检查 Modern page(v2) UI surface"
-  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI surface work. First classify the request by task taxonomy and target family: build, update, reorder, or inspect; page, outer-tab, route-content, popup-page, popup-tab, popup-content, or node. Treat live get/catalog/readback as the truth. In the current flowSurfaces implementation, outer-tab writes use tabSchemaUid directly because it is the canonical tab uid. For recordActions view/edit/popup, action creation alone is not completion: continue building popup content on popup-content, and when the user means the current row/record, default to currentRecord binding instead of reusing an existing block instance. Use SKILL.md Global Rules for cross-cutting rules, owner references for topic-specific rules, runtime-playbook for routing and uid/locator glossary, tool-shapes for payload shape, and readback for verification."
+  default_prompt: "Use $nocobase-ui-builder to build, update, reorder, or inspect NocoBase Modern page (v2) UI surfaces through live NocoBase MCP flowSurfaces capabilities."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "nocobase"
+      description: "NocoBase MCP server for flowSurfaces-based UI surface operations"
 
 policy:
   allow_implicit_invocation: true

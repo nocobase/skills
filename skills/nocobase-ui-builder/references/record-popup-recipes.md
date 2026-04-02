@@ -1,12 +1,6 @@
 # Record Popup Recipes
 
-本文件只给 record popup 的默认 recipe，不负责 lifecycle API 选择、payload envelope 或通用读回流程；这些分别看 [runtime-playbook.md](./runtime-playbook.md)、[tool-shapes.md](./tool-shapes.md)、[readback.md](./readback.md)。
-
-## Hard rule
-
-- `recordActions.view/edit/popup` 默认只创建 popup shell，不会自动生成 popup 内容。
-- `currentRecord` 是 popup 内 block 的资源绑定语义，不是复用当前页面上已有 `table/details/editForm` 区块实例。
-- 用户明确说“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，默认要把 popup 内容绑定到 `currentRecord`。
+本文件只给 record popup 的默认示例流程，不新增 popup 规范。popup shell、`currentRecord` guard、openView 区分等规则统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)；lifecycle API、payload envelope、通用读回流程分别看 [runtime-playbook.md](./runtime-playbook.md)、[tool-shapes.md](./tool-shapes.md)、[readback.md](./readback.md)。
 
 ## Recipe：table + row view + details(currentRecord)
 
@@ -21,8 +15,8 @@
 1. 在 `table` 上创建 `recordActions.view`
 2. 复用写接口返回的 `popupGridUid`
 3. 对 `popup-content` 先 `catalog`
-4. 在 `popupGridUid` 下继续创建 `details`
-5. `details` 的 resource 默认绑定 `currentRecord`
+4. 只有当 live `catalog.blocks[].resourceBindings` 暴露 `currentRecord` 时，才在 `popupGridUid` 下继续创建 `details`
+5. `details` 的 resource 绑定 `currentRecord`
 6. 按需补字段与标题
 7. 读回确认 popup 不为空，且 `details` 已落到 `currentRecord`
 
@@ -45,8 +39,8 @@
 1. 在 `table` 上创建 `recordActions.edit`
 2. 复用写接口返回的 `popupGridUid`
 3. 对 `popup-content` 先 `catalog`
-4. 在 `popupGridUid` 下继续创建 `editForm`
-5. `editForm` 的 resource 默认绑定 `currentRecord`
+4. 只有当 live `catalog.blocks[].resourceBindings` 暴露 `currentRecord` 时，才在 `popupGridUid` 下继续创建 `editForm`
+5. `editForm` 的 resource 绑定 `currentRecord`
 6. 在表单 actions 内补 `submit`
 7. 读回确认 popup 不为空，且 `editForm + submit` 已落盘
 

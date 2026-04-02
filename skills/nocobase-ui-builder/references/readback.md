@@ -1,6 +1,6 @@
 # Readback
 
-本文档是写后验证的唯一 owner。写后只核对本次变更直接相关的目标；只有生命周期或 route/tree 层级变化时，才升级为完整校验。`inspect` 的只读流程不在本文件定义，统一遵循 [../SKILL.md](../SKILL.md) 的 `Global Rules` 和 [runtime-playbook.md](./runtime-playbook.md)。
+本文档是写后验证的主参考文档。写后只核对本次变更直接相关的目标；只有生命周期或 route/tree 层级变化时，才升级为完整校验。`inspect` 的只读流程不在本文件定义，统一遵循 [../SKILL.md](../SKILL.md) 和 [runtime-playbook.md](./runtime-playbook.md)。
 
 ## 使用原则
 

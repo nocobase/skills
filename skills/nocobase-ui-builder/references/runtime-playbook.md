@@ -1,6 +1,6 @@
 # Runtime Playbook
 
-这份文档只负责 target family 判别、write target / read locator 角色，以及默认写流程。横切硬规则以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准；请求形状只看 [tool-shapes.md](./tool-shapes.md)，写后验证只看 [readback.md](./readback.md)。
+本文档是 target family 判别、write target / read locator 角色，以及默认写流程的主参考文档。live MCP tool schema 与现场 `get/catalog/readback` 优先于本文；请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)。
 
 ## UID / Locator Glossary
 
@@ -8,14 +8,14 @@
 | --- | --- | --- | --- |
 | `uid` | 通用节点读定位符；普通节点写 target 也直接用它 | `get` 根级 locator；或 `target.uid` / root `uid` | 已知 block / field / action / wrapper / host uid，或 `get` 读回树里的任意节点 uid |
 | `pageSchemaUid` | route-backed page 的读定位符 | `get` 根级 locator | `createPage` 返回值；page route / readback |
-| `tabSchemaUid` | route-backed outer tab 的读定位符，也是当前实现里的 canonical write uid | `get` 根级 locator；或 `target.uid` / root `uid` | `createPage` / `addTab` 返回值；tab route / readback |
+| `tabSchemaUid` | route-backed outer tab 的读定位符；在当前验证过的实现里通常也可直接作为 outer-tab 写 target uid | `get` 根级 locator；或 `target.uid` / root `uid` | `createPage` / `addTab` 返回值；tab route / readback |
 | `routeId` | route-backed page 或 tab 的读定位符 | `get` 根级 locator | `createPage` / `addTab` 返回值；路由读回 |
 | `pageUid` | route-backed page 的写 target uid | `target.uid` 或 root `uid` | `createPage` 返回值；先 `get(pageSchemaUid/routeId)` 后再取页面节点 uid |
 | `gridUid` | `route-content` 的写 target uid | 通常放 `target.uid`；读取时放 `get({ uid })` | `createPage` / `addTab` 返回值 |
 | `hostUid` | popup host 节点的读定位符，不是 popup page 本身 | `get({ uid: hostUid })` | 会打开 popup 的 action / field / block uid |
 | `popupPageUid` | popup page 的写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action / record action 返回值；从 host `get` 后读 `tree.subModels.page.uid` |
-| `popupTabUid` | `popup-tab` 的 canonical write uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
-| `popupGridUid` | `popup-content` 的 canonical write uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
+| `popupTabUid` | `popup-tab` 的默认写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
+| `popupGridUid` | `popup-content` 的默认写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
 | `new target` | 当前执行链里刚由写接口直接返回、允许跳过一次前置 `get` 的下一个写 target | 不是 payload 字段，是执行态概念 | `createPage` / `addTab` / popup-capable action / `addPopupTab` 等直接返回值 |
 
 兼容别名：
@@ -25,7 +25,7 @@
 
 ## Surface Families
 
-| 家族 | 语义 | canonical write target uid | preferred read locator | 常见用途 |
+| 家族 | 语义 | 默认 write target uid | 首选 read locator | 常见用途 |
 | --- | --- | --- | --- | --- |
 | `page` | route-backed 顶层页面 | `pageUid` | `pageSchemaUid`，必要时 `routeId` | `addTab`、`destroyPage`、整页读回 |
 | `outer-tab` | 页面下的 route-backed tab | `tabSchemaUid` | `tabSchemaUid` | outer tab lifecycle、tab surface `catalog/configure` |
@@ -37,9 +37,9 @@
 
 说明：
 
-- `canonical write target uid` 指写接口里应该放进 `target.uid`，或 lifecycle request body 应该使用的主 uid。
-- `preferred read locator` 指读回前后优先采用的定位方式；具体 envelope 仍以 [tool-shapes.md](./tool-shapes.md) 为准。
-- 当前实现里 outer tab 的 canonical uid 就是 `tabSchemaUid`；outer tab 写接口不需要再额外 `get` 去找另一个 tab uid。
+- `默认 write target uid` 指写接口里通常应该放进 `target.uid`，或 lifecycle request body 应该使用的主 uid。
+- `首选 read locator` 指读回前后优先采用的定位方式；具体 envelope 仍以 [tool-shapes.md](./tool-shapes.md) 和 live MCP tool schema 为准。
+- 当前验证过的实现里，outer tab 往往可直接使用 `tabSchemaUid` 写入；如果现场 schema / readback 不一致，以现场为准。
 
 ## `outer-tab` 与 `popup-tab` 的判别
 
@@ -72,7 +72,7 @@
 - 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 这个 popup host，或 `popupPageUid` 读回 popup subtree
 - 先明确本次目标到底是 `popup-page`、`popup-tab`，还是 `popup-content`
 - 如果 popup uid 来自刚创建的 `recordActions.view/edit/popup`，不要在 action 创建后停下；继续对 `popupGridUid` 执行 `catalog -> write -> readback`
-- 用户明确说“当前记录 / 本条记录 / 这一行”时，popup 内默认按 `currentRecord` 绑定去搭 `details/editForm`，不是复用页面上已有 block
+- 用户明确说“当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认按 `currentRecord` 去搭 `details/editForm`；否则停止猜测
 - 再对对应 target 执行 `catalog -> write -> readback`
 
 ### 5. `inspect`
