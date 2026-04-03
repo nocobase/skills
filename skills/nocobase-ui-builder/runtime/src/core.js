@@ -9,6 +9,34 @@ function buildWrappedCode(code) {
   return `(async () => {\n${code}\n})()`;
 }
 
+function normalizeJsxChildren(children) {
+  const output = [];
+  for (const child of children) {
+    if (Array.isArray(child)) {
+      output.push(...normalizeJsxChildren(child));
+      continue;
+    }
+    if (child == null || child === false || child === true) continue;
+    output.push(child);
+  }
+  return output;
+}
+
+function createJsxElement(type, props, ...children) {
+  const normalizedChildren = normalizeJsxChildren(children);
+  const nextProps = props && typeof props === 'object' ? { ...props } : {};
+  if (normalizedChildren.length === 1) {
+    nextProps.children = normalizedChildren[0];
+  } else if (normalizedChildren.length > 1) {
+    nextProps.children = normalizedChildren;
+  }
+  return {
+    $$typeof: Symbol.for('react.element'),
+    type,
+    props: nextProps,
+  };
+}
+
 function createPreviewState(mode) {
   if (mode !== 'preview') return undefined;
   return {
@@ -119,6 +147,8 @@ export async function executeTaskLocal(task) {
   const executionContextIssues = [];
   const sandboxBase = {
     ctx: environment.ctx,
+    __nbJsx: createJsxElement,
+    __nbJsxFragment: 'Fragment',
     ...environment.sandboxGlobals,
   };
 

@@ -1,5 +1,1 @@
-function Banner() {
-  return <div className="banner">Hello {ctx.record?.nickname}</div>;
-}
-
-ctx.render(<Banner />);
+ctx.render(`<div class="banner">Hello ${ctx.record?.nickname || ''}</div>`);

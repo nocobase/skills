@@ -1,5 +1,6 @@
 import vm from 'node:vm';
 import { getAllowedContextPaths, getFlattenedContract, getRootBehaviors } from './profiles.js';
+import { transformJsx } from './jsx-transform.js';
 import { safeErrorMessage } from './utils.js';
 
 const STATIC_BLOCKED_COMPAT_CALLS = new Set([
@@ -261,10 +262,6 @@ function maskSource(source) {
     output.push(char);
   }
   return output.join('');
-}
-
-function hasLikelyJsx(source) {
-  return /(^|[=(,:\[{\s]|return\s+)<[A-Za-z][\w:-]*(\s|\/?>)/m.test(source) || /<\/>|<\s*>|<\/[A-Za-z]/.test(source);
 }
 
 function parseStringLiteral(source, index) {
@@ -562,19 +559,13 @@ function isAllowedPrecisePath(ctxPath, flattenedContract) {
 }
 
 export function parseCode(code) {
-  const source = String(code ?? '');
+  const compiled = transformJsx(code);
+  const source = compiled.code;
   const masked = maskSource(source);
-  if (hasLikelyJsx(masked)) {
+  if (compiled.compileIssues?.length) {
     return {
       masked,
-      syntaxIssues: [
-        {
-          type: 'syntax',
-          severity: 'error',
-          ruleId: 'jsx-unsupported',
-          message: 'JSX is unsupported in zero-dependency compat mode.',
-        },
-      ],
+      syntaxIssues: compiled.compileIssues,
     };
   }
 
@@ -602,9 +593,10 @@ export function parseCode(code) {
 }
 
 export function compileUserCode(code) {
+  const transformed = transformJsx(code);
   return {
-    code: String(code ?? ''),
-    compileIssues: [],
+    code: transformed.code,
+    compileIssues: transformed.compileIssues || [],
   };
 }
 

@@ -4,8 +4,8 @@
       "id": "block-preview",
       "mode": "preview",
       "model": "JSBlockModel",
-      "codeFile": "./fixtures/js-block-code.js",
-      "contextFile": "./fixtures/js-block-context.json"
+      "codeFile": "./js-block-code.js",
+      "contextFile": "./js-block-context.json"
     }
   ]
 }

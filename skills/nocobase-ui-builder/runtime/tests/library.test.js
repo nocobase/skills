@@ -40,18 +40,27 @@ test('previewRunJSSnippet rejects missing explicit ctx.render for JSBlockModel',
   assert.ok(result.usedContextPaths.includes('record.nickname'));
 });
 
-test('validateRunJSSnippet rejects JSX in zero-dependency mode', async () => {
+test('validateRunJSSnippet accepts JSX after compat lowering', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSBlockModel',
     code: `
-      return <div>Hello</div>;
+      function Banner() {
+        return <div>Hello {ctx.record?.nickname}</div>;
+      }
+      ctx.render('');
+      return <Banner />;
     `,
+    context: {
+      record: { nickname: 'Alice' },
+    },
     isolate: false,
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.execution.executed, false);
-  assert.equal(result.syntaxIssues[0].ruleId, 'jsx-unsupported');
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.equal(result.syntaxIssues.length, 0);
+  assert.equal(result.execution.returnValue.$$typeof, 'react.element');
+  assert.equal(result.execution.returnValue.type, '[Function Banner]');
 });
 
 test('static policy blocks literal write requests before execution', async () => {
@@ -282,6 +291,25 @@ test('preview returns degraded JSON rendering for structured values', async () =
   assert.equal(result.preview.rendered, true);
   assert.equal(result.preview.fidelity, 'degraded');
   assert.match(result.preview.html, /Alice/);
+});
+
+test('previewRunJSSnippet executes JSX even when preview fidelity stays unsupported', async () => {
+  const result = await previewRunJSSnippet({
+    model: 'JSBlockModel',
+    code: `
+      ctx.render(<div className="banner">Hello {ctx.record?.nickname}</div>);
+    `,
+    context: {
+      record: { nickname: 'Alice' },
+    },
+    isolate: false,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.equal(result.preview.rendered, false);
+  assert.equal(result.preview.fidelity, 'unsupported');
+  assert.equal(result.runtimeIssues[0].ruleId, 'react-unsupported');
 });
 
 test('preview flags React-like values as unsupported', async () => {

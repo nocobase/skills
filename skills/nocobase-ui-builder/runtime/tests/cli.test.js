@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { runCli } from '../src/cli.js';
 
@@ -102,4 +103,23 @@ test('preview command fails stdin json payload without ctx.render on strict rend
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
   assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'));
+});
+
+test('batch command resolves task file paths relative to the input file', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const exitCode = await runCli(
+    ['batch', '--input', path.resolve(process.cwd(), 'skills/nocobase-ui-builder/runtime/fixtures/batch.json')],
+    {
+      cwd: process.cwd(),
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.summary.total, 1);
+  assert.equal(payload.results[0].preview.rendered, true);
 });

@@ -28,7 +28,7 @@ const ELEMENT_CONTRACT = objectDoc('Preview container ElementProxy.', {
 const BASE_CONTRACT = {
   t: functionDoc('Translate text. This runtime returns the key with {{var}} interpolation.'),
   render: functionDoc(
-    'Render one HTML string or structured value into the preview container. JSX, React elements, and DOM node preview are unsupported.',
+    'Render one HTML string or structured value into the preview container. JSX syntax is lowered before execution; structured preview fidelity still depends on current preview capabilities.',
   ),
   request: functionDoc('HTTP read helper. Only GET/HEAD are allowed.'),
   api: objectDoc('API helper namespace.', {
