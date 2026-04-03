@@ -1,11 +1,12 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "通过 NocoBase MCP 以菜单优先方式搭建、修改、重排或只读检查 Modern page(v2) UI surface"
+  short_description: "通过 NocoBase MCP 检查、搭建、修改或重排 Modern page (v2) 的菜单、页面、页签、弹窗与区块/字段/动作"
   default_prompt: >
-    Use $nocobase-ui-builder to inspect, build, update, or reorder NocoBase Modern page (v2) UI surfaces through live MCP capabilities.
+    Use $nocobase-ui-builder to inspect, build, update, or reorder NocoBase Modern page (v2) menus, pages, tabs, popups, and block/field/action surfaces through live MCP capabilities.
+    Default to FlowSurfaces for every UI mutation and use desktop_routes_list_accessible(tree=true) for menu discovery.
+    Never use resource_* or generic CRUD to mutate page structure.
     Prefer menu-first flows: discover or create the target menu group, create a bindable menu item, then initialize the page with createPage(menuRouteId=...).
-    If the user gives only a menu title, first read the menu tree and proceed only when the target group is uniquely identified.
-    Do not use page or tab lifecycle APIs before createPage(menuRouteId=...) initializes the page.
+    If the user gives only a menu title, proceed only when the target group is uniquely identified.
     Default writes to get -> catalog -> write -> readback.
     Any RunJS write must follow references/js.md and pass the local validator gate before any MCP write happens.
 

@@ -1,6 +1,6 @@
 # Verification
 
-本文档是 `inspect` 与写后 `readback` 的唯一 owner。只要问题是在问“当前现场是什么”或“这次写入有没有真的落盘”，优先看这里。family / locator / write target 看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，popup 语义看 [popup.md](./popup.md)。
+当你要做 `inspect`，或确认一次写入是否真的落盘时，读本文。family / locator / write target 看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，popup 细节看 [popup.md](./popup.md)。
 
 ## Inspect
 

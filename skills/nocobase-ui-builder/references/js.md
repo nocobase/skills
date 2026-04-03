@@ -1,6 +1,6 @@
 # JS
 
-本文档是 RunJS validator gate、JS model mapping、上下文语义与代码风格的唯一 owner。只要本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem` 或 `js` action，默认先看这里。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)。
+当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem` 或 `js` action 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，CLI 用法、网络模式与输出层次再看 [../runtime/README.md](../runtime/README.md)。
 
 ## 公开 JS 能力
 

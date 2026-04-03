@@ -1,6 +1,6 @@
 # Runtime Playbook
 
-本文档是 target family 判别、write target / read locator 角色，以及默认写流程的唯一 owner。只要你已经知道用户要“创建/修改/重排什么”，但还不确定它属于哪个 family、该读哪个 locator、该把哪个 uid 放进写接口，先看这里。请求形状看 [tool-shapes.md](./tool-shapes.md)，popup 语义看 [popup.md](./popup.md)，验证看 [verification.md](./verification.md)。
+当你已经知道要创建、修改或重排什么，但还不确定它属于哪个 `target family`、该读哪个 locator、该把哪个 uid 放进写接口时，读本文。请求形状看 [tool-shapes.md](./tool-shapes.md)，popup 内容与 `currentRecord` guard 看 [popup.md](./popup.md)，写后核对看 [verification.md](./verification.md)。
 
 ## UID / Locator Glossary
 

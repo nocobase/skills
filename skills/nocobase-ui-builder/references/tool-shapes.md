@@ -1,8 +1,6 @@
 # Tool Shapes
 
-只要 request shape 传错，再正确的业务判断也会失败。本文档是 flow surfaces 请求形状的唯一 owner；字段合法性始终以 live MCP tool schema 为准。family 分流和 uid / locator 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，验证看 [verification.md](./verification.md)，popup 资源语义看 [popup.md](./popup.md)。
-
-如果 family、locator、target uid 都已经确定，只差“这个 MCP 请求到底怎么包”，先看这里。
+当 family、locator 与 target uid 都已经确定，只差“这个 MCP 请求怎么包”时，读本文。family / locator 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，写后核对看 [verification.md](./verification.md)。
 
 ## 目录
 
@@ -17,6 +15,7 @@
 
 - `flow_surfaces_get` 只接受 `uid`、`pageSchemaUid`、`tabSchemaUid`、`routeId`
 - `get` 不接受 `requestBody`，也不接受 `target`
+- family / locator 没确定前，不要直接拼 payload，先回 [runtime-playbook.md](./runtime-playbook.md)
 - 除 `pageSchemaUid/tabSchemaUid/routeId` 外，其他 id 读取时都默认写进 `uid`
 - 大多数写接口都要包 `requestBody`；其中很多再在 `requestBody` 内放 `target.uid`
 - `createMenu`、`updateMenu`、`createPage` 都是 lifecycle API，不接受 `target`
@@ -112,7 +111,7 @@
 - `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
-- `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程统一看 [popup.md](./popup.md)
+- `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程看 [popup.md](./popup.md)
 
 ## `apply` / `mutate`
 
@@ -169,4 +168,4 @@
 - 把 `pageSchemaUid` / `routeId` 错当成 `target.uid`
 - lifecycle API 外面漏掉 `requestBody`
 - 在 `createMenu(type="item")` 之后、`createPage(menuRouteId=...)` 之前就调用 page/tab lifecycle API
-- 把 `currentRecord` 当成裸 locator 或 target uid 传进去
+- 把 `currentRecord` 当成裸 locator 或 `target.uid` 传进去

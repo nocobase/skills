@@ -1,6 +1,6 @@
 # Popup
 
-本文档是 popup / `openView` / `currentRecord` guard / `linkageRules` / `flowRegistry` / record popup recipes 的唯一 owner。只要问题里出现 popup、抽屉/弹窗打开、当前记录、联动规则或事件流，默认先看这里。family / uid 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，读回规则看 [verification.md](./verification.md)。
+当你要处理 popup、`openView`、record popup 或 `currentRecord` guard 时，读本文。popup family 与 uid 来源看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后核对看 [verification.md](./verification.md)。
 
 ## Core Rules
 
@@ -13,11 +13,10 @@
 ## 默认 popup 写流程
 
 1. 先创建会打开 popup 的 action 或 field；如果当前已经拿到 popup 相关 uid，可直接从第 3 步开始。
-2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target。
+2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target，不要重新猜 host。
 3. 明确本次写的是 `popup-page`、`popup-tab` 还是 `popup-content`。
-4. 对对应 popup target 先 `catalog`。
-5. 再 `compose/configure/add*`；只有需要更细 path-level 配置时再看 `updateSettings`。
-6. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
+4. 对对应 popup target 先 `catalog`，再 `compose` / `configure` / `add*`；只有需要更细 path-level patch 时再看 `updateSettings` 或 `setEventFlows`。
+5. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
 
 ## Record Popup Recipes
 

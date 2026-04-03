@@ -1,6 +1,6 @@
 # Capabilities
 
-本文档是 block / form / action / field 选型的唯一 owner。只要你已经知道要搭内容区，但还没决定该选什么能力、挂在哪个 scope、字段怎么放，先看这里。popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，JS validator 与 runtime model 看 [js.md](./js.md)，family / locator / write target 看 [runtime-playbook.md](./runtime-playbook.md)。
+当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，JS 规则看 [js.md](./js.md)。
 
 ## 目录
 
@@ -15,6 +15,8 @@
 1. 先判断用户要的是 block、form、action 还是 field。
 2. 再按容器与 scope 收敛：`table/details/list/gridCard/filterForm/actionPanel/form/createForm/editForm`。
 3. 最后才看 JS、关系叶子字段、`openView`、layout 等专题配置。
+
+下文中的 block / action 能力都是常见值，不是穷尽列表；最终以 live `catalog` 为准。
 
 ## Block 选型
 
