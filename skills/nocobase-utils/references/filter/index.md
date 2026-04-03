@@ -91,6 +91,10 @@ Both notations traverse the same association path. Use whichever fits the contex
 |---|---|---|---|
 | `$eq` | any scalar | Equal. If value is an array, behaves as `$in`. | `"active"`, `1`, `null` |
 | `$ne` | any scalar | Not equal. If value is an array, behaves as `$notIn`. Null-safe (also matches null). | `"draft"` |
+| `$gt` | number, date | Greater than | `100` |
+| `$gte` | number, date | Greater than or equal | `100` |
+| `$lt` | number, date | Less than | `100` |
+| `$lte` | number, date | Less than or equal | `100` |
 | `$in` | any scalar | Value is in the given array | `["a", "b"]` |
 | `$notIn` | any scalar | Value is not in the array. Null-safe (also matches null). | `["x", "y"]` |
 
