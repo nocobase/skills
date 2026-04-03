@@ -1,16 +1,17 @@
 # Tool Shapes
 
-只要 request shape 传错，再正确的业务判断也会失败。本文档是 flow surfaces 请求形状的主参考文档；字段合法性始终以 live MCP tool schema 为准。surface family 分流和 uid / locator 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，写后验证看 [readback.md](./readback.md)。
+只要 request shape 传错，再正确的业务判断也会失败。本文档是 flow surfaces 请求形状的唯一 owner；字段合法性始终以 live MCP tool schema 为准。family 分流和 uid / locator 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，验证看 [verification.md](./verification.md)，popup 资源语义看 [popup.md](./popup.md)。
 
 如果 family、locator、target uid 都已经确定，只差“这个 MCP 请求到底怎么包”，先看这里。
 
 ## 目录
 
-1. 根级 locator `get`
-2. `requestBody` 但不带 `target`
-3. target-based `requestBody.target.uid`
-4. `apply` / `mutate`
-5. 常见错误形状
+1. 一屏硬规则
+2. 根级 locator `get`
+3. `requestBody` 但不带 `target`
+4. target-based `requestBody.target.uid`
+5. `apply` / `mutate`
+6. 常见错误形状
 
 ## 一屏硬规则
 
@@ -22,7 +23,7 @@
 - `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只作为兼容 fallback
 - 在当前实现中，`tabSchemaUid` 既可作为 `outer-tab` 的 `get` locator，也可直接作为其写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
 
-## 1. 根级 locator `get`
+## 根级 locator `get`
 
 对应 MCP tool：`mcp__nocobase__flow_surfaces_get`
 
@@ -53,80 +54,30 @@
 - `hostUid`、`pageUid`、`gridUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 这类值，读取时都默认填进 `uid`
 - popup 场景下如果现场只暴露 `tabUid` 或 `gridUid`，也按 `uid` 处理
 
-## 2. `requestBody` 但不带 `target`
+## `requestBody` 但不带 `target`
 
 这类工具都有 `requestBody`，但不接受 `requestBody.target.uid`：
 
 | 语义名 | MCP tool | 关键字段 |
 | --- | --- | --- |
-| `createMenu` | `mcp__nocobase__flow_surfaces_create_menu` | `requestBody.title`，可选 `requestBody.type/icon/tooltip/hideInMenu/parentMenuRouteId` |
-| `updateMenu` | `mcp__nocobase__flow_surfaces_update_menu` | `requestBody.menuRouteId`，可选 `requestBody.title/icon/tooltip/hideInMenu/parentMenuRouteId` |
-| `createPage` | `mcp__nocobase__flow_surfaces_create_page` | 推荐传 `requestBody.menuRouteId`；其余常用 `requestBody.title/tabTitle/enableTabs` |
-| `destroyPage` | `mcp__nocobase__flow_surfaces_destroy_page` | `requestBody.uid`，必须是 `pageUid` |
-| `moveTab` | `mcp__nocobase__flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`，outer tab 直接用 `tabSchemaUid` |
-| `removeTab` | `mcp__nocobase__flow_surfaces_remove_tab` | `requestBody.uid`，outer tab 直接用 `tabSchemaUid` |
-| `movePopupTab` | `mcp__nocobase__flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
-| `moveNode` | `mcp__nocobase__flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
-
-`createMenu(type="group")` 示例：
-
-```json
-{
-  "requestBody": {
-    "title": "Workspace",
-    "type": "group"
-  }
-}
-```
-
-`createMenu(type="item")` 示例：
-
-```json
-{
-  "requestBody": {
-    "title": "Employees",
-    "type": "item",
-    "parentMenuRouteId": 1001
-  }
-}
-```
-
-`createPage(menuRouteId=...)` 示例：
-
-```json
-{
-  "requestBody": {
-    "menuRouteId": 1002,
-    "tabTitle": "Overview"
-  }
-}
-```
-
-`updateMenu` 示例：
-
-```json
-{
-  "requestBody": {
-    "menuRouteId": 1002,
-    "title": "Employees Center",
-    "parentMenuRouteId": 1001
-  }
-}
-```
+| `createMenu` | `flow_surfaces_create_menu` | `requestBody.title`，可选 `type/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`，可选 `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `createPage` | `flow_surfaces_create_page` | 推荐传 `requestBody.menuRouteId`；其余常用 `title/tabTitle/enableTabs` |
+| `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`，必须是 `pageUid` |
+| `moveTab` / `removeTab` | `flow_surfaces_move_tab` / `flow_surfaces_remove_tab` | outer tab 直接用 `tabSchemaUid` |
+| `movePopupTab` | `flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
+| `moveNode` | `flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
 
 规则：
 
 - 这些 lifecycle API 都只在 MCP 层包一层 `requestBody`
 - `createMenu`、`updateMenu`、`createPage` 都不接受 `target`
 - `createMenu(type="group")` 只返回菜单 route 信息，不返回可写页面 target
-- `createMenu(type="item")` 会返回 `pageSchemaUid/pageUid/tabSchemaUid/tabRouteId`，但此时页面仍可能未初始化；不要立刻调用 page/tab lifecycle API
+- `createMenu(type="item")` 可能返回 `pageSchemaUid/pageUid/tabSchemaUid/tabRouteId`，但此时页面仍可能未初始化；不要立刻调用 page/tab lifecycle API
 - `createPage(menuRouteId=...)` 会把 bindable 菜单项初始化为真正的 Modern page(v2)
-- `createPage` 不传 `menuRouteId` 仍可用，但如果后续还要把页面挂到某个菜单下，应该再调用 `updateMenu`
 - `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
-- `createMenu` 或 `createPage` 返回的 `routeId`，在菜单语义里也可直接作为 `menuRouteId`
-- 在当前实现中，`outer-tab` 的 lifecycle API 直接使用 `tabSchemaUid`；如果现场 schema 明确不同，以现场为准
 
-## 3. target-based `requestBody.target.uid`
+## target-based `requestBody.target.uid`
 
 这类工具都要求：
 
@@ -138,51 +89,32 @@
 }
 ```
 
-常见工具：
+### 常见 target-based 工具分组
 
-- `mcp__nocobase__flow_surfaces_catalog`
-- `mcp__nocobase__flow_surfaces_compose`
-- `mcp__nocobase__flow_surfaces_configure`
-- `mcp__nocobase__flow_surfaces_add_tab`
-- `mcp__nocobase__flow_surfaces_update_tab`
-- `mcp__nocobase__flow_surfaces_add_popup_tab`
-- `mcp__nocobase__flow_surfaces_update_popup_tab`
-- `mcp__nocobase__flow_surfaces_remove_popup_tab`
-- `mcp__nocobase__flow_surfaces_add_block` / `add_blocks`
-- `mcp__nocobase__flow_surfaces_add_field` / `add_fields`
-- `mcp__nocobase__flow_surfaces_add_action` / `add_actions`
-- `mcp__nocobase__flow_surfaces_add_record_action` / `add_record_actions`
-- `mcp__nocobase__flow_surfaces_update_settings`
-- `mcp__nocobase__flow_surfaces_set_event_flows`
-- `mcp__nocobase__flow_surfaces_set_layout`
-- `mcp__nocobase__flow_surfaces_remove_node`
-- `mcp__nocobase__flow_surfaces_apply`
-- `mcp__nocobase__flow_surfaces_mutate`
+- surface 与 lifecycle：`catalog`、`compose`、`configure`、`addTab`、`updateTab`、`addPopupTab`、`updatePopupTab`、`removePopupTab`
+- 内容追加：`addBlock` / `addBlocks`、`addField` / `addFields`、`addAction` / `addActions`、`addRecordAction` / `addRecordActions`
+- 精确配置：`updateSettings`、`setEventFlows`、`setLayout`、`removeNode`
+- 兜底高级入口：`apply`、`mutate`
 
-常见 target 选择：
+### 常见 target 选择
 
 - `addTab.target.uid = pageUid`
 - `updateTab.target.uid = tabSchemaUid`
 - `addPopupTab.target.uid = popupPageUid`
-- `updatePopupTab/removePopupTab.target.uid = popupTabUid`；popup 场景下如果现场只暴露 `tabUid`，用该值代替
+- `updatePopupTab/removePopupTab.target.uid = popupTabUid`
 - route-backed 内容区 `catalog/compose/add*` 优先 `target.uid = gridUid`
-- popup 内容区 `catalog/compose/add*` 优先 `target.uid = popupGridUid`；popup 场景下如果现场只暴露 `gridUid`，用该值代替
+- popup 内容区 `catalog/compose/add*` 优先 `target.uid = popupGridUid`
 - outer tab surface `catalog/configure` 用 `target.uid = tabSchemaUid`
-- popup tab surface `catalog/configure` 用 `target.uid = popupTabUid`；popup 场景下如果现场只暴露 `tabUid`，用该值代替
+- popup tab surface `catalog/configure` 用 `target.uid = popupTabUid`
 
 规则：
 
 - `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
-- 在当前实现中，`tabSchemaUid` 可直接放进 outer tab 写接口的 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
-- `currentRecord` 这类 popup 资源语义不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义
-- 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，record popup 才默认按“当前记录”语义继续写入
-- 普通 popup 不要臆造 `currentRecord`；无法确认时停止写入
-- `details(currentRecord)` / `editForm(currentRecord)` 的决策流程统一看 [popup-and-event-flow.md](./popup-and-event-flow.md) 与 [record-popup-recipes.md](./record-popup-recipes.md)
-- 由于 block `resource` 的公开写法以 live tool schema 为准，本文不提供 `currentRecord` 的 raw JSON 示例，避免 schema 漂移；真正提交 payload 时只按 live schema 组装
+- `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程统一看 [popup.md](./popup.md)
 
-## 4. `apply` / `mutate`
+## `apply` / `mutate`
 
 `mcp__nocobase__flow_surfaces_apply`
 
@@ -217,8 +149,7 @@
         "values": {
           "menuRouteId": {
             "$ref": "menu.routeId"
-          },
-          "tabTitle": "Overview"
+          }
         }
       }
     ]
@@ -228,91 +159,14 @@
 
 规则：
 
-- `apply` 默认只做受控 subtree 替换
-- `mutate` 默认显式传 `requestBody.target.uid`，除非整段编排完全由 `$ref` 和内部 op 结果自洽
-- 菜单优先的新建页面链路，优先编排成 `createMenu -> createPage`
-- `mutate` 是编排工具，不是默认 patch 工具
+- `apply` 只支持 `mode = "replace"`
+- `mutate` 默认 `atomic = true`
+- 只有在公开入口无法表达、且你已经完全确认 target / shape / 顺序时，才使用 `apply/mutate`
 
-## 5. 常见错误形状
+## 常见错误形状
 
-错误：
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "table-uid" }
-  }
-}
-```
-
-这是错误的 `get` 形状。正确写法：
-
-```json
-{ "uid": "table-uid" }
-```
-
-错误：
-
-```json
-{
-  "requestBody": {
-    "target": {
-      "pageSchemaUid": "employees-page-schema"
-    },
-    "title": "Stats"
-  }
-}
-```
-
-这不是合法的 `addTab` 形状。正确写法：
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "employees-page-uid" },
-    "title": "Stats"
-  }
-}
-```
-
-错误：
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "employees-page-uid" },
-    "tabTitle": "Overview"
-  }
-}
-```
-
-这不是合法的 `createPage` 形状。正确写法：
-
-```json
-{
-  "requestBody": {
-    "menuRouteId": 1002,
-    "tabTitle": "Overview"
-  }
-}
-```
-
-错误：
-
-```json
-{
-  "requestBody": {
-    "uid": "popup-tab-uid"
-  }
-}
-```
-
-这不是合法的 `removePopupTab` 形状。正确写法：
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "popup-tab-uid" }
-  }
-}
-```
+- 给 `get` 传 `requestBody` 或 `target`
+- 把 `pageSchemaUid` / `routeId` 错当成 `target.uid`
+- lifecycle API 外面漏掉 `requestBody`
+- 在 `createMenu(type="item")` 之后、`createPage(menuRouteId=...)` 之前就调用 page/tab lifecycle API
+- 把 `currentRecord` 当成裸 locator 或 target uid 传进去
