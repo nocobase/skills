@@ -39,7 +39,11 @@ Tests for the `collection` trigger type which monitors data table events (create
   "mode": 2,
   "changed": ["amount"],
   "condition": {
-    "amount": { "$gt": 100 }
+    "$and": [
+      {
+        "amount": { "$gt": 100 }
+      }
+    ]
   }
 }
 ```
