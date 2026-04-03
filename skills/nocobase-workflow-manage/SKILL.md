@@ -11,11 +11,12 @@ Help users orchestrate NocoBase workflows end-to-end through NocoBase MCP tools:
 
 # Dependency Gate
 
-- Related helper skills: `nocobase-mcp-setup`, `nocobase-data-modeling`.
+- Related helper skills: `nocobase-mcp-setup`, `nocobase-data-modeling`, `nocobase-utils`.
 - Check whether NocoBase MCP tools are available before planning write operations.
 - If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
 - If MCP tools return authentication errors such as `Auth required`, stop and ask the user to complete MCP authentication or refresh the MCP connection before continuing.
 - Data modeling skill may be used to understand related collections and fields when configuring workflow triggers and nodes.
+- When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md).
 
 # Mandatory MCP Gate
 
@@ -86,3 +87,4 @@ Then map the requested action to the corresponding MCP-exposed endpoint:
 | Triggers | [references/triggers/index.md](references/triggers/index.md) |
 | Nodes | [references/nodes/index.md](references/nodes/index.md) |
 | Endpoint mapping used through MCP | [references/http-api/index.md](references/http-api/index.md) |
+| Expression engines (formula.js / math.js) | [nocobase-utils skill](../nocobase-utils/references/evaluators/index.md) |
