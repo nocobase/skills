@@ -41,56 +41,10 @@ record popup 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `cu
 - 如果当前 MCP 只暴露部分读接口或部分写接口，按现场能力收窄；缺少关键接口时，停止并说明 MCP 能力不足。
 - 不要因为文档存在就假设接口一定可用。
 
-# RunJS Validation Gate
+# RunJS Writes
 
-只要本次写入会新增或修改任一 RunJS `code`，就必须先走本地 validator gate，再决定是否调用 MCP 写入。
-
-覆盖范围：
-
-- `jsBlock`
-- `jsColumn`
-- `jsItem`
-- 绑定字段的 `renderer: "js"`
-- 所有 `js` action
-
-执行顺序：
-
-1. 先根据 [references/js.md](./references/js.md) 把当前 UI 能力映射到 runtime `model` 与校验 `mode`
-2. 生成一版 code draft，但此时还不能调用 MCP 写入
-3. 用本地脚本 `node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs <validate|preview> --stdin-json` 做校验
-4. 若失败，则根据 `syntaxIssues` / `contextIssues` / `policyIssues` / `runtimeIssues` 自动重写 code，再次校验
-5. 最多重试 3 轮；3 轮后仍失败，则停止，不允许调用任何写 MCP 接口
-6. 只有 gate 通过后，才允许调用 `compose` / `configure` / `add*` / `updateSettings` / `apply` / `mutate`
-7. 写入完成后，如果读回结果里能看到 `code`，必须核对读回值与已验证值一致；不一致视为失败
-
-硬约束：
-
-- `Hard rule`：运行时校验只允许依赖本 skill 自带的 `nb-runjs` runtime；不要在执行阶段读取 NocoBase 源码来推断上下文或 API
-- `Hard rule`：render 类模型必须走 `preview`，action 类模型必须走 `validate`
-- `Hard rule`：strict render model 必须使用 `ctx.*` 访问上下文，不能使用裸 `record` / `formValues` / `resource` / `collection` / `value`
-- `Hard rule`：strict render model 必须显式调用 `ctx.render(...)`；不允许依赖 `return` 自动渲染
-- `Hard rule`：validator 返回失败时，不要降级成 warning，也不要带着失败结果继续写入 MCP
-
-建议命令形状：
-
-```bash
-node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs preview --stdin-json <<'EOF'
-{
-  "model": "JSColumnModel",
-  "code": "ctx.render(`${ctx.record?.username || ''}${ctx.record?.nickname || ''}`);",
-  "context": {
-    "record": { "username": "alice", "nickname": "Alice" }
-  },
-  "filename": "inline-js-column.js"
-}
-EOF
-```
-
-context 构造规则：
-
-- 先使用 runtime profile 自带的 `defaultContextShape`
-- 如果现场 `get/catalog/readback` 已知更精确的 `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`，则用这些 live 信息覆盖默认值
-- 不要为了补 context 去读取 NocoBase 源码；只允许使用 live MCP 数据和本地 runtime profile
+- 涉及 RunJS `code` 的写入，不是纯 MCP 流程；写入前必须先经过本地 validator gate。
+- RunJS 的模型映射、上下文语义、校验方式与代码风格，统一看 [references/js.md](./references/js.md)。
 
 # Scope
 
@@ -117,7 +71,6 @@ context 构造规则：
 - 先看 `configureOptions`；公开配置表达不了时才看 `settingsContract`。
 - 如果现场 `get/catalog` 没有明确暴露目标能力、target 绑定字段、resource binding 或 settings contract，停止猜测并向用户说明，不要按文档臆造写入。
 - 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
-- RunJS 写入不是纯 MCP 流程；凡是涉及 `code`，必须先通过上面的本地 validator gate。
 
 # Reference Guide
 

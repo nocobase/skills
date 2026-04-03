@@ -3,10 +3,9 @@ interface:
   short_description: "通过 NocoBase MCP 搭建、修改、重排或只读检查 Modern page(v2) UI surface"
   default_prompt: >
     Use $nocobase-ui-builder to build, update, reorder, or inspect NocoBase Modern page (v2) UI surfaces through live NocoBase MCP flowSurfaces capabilities.
-    Any write involving RunJS code must first pass the local nb-runjs validator gate before any MCP write happens.
-    Map the UI scenario to the runtime model defined in references/js.md, use preview for render models and validate for action models,
-    build the context only from runtime defaults plus live MCP data, and never rely on reading NocoBase source code at runtime.
-    If validation fails, rewrite and retry up to 3 times, then stop instead of writing invalid code.
+    Any write involving RunJS code must follow references/js.md and pass the local validator gate before any MCP write happens.
+    Generate readable, maintainable, multi-line JS with 2-space indentation, clear local variables for non-trivial logic,
+    and explicit ctx.render(...) where the RunJS rules require it.
 
 dependencies:
   tools:

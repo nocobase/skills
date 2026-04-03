@@ -78,6 +78,15 @@ stdin JSON 形状：
 - JS block 常见：`title`、`description`、`className`
 - JS 字段常见：`label`、`showLabel`、`width`、`fixed`
 
+## 代码风格
+
+- `Hard rule`：默认输出可读的多行 JS，不要生成单行压缩式代码
+- `Hard rule`：统一使用 2 空格缩进
+- `Default heuristic`：复杂模板字符串、条件分支、拼接逻辑先拆成局部变量，再传给 `ctx.render(...)`
+- `Default heuristic`：`ctx.render(...)` 单独成行，避免把所有业务逻辑塞进调用参数里
+- `Default heuristic`：优先可读性、可维护性和后续人工编辑体验，而不是最短代码
+- `Fallback`：如果逻辑非常简单，也至少保留合理换行，不要把整段实现折叠成一行
+
 ## Context 构造策略
 
 - `Hard rule`：先使用 runtime profile 的 `defaultContextShape`
