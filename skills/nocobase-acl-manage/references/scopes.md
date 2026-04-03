@@ -12,7 +12,7 @@ General rule:
 - Decide scope explicitly for every important action.
 - If there is no scope, confirm that full-row visibility or mutation is intended.
 
-## Scope Format
+## ⚠️ CRITICAL: Scope Format Rule
 
 A scope's `scope` field uses the same filter condition format as all other NocoBase filter configurations.
 
@@ -22,6 +22,17 @@ Key rules (summary):
 - **Always wrap conditions with `$and` or `$or`** — never place field conditions at the root level.
 - Use `$and` for single or AND-combined conditions; `$or` for OR-combined conditions.
 - Values can be dynamic variables with `{{path}}` syntax. In ACL scopes, the available variables are `$user` (current user) and `$nRole` (current role).
+
+❌ **Wrong** (missing logical operator wrapper):
+```json
+{
+  "department": {
+    "id": {
+      "$eq": "{{$user.department.id}}"
+    }
+  }
+}
+```
 
 ```json
 // ✅ Single condition

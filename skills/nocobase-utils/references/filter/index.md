@@ -39,7 +39,7 @@ Even a single condition must be wrapped:
     {
       "$or": [
         { "type": { "$eq": "vip" } },
-        { "score": { "$gte": 100 } }
+        { "level": { "$in": ["gold", "platinum"] } }
       ]
     }
   ]
@@ -62,17 +62,24 @@ Each condition entry is an object with one or more field conditions:
 { "tags": { "$empty": true } }
 ```
 
-### Relation Fields (dot-path)
+### Relation Fields
 
-Use the relation name, then nest the target field:
+Two equivalent notations are accepted for relation field paths:
 
+**Nested object notation** (recommended for ACL scopes and structured configs):
 ```json
 { "createdBy": { "id": { "$eq": "{{$user.id}}" } } }
 { "department": { "id": { "$eq": "{{$user.department.id}}" } } }
 { "order": { "status": { "$eq": "paid" } } }
 ```
 
-> For relation fields, access nested fields by nesting the field name under the relation name — do **not** use dot notation like `"createdBy.id"` as the key.
+**Dot-string notation** (also valid, common in workflow node filter configs):
+```json
+{ "category.name": { "$eq": "Tech" } }
+{ "createdBy.id": { "$eq": "{{$user.id}}" } }
+```
+
+Both notations traverse the same association path. Use whichever fits the context; the nested object form is more explicit for deeply nested paths.
 
 ---
 
@@ -84,10 +91,6 @@ Use the relation name, then nest the target field:
 |---|---|---|---|
 | `$eq` | any scalar | Equal. If value is an array, behaves as `$in`. | `"active"`, `1`, `null` |
 | `$ne` | any scalar | Not equal. If value is an array, behaves as `$notIn`. Null-safe (also matches null). | `"draft"` |
-| `$gt` | number, date | Greater than | `100` |
-| `$gte` | number, date | Greater than or equal | `100` |
-| `$lt` | number, date | Less than | `100` |
-| `$lte` | number, date | Less than or equal | `100` |
 | `$in` | any scalar | Value is in the given array | `["a", "b"]` |
 | `$notIn` | any scalar | Value is not in the array. Null-safe (also matches null). | `["x", "y"]` |
 
