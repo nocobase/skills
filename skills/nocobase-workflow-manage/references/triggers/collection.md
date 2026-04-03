@@ -24,8 +24,8 @@ Please use the `type` value above to create the trigger; do not use the document
 | collection | string | - | Yes | The data table where the trigger data resides, format is `"<dataSource>:<collection>"` (e.g., `"mysql:posts"`); `dataSource` can be omitted if it's the main data source. |
 | mode | number | - | Yes | Trigger timing bitmap: `1` for add, `2` for update, `3` for add or update, `4` for delete. |
 | changed | string[] | [] | No | Effective only when update is included. If fields are selected, the trigger occurs only when these fields change; if empty, any field change triggers. |
-| condition | object | null | No | Filter conditions (Filter syntax) effective only for add/update. The trigger occurs only when conditions are met. |
-| appends | string[] | [] | No | Paths of associated fields to be preloaded (e.g., `"category"`, `"author.profile"`). Associations are not loaded for delete events. |
+| condition | object | null | No | Filter conditions, effective only for add/update. The trigger occurs only when conditions are met. See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
+| appends | string[] | [] | No | Paths of associated fields to be preloaded. Associations are not loaded for delete events. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Trigger Variables
 - `$context.data`: The triggered data record.
@@ -49,10 +49,10 @@ Please use the `type` value above to create the trigger; do not use the document
       {
         "$or": [
           { "title": { "$includes": "Nocobase" } },
-          { "category.name": "Tech" }
+          { "category.name": { "$eq": "Tech" } }
         ]
       }
-    ],
+    ]
   },
   "appends": ["category", "author"]
 }
@@ -66,7 +66,9 @@ Please use the `type` value above to create the trigger; do not use the document
   "mode": 2,
   "changed": ["status"],
   "condition": {
-    "status": { "$eq": "published" }
+    "$and": [
+      { "status": { "$eq": "published" } }
+    ]
   }
 }
 ```

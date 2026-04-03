@@ -25,7 +25,7 @@ Please use the `type` value above to create the trigger; do not use the document
 | --- | --- | --- | --- | --- |
 | type | number | 0 | Yes | Context type: `0` Global custom data, `1` Single record, `2` Multiple records. |
 | collection | string | - | Required when type is 1 or 2 | The data table where the trigger data resides, format is `"<dataSource>:<collection>"` (e.g., `"posts"` / `"mysql:orders"`; `dataSource` can be omitted when using the main data source). Not required when type is `0` (Global). |
-| appends | string[] | [] | No | Paths of associated fields to preload (only effective when a collection is bound). |
+| appends | string[] | [] | No | Paths of associated fields to preload (only effective when a collection is bound). See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Context Type Details
 

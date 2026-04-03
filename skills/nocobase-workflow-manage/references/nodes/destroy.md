@@ -20,7 +20,7 @@ Periodically clean up canceled historical records.
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | collection | string | None | Yes | Target data table. For a single data source, you can write the collection name directly. For multiple data sources, use `dataSource:collection`. |
-| params.filter | object | None | Yes | Filtering conditions (must contain at least one condition). The format matches the data table filter DSL. |
+| params.filter | object | None | Yes | Filtering conditions (must contain at least one condition). See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 
 ## Branch Description
 Branches are not supported.
