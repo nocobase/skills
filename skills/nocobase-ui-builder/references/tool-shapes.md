@@ -2,6 +2,8 @@
 
 只要 request shape 传错，再正确的业务判断也会失败。本文档是 flow surfaces 请求形状的主参考文档；字段合法性始终以 live MCP tool schema 为准。surface family 分流和 uid / locator 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，写后验证看 [readback.md](./readback.md)。
 
+如果 family、locator、target uid 都已经确定，只差“这个 MCP 请求到底怎么包”，先看这里。
+
 ## 目录
 
 1. 根级 locator `get`
@@ -18,7 +20,7 @@
 - 大多数写接口都要包 `requestBody`；其中很多再在 `requestBody` 内放 `target.uid`
 - `createMenu`、`updateMenu`、`createPage` 都是 lifecycle API，不接受 `target`
 - `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只作为兼容 fallback
-- 当前验证过的实现里，`tabSchemaUid` 往往也可直接作为 outer tab 写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
+- 在当前实现中，`tabSchemaUid` 既可作为 `outer-tab` 的 `get` locator，也可直接作为其写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
 
 ## 1. 根级 locator `get`
 
@@ -122,7 +124,7 @@
 - `createPage` 不传 `menuRouteId` 仍可用，但如果后续还要把页面挂到某个菜单下，应该再调用 `updateMenu`
 - `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
 - `createMenu` 或 `createPage` 返回的 `routeId`，在菜单语义里也可直接作为 `menuRouteId`
-- 当前验证过的实现里，outer tab 往往可直接使用 `tabSchemaUid`，所以 `moveTab/removeTab` 通常直接使用它；如果现场 schema 不一致，以现场为准
+- 在当前实现中，`outer-tab` 的 lifecycle API 直接使用 `tabSchemaUid`；如果现场 schema 明确不同，以现场为准
 
 ## 3. target-based `requestBody.target.uid`
 
@@ -172,54 +174,13 @@
 
 - `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
-- 当前验证过的实现里，`tabSchemaUid` 往往可直接放进 outer tab 写接口的 `target.uid`
+- 在当前实现中，`tabSchemaUid` 可直接放进 outer tab 写接口的 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
-- `currentRecord` 这类 popup 资源语义不属于 locator，也不属于 `target.uid`；它应该出现在 block 级 `resource.binding`
-- 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，record popup 才默认这样写
+- `currentRecord` 这类 popup 资源语义不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义
+- 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，record popup 才默认按“当前记录”语义继续写入
 - 普通 popup 不要臆造 `currentRecord`；无法确认时停止写入
-
-popup 当前记录详情示例：
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "popup-grid-uid" },
-    "mode": "replace",
-    "blocks": [
-      {
-        "key": "details",
-        "type": "details",
-        "resource": {
-          "binding": "currentRecord"
-        },
-        "fields": ["nickname", "department.title"]
-      }
-    ]
-  }
-}
-```
-
-popup 当前记录编辑示例：
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "popup-grid-uid" },
-    "mode": "replace",
-    "blocks": [
-      {
-        "key": "edit",
-        "type": "editForm",
-        "resource": {
-          "binding": "currentRecord"
-        },
-        "fields": ["nickname", "email"],
-        "actions": ["submit"]
-      }
-    ]
-  }
-}
-```
+- `details(currentRecord)` / `editForm(currentRecord)` 的决策流程统一看 [popup-and-event-flow.md](./popup-and-event-flow.md) 与 [record-popup-recipes.md](./record-popup-recipes.md)
+- 由于 block `resource` 的公开写法以 live tool schema 为准，本文不提供 `currentRecord` 的 raw JSON 示例，避免 schema 漂移；真正提交 payload 时只按 live schema 组装
 
 ## 4. `apply` / `mutate`
 

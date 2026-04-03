@@ -1,6 +1,8 @@
 # Runtime Playbook
 
-本文档是 target family 判别、write target / read locator 角色，以及默认写流程的主参考文档。live MCP tool schema 与现场 `get/catalog/readback` 优先于本文；请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)。
+本文档是 target family 判别、write target / read locator 角色，以及默认写流程的主参考文档。live MCP tool schema 与现场 `get/catalog/readback` 优先于本文；请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)，只读检查看 [inspect.md](./inspect.md)。
+
+如果你已经知道用户要“创建/修改/重排什么”，但还不确定它属于哪个 family、该读哪个 locator、该把哪个 uid 放进写接口，先看这里。
 
 ## UID / Locator Glossary
 
@@ -10,7 +12,7 @@
 | `parentMenuRouteId` | 目标父菜单 `group` 的主键 | `createMenu` / `updateMenu` 的 `requestBody` 字段 | 菜单树发现结果 |
 | `uid` | 通用节点读定位符；普通节点写 target 也直接用它 | `get` 根级 locator；或 `target.uid` / root `uid` | 已知 block / field / action / wrapper / host uid，或 `get` 读回树里的任意节点 uid |
 | `pageSchemaUid` | route-backed page 的读定位符 | `get` 根级 locator | `createPage` 返回值；page route / readback |
-| `tabSchemaUid` | route-backed outer tab 的读定位符；在当前验证过的实现里通常也可直接作为 outer-tab 写 target uid | `get` 根级 locator；或 `target.uid` / root `uid` | `createPage` / `addTab` 返回值；tab route / readback |
+| `tabSchemaUid` | route-backed outer tab 的 canonical 标识；在当前实现中既是读 locator，也是 outer-tab 写 target uid | `get` 根级 locator；或 `target.uid` / root `uid` | `createPage` / `addTab` 返回值；tab route / readback |
 | `routeId` | 已初始化 `flowPage` 菜单项或 outer tab 的读定位符 | `get` 根级 locator | `createPage` / `addTab` 返回值；路由读回 |
 | `pageUid` | route-backed page 的写 target uid | `target.uid` 或 root `uid` | `createPage` 返回值；先 `get(pageSchemaUid/routeId)` 后再取页面节点 uid |
 | `gridUid` | `route-content` 的写 target uid | 通常放 `target.uid`；读取时放 `get({ uid })` | `createPage` / `addTab` 返回值 |
@@ -46,7 +48,7 @@
 - `首选 read locator` 指读回前后优先采用的定位方式；具体 envelope 仍以 [tool-shapes.md](./tool-shapes.md) 和 live MCP tool schema 为准。
 - `menu-group` 没有对应的 flow tree，不要把它当成普通 `get -> tree -> nodeMap` surface。
 - `menu-item` 在 `createPage(menuRouteId=...)` 之前只有 bindable route shell；此时只允许 `createPage` / `updateMenu`，不允许 page/tab lifecycle API。
-- 当前验证过的实现里，outer tab 往往可直接使用 `tabSchemaUid` 写入；如果现场 schema / readback 不一致，以现场为准。
+- 在当前实现中，`tabSchemaUid` 既是 `outer-tab` 的读 locator，也是其写 target uid；如果现场 schema / readback 明确不同，以现场为准。
 
 ## `outer-tab` 与 `popup-tab` 的判别
 
@@ -98,13 +100,10 @@
 - 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 这个 popup host，或 `popupPageUid` 读回 popup subtree
 - 先明确本次目标到底是 `popup-page`、`popup-tab`，还是 `popup-content`
 - 如果 popup uid 来自刚创建的 `recordActions.view/edit/popup`，不要在 action 创建后停下；继续对 `popupGridUid` 执行 `catalog -> write -> readback`
-- 用户明确说“当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认按 `currentRecord` 去搭 `details/editForm`；否则停止猜测
+- record popup 的 `currentRecord` guard 统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)；只有 guard 通过时才继续搭 `details/editForm`
 - 再对对应 target 执行 `catalog -> write -> readback`
 
 ### 8. `inspect`
 
-- 已初始化 surface 默认 `get`
-- 菜单层默认先读菜单树；只有 `flowPage` 菜单项且需要页面结构时才继续 `get`
-- 只有在需要 capability / contract 判别时才 `catalog`
-- 断言项一律按 [readback.md](./readback.md)
-- 无明确写入意图时，不调用写接口
+- `inspect` 的 canonical 流程与断言统一看 [inspect.md](./inspect.md)。
+- 本文只保留最小分流心智：菜单层优先菜单树；已初始化 surface 默认 `get`；只有需要 capability / contract 判别时才 `catalog`。

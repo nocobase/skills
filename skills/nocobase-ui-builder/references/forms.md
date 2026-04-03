@@ -2,6 +2,8 @@
 
 表单类 block 的默认顺序是：**能明确新增/编辑，就不用兼容 `form`**。
 
+record popup 下的编辑链路、`currentRecord` guard 与 popup shell 语义统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)；本文只负责表单 block 选型。
+
 以下直接沿用 `Hard rule` / `Default heuristic` / `Fallback` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## 默认创建策略
@@ -21,7 +23,7 @@
 
 - `Default heuristic`：用户要“新建记录 / 录入页 / addNew popup”时，优先 `createForm`
 - `Default heuristic`：用户要“编辑弹窗 / 编辑页 / record action edit popup”时，优先 `editForm`
-- record popup 的填充顺序与 `currentRecord` guard 统一看 [popup-and-event-flow.md](./popup-and-event-flow.md) 和 [record-popup-recipes.md](./record-popup-recipes.md)
+- record popup 的默认动作链统一看 [record-popup-recipes.md](./record-popup-recipes.md)
 - `Fallback`：用户明确要求“通用表单”或现场已存在 `FormBlockModel` 时，才考虑 `form`
 - `Hard rule`：只是查看详情时，不要用 `editForm` 或 `form` 伪装详情页，优先 `details`
 

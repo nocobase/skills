@@ -15,8 +15,8 @@
 1. 在 `table` 上创建 `recordActions.view`
 2. 复用写接口返回的 `popupGridUid`
 3. 对 `popup-content` 先 `catalog`
-4. 只有当 live `catalog.blocks[].resourceBindings` 暴露 `currentRecord` 时，才在 `popupGridUid` 下继续创建 `details`
-5. `details` 的 resource 绑定 `currentRecord`
+4. 先按 [popup-and-event-flow.md](./popup-and-event-flow.md) 的 `currentRecord` guard 判断是否允许继续写入
+5. guard 通过后，才在 `popupGridUid` 下继续创建 `details(currentRecord)`
 6. 按需补字段与标题
 7. 读回确认 popup 不为空，且 `details` 已落到 `currentRecord`
 
@@ -39,8 +39,8 @@
 1. 在 `table` 上创建 `recordActions.edit`
 2. 复用写接口返回的 `popupGridUid`
 3. 对 `popup-content` 先 `catalog`
-4. 只有当 live `catalog.blocks[].resourceBindings` 暴露 `currentRecord` 时，才在 `popupGridUid` 下继续创建 `editForm`
-5. `editForm` 的 resource 绑定 `currentRecord`
+4. 先按 [popup-and-event-flow.md](./popup-and-event-flow.md) 的 `currentRecord` guard 判断是否允许继续写入
+5. guard 通过后，才在 `popupGridUid` 下继续创建 `editForm(currentRecord)`
 6. 在表单 actions 内补 `submit`
 7. 读回确认 popup 不为空，且 `editForm + submit` 已落盘
 

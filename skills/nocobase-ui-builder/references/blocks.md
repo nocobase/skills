@@ -2,6 +2,8 @@
 
 按用户的展示与交互目标选 block，而不是先想着底层 model use。表单类 block 单独看 [forms.md](./forms.md)，动作库存统一看 [actions.md](./actions.md)，横切 guardrail 以 [../SKILL.md](../SKILL.md) 的 `Global Rules` 为准。
 
+如果你已经确定是在“搭内容区”，但还没决定该用哪种 block，先看这里；record popup 的 shell / guard / 默认填充顺序不由本文负责，统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)。
+
 以下直接沿用 `Hard rule` / `Default heuristic` / `Fallback` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## 默认创建策略

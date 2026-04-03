@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 
 | 任务 | 先读什么 | 常用 target family | 首选接口 | 最小读回 |
 | --- | --- | --- | --- | --- |
-| `inspect` | 已初始化 surface 默认 `get`；用户只给菜单标题时先读菜单树，再按需 `get/catalog` | 按现场对象落到 `menu-*` / `page` / `outer-tab` / `route-content` / `popup-*` / `node` | `desktop_routes_list_accessible` / `get`，必要时 `catalog` | 不进入写后验证 |
+| `inspect` | 先看 [inspect.md](./references/inspect.md)；已初始化 surface 默认 `get`；用户只给菜单标题时先读菜单树，再按需 `get/catalog` | 按现场对象落到 `menu-*` / `page` / `outer-tab` / `route-content` / `popup-*` / `node` | `desktop_routes_list_accessible` / `get`，必要时 `catalog` | 不进入写后验证 |
 | 新建菜单分组 | 如用户只给父菜单标题，先读菜单树定位唯一 `group` | `menu-group` | `createMenu(type="group")` | 返回值；必要时菜单树读回 |
 | 新建 page | 先发现或创建父菜单，再创建可绑定菜单项，最后初始化页面 | 先 `menu-item`，后 `page` / `route-content` / `outer-tab` | `createMenu(type="item") -> createPage(menuRouteId=...) -> catalog -> compose/configure/add*` | `get({ pageSchemaUid })`，并做完整 route/tree 校验 |
 | 把页面移入某个菜单 | 已知 `menuRouteId` 直接移动；只给菜单标题时先读菜单树定位唯一 `group` | `menu-item` / `page` | `updateMenu(parentMenuRouteId=...)` | 返回值；移动时升级为菜单树读回 |
@@ -20,7 +20,7 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 | `reorder` | 先 `get` 确认 sibling 与目标定位 | `page` / `popup-page` / `node` | `moveTab` / `movePopupTab` / `moveNode` | tab / popup-tab 做 route/tree 校验；普通节点读父级或直接受影响 target |
 | record popup 查看/编辑 | `get(owner) -> catalog(owner)`，创建 action 后再 `catalog(popup-content)` | 先 `node`，后 `popup-content` | `addRecordAction -> compose/add*` | popup subtree + `popup-content` |
 
-record popup 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认创建 `details(currentRecord)` 或 `editForm(currentRecord)`；否则停止猜测，不写入。
+record popup 的 `currentRecord` guard 与默认填充顺序统一看 [references/popup-and-event-flow.md](./references/popup-and-event-flow.md) 和 [references/record-popup-recipes.md](./references/record-popup-recipes.md)；本页不重复展开。
 
 # Dependency Gate
 
@@ -85,13 +85,14 @@ record popup 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `cu
 
 # Reference Guide
 
-- 需要确认 target family、读 locator、写 target uid 时，看 [references/runtime-playbook.md](./references/runtime-playbook.md)。
-- 需要确认 payload 形状时，看 [references/tool-shapes.md](./references/tool-shapes.md)。
-- 需要 popup / openView / linkageRules / event flow 规则时，看 [references/popup-and-event-flow.md](./references/popup-and-event-flow.md)。
-- 需要 record popup 示例流程时，看 [references/record-popup-recipes.md](./references/record-popup-recipes.md)。
-- 需要 block / form / action / field / JS 选型时，看 [references/blocks.md](./references/blocks.md)、[references/forms.md](./references/forms.md)、[references/actions.md](./references/actions.md)、[references/fields.md](./references/fields.md)、[references/js.md](./references/js.md)。
-- 需要把用户自然语言映射成 UI 术语时，看 [references/aliases.md](./references/aliases.md)。
-- 需要写后断言时，看 [references/readback.md](./references/readback.md)。
+- 只读检查 owner：看 [references/inspect.md](./references/inspect.md)。
+- target family / locator / 写目标 owner：看 [references/runtime-playbook.md](./references/runtime-playbook.md)。
+- payload shape owner：看 [references/tool-shapes.md](./references/tool-shapes.md)。
+- popup / openView / linkageRules / event flow owner：看 [references/popup-and-event-flow.md](./references/popup-and-event-flow.md)。
+- record popup 默认动作链：看 [references/record-popup-recipes.md](./references/record-popup-recipes.md)。
+- block / form / action / field / JS 选型：看 [references/blocks.md](./references/blocks.md)、[references/forms.md](./references/forms.md)、[references/actions.md](./references/actions.md)、[references/fields.md](./references/fields.md)、[references/js.md](./references/js.md)。
+- 自然语言别名映射：看 [references/aliases.md](./references/aliases.md)。
+- 写后断言 owner：看 [references/readback.md](./references/readback.md)。
 
 # Verification Checklist
 
@@ -101,4 +102,4 @@ record popup 只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `cu
 - record popup 场景下，确认 popup 不只是空 shell；如果现场读回暴露了记录绑定语义，再核对其已落到“当前记录”。
 - 结构、字段、配置断言都以对应 reference 和现场读回为准。
 - RunJS 场景下，除了 UI 结构读回，还要核对最终落盘 `code` 与通过 gate 的 code 完全一致。
-- `inspect` 只做只读检查，不进入写后验证流程。
+- `inspect` 的只读检查与断言统一看 [references/inspect.md](./references/inspect.md)；本节只服务于写后验证。

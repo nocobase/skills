@@ -1,6 +1,6 @@
 # Aliases
 
-本词典只负责把自然语言映射到 capability 或对象语义，不负责决定 lifecycle API、payload shape 或 readback。运行时分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)。
+本词典只负责把自然语言映射到 capability 或对象语义，不负责决定 lifecycle API、payload shape 或 readback。运行时分流看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)。record popup 的 guard 与默认填充顺序统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)。
 
 使用前提：
 
@@ -21,8 +21,8 @@
 | 详情区、详情块、只读详情 | `details` | 是否明确是只读详情 |
 | 新增表单、创建表单、录入表单 | `createForm` | 是否明确是创建记录 |
 | 编辑表单、修改表单 | `editForm` | 是否明确是编辑已有记录 |
-| 查看当前记录、查看本条、查看这一行 | `recordActions.view` + `details(currentRecord)` | 是否明确是记录级按钮或行操作 |
-| 编辑当前记录、编辑本条、编辑这一行 | `recordActions.edit` + `editForm(currentRecord)` | 是否明确是记录级按钮或行操作 |
+| 查看当前记录、查看本条、查看这一行 | `recordActions.view` + record popup（默认详情链，见 recipe） | 是否明确是记录级按钮或行操作 |
+| 编辑当前记录、编辑本条、编辑这一行 | `recordActions.edit` + record popup（默认编辑链，见 recipe） | 是否明确是记录级按钮或行操作 |
 | 通用表单、普通表单 | `form` | 是否明确要求兼容 `FormBlockModel` |
 | 说明区、帮助文案、富文本说明 | `markdown` | 当前 target 是否支持 block 创建 |
 | 嵌入网页、嵌入链接、内嵌 HTML | `iframe` | 当前 target 是否支持 block 创建 |
@@ -48,7 +48,7 @@
 | 页面头、header | 当前 target 是 tab 时先按 tab 元信息，否则先按 page 元信息 | page 和 tab 都可能被改名或改 icon | `page` / `outer-tab` / `popup-tab` |
 | 页面布局、分栏、行列排布 | 现有容器已存在时先按 layout 改配；没有现成容器时先按 `compose` | 既可能是新搭结构，也可能是调整现有 grid | `compose` / layout |
 | 打开详情、点击打开 | 字段语境先按 `openView`；记录按钮语境先按 `recordActions.view` | 字段和动作来源都不清楚 | `openView` / `recordActions.view` |
-| 当前记录、本条记录、这一行 | 先按 record scope 收敛；popup 详情/编辑语境下默认走 `currentRecord` | 同时可能指“当前页面主记录”和“table 当前行” | `recordActions.*` / `details(currentRecord)` / `editForm(currentRecord)` |
+| 当前记录、本条记录、这一行 | 先按 record scope 收敛；popup 详情/编辑语境下默认走 record popup | 同时可能指“当前页面主记录”和“table 当前行” | `recordActions.*` / record popup（默认链见 recipe） |
 | 抽屉打开、弹窗打开、自定义弹窗、弹出层 | 字段来源优先 `openView`；action 来源优先 popup action | 触发源不清楚 | field `openView` / popup action |
 | 重置、清空 | 搜索 / 筛选 / 条件语境下先按 `filterForm.reset` | 可能是在说清空表单内容、清空布局或清空数据 | `reset` / 其他清空动作 |
 | 代码按钮、自定义 JS 按钮 | 先按当前容器 scope 收敛 | 容器 scope 不清楚 | 对应 scope 下的 `js` action |

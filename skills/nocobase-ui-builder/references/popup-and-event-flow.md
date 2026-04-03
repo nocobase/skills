@@ -2,6 +2,8 @@
 
 本文档是 popup、openView、linkageRules、event flow 场景的主参考文档。live MCP tool schema 与现场 `get/catalog/readback` 优先于本文；surface family 分流和 popup uid 词汇表看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后验证看 [readback.md](./readback.md)。
 
+只要问题里出现 popup / openView / 当前记录 / linkageRules / flowRegistry，默认先看这里。
+
 ## popup 相关能力出现在哪里
 
 - action popup
@@ -15,6 +17,7 @@ record popup 的默认示例流程看 [record-popup-recipes.md](./record-popup-r
 
 ## 核心规则
 
+- 下述 `currentRecord` guard 是本 skill 的 canonical owner；其它文档只保留摘要或链接，不重复展开完整规则。
 - `recordActions.view/edit/popup` 默认只创建 popup shell，不会自动生成 `details`、`editForm` 或 `submit`。
 - 拿到 `popupPageUid` / `popupTabUid` / `popupGridUid`，只代表 popup subtree 已建立，不代表 popup 内容已经完成。
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。

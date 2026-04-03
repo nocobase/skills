@@ -2,6 +2,8 @@
 
 动作选择顺序：**先看 scope，再看容器，再看是不是记录级。**
 
+record popup 的 shell / `currentRecord` guard / 默认填充顺序统一由 [popup-and-event-flow.md](./popup-and-event-flow.md) 负责；本文只负责动作 scope 与入口选择。
+
 以下直接沿用 `Hard rule` / `Default heuristic` 术语定义，含义见 [../SKILL.md](../SKILL.md) 的 `Global Rules`。
 
 ## Scope 速查
@@ -69,8 +71,8 @@
 
 - `Default heuristic`：默认都通过 `addRecordAction` 或 `recordActions` 创建
 - `Hard rule`：不要塞进 `addAction`
-- `Hard rule`：`view/edit/popup` 如果会打开 popup，只创建 action 不算完成；后续 popup 内容与 `currentRecord` guard 统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)
-- `Default heuristic`：“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”这类表达，优先按 record popup 处理；具体示例流程看 [record-popup-recipes.md](./record-popup-recipes.md)
+- `Hard rule`：`view/edit/popup` 如果会打开 popup，只创建 action 不算完成；后续 popup 内容统一看 [popup-and-event-flow.md](./popup-and-event-flow.md)
+- `Default heuristic`：“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”这类表达，优先按 record popup 处理；默认动作链看 [record-popup-recipes.md](./record-popup-recipes.md)
 - `Fallback`：用户只说“加一个弹窗按钮”但没说明内容时，才允许只创建 `popup` shell；此时不要假设已有详情或表单会自动出现
 - `Default heuristic`：“查看 / 编辑 / 删除 / 复制 / 新增子级”这类表达，默认先检查容器是否支持 `recordActions`
 
