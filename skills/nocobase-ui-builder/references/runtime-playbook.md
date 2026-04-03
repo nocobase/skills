@@ -6,10 +6,12 @@
 
 | 名称 | 角色 | 放在哪里 | 典型来源 |
 | --- | --- | --- | --- |
+| `menuRouteId` | 菜单节点主键；用于 `createPage(menuRouteId=...)` 与 `updateMenu(menuRouteId=...)` | lifecycle `requestBody` 字段 | `createMenu` / `createPage` 返回值，或菜单树发现结果 |
+| `parentMenuRouteId` | 目标父菜单 `group` 的主键 | `createMenu` / `updateMenu` 的 `requestBody` 字段 | 菜单树发现结果 |
 | `uid` | 通用节点读定位符；普通节点写 target 也直接用它 | `get` 根级 locator；或 `target.uid` / root `uid` | 已知 block / field / action / wrapper / host uid，或 `get` 读回树里的任意节点 uid |
 | `pageSchemaUid` | route-backed page 的读定位符 | `get` 根级 locator | `createPage` 返回值；page route / readback |
 | `tabSchemaUid` | route-backed outer tab 的读定位符；在当前验证过的实现里通常也可直接作为 outer-tab 写 target uid | `get` 根级 locator；或 `target.uid` / root `uid` | `createPage` / `addTab` 返回值；tab route / readback |
-| `routeId` | route-backed page 或 tab 的读定位符 | `get` 根级 locator | `createPage` / `addTab` 返回值；路由读回 |
+| `routeId` | 已初始化 `flowPage` 菜单项或 outer tab 的读定位符 | `get` 根级 locator | `createPage` / `addTab` 返回值；路由读回 |
 | `pageUid` | route-backed page 的写 target uid | `target.uid` 或 root `uid` | `createPage` 返回值；先 `get(pageSchemaUid/routeId)` 后再取页面节点 uid |
 | `gridUid` | `route-content` 的写 target uid | 通常放 `target.uid`；读取时放 `get({ uid })` | `createPage` / `addTab` 返回值 |
 | `hostUid` | popup host 节点的读定位符，不是 popup page 本身 | `get({ uid: hostUid })` | 会打开 popup 的 action / field / block uid |
@@ -22,11 +24,14 @@
 
 - popup 场景里如果现场只暴露 `tabUid`，按 `popupTabUid` 处理。
 - popup 场景里如果现场只暴露 `gridUid`，按 `popupGridUid` 处理，不要和 `route-content` 的 `gridUid` 混用。
+- 菜单 discovery 结果里的 `routeId`，在菜单语义里通常就拿来当 `menuRouteId` / `parentMenuRouteId`。
 
 ## Surface Families
 
 | 家族 | 语义 | 默认 write target uid | 首选 read locator | 常见用途 |
 | --- | --- | --- | --- | --- |
+| `menu-group` | 仅用于组织 Modern page(v2) 的 `group` 菜单 | 不适用；统一走 `createMenu/updateMenu` | 菜单树读回；必要时仅保留 `routeId` | 创建分组、挂接子菜单、重命名分组 |
+| `menu-item` | 可绑定 Modern page(v2) 的 `flowPage` 菜单项；在 `createPage` 前属于未初始化页面 | 不适用；初始化与菜单移动统一走 lifecycle API | `menuRouteId` / `routeId`；必要时 `pageSchemaUid` | 初始化页面、重命名菜单、移动到另一分组 |
 | `page` | route-backed 顶层页面 | `pageUid` | `pageSchemaUid`，必要时 `routeId` | `addTab`、`destroyPage`、整页读回 |
 | `outer-tab` | 页面下的 route-backed tab | `tabSchemaUid` | `tabSchemaUid` | outer tab lifecycle、tab surface `catalog/configure` |
 | `route-content` | page / outer tab 内继续搭内容的 grid target | `gridUid` | `uid = gridUid` | `catalog/compose/add*` |
@@ -39,6 +44,8 @@
 
 - `默认 write target uid` 指写接口里通常应该放进 `target.uid`，或 lifecycle request body 应该使用的主 uid。
 - `首选 read locator` 指读回前后优先采用的定位方式；具体 envelope 仍以 [tool-shapes.md](./tool-shapes.md) 和 live MCP tool schema 为准。
+- `menu-group` 没有对应的 flow tree，不要把它当成普通 `get -> tree -> nodeMap` surface。
+- `menu-item` 在 `createPage(menuRouteId=...)` 之前只有 bindable route shell；此时只允许 `createPage` / `updateMenu`，不允许 page/tab lifecycle API。
 - 当前验证过的实现里，outer tab 往往可直接使用 `tabSchemaUid` 写入；如果现场 schema / readback 不一致，以现场为准。
 
 ## `outer-tab` 与 `popup-tab` 的判别
@@ -51,23 +58,42 @@
 
 ## 默认写流程
 
-### 1. 新建完整页面
+### 1. 先按菜单标题发现父菜单
 
-- `createPage`
+- `desktop_routes_list_accessible(tree=true)`
+- 只接受唯一命中的 `group`
+- 命中不唯一或没有命中时停止猜测
+
+### 2. 新建菜单分组
+
+- `createMenu(type="group")`
+- 如需继续在该分组下建页面，复用返回的 `routeId` 作为 `parentMenuRouteId`
+
+### 3. 新建完整页面
+
+- 如有父菜单：先解析 `parentMenuRouteId`
+- `createMenu(type="item", parentMenuRouteId=...)`
+- `createPage(menuRouteId=routeId)`
 - 如果继续搭 `route-content`：对返回的 `gridUid` 走 `catalog -> compose / add* / configure -> readback`
 - 如果只改 `outer-tab` 元信息：对返回的 `tabSchemaUid` 走 `catalog -> configure -> readback`
 
-### 2. 已有 `page` 新增 `outer-tab`
+### 4. 兼容模式下先建页面再移入菜单
+
+- `createPage`（不传 `menuRouteId`）
+- 若用户还要求挂进某个菜单：再执行 `updateMenu(menuRouteId=routeId, parentMenuRouteId=...)`
+- 之后再继续 `catalog -> write -> readback`
+
+### 5. 已有 `page` 新增 `outer-tab`
 
 - 先读回 `page`，拿到 `pageUid`
 - `addTab(target.uid = pageUid)`
 - 对返回的 `gridUid` 或 `tabSchemaUid` 再继续 `catalog -> write -> readback`
 
-### 3. 已有 target 小改或精确追加
+### 6. 已有 target 小改或精确追加
 
 - `get -> catalog -> compose / configure / add* / updateSettings / setLayout / setEventFlows / apply / mutate -> readback`
 
-### 4. 已有 popup subtree 写入
+### 7. 已有 popup subtree 写入
 
 - 如果当前执行链没有直接拿到 popup 相关 uid，先从 `hostUid` 这个 popup host，或 `popupPageUid` 读回 popup subtree
 - 先明确本次目标到底是 `popup-page`、`popup-tab`，还是 `popup-content`
@@ -75,9 +101,10 @@
 - 用户明确说“当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认按 `currentRecord` 去搭 `details/editForm`；否则停止猜测
 - 再对对应 target 执行 `catalog -> write -> readback`
 
-### 5. `inspect`
+### 8. `inspect`
 
-- `get`
+- 已初始化 surface 默认 `get`
+- 菜单层默认先读菜单树；只有 `flowPage` 菜单项且需要页面结构时才继续 `get`
 - 只有在需要 capability / contract 判别时才 `catalog`
 - 断言项一律按 [readback.md](./readback.md)
 - 无明确写入意图时，不调用写接口

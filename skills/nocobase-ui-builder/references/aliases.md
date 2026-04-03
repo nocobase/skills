@@ -4,13 +4,17 @@
 
 使用前提：
 
-- 只在 Modern page(v2) surface 范围内生效；route-backed family 与 popup family 都在本 skill 覆盖范围内
-- 超出该范围的导航、菜单、桌面路由、工作台概念，不要强行归一到本 skill
+- 只在与 Modern page(v2) 直接相关的菜单、route-backed family 与 popup family 范围内生效
+- 外链、移动端、通用桌面导航、工作台其它导航概念，不要强行归一到本 skill
 
 ## Default heuristic：可直接映射
 
 | 用户表达 | 默认映射 | 先检查什么 |
 | --- | --- | --- |
+| 菜单分组、目录、分组菜单 | `menu-group` | 是否是在说承载 Modern page(v2) 的菜单分组 |
+| 菜单项、页面入口、页面菜单 | `menu-item` | 是否是在说 Modern page(v2) 的入口，而不是外链 |
+| 挂到某个菜单、移到某个分组、放到某个菜单下面 | `updateMenu(parentMenuRouteId=...)` | 目标菜单是否能唯一定位到 `group` |
+| 新建页面并放到菜单里 | `createMenu(type="item") + createPage(menuRouteId=...)` | 是否同时给了父菜单信息 |
 | 表格、数据表、列表表格 | `table` | 当前 target 是否支持 block 创建 |
 | 筛选区、过滤区、搜索表单、过滤表单 | `filterForm` | 是否存在可筛选目标 block |
 | 卡片墙、卡片宫格、网格卡片、名片墙 | `gridCard` | 当前 target 是否支持 block 创建 |
@@ -33,12 +37,12 @@
 
 | 用户表达 | 默认先按什么收敛 | 什么时候必须停下来确认 | 可能落点 |
 | --- | --- | --- | --- |
-| 页面 | 有现成 locator/uid 时先按已有 `page` 处理；只有明确“新建页面”时才走创建 | 同时存在“新建页面”和“修改已有页面”两种解释 | `page` |
-| 页面入口、菜单、导航项 | 先按 page 外层资源处理，默认超出本 skill 范围 | 用户其实在说 route-backed `page` / `outer-tab` lifecycle | 出 scope，或 `page` / `outer-tab` |
+| 页面 | 有现成 locator/uid 时先按已有 `page` 处理；明确“新建页面”且带菜单语境时，默认走菜单优先链路 | 同时存在“新建页面”和“修改已有页面”两种解释 | `menu-item` / `page` |
+| 页面入口、菜单、导航项 | 先判断是在说 `menu-group`、`menu-item`，还是已初始化 `page` | 可能是在说外链、移动端或工作台其它导航 | `menu-group` / `menu-item` / `page` |
 | 新增、创建、新建 | 先绑定最近的名词对象；例如“新增 tab”先收敛到 tab，“新建筛选区”先收敛到 block | 只有动词没有对象，或对象可跨多个 family | 任一 surface family |
 | 列表、列表页 | 先默认 `table` | 用户同时强调“轻量/移动端/卡片” | `table` / `list` / `gridCard` |
 | 明细表、详情表 | 先看上下文是否在谈列、批量操作、分页；是则先按 `table` | 如果语义更像单记录只读详情 | `table` / `details` |
-| 工作台、工作台页、工作台按钮区 | 先判断是否在说 page 外层导航；若是则直接出 scope | 用户其实在说 page 内部按钮区 | 出 scope，或 `actionPanel` |
+| 工作台、工作台页、工作台按钮区 | 先判断是否在说菜单分组或页面内部按钮区 | 工作台概念本身不明确，且 page 外层导航与页面内部 UI 都说得通 | 出 scope，或 `menu-group` / `actionPanel` |
 | 工具栏、工具区 | 当前 target 是 collection block 时，先看 block actions；明确要独立按钮区时再看 `actionPanel` | block actions 与独立按钮区都说得通 | `actions` / `actionPanel` |
 | 标签页、页签、tab | 已有 `tabSchemaUid` 或 page route 上下文时，先按 `outer-tab`；popup subtree 上下文时，先按 `popup-tab` | 只有自然语言 “tab”，没有任何 page/popup 上下文 | `outer-tab` / `popup-tab` |
 | 页面头、header | 当前 target 是 tab 时先按 tab 元信息，否则先按 page 元信息 | page 和 tab 都可能被改名或改 icon | `page` / `outer-tab` / `popup-tab` |
@@ -53,4 +57,5 @@
 ## 映射后的保守动作
 
 - 映射只决定 capability 或对象语义，不决定具体 API、请求 envelope 或 readback。
+- 菜单表达如果只给标题，必须先做菜单树发现；只有唯一命中的 `group` 才能继续写入。
 - 只要会跨 family 或跨 action scope，就先收敛目标，不要直接生成写请求。

@@ -16,6 +16,8 @@
 - `get` 不接受 `requestBody`，也不接受 `target`
 - 除 `pageSchemaUid/tabSchemaUid/routeId` 外，其他 id 读取时都默认写进 `uid`
 - 大多数写接口都要包 `requestBody`；其中很多再在 `requestBody` 内放 `target.uid`
+- `createMenu`、`updateMenu`、`createPage` 都是 lifecycle API，不接受 `target`
+- `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只作为兼容 fallback
 - 当前验证过的实现里，`tabSchemaUid` 往往也可直接作为 outer tab 写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
 
 ## 1. 根级 locator `get`
@@ -55,29 +57,71 @@
 
 | 语义名 | MCP tool | 关键字段 |
 | --- | --- | --- |
-| `createPage` | `mcp__nocobase__flow_surfaces_create_page` | `requestBody.title`、`requestBody.tabTitle` |
+| `createMenu` | `mcp__nocobase__flow_surfaces_create_menu` | `requestBody.title`，可选 `requestBody.type/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `updateMenu` | `mcp__nocobase__flow_surfaces_update_menu` | `requestBody.menuRouteId`，可选 `requestBody.title/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `createPage` | `mcp__nocobase__flow_surfaces_create_page` | 推荐传 `requestBody.menuRouteId`；其余常用 `requestBody.title/tabTitle/enableTabs` |
 | `destroyPage` | `mcp__nocobase__flow_surfaces_destroy_page` | `requestBody.uid`，必须是 `pageUid` |
 | `moveTab` | `mcp__nocobase__flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`，outer tab 直接用 `tabSchemaUid` |
 | `removeTab` | `mcp__nocobase__flow_surfaces_remove_tab` | `requestBody.uid`，outer tab 直接用 `tabSchemaUid` |
 | `movePopupTab` | `mcp__nocobase__flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
 | `moveNode` | `mcp__nocobase__flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
 
-`createPage` 示例：
+`createMenu(type="group")` 示例：
+
+```json
+{
+  "requestBody": {
+    "title": "Workspace",
+    "type": "group"
+  }
+}
+```
+
+`createMenu(type="item")` 示例：
 
 ```json
 {
   "requestBody": {
     "title": "Employees",
+    "type": "item",
+    "parentMenuRouteId": 1001
+  }
+}
+```
+
+`createPage(menuRouteId=...)` 示例：
+
+```json
+{
+  "requestBody": {
+    "menuRouteId": 1002,
     "tabTitle": "Overview"
+  }
+}
+```
+
+`updateMenu` 示例：
+
+```json
+{
+  "requestBody": {
+    "menuRouteId": 1002,
+    "title": "Employees Center",
+    "parentMenuRouteId": 1001
   }
 }
 ```
 
 规则：
 
-- `createPage` 创建 target 本身，所以不接受 `target`
-- 只在 MCP 层包一层 `requestBody`
+- 这些 lifecycle API 都只在 MCP 层包一层 `requestBody`
+- `createMenu`、`updateMenu`、`createPage` 都不接受 `target`
+- `createMenu(type="group")` 只返回菜单 route 信息，不返回可写页面 target
+- `createMenu(type="item")` 会返回 `pageSchemaUid/pageUid/tabSchemaUid/tabRouteId`，但此时页面仍可能未初始化；不要立刻调用 page/tab lifecycle API
+- `createPage(menuRouteId=...)` 会把 bindable 菜单项初始化为真正的 Modern page(v2)
+- `createPage` 不传 `menuRouteId` 仍可用，但如果后续还要把页面挂到某个菜单下，应该再调用 `updateMenu`
 - `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
+- `createMenu` 或 `createPage` 返回的 `routeId`，在菜单语义里也可直接作为 `menuRouteId`
 - 当前验证过的实现里，outer tab 往往可直接使用 `tabSchemaUid`，所以 `moveTab/removeTab` 通常直接使用它；如果现场 schema 不一致，以现场为准
 
 ## 3. target-based `requestBody.target.uid`
@@ -196,9 +240,27 @@ popup 当前记录编辑示例：
 ```json
 {
   "requestBody": {
-    "target": { "uid": "table-block-uid" },
     "atomic": true,
-    "ops": ["..."]
+    "ops": [
+      {
+        "opId": "menu",
+        "type": "createMenu",
+        "values": {
+          "title": "Employees",
+          "type": "item"
+        }
+      },
+      {
+        "opId": "page",
+        "type": "createPage",
+        "values": {
+          "menuRouteId": {
+            "$ref": "menu.routeId"
+          },
+          "tabTitle": "Overview"
+        }
+      }
+    ]
   }
 }
 ```
@@ -207,6 +269,7 @@ popup 当前记录编辑示例：
 
 - `apply` 默认只做受控 subtree 替换
 - `mutate` 默认显式传 `requestBody.target.uid`，除非整段编排完全由 `$ref` 和内部 op 结果自洽
+- 菜单优先的新建页面链路，优先编排成 `createMenu -> createPage`
 - `mutate` 是编排工具，不是默认 patch 工具
 
 ## 5. 常见错误形状
@@ -247,6 +310,28 @@ popup 当前记录编辑示例：
   "requestBody": {
     "target": { "uid": "employees-page-uid" },
     "title": "Stats"
+  }
+}
+```
+
+错误：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employees-page-uid" },
+    "tabTitle": "Overview"
+  }
+}
+```
+
+这不是合法的 `createPage` 形状。正确写法：
+
+```json
+{
+  "requestBody": {
+    "menuRouteId": 1002,
+    "tabTitle": "Overview"
   }
 }
 ```

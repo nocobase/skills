@@ -1,8 +1,11 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "通过 NocoBase MCP 搭建、修改、重排或只读检查 Modern page(v2) UI surface"
+  short_description: "通过 NocoBase MCP 以菜单优先方式搭建、修改、重排或只读检查 Modern page(v2) UI surface"
   default_prompt: >
-    Use $nocobase-ui-builder to build, update, reorder, or inspect NocoBase Modern page (v2) UI surfaces through live NocoBase MCP flowSurfaces capabilities.
+    Use $nocobase-ui-builder to build, update, reorder, or inspect NocoBase Modern page (v2) UI surfaces through live NocoBase MCP capabilities.
+    Prefer menu-first flows: discover or create the target menu group, create a bindable menu item, then initialize the page with createPage(menuRouteId=...).
+    If the user only gives a menu title, first read the menu tree and only proceed when the target group is uniquely identified.
+    Do not use page or tab lifecycle APIs on uninitialized pages created only by createMenu(type="item").
     Any write involving RunJS code must follow references/js.md and pass the local validator gate before any MCP write happens.
     Generate readable, maintainable, multi-line JS with 2-space indentation, clear local variables for non-trivial logic,
     and explicit ctx.render(...) where the RunJS rules require it.
