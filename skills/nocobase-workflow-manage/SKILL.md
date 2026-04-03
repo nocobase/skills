@@ -11,11 +11,12 @@ Orchestrate NocoBase workflows end-to-end through NocoBase MCP tools: design tri
 
 # Dependency Gate
 
-- Related helper skills: `nocobase-mcp-setup`, `nocobase-data-modeling`.
+- Related helper skills: `nocobase-mcp-setup`, `nocobase-data-modeling`, `nocobase-utils`.
 - Check whether NocoBase MCP tools are available before planning write operations.
 - If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
 - If MCP tools return authentication errors such as `Auth required`, stop and ask the user to complete MCP authentication or refresh the MCP connection before continuing.
 - Data modeling skill may be used to understand related collections and fields when configuring workflow triggers and nodes.
+- When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md).
 
 # Mandatory MCP Gate
 
@@ -28,7 +29,7 @@ Confirm the NocoBase MCP server is reachable and authenticated before attempting
 3. **Never use an empty `filter`** — update and destroy nodes require `filter` with at least one condition. Confirm the filter is non-empty before calling the API.
 4. **Always chain nodes via `upstreamId`** — every node (except the first) must reference its upstream node. Do not skip or leave `upstreamId` unset.
 5. **Never create nodes concurrently** — node creation calls must be executed one at a time, sequentially. Wait for the previous node to be fully created before creating the next one, because the server adjusts internal link relationships during each creation. Batch/parallel node creation is not supported.
-6. **Always wrap filter in `$and` or `$or`** — the root of any filter object must be a condition group. See [Common Conventions - filter](references/conventions/index.md#the-filter-field-in-trigger-and-node-configuration).
+6. **Always wrap filter in `$and` or `$or`** — the root of any filter object must be a condition group. Full operator reference: [nocobase-utils / Filter Condition Format](../nocobase-utils/references/filter/index.md).
 7. **Always reference node results by `key`, not `id`** — use `{{$jobsMapByNodeKey.<nodeKey>.<path>}}` where `nodeKey` is the node's `key` property (a short random string). Never use the numeric `id`, never invent a key — always read the actual `key` from the node record after creating it. See [Common Conventions - Variable Expressions](references/conventions/index.md#variable-expressions).
 8. **Always verify after mutation** — after creating, updating, or deleting a workflow or node, read back the result to confirm the change took effect.
 9. **Do not auto-enable without user confirmation** — always ask the user before setting `enabled: true`.
@@ -121,3 +122,4 @@ After completing any workflow operation, verify:
 | Triggers | [references/triggers/index.md](references/triggers/index.md) |
 | Nodes | [references/nodes/index.md](references/nodes/index.md) |
 | Endpoint mapping used through MCP | [references/http-api/index.md](references/http-api/index.md) |
+| Expression engines (formula.js / math.js) | [nocobase-utils skill](../nocobase-utils/references/evaluators/index.md) |
