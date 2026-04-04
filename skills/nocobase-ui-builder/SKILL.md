@@ -65,5 +65,6 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 
 - builder chart 的默认安全路径是：单 measure、basic visual、无 sorting。
 - SQL chart 的默认安全路径是：先单独 `configure(query)`，再读 `context(path="chart")` 里的 `chart.queryOutputs`，最后再写 `visual`。
+- 如果 `context(path="chart")` 没有 `chart.queryOutputs`，不要继续写 `visual.mode="basic"`；FlowSurfaces 会拒绝这类写入，此时只能先保留 query，或显式改走 `visual.mode="custom"`。
 - 如果 `context(path="chart")` 返回 `chart.unsupportedPatterns` 命中当前需求，不要硬写；要么改写成安全子集，要么明确说明当前 FlowSurfaces contract 不支持。
 - 如果返回 `chart.riskyPatterns`，可以继续，但必须做 `get` readback，并建议追加浏览器 reload 验证。

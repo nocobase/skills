@@ -190,6 +190,7 @@ skill 选默认值时，优先套这个 safe 子集：
 - `configure(query)` 后，优先立刻读一次 `flowSurfaces:context(path="chart")`
 - 如果 SQL 没有 runtime 模板变量，`chart.queryOutputs` 现在会优先通过 SQL preview metadata 推断，即使当前数据集为空也尽量返回输出列
 - 如果 SQL 含模板变量 / `ctx` / liquid bind，preview 可能无法提前推断，这时会落到 `riskyPatterns`
+- 如果 `chart.queryOutputs` 缺失，FlowSurfaces 现在会拒绝 `visual.mode = "basic"` 的写入；skill 只能先写 `query`，再用 `context(path="chart") + readback + reload/browser verify` 收口
 - SQL alias 要以 `chart.queryOutputs` 为准，不要直接假设自己写在 SQL 里的大小写会原样保留
 - PostgreSQL 等方言会把**未加引号**的 alias 折叠成小写；如果需要 `employeeCount` 这类大小写敏感 alias，请写成 `AS \"employeeCount\"`，否则优先使用全小写 alias
 
@@ -530,7 +531,7 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
   - 先写 `query`
   - 再读 `context(path="chart")`
   - 再按 `chart.queryOutputs` 写 `visual`
-- 如果 `chart.queryOutputs` 缺失且 `riskyPatterns` 提示 runtime context / preview unavailable，不要伪造 mappings；除非用户明确接受 risky path
+- 如果 `chart.queryOutputs` 缺失且 `riskyPatterns` 提示 runtime context / preview unavailable，不要伪造 mappings；服务端会拒绝 basic visual，因此只能保留 query，除非用户明确改走 `visual.mode = "custom"` 并接受 risky path
 
 ## 什么时候回退 legacy `configure`
 
