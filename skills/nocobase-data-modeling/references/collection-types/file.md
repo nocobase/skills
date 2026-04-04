@@ -5,10 +5,13 @@ Use when the file itself is the primary record, such as attachments, scans, cont
 Key rules:
 
 - Do not assume `template: "file"` alone is enough for realistic modeling validation.
-- Start from the real built-in file fields, then append business-specific fields.
+- In the compact `collections apply` flow, do not copy the built-in file template fields into the request unless the command help explicitly requires a fully expanded raw payload.
+- Start from the real built-in file behavior, then append only business-specific fields.
 - Prefer a real file collection over URL or path text fields when the file is a first-class object.
 - If the user only needs one file attached to another business table, an attachment field may be enough.
 - If the user needs file metadata, reuse, lifecycle tracking, or file-centered querying, use a real `file` collection.
+
+The fully expanded JSON examples below are structure references, not the preferred compact CLI request shape.
 
 Good fits for `file`:
 

@@ -4,23 +4,23 @@ Use for ordinary business master data or transactional records.
 
 Key rules:
 
-- Prefer explicit preset fields instead of relying on implicit id generation.
-- For realistic modeling, set `autoGenId: false` and include explicit preset fields in `fields`.
-- Append business fields after the preset fields unless the user asks otherwise.
+- For the compact `nocobase-cli data-modeling collections apply` flow, do not manually include built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, or `updatedBy`.
+- Treat those fields as template defaults that the server creates for ordinary `general` collections unless the active command help explicitly requires a fully expanded raw payload.
+- Append business fields only. Each business field still needs an explicit `interface`.
 - Default business-table pattern:
-  - explicit preset fields first;
-  - business scalar fields next;
+  - business scalar fields first;
   - local choice fields next;
   - relation fields after the core business fields.
 
 Recommended extension pattern after the baseline:
 
-- identity and audit fields first;
 - title or display field;
 - status or business state field;
 - one or more scalar business measures such as amount, quantity, code, or note;
 - optional local choice fields;
 - relation fields only after the scalar business fields are correct.
+
+The fully expanded JSON examples below are structure references, not the preferred compact CLI request shape.
 
 ```json
 {

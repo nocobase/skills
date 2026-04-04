@@ -7,6 +7,9 @@ Key rules:
 - Confirm the app actually needs calendar semantics instead of a plain table with date fields.
 - Inspect existing calendar plugin capability before creation.
 - Do not guess event-specific business fields; add them after the calendar baseline is confirmed.
+- In the compact `collections apply` flow, do not send built-in audit flags or expanded template fields unless the active command help explicitly requires them.
+- Treat template defaults such as calendar-owned fields as server-managed defaults for creation, then add only business fields that are not implied by the template.
+- Each business field still needs an explicit `interface`.
 
 Good fits for `calendar`:
 
@@ -24,7 +27,7 @@ Bad fits for `calendar`:
 Calendar request baseline:
 
 - treat this file as a create-request reference, not as read-back metadata;
-- for calendar collections, the template request is centered on calendar behavior plus preset-field flags;
+- for compact CLI usage, prefer template name plus business fields, not preset-field flags or duplicated expanded defaults;
 - do not copy metadata-only fields such as auto-generated read-back structure into the create request.
 - `cron` and `exclude` are template-default fields for the built-in calendar template;
 - treat them as the canonical calendar-template baseline, not as a universal law for every possible custom calendar-like schema.

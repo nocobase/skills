@@ -6,8 +6,11 @@ Key rules:
 
 - Treat hierarchy as first-class structure.
 - Use the tree template rather than simulating a tree with ordinary self-relations in a general collection.
-- `parentId`, `parent`, and `children` are core structural fields.
-- Add business fields only after the structural tree fields are correct.
+- In the compact `collections apply` flow, do not manually include template-owned tree fields such as `parentId`, `parent`, or `children` when creating a new tree collection.
+- Add business fields only after the structural tree behavior is correct.
+- Each business field still needs an explicit `interface`.
+
+The fully expanded JSON examples below are structure references, not the preferred compact CLI request shape.
 
 ```json
 {

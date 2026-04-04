@@ -50,6 +50,14 @@ Do not prefer older low-level collection or nested field commands when the final
 5. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
 6. If the requested behavior cannot be expressed through the final command surface, stop and explain what is missing instead of silently falling back to an older path.
 
+## Compact Payload Rules
+
+- When creating a collection with `collections apply`, do not send built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`, or template-owned structural fields unless the current command help explicitly says they are required.
+- For `general`, `tree`, `file`, and other built-in templates, assume the server will create the template defaults. Only send business fields that the user is actually adding.
+- For `tree`, do not manually include `parentId`, `parent`, or `children` in the compact create payload unless you are intentionally overriding an existing schema with a fully expanded raw shape.
+- Every custom field supplied to `collections apply` or `fields apply` still needs an explicit `interface`. The compact API reduces derived options, but it does not infer business field interfaces from the field name alone.
+- If a reference file shows a fully expanded collection JSON, treat it as structure reference or read-back reference, not as the preferred compact CLI payload.
+
 # Working Process
 
 ## 1. Inspect
@@ -80,6 +88,12 @@ Summarize the intended model in natural language before destructive or broad cha
 - Use `collections destroy` only for explicit delete requests.
 
 Compact payloads are preferred. Supply only the fields the command contract requires, such as collection template/name/title and field name/title/interface, plus any necessary special options that cannot be derived safely.
+
+For collection creation, this usually means:
+
+- collection-level options such as `name`, `title`, `template`, and a small number of template-specific flags;
+- business fields only, not default system/template fields;
+- relation-specific options only when the field interface is relational.
 
 ## 4. Verify
 
