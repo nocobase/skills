@@ -29,7 +29,10 @@
 
 1. 默认先走 `query.mode = "builder"`。
 2. 默认先走 `visual.mode = "basic"`。
-3. 只有以下情况才升级：
+3. 默认优先命中 `flowSurfaces:context(path="chart")` 返回的 `safeDefaults`。
+4. 如果命中 `riskyPatterns`，不要直接禁止；可以继续写，但要在结果里标记风险，并补 `readback + reload/browser verify`。
+5. 如果命中 `unsupportedPatterns`，不要继续臆造 payload；应改写成安全子集，或明确告诉用户当前 contract 不支持。
+6. 只有以下情况才升级：
    - 查询真的必须用 SQL → `query.mode = "sql"`
    - 基础图表类型和映射不够 → `visual.mode = "custom"`
    - 需要点击、缩放、联动 → `events.raw`
@@ -39,10 +42,12 @@
 chart block 最稳的执行顺序不是一次性盲写，而是：
 
 1. `addBlock(type="chart")`
-2. `flowSurfaces:context(path="chart")`
-3. 如果是 builder query，再读 `flowSurfaces:context(path="collection")`
-4. `configure(changes={ query, visual, events?, title?, displayTitle?, height?, heightMode? })`
-5. `get(uid)` 做 canonical readback
+2. 如果要配 builder query，先读 `flowSurfaces:context(path="collection")` 选字段
+3. 先 `configure(changes={ query, title?, displayTitle?, height?, heightMode? })`
+4. 再读 `flowSurfaces:context(path="chart")`
+5. 基于 `chart.queryOutputs / aliases / safeDefaults / riskyPatterns / unsupportedPatterns` 再 `configure(changes={ visual, events? })`
+6. `get(uid)` 做 canonical readback
+7. 命中 risky pattern 时，再补一次页面 reload / browser verify
 
 如果是在**重配已有 chart**，并且你希望清空旧的 builder 状态（尤其是 `sorting` / `filter` 这类可残留字段），不要只靠“省略该字段”来赌服务端会自动清空；请显式传空值，例如：
 
@@ -127,6 +132,14 @@ chart block 最稳的执行顺序不是一次性盲写，而是：
 }
 ```
 
+skill 选默认值时，优先套这个 safe 子集：
+
+- builder query
+- single measure
+- basic visual
+- 明确 mappings
+- 首轮不生成 sorting
+
 ## query 规则
 
 ### builder
@@ -143,9 +156,11 @@ chart block 最稳的执行顺序不是一次性盲写，而是：
 - `filter` 可选，结构应为 FilterGroup
 - `sorting` 可选；为了首轮成功率，skill 默认**不要主动生成排序**，除非用户明确要求
 - 如果需要清空已有排序，必须显式传 `sorting: []`，不要只靠省略字段
-- 当 measure 中出现聚合时，排序字段只能引用已选维度 / 度量字段
-- 如果聚合度量声明了 `alias`，排序字段在 FlowSurfaces / 后端 canonical contract 中应引用该 `alias`，不要再用原始字段名
-- 但当前前端 runtime 对“聚合 alias 排序”的兼容仍然偏严格；在浏览器验证链路里，这类 case 要单独验证，不要把它当成默认安全路径
+- builder 排序目前只应作为高级路径使用
+- 当前 runtime / FlowSurfaces contract 会拒绝：
+  - 聚合 measure 输出排序
+  - 自定义 measure alias 排序
+- 因此 skill 默认不要生成这类排序；命中时应视为 `unsupportedPatterns.builder_measure_sorting`
 - `limit` 必须是大于等于 0 的整数；`offset` 必须是大于等于 0 的整数
 - 外部 DSL 统一写 `sorting[].direction = "asc" | "desc"`
 - 不要自己写内部落盘结构 `query.orders[].order`；这是后端兼容层负责转换的
@@ -169,10 +184,19 @@ chart block 最稳的执行顺序不是一次性盲写，而是：
 - `sql` 必填
 - `sqlDatasource` 可选
 - SQL 会额外持久化到 `flowSql`；判断是否真正保存成功，不能只看 stepParams
+- SQL 只应写单条只读 `SELECT` / `WITH`
+- `configure(query)` 后，优先立刻读一次 `flowSurfaces:context(path="chart")`
+- 如果 SQL 没有 runtime 模板变量，`chart.queryOutputs` 现在会优先通过 SQL preview metadata 推断，即使当前数据集为空也尽量返回输出列
+- 如果 SQL 含模板变量 / `ctx` / liquid bind，preview 可能无法提前推断，这时会落到 `riskyPatterns`
+- SQL alias 要以 `chart.queryOutputs` 为准，不要直接假设自己写在 SQL 里的大小写会原样保留
+- PostgreSQL 等方言会把**未加引号**的 alias 折叠成小写；如果需要 `employeeCount` 这类大小写敏感 alias，请写成 `AS \"employeeCount\"`，否则优先使用全小写 alias
 
 不合法：
 
 - 同时再传 `resource / measures / dimensions / filter / sorting / limit / offset`
+- 空 SQL、多语句、明显写操作 SQL
+- preview 后没有任何输出列的 SQL
+- SQL preview 没有任何输出列
 
 ## visual 规则
 
@@ -281,6 +305,9 @@ chart 现在建议在搭建前先读两次：
   - `chart.aliases`
   - `chart.supportedMappings`
   - `chart.supportedVisualTypes`
+  - `chart.safeDefaults`
+  - `chart.riskyPatterns`
+  - `chart.unsupportedPatterns`
 - `chart.aliases` 只应理解为**显式声明过的 alias 名**；如果某个 dimension 没有 alias，优先从 `chart.queryOutputs` 里取可用输出名
 - builder chart 会暴露 `collection`
 - 可用它收敛：
@@ -290,6 +317,7 @@ chart 现在建议在搭建前先读两次：
 - `visual.mappings.*` 不应直接从 `collection` 猜，应该优先从 `chart.queryOutputs` / `chart.aliases` 选
 - SQL chart 不暴露 `collection`
 - SQL chart 仍然会暴露 `chart.supportedMappings` / `chart.supportedVisualTypes`
+- SQL chart 如果没有拿到 `queryOutputs`，先检查 `riskyPatterns` 是否提示了 runtime context / preview unavailable；不要在没有输出列依据时盲写 `visual.mappings`
 - 只有 builder chart 才能被当成 filter-form target
 
 ## 区块外层参数规则
@@ -327,6 +355,9 @@ chart 现在建议在搭建前先读两次：
      - `chart.aliases`
      - `chart.supportedMappings`
      - `chart.supportedVisualTypes`
+     - `chart.safeDefaults`
+     - `chart.riskyPatterns`
+     - `chart.unsupportedPatterns`
 2. **frontend runtime assumptions**
    - 这是前端 `ChartBlockModel` / `ChartOptionModel` / `ChartEventsModel` 在运行时通常可访问的变量
    - 它们适合拿来写 `visual.raw` / `events.raw`
@@ -406,6 +437,7 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - `query.mode = "sql"`
    - 不只看 `stepParams.query.sql`
    - 还要确认 SQL 已经落到 `flowSql`
+   - 最好再读一次 `context(path="chart")`，确认 `queryOutputs` 与 mappings 一致
    - reload 后仍能显示
 
 3. **builder -> sql -> builder roundtrip**
@@ -421,6 +453,7 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - 混用 `configure` 与 `query / visual / events`
    - `heightMode` 非法
    - `visual.mappings.*` 引用不存在的 query 输出
+   - builder 聚合 measure / 自定义 alias 排序
    - 预期都应返回 400，而不是留下半残配置
 
 ## 更复杂的验证矩阵
@@ -433,11 +466,12 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - 同次写入里同时更新 `query` 和 `visual.mappings`
    - 预期旧 `measures / dimensions / sorting / filter` 不会把新 collection 污染脏
 
-7. **聚合 alias 排序**
+7. **builder 聚合 / alias 排序负例**
    - `measures = [{ field: "amount", aggregation: "sum", alias: "totalAmount" }]`
    - `sorting = [{ field: "totalAmount", direction: "desc" }]`
-   - 预期成功
-   - 如果仍写 `sorting.field = "amount"`，预期 400
+   - 预期 400
+   - `sorting.field = "amount"` 也预期 400
+   - 这类 case 现在属于 contract 明确不支持，而不是“高概率可用”
 
 8. **filter-form roundtrip**
    - builder chart 绑定 filter-form
@@ -454,6 +488,24 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - SQL chart 创建后必须做一次页面 reload
    - 必须确认 runtime 仍能显示，而不是只在首次写入后的内存态可见
 
+11. **SQL alias case sensitivity**
+   - SQL 里分别测试：
+     - `count(*) as employeecount`
+     - `count(*) as "employeeCount"`
+   - 对比 `context(path="chart").chart.queryOutputs`
+   - `visual.mappings` 必须严格引用 readback / context 返回的真实输出名
+
+12. **SQL runtime-context risky path**
+   - SQL 含模板变量 / `ctx` / liquid bind
+   - 预期 `context(path="chart").chart.riskyPatterns` 给出 preview 风险提示
+   - skill 不应在没有 `queryOutputs` 依据时臆造 `visual.mappings`
+   - 预期只能通过 `readback + reload/browser verify` 收口
+
+13. **SQL runtime-context preview unavailable**
+   - SQL 含模板变量、liquid bind 或 `ctx.*`
+   - 预期 `context(path="chart")` 没有稳定 `queryOutputs`，但会出现对应 `riskyPatterns`
+   - skill 不应在没有输出依据时盲配 `visual.mappings`
+
 ## 当前 skill 限制
 
 - `visual.raw` / `events.raw` 不要套用普通 `jsBlock` / `js action` model；应分别使用 `ChartOptionModel` / `ChartEventsModel`。
@@ -463,6 +515,11 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
   - 新 `query`
   - 新 `visual.mappings`
   这样成功率最高
+- SQL chart 默认分两步写：
+  - 先写 `query`
+  - 再读 `context(path="chart")`
+  - 再按 `chart.queryOutputs` 写 `visual`
+- 如果 `chart.queryOutputs` 缺失且 `riskyPatterns` 提示 runtime context / preview unavailable，不要伪造 mappings；除非用户明确接受 risky path
 
 ## 什么时候回退 legacy `configure`
 

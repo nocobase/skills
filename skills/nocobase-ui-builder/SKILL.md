@@ -30,6 +30,7 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 8. 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
 9. page lifecycle 顺序不能乱：`createMenu(type="item")` 之后，先 `createPage(menuRouteId=...)` 初始化页面，再使用 page/tab lifecycle API。
 10. NocoBase MCP 必须可达且已认证；如果缺少关键接口或返回认证错误，停止并说明 MCP 能力或认证不足。
+11. chart 写入默认先读 `flowSurfaces:context(path="chart")`；优先按 `chart.safeDefaults` 生成，命中 `chart.unsupportedPatterns` 时不要硬写，命中 `chart.riskyPatterns` 时要在结果里显式标记风险并补 `readback + browser verify`。
 
 ## Task Router
 
@@ -55,7 +56,14 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 
 - [popup.md](./references/popup.md)：popup / `openView` / `currentRecord` guard / `flowRegistry` / record popup recipes。
 - [capabilities.md](./references/capabilities.md)：block / form / action / field 的默认选型与 scope 规则。
-- [chart.md](./references/chart.md)：chart block 的最小公开参数集（`title / displayTitle / height / heightMode / query / visual / events`）、合法参数、canonical readback、推荐执行顺序（`addBlock -> context(chart/collection) -> configure -> get`），以及 `flowSurfaces:context(path=\"chart\" | \"collection\")` 的用法。
+- [chart.md](./references/chart.md)：chart block 的最小公开参数集（`title / displayTitle / height / heightMode / query / visual / events`）、合法参数、canonical readback、推荐执行顺序（先 `configure(query)`，再 `context(chart)`，再 `configure(visual)`）、以及 `flowSurfaces:context(path=\"chart\" | \"collection\")` 返回的 `queryOutputs / safeDefaults / riskyPatterns / unsupportedPatterns` 的用法。
 - [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格。
 - [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状与常见错误。
 - [aliases.md](./references/aliases.md)：高歧义自然语言表达如何先收敛到对象语义或能力。
+
+### Chart Extra Rules
+
+- builder chart 的默认安全路径是：单 measure、basic visual、无 sorting。
+- SQL chart 的默认安全路径是：先单独 `configure(query)`，再读 `context(path="chart")` 里的 `chart.queryOutputs`，最后再写 `visual`。
+- 如果 `context(path="chart")` 返回 `chart.unsupportedPatterns` 命中当前需求，不要硬写；要么改写成安全子集，要么明确说明当前 FlowSurfaces contract 不支持。
+- 如果返回 `chart.riskyPatterns`，可以继续，但必须做 `get` readback，并建议追加浏览器 reload 验证。
