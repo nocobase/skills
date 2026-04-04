@@ -7,6 +7,7 @@ import {
   isDomNodeLike,
   isPlainObject,
   isReactElementLike,
+  mergeDeep,
   normalizeMethod,
   serializeError,
   setByPath,
@@ -792,6 +793,77 @@ function createResourceApi(resource = {}, selectedRows) {
   };
 }
 
+function createChartApi(state, inputChart = {}) {
+  let currentOption = cloneSerializable(inputChart?.option || {});
+  const listeners = new Map();
+
+  return {
+    on(...args) {
+      const [eventName, maybeQuery, maybeHandler] = args;
+      const handler = typeof maybeQuery === 'function' ? maybeQuery : maybeHandler;
+      const key = String(eventName || '').trim() || 'unknown';
+      const current = listeners.get(key) || new Set();
+      if (typeof handler === 'function') {
+        current.add(handler);
+      }
+      listeners.set(key, current);
+      state.sideEffectAttempts.push({
+        name: 'chart.on',
+        status: 'simulated',
+        args: cloneSerializable(args),
+      });
+      return undefined;
+    },
+    off(...args) {
+      const [eventName, maybeQuery, maybeHandler] = args;
+      const handler = typeof maybeQuery === 'function' ? maybeQuery : maybeHandler;
+      const key = String(eventName || '').trim() || 'unknown';
+      const current = listeners.get(key);
+      if (current && typeof handler === 'function') {
+        current.delete(handler);
+      } else if (current) {
+        current.clear();
+      }
+      state.sideEffectAttempts.push({
+        name: 'chart.off',
+        status: 'simulated',
+        args: cloneSerializable(args),
+      });
+      return undefined;
+    },
+    dispatchAction(payload) {
+      state.sideEffectAttempts.push({
+        name: 'chart.dispatchAction',
+        status: 'simulated',
+        args: cloneSerializable([payload]),
+      });
+      return cloneSerializable(payload);
+    },
+    setOption(nextOption) {
+      const patch = cloneSerializable(nextOption || {});
+      currentOption =
+        isPlainObject(currentOption) && isPlainObject(patch) ? mergeDeep(currentOption, patch) : cloneSerializable(patch);
+      state.sideEffectAttempts.push({
+        name: 'chart.setOption',
+        status: 'simulated',
+        args: cloneSerializable([nextOption]),
+      });
+      return cloneSerializable(currentOption);
+    },
+    getOption() {
+      return cloneSerializable(currentOption);
+    },
+    resize(...args) {
+      state.sideEffectAttempts.push({
+        name: 'chart.resize',
+        status: 'simulated',
+        args: cloneSerializable(args),
+      });
+      return undefined;
+    },
+  };
+}
+
 async function settlePreview() {
   await delay(0);
   await delay(0);
@@ -838,6 +910,8 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
     withDefault(inputContext.selectedRows, inputContext.resource?.selectedRows || profile.defaultContextShape.selectedRows || []),
   );
   const formValues = cloneSerializable(withDefault(inputContext.formValues, profile.defaultContextShape.formValues || {}));
+  const chartData = mergeDeep(profile.defaultContextShape.data || {}, inputContext.data || {});
+  const chartApi = createChartApi(state, inputContext.chart || profile.defaultContextShape.chart || {});
   const currentValue = {
     value: cloneSerializable(withDefault(inputContext.value, profile.defaultContextShape.value)),
   };
@@ -1054,15 +1128,20 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
     openView: (...args) => {
       const detail = {
         name: 'ctx.openView',
-        status: 'blocked',
+        status: profile.simulatedCompatCalls?.includes('openView') ? 'simulated' : 'blocked',
         args: cloneSerializable(args),
       };
       state.sideEffectAttempts.push(detail);
+      if (detail.status === 'simulated') {
+        return undefined;
+      }
       throw new CompatBlockedError('Blocked ctx.openView.', detail);
     },
     inputArgs: cloneSerializable(withDefault(inputContext.inputArgs, profile.defaultContextShape.inputArgs || {})),
     popup: cloneSerializable(withDefault(inputContext.popup, profile.defaultContextShape.popup || {})),
     record: cloneSerializable(withDefault(inputContext.record, profile.defaultContextShape.record)),
+    data: cloneSerializable(chartData),
+    chart: chartApi,
     value: currentValue.value,
     formValues,
     form: createFormApi(formValues),

@@ -705,7 +705,7 @@ export function analyzeContextUsage(code, profile) {
         sawExplicitCtxRender = true;
       }
       if (masked[nextIndex] === '(') {
-        if (STATIC_BLOCKED_COMPAT_CALLS.has(compatPath)) {
+        if (STATIC_BLOCKED_COMPAT_CALLS.has(compatPath) && !profile.simulatedCompatCalls?.includes(compatPath)) {
           pushPolicyIssue('blocked-static-side-effect', `Blocked compatibility side effect "${compatPath}()".`, index);
         }
         if (compatPath === 'request' || compatPath === 'api.request' || compatPath === 'fetch') {

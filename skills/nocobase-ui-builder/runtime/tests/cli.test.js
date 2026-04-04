@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { runCli } from '../src/cli.js';
 
@@ -35,6 +35,8 @@ test('models command prints supported profiles', async () => {
   assert.equal(exitCode, 0);
   const payload = JSON.parse(stdout.read());
   assert.ok(payload.models.some((item) => item.model === 'JSBlockModel'));
+  assert.ok(payload.models.some((item) => item.model === 'ChartOptionModel'));
+  assert.ok(payload.models.some((item) => item.model === 'ChartEventsModel'));
 });
 
 test('contexts command prints root behaviors for one profile', async () => {
@@ -108,8 +110,9 @@ test('preview command fails stdin json payload without ctx.render on strict rend
 test('batch command resolves task file paths relative to the input file', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
+  const batchFixture = fileURLToPath(new URL('../fixtures/batch.json', import.meta.url));
   const exitCode = await runCli(
-    ['batch', '--input', path.resolve(process.cwd(), 'skills/nocobase-ui-builder/runtime/fixtures/batch.json')],
+    ['batch', '--input', batchFixture],
     {
       cwd: process.cwd(),
       stdout: stdout.stream,

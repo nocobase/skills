@@ -49,11 +49,13 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 
 - [verification.md](./references/verification.md)：`inspect` 流程、写后 `readback`、断言升级条件。
 - [runtime-playbook.md](./references/runtime-playbook.md)：target family、locator、write target 与默认写流程。
+- 如果任务涉及 `chart` 区块写入，进入写流程前先读 [chart.md](./references/chart.md)，不要跳过。
 
 ### 按需再读
 
 - [popup.md](./references/popup.md)：popup / `openView` / `currentRecord` guard / `flowRegistry` / record popup recipes。
 - [capabilities.md](./references/capabilities.md)：block / form / action / field 的默认选型与 scope 规则。
+- [chart.md](./references/chart.md)：chart block 的最小公开参数集（`title / displayTitle / height / heightMode / query / visual / events`）、合法参数、canonical readback、推荐执行顺序（`addBlock -> context(chart/collection) -> configure -> get`），以及 `flowSurfaces:context(path=\"chart\" | \"collection\")` 的用法。
 - [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格。
 - [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状与常见错误。
 - [aliases.md](./references/aliases.md)：高歧义自然语言表达如何先收敛到对象语义或能力。

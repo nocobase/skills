@@ -108,7 +108,22 @@ const FORM_CONTRACT = objectDoc('Mutable in-memory form API.', {
   setFieldsValue: functionDoc('Merge a patch into formValues.'),
 });
 
-const PRECISE_ROOTS = new Set(['api', 'form', 'viewer', 'message', 'notification', 'modal', 'element', 'libs']);
+const CHART_DATA_CONTRACT = objectDoc('Chart runtime dataset.', {
+  objects: valueDoc('Normalized chart rows.', 'array'),
+  raw: valueDoc('Raw resource data.', 'array'),
+  meta: valueDoc('Resource meta info.', 'object'),
+});
+
+const CHART_INSTANCE_CONTRACT = objectDoc('ECharts-like chart instance.', {
+  on: functionDoc('Bind one chart event listener.'),
+  off: functionDoc('Remove one chart event listener.'),
+  dispatchAction: functionDoc('Dispatch one chart action.'),
+  setOption: functionDoc('Patch chart option.'),
+  getOption: functionDoc('Read current option.'),
+  resize: functionDoc('Resize the chart instance.'),
+});
+
+const PRECISE_ROOTS = new Set(['api', 'form', 'viewer', 'message', 'notification', 'modal', 'element', 'libs', 'chart']);
 const OPAQUE_ROOTS = new Set([
   'record',
   'formValues',
@@ -118,6 +133,7 @@ const OPAQUE_ROOTS = new Set([
   'collectionField',
   'popup',
   'inputArgs',
+  'data',
   'value',
   'namePath',
   'disabled',
@@ -135,9 +151,11 @@ function createProfile({
   enforceCtxQualifiedAccess = false,
   requireExplicitCtxRender = false,
   topLevelAliases = [],
+  strictAllowedTopLevelAliases = [],
+  simulatedCompatCalls = [],
 }) {
   const defaultTopLevelAliases = enforceCtxQualifiedAccess
-    ? ['ctx']
+    ? unique(['ctx', ...strictAllowedTopLevelAliases])
     : [
         'ctx',
         'dayjs',
@@ -169,6 +187,8 @@ function createProfile({
       popup: false,
     },
     topLevelAliases: unique(defaultTopLevelAliases),
+    strictAllowedTopLevelAliases: unique(strictAllowedTopLevelAliases),
+    simulatedCompatCalls: unique(simulatedCompatCalls),
   };
 }
 
@@ -193,6 +213,38 @@ const PROFILES = [
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'resource', 'collection'],
+  }),
+  createProfile({
+    model: 'ChartOptionModel',
+    aliases: ['chartOption', 'chart-option'],
+    scene: 'chart',
+    contract: {
+      ...BASE_CONTRACT,
+      data: CHART_DATA_CONTRACT,
+      record: valueDoc('Current record object.', 'object'),
+      collection: COLLECTION_CONTRACT,
+      resource: RESOURCE_CONTRACT,
+    },
+    defaultContextShape: {
+      data: {
+        objects: [
+          { department: 'Sales', employeeCount: 12 },
+          { department: 'Engineering', employeeCount: 18 },
+        ],
+        raw: [
+          { department: 'Sales', employeeCount: 12 },
+          { department: 'Engineering', employeeCount: 18 },
+        ],
+        meta: {},
+      },
+      record: { id: 1, nickname: 'Alice', status: 'active' },
+      resource: { dataSourceKey: 'main', collectionName: 'employees', selectedRows: [] },
+      collection: { dataSourceKey: 'main', name: 'employees', title: 'Employees' },
+      inputArgs: {},
+    },
+    previewCapabilities: { html: false, react: false, dom: false, text: true },
+    enforceCtxQualifiedAccess: true,
+    topLevelAliases: ['data', 'record', 'resource', 'collection'],
   }),
   createProfile({
     model: 'JSFieldModel',
@@ -461,6 +513,35 @@ const PROFILES = [
     previewCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['resource', 'collection'],
   }),
+  createProfile({
+    model: 'ChartEventsModel',
+    aliases: ['chartEvents', 'chart-events'],
+    scene: 'chart',
+    contract: {
+      ...BASE_CONTRACT,
+      chart: CHART_INSTANCE_CONTRACT,
+      data: CHART_DATA_CONTRACT,
+      record: valueDoc('Current record object.', 'object'),
+      collection: COLLECTION_CONTRACT,
+      resource: RESOURCE_CONTRACT,
+    },
+    defaultContextShape: {
+      chart: {},
+      data: {
+        objects: [{ department: 'Sales', employeeCount: 12 }],
+        raw: [{ department: 'Sales', employeeCount: 12 }],
+        meta: {},
+      },
+      record: { id: 1, nickname: 'Alice', status: 'active' },
+      resource: { dataSourceKey: 'main', collectionName: 'employees', selectedRows: [] },
+      collection: { dataSourceKey: 'main', name: 'employees', title: 'Employees' },
+      inputArgs: {},
+    },
+    previewCapabilities: { html: false, react: false, dom: false, text: true },
+    enforceCtxQualifiedAccess: true,
+    strictAllowedTopLevelAliases: ['chart'],
+    simulatedCompatCalls: ['openView'],
+  }),
 ];
 
 function flattenContract(contract, prefix = '', output = {}) {
@@ -514,10 +595,12 @@ export function describeProfile(name) {
     scene: profile.scene,
     availableContextKeys: Object.keys(profile.contract),
     topLevelAliases: [...profile.topLevelAliases],
+    strictAllowedTopLevelAliases: [...(profile.strictAllowedTopLevelAliases || [])],
     previewCapabilities: { ...profile.previewCapabilities },
     enforceCtxQualifiedAccess: Boolean(profile.enforceCtxQualifiedAccess),
     requireExplicitCtxRender: Boolean(profile.requireExplicitCtxRender),
     sideEffectPolicy: { ...profile.sideEffectPolicy },
+    simulatedCompatCalls: [...(profile.simulatedCompatCalls || [])],
     defaultContextShape: profile.defaultContextShape,
     contract: profile.contract,
     rootBehaviors: buildRootBehaviors(profile),

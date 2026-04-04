@@ -1,6 +1,6 @@
 # Capabilities
 
-当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，JS 规则看 [js.md](./js.md)。
+当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart block 专题看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。
 
 ## 目录
 
@@ -37,7 +37,7 @@
 | 筛选条件输入 | `filterForm` | 只负责筛选输入，不负责数据展示 |
 | 静态说明、帮助文案 | `markdown` | 不要为简单文案启用 `jsBlock` |
 | 嵌入网页 / HTML | `iframe` | 明确是嵌入内容时使用 |
-| 趋势图 / 报表图 | `chart` | 主要配置走 `configure` |
+| 趋势图 / 报表图 | `chart` | 主要配置走 `query / visual / events`；只有兼容或极端高级场景才回退 `configure` |
 | 工具按钮区 | `actionPanel` | 不继承 collection block action 列表 |
 | 明确要求运行时代码 | `jsBlock` | 创建后要读回确认相关 JS 配置已落盘 |
 

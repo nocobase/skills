@@ -10,6 +10,8 @@ node ./bin/nb-runjs.mjs contexts --model JSBlockModel
 node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js
 node ./bin/nb-runjs.mjs preview --model JSBlockModel --code-file ./fixtures/js-block-code.js --context-file ./fixtures/js-block-context.json
 node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js --network-file ./fixtures/network-mock.json
+node ./bin/nb-runjs.mjs preview --model ChartOptionModel --stdin-json
+node ./bin/nb-runjs.mjs validate --model ChartEventsModel --stdin-json
 node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 ```
 

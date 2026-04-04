@@ -1,6 +1,6 @@
 # JS
 
-当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem` 或 `js` action 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，CLI 用法、网络模式与输出层次再看 [../runtime/README.md](../runtime/README.md)。
+当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem`、`js` action，或 chart 的 `visual.raw / events.raw` 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，chart 专题再看 [chart.md](./chart.md)，CLI 用法、网络模式与输出层次再看 [../runtime/README.md](../runtime/README.md)。
 
 ## 公开 JS 能力
 
@@ -8,6 +8,8 @@
 - `js` action
 - 绑定字段的 `renderer: "js"`
 - standalone JS 字段：`jsColumn` / `jsItem`
+- chart custom option：`visual.raw`
+- chart events：`events.raw`
 
 ## RunJS Validator Gate
 
@@ -56,6 +58,8 @@ stdin JSON 形状：
 | filter-form `js` action | `filterForm` | `FilterFormJSActionModel` | `validate` | 面向筛选表单 |
 | action-panel / generic `js` action | `actionPanel` 或泛用动作容器 | `JSActionModel` | `validate` | 没有更具体 action context 时的兜底 |
 | item action with explicit form+record context | 少数 item 级 action 容器 | `JSItemActionModel` | `validate` | 只有现场明确同时具备 `record + formValues + form` 时才使用 |
+| chart `visual.raw` | chart block 自定义 option | `ChartOptionModel` | `preview` | 直接 `return` ECharts option object |
+| chart `events.raw` | chart block 事件脚本 | `ChartEventsModel` | `validate` | 注册图表事件；`ctx.openView(...)` 在 runtime 中只做 simulated call |
 
 如果现场能力无法确定是哪一种 JS action，就先停下来，优先读 `catalog` / `get` 收敛容器和上下文，再选 model；不要拍脑袋猜。
 
@@ -87,6 +91,12 @@ stdin JSON 形状：
 - 必须显式调用 `ctx.render(...)`
 - 不能依赖 `return` 自动渲染
 - 如果 validator 报 `bare-compat-access`、`missing-required-ctx-render` 等问题，必须直接修 code，不要绕过
+
+`ChartOptionModel` / `ChartEventsModel` **不属于** strict render model：
+
+- 不要求 `ctx.render(...)`
+- `ChartOptionModel` 应直接 `return option`
+- `ChartEventsModel` 主要执行 `ctx.chart.on(...)` / `ctx.chart.off(...)`
 
 ## 执行提醒
 

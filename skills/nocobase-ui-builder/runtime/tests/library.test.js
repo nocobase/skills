@@ -293,6 +293,48 @@ test('preview returns degraded JSON rendering for structured values', async () =
   assert.match(result.preview.html, /Alice/);
 });
 
+test('ChartOptionModel allows dataset access patterns like ctx.data.objects.map', async () => {
+  const result = await previewRunJSSnippet({
+    model: 'ChartOptionModel',
+    code: `
+      return {
+        xAxis: { type: 'category', data: (ctx.data.objects || []).map((row) => row.department) },
+        yAxis: { type: 'value' },
+        series: [{ type: 'bar', data: (ctx.data.objects || []).map((row) => row.employeeCount) }],
+      };
+    `,
+    isolate: false,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.equal(result.preview.rendered, true);
+  assert.match(result.preview.text, /Sales/);
+  assert.match(result.preview.text, /"type": "bar"/);
+});
+
+test('ChartEventsModel simulates chart bindings and ctx.openView without blocking validation', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'ChartEventsModel',
+    code: `
+      chart.on('click', (params) => {
+        ctx.openView({ title: String(params?.name || 'Details') });
+      });
+      chart.setOption({ legend: { show: true } });
+      return chart.getOption();
+    `,
+    isolate: false,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.equal(result.execution.returnValue.legend.show, true);
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'chart.on' && attempt.status === 'simulated'));
+  assert.ok(
+    !result.policyIssues.some((issue) => issue.ruleId === 'blocked-static-side-effect' && /openView/.test(issue.message)),
+  );
+});
+
 test('previewRunJSSnippet executes JSX even when preview fidelity stays unsupported', async () => {
   const result = await previewRunJSSnippet({
     model: 'JSBlockModel',
@@ -551,6 +593,17 @@ test('describeProfile exposes contract and root behaviors for JSColumnModel', as
   assert.equal(profile.requireExplicitCtxRender, true);
   assert.equal(profile.rootBehaviors.record, 'opaque');
   assert.equal(profile.rootBehaviors.libs, 'precise');
+});
+
+test('describeProfile exposes chart-specific runtime affordances', async () => {
+  const optionProfile = describeProfile('ChartOptionModel');
+  assert.equal(optionProfile.rootBehaviors.data, 'opaque');
+  assert.equal(optionProfile.requireExplicitCtxRender, false);
+
+  const eventsProfile = describeProfile('ChartEventsModel');
+  assert.equal(eventsProfile.rootBehaviors.chart, 'precise');
+  assert.deepEqual(eventsProfile.simulatedCompatCalls, ['openView']);
+  assert.ok(eventsProfile.topLevelAliases.includes('chart'));
 });
 
 test('all built-in profiles pass basic validate and preview smoke tasks', async () => {
