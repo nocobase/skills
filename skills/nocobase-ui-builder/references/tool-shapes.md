@@ -147,7 +147,7 @@
         "type": "createPage",
         "values": {
           "menuRouteId": {
-            "$ref": "menu.routeId"
+            "ref": "menu.routeId"
           }
         }
       }
@@ -160,6 +160,7 @@
 
 - `apply` 只支持 `mode = "replace"`
 - `mutate` 默认 `atomic = true`
+- `mutate` 的链式引用统一使用 `{ "ref": "<opId>.<path>" }`
 - 只有在公开入口无法表达、且你已经完全确认 target / shape / 顺序时，才使用 `apply/mutate`
 
 ## 常见错误形状
