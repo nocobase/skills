@@ -45,7 +45,7 @@ chart block 最稳的执行顺序不是一次性盲写，而是：
 2. 如果要配 builder query，先读 `flowSurfaces:context(path="collection")` 选字段
 3. 先 `configure(changes={ query, title?, displayTitle?, height?, heightMode? })`
 4. 再读 `flowSurfaces:context(path="chart")`
-5. 基于 `chart.queryOutputs / aliases / safeDefaults / riskyPatterns / unsupportedPatterns` 再 `configure(changes={ visual, events? })`
+5. 基于 `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns` 再 `configure(changes={ visual, events? })`
 6. `get(uid)` 做 canonical readback
 7. 命中 risky pattern 时，再补一次页面 reload / browser verify
 
@@ -161,6 +161,8 @@ skill 选默认值时，优先套这个 safe 子集：
   - 聚合 measure 输出排序
   - 自定义 measure alias 排序
 - 因此 skill 默认不要生成这类排序；命中时应视为 `unsupportedPatterns.builder_measure_sorting`
+- `context(path="chart").chart.aliases` 只能安全用于 `visual.mappings.*`
+- 不要因为某个 alias 出现在 `chart.aliases` 里，就推断它也能用于 `query.sorting.field`
 - `limit` 必须是大于等于 0 的整数；`offset` 必须是大于等于 0 的整数
 - 外部 DSL 统一写 `sorting[].direction = "asc" | "desc"`
 - 不要自己写内部落盘结构 `query.orders[].order`；这是后端兼容层负责转换的
@@ -244,6 +246,15 @@ skill 选默认值时，优先套这个 safe 子集：
 - 柱状 / 横向柱状 / 面积：`stack`
 - 饼图 / 环图：`radiusInner`, `radiusOuter`, `labelType`
 - 漏斗：`sort`, `minSize`, `maxSize`
+
+优先从 `context(path="chart")` 读 `chart.supportedStyles`，而不是在 skill 里硬编码 style 合法性。当前服务端已经会返回每个 `visual.type` 下：
+
+- 允许的 style key
+- 每个 key 的值类型
+- 可选枚举值，例如 `labelType`、`sort`
+- 数值范围，例如 `xAxisLabelRotate`、`radiusInner/radiusOuter`、`minSize/maxSize`
+
+skill 应把 `supportedStyles` 当成 visual style 的第一真相源，文档只作为解释性补充。
 
 不合法：
 

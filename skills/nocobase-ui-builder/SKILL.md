@@ -56,7 +56,7 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 
 - [popup.md](./references/popup.md)：popup / `openView` / `currentRecord` guard / `flowRegistry` / record popup recipes。
 - [capabilities.md](./references/capabilities.md)：block / form / action / field 的默认选型与 scope 规则。
-- [chart.md](./references/chart.md)：chart block 的最小公开参数集（`title / displayTitle / height / heightMode / query / visual / events`）、合法参数、canonical readback、推荐执行顺序（先 `configure(query)`，再 `context(chart)`，再 `configure(visual)`）、以及 `flowSurfaces:context(path=\"chart\" | \"collection\")` 返回的 `queryOutputs / safeDefaults / riskyPatterns / unsupportedPatterns` 的用法。
+- [chart.md](./references/chart.md)：chart block 的最小公开参数集（`title / displayTitle / height / heightMode / query / visual / events`）、合法参数、canonical readback、推荐执行顺序（先 `configure(query)`，再 `context(chart)`，再 `configure(visual)`）、以及 `flowSurfaces:context(path=\"chart\" | \"collection\")` 返回的 `queryOutputs / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns` 的用法。
 - [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格。
 - [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状与常见错误。
 - [aliases.md](./references/aliases.md)：高歧义自然语言表达如何先收敛到对象语义或能力。
