@@ -7,45 +7,26 @@ Direction rule:
 - the foreign key lives on the current collection
 - the current field uses `interface: "m2o"` and `type: "belongsTo"`
 
-Canonical payload:
+Compact payload:
 
 ```json
 {
   "name": "customer",
   "interface": "m2o",
-  "type": "belongsTo",
+  "title": "Customer",
   "target": "customers",
   "foreignKey": "customerId",
   "targetKey": "id",
-  "uiSchema": {
-    "title": "Customer",
-    "x-component": "AssociationField",
-    "x-component-props": {
-      "multiple": false,
-      "fieldNames": {
-        "value": "id",
-        "label": "name"
-      }
-    }
-  },
+  "targetTitleField": "name",
   "reverseField": {
     "name": "orders",
-    "interface": "o2m",
-    "type": "hasMany",
-    "uiSchema": {
-      "title": "Orders",
-      "x-component": "AssociationField",
-      "x-component-props": {
-        "multiple": true,
-        "fieldNames": {
-          "value": "id",
-          "label": "id"
-        }
-      }
-    }
+    "title": "Orders",
+    "interface": "o2m"
   }
 }
 ```
+
+Use this compact shape by default. The stored field metadata will include derived `type` and `uiSchema`, but they do not need to be sent in the normal request.
 
 Verification focus:
 
@@ -58,4 +39,5 @@ Anti-drift rules:
 
 - do not accidentally model this as `o2m`
 - do not place the foreign key on the target collection
+- do not rely on generated foreign keys when readable names are part of the requirement
 - do not use unreadable raw ids as the association label when a better title field exists

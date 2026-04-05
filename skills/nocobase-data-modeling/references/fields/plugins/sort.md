@@ -24,7 +24,19 @@ It is a plugin-backed ordering field with:
 - optional grouped sorting through `scopeKey`
 - numeric-style UI with special sort semantics
 
-## Canonical payload
+Compact request:
+
+```json
+{
+  "name": "sort",
+  "interface": "sort",
+  "title": "Sort"
+}
+```
+
+Use this compact shape by default.
+
+## Expanded structure
 
 ```json
 {
@@ -50,18 +62,9 @@ It is a plugin-backed ordering field with:
 {
   "name": "sort",
   "interface": "sort",
-  "type": "sort",
+  "title": "Sort",
   "scopeKey": "status",
-  "uiSchema": {
-    "type": "number",
-    "title": "Sort",
-    "x-component": "InputNumber",
-    "x-component-props": {
-      "stringMode": true,
-      "step": "1"
-    },
-    "x-validator": "integer"
-  }
+  "type": "sort"
 }
 ```
 

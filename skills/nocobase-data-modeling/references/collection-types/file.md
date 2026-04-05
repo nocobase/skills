@@ -4,14 +4,40 @@ Use when the file itself is the primary record, such as attachments, scans, cont
 
 Key rules:
 
-- Do not assume `template: "file"` alone is enough for realistic modeling validation.
+- In the compact flow, `template: "file"` is the baseline. Add only the business-specific fields that the user is asking for.
 - In the compact `collections apply` flow, do not copy the built-in file template fields into the request unless the command help explicitly requires a fully expanded raw payload.
+- Built-in file fields such as `title`, `filename`, `extname`, `size`, `mimetype`, `path`, `url`, `preview`, `storage`, and `meta` are already owned by the template baseline.
 - Start from the real built-in file behavior, then append only business-specific fields.
 - Prefer a real file collection over URL or path text fields when the file is a first-class object.
 - If the user only needs one file attached to another business table, an attachment field may be enough.
 - If the user needs file metadata, reuse, lifecycle tracking, or file-centered querying, use a real `file` collection.
 
 The fully expanded JSON examples below are structure references, not the preferred compact CLI request shape.
+
+## Preferred compact request
+
+```json
+{
+  "name": "contracts",
+  "title": "Contracts",
+  "template": "file",
+  "fields": [
+    {
+      "name": "category",
+      "title": "Category",
+      "interface": "select",
+      "enum": ["sales", "legal", "finance"]
+    },
+    {
+      "name": "signedAt",
+      "title": "Signed at",
+      "interface": "dateOnly"
+    }
+  ]
+}
+```
+
+Use this compact style by default. Reach for the expanded structure below only when you are inspecting read-back output or intentionally discussing the internal built-in fields.
 
 Good fits for `file`:
 

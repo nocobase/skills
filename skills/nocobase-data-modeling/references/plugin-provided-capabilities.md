@@ -304,11 +304,11 @@ Typical plugin:
 
 Typical capability:
 
-- `markdownVditor` field interface
+- `vditor` field interface
 
 Modeling rule:
 
-- do not use `markdownVditor` unless the plugin is enabled
+- do not use `vditor` unless the plugin is enabled
 - if disabled, enable it first
 - if the plugin is unavailable, fall back only when the user accepts ordinary `markdown`
 

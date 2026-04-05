@@ -16,6 +16,13 @@ Relation pattern:
 - many file records belong to one contract
 - one contract has many contract files
 
+Compact reduction:
+
+- create `contracts` as a compact `general` collection with business fields only;
+- create `contract_files` as a compact `file` collection and do not resend template-owned fields such as `filename`, `path`, or `meta`;
+- add the contract relation afterward with explicit readable keys;
+- treat the expanded JSON below as structure reference or read-back shape, not as the default request body.
+
 ## Table 1: contracts
 
 ```json

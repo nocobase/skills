@@ -18,15 +18,61 @@ Before using this field:
 
 This is not a plain scalar field with a calculated default.
 
-It is a plugin-backed computed field with:
+It is a plugin-backed computed field.
+
+In compact modeling payloads, the usual starting shape is:
+
+- `name`
+- `interface: "formula"`
+- optional `title`
+- `expression`
+- optional `engine`
+- optional `dataType` when the result type must be explicit
+
+Read-back or fully expanded JSON may also contain:
 
 - `type: "formula"`
-- explicit result `dataType`
-- explicit `engine`
-- explicit `expression`
 - result rendering through `Formula.Result`
 
-## Canonical baseline
+## First decision: engine
+
+Choose the engine before writing the expression.
+
+Supported engines exposed by the evaluator registry include:
+
+- `formula.js`
+- `math.js`
+- `string`
+
+Engine guidance:
+
+- `formula.js`: spreadsheet-style formula functions
+- `math.js`: expression-oriented mathematical syntax
+- `string`: string-template interpolation and replacement
+
+Do not write an expression until the engine is fixed.
+Do not mix syntax across engines.
+If the intended engine is unclear, stop and ask instead of guessing.
+
+Reference links:
+
+- `formula.js` docs: `https://docs.nocobase.com/calculation-engine/formula`
+- `math.js` docs: `https://docs.nocobase.com/calculation-engine/math`
+
+## Compact baseline
+
+```json
+{
+  "name": "scoreLevel",
+  "interface": "formula",
+  "engine": "formula.js",
+  "expression": "ROUND({{price}} * {{quantity}}, 2)"
+}
+```
+
+Use a fuller payload only when the task explicitly needs engine override, result type override, or advanced rendering options.
+
+## Expanded read-back shape
 
 ```json
 {
@@ -49,31 +95,36 @@ It is a plugin-backed computed field with:
 }
 ```
 
-## Engine choices
+## Syntax reminders by engine
 
-Supported engines exposed by the evaluator registry include:
+### `formula.js`
 
-- `formula.js`
-- `math.js`
-- `string`
+Use spreadsheet-style functions and syntax.
 
-Engine guidance:
+Good examples:
 
-- `formula.js`: spreadsheet-style formula functions; current formula-field default
-- `math.js`: expression-oriented calculation engine for mathematical evaluation
-- `string`: string-template engine for simple interpolation and replacement
+- `ROUND({{price}} * {{quantity}}, 2)`
+- `SUM({{score1}}, {{score2}}, {{score3}})`
+- `IF({{status}} = "paid", 1, 0)`
 
-Use `string` only when the user wants string-template behavior rather than arithmetic calculation.
+### `math.js`
 
-Reference links:
+Use math-expression syntax.
 
-- `formula.js` docs: `https://docs.nocobase.com/calculation-engine/formula`
-- `math.js` docs: `https://docs.nocobase.com/calculation-engine/math`
+Good examples:
 
-Implementation notes:
+- `{{price}} * {{quantity}}`
+- `round({{price}} * {{quantity}}, 2)`
+- `({{score1}} + {{score2}} + {{score3}}) / 3`
 
-- `formula.js` is registered with a tooltip that says it supports most Microsoft Excel formula functions
-- `math.js` is registered with a tooltip that describes it as a broad mathematical expression engine with built-in functions and constants
+### `string`
+
+Use interpolation for text assembly, not formula functions.
+
+Good examples:
+
+- `Order-{{id}}-{{status}}`
+- `{{firstName}} {{lastName}}`
 
 ## Result data types
 
@@ -153,16 +204,21 @@ This engine is intended for interpolation, not spreadsheet-style functions.
 Verify at least:
 
 1. `interface` is `formula`
-2. `type` is `formula`
-3. `dataType` matches the intended result type
+2. `type` is `formula` in the stored result
+3. `dataType` matches the intended result type when the task depends on it
 4. `engine` matches the intended evaluator
 5. `expression` is stored
 6. `uiSchema.x-component` is `Formula.Result`
+7. the expression syntax matches the chosen engine
 
 ## Anti-drift rules
 
 - do not reduce formula fields to plain scalar fields
-- do not omit `dataType`, `engine`, or `expression`
+- do not omit `expression`
+- do not omit `engine` when the default `formula.js` is not intended
+- do not assume `dataType` must always be sent in the compact request when the task does not need an explicit override
 - do not use `Input` or `Input.TextArea` as the result component
 - do not assume only `formula.js` exists; the registry also exposes `math.js` and `string`
 - do not use `string` when the requirement is real formula calculation
+- do not write a `formula.js` expression with `math.js` syntax, or the reverse
+- do not guess engine syntax from memory; check the engine docs first

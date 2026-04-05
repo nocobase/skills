@@ -17,6 +17,12 @@ Authority rule:
 
 Use a pack only after the table, field, relation, and plugin decisions are already justified from the primary references.
 
+Compact modeling reminder:
+
+- model packs often contain expanded or read-back style structures;
+- do not copy them directly into `nocobase-api data-modeling collections apply` or `fields apply`;
+- first reduce them to compact payloads that keep only collection template, business fields, relation intent, and the small set of non-derivable options.
+
 Current packs:
 
 - `orders.md`: transactional model with `customers`, `orders`, and `order_items`

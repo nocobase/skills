@@ -1,19 +1,19 @@
 ---
 name: nocobase-data-modeling
-description: Create and manage NocoBase data models via nocobase-cli. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
+description: Create and manage NocoBase data models via nocobase-api. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
 argument-hint: "[collection-name] [operation: list|get|apply|destroy|fields|db-views]"
-allowed-tools: shell, local file reads, nocobase-cli
+allowed-tools: shell, local file reads, nocobase-api
 ---
 
 # Goal
 
-Use `nocobase-cli` to inspect and change collections, fields, relations, and view-backed schemas.
+Use `nocobase-api` to inspect and change collections, fields, relations, and view-backed schemas.
 
 Read `references/decision-matrix.md` first when the request is broad or the correct modeling path is unclear.
 
 # Mandatory Gates
 
-1. Confirm `nocobase-cli` is reachable and authenticated before any write operation.
+1. Confirm `nocobase-api` is reachable and authenticated before any write operation.
 2. For plugin-backed tables or fields, read `references/plugin-provided-capabilities.md` before mutating schema.
 3. For `view` collections, verify the upstream database view exists with `db-views list|get` before creating or updating anything.
 4. Before using a modeling command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples.
@@ -22,22 +22,22 @@ Stop and ask the user to fix auth when CLI returns `401`, `403`, `Auth required`
 
 # Final Command Surface
 
-Use only the `nocobase-cli data-modeling` commands:
+Use only the `nocobase-api data-modeling` commands:
 
-- Inspect collections: `nocobase-cli data-modeling collections list`
-- Inspect one collection: `nocobase-cli data-modeling collections get`
-- Inspect fields in one collection: `nocobase-cli data-modeling collections fields list`
-- Create or update a collection with compact payload: `nocobase-cli data-modeling collections apply`
-- Create or update fields with compact payload: `nocobase-cli data-modeling fields apply`
-- Delete a collection: `nocobase-cli data-modeling collections destroy`
-- Inspect database views: `nocobase-cli data-modeling db-views list|get`
+- Inspect collections: `nocobase-api data-modeling collections list`
+- Inspect one collection: `nocobase-api data-modeling collections get`
+- Inspect fields in one collection: `nocobase-api data-modeling collections fields list`
+- Create or update a collection with compact payload: `nocobase-api data-modeling collections apply`
+- Create or update fields with compact payload: `nocobase-api data-modeling fields apply`
+- Delete a collection: `nocobase-api data-modeling collections destroy`
+- Inspect database views: `nocobase-api data-modeling db-views list|get`
 
 Prefer learning exact flags from help instead of keeping large command-shape reminders in prompt context:
 
-- `nocobase-cli data-modeling collections apply --help`
-- `nocobase-cli data-modeling collections fields list --help`
-- `nocobase-cli data-modeling fields apply --help`
-- `nocobase-cli data-modeling collections destroy --help`
+- `nocobase-api data-modeling collections apply --help`
+- `nocobase-api data-modeling collections fields list --help`
+- `nocobase-api data-modeling fields apply --help`
+- `nocobase-api data-modeling collections destroy --help`
 
 Do not prefer older low-level collection or nested field commands when the final command surface can handle the task.
 
@@ -54,9 +54,36 @@ Do not prefer older low-level collection or nested field commands when the final
 
 - When creating a collection with `collections apply`, do not send built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`, or template-owned structural fields unless the current command help explicitly says they are required.
 - For `general`, `tree`, `file`, and other built-in templates, assume the server will create the template defaults. Only send business fields that the user is actually adding.
+- For `file`, do not manually send built-in fields such as `title`, `filename`, `extname`, `size`, `mimetype`, `path`, `url`, `preview`, `storage`, or `meta` unless the task is explicitly customizing one of those existing fields on an already-created collection.
 - For `tree`, do not manually include `parentId`, `parent`, or `children` in the compact create payload unless you are intentionally overriding an existing schema with a fully expanded raw shape.
 - Every custom field supplied to `collections apply` or `fields apply` still needs an explicit `interface`. The compact API reduces derived options, but it does not infer business field interfaces from the field name alone.
+- Usually do not pass `type`. Let the server derive it from `interface`. Only pass `type` when the current command help or a reference explicitly requires it.
+- Unknown `interface` values now fail fast. If the correct interface is unclear, stop and inspect references or command help instead of guessing.
+- If you choose a plugin-backed interface such as `vditor`, `formula`, map geometry fields, or special relation fields, confirm the plugin-backed capability first.
 - If a reference file shows a fully expanded collection JSON, treat it as structure reference or read-back reference, not as the preferred compact CLI payload.
+
+## Default Interface Bias
+
+- Prefer the common built-in interface first when the user does not request a plugin-specific editor or behavior.
+- For long-form plain text without markdown semantics, prefer `textarea`.
+- For markdown content, prefer `vditor` first when the plugin capability is available.
+- Only fall back from `vditor` to ordinary `markdown` when the plugin is unavailable or the user explicitly wants the simpler markdown field.
+- Do not add `tableoid` unless the user explicitly asks for that system-info field.
+- For map fields, use the exact interface requested by the spatial requirement, such as `point`, `lineString`, `circle`, or `polygon`. Do not collapse them into generic `json` or text.
+
+## Formula Rule
+
+- For `formula`, do not invent expressions from memory.
+- Read `references/fields/plugins/formula.md` first.
+- Choose the engine first, then write the expression in that engine's syntax.
+- In compact payloads, prefer only the parameters that are actually needed, usually `name`, `title`, `interface`, `expression`, and optional `engine` or `dataType`.
+- If the intended engine or syntax is unclear, stop and ask instead of guessing.
+
+## Relation Key Rule
+
+- For relation fields, read `references/relation-fields.md` before mutation.
+- If the relation should be stable and readable, pass explicit keys such as `foreignKey`, `through`, `otherKey`, `sourceKey`, and `targetKey` instead of relying on generated defaults.
+- Treat generated key names as fallback behavior, not as the preferred modeling result.
 
 # Working Process
 

@@ -6,6 +6,12 @@ Collection choice:
 
 - `product_categories` -> `tree`
 
+Compact reduction:
+
+- create `product_categories` with `template: "tree"` plus only business fields such as `title`, `code`, and `enabled`;
+- do not manually include `parentId`, `parent`, or `children` in the compact create request;
+- treat the expanded JSON below as structure reference or read-back shape.
+
 ## Table: product_categories
 
 ```json

@@ -25,6 +25,12 @@ The stable field interfaces exposed by the plugin are typically:
 
 These are not generic json placeholders. They are map-backed geometry interfaces.
 
+Compact-flow rule:
+
+- for ordinary compact requests, start with `name`, `interface`, and optional `title`;
+- do not proactively send `type` or map UI details unless the task explicitly depends on provider configuration or stored-shape inspection;
+- keep the interface exact: `point`, `lineString`, `circle`, or `polygon`.
+
 ## Common shape
 
 All of these field interfaces typically share:
@@ -34,7 +40,53 @@ All of these field interfaces typically share:
 - `uiSchema.x-component-designer = "Map.Designer"`
 - plugin-specific storage type matching the interface name
 
-## Point
+## Compact request examples
+
+### Point
+
+```json
+{
+  "name": "location",
+  "interface": "point",
+  "title": "Location"
+}
+```
+
+### Line
+
+```json
+{
+  "name": "route",
+  "interface": "lineString",
+  "title": "Route"
+}
+```
+
+### Circle
+
+```json
+{
+  "name": "serviceArea",
+  "interface": "circle",
+  "title": "Service area"
+}
+```
+
+### Polygon
+
+```json
+{
+  "name": "boundary",
+  "interface": "polygon",
+  "title": "Boundary"
+}
+```
+
+Use these compact shapes by default.
+
+## Expanded structure examples
+
+### Point
 
 ```json
 {
@@ -53,7 +105,7 @@ All of these field interfaces typically share:
 }
 ```
 
-## Line
+### Line
 
 ```json
 {
@@ -72,7 +124,7 @@ All of these field interfaces typically share:
 }
 ```
 
-## Circle
+### Circle
 
 ```json
 {
@@ -91,7 +143,7 @@ All of these field interfaces typically share:
 }
 ```
 
-## Polygon
+### Polygon
 
 ```json
 {

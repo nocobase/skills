@@ -6,6 +6,12 @@ Collection choice:
 
 - `appointments` -> `calendar`
 
+Compact reduction:
+
+- create `appointments` with `template: "calendar"` plus only business fields such as `title`, `startAt`, `endAt`, `status`, and `notes`;
+- do not manually include `cron`, `exclude`, or audit flags in the compact create request unless the task is explicitly about those template-owned defaults;
+- treat the expanded JSON below as structure reference or read-back shape.
+
 ## Table: appointments
 
 ```json

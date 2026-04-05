@@ -18,29 +18,20 @@ Modeling rule:
 - if the user asked for ordinary many-to-many relation behavior, use `m2m`
 - if the user explicitly asked for many-to-many array field behavior, use `mbm`
 
-Canonical payload:
+Compact payload:
 
 ```json
 {
   "name": "members",
   "interface": "mbm",
-  "type": "belongsToArray",
+  "title": "Members",
   "target": "users",
   "foreignKey": "f_members",
-  "targetKey": "id",
-  "uiSchema": {
-    "title": "Members",
-    "x-component": "AssociationField",
-    "x-component-props": {
-      "multiple": true,
-      "fieldNames": {
-        "value": "id",
-        "label": "nickname"
-      }
-    }
-  }
+  "targetKey": "id"
 }
 ```
+
+Use this compact shape by default. The stored field metadata will include derived `type` and `uiSchema`, but they do not need to be sent in the normal request.
 
 Configuration details:
 

@@ -2,6 +2,8 @@
 
 Use this folder when the main risk is relation direction, ownership, or reverse-field correctness.
 
+These relation files describe the preferred compact request shape first. Treat any fuller metadata shape as stored output or structure reference unless the task explicitly needs raw advanced overrides.
+
 Choose the relation-family file by the intended ownership pattern:
 
 - `m2o.md`: many current records belong to one target record

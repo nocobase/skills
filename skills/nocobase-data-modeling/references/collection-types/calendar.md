@@ -32,6 +32,35 @@ Calendar request baseline:
 - `cron` and `exclude` are template-default fields for the built-in calendar template;
 - treat them as the canonical calendar-template baseline, not as a universal law for every possible custom calendar-like schema.
 
+## Preferred compact request
+
+```json
+{
+  "name": "appointments",
+  "title": "Appointments",
+  "template": "calendar",
+  "fields": [
+    {
+      "name": "subject",
+      "title": "Subject",
+      "interface": "input"
+    },
+    {
+      "name": "startAt",
+      "title": "Start at",
+      "interface": "datetime"
+    },
+    {
+      "name": "endAt",
+      "title": "End at",
+      "interface": "datetime"
+    }
+  ]
+}
+```
+
+In normal compact creation, do not manually send `cron`, `exclude`, or audit flags unless the task is explicitly about customizing those existing template-owned parts.
+
 ```json
 {
   "name": "example_calendar",
@@ -101,7 +130,7 @@ Recommended extension pattern after the baseline:
 - owner or participant relations
 - color, status, or category fields only after the scheduling core is correct
 
-## Realistic example: appointments calendar
+## Expanded structure example: appointments calendar
 
 ```json
 {

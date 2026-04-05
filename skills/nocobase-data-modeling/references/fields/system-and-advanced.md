@@ -9,6 +9,12 @@ Use this file for stable core advanced fields and system fields:
 
 Use `advanced-plugin-fields.md` for capability-gated plugin-backed advanced fields such as `formula`, `sort`, `code`, `sequence`, `encryption`, and `space`.
 
+Compact-flow rule:
+
+- do not send these fields in ordinary compact create payloads unless the user explicitly wants to override the default model behavior;
+- `tableoid` is opt-in only;
+- audit fields such as `createdBy` and `updatedBy` are usually template-owned or server-owned in compact collection creation.
+
 ## Interface-to-payload mapping
 
 | Interface | Default type | Important payload details |
@@ -18,7 +24,7 @@ Use `advanced-plugin-fields.md` for capability-gated plugin-backed advanced fiel
 | `uuid` | `uuid` | supports explicit primary-key strategy |
 | `nanoid` | `nanoid` | supports custom alphabet and length |
 | `json` | `json` | `uiSchema.x-component = "Input.JSON"` |
-| `tableoid` | system field | database-specific system information field |
+| `tableoid` | `virtual` | system-info field rendered by `CollectionSelect` with `isTableOid: true` |
 | `createdBy` | `belongsTo` | target `users`, foreign key `createdById` |
 | `updatedBy` | `belongsTo` | target `users`, foreign key `updatedById` |
 
@@ -169,13 +175,16 @@ Do not combine multiple primary-key strategies in one realistic table.
 
 ```json
 {
-  "name": "tableoid",
+  "name": "__collection",
   "interface": "tableoid",
-  "type": "bigInt",
+  "type": "virtual",
   "uiSchema": {
-    "type": "number",
+    "type": "string",
     "title": "Table OID",
-    "x-component": "InputNumber",
+    "x-component": "CollectionSelect",
+    "x-component-props": {
+      "isTableOid": true
+    },
     "x-read-pretty": true
   }
 }
@@ -184,7 +193,10 @@ Do not combine multiple primary-key strategies in one realistic table.
 ## Anti-drift rules
 
 - do not mix `id`, `snowflakeId`, `uuid`, and `nanoid` in one realistic business table
+- do not proactively add `tableoid` unless the user explicitly asks for it
+- do not proactively add `createdAt`, `createdBy`, `updatedAt`, or `updatedBy` to a compact collection create payload when the template already owns them
 - do not rely on convenience flags when explicit preset payloads are required for accuracy
 - do not forget `target` and `foreignKey` on `createdBy` and `updatedBy`
 - do not document plugin-backed advanced fields here as if they were unconditional built-ins
 - treat `tableoid` as a system-info field, not a normal business field
+- do not describe `tableoid` as a numeric editable field

@@ -25,7 +25,27 @@ It is a plugin-backed generated identifier field with:
 - optional `inputable`
 - optional `match`
 
-## Canonical baseline
+Compact request:
+
+```json
+{
+  "name": "serialNo",
+  "interface": "sequence",
+  "title": "Serial no",
+  "patterns": [
+    {
+      "type": "integer",
+      "options": {
+        "digits": 4
+      }
+    }
+  ]
+}
+```
+
+Use this compact shape by default.
+
+## Expanded structure
 
 ```json
 {
@@ -190,6 +210,7 @@ Verify at least:
 
 - do not reduce sequence fields to plain string fields
 - do not omit `patterns`
+- do not invent a sequence field when the task could use an ordinary input or id strategy instead
 - do not invent unsupported rule item types
 - do not treat sequence generation as only a prefix plus counter unless the patterns actually define that
 - do not claim exact numbering behavior unless the current instance exposes the expected plugin capability

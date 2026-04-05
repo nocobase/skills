@@ -12,6 +12,30 @@ Key rules:
 
 The fully expanded JSON examples below are structure references, not the preferred compact CLI request shape.
 
+## Preferred compact request
+
+```json
+{
+  "name": "categories",
+  "title": "Categories",
+  "template": "tree",
+  "fields": [
+    {
+      "name": "title",
+      "title": "Title",
+      "interface": "input"
+    },
+    {
+      "name": "slug",
+      "title": "Slug",
+      "interface": "input"
+    }
+  ]
+}
+```
+
+Do not manually send `parentId`, `parent`, `children`, or other template-owned structure in the compact create request.
+
 ```json
 {
   "logging": true,

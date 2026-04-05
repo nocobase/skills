@@ -2,18 +2,24 @@
 
 Use this file for rich content, attachment-style media fields, and structured data payloads.
 
+Compact-flow rule:
+
+- for ordinary compact requests, start with `name`, `interface`, and optional `title`;
+- add plugin-specific relation options such as `target` only when that interface needs them;
+- do not proactively send `type` or full `uiSchema` unless the task is explicitly about advanced overrides or stored-shape inspection.
+
 ## Interface-to-payload mapping
 
 | Interface | Default type | Important payload details |
 | --- | --- | --- |
 | `markdown` | `text` | `uiSchema.x-component = "Markdown"` |
-| `markdownVditor` | plugin-provided markdown field | requires Vditor markdown plugin |
+| `vditor` | plugin-provided markdown field | requires Vditor markdown plugin |
 | `richText` | `text` | `uiSchema.x-component = "RichText"` |
 | `attachment` | attachment-capable relation field | requires attachment capability; use the real attachment interface, not plain URL text |
 | `attachmentURL` | plugin-provided string field | requires attachment-url capability and explicit target collection |
 | `json` | `json` | `uiSchema.x-component = "Input.JSON"` |
 
-## Canonical payload snippets
+## Preferred compact snippets
 
 ### Markdown
 
@@ -21,12 +27,7 @@ Use this file for rich content, attachment-style media fields, and structured da
 {
   "name": "contentMd",
   "interface": "markdown",
-  "type": "text",
-  "uiSchema": {
-    "type": "string",
-    "title": "Markdown content",
-    "x-component": "Markdown"
-  }
+  "title": "Markdown content"
 }
 ```
 
@@ -36,27 +37,17 @@ Use this file for rich content, attachment-style media fields, and structured da
 {
   "name": "contentHtml",
   "interface": "richText",
-  "type": "text",
-  "uiSchema": {
-    "type": "string",
-    "title": "Rich text content",
-    "x-component": "RichText"
-  }
+  "title": "Rich text content"
 }
 ```
 
-### Markdown Vditor
+### Vditor
 
 ```json
 {
   "name": "contentMd",
-  "interface": "markdownVditor",
-  "type": "text",
-  "uiSchema": {
-    "type": "string",
-    "title": "Markdown content",
-    "x-component": "MarkdownVditor"
-  }
+  "interface": "vditor",
+  "title": "Markdown content"
 }
 ```
 
@@ -70,13 +61,8 @@ Use an attachment field when the file is only a subordinate field on the current
 {
   "name": "attachments",
   "interface": "attachment",
-  "type": "belongsToMany",
   "target": "attachments",
-  "uiSchema": {
-    "type": "array",
-    "title": "Attachments",
-    "x-component": "Attachment"
-  }
+  "title": "Attachments"
 }
 ```
 
@@ -93,15 +79,9 @@ Plugin gate:
 {
   "name": "coverUrl",
   "interface": "attachmentURL",
-  "type": "string",
   "target": "attachments",
   "targetKey": "id",
-  "uiSchema": {
-    "type": "string",
-    "title": "Cover URL",
-    "x-component": "AttachmentUrl",
-    "x-use-component-props": "useAttachmentUrlFieldProps"
-  }
+  "title": "Cover URL"
 }
 ```
 
@@ -113,24 +93,18 @@ Use this only when the user explicitly wants attachment upload behavior represen
 {
   "name": "meta",
   "interface": "json",
-  "type": "json",
-  "uiSchema": {
-    "type": "object",
-    "title": "Meta",
-    "x-component": "Input.JSON",
-    "x-component-props": {
-      "autoSize": {
-        "minRows": 5
-      }
-    }
-  }
+  "title": "Meta"
 }
 ```
+
+## Expanded structure snippets
 
 ## Anti-drift rules
 
 - do not replace `attachment` with a plain URL text field when file behavior matters
 - do not use `attachmentURL` unless the attachment-url plugin capability is confirmed
-- do not use `markdownVditor` unless the Vditor plugin capability is confirmed
+- do not use `vditor` unless the Vditor plugin capability is confirmed
+- when the user asked for markdown content, prefer `vditor` first if the plugin capability is available
+- when the user only asked for plain long-form text without markdown semantics, prefer `textarea`
 - do not replace `json` with long text when structured data is actually required
 - do not choose a `file` collection when the user only needs a subordinate file field on another record

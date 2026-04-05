@@ -2,6 +2,12 @@
 
 Use this file for ordinary text, numbers, booleans, and specialized scalar inputs.
 
+Compact-flow rule:
+
+- for `nocobase-api data-modeling`, the usual request only needs `name`, `interface`, and optional `title`;
+- do not proactively send `type` or `uiSchema` unless the task is explicitly about advanced overrides or stored-shape inspection;
+- the expanded snippets below are structure references, not the default request payload.
+
 ## Interface-to-payload mapping
 
 | Interface | Default type | Important payload details |
@@ -19,7 +25,49 @@ Use this file for ordinary text, numbers, booleans, and specialized scalar input
 | `icon` | `string` | use icon interface |
 | `checkbox` | `boolean` | use checkbox interface |
 
-## Canonical payload snippets
+## Preferred compact snippets
+
+### Input
+
+```json
+{
+  "name": "title",
+  "interface": "input",
+  "title": "Title"
+}
+```
+
+### Textarea
+
+```json
+{
+  "name": "description",
+  "interface": "textarea",
+  "title": "Description"
+}
+```
+
+### Number
+
+```json
+{
+  "name": "amount",
+  "interface": "number",
+  "title": "Amount"
+}
+```
+
+### Checkbox
+
+```json
+{
+  "name": "enabled",
+  "interface": "checkbox",
+  "title": "Enabled"
+}
+```
+
+## Expanded structure snippets
 
 ### Input
 
@@ -218,6 +266,8 @@ Use this file for ordinary text, numbers, booleans, and specialized scalar input
   }
 }
 ```
+
+Use the expanded snippets only when you need to reason about the stored shape or explain how the server-derived defaults map to full field metadata.
 
 ## Anti-drift rules
 

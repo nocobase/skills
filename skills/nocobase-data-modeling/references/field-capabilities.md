@@ -2,7 +2,7 @@
 
 Use this file when the main risk is field-type drift or missing field parameters.
 
-This file is now the field-reference entry point. Use it to choose the correct field family first, then open the matching detailed file for canonical payloads.
+This file is now the field-reference entry point. Use it to choose the correct field family first, then open the matching detailed file for compact payload guidance.
 
 Typical intents:
 
@@ -23,20 +23,20 @@ Common field groups to mention first:
 - advanced fields
 - system fields
 
-## Required field-shape checklist
+## Compact first checklist
 
-Before creating a field, confirm all required parts that apply:
+For `nocobase-api data-modeling fields apply` and compact `collections apply` payloads, start from the smallest safe shape:
 
 - `name`
 - `interface`
-- `type`
-- `uiSchema.type`
-- `uiSchema.title`
-- `uiSchema.x-component`
-- `uiSchema.x-component-props` when the interface needs them
-- `defaultValue` when the interface needs a stable empty state
-- `uiSchema.enum` for local choice fields
-- preset-field parameters such as `field`, `primaryKey`, `allowNull`, `autoIncrement`, or relation keys when relevant
+- optional `title`
+- interface-specific business options such as `enum`, `target`, `foreignKey`, `through`, `expression`, or plugin-required parameters when relevant
+
+Only add `type`, `uiSchema`, or low-level storage options when:
+
+- the current command help explicitly requires them;
+- the field is a special preset or plugin capability that really needs them;
+- or you are intentionally editing an existing field with advanced raw options.
 
 ## Minimum required payload matrix
 
@@ -44,15 +44,15 @@ Use this matrix when you need a fast payload check before sending a create call.
 
 | Field family | Minimum required parts |
 | --- | --- |
-| Basic scalar | `name`, `interface`, `type`, `uiSchema.title`, `uiSchema.x-component` |
-| Specialized scalar such as `email` or `phone` | basic scalar parts plus any validator or component props required by the interface |
-| Local choice field | `name`, `interface`, `type`, `uiSchema.title`, `uiSchema.x-component`, `uiSchema.enum` |
-| Empty multi-valued choice field | local choice parts plus `defaultValue: []` when needed |
-| Rich text or markdown | `name`, `interface`, `type`, `uiSchema.title`, `uiSchema.x-component` |
-| Attachment-like field | `name`, `interface`, correct relation-capable `type`, target when required, and matching `uiSchema` |
-| Datetime field | `name`, `interface`, `type`, `uiSchema.title`, `uiSchema.x-component`, and datetime-specific props when required |
-| Preset audit field | explicit preset parameters such as `field`, `target`, or `foreignKey` plus matching `uiSchema` |
-| Primary key field | one primary-key strategy only, plus `primaryKey`, `allowNull`, and any strategy-specific parameters |
+| Basic scalar | `name`, `interface`, optional `title` |
+| Specialized scalar such as `email` or `phone` | basic scalar parts |
+| Local choice field | `name`, `interface`, optional `title`, `enum` |
+| Empty multi-valued choice field | local choice parts; compact flow can derive the empty default |
+| Rich text or markdown | `name`, `interface`, optional `title` |
+| Attachment-like field | `name`, `interface`, optional `title`, target or other relation options when required |
+| Datetime field | `name`, `interface`, optional `title`, plus datetime-specific props only when the requirement really needs them |
+| Preset audit field | normally omit from compact create payloads and let the template/server own them |
+| Primary key field | only when intentionally overriding the default id strategy |
 
 ## Supported field inventory
 
@@ -82,10 +82,16 @@ Use this matrix when you need a fast payload check before sending a create call.
 ### Rich text and media
 
 - `markdown`
-- `markdownVditor`
+- `vditor`
 - `richText`
 - `attachment`
 - `attachmentURL`
+
+Default choice notes:
+
+- prefer `textarea` for plain long text
+- prefer `vditor` for markdown content when the plugin is enabled
+- fall back to `markdown` when the Vditor plugin is unavailable or the simpler markdown field is explicitly preferred
 
 ### Datetime
 
@@ -199,7 +205,7 @@ Do not mix multiple primary-key strategies in the same table unless the user exp
 
 ### Preset and system fields
 
-- relying on convenience flags when explicit preset payloads are required for accuracy;
+- sending preset fields into compact create payloads when the template already owns them;
 - mixing multiple primary-key strategies;
 - forgetting `field` on `createdAt` or `updatedAt`;
 - forgetting `target` and `foreignKey` on `createdBy` or `updatedBy`.
@@ -207,11 +213,12 @@ Do not mix multiple primary-key strategies in the same table unless the user exp
 ## Anti-drift rules
 
 - Do not answer field-capability questions from memory only; use this file and the linked family references as the source of truth.
+- In compact modeling flows, do not default to explicit `type` or full `uiSchema` when `interface` already determines them.
 - Do not turn every multi-valued field into `type: json`; follow the interface contract first.
 - Do not omit `defaultValue: []` for `multipleSelect` and `checkboxGroup` when the field should start empty.
 - Do not replace attachment, china-region, or relation-capable fields with plain text or json substitutes unless the user explicitly wants that weaker design as the final model.
 - For plugin-backed interfaces, try to enable the required plugin first. If that is not possible, stop and tell the user which plugin is required instead of inventing a replacement field.
-- Do not stop after confirming that an interface exists. The payload still needs the correct type, UI schema, defaults, and options.
+- Do not stop after confirming that an interface exists. The payload still needs the correct relation keys, enum values, plugin prerequisites, or special options that interface depends on.
 - Do not mix `id`, `snowflakeId`, `uuid`, and `nanoid` as competing primary-key fields in one realistic business table.
 - Do not let a broad `all field types` request weaken correctness for common business fields.
 

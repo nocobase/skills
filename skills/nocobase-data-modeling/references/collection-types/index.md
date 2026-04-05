@@ -59,7 +59,7 @@ Before creating a collection:
 3. inspect plugin capability if the type is `sql`, `view`, or `inherit`;
 4. only then build the create payload.
 
-## Canonical payload references in this folder
+## Collection-type references in this folder
 
 - `general.md`
 - `file.md`

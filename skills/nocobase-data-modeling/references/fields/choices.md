@@ -4,6 +4,12 @@ Use this file for local enum-backed fields and structured selectors that behave 
 
 These fields must carry explicit `uiSchema.enum` entries when the option set is local. Do not leave enum options implicit.
 
+Compact-flow rule:
+
+- in compact requests, pass local options through `enum`;
+- do not proactively send `type` or full `uiSchema` unless the task is about advanced raw overrides;
+- for `multipleSelect` and `checkboxGroup`, the compact flow can derive the empty-array default.
+
 ## Interface-to-payload mapping
 
 | Interface | Default type | Important payload details |
@@ -25,7 +31,7 @@ Preferred enum item shape:
 
 Color is optional, for example `{ "value": "active", "label": "Active", "color": "green" }`.
 
-## Canonical payload snippets
+## Preferred compact snippets
 
 ### Single select
 
@@ -33,16 +39,11 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
 {
   "name": "status",
   "interface": "select",
-  "type": "string",
-  "uiSchema": {
-    "type": "string",
-    "title": "Status",
-    "x-component": "Select",
-    "enum": [
-      { "value": "draft", "label": "Draft" },
-      { "value": "active", "label": "Active" }
-    ]
-  }
+  "title": "Status",
+  "enum": [
+    { "value": "draft", "label": "Draft" },
+    { "value": "active", "label": "Active" }
+  ]
 }
 ```
 
@@ -52,20 +53,11 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
 {
   "name": "tags",
   "interface": "multipleSelect",
-  "type": "array",
-  "defaultValue": [],
-  "uiSchema": {
-    "type": "array",
-    "title": "Tags",
-    "x-component": "Select",
-    "x-component-props": {
-      "mode": "multiple"
-    },
-    "enum": [
-      { "value": "vip", "label": "VIP" },
-      { "value": "new", "label": "New" }
-    ]
-  }
+  "title": "Tags",
+  "enum": [
+    { "value": "vip", "label": "VIP" },
+    { "value": "new", "label": "New" }
+  ]
 }
 ```
 
@@ -75,16 +67,11 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
 {
   "name": "priority",
   "interface": "radioGroup",
-  "type": "string",
-  "uiSchema": {
-    "type": "string",
-    "title": "Priority",
-    "x-component": "Radio.Group",
-    "enum": [
-      { "value": "low", "label": "Low" },
-      { "value": "high", "label": "High" }
-    ]
-  }
+  "title": "Priority",
+  "enum": [
+    { "value": "low", "label": "Low" },
+    { "value": "high", "label": "High" }
+  ]
 }
 ```
 
@@ -94,19 +81,15 @@ Color is optional, for example `{ "value": "active", "label": "Active", "color":
 {
   "name": "features",
   "interface": "checkboxGroup",
-  "type": "array",
-  "defaultValue": [],
-  "uiSchema": {
-    "type": "string",
-    "title": "Features",
-    "x-component": "Checkbox.Group",
-    "enum": [
-      { "value": "a", "label": "A" },
-      { "value": "b", "label": "B" }
-    ]
-  }
+  "title": "Features",
+  "enum": [
+    { "value": "a", "label": "A" },
+    { "value": "b", "label": "B" }
+  ]
 }
 ```
+
+## Expanded structure snippets
 
 ### China region
 
@@ -153,6 +136,7 @@ Plugin gate:
 ## Anti-drift rules
 
 - do not omit `uiSchema.enum` for local choice fields
-- do not forget `defaultValue: []` for `multipleSelect` and `checkboxGroup` when the field should start empty
+- do not forget the option set for local choice fields
+- when working with advanced raw payloads or read-back comparison, remember `multipleSelect` and `checkboxGroup` normally store an empty-array default
 - do not reduce `chinaRegion` to plain text or generic `json`
 - do not create `chinaRegion` when the plugin interface exists only partially and the backing `chinaRegions` resource is absent

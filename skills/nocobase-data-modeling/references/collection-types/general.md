@@ -4,7 +4,7 @@ Use for ordinary business master data or transactional records.
 
 Key rules:
 
-- For the compact `nocobase-cli data-modeling collections apply` flow, do not manually include built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, or `updatedBy`.
+- For the compact `nocobase-api data-modeling collections apply` flow, do not manually include built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, or `updatedBy`.
 - Treat those fields as template defaults that the server creates for ordinary `general` collections unless the active command help explicitly requires a fully expanded raw payload.
 - Append business fields only. Each business field still needs an explicit `interface`.
 - Default business-table pattern:
@@ -21,6 +21,36 @@ Recommended extension pattern after the baseline:
 - relation fields only after the scalar business fields are correct.
 
 The fully expanded JSON examples below are structure references, not the preferred compact CLI request shape.
+
+## Preferred compact request
+
+```json
+{
+  "name": "orders",
+  "title": "Orders",
+  "template": "general",
+  "fields": [
+    {
+      "name": "orderNo",
+      "title": "Order No",
+      "interface": "input"
+    },
+    {
+      "name": "status",
+      "title": "Status",
+      "interface": "select",
+      "enum": ["draft", "paid", "cancelled"]
+    },
+    {
+      "name": "amount",
+      "title": "Amount",
+      "interface": "number"
+    }
+  ]
+}
+```
+
+Start from this compact shape. Only use the expanded structure below when discussing template internals or inspecting stored output.
 
 ```json
 {

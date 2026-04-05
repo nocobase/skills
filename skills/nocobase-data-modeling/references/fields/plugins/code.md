@@ -20,7 +20,19 @@ This is not just a textarea for storing text.
 
 It is a text-backed field rendered with a code editor component and language-aware options.
 
-## Canonical payload
+Compact request:
+
+```json
+{
+  "name": "sourceCode",
+  "interface": "code",
+  "title": "Source code"
+}
+```
+
+Use this compact shape by default. Add editor options only when the language or editor behavior is part of the requirement.
+
+## Expanded structure
 
 ```json
 {

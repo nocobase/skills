@@ -9,6 +9,12 @@ Use this file for the full datetime family:
 - `Unix Timestamp`
 - preset timestamp fields such as `createdAt` and `updatedAt`
 
+Compact-flow rule:
+
+- for ordinary business datetime fields, start with `name`, `interface`, and optional `title`;
+- add advanced options only when the requirement really depends on them, such as unix timestamp accuracy or explicit timezone behavior;
+- do not proactively send preset timestamp fields such as `createdAt` or `updatedAt` in compact collection creation when the template already owns them.
+
 ## Interface-to-payload mapping
 
 | Interface | Default type | Important payload details |
@@ -40,7 +46,7 @@ Do not confuse create payloads with introspected or inferred read-back types.
 - `Datetime (without time zone)` should read back as `interface: "datetimeNoTz"` and `type: "datetimeNoTz"`.
 - `DateOnly` should read back as `interface: "dateOnly"` and `type: "dateOnly"`.
 
-## Canonical payload snippets
+## Preferred compact snippets
 
 ### Datetime with time zone
 
@@ -48,23 +54,11 @@ Do not confuse create payloads with introspected or inferred read-back types.
 {
   "name": "startAt",
   "interface": "datetime",
-  "type": "date",
-  "defaultToCurrentTime": false,
-  "onUpdateToCurrentTime": false,
-  "timezone": true,
-  "uiSchema": {
-    "type": "string",
-    "title": "Start at",
-    "x-component": "DatePicker",
-    "x-component-props": {
-      "showTime": true,
-      "utc": true
-    }
-  }
+  "title": "Start at"
 }
 ```
 
-This is the canonical built-in shape for `Datetime (with time zone)`.
+This is the preferred compact request shape for `Datetime (with time zone)`.
 
 ### Datetime without time zone
 
@@ -72,19 +66,7 @@ This is the canonical built-in shape for `Datetime (with time zone)`.
 {
   "name": "localStartAt",
   "interface": "datetimeNoTz",
-  "type": "datetimeNoTz",
-  "defaultToCurrentTime": false,
-  "onUpdateToCurrentTime": false,
-  "timezone": false,
-  "uiSchema": {
-    "type": "string",
-    "title": "Local start at",
-    "x-component": "DatePicker",
-    "x-component-props": {
-      "showTime": true,
-      "utc": false
-    }
-  }
+  "title": "Local start at"
 }
 ```
 
@@ -96,16 +78,7 @@ Use this for values that must remain local and should not be shifted by user tim
 {
   "name": "contractDate",
   "interface": "dateOnly",
-  "type": "dateOnly",
-  "uiSchema": {
-    "type": "string",
-    "title": "Contract date",
-    "x-component": "DatePicker",
-    "x-component-props": {
-      "dateOnly": true,
-      "showTime": false
-    }
-  }
+  "title": "Contract date"
 }
 ```
 
@@ -117,12 +90,7 @@ Use `dateOnly` instead of `datetime` when the user asked for a date without time
 {
   "name": "officeStartTime",
   "interface": "time",
-  "type": "time",
-  "uiSchema": {
-    "type": "string",
-    "title": "Office start time",
-    "x-component": "TimePicker"
-  }
+  "title": "Office start time"
 }
 ```
 
@@ -150,6 +118,8 @@ Use `dateOnly` instead of `datetime` when the user asked for a date without time
 ```
 
 Use unix timestamp only when the user explicitly wants epoch-style storage. Otherwise use the regular datetime interfaces.
+
+## Expanded structure snippets
 
 ### Created at
 

@@ -6,7 +6,7 @@ Use this file for:
 - any request that creates or updates relation fields
 - any debugging task where relation direction or reverse fields might be wrong
 
-This file is now the relation-reference entry point. Use it to choose the correct relation family first, then open the matching detailed file for canonical payloads.
+This file is now the relation-reference entry point. Use it to choose the correct relation family first, then open the matching detailed file for compact payload guidance.
 
 ## Stable answer
 
@@ -26,6 +26,25 @@ But the important part is not only the type name. You must also get these parame
 - `through`
 - `otherKey`
 - `reverseField`
+
+## Preferred key rule
+
+Generated key names are fallback behavior, not the preferred modeling result.
+
+When relation naming should stay readable and stable, pass explicit values for:
+
+- `foreignKey`
+- `sourceKey`
+- `targetKey`
+- `through`
+- `otherKey`
+
+This is especially important for:
+
+- `m2o`
+- `o2m`
+- `o2o`
+- `m2m`
 
 ## Direction rules
 
@@ -53,6 +72,7 @@ After creating a relation field, verify:
 - `through` and `otherKey` exist for `belongsToMany`
 - the reverse field exists when one was requested
 - `uiSchema.x-component-props.fieldNames.label` points to a readable field, not an accidental raw id
+- the generated schema used the explicit key names you asked for
 
 ## Anti-drift rules
 
@@ -61,6 +81,7 @@ After creating a relation field, verify:
 - Do not assume reverse-field naming is always inferred correctly.
 - If the user asks for relation-field test tables, explicitly verify every generated relation after creation.
 - Do not let relation detail distract from getting the collection type and field types right first.
+- Do not rely on generated random key names when readable names are part of the requirement.
 
 ## Detailed relation references
 

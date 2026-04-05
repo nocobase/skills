@@ -18,6 +18,13 @@ Relation pattern:
 - one order has many order items
 - many order items belong to one order
 
+Compact reduction:
+
+- create `customers`, `orders`, and `order_items` with compact `general` payloads first;
+- keep only business fields in each create request;
+- add relations afterward with explicit readable keys such as `customerId` and `orderId`;
+- treat the expanded JSON below as structural reference or read-back shape, not as the preferred request body.
+
 ## Table 1: customers
 
 ```json

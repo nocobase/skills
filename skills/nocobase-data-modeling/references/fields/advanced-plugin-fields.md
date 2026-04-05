@@ -4,6 +4,12 @@ Use this file for advanced or plugin-backed field interfaces that are not ordina
 
 These fields are higher risk than the core scalar, choice, datetime, and relation families because they often depend on plugin enablement or instance-specific capability.
 
+Compact-flow rule:
+
+- even for plugin-backed fields, prefer the smallest safe request shape first;
+- only add `type`, `uiSchema`, or deep plugin config when the dedicated reference explicitly requires them or the task is about raw advanced customization;
+- do not choose a plugin-backed interface when an ordinary built-in interface already satisfies the requirement.
+
 ## Use order
 
 Before creating any field in this file:
@@ -20,7 +26,7 @@ Do not attempt field creation as a plugin-detection shortcut.
 
 ## Field groups in this file
 
-- `markdownVditor`
+- `vditor`
 - `attachmentURL`
 - `formula`
 - `sort`
@@ -41,7 +47,7 @@ Use these dedicated files first when the requested field has more than a trivial
 - `plugins/encryption.md`
 - `plugins/map-fields.md`
 
-## Markdown Vditor
+## Vditor
 
 Typical plugin:
 
@@ -52,18 +58,13 @@ When to use:
 
 - the user explicitly wants the Vditor markdown experience instead of ordinary markdown
 
-Canonical payload:
+Compact payload:
 
 ```json
 {
   "name": "contentMd",
-  "interface": "markdownVditor",
-  "type": "text",
-  "uiSchema": {
-    "type": "string",
-    "title": "Markdown content",
-    "x-component": "MarkdownVditor"
-  }
+  "interface": "vditor",
+  "title": "Markdown content"
 }
 ```
 
@@ -85,21 +86,15 @@ When to use:
 
 - the user explicitly wants upload behavior surfaced as a URL-style field
 
-Canonical payload:
+Compact payload:
 
 ```json
 {
   "name": "coverUrl",
   "interface": "attachmentURL",
-  "type": "string",
   "target": "attachments",
   "targetKey": "id",
-  "uiSchema": {
-    "type": "string",
-    "title": "Cover URL",
-    "x-component": "AttachmentUrl",
-    "x-use-component-props": "useAttachmentUrlFieldProps"
-  }
+  "title": "Cover URL"
 }
 ```
 

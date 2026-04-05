@@ -28,7 +28,20 @@ It is a plugin-backed encrypted storage field with:
 - optional `hidden`
 - encrypted comparison operators
 
-## Canonical baseline
+Compact request:
+
+```json
+{
+  "name": "secretValue",
+  "interface": "encryption",
+  "title": "Secret value",
+  "hidden": true
+}
+```
+
+Use this compact shape by default.
+
+## Expanded structure
 
 ```json
 {
@@ -80,6 +93,7 @@ Verify at least:
 ## Anti-drift rules
 
 - do not replace encrypted storage with plain text when the user explicitly asked for encryption
+- do not choose `encryption` when the user only asked for masked display or password-style input
 - do not document this field as a password input field only
 - do not treat `Input` vs `Password` as the core concern; storage semantics are the real concern
 - do not assume this capability exists in every instance because it is plugin-gated and pro-gated
