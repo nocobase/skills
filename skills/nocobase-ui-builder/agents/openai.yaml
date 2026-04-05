@@ -1,15 +1,22 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "通过 NocoBase MCP 检查、搭建、修改或重排 Modern page (v2) 的菜单、页面、页签、弹窗与区块/字段/动作"
+  short_description: "通过 NocoBase MCP 检查、搭建、修改、重排或删除 Modern page (v2) 的菜单、页面、页签、弹窗与区块/字段/动作"
   default_prompt: >
-    Use $nocobase-ui-builder to inspect, build, update, or reorder NocoBase Modern page (v2) menus, pages, tabs, popups, and block/field/action surfaces through live MCP capabilities.
+    Use $nocobase-ui-builder to inspect, build, update, reorder, or delete NocoBase Modern page (v2) menus, pages, tabs, popups, and block/field/action surfaces through live MCP capabilities.
+    Treat inspect as read-only by default.
     Default to FlowSurfaces for every UI mutation and use desktop_routes_list_accessible(tree=true) for menu discovery.
+    Treat desktop_routes_list_accessible(tree=true) as the current role's visible menu tree, not the global source of truth.
     Never use resource_* or generic CRUD to mutate page structure.
+    Hand off ACL/route-permission work to nocobase-acl-manage, schema authoring to nocobase-data-modeling, and workflow authoring to nocobase-workflow-manage.
     Prefer menu-first flows: discover or create the target menu group, create a bindable menu item, then initialize the page with createPage(menuRouteId=...).
     If the user gives only a menu title, proceed only when the target group is uniquely identified.
     Default writes to get -> catalog -> write -> readback.
+    Use flow_surfaces_context when chart/runtime context is part of the contract.
+    If live get/catalog/context does not expose the needed capability, settings contract, resource binding, or currentRecord guard, stop instead of guessing.
+    Treat createMenu(type="item") return values as pre-init ids until createPage(menuRouteId=...) completes.
+    Destructive paths such as destroy/remove/replace require explicit user intent plus an impact explanation first.
     For addBlock/addField/addAction/addRecordAction, prefer inlining public settings from live catalog.configureOptions into requestBody.settings, and never nest props/decoratorProps/stepParams/flowRegistry under settings.
-    Any RunJS write must follow references/js.md and pass the local validator gate before any MCP write happens.
+    Any RunJS write must follow references/js.md, use the local Node validator in skill mode, read network only through ctx.request/ctx.api.request, and pass the validator gate before any MCP write happens.
 
 dependencies:
   tools:

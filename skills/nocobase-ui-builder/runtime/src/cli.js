@@ -90,10 +90,10 @@ function usage() {
       models: 'List supported RunJS models.',
       contexts: 'Print the context contract for one model. Required: --model <model>.',
       validate:
-        'Validate one trusted snippet with the compat validator. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path>.',
+        'Validate one trusted snippet with the compat validator. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode.',
       preview:
-        'Validate and preview one trusted snippet with the compat runtime. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path>.',
-      batch: 'Run multiple validate/preview tasks from one JSON file. Required: --input <path>.',
+        'Validate and preview one trusted snippet with the compat runtime. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode.',
+      batch: 'Run multiple validate/preview tasks from one JSON file. Required: --input <path>. Optional: --skill-mode.',
     },
   };
 }
@@ -106,6 +106,7 @@ async function loadSnippetTask(command, args, io, cwd) {
   const stdin = io.stdin || process.stdin;
   const cliTimeoutMs = parseOptionalNumber(args.timeout, '--timeout');
   const cliIsolate = parseOptionalBoolean(args.isolate, '--isolate');
+  const cliSkillMode = parseOptionalBoolean(args['skill-mode'], '--skill-mode');
 
   if (args['stdin-json']) {
     const payload = await loadStdinJson(stdin);
@@ -125,6 +126,10 @@ async function loadSnippetTask(command, args, io, cwd) {
       code: payload.code,
       context: payload.context,
       network: payload.network,
+      skillMode:
+        typeof cliSkillMode === 'boolean'
+          ? cliSkillMode
+          : parseOptionalBoolean(payload.skillMode, 'stdin skillMode') ?? false,
       version: args.version || payload.version,
       timeoutMs: typeof cliTimeoutMs === 'number' ? cliTimeoutMs : parseOptionalNumber(payload.timeoutMs, 'stdin timeoutMs'),
       filename: payload.filename || '<stdin>',
@@ -139,6 +144,7 @@ async function loadSnippetTask(command, args, io, cwd) {
     code: await loadTextFile(cwd, args['code-file']),
     context: args['context-file'] ? await loadJsonFile(cwd, args['context-file']) : undefined,
     network: args['network-file'] ? await loadJsonFile(cwd, args['network-file']) : undefined,
+    skillMode: typeof cliSkillMode === 'boolean' ? cliSkillMode : false,
     version: args.version,
     timeoutMs: cliTimeoutMs,
     filename: args['code-file'],
@@ -180,11 +186,13 @@ export async function runCli(argv, io = {}) {
       }
       case 'batch': {
         if (!args.input) throw new Error('Missing required --input.');
+        const cliSkillMode = parseOptionalBoolean(args['skill-mode'], '--skill-mode');
         const inputPath = path.resolve(cwd, args.input);
         const input = JSON.parse(await fs.readFile(inputPath, 'utf8'));
         const result = await runBatch({
           tasks: input.tasks || [],
           cwd: path.dirname(inputPath),
+          defaultSkillMode: typeof cliSkillMode === 'boolean' ? cliSkillMode : false,
         });
         writeJson(stdout, result);
         return result.ok ? 0 : 1;

@@ -106,6 +106,10 @@ function createBaseResult({
 
 export async function executeTaskLocal(task) {
   const profile = findProfile(task.model);
+  const executionMetadata = {
+    skillMode: Boolean(task.skillMode),
+    networkMode: task?.network?.mode === 'live' ? 'live' : 'mock',
+  };
   if (!profile) {
     return createBaseResult({
       task,
@@ -118,6 +122,9 @@ export async function executeTaskLocal(task) {
           message: `Unknown model "${task.model}".`,
         },
       ],
+      execution: {
+        ...executionMetadata,
+      },
       preview: createPreviewState(task.mode),
     });
   }
@@ -127,7 +134,19 @@ export async function executeTaskLocal(task) {
   const compiled = compileUserCode(task.code);
   const syntaxIssues = sortIssues([...usage.syntaxIssues, ...compiled.compileIssues]);
   const contextIssues = sortIssues(usage.contextIssues);
-  const policyIssues = sortIssues(usage.policyIssues || []);
+  const policyIssues = sortIssues([
+    ...(usage.policyIssues || []),
+    ...(task.skillMode && task?.network?.mode === 'live'
+      ? [
+          {
+            type: 'policy',
+            severity: 'error',
+            ruleId: 'blocked-skill-live-network',
+            message: 'Skill mode blocks live network configuration. Use mock responses instead.',
+          },
+        ]
+      : []),
+  ]);
   if (hasError(syntaxIssues) || hasError(contextIssues) || hasError(policyIssues)) {
     return createBaseResult({
       task,
@@ -137,13 +156,16 @@ export async function executeTaskLocal(task) {
       policyIssues,
       execution: {
         executed: false,
+        ...executionMetadata,
       },
       usedContextPaths: usage.usedContextPaths,
       preview: createPreviewState(task.mode),
     });
   }
 
-  const environment = createPreviewEnvironment(profile, task.mode || 'validate', task.context || {}, task.network);
+  const environment = createPreviewEnvironment(profile, task.mode || 'validate', task.context || {}, task.network, {
+    skillMode: task.skillMode,
+  });
   const executionContextIssues = [];
   const sandboxBase = {
     ctx: environment.ctx,
@@ -171,7 +193,12 @@ export async function executeTaskLocal(task) {
     });
   }
 
-  const sandbox = vm.createContext(sandboxBase);
+  const sandbox = vm.createContext(sandboxBase, {
+    codeGeneration: {
+      strings: false,
+      wasm: false,
+    },
+  });
 
   let finalized = null;
   try {

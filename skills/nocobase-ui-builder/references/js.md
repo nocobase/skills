@@ -1,6 +1,16 @@
 # JS
 
-当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem`、`js` action，或 chart 的 `visual.raw / events.raw` 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，chart 专题再看 [chart.md](./chart.md)，CLI 用法、网络模式与输出层次再看 [../runtime/README.md](../runtime/README.md)。
+当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem`、`js` action，或 chart 的 `visual.raw / events.raw` 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，chart 专题再看 [chart-core.md](./chart-core.md)，CLI 用法、Node 版本、repo-root 命令入口与 `--skill-mode` 再看 [runjs-runtime.md](./runjs-runtime.md)。
+
+## 目录
+
+1. 公开 JS 能力
+2. RunJS Validator Gate
+3. Skill 到 Runtime 的映射
+4. 容器支持矩阵
+5. 代码风格与上下文
+6. Strict Render 规则
+7. 执行提醒
 
 ## 公开 JS 能力
 
@@ -15,6 +25,7 @@
 
 只要本次写入涉及 JS `code`，就必须先运行本地 validator，再决定是否调用 MCP 写入。
 
+- 这个 validator 的目标是**确定性的本地 contract 预验证**，不是安全沙箱承诺。
 - render 类模型统一走 `preview`
 - action 类模型统一走 `validate`
 - validator 失败就是失败，不能降级成 warning，也不能继续写入
@@ -23,7 +34,7 @@
 标准命令：
 
 ```bash
-node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs <validate|preview> --stdin-json
+node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs <validate|preview> --stdin-json --skill-mode
 ```
 
 stdin JSON 形状：
@@ -41,6 +52,15 @@ stdin JSON 形状：
 ```
 
 失败处理：根据 validator 返回的问题自动重写 code，并重新校验；最多 3 轮，3 轮后仍失败就停止，不要继续 MCP 写入。
+
+`--skill-mode` 是本 skill 的 canonical 执行方式：
+
+- 假设当前 cwd 是仓库根目录
+- 要求 Node `>=18`
+- 网络读取只允许 `ctx.request(...)` / `ctx.api.request(...)`；不要使用 `fetch` / `ctx.fetch`
+- 默认不允许 live network；`network` 要么不传，要么只传 `mode = "mock"`
+- `mode = "mock"` 下如果没有显式命中 `responses`，runtime 会返回默认 auto-mock `200 + {}`，并记录 warning，而不是让校验失败
+- 如果 payload 明确传了 `network.mode = "live"`，validator 会直接阻断，而不是退回到不稳定的外部依赖
 
 ## Skill 到 Runtime 的映射
 
@@ -78,7 +98,9 @@ stdin JSON 形状：
 - 默认输出可读的多行 JS，统一使用 2 空格缩进。
 - 复杂模板字符串、条件分支、拼接逻辑先拆成局部变量，再传给 `ctx.render(...)`。
 - 先使用 runtime profile 的 `defaultContextShape`；如果 live MCP 已知更精确的 `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`，再用 live 数据覆盖默认值。
-- `network` 默认不传；只有 code 确实依赖读请求且你能提供 mock response 时才传。
+- `network` 默认不传；只有 code 确实依赖读请求且你想覆盖默认 auto-mock 返回值时，才传显式 mock response。
+- 需要读请求时，只使用 `ctx.request(...)` 或 `ctx.api.request(...)`；不要写 `fetch(...)`、`window.fetch(...)`、`ctx.fetch(...)`。
+- 在本 skill 的 canonical 执行方式里，`network.mode = "live"` 一律视为不允许；live mode 只保留给 runtime 开发或脱离本 skill 的本地调试。
 
 ## Strict Render 规则
 
@@ -96,11 +118,12 @@ stdin JSON 形状：
 
 - 不要求 `ctx.render(...)`
 - `ChartOptionModel` 应直接 `return option`
-- `ChartEventsModel` 主要执行 `ctx.chart.on(...)` / `ctx.chart.off(...)`
+- `ChartEventsModel` 主要执行裸 `chart.on(...)` / `chart.off(...)`；不要写成 `ctx.chart.on(...)`
 
 ## 执行提醒
 
 - JS 相关配置优先走 `configure`。
 - `renderer: "js"` 不是 standalone field type；`jsColumn` / `jsItem` 才是 standalone field type。
+- `jsColumn` / `jsItem` 这类 standalone JS field 创建时允许不传真实 `fieldPath`；绑定真实字段的 `renderer: "js"` 才需要 `fieldPath`。
 - `filterForm` 不支持 `renderer: "js"`、`jsColumn`、`jsItem`；涉及 JS 时请改 block 或 action 设计。
 - 任何 JS 写入都必须先通过 RunJS validator gate，再进入 MCP 写流程。

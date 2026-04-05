@@ -143,6 +143,21 @@
 {
   "requestBody": {
     "target": { "uid": "form-uid" },
+    "fieldPath": "password",
+    "settings": {
+      "label": "密码",
+      "required": true
+    }
+  }
+}
+```
+
+`addFields`
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "form-uid" },
     "fields": [
       {
         "fieldPath": "password",
@@ -231,6 +246,8 @@
 因为它实际只声明了 **1 列**，却给了 **2 个列宽**。
 
 ## `apply` / `mutate`
+
+`apply(mode="replace")` 与大多数 `mutate` 组合都属于 destructive path：只有用户明确要求替换 subtree 时才执行，并在写前说明影响范围。
 
 `mcp__nocobase__flow_surfaces_apply`
 

@@ -20,12 +20,13 @@ export async function inspectRunJSContext({ model }) {
   return profile;
 }
 
-export async function validateRunJSSnippet({ model, code, context, network, version, timeoutMs, filename, isolate = true }) {
+export async function validateRunJSSnippet({ model, code, context, network, skillMode = false, version, timeoutMs, filename, isolate = true }) {
   const task = {
     model,
     code,
     context,
     network,
+    skillMode,
     version,
     timeoutMs,
     filename,
@@ -34,12 +35,13 @@ export async function validateRunJSSnippet({ model, code, context, network, vers
   return isolate ? runTask(task) : executeTaskLocal(task);
 }
 
-export async function previewRunJSSnippet({ model, code, context, network, version, timeoutMs, filename, isolate = true }) {
+export async function previewRunJSSnippet({ model, code, context, network, skillMode = false, version, timeoutMs, filename, isolate = true }) {
   const task = {
     model,
     code,
     context,
     network,
+    skillMode,
     version,
     timeoutMs,
     filename,
@@ -48,7 +50,7 @@ export async function previewRunJSSnippet({ model, code, context, network, versi
   return isolate ? runTask(task) : executeTaskLocal(task);
 }
 
-export async function runBatch({ tasks, cwd = process.cwd(), isolate = true }) {
+export async function runBatch({ tasks, cwd = process.cwd(), isolate = true, defaultSkillMode = false }) {
   const results = [];
   for (const item of tasks || []) {
     const code =
@@ -71,6 +73,7 @@ export async function runBatch({ tasks, cwd = process.cwd(), isolate = true }) {
           code,
           context,
           network,
+          skillMode: typeof item.skillMode === 'boolean' ? item.skillMode : defaultSkillMode,
           version: item.version,
           timeoutMs: item.timeoutMs,
           filename: item.codeFile,
@@ -86,6 +89,7 @@ export async function runBatch({ tasks, cwd = process.cwd(), isolate = true }) {
         code,
         context,
         network,
+        skillMode: typeof item.skillMode === 'boolean' ? item.skillMode : defaultSkillMode,
         version: item.version,
         timeoutMs: item.timeoutMs,
         filename: item.codeFile,
@@ -104,9 +108,13 @@ export async function runBatch({ tasks, cwd = process.cwd(), isolate = true }) {
       unsupported: results.filter((item) => item.preview?.fidelity === 'unsupported').length,
       blocked: results.filter((item) =>
         [...item.policyIssues, ...item.runtimeIssues].some((issue) =>
-          ['blocked-side-effect', 'blocked-static-side-effect', 'blocked-network-host', 'unmocked-network-request'].includes(
-            issue.ruleId,
-          ),
+          [
+            'blocked-side-effect',
+            'blocked-static-side-effect',
+            'blocked-dynamic-code-generation',
+            'blocked-network-host',
+            'blocked-skill-live-network',
+          ].includes(issue.ruleId),
         ),
       ).length,
     },

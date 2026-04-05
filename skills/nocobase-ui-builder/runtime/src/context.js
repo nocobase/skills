@@ -374,9 +374,10 @@ function createSimpleDocument(locationRef) {
   };
 }
 
-function normalizeNetworkConfig(network = {}) {
+function normalizeNetworkConfig(network = {}, options = {}) {
   return {
     mode: network?.mode === 'live' ? 'live' : 'mock',
+    skillMode: Boolean(options?.skillMode),
     allowHosts: [...new Set((network?.allowHosts || []).map((item) => String(item).trim()).filter(Boolean))],
     responses: (network?.responses || []).map((entry) => ({
       method: normalizeMethod(entry?.method || 'GET'),
@@ -402,8 +403,17 @@ function createMockFetchResponse(entry) {
   });
 }
 
-function createNetworkController(state, network) {
-  const config = normalizeNetworkConfig(network);
+function createAutoMockFetchResponse() {
+  return new Response('{}', {
+    status: 200,
+    headers: {
+      'content-type': 'application/json',
+    },
+  });
+}
+
+function createNetworkController(state, network, options = {}) {
+  const config = normalizeNetworkConfig(network, options);
   const responseMap = new Map(config.responses.map((entry) => [`${entry.method} ${entry.url}`, entry]));
 
   const blockNetwork = (detail, ruleId, message, extra = {}) => {
@@ -423,7 +433,21 @@ function createNetworkController(state, network) {
     if (config.mode === 'mock') {
       const responseEntry = responseMap.get(`${method} ${url}`);
       if (!responseEntry) {
-        blockNetwork(detail, 'unmocked-network-request', `No mock response matched ${method} ${url || '<unknown url>'}.`);
+        Object.assign(detail, {
+          status: 'auto-mocked',
+          ruleId: undefined,
+          mockSource: 'default',
+        });
+        pushRuntimeIssue(
+          state,
+          'auto-mocked-network-request',
+          `No explicit mock matched ${method} ${url || '<unknown url>'}; returned the default mock response instead.`,
+          'warning',
+        );
+        return {
+          mode: 'mock',
+          response: createAutoMockFetchResponse(),
+        };
       }
       Object.assign(detail, {
         status: 'mocked',
@@ -433,6 +457,10 @@ function createNetworkController(state, network) {
         mode: 'mock',
         response: createMockFetchResponse(responseEntry),
       };
+    }
+
+    if (config.skillMode) {
+      blockNetwork(detail, 'blocked-skill-live-network', `Skill mode blocks live network for ${method} ${url}. Use mock responses instead.`);
     }
 
     const host = new URL(url).host;
@@ -512,26 +540,6 @@ function createRequestShim(state, networkController) {
       text,
       json: async () => data,
     };
-  };
-}
-
-function createFetchShim(state, networkController) {
-  return async function compatFetch(input, init = {}) {
-    const url = typeof input === 'string' ? input : input?.url;
-    const method = normalizeMethod(init.method || input?.method || 'GET');
-    const detail = {
-      name: 'fetch',
-      method,
-      url,
-      status: 'pending',
-    };
-    state.sideEffectAttempts.push(detail);
-    if (!READ_ONLY_HTTP_METHODS.has(method)) {
-      detail.status = 'blocked';
-      detail.ruleId = 'blocked-side-effect';
-      throw new CompatBlockedError(`Blocked fetch method "${method}" for ${url || '<unknown url>'}.`, detail);
-    }
-    return networkController.fetch('fetch', url, method, init, detail);
   };
 }
 
@@ -705,7 +713,7 @@ function createCompatDocument(state, documentRef, compatLocation, getWindow) {
   };
 }
 
-function createCompatWindow({ documentRef, compatFetch, feedbackMessage, feedbackModal, compatLocation, compatHistory, blockedOpen }) {
+function createCompatWindow({ documentRef, feedbackMessage, feedbackModal, compatLocation, compatHistory, blockedOpen }) {
   const compatWindow = {
     get self() {
       return compatWindow;
@@ -723,7 +731,6 @@ function createCompatWindow({ documentRef, compatFetch, feedbackMessage, feedbac
     navigator: {
       userAgent: 'nb-runjs/zero-dep',
     },
-    fetch: compatFetch,
     open: blockedOpen,
     alert: (...args) => feedbackMessage.info(...args),
     confirm: (...args) => {
@@ -893,7 +900,7 @@ export function createTaskState(profile, mode) {
   };
 }
 
-export function createPreviewEnvironment(profile, mode, inputContext = {}, network) {
+export function createPreviewEnvironment(profile, mode, inputContext = {}, network, options = {}) {
   const state = createTaskState(profile, mode);
   const currentUrl = new URL('https://preview.local/');
   const compatLocation = createCompatLocation(state, currentUrl);
@@ -903,9 +910,8 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
   const feedbackNotification = createFeedbackApi(state, 'notification', ['open', 'success', 'info', 'warning', 'error']);
   const feedbackModal = createFeedbackApi(state, 'modal', ['info', 'success', 'warning', 'error', 'confirm']);
   const blockedViewer = createBlockedApi(state, 'viewer', ['popover', 'dialog', 'drawer']);
-  const networkController = createNetworkController(state, network);
+  const networkController = createNetworkController(state, network, options);
   const request = createRequestShim(state, networkController);
-  const compatFetch = createFetchShim(state, networkController);
   const selectedRows = cloneSerializable(
     withDefault(inputContext.selectedRows, inputContext.resource?.selectedRows || profile.defaultContextShape.selectedRows || []),
   );
@@ -919,6 +925,7 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
   const compatDayjs = createCompatDayjs();
   const restoreGlobals = [];
   state.execution.networkMode = networkController.config.mode;
+  state.execution.skillMode = networkController.config.skillMode;
   state.execution.networkAllowHosts = [...networkController.config.allowHosts];
 
   const logRecorder = createLogRecorder(state);
@@ -939,7 +946,6 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
   const compatDocument = createCompatDocument(state, documentRef, compatLocation, () => compatWindow);
   compatWindow = createCompatWindow({
     documentRef: compatDocument,
-    compatFetch,
     feedbackMessage,
     feedbackModal,
     compatLocation,
@@ -1064,7 +1070,6 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
     },
     render,
     request,
-    fetch: compatFetch,
     api: {
       request,
     },
@@ -1193,7 +1198,6 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
     location: compatLocation,
     history: compatHistory,
     open: blockedOpen,
-    fetch: compatFetch,
     console: compatConsole,
     setTimeout: globalThis.setTimeout.bind(globalThis),
     clearTimeout: globalThis.clearTimeout.bind(globalThis),

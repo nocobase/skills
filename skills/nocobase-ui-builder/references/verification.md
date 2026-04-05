@@ -7,7 +7,7 @@
 ### 核心规则
 
 - `inspect` 只做只读检查，不调用任何写接口。
-- 菜单标题发现链路默认先 `desktop_routes_list_accessible(tree=true)`；已初始化 surface 默认先 `get`。
+- 菜单标题发现链路默认先 `desktop_routes_list_accessible(tree=true)`；但它只代表当前角色可见菜单树，不是系统全量真相。已初始化 surface 默认先 `get`。
 - 只有在用户明确要求 capability / contract / 可创建能力，或仅靠 `get` 无法判断目标语义时，才继续 `catalog`。
 - `inspect` 输出应聚焦“当前结构、关键 uid / route / capability、阻塞点”，不要混用“写入成功 / 已落盘”措辞。
 
@@ -34,6 +34,8 @@
 - 写后只核对本次变更直接相关的 target；只有生命周期或 route/tree 层级变化时，才升级为完整校验。
 - 菜单写入优先核对 `routeId/type/parentMenuRouteId`；菜单移动升级为菜单树读回，而不是 flow tree 校验。
 - popup、字段、配置断言都以现场读回为准；不要只看写接口返回值就认为完成。
+- 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查返回里的 `ok/error/index`，任一失败即停，不能只靠父容器 `readback` 判成功。
+- `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；执行前先说明影响范围，读回时优先确认删除/替换边界是否与预期一致。
 
 ### 操作 -> 最小读回目标
 
@@ -54,7 +56,7 @@
 - 菜单：`routeId` 类型正确，`parentMenuRouteId`、标题、图标、tooltip、`hideInMenu` 同步；`createMenu(type="item")` 后不要误判为已初始化页面。
 - 页面 / `outer-tab`：page route/tab route 存在且顺序正确；如果现场可见，`pageRoute.options.flowSurfacePageInitialized = true`；新增 tab 补齐对应 grid anchor。
 - `popup-tab`：popup page 仍存在，tab 数量与顺序正确，`tree.use = ChildPageTabModel`，新增 tab 补齐对应 grid anchor。
-- popup subtree：确认 `popupPageUid/popupTabUid/popupGridUid` 挂在正确位置；如果场景是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell。
+- popup subtree：确认 `popupPageUid/popupTabUid/popupGridUid` 挂在正确位置；如果场景是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell；如果现场能看到 resource binding，再额外确认 `details/editForm` 绑定的是 `currentRecord`。
 - 结构 / 字段 / 配置：`tree/nodeMap` 能找到新增节点；table 的 `actionsColumnUid` 存在；record popup 的 `details/editForm/submit` 真正出现；字段定位到 `wrapperUid/fieldUid/innerFieldUid`；`flowRegistry`、layout、关系字段 `clickToOpen/openView` 已落盘。
 - `filterForm` 接线：不要只看 `addField` 返回值，也不要只看 filter field 自身是否存在；多目标场景下，推荐把父级内容容器读回里的 `filterManager` 当成常用成功信号，并在现场可见时一并核对字段级 target 绑定信息（例如 `defaultTargetUid`）是否符合预期。
 - RunJS：除了 UI 结构读回，还要确认最终落盘 `code` 与通过 validator gate 的代码完全一致。

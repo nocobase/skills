@@ -13,9 +13,21 @@ const STATIC_BLOCKED_COMPAT_CALLS = new Set([
   'viewer.drawer',
 ]);
 const STATIC_BLOCKED_GLOBAL_CALLS = new Set([
+  'fetch',
+  'Function',
+  'eval',
+  'globalThis.fetch',
+  'globalThis.Function',
+  'globalThis.eval',
   'open',
   'window.open',
+  'window.fetch',
+  'window.Function',
+  'window.eval',
   'document.defaultView.open',
+  'document.defaultView.fetch',
+  'document.defaultView.Function',
+  'document.defaultView.eval',
   'location.assign',
   'location.replace',
   'location.reload',
@@ -83,7 +95,12 @@ const STATIC_BLOCKED_LOCATION_ASSIGNMENTS = new Set([
   'window.location.search',
 ]);
 const UNSUPPORTED_TOP_LEVEL_IDENTIFIERS = new Set(['React', 'ReactDOM', 'antd', 'antdIcons']);
-const GLOBAL_ROOT_IDENTIFIERS = new Set(['window', 'location', 'history', 'document', 'open']);
+const GLOBAL_ROOT_IDENTIFIERS = new Set(['window', 'location', 'history', 'document', 'open', 'fetch', 'Function', 'eval', 'globalThis']);
+
+function isBlockedDynamicCodeGenerationChain(chain) {
+  const segments = chain?.segments || [];
+  return segments.length >= 2 && segments.at(-1) === 'constructor' && segments.at(-2) === 'constructor';
+}
 
 function createLocator(source) {
   const lineStarts = [0];
@@ -708,7 +725,7 @@ export function analyzeContextUsage(code, profile) {
         if (STATIC_BLOCKED_COMPAT_CALLS.has(compatPath) && !profile.simulatedCompatCalls?.includes(compatPath)) {
           pushPolicyIssue('blocked-static-side-effect', `Blocked compatibility side effect "${compatPath}()".`, index);
         }
-        if (compatPath === 'request' || compatPath === 'api.request' || compatPath === 'fetch') {
+        if (compatPath === 'request' || compatPath === 'api.request') {
           const argumentSource = extractCallArguments(masked, source, nextIndex);
           const method = extractStaticHttpMethod(argumentSource);
           if (typeof method === 'string' && !['GET', 'HEAD'].includes(method.trim().toUpperCase())) {
@@ -726,9 +743,18 @@ export function analyzeContextUsage(code, profile) {
       continue;
     }
 
+    const nextIndex = skipWhitespace(masked, chain.end);
+    if (masked[nextIndex] === '(' && isBlockedDynamicCodeGenerationChain(chain)) {
+      pushPolicyIssue(
+        'blocked-dynamic-code-generation',
+        `Blocked dynamic code generation via "${chain.segments.join('.')}".`,
+        index,
+      );
+      continue;
+    }
+
     if (!GLOBAL_ROOT_IDENTIFIERS.has(root) || shadowedNames.has(root)) continue;
     const globalPath = chain.segments.join('.');
-    const nextIndex = skipWhitespace(masked, chain.end);
     if (masked[nextIndex] === '(' && STATIC_BLOCKED_GLOBAL_CALLS.has(globalPath)) {
       pushPolicyIssue('blocked-static-side-effect', `Blocked browser side effect "${globalPath}()".`, index);
       continue;

@@ -34,7 +34,6 @@ const BASE_CONTRACT = {
   api: objectDoc('API helper namespace.', {
     request: functionDoc('Same behavior as ctx.request.'),
   }),
-  fetch: functionDoc('HTTP read helper. Only GET/HEAD are allowed.'),
   getVar: functionDoc('Resolve one ctx.* path from the current mock context.'),
   getVarInfos: functionDoc('Inspect available keys under the current mock context.'),
   importAsync: functionDoc('Blocked in this runtime.'),
@@ -162,7 +161,6 @@ function createProfile({
         't',
         'render',
         'request',
-        'fetch',
         'getVar',
         'getVarInfos',
         ...topLevelAliases,

@@ -1,6 +1,6 @@
 # Capabilities
 
-当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart block 专题看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。
+当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart block 专题看 [chart-core.md](./chart-core.md)，JS 规则看 [js.md](./js.md)。
 
 ## 目录
 
@@ -90,6 +90,7 @@
 - 用户只说“加一个弹窗按钮”但没说明内容时，才允许只创建 `popup` shell；此时不要假设详情或表单会自动出现。
 - `submit` 在普通 form 和 `filterForm` 是两个不同 scope 的公开能力；`collapse` 只属于 `filterForm`。
 - `title`、`tooltip`、`icon`、`type`、`confirm` 这类高频动作属性，如果 live `catalog.configureOptions` 已暴露，优先直接内联到 `addAction/addRecordAction(...).settings`。
+- `triggerWorkflow` 在本 skill 中只负责把**已有 workflow 的 UI action 壳**挂到 surface；一旦需要创建 workflow、挑选 workflow key/id、改 trigger/node/execution path，立即转交 `nocobase-workflow-manage`。
 
 ## FilterForm 通用能力
 
@@ -128,7 +129,8 @@
 
 - `compose(...).fields` 的最常见 shorthand 写法是字符串字段名，例如 `"nickname"`。
 - 在 `addField/addFields`，或需要显式声明字段路径时，统一用 `{ "fieldPath": "nickname" }`。
-- `fieldPath` 属于创建必需参数，不属于 `settings`；`label`、`showLabel`、`required`、`disabled` 等高频字段属性，如果 live `catalog.configureOptions` 已暴露，优先直接写进 `settings`。
+- 绑定真实字段时，`fieldPath` 属于创建必需参数，不属于 `settings`；`jsColumn` / `jsItem` 这类 synthetic standalone field 则允许不传真实 `fieldPath`。
+- `label`、`showLabel`、`required`、`disabled` 等高频字段属性，如果 live `catalog.configureOptions` 已暴露，优先直接写进 `settings`。
 - 常见 wrapper 配置：`label`、`showLabel`、`tooltip`、`extra`、`width`、`fixed`。
 - 常见 field 配置：`titleField`、`clickToOpen`、`openView`、`allowClear`、`multiple`。
 

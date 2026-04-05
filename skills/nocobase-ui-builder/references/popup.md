@@ -26,7 +26,7 @@
 2. 复用写接口返回的 `popupGridUid`。
 3. 对 `popup-content` 先 `catalog`。
 4. 只有 guard 通过时，才创建 `details(currentRecord)`。
-5. 写后确认 popup 内容里实际出现 `details`，而不是只剩空 shell。
+5. 写后确认 popup 内容里实际出现 `details`，而不是只剩空 shell；如果现场 `get/catalog` 可见 resource binding，再额外确认它真的绑定到了 `currentRecord`。
 
 ### 编辑当前记录：`recordActions.edit -> editForm(currentRecord) + submit`
 
@@ -34,7 +34,7 @@
 2. 复用写接口返回的 `popupGridUid`。
 3. 对 `popup-content` 先 `catalog`。
 4. 只有 guard 通过时，才创建 `editForm(currentRecord)` 并补 `submit`。
-5. 写后确认 popup 内容里实际出现 `editForm` 与 `submit`。
+5. 写后确认 popup 内容里实际出现 `editForm` 与 `submit`；如果现场 `get/catalog` 可见 resource binding，再额外确认 `editForm` 绑定的是 `currentRecord`，且 `submit` 仍挂在该 form 下。
 
 ## `openView` vs popup action
 

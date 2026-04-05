@@ -18,6 +18,7 @@
 | `popupPageUid` | popup page 的写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action / record action 返回值；从 host `get` 后读 `tree.subModels.page.uid` |
 | `popupTabUid` | `popup-tab` 的默认写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
 | `popupGridUid` | `popup-content` 的默认写 target uid | `target.uid` 或 `get({ uid })` | popup-capable action 返回值；popup subtree 读回 |
+| `pre-init ids` | `createMenu(type="item")` 返回、但尚未完成 `createPage(menuRouteId=...)` 初始化的 page / tab / route 相关 id | 只允许继续用于初始化链路；不要直接拿去做 page/tab lifecycle 写入 | `createMenu(type="item")` 返回值 |
 | `new target` | 当前执行链里刚由写接口直接返回、允许跳过一次前置 `get` 的下一个写 target | 不是 payload 字段，是执行态概念 | `createPage` / `addTab` / popup-capable action / `addPopupTab` 等直接返回值 |
 
 兼容别名：popup 场景里如果现场只暴露 `tabUid`，按 `popupTabUid` 处理；如果只暴露 `gridUid`，按 `popupGridUid` 处理；菜单 discovery 结果里的 `routeId`，在菜单语义里通常就拿来当 `menuRouteId` / `parentMenuRouteId`。
@@ -36,7 +37,7 @@
 | `popup-content` | popup page / popup child tab 内的内容 grid | `popupGridUid` | `uid = popupGridUid` | popup 内继续 `compose/add*` |
 | `node` | 非 lifecycle 节点，例如 block / field / action / wrapper / popup host | 节点自身 `uid` | `uid = node uid` | 精确改配、局部读回、popup host 节点继续写入 |
 
-说明：`menu-group` 没有对应的 flow tree，不要把它当成普通 `get -> tree -> nodeMap` surface；`menu-item` 在 `createPage(menuRouteId=...)` 之前只允许 `createPage` / `updateMenu`；在当前实现中，`tabSchemaUid` 既是 `outer-tab` 的读 locator，也是其写 target uid，若现场明确不同，以现场为准。
+说明：`menu-group` 没有对应的 flow tree，不要把它当成普通 `get -> tree -> nodeMap` surface；`menu-item` 在 `createPage(menuRouteId=...)` 之前只允许 `createPage` / `updateMenu`；`pre-init ids` 在初始化完成前都不是 write-ready target；在当前实现中，`tabSchemaUid` 既是 `outer-tab` 的读 locator，也是其写 target uid，若现场明确不同，以现场为准。
 
 ## `outer-tab` 与 `popup-tab` 的判别
 
@@ -48,9 +49,9 @@
 
 ## 默认写流程
 
-1. **按菜单标题发现父菜单**：`desktop_routes_list_accessible(tree=true)`，只接受唯一命中的 `group`。
+1. **按菜单标题发现父菜单**：`desktop_routes_list_accessible(tree=true)`，只接受唯一命中的 `group`；同时记住它只代表当前角色可见菜单树，不能把“没看到”直接推断成“系统不存在”。
 2. **新建菜单分组**：`createMenu(type="group")`；如需继续在该分组下建页面，复用返回的 `routeId` 作为 `parentMenuRouteId`。
-3. **新建完整页面**：`createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`；继续搭内容时，对返回的 `gridUid` 走 `catalog -> compose/add* + settings/configure -> readback`。
+3. **新建完整页面**：`createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`；`createMenu(type="item")` 阶段拿到的 `pre-init ids` 只能继续用于初始化链路；继续搭内容时，对 `createPage` 返回的 `gridUid` 走 `catalog -> compose/add* + settings/configure -> readback`。
 4. **兼容模式下先建页面再移入菜单**：`createPage` 不传 `menuRouteId`；若用户还要求挂进某个菜单，再执行 `updateMenu`。
 5. **已有 `page` 新增 `outer-tab`**：先读回 `page` 拿到 `pageUid`，再 `addTab(target.uid = pageUid)`。
 6. **已有 target 小改或精确追加**：`get -> catalog -> compose/add* + settings/configure/updateSettings/setLayout/setEventFlows/apply/mutate -> readback`。

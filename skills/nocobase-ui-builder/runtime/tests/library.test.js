@@ -152,12 +152,13 @@ test('mock network responses make compat request validation repeatable', async (
   assert.equal(result.execution.returnValue, 'Alice');
 });
 
-test('mock mode blocks unmatched network reads', async () => {
+test('mock mode auto-mocks unmatched ctx.request reads', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSBlockModel',
     code: `
       ctx.render('');
-      await ctx.fetch('https://example.com/missing');
+      const response = await ctx.request('https://example.com/missing');
+      return response.data;
     `,
     network: {
       mode: 'mock',
@@ -166,11 +167,148 @@ test('mock mode blocks unmatched network reads', async () => {
     isolate: false,
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.ok, true);
   assert.equal(result.execution.executed, true);
-  assert.equal(result.runtimeIssues[0].ruleId, 'unmocked-network-request');
-  assert.equal(result.sideEffectAttempts[0].status, 'blocked');
-  assert.equal(result.sideEffectAttempts[0].ruleId, 'unmocked-network-request');
+  assert.deepEqual(result.execution.returnValue, {});
+  assert.equal(result.runtimeIssues[0].ruleId, 'auto-mocked-network-request');
+  assert.equal(result.runtimeIssues[0].severity, 'warning');
+  assert.equal(result.sideEffectAttempts[0].status, 'auto-mocked');
+  assert.equal(result.sideEffectAttempts[0].mockSource, 'default');
+});
+
+test('skillMode blocks live network configuration even when allowHosts are configured', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSBlockModel',
+    code: `
+      ctx.render('');
+      await ctx.request('https://example.com/api/users');
+    `,
+    network: {
+      mode: 'live',
+      allowHosts: ['example.com'],
+    },
+    skillMode: true,
+    isolate: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.execution.executed, false);
+  assert.equal(result.execution.skillMode, true);
+  assert.equal(result.execution.networkMode, 'live');
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
+  assert.equal(result.sideEffectAttempts.length, 0);
+});
+
+test('skillMode=false keeps allowed live network available', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return new Response(JSON.stringify({ nickname: 'Alice' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await validateRunJSSnippet({
+      model: 'JSBlockModel',
+      code: `
+        ctx.render('');
+        const response = await ctx.request('https://example.com/api/users');
+        return response.data;
+      `,
+      network: {
+        mode: 'live',
+        allowHosts: ['example.com'],
+      },
+      isolate: false,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.execution.executed, true);
+    assert.equal(result.execution.skillMode, false);
+    assert.equal(result.execution.networkMode, 'live');
+    assert.equal(calls.length, 1);
+    assert.equal(result.sideEffectAttempts[0].status, 'allowed');
+    assert.equal(result.sideEffectAttempts[0].host, 'example.com');
+    assert.deepEqual(result.execution.returnValue, { nickname: 'Alice' });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('ctx.api.request uses the same auto-mock behavior as ctx.request', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSBlockModel',
+    code: `
+      ctx.render('');
+      const response = await ctx.api.request('https://example.com/api/health');
+      return response.data;
+    `,
+    isolate: false,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.execution.returnValue, {});
+  assert.equal(result.runtimeIssues[0].ruleId, 'auto-mocked-network-request');
+  assert.equal(result.sideEffectAttempts[0].status, 'auto-mocked');
+});
+
+test('static policy blocks direct fetch usage before execution', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSBlockModel',
+    code: `
+      ctx.render('');
+      await fetch('https://example.com/api/users');
+    `,
+    isolate: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.execution.executed, false);
+  assert.equal(result.policyIssues[0].ruleId, 'blocked-static-side-effect');
+});
+
+test('static policy blocks constructor-based code generation before execution', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSBlockModel',
+    code: `
+      ctx.render('');
+      return this.constructor.constructor('return process.version')();
+    `,
+    isolate: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.execution.executed, false);
+  assert.equal(result.policyIssues[0].ruleId, 'blocked-dynamic-code-generation');
+});
+
+test('runBatch propagates defaultSkillMode to tasks without explicit skillMode', async () => {
+  const batch = await runBatch({
+    tasks: [
+      {
+        mode: 'validate',
+        model: 'JSBlockModel',
+        code: `ctx.render('blocked');`,
+        network: {
+          mode: 'live',
+          allowHosts: ['example.com'],
+        },
+      },
+    ],
+    defaultSkillMode: true,
+    isolate: false,
+  });
+
+  assert.equal(batch.ok, false);
+  assert.equal(batch.summary.total, 1);
+  assert.equal(batch.summary.failed, 1);
+  assert.equal(batch.summary.blocked, 1);
+  assert.ok(batch.results[0].policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
+  assert.equal(batch.results[0].execution.executed, false);
+  assert.equal(batch.results[0].execution.skillMode, true);
 });
 
 test('strict render models reject bare compat access like record in JSColumnModel', async () => {
@@ -560,7 +698,7 @@ test('worker failure result defaults execution.executed to false', () => {
   assert.equal(result.runtimeIssues[0].ruleId, 'worker-failed');
 });
 
-test('runBatch aggregates blocked and degraded counts', async () => {
+test('runBatch aggregates blocked and degraded counts, including skill-mode live network blocks', async () => {
   const batch = await runBatch({
     tasks: [
       {
@@ -571,10 +709,12 @@ test('runBatch aggregates blocked and degraded counts', async () => {
       {
         mode: 'validate',
         model: 'JSBlockModel',
-        code: `
-          ctx.render('');
-          await ctx.request({ url: 'https://example.com', method: 'POST' });
-        `,
+        code: `ctx.render('blocked');`,
+        network: {
+          mode: 'live',
+          allowHosts: ['example.com'],
+        },
+        skillMode: true,
       },
     ],
     isolate: false,
@@ -583,6 +723,7 @@ test('runBatch aggregates blocked and degraded counts', async () => {
   assert.equal(batch.summary.total, 2);
   assert.equal(batch.summary.failed, 1);
   assert.equal(batch.summary.blocked, 1);
+  assert.ok(batch.results[1].policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
 });
 
 test('describeProfile exposes contract and root behaviors for JSColumnModel', async () => {

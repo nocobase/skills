@@ -2,6 +2,15 @@
 
 当你已经知道要创建 block / field / action / record action，并且用户还要求标题、标签、必填、按钮样式这类高频属性时，优先读本文。目标是让 `add*` 直接内联**公开语义 settings**，而不是先创建空节点再机械补一次 `configure`。
 
+## 目录
+
+1. 核心规则
+2. 决策矩阵
+3. `settings` 的合法形状
+4. 高频模板
+5. 什么时候不要硬塞进 `settings`
+6. Readback 心智
+
 ## 核心规则
 
 1. 先 `catalog(target)`，以 live `configureOptions` 为准。
@@ -123,7 +132,22 @@
 
 ### `addField`
 
-创建字段时，`fieldPath` 属于创建必需参数；标签、必填等属于 `settings`：
+创建**绑定真实字段**时，`fieldPath` 属于创建必需参数；标签、必填等属于 `settings`：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "form-uid" },
+    "fieldPath": "password",
+    "settings": {
+      "label": "密码",
+      "required": true
+    }
+  }
+}
+```
+
+`addFields` 的批量形状才使用 `fields: []`：
 
 ```json
 {
@@ -141,6 +165,8 @@
   }
 }
 ```
+
+如果创建的是 `jsColumn` / `jsItem` 这类 synthetic standalone field，允许不传真实 `fieldPath`；是否允许以 live `catalog` 为准。
 
 适合直接内联的高频 field settings：
 
