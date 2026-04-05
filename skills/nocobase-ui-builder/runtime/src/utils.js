@@ -1,4 +1,4 @@
-import { MAX_HTML_CHARS, MAX_ISSUE_MESSAGE_CHARS, MAX_TEXT_CHARS } from './constants.js';
+import { MAX_ISSUE_MESSAGE_CHARS } from './constants.js';
 
 const MAX_SERIALIZE_DEPTH = 6;
 const MAX_SERIALIZE_KEYS = 50;
@@ -168,14 +168,6 @@ export function trimToLength(text, maxChars) {
   const source = String(text ?? '');
   if (source.length <= maxChars) return source;
   return `${source.slice(0, Math.max(0, maxChars - 15))}\n...[truncated]`;
-}
-
-export function summarizeHtml(text) {
-  return trimToLength(text, MAX_HTML_CHARS);
-}
-
-export function summarizeText(text) {
-  return trimToLength(text, MAX_TEXT_CHARS);
 }
 
 export function normalizeMethod(method) {

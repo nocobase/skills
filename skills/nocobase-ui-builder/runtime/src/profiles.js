@@ -28,7 +28,7 @@ const ELEMENT_CONTRACT = objectDoc('Render container ElementProxy.', {
 const BASE_CONTRACT = {
   t: functionDoc('Translate text. This runtime returns the key with {{var}} interpolation.'),
   render: functionDoc(
-    'Render one HTML string or structured value into the render container. JSX syntax is lowered before execution; structured output fidelity still depends on current render capabilities.',
+    'Render one HTML string or structured value into the render container. JSX syntax is lowered before execution; chart profiles write plain text while other profiles write HTML.',
   ),
   request: functionDoc('HTTP read helper. Only GET/HEAD are allowed.'),
   api: objectDoc('API helper namespace.', {
@@ -146,7 +146,6 @@ function createProfile({
   scene,
   contract,
   defaultContextShape,
-  renderCapabilities,
   enforceCtxQualifiedAccess = false,
   requireExplicitCtxRender = false,
   topLevelAliases = [],
@@ -172,7 +171,6 @@ function createProfile({
     scene,
     contract,
     defaultContextShape,
-    renderCapabilities,
     enforceCtxQualifiedAccess,
     requireExplicitCtxRender,
     sideEffectPolicy: {
@@ -207,7 +205,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'resource', 'collection'],
@@ -240,7 +237,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'employees', title: 'Employees' },
       inputArgs: {},
     },
-    renderCapabilities: { html: false, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     topLevelAliases: ['data', 'record', 'resource', 'collection'],
   }),
@@ -264,7 +260,6 @@ const PROFILES = [
       collectionField: { name: 'nickname', title: 'Nickname', interface: 'input', type: 'string' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'value', 'resource', 'collection', 'collectionField'],
@@ -300,7 +295,6 @@ const PROFILES = [
       readOnly: false,
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: [
@@ -337,7 +331,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
@@ -362,7 +355,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection', 'setProps'],
@@ -387,7 +379,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'recordIndex', 'selectedRows', 'resource', 'collection'],
@@ -411,7 +402,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({
@@ -430,7 +420,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['record', 'resource', 'collection'],
   }),
   createProfile({
@@ -449,7 +438,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['selectedRows', 'resource', 'collection'],
   }),
   createProfile({
@@ -471,7 +459,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({
@@ -491,7 +478,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({
@@ -508,7 +494,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['resource', 'collection'],
   }),
   createProfile({
@@ -535,7 +520,6 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'employees', title: 'Employees' },
       inputArgs: {},
     },
-    renderCapabilities: { html: false, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     strictAllowedTopLevelAliases: ['chart'],
     simulatedCompatCalls: ['openView'],
@@ -564,15 +548,6 @@ function buildRootBehaviors(profile) {
   return Object.fromEntries(Object.keys(profile.contract || {}).map((key) => [key, getRootBehavior(key)]));
 }
 
-export function listProfiles() {
-  return PROFILES.map((profile) => ({
-    model: profile.model,
-    aliases: [...profile.aliases],
-    scene: profile.scene,
-    compatProfileVersion: profile.compatProfileVersion,
-  }));
-}
-
 export function findProfile(name) {
   const normalized = String(name || '').trim().toLowerCase();
   if (!normalized) return null;
@@ -594,7 +569,6 @@ export function describeProfile(name) {
     availableContextKeys: Object.keys(profile.contract),
     topLevelAliases: [...profile.topLevelAliases],
     strictAllowedTopLevelAliases: [...(profile.strictAllowedTopLevelAliases || [])],
-    renderCapabilities: { ...profile.renderCapabilities },
     enforceCtxQualifiedAccess: Boolean(profile.enforceCtxQualifiedAccess),
     requireExplicitCtxRender: Boolean(profile.requireExplicitCtxRender),
     sideEffectPolicy: { ...profile.sideEffectPolicy },

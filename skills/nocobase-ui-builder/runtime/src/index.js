@@ -15,11 +15,6 @@ function assertCode(taskLike, code) {
   }
 }
 
-function ensureValidateMode(mode, label = 'mode') {
-  if (typeof mode === 'undefined' || mode === null || mode === 'validate') return;
-  throw new Error(`Unsupported ${label} "${mode}". Only "validate" is allowed.`);
-}
-
 function isBlocked(issue) {
   return [
     'blocked-side-effect',
@@ -34,7 +29,6 @@ async function resolveBatchTask(item, cwd, defaultSkillMode) {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     throw new Error('Each batch task must be one object.');
   }
-  ensureValidateMode(item.mode, 'task mode');
   if (!item.model) {
     throw new Error('Each batch task requires one model.');
   }
@@ -81,7 +75,6 @@ export async function validateRunJSSnippet({ model, code, context, network, skil
     version,
     timeoutMs,
     filename,
-    mode: 'validate',
   });
 }
 

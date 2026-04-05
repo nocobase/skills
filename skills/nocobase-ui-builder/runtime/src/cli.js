@@ -90,11 +90,6 @@ function writeJson(stream, payload) {
   stream.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
-function ensureValidateMode(mode, label) {
-  if (typeof mode === 'undefined' || mode === null || mode === 'validate') return;
-  throw new Error(`Unsupported ${label} "${mode}". Only "validate" is allowed.`);
-}
-
 async function loadValidateTask(args, io, cwd) {
   const stdin = io.stdin || process.stdin;
   const cliTimeoutMs = parseOptionalNumber(args.timeout, '--timeout');
@@ -102,7 +97,6 @@ async function loadValidateTask(args, io, cwd) {
 
   if (args['stdin-json']) {
     const payload = await loadStdinJson(stdin);
-    ensureValidateMode(payload.mode, 'stdin mode');
     if (args.model && payload.model && args.model !== payload.model) {
       throw new Error(`CLI --model "${args.model}" does not match stdin payload model "${payload.model}".`);
     }

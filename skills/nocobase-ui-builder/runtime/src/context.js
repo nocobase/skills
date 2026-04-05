@@ -11,8 +11,6 @@ import {
   normalizeMethod,
   serializeError,
   setByPath,
-  summarizeHtml,
-  summarizeText,
   withDefault,
 } from './utils.js';
 
@@ -888,24 +886,14 @@ async function settleRenderCycle() {
   await delay(0);
 }
 
-export function createTaskState(profile, mode) {
+function createTaskState(profile) {
   return {
-    profile,
-    mode,
     logs: [],
     logOverflow: false,
     runtimeIssues: [],
     sideEffectAttempts: [],
-    renderState: {
-      rendered: false,
-      html: '',
-      text: '',
-      renderCount: 0,
-      degraded: false,
-      fidelity: 'unsupported',
-    },
     execution: {
-      mode,
+      mode: 'validate',
       model: profile.model,
       executed: false,
       returnValue: undefined,
@@ -913,8 +901,8 @@ export function createTaskState(profile, mode) {
   };
 }
 
-export function createRuntimeEnvironment(profile, mode, inputContext = {}, network, options = {}) {
-  const state = createTaskState(profile, mode);
+export function createRuntimeEnvironment(profile, inputContext = {}, network, options = {}) {
+  const state = createTaskState(profile);
   const currentUrl = new URL('https://runtime.local/');
   const compatLocation = createCompatLocation(state, currentUrl);
   const { documentRef, root } = createSimpleDocument(compatLocation);
@@ -1002,75 +990,39 @@ export function createRuntimeEnvironment(profile, mode, inputContext = {}, netwo
     installGlobal(key, value);
   }
 
-  const renderCapabilities = {
-    html: profile.renderCapabilities?.html !== false,
-    react: profile.renderCapabilities?.react !== false,
-    dom: profile.renderCapabilities?.dom !== false,
-    text: profile.renderCapabilities?.text !== false,
-  };
+  const renderAsHtml = profile.scene !== 'chart';
   const pushRenderNotice = (ruleId, message) => {
     pushRuntimeIssue(state, ruleId, message, 'warning');
   };
   const render = async (vnode, customContainer) => {
     const target = customContainer?.__el || customContainer || root;
-    state.renderState.renderCount += 1;
 
     if (typeof vnode === 'string') {
-      if (renderCapabilities.html) {
+      if (renderAsHtml) {
         target.innerHTML = vnode;
-        state.renderState.rendered = true;
-        state.renderState.fidelity = 'compatible';
-        await settleRenderCycle();
-        return null;
-      }
-      if (renderCapabilities.text) {
+      } else {
         target.textContent = vnode;
-        state.renderState.rendered = true;
-        state.renderState.degraded = true;
-        state.renderState.fidelity = 'degraded';
-        pushRenderNotice('render-capability-degraded', `HTML render output is disabled for profile ${profile.model}; rendered as text.`);
-        await settleRenderCycle();
-        return null;
       }
-      state.renderState.rendered = false;
-      state.renderState.degraded = true;
-      state.renderState.fidelity = 'unsupported';
-      pushRenderNotice('render-unsupported', `HTML render output is unsupported for profile ${profile.model}.`);
+      await settleRenderCycle();
       return null;
     }
 
     if (isReactElementLike(vnode)) {
-      state.renderState.rendered = false;
-      state.renderState.degraded = true;
-      state.renderState.fidelity = 'unsupported';
       pushRenderNotice('react-unsupported', `React render output is unsupported in zero-dependency mode for profile ${profile.model}.`);
       return null;
     }
 
     if (isDomNodeLike(vnode)) {
-      state.renderState.rendered = false;
-      state.renderState.degraded = true;
-      state.renderState.fidelity = 'unsupported';
       pushRenderNotice('dom-render-unsupported', `DOM node render output is unsupported in zero-dependency mode for profile ${profile.model}.`);
       return null;
     }
 
     const serialized = JSON.stringify(vnode, null, 2);
-    if (!renderCapabilities.html && !renderCapabilities.text) {
-      state.renderState.rendered = false;
-      state.renderState.degraded = true;
-      state.renderState.fidelity = 'unsupported';
-      pushRenderNotice('render-unsupported', `Structured value render output is unsupported for profile ${profile.model}.`);
-      return null;
-    }
-    if (renderCapabilities.html) {
+    if (renderAsHtml) {
       target.innerHTML = `<pre data-compat-render="json">${escapeHtml(serialized)}</pre>`;
     } else {
       target.textContent = serialized;
     }
-    state.renderState.rendered = true;
-    state.renderState.degraded = true;
-    state.renderState.fidelity = 'degraded';
     await settleRenderCycle();
     return null;
   };
@@ -1240,8 +1192,6 @@ export function createRuntimeEnvironment(profile, mode, inputContext = {}, netwo
     finalize: async () => {
       try {
         await settleRenderCycle();
-        state.renderState.html = summarizeHtml(root.innerHTML);
-        state.renderState.text = summarizeText(root.textContent || '');
       } finally {
         for (const entry of restoreGlobals.reverse()) {
           if (entry.hadOwn && entry.descriptor) {

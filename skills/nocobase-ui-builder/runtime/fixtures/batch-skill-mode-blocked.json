@@ -2,7 +2,6 @@
   "tasks": [
     {
       "id": "skill-mode-live-network",
-      "mode": "validate",
       "model": "JSBlockModel",
       "code": "ctx.render('blocked');",
       "network": {

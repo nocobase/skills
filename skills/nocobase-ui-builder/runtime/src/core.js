@@ -147,7 +147,7 @@ export async function executeTaskLocal(task) {
     });
   }
 
-  const environment = createRuntimeEnvironment(profile, 'validate', task.context || {}, task.network, {
+  const environment = createRuntimeEnvironment(profile, task.context || {}, task.network, {
     skillMode: task.skillMode,
   });
   const executionContextIssues = [];

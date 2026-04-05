@@ -286,19 +286,6 @@ test('runBatch rejects malformed input early', async () => {
       }),
     /requires either code or codeFile/,
   );
-  await assert.rejects(
-    () =>
-      runBatch({
-        tasks: [
-          {
-            mode: 'preview',
-            model: 'JSBlockModel',
-            code: "ctx.render('Hello');",
-          },
-        ],
-      }),
-    /Unsupported task mode "preview"/,
-  );
 });
 
 test('validateRunJSSnippet returns timeout for hanging promises', async () => {

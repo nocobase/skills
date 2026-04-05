@@ -1,8 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { runCli } from '../src/cli.js';
@@ -25,18 +22,6 @@ function createInputStream(text) {
   const stream = new PassThrough();
   stream.end(text);
   return stream;
-}
-
-function withTempJsonFile(payload) {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nb-runjs-cli-'));
-  const filename = path.join(tempDir, 'input.json');
-  fs.writeFileSync(filename, JSON.stringify(payload, null, 2));
-  return {
-    filename,
-    cleanup() {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    },
-  };
 }
 
 test('validate command accepts stdin json payload', async () => {
@@ -165,35 +150,4 @@ test('batch command applies --skill-mode to tasks and counts blocked results', a
   assert.equal(payload.summary.blocked, 1);
   assert.equal(payload.results[0].id, 'skill-mode-live-network');
   assert.ok(payload.results[0].policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
-});
-
-test('batch command hard-fails invalid task mode', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const input = withTempJsonFile({
-    tasks: [
-      {
-        id: 'bad-mode',
-        mode: 'preview',
-        model: 'JSBlockModel',
-        code: "ctx.render('Hello');",
-      },
-    ],
-  });
-
-  try {
-    const exitCode = await runCli(['batch', '--input', input.filename], {
-      cwd: process.cwd(),
-      stdout: stdout.stream,
-      stderr: stderr.stream,
-    });
-
-    assert.equal(exitCode, 2);
-    assert.equal(stdout.read(), '');
-    const payload = JSON.parse(stderr.read());
-    assert.equal(payload.ok, false);
-    assert.match(payload.error, /Unsupported task mode "preview"/);
-  } finally {
-    input.cleanup();
-  }
 });
