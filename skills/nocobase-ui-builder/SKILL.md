@@ -46,14 +46,15 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 7. `addBlock` / `addField` / `addAction` / `addRecordAction` 默认优先把 live `catalog.configureOptions` 里能表达的公开语义字段直接写进 `requestBody.settings`；不要把 `props` / `decoratorProps` / `stepParams` / `flowRegistry` 当成 `settings` 的输入形状。JS raw code 与 chart contract 属于专题入口，不适用这条“优先塞进 settings”的默认心智。
 8. 如果 `settings` 已经能完整表达用户要求，不要额外再补一次 `configure`；只有仍有剩余公开字段时，才执行 `add* + settings -> configure(changes)`。涉及 JS 时默认先过 validator gate，再进入 `configure`。
 9. popup 里的关联 collection block 默认优先走语义化 `resource.binding="associatedRecords"`；写后 `readback` 必须确认 `resourceSettings.init.associationName` 是包含 `.` 的完整关联名，且 `sourceId` 仍然存在。若读回成裸字段名（例如 `roles`）或丢失 `sourceId`，视为失败并停止，不接受静默落盘。
-10. 如果现场 `get/catalog/context` 没有明确暴露目标能力、target 绑定字段、resource binding、settings contract 或 `currentRecord` guard，停止猜测，不要臆造写入；只有文档显式允许的保守 fallback（例如用户明确接受仅保留 popup shell）才能继续。
-11. 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
-12. page lifecycle 顺序不能乱：`createMenu(type="item")` 之后，先 `createPage(menuRouteId=...)` 初始化页面，再使用 page/tab lifecycle API。
-13. `pre-init ids` 在 `createPage(menuRouteId=...)` 完成前，只能继续用于初始化链路，不能当成 page/tab lifecycle 的 write-ready target。
-14. 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查 `ok/error/index`，任一失败即停，不能只靠父容器 `readback` 判成功。
-15. `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；只有用户明确要求删除 / 替换时才执行，并先说明影响范围。
-16. `openView.uid` 不允许作为写入输入来复用已有 popup opener；如果用户要求多个 opener / field / action 打开同一个弹窗，停止并提示该 skill 不支持 popup 复用，必须为每个 opener 单独创建 popup subtree。
-17. 认证不足、关键接口缺失或 MCP schema 未刷新时，先按 `Prerequisite & Recovery` 收口，不要绕过 MCP 专用接口。
+10. 关系字段（尤其 to-many relation field）开启 `clickToOpen/openView` 时，`openView` 不能只保留目标 `collectionName`；写后 `readback` 必须确认它仍带完整 `associationName`。如果 popup 内再创建 `details/editForm(currentRecord)`，还要继续确认它们的 `resourceSettings.init` 同时保留 `associationName + sourceId`，不能退化成 plain target record。
+11. 如果现场 `get/catalog/context` 没有明确暴露目标能力、target 绑定字段、resource binding、settings contract 或 `currentRecord` guard，停止猜测，不要臆造写入；只有文档显式允许的保守 fallback（例如用户明确接受仅保留 popup shell）才能继续。
+12. 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
+13. page lifecycle 顺序不能乱：`createMenu(type="item")` 之后，先 `createPage(menuRouteId=...)` 初始化页面，再使用 page/tab lifecycle API。
+14. `pre-init ids` 在 `createPage(menuRouteId=...)` 完成前，只能继续用于初始化链路，不能当成 page/tab lifecycle 的 write-ready target。
+15. 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查 `ok/error/index`，任一失败即停，不能只靠父容器 `readback` 判成功。
+16. `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；只有用户明确要求删除 / 替换时才执行，并先说明影响范围。
+17. `openView.uid` 不允许作为写入输入来复用已有 popup opener；如果用户要求多个 opener / field / action 打开同一个弹窗，停止并提示该 skill 不支持 popup 复用，必须为每个 opener 单独创建 popup subtree。
+18. 认证不足、关键接口缺失或 MCP schema 未刷新时，先按 `Prerequisite & Recovery` 收口，不要绕过 MCP 专用接口。
 
 ## Intent Router
 
