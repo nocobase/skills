@@ -9,6 +9,9 @@
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。
 - 如果 popup catalog 没有暴露 `currentRecord`，停止猜测，不要在普通 popup 上臆造记录绑定。
 - `currentRecord` 属于 popup 内 block 的资源绑定语义，不是复用页面上已有区块实例。
+- `openView.uid` 不允许作为复用已有 popup opener 的写入手段；如果用户要求几个按钮或字段打开同一个弹窗，直接停止并提示该 skill 不支持 popup 复用。
+- 相同内容如果要出现在多个入口，必须为每个 opener 各自创建独立 popup subtree；不要把一个 opener 的 uid 写到另一个 opener 的 `openView.uid`。
+- 关系字段的 `openView.collectionName` 默认保持目标 collection 语义；不要把 relation popup 改写成源 collection 来伪装“当前行详情”。
 
 ## 默认 popup 写流程
 

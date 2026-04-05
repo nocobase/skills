@@ -51,7 +51,8 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 12. `pre-init ids` 在 `createPage(menuRouteId=...)` 完成前，只能继续用于初始化链路，不能当成 page/tab lifecycle 的 write-ready target。
 13. 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查 `ok/error/index`，任一失败即停，不能只靠父容器 `readback` 判成功。
 14. `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；只有用户明确要求删除 / 替换时才执行，并先说明影响范围。
-15. 认证不足、关键接口缺失或 MCP schema 未刷新时，先按 `Prerequisite & Recovery` 收口，不要绕过 MCP 专用接口。
+15. `openView.uid` 不允许作为写入输入来复用已有 popup opener；如果用户要求多个 opener / field / action 打开同一个弹窗，停止并提示该 skill 不支持 popup 复用，必须为每个 opener 单独创建 popup subtree。
+16. 认证不足、关键接口缺失或 MCP schema 未刷新时，先按 `Prerequisite & Recovery` 收口，不要绕过 MCP 专用接口。
 
 ## Intent Router
 
