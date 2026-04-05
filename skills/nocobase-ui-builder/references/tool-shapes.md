@@ -8,8 +8,9 @@
 2. 根级 locator `get`
 3. `requestBody` 但不带 `target`
 4. target-based `requestBody.target.uid`
-5. `apply` / `mutate`
-6. 常见错误形状
+5. `setLayout` canonical payload
+6. `apply` / `mutate`
+7. 常见错误形状
 
 ## 一屏硬规则
 
@@ -109,9 +110,125 @@
 规则：
 
 - `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
+- `addBlock/addField/addAction/addRecordAction` 的 `settings` 默认复用 live `catalog.configureOptions` 暴露的公开语义 key
+- `settings` 不接受 `props` / `decoratorProps` / `stepParams` / `flowRegistry` 这类 raw domain key
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
 - `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程看 [popup.md](./popup.md)
+
+### `add*` canonical payload
+
+`addBlock`
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "grid-uid" },
+    "type": "createForm",
+    "resourceInit": {
+      "dataSourceKey": "main",
+      "collectionName": "users"
+    },
+    "settings": {
+      "title": "新增用户",
+      "displayTitle": true
+    }
+  }
+}
+```
+
+`addField`
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "form-uid" },
+    "fields": [
+      {
+        "fieldPath": "password",
+        "settings": {
+          "label": "密码",
+          "required": true
+        }
+      }
+    ]
+  }
+}
+```
+
+`addAction`
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "form-uid" },
+    "type": "submit",
+    "settings": {
+      "title": "提交",
+      "type": "primary"
+    }
+  }
+}
+```
+
+`addRecordAction`
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "table-uid" },
+    "type": "view",
+    "settings": {
+      "title": "查看"
+    }
+  }
+}
+```
+
+## `setLayout` canonical payload
+
+`setLayout` 也是 target-based 写法，但它的 `rows` / `sizes` 很容易写错，单独记住这条心智：
+
+- `rows[rowKey]` 表示“这一行有哪些列”
+- `rows[rowKey]` 的每个元素又是“该列里有哪些 child uid”
+- 所以：**外层数组长度 = 列数 = `sizes[rowKey]` 的长度**
+
+双列、每列一个 child 的正确写法：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "grid-uid" },
+    "rowOrder": ["row1"],
+    "rows": {
+      "row1": [["chart-a"], ["chart-b"]]
+    },
+    "sizes": {
+      "row1": [12, 12]
+    }
+  }
+}
+```
+
+关键区别：
+
+- `[["chart-a"], ["chart-b"]]` = 两列
+- `[["chart-a", "chart-b"]]` = 一列里堆两个 child
+
+因此下面这种写法是错的：
+
+```json
+{
+  "rows": {
+    "row1": [["chart-a", "chart-b"]]
+  },
+  "sizes": {
+    "row1": [12, 12]
+  }
+}
+```
+
+因为它实际只声明了 **1 列**，却给了 **2 个列宽**。
 
 ## `apply` / `mutate`
 
@@ -170,3 +287,7 @@
 - lifecycle API 外面漏掉 `requestBody`
 - 在 `createMenu(type="item")` 之后、`createPage(menuRouteId=...)` 之前就调用 page/tab lifecycle API
 - 把 `currentRecord` 当成裸 locator 或 `target.uid` 传进去
+- 把 `settings.props.*`、`settings.decoratorProps.*`、`settings.stepParams.*` 当成 `add*` 的合法输入
+- 对已经暴露在 live `configureOptions` 里的高频属性，仍然默认拆成“先 add 再 configure”
+- 把双列布局写成 `rows[rowKey] = [[a, b]]`，同时又传 `sizes[rowKey] = [12, 12]`
+- `rows[rowKey]` 与 `sizes[rowKey]` 的顶层长度不一致

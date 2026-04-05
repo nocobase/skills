@@ -25,12 +25,14 @@
 
 目标是先把“卡片能显示 + 图能渲染”这两层稳定下来；不要暴露前端内部 `props / decoratorProps / stepParams` 细节给用户。
 
+chart 也是通用 public-settings 模式的一个先例：创建或重配时，优先传 `query / visual / events / title / displayTitle / height / heightMode` 这类公开语义，不要把读回出来的内部 `props / decoratorProps / stepParams` 反向当成输入模板。
+
 ## 默认策略
 
 1. 默认先走 `query.mode = "builder"`。
 2. 默认先走 `visual.mode = "basic"`。
 3. 默认优先命中 `flowSurfaces:context(path="chart")` 返回的 `safeDefaults`。
-4. 如果命中 `riskyPatterns`，不要直接禁止；可以继续写，但要在结果里标记风险，并补 `readback + reload/browser verify`。
+4. 如果命中 `riskyPatterns`，不要直接禁止；可以继续写，但要在结果里标记风险，并补 `readback`。
 5. 如果命中 `unsupportedPatterns`，不要继续臆造 payload；应改写成安全子集，或明确告诉用户当前 contract 不支持。
 6. 只有以下情况才升级：
    - 查询真的必须用 SQL → `query.mode = "sql"`
@@ -41,20 +43,20 @@
 
 chart block 最稳的执行顺序不是一次性盲写，而是：
 
-1. `addBlock(type="chart")`
+1. `addBlock(type="chart", settings={ title?, displayTitle?, height?, heightMode? })`
 2. 如果要配 builder query，先读 `flowSurfaces:context(path="collection")` 选字段
 3. 先 `configure(changes={ query, title?, displayTitle?, height?, heightMode? })`
 4. 再读 `flowSurfaces:context(path="chart")`
 5. 基于 `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns` 再 `configure(changes={ visual, events? })`
 6. `get(uid)` 做 canonical readback
-7. 命中 risky pattern 时，再补一次页面 reload / browser verify
+7. 命中 risky pattern 时，在结果里明确说明这是 risky path，并以 readback 为准确认落盘
 
 如果是在**重配已有 chart**，并且你希望清空旧的 builder 状态（尤其是 `sorting` / `filter` 这类可残留字段），不要只靠“省略该字段”来赌服务端会自动清空；请显式传空值，例如：
 
 - `sorting: []`
 - `filter: { "logic": "$and", "items": [] }`
 
-这是为了避免旧 query 残留把新配置污染脏，影响 reload 后的真实渲染。
+这是为了避免旧 query 残留把新配置污染脏，影响后续运行态表现。
 
 只有在兼容旧配置时才使用 `changes.configure`。一旦使用 `configure`：
 
@@ -190,7 +192,7 @@ skill 选默认值时，优先套这个 safe 子集：
 - `configure(query)` 后，优先立刻读一次 `flowSurfaces:context(path="chart")`
 - 如果 SQL 没有 runtime 模板变量，`chart.queryOutputs` 现在会优先通过 SQL preview metadata 推断，即使当前数据集为空也尽量返回输出列
 - 如果 SQL 含模板变量 / `ctx` / liquid bind，preview 可能无法提前推断，这时会落到 `riskyPatterns`
-- 如果 `chart.queryOutputs` 缺失，FlowSurfaces 现在会拒绝 `visual.mode = "basic"` 的写入；skill 只能先写 `query`，再用 `context(path="chart") + readback + reload/browser verify` 收口
+- 如果 `chart.queryOutputs` 缺失，FlowSurfaces 现在会拒绝 `visual.mode = "basic"` 的写入；skill 只能先写 `query`，再用 `context(path="chart") + readback` 收口
 - SQL alias 要以 `chart.queryOutputs` 为准，不要直接假设自己写在 SQL 里的大小写会原样保留
 - PostgreSQL 等方言会把**未加引号**的 alias 折叠成小写；如果需要 `employeeCount` 这类大小写敏感 alias，请写成 `AS \"employeeCount\"`，否则优先使用全小写 alias
 
@@ -330,7 +332,8 @@ chart 现在建议在搭建前先读两次：
 - SQL chart 不暴露 `collection`
 - SQL chart 仍然会暴露 `chart.supportedMappings` / `chart.supportedVisualTypes`
 - SQL chart 如果没有拿到 `queryOutputs`，先检查 `riskyPatterns` 是否提示了 runtime context / preview unavailable；不要在没有输出列依据时盲写 `visual.mappings`
-- 只有 builder chart 才能被当成 filter-form target
+- builder chart 可以被当成 filter-form target
+- SQL chart 不能直接被当成 filter-form target；如果已有绑定，切到 SQL 后应视为失效，并通过 readback 确认
 
 ## 区块外层参数规则
 
@@ -429,37 +432,34 @@ chart 现在建议在搭建前先读两次：
 - 如果 public DSL 用的是 `resource` / `sorting.direction`，readback 时预期看到的是内部 canonical 结构：
   - `query.collectionPath`
   - `query.orders[].order`
-- 如果是 SQL chart，再额外确认它可 reload：
-  - 需要验证后端已经把 SQL 持久化到 `flowSql`
-  - 不要只根据 `tree.stepParams.chartSettings.configure.query.sql` 判断成功
+- 如果是 SQL chart，再额外确认它已稳定持久化到 `flowSql`
+- 不要只根据 `tree.stepParams.chartSettings.configure.query.sql` 判断成功
 
 skill 侧应以**内部 readback 结构**为准确认落盘，而不是假设公开 DSL 会原样持久化。
 
-## 推荐验证 case
+## 推荐 contract 验证 case
 
-skill 在真正交付 chart 页面前，至少按下面顺序验证：
+skill 在完成 chart 配置后，至少按下面顺序做 contract / readback 级验证：
 
 1. **builder + basic 基础图**
    - `query.mode = "builder"`
    - `visual.mode = "basic"`
    - `readback` 应看到 `query.collectionPath`
-   - 页面 reload 后仍能显示
 
 2. **sql chart 持久化**
    - `query.mode = "sql"`
    - 不只看 `stepParams.query.sql`
    - 还要确认 SQL 已经落到 `flowSql`
    - 最好再读一次 `context(path="chart")`，确认 `queryOutputs` 与 mappings 一致
-   - reload 后仍能显示
 
-3. **builder -> sql -> builder roundtrip**
+3. **builder / SQL 的 filter target 边界**
    - builder chart 可作为 filter-form target
-   - 切到 sql 后，filter target 应失效 / 解绑
+   - 切到 SQL 后，filter target 应失效 / 解绑
    - 切回 builder 后，filter target 应重新可用
 
 4. **custom `visual.raw`**
    - 写入前先做 `ChartOptionModel` 兼容检查
-   - 写入后确认不是空白图、不是 render failed
+   - 写入后确认 compat 检查通过，且相关 option 配置已落盘
 
 5. **负例**
    - 混用 `configure` 与 `query / visual / events`
@@ -468,7 +468,7 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - builder 聚合 measure / 自定义 alias 排序
    - 预期都应返回 400，而不是留下半残配置
 
-## 更复杂的验证矩阵
+## 更复杂的 contract 验证矩阵
 
 除了上面的基础 5 组，还建议补这几组：
 
@@ -485,20 +485,19 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - `sorting.field = "amount"` 也预期 400
    - 这类 case 现在属于 contract 明确不支持，而不是“高概率可用”
 
-8. **filter-form roundtrip**
+8. **chart filter target roundtrip**
    - builder chart 绑定 filter-form
    - 切到 sql 后确认 filter target 解绑
    - 再切回 builder 后确认 filter target 重新可绑定
-   - reload 后结果保持一致
 
 9. **custom + events 组合**
    - `visual.mode = "custom"`
    - 同时配置 `events.raw`
-   - 验证图可见、事件代码已落盘、reload 后不丢失
+   - 验证事件代码与配置都已落盘
 
-10. **SQL reload / durable**
-   - SQL chart 创建后必须做一次页面 reload
-   - 必须确认 runtime 仍能显示，而不是只在首次写入后的内存态可见
+10. **SQL durable**
+   - SQL chart 创建后必须确认 `flowSql` 已持久化
+   - 不要只根据首次写入响应里的内存态字段判断成功
 
 11. **SQL alias case sensitivity**
    - SQL 里分别测试：
@@ -511,12 +510,16 @@ skill 在真正交付 chart 页面前，至少按下面顺序验证：
    - SQL 含模板变量 / `ctx` / liquid bind
    - 预期 `context(path="chart").chart.riskyPatterns` 给出 preview 风险提示
    - skill 不应在没有 `queryOutputs` 依据时臆造 `visual.mappings`
-   - 预期只能通过 `readback + reload/browser verify` 收口
+   - 预期只能通过 `readback` 收口，或停在 query 阶段
 
 13. **SQL runtime-context preview unavailable**
    - SQL 含模板变量、liquid bind 或 `ctx.*`
    - 预期 `context(path="chart")` 没有稳定 `queryOutputs`，但会出现对应 `riskyPatterns`
    - skill 不应在没有输出依据时盲配 `visual.mappings`
+
+## 边界提醒
+
+- 真实浏览器验证不属于本 skill 的默认职责；本文只覆盖 FlowSurfaces contract、上下文收敛与 readback。
 
 ## 当前 skill 限制
 

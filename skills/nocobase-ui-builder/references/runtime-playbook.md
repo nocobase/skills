@@ -50,8 +50,8 @@
 
 1. **按菜单标题发现父菜单**：`desktop_routes_list_accessible(tree=true)`，只接受唯一命中的 `group`。
 2. **新建菜单分组**：`createMenu(type="group")`；如需继续在该分组下建页面，复用返回的 `routeId` 作为 `parentMenuRouteId`。
-3. **新建完整页面**：`createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`；继续搭内容时，对返回的 `gridUid` 走 `catalog -> compose/add*/configure -> readback`。
+3. **新建完整页面**：`createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`；继续搭内容时，对返回的 `gridUid` 走 `catalog -> compose/add* + settings/configure -> readback`。
 4. **兼容模式下先建页面再移入菜单**：`createPage` 不传 `menuRouteId`；若用户还要求挂进某个菜单，再执行 `updateMenu`。
 5. **已有 `page` 新增 `outer-tab`**：先读回 `page` 拿到 `pageUid`，再 `addTab(target.uid = pageUid)`。
-6. **已有 target 小改或精确追加**：`get -> catalog -> compose/configure/add*/updateSettings/setLayout/setEventFlows/apply/mutate -> readback`。
+6. **已有 target 小改或精确追加**：`get -> catalog -> compose/add* + settings/configure/updateSettings/setLayout/setEventFlows/apply/mutate -> readback`。
 7. **已有 popup subtree 写入**：若当前执行链没有直接拿到 popup uid，先从 `hostUid` 或 `popupPageUid` 读回 popup subtree；record popup 的 `currentRecord` guard 统一看 [popup.md](./popup.md)。

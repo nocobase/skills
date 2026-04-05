@@ -26,11 +26,12 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 4. 不要用 `resource_*` / generic CRUD / 底层 route 记录写入来替代 page、tab、popup、block、field、action 的 surface API。
 5. 菜单标题不唯一不猜；只接受菜单树里唯一命中的 `group` 作为父菜单。
 6. 已有 target 的写入默认走 `get -> catalog -> write -> readback`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
-7. 如果现场 `get/catalog` 没有明确暴露目标能力、target 绑定字段、resource binding、settings contract 或 `currentRecord` guard，停止猜测，不要臆造写入。
-8. 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
-9. page lifecycle 顺序不能乱：`createMenu(type="item")` 之后，先 `createPage(menuRouteId=...)` 初始化页面，再使用 page/tab lifecycle API。
-10. NocoBase MCP 必须可达且已认证；如果缺少关键接口或返回认证错误，停止并说明 MCP 能力或认证不足。
-11. chart 写入默认先读 `flowSurfaces:context(path="chart")`；优先按 `chart.safeDefaults` 生成，命中 `chart.unsupportedPatterns` 时不要硬写，命中 `chart.riskyPatterns` 时要在结果里显式标记风险并补 `readback + browser verify`。
+7. `addBlock` / `addField` / `addAction` / `addRecordAction` 默认优先把 live `catalog.configureOptions` 里能表达的公开语义字段直接写进 `requestBody.settings`；不要把 `props` / `decoratorProps` / `stepParams` / `flowRegistry` 当成 `settings` 的输入形状。
+8. 如果 `settings` 已经能完整表达用户要求，不要额外再补一次 `configure`；只有仍有剩余公开字段时，才执行 `add* + settings -> configure(changes)`。
+9. 如果现场 `get/catalog` 没有明确暴露目标能力、target 绑定字段、resource binding、settings contract 或 `currentRecord` guard，停止猜测，不要臆造写入。
+10. 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
+11. page lifecycle 顺序不能乱：`createMenu(type="item")` 之后，先 `createPage(menuRouteId=...)` 初始化页面，再使用 page/tab lifecycle API。
+12. NocoBase MCP 必须可达且已认证；如果缺少关键接口或返回认证错误，停止并说明 MCP 能力或认证不足。
 
 ## Task Router
 
@@ -39,7 +40,7 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 | `inspect` | 菜单标题场景先读菜单树；已初始化 surface 默认 `get`，必要时再 `catalog` | 无写入 | [verification.md](./references/verification.md) |
 | `create-page` | 先发现或创建父菜单，再初始化页面 | `createMenu(type="item") -> createPage(menuRouteId=...)` | [runtime-playbook.md](./references/runtime-playbook.md) |
 | `move-menu` | 已知 `menuRouteId` 直接移动；只给菜单标题时先读菜单树 | `updateMenu(parentMenuRouteId=...)` | [runtime-playbook.md](./references/runtime-playbook.md) |
-| `compose` | `get -> catalog`；自然语言歧义时再看 aliases | `compose` / `configure` / `add*` | [capabilities.md](./references/capabilities.md) |
+| `compose` | `get -> catalog`；自然语言歧义时再看 aliases | `compose` / `add* + settings` / `configure` / `updateSettings` | [capabilities.md](./references/capabilities.md) |
 | `reorder` | 先 `get` 确认 sibling 与目标定位 | `moveTab` / `movePopupTab` / `moveNode` | [runtime-playbook.md](./references/runtime-playbook.md) |
 | `popup` | 先明确是 action popup、record popup，还是 field `openView` | `addRecordAction` / `addAction` / `configure` / `setEventFlows` | [popup.md](./references/popup.md) |
 | `runjs` | 先收敛容器与 JS model，再过 validator gate | 通常先 `configure`，必要时再 `add*` | [js.md](./references/js.md) |
@@ -55,16 +56,9 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 ### 按需再读
 
 - [popup.md](./references/popup.md)：popup / `openView` / `currentRecord` guard / `flowRegistry` / record popup recipes。
-- [capabilities.md](./references/capabilities.md)：block / form / action / field 的默认选型与 scope 规则。
-- [chart.md](./references/chart.md)：chart block 的最小公开参数集（`title / displayTitle / height / heightMode / query / visual / events`）、合法参数、canonical readback、推荐执行顺序（先 `configure(query)`，再 `context(chart)`，再 `configure(visual)`）、以及 `flowSurfaces:context(path=\"chart\" | \"collection\")` 返回的 `queryOutputs / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns` 的用法。
+- [capabilities.md](./references/capabilities.md)：block / form / action / field 的默认选型与 scope 规则；`filterForm` 的通用能力也看这里。
+- [settings.md](./references/settings.md)：`addBlock/addField/addAction/addRecordAction` 如何直接内联公开 `settings`、何时回退到 `configure` / `updateSettings`。
+- [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状，以及 `setLayout` 的 canonical payload shape。
+- [chart.md](./references/chart.md)：chart block 的公开 DSL、builder / SQL 边界、query / visual / events 规则。
 - [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格。
-- [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状与常见错误。
 - [aliases.md](./references/aliases.md)：高歧义自然语言表达如何先收敛到对象语义或能力。
-
-### Chart Extra Rules
-
-- builder chart 的默认安全路径是：单 measure、basic visual、无 sorting。
-- SQL chart 的默认安全路径是：先单独 `configure(query)`，再读 `context(path="chart")` 里的 `chart.queryOutputs`，最后再写 `visual`。
-- 如果 `context(path="chart")` 没有 `chart.queryOutputs`，不要继续写 `visual.mode="basic"`；FlowSurfaces 会拒绝这类写入，此时只能先保留 query，或显式改走 `visual.mode="custom"`。
-- 如果 `context(path="chart")` 返回 `chart.unsupportedPatterns` 命中当前需求，不要硬写；要么改写成安全子集，要么明确说明当前 FlowSurfaces contract 不支持。
-- 如果返回 `chart.riskyPatterns`，可以继续，但必须做 `get` readback，并建议追加浏览器 reload 验证。

@@ -8,7 +8,8 @@
 2. Block 选型
 3. Form 选型
 4. Action scope
-5. Field 规则
+5. FilterForm 通用能力
+6. Field 规则
 
 ## 选型顺序
 
@@ -45,7 +46,8 @@
 
 - `table`：读回重点是 `actionsColumnUid`、字段 uid、关系字段 `clickToOpen/openView`。
 - `details`：查看场景优先它，不要用 `editForm` 或 `form` 伪装详情页。
-- `filterForm`：多目标时优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`。
+- `filterForm`：它是通用数据筛选输入区块，不是 chart 专属能力；多目标时优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`。
+- 如果 block 标题、显示标题、高度等字段已出现在 live `catalog.configureOptions`，优先直接写进 `addBlock(...).settings`，不要先创建空区块再机械补一次 `configure`。
 
 ## Form 选型
 
@@ -87,6 +89,32 @@
 - “查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”优先按 record popup 处理。
 - 用户只说“加一个弹窗按钮”但没说明内容时，才允许只创建 `popup` shell；此时不要假设详情或表单会自动出现。
 - `submit` 在普通 form 和 `filterForm` 是两个不同 scope 的公开能力；`collapse` 只属于 `filterForm`。
+- `title`、`tooltip`、`icon`、`type`、`confirm` 这类高频动作属性，如果 live `catalog.configureOptions` 已暴露，优先直接内联到 `addAction/addRecordAction(...).settings`。
+
+## FilterForm 通用能力
+
+- 一个 `filterForm` 可以服务多个数据区块；不要把它理解成 chart 特例。它可以服务于某些数据区块的筛选联动，最终以 live `catalog` 和 target contract 为准。
+- 多目标场景下，绑定粒度优先按**字段级**理解；不要默认整块 `filterForm` 只绑定一个 block，也不要假设所有字段会自动继承同一个 target。
+- 如果现场 contract 暴露 `defaultTargetUid`，优先在字段创建时显式填写，用它声明该字段的默认作用目标。
+- collection schema 里“有这个字段”，不等于当前 `filterForm` 就一定能 `addField`；字段是否可加，以 live `catalog.fields` / 当前 target 的 field capability 为准。
+- 写后接线确认看 [verification.md](./verification.md) 的 `Write Readback`；不要把写后断言混进 capability 选型规则。
+
+示意片段：
+
+```json
+[
+  {
+    "fieldPath": "createdAt",
+    "defaultTargetUid": "users-table-uid"
+  },
+  {
+    "fieldPath": "status",
+    "defaultTargetUid": "users-list-uid"
+  }
+]
+```
+
+上面表达的是：同一个 `filterForm` 里的不同字段，可以各自声明默认作用目标；精确 envelope 仍以 live tool schema（`addField` vs `addFields`）为准。
 
 ## Field 规则
 
@@ -100,6 +128,7 @@
 
 - `compose(...).fields` 的最常见 shorthand 写法是字符串字段名，例如 `"nickname"`。
 - 在 `addField/addFields`，或需要显式声明字段路径时，统一用 `{ "fieldPath": "nickname" }`。
+- `fieldPath` 属于创建必需参数，不属于 `settings`；`label`、`showLabel`、`required`、`disabled` 等高频字段属性，如果 live `catalog.configureOptions` 已暴露，优先直接写进 `settings`。
 - 常见 wrapper 配置：`label`、`showLabel`、`tooltip`、`extra`、`width`、`fixed`。
 - 常见 field 配置：`titleField`、`clickToOpen`、`openView`、`allowClear`、`multiple`。
 
@@ -111,7 +140,7 @@
 
 ### `filterForm` 特殊点
 
-- 多目标时，优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`。
+- 多目标绑定与字段可加性规则看上一节 `FilterForm 通用能力`。
 - 不支持 `renderer: "js"`、`jsColumn`、`jsItem`。
 - 需要 JS 时，换 block 或动作设计，不要强行塞进 filter 字段。
 

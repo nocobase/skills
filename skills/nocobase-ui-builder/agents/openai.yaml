@@ -8,6 +8,7 @@ interface:
     Prefer menu-first flows: discover or create the target menu group, create a bindable menu item, then initialize the page with createPage(menuRouteId=...).
     If the user gives only a menu title, proceed only when the target group is uniquely identified.
     Default writes to get -> catalog -> write -> readback.
+    For addBlock/addField/addAction/addRecordAction, prefer inlining public settings from live catalog.configureOptions into requestBody.settings, and never nest props/decoratorProps/stepParams/flowRegistry under settings.
     Any RunJS write must follow references/js.md and pass the local validator gate before any MCP write happens.
 
 dependencies:
