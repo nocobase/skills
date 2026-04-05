@@ -1,7 +1,7 @@
 import vm from 'node:vm';
 import { analyzeContextUsage, compileUserCode, createBareCompatAccessIssue } from './analysis.js';
 import { DEFAULT_TIMEOUT_MS, VALIDATOR_TYPE } from './constants.js';
-import { createPreviewEnvironment, normalizeRuntimeError } from './context.js';
+import { createRuntimeEnvironment, normalizeRuntimeError } from './context.js';
 import { describeProfile, findProfile } from './profiles.js';
 import { sortIssues, toSerializable } from './utils.js';
 
@@ -147,7 +147,7 @@ export async function executeTaskLocal(task) {
     });
   }
 
-  const environment = createPreviewEnvironment(profile, 'validate', task.context || {}, task.network, {
+  const environment = createRuntimeEnvironment(profile, 'validate', task.context || {}, task.network, {
     skillMode: task.skillMode,
   });
   const executionContextIssues = [];

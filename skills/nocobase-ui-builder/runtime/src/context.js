@@ -289,7 +289,7 @@ class CompatElementProxy {
 
   append(...nodes) {
     if (nodes.some((node) => isDomNodeLike(node))) {
-      pushRuntimeIssue(this.__state, 'dom-preview-unsupported', 'DOM node preview is unsupported in zero-dependency mode.');
+      pushRuntimeIssue(this.__state, 'dom-render-unsupported', 'DOM node render output is unsupported in zero-dependency mode.');
       return;
     }
     this.__el.append(...nodes.map((node) => coerceNode(node, this.__el.ownerDocument)));
@@ -297,19 +297,19 @@ class CompatElementProxy {
 
   replaceChildren(...nodes) {
     if (nodes.some((node) => isDomNodeLike(node))) {
-      pushRuntimeIssue(this.__state, 'dom-preview-unsupported', 'DOM node preview is unsupported in zero-dependency mode.');
+      pushRuntimeIssue(this.__state, 'dom-render-unsupported', 'DOM node render output is unsupported in zero-dependency mode.');
       return;
     }
     this.__el.replaceChildren(...nodes.map((node) => coerceNode(node, this.__el.ownerDocument)));
   }
 
   querySelector(selector) {
-    pushRuntimeIssue(this.__state, 'selector-unsupported', `querySelector("${selector}") is unsupported in zero-dependency preview.`);
+    pushRuntimeIssue(this.__state, 'selector-unsupported', `querySelector("${selector}") is unsupported in zero-dependency runtime.`);
     return null;
   }
 
   querySelectorAll(selector) {
-    pushRuntimeIssue(this.__state, 'selector-unsupported', `querySelectorAll("${selector}") is unsupported in zero-dependency preview.`);
+    pushRuntimeIssue(this.__state, 'selector-unsupported', `querySelectorAll("${selector}") is unsupported in zero-dependency runtime.`);
     return [];
   }
 
@@ -883,7 +883,7 @@ function createChartApi(state, inputChart = {}) {
   };
 }
 
-async function settlePreview() {
+async function settleRenderCycle() {
   await delay(0);
   await delay(0);
 }
@@ -896,7 +896,7 @@ export function createTaskState(profile, mode) {
     logOverflow: false,
     runtimeIssues: [],
     sideEffectAttempts: [],
-    preview: {
+    renderState: {
       rendered: false,
       html: '',
       text: '',
@@ -913,9 +913,9 @@ export function createTaskState(profile, mode) {
   };
 }
 
-export function createPreviewEnvironment(profile, mode, inputContext = {}, network, options = {}) {
+export function createRuntimeEnvironment(profile, mode, inputContext = {}, network, options = {}) {
   const state = createTaskState(profile, mode);
-  const currentUrl = new URL('https://preview.local/');
+  const currentUrl = new URL('https://runtime.local/');
   const compatLocation = createCompatLocation(state, currentUrl);
   const { documentRef, root } = createSimpleDocument(compatLocation);
   const elementProxy = new CompatElementProxy(root, state);
@@ -1002,81 +1002,81 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
     installGlobal(key, value);
   }
 
-  const previewCapabilities = {
-    html: profile.previewCapabilities?.html !== false,
-    react: profile.previewCapabilities?.react !== false,
-    dom: profile.previewCapabilities?.dom !== false,
-    text: profile.previewCapabilities?.text !== false,
+  const renderCapabilities = {
+    html: profile.renderCapabilities?.html !== false,
+    react: profile.renderCapabilities?.react !== false,
+    dom: profile.renderCapabilities?.dom !== false,
+    text: profile.renderCapabilities?.text !== false,
   };
-  const pushPreviewNotice = (ruleId, message) => {
+  const pushRenderNotice = (ruleId, message) => {
     pushRuntimeIssue(state, ruleId, message, 'warning');
   };
   const render = async (vnode, customContainer) => {
     const target = customContainer?.__el || customContainer || root;
-    state.preview.renderCount += 1;
+    state.renderState.renderCount += 1;
 
     if (typeof vnode === 'string') {
-      if (previewCapabilities.html) {
+      if (renderCapabilities.html) {
         target.innerHTML = vnode;
-        state.preview.rendered = true;
-        state.preview.fidelity = 'compatible';
-        await settlePreview();
+        state.renderState.rendered = true;
+        state.renderState.fidelity = 'compatible';
+        await settleRenderCycle();
         return null;
       }
-      if (previewCapabilities.text) {
+      if (renderCapabilities.text) {
         target.textContent = vnode;
-        state.preview.rendered = true;
-        state.preview.degraded = true;
-        state.preview.fidelity = 'degraded';
-        pushPreviewNotice('preview-capability-degraded', `HTML preview is disabled for profile ${profile.model}; rendered as text.`);
-        await settlePreview();
+        state.renderState.rendered = true;
+        state.renderState.degraded = true;
+        state.renderState.fidelity = 'degraded';
+        pushRenderNotice('render-capability-degraded', `HTML render output is disabled for profile ${profile.model}; rendered as text.`);
+        await settleRenderCycle();
         return null;
       }
-      state.preview.rendered = false;
-      state.preview.degraded = true;
-      state.preview.fidelity = 'unsupported';
-      pushPreviewNotice('preview-unsupported', `HTML preview is unsupported for profile ${profile.model}.`);
+      state.renderState.rendered = false;
+      state.renderState.degraded = true;
+      state.renderState.fidelity = 'unsupported';
+      pushRenderNotice('render-unsupported', `HTML render output is unsupported for profile ${profile.model}.`);
       return null;
     }
 
     if (isReactElementLike(vnode)) {
-      state.preview.rendered = false;
-      state.preview.degraded = true;
-      state.preview.fidelity = 'unsupported';
-      pushPreviewNotice('react-unsupported', `React preview is unsupported in zero-dependency mode for profile ${profile.model}.`);
+      state.renderState.rendered = false;
+      state.renderState.degraded = true;
+      state.renderState.fidelity = 'unsupported';
+      pushRenderNotice('react-unsupported', `React render output is unsupported in zero-dependency mode for profile ${profile.model}.`);
       return null;
     }
 
     if (isDomNodeLike(vnode)) {
-      state.preview.rendered = false;
-      state.preview.degraded = true;
-      state.preview.fidelity = 'unsupported';
-      pushPreviewNotice('dom-preview-unsupported', `DOM node preview is unsupported in zero-dependency mode for profile ${profile.model}.`);
+      state.renderState.rendered = false;
+      state.renderState.degraded = true;
+      state.renderState.fidelity = 'unsupported';
+      pushRenderNotice('dom-render-unsupported', `DOM node render output is unsupported in zero-dependency mode for profile ${profile.model}.`);
       return null;
     }
 
     const serialized = JSON.stringify(vnode, null, 2);
-    if (!previewCapabilities.html && !previewCapabilities.text) {
-      state.preview.rendered = false;
-      state.preview.degraded = true;
-      state.preview.fidelity = 'unsupported';
-      pushPreviewNotice('preview-unsupported', `Structured value preview is unsupported for profile ${profile.model}.`);
+    if (!renderCapabilities.html && !renderCapabilities.text) {
+      state.renderState.rendered = false;
+      state.renderState.degraded = true;
+      state.renderState.fidelity = 'unsupported';
+      pushRenderNotice('render-unsupported', `Structured value render output is unsupported for profile ${profile.model}.`);
       return null;
     }
-    if (previewCapabilities.html) {
+    if (renderCapabilities.html) {
       target.innerHTML = `<pre data-compat-render="json">${escapeHtml(serialized)}</pre>`;
     } else {
       target.textContent = serialized;
     }
-    state.preview.rendered = true;
-    state.preview.degraded = true;
-    state.preview.fidelity = 'degraded';
-    await settlePreview();
+    state.renderState.rendered = true;
+    state.renderState.degraded = true;
+    state.renderState.fidelity = 'degraded';
+    await settleRenderCycle();
     return null;
   };
 
   const ctx = {};
-  let previewProps = {};
+  let simulatedProps = {};
   const fullCtxMembers = {
     t(key, variables) {
       return interpolate(key, variables);
@@ -1193,8 +1193,8 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
         status: 'simulated',
         args: cloneSerializable([patch]),
       });
-      previewProps = { ...previewProps, ...(patch || {}) };
-      return previewProps;
+      simulatedProps = { ...simulatedProps, ...(patch || {}) };
+      return simulatedProps;
     },
   };
 
@@ -1239,9 +1239,9 @@ export function createPreviewEnvironment(profile, mode, inputContext = {}, netwo
     sandboxGlobals,
     finalize: async () => {
       try {
-        await settlePreview();
-        state.preview.html = summarizeHtml(root.innerHTML);
-        state.preview.text = summarizeText(root.textContent || '');
+        await settleRenderCycle();
+        state.renderState.html = summarizeHtml(root.innerHTML);
+        state.renderState.text = summarizeText(root.textContent || '');
       } finally {
         for (const entry of restoreGlobals.reverse()) {
           if (entry.hadOwn && entry.descriptor) {

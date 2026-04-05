@@ -13,22 +13,22 @@ function valueDoc(description, type = 'any') {
   return { type, description };
 }
 
-const ELEMENT_CONTRACT = objectDoc('Preview container ElementProxy.', {
-  append: functionDoc('Append values into the preview container.'),
-  replaceChildren: functionDoc('Replace values in the preview container.'),
+const ELEMENT_CONTRACT = objectDoc('Render container ElementProxy.', {
+  append: functionDoc('Append values into the render container.'),
+  replaceChildren: functionDoc('Replace values in the render container.'),
   querySelector: functionDoc('Unsupported deterministic selector probe.'),
   querySelectorAll: functionDoc('Unsupported deterministic selector probe.'),
   addEventListener: functionDoc('Attach one event listener.'),
   removeEventListener: functionDoc('Detach one event listener.'),
   dispatchEvent: functionDoc('Dispatch one DOM-like event.'),
-  innerHTML: valueDoc('Preview container inner HTML.', 'string'),
-  textContent: valueDoc('Preview container text content.', 'string'),
+  innerHTML: valueDoc('Render container inner HTML.', 'string'),
+  textContent: valueDoc('Render container text content.', 'string'),
 });
 
 const BASE_CONTRACT = {
   t: functionDoc('Translate text. This runtime returns the key with {{var}} interpolation.'),
   render: functionDoc(
-    'Render one HTML string or structured value into the preview container. JSX syntax is lowered before execution; structured preview fidelity still depends on current preview capabilities.',
+    'Render one HTML string or structured value into the render container. JSX syntax is lowered before execution; structured output fidelity still depends on current render capabilities.',
   ),
   request: functionDoc('HTTP read helper. Only GET/HEAD are allowed.'),
   api: objectDoc('API helper namespace.', {
@@ -146,7 +146,7 @@ function createProfile({
   scene,
   contract,
   defaultContextShape,
-  previewCapabilities,
+  renderCapabilities,
   enforceCtxQualifiedAccess = false,
   requireExplicitCtxRender = false,
   topLevelAliases = [],
@@ -172,7 +172,7 @@ function createProfile({
     scene,
     contract,
     defaultContextShape,
-    previewCapabilities,
+    renderCapabilities,
     enforceCtxQualifiedAccess,
     requireExplicitCtxRender,
     sideEffectPolicy: {
@@ -207,7 +207,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'resource', 'collection'],
@@ -240,7 +240,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'employees', title: 'Employees' },
       inputArgs: {},
     },
-    previewCapabilities: { html: false, react: false, dom: false, text: true },
+    renderCapabilities: { html: false, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     topLevelAliases: ['data', 'record', 'resource', 'collection'],
   }),
@@ -264,7 +264,7 @@ const PROFILES = [
       collectionField: { name: 'nickname', title: 'Nickname', interface: 'input', type: 'string' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'value', 'resource', 'collection', 'collectionField'],
@@ -300,7 +300,7 @@ const PROFILES = [
       readOnly: false,
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: [
@@ -337,7 +337,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
@@ -353,7 +353,7 @@ const PROFILES = [
       form: FORM_CONTRACT,
       resource: RESOURCE_CONTRACT,
       collection: COLLECTION_CONTRACT,
-      setProps: functionDoc('Update preview-only props on the current mock field item.'),
+      setProps: functionDoc('Update simulated props on the current mock field item.'),
     },
     defaultContextShape: {
       record: { id: 1, nickname: 'Alice', status: 'active' },
@@ -362,7 +362,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection', 'setProps'],
@@ -387,7 +387,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     requireExplicitCtxRender: true,
     topLevelAliases: ['record', 'recordIndex', 'selectedRows', 'resource', 'collection'],
@@ -411,7 +411,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({
@@ -430,7 +430,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['record', 'resource', 'collection'],
   }),
   createProfile({
@@ -449,7 +449,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['selectedRows', 'resource', 'collection'],
   }),
   createProfile({
@@ -471,7 +471,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['record', 'formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({
@@ -491,7 +491,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['formValues', 'form', 'resource', 'collection'],
   }),
   createProfile({
@@ -508,7 +508,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
-    previewCapabilities: { html: true, react: false, dom: false, text: true },
+    renderCapabilities: { html: true, react: false, dom: false, text: true },
     topLevelAliases: ['resource', 'collection'],
   }),
   createProfile({
@@ -535,7 +535,7 @@ const PROFILES = [
       collection: { dataSourceKey: 'main', name: 'employees', title: 'Employees' },
       inputArgs: {},
     },
-    previewCapabilities: { html: false, react: false, dom: false, text: true },
+    renderCapabilities: { html: false, react: false, dom: false, text: true },
     enforceCtxQualifiedAccess: true,
     strictAllowedTopLevelAliases: ['chart'],
     simulatedCompatCalls: ['openView'],
@@ -594,7 +594,7 @@ export function describeProfile(name) {
     availableContextKeys: Object.keys(profile.contract),
     topLevelAliases: [...profile.topLevelAliases],
     strictAllowedTopLevelAliases: [...(profile.strictAllowedTopLevelAliases || [])],
-    previewCapabilities: { ...profile.previewCapabilities },
+    renderCapabilities: { ...profile.renderCapabilities },
     enforceCtxQualifiedAccess: Boolean(profile.enforceCtxQualifiedAccess),
     requireExplicitCtxRender: Boolean(profile.requireExplicitCtxRender),
     sideEffectPolicy: { ...profile.sideEffectPolicy },
