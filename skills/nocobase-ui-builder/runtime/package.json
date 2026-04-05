@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Self-contained RunJS compatibility validator and preview CLI for trusted skill workflows.",
+  "description": "Self-contained RunJS compatibility validator CLI for trusted skill workflows.",
   "engines": {
     "node": ">=18"
   },
@@ -11,7 +11,6 @@
     "nb-runjs": "./bin/nb-runjs.mjs"
   },
   "scripts": {
-    "models": "node ./bin/nb-runjs.mjs models",
     "test": "node --test ./tests/*.test.js"
   }
 }

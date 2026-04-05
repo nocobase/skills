@@ -73,7 +73,7 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 | --- | --- | --- | --- |
 | `popup` | 涉及 action popup、record popup、`openView`、`currentRecord` | 先确认 popup family 与 `currentRecord` guard，再决定是否创建 record-bound 内容 | [popup.md](./references/popup.md) |
 | `chart` | 涉及 chart block 的创建、重配、SQL / custom visual / events | 创建 chart 时先建 block；builder query 先读 `path="collection"` 选字段，写入 `query` 后再读 `path="chart"` 收敛 `queryOutputs/mappings`；重配已有 chart 时可直接读 `path="chart"`；维护期 contract case 另看 validation 文档 | [chart-core.md](./references/chart-core.md) |
-| `js` | 涉及 JS `code`、`renderer: "js"`、`jsBlock/jsColumn/jsItem/js action` 或 chart raw code | 必须先过本地 validator gate；skill canonical 调用默认走 `--skill-mode`，不允许 live network | [js.md](./references/js.md) |
+| `js` | 涉及 JS `code`、`renderer: "js"`、`jsBlock/jsColumn/jsItem/js action` 或 chart raw code | 必须先过本地 validator gate；skill canonical 调用统一走 validate-only 的 `--skill-mode`，不允许 live network | [js.md](./references/js.md) |
 
 ## Read Order
 
@@ -91,5 +91,5 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 - [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状，以及 `setLayout` 的 canonical payload shape。
 - [chart-validation.md](./references/chart-validation.md)：chart block 的 contract 验证 case、复杂矩阵与负例。
 - [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格。
-- [runjs-runtime.md](./references/runjs-runtime.md)：RunJS CLI 的 repo-root 入口、Node 版本、`--skill-mode` 与 runtime cwd 约定。
+- [runjs-runtime.md](./references/runjs-runtime.md)：RunJS CLI 的 repo-root 入口、validate-only 约束、Node 版本、`--skill-mode` 与 runtime cwd 约定。
 - [aliases.md](./references/aliases.md)：高歧义自然语言表达如何先收敛到对象语义或能力。

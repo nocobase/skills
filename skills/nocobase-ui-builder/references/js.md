@@ -26,15 +26,14 @@
 只要本次写入涉及 JS `code`，就必须先运行本地 validator，再决定是否调用 MCP 写入。
 
 - 这个 validator 的目标是**确定性的本地 contract 预验证**，不是安全沙箱承诺。
-- render 类模型统一走 `preview`
-- action 类模型统一走 `validate`
+- public runtime mode 固定为 `validate`
 - validator 失败就是失败，不能降级成 warning，也不能继续写入
 - 运行时校验只允许依赖 `./runtime/bin/nb-runjs.mjs`，不允许在执行阶段读取 NocoBase 源码
 
 标准命令：
 
 ```bash
-node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs <validate|preview> --stdin-json --skill-mode
+node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode
 ```
 
 stdin JSON 形状：
@@ -66,19 +65,19 @@ stdin JSON 形状：
 
 | UI 能力 | 典型位置 | runtime model | mode | 说明 |
 | --- | --- | --- | --- | --- |
-| `jsBlock` | page / tab / popup block 区 | `JSBlockModel` | `preview` | block 级渲染 |
-| `jsColumn` | `table` | `JSColumnModel` | `preview` | standalone table column |
-| `jsItem` | `form/createForm/editForm` | `JSItemModel` | `preview` | standalone form item |
-| `renderer: "js"` | `table/details/list/gridCard` | `JSFieldModel` | `preview` | 绑定真实字段的展示态 JS renderer |
-| `renderer: "js"` | `form/createForm/editForm` | `JSEditableFieldModel` | `preview` | 绑定真实字段的可编辑 JS renderer |
-| inline form JS field item | form field item 内联 JS 配置 | `FormJSFieldItemModel` | `preview` | 仅在现场能力明确是 inline item 级 JS 时使用 |
+| `jsBlock` | page / tab / popup block 区 | `JSBlockModel` | `validate` | block 级渲染 contract 检查 |
+| `jsColumn` | `table` | `JSColumnModel` | `validate` | standalone table column |
+| `jsItem` | `form/createForm/editForm` | `JSItemModel` | `validate` | standalone form item |
+| `renderer: "js"` | `table/details/list/gridCard` | `JSFieldModel` | `validate` | 绑定真实字段的展示态 JS renderer |
+| `renderer: "js"` | `form/createForm/editForm` | `JSEditableFieldModel` | `validate` | 绑定真实字段的可编辑 JS renderer |
+| inline form JS field item | form field item 内联 JS 配置 | `FormJSFieldItemModel` | `validate` | 仅在现场能力明确是 inline item 级 JS 时使用 |
 | block-level `js` action | `table/list/gridCard` 等 block action | `JSCollectionActionModel` | `validate` | 面向整块数据集 |
 | record-level `js` action | `table/details/list/gridCard` | `JSRecordActionModel` | `validate` | 面向当前记录 |
 | form `js` action | `form/createForm/editForm` | `JSFormActionModel` | `validate` | 面向表单上下文 |
 | filter-form `js` action | `filterForm` | `FilterFormJSActionModel` | `validate` | 面向筛选表单 |
 | action-panel / generic `js` action | `actionPanel` 或泛用动作容器 | `JSActionModel` | `validate` | 没有更具体 action context 时的兜底 |
 | item action with explicit form+record context | 少数 item 级 action 容器 | `JSItemActionModel` | `validate` | 只有现场明确同时具备 `record + formValues + form` 时才使用 |
-| chart `visual.raw` | chart block 自定义 option | `ChartOptionModel` | `preview` | 直接 `return` ECharts option object |
+| chart `visual.raw` | chart block 自定义 option | `ChartOptionModel` | `validate` | 直接 `return` ECharts option object |
 | chart `events.raw` | chart block 事件脚本 | `ChartEventsModel` | `validate` | 注册图表事件；`ctx.openView(...)` 在 runtime 中只做 simulated call |
 
 如果现场能力无法确定是哪一种 JS action，就先停下来，优先读 `catalog` / `get` 收敛容器和上下文，再选 model；不要拍脑袋猜。
@@ -112,6 +111,7 @@ stdin JSON 形状：
 - 裸 `record` / `formValues` / `resource` / `collection` / `collectionField` / `value` / `namePath` 都算失败
 - 必须显式调用 `ctx.render(...)`
 - 不能依赖 `return` 自动渲染
+- 即使这些模型对外统一走 `validate`，也仍然按 render contract 做校验；不会返回 public preview payload
 - 如果 validator 报 `bare-compat-access`、`missing-required-ctx-render` 等问题，必须直接修 code，不要绕过
 
 `ChartOptionModel` / `ChartEventsModel` **不属于** strict render model：

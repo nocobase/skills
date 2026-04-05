@@ -1,17 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  inspectRunJSContext,
-  listProfiles,
-  previewRunJSSnippet,
-  runBatch,
-  validateRunJSSnippet,
-} from './index.js';
+import { runBatch, validateRunJSSnippet } from './index.js';
 
 function parseArgs(argv) {
-  const args = {
-    _: [],
-  };
+  const args = { _: [] };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith('--')) {
@@ -87,13 +79,9 @@ function parseOptionalBoolean(value, label) {
 function usage() {
   return {
     commands: {
-      models: 'List supported RunJS models.',
-      contexts: 'Print the context contract for one model. Required: --model <model>.',
       validate:
-        'Validate one trusted snippet with the compat validator. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode.',
-      preview:
-        'Validate and preview one trusted snippet with the compat runtime. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode.',
-      batch: 'Run multiple validate/preview tasks from one JSON file. Required: --input <path>. Optional: --skill-mode.',
+        'Validate one trusted snippet. Required: (--model <model> --code-file <path>) or (--stdin-json). Optional: --context-file <path> --network-file <path> --skill-mode --timeout <ms> --version <version>.',
+      batch: 'Run multiple validate tasks from one JSON file. Required: --input <path>. Optional: --skill-mode.',
     },
   };
 }
@@ -102,17 +90,19 @@ function writeJson(stream, payload) {
   stream.write(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
-async function loadSnippetTask(command, args, io, cwd) {
+function ensureValidateMode(mode, label) {
+  if (typeof mode === 'undefined' || mode === null || mode === 'validate') return;
+  throw new Error(`Unsupported ${label} "${mode}". Only "validate" is allowed.`);
+}
+
+async function loadValidateTask(args, io, cwd) {
   const stdin = io.stdin || process.stdin;
   const cliTimeoutMs = parseOptionalNumber(args.timeout, '--timeout');
-  const cliIsolate = parseOptionalBoolean(args.isolate, '--isolate');
   const cliSkillMode = parseOptionalBoolean(args['skill-mode'], '--skill-mode');
 
   if (args['stdin-json']) {
     const payload = await loadStdinJson(stdin);
-    if (payload.mode && payload.mode !== command) {
-      throw new Error(`Stdin payload mode "${payload.mode}" does not match command "${command}".`);
-    }
+    ensureValidateMode(payload.mode, 'stdin mode');
     if (args.model && payload.model && args.model !== payload.model) {
       throw new Error(`CLI --model "${args.model}" does not match stdin payload model "${payload.model}".`);
     }
@@ -133,7 +123,6 @@ async function loadSnippetTask(command, args, io, cwd) {
       version: args.version || payload.version,
       timeoutMs: typeof cliTimeoutMs === 'number' ? cliTimeoutMs : parseOptionalNumber(payload.timeoutMs, 'stdin timeoutMs'),
       filename: payload.filename || '<stdin>',
-      isolate: typeof cliIsolate === 'boolean' ? cliIsolate : parseOptionalBoolean(payload.isolate, 'stdin isolate') ?? true,
     };
   }
 
@@ -148,7 +137,6 @@ async function loadSnippetTask(command, args, io, cwd) {
     version: args.version,
     timeoutMs: cliTimeoutMs,
     filename: args['code-file'],
-    isolate: typeof cliIsolate === 'boolean' ? cliIsolate : true,
   };
 }
 
@@ -160,37 +148,35 @@ export async function runCli(argv, io = {}) {
   const command = args._[0];
 
   try {
+    if (args.help || command === 'help' || !command) {
+      writeJson(stdout, {
+        ok: true,
+        usage: usage(),
+      });
+      return 0;
+    }
+
     switch (command) {
-      case 'models': {
-        writeJson(stdout, {
-          ok: true,
-          models: listProfiles(),
-        });
-        return 0;
-      }
-      case 'contexts': {
-        if (!args.model) throw new Error('Missing required --model.');
-        writeJson(stdout, {
-          ok: true,
-          ...(await inspectRunJSContext({ model: args.model })),
-        });
-        return 0;
-      }
-      case 'validate':
-      case 'preview': {
-        const task = await loadSnippetTask(command, args, io, cwd);
-        const runner = command === 'preview' ? previewRunJSSnippet : validateRunJSSnippet;
-        const result = await runner(task);
+      case 'validate': {
+        const task = await loadValidateTask(args, io, cwd);
+        const result = await validateRunJSSnippet(task);
         writeJson(stdout, result);
         return result.ok ? 0 : 1;
       }
       case 'batch': {
+        if (args.help) {
+          writeJson(stdout, {
+            ok: true,
+            usage: usage(),
+          });
+          return 0;
+        }
         if (!args.input) throw new Error('Missing required --input.');
         const cliSkillMode = parseOptionalBoolean(args['skill-mode'], '--skill-mode');
         const inputPath = path.resolve(cwd, args.input);
         const input = JSON.parse(await fs.readFile(inputPath, 'utf8'));
         const result = await runBatch({
-          tasks: input.tasks || [],
+          tasks: input.tasks,
           cwd: path.dirname(inputPath),
           defaultSkillMode: typeof cliSkillMode === 'boolean' ? cliSkillMode : false,
         });

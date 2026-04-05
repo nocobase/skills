@@ -37,18 +37,6 @@ function createJsxElement(type, props, ...children) {
   };
 }
 
-function createPreviewState(mode) {
-  if (mode !== 'preview') return undefined;
-  return {
-    rendered: false,
-    html: '',
-    text: '',
-    renderCount: 0,
-    degraded: false,
-    fidelity: 'unsupported',
-  };
-}
-
 function normalizeExecutionIssue(error, described) {
   if (described?.enforceCtxQualifiedAccess && error?.name === 'ReferenceError') {
     const match = /^([A-Za-z_$][\w$]*) is not defined$/.exec(String(error.message || '').trim());
@@ -77,7 +65,6 @@ function createBaseResult({
   sideEffectAttempts = [],
   execution = {},
   usedContextPaths = [],
-  preview,
 }) {
   return {
     validatorType: VALIDATOR_TYPE,
@@ -92,7 +79,7 @@ function createBaseResult({
     logs,
     sideEffectAttempts,
     execution: {
-      mode: task.mode || 'validate',
+      mode: 'validate',
       model: described?.model || String(task.model || ''),
       executed: false,
       ...execution,
@@ -100,7 +87,6 @@ function createBaseResult({
     availableContextKeys: described?.availableContextKeys || [],
     topLevelAliases: described?.topLevelAliases || [],
     usedContextPaths,
-    preview,
   };
 }
 
@@ -110,6 +96,7 @@ export async function executeTaskLocal(task) {
     skillMode: Boolean(task.skillMode),
     networkMode: task?.network?.mode === 'live' ? 'live' : 'mock',
   };
+
   if (!profile) {
     return createBaseResult({
       task,
@@ -122,10 +109,7 @@ export async function executeTaskLocal(task) {
           message: `Unknown model "${task.model}".`,
         },
       ],
-      execution: {
-        ...executionMetadata,
-      },
-      preview: createPreviewState(task.mode),
+      execution: executionMetadata,
     });
   }
 
@@ -147,6 +131,7 @@ export async function executeTaskLocal(task) {
         ]
       : []),
   ]);
+
   if (hasError(syntaxIssues) || hasError(contextIssues) || hasError(policyIssues)) {
     return createBaseResult({
       task,
@@ -159,11 +144,10 @@ export async function executeTaskLocal(task) {
         ...executionMetadata,
       },
       usedContextPaths: usage.usedContextPaths,
-      preview: createPreviewState(task.mode),
     });
   }
 
-  const environment = createPreviewEnvironment(profile, task.mode || 'validate', task.context || {}, task.network, {
+  const environment = createPreviewEnvironment(profile, 'validate', task.context || {}, task.network, {
     skillMode: task.skillMode,
   });
   const executionContextIssues = [];
@@ -211,21 +195,6 @@ export async function executeTaskLocal(task) {
       timeout: task.timeoutMs || DEFAULT_TIMEOUT_MS,
     });
     environment.state.execution.returnValue = toSerializable(result);
-
-    if (
-      task.mode === 'preview' &&
-      !described.requireExplicitCtxRender &&
-      !environment.state.preview.rendered &&
-      typeof result !== 'undefined'
-    ) {
-      try {
-        await environment.ctx.render(result);
-      } catch (error) {
-        const issue = normalizeExecutionIssue(error, described);
-        if (issue.type === 'context') executionContextIssues.push(issue);
-        else environment.state.runtimeIssues.push(issue);
-      }
-    }
   } catch (error) {
     const issue = normalizeExecutionIssue(error, described);
     if (issue.type === 'context') executionContextIssues.push(issue);
@@ -238,18 +207,17 @@ export async function executeTaskLocal(task) {
     environment.state.runtimeIssues.push(normalizeRuntimeError(error));
     finalized = environment.state;
   }
-  const runtimeIssues = sortIssues(finalized.runtimeIssues);
+
   return createBaseResult({
     task,
     described,
     syntaxIssues,
     contextIssues: sortIssues([...contextIssues, ...executionContextIssues]),
     policyIssues,
-    runtimeIssues,
+    runtimeIssues: sortIssues(finalized.runtimeIssues),
     logs: finalized.logs,
     sideEffectAttempts: finalized.sideEffectAttempts,
     execution: finalized.execution,
     usedContextPaths: usage.usedContextPaths,
-    preview: task.mode === 'preview' ? finalized.preview : undefined,
   });
 }

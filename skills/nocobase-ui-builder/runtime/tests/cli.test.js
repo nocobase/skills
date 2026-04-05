@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PassThrough } from 'node:stream';
 import { runCli } from '../src/cli.js';
@@ -24,33 +27,17 @@ function createInputStream(text) {
   return stream;
 }
 
-test('models command prints supported profiles', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const exitCode = await runCli(['models'], {
-    cwd: process.cwd(),
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-  assert.equal(exitCode, 0);
-  const payload = JSON.parse(stdout.read());
-  assert.ok(payload.models.some((item) => item.model === 'JSBlockModel'));
-  assert.ok(payload.models.some((item) => item.model === 'ChartOptionModel'));
-  assert.ok(payload.models.some((item) => item.model === 'ChartEventsModel'));
-});
-
-test('contexts command prints root behaviors for one profile', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const exitCode = await runCli(['contexts', '--model', 'JSColumnModel'], {
-    cwd: process.cwd(),
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-  assert.equal(exitCode, 0);
-  const payload = JSON.parse(stdout.read());
-  assert.equal(payload.rootBehaviors.record, 'opaque');
-});
+function withTempJsonFile(payload) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nb-runjs-cli-'));
+  const filename = path.join(tempDir, 'input.json');
+  fs.writeFileSync(filename, JSON.stringify(payload, null, 2));
+  return {
+    filename,
+    cleanup() {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    },
+  };
+}
 
 test('validate command accepts stdin json payload', async () => {
   const stdout = createMemoryStream();
@@ -62,7 +49,6 @@ test('validate command accepts stdin json payload', async () => {
       context: {
         record: { nickname: 'Alice' },
       },
-      isolate: false,
     }),
   );
 
@@ -74,13 +60,15 @@ test('validate command accepts stdin json payload', async () => {
   });
 
   assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, true);
   assert.equal(payload.execution.executed, true);
   assert.ok(payload.usedContextPaths.includes('record.nickname'));
+  assert.equal('preview' in payload, false);
 });
 
-test('preview command fails stdin json payload without ctx.render on strict render model', async () => {
+test('validate command rejects strict render snippets without explicit ctx.render', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -90,11 +78,10 @@ test('preview command fails stdin json payload without ctx.render on strict rend
       context: {
         record: { nickname: 'Alice' },
       },
-      isolate: false,
     }),
   );
 
-  const exitCode = await runCli(['preview', '--stdin-json'], {
+  const exitCode = await runCli(['validate', '--stdin-json'], {
     cwd: process.cwd(),
     stdin,
     stdout: stdout.stream,
@@ -118,7 +105,6 @@ test('validate command blocks live network in skill mode', async () => {
         mode: 'live',
         allowHosts: ['example.com'],
       },
-      isolate: false,
     }),
   );
 
@@ -137,132 +123,77 @@ test('validate command blocks live network in skill mode', async () => {
   assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
 });
 
-test('validate command blocks live network in skill mode on default worker path', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const stdin = createInputStream(
-    JSON.stringify({
-      model: 'JSBlockModel',
-      code: "ctx.render(''); await ctx.request('https://example.com/api/users');",
-      network: {
-        mode: 'live',
-        allowHosts: ['example.com'],
-      },
-    }),
-  );
-
-  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
-    cwd: process.cwd(),
-    stdin,
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 1);
-  const payload = JSON.parse(stdout.read());
-  assert.equal(payload.ok, false);
-  assert.equal(payload.execution.executed, false);
-  assert.equal(payload.execution.skillMode, true);
-  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
-});
-
-test('preview command blocks live network configuration in skill mode before execution', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const stdin = createInputStream(
-    JSON.stringify({
-      model: 'JSBlockModel',
-      code: "ctx.render('Hello');",
-      network: {
-        mode: 'live',
-        allowHosts: ['example.com'],
-      },
-      isolate: false,
-    }),
-  );
-
-  const exitCode = await runCli(['preview', '--stdin-json', '--skill-mode'], {
-    cwd: process.cwd(),
-    stdin,
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 1);
-  const payload = JSON.parse(stdout.read());
-  assert.equal(payload.ok, false);
-  assert.equal(payload.execution.executed, false);
-  assert.equal(payload.execution.skillMode, true);
-  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
-});
-
-test('preview command blocks live network configuration in skill mode on default worker path', async () => {
-  const stdout = createMemoryStream();
-  const stderr = createMemoryStream();
-  const stdin = createInputStream(
-    JSON.stringify({
-      model: 'JSBlockModel',
-      code: "ctx.render('Hello');",
-      network: {
-        mode: 'live',
-        allowHosts: ['example.com'],
-      },
-    }),
-  );
-
-  const exitCode = await runCli(['preview', '--stdin-json', '--skill-mode'], {
-    cwd: process.cwd(),
-    stdin,
-    stdout: stdout.stream,
-    stderr: stderr.stream,
-  });
-
-  assert.equal(exitCode, 1);
-  const payload = JSON.parse(stdout.read());
-  assert.equal(payload.ok, false);
-  assert.equal(payload.execution.executed, false);
-  assert.equal(payload.execution.skillMode, true);
-  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
-});
-
-test('batch command resolves task file paths relative to the input file', async () => {
+test('batch command resolves task file paths relative to the input file and keeps task id', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const batchFixture = fileURLToPath(new URL('../fixtures/batch.json', import.meta.url));
-  const exitCode = await runCli(
-    ['batch', '--input', batchFixture],
-    {
-      cwd: process.cwd(),
-      stdout: stdout.stream,
-      stderr: stderr.stream,
-    },
-  );
+
+  const exitCode = await runCli(['batch', '--input', batchFixture], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
 
   assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, true);
   assert.equal(payload.summary.total, 1);
-  assert.equal(payload.results[0].preview.rendered, true);
+  assert.equal(payload.summary.passed, 1);
+  assert.equal(payload.results[0].id, 'block-validate');
+  assert.equal(payload.results[0].execution.executed, true);
+  assert.equal('preview' in payload.results[0], false);
 });
 
 test('batch command applies --skill-mode to tasks and counts blocked results', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const batchFixture = fileURLToPath(new URL('../fixtures/batch-skill-mode-blocked.json', import.meta.url));
-  const exitCode = await runCli(
-    ['batch', '--input', batchFixture, '--skill-mode'],
-    {
-      cwd: process.cwd(),
-      stdout: stdout.stream,
-      stderr: stderr.stream,
-    },
-  );
+
+  const exitCode = await runCli(['batch', '--input', batchFixture, '--skill-mode'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
 
   assert.equal(exitCode, 1);
+  assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
   assert.equal(payload.summary.total, 1);
   assert.equal(payload.summary.failed, 1);
   assert.equal(payload.summary.blocked, 1);
+  assert.equal(payload.results[0].id, 'skill-mode-live-network');
   assert.ok(payload.results[0].policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
+});
+
+test('batch command hard-fails invalid task mode', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const input = withTempJsonFile({
+    tasks: [
+      {
+        id: 'bad-mode',
+        mode: 'preview',
+        model: 'JSBlockModel',
+        code: "ctx.render('Hello');",
+      },
+    ],
+  });
+
+  try {
+    const exitCode = await runCli(['batch', '--input', input.filename], {
+      cwd: process.cwd(),
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    });
+
+    assert.equal(exitCode, 2);
+    assert.equal(stdout.read(), '');
+    const payload = JSON.parse(stderr.read());
+    assert.equal(payload.ok, false);
+    assert.match(payload.error, /Unsupported task mode "preview"/);
+  } finally {
+    input.cleanup();
+  }
 });

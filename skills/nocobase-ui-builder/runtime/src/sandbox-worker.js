@@ -2,16 +2,17 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { executeTaskLocal } from './core.js';
 import { createWorkerFailureResult } from './runner.js';
 
-const postResult = (payload) => {
-  parentPort?.postMessage(payload);
-};
+const keepAlive = setInterval(() => {}, 1000);
+
+function postResult(result) {
+  parentPort?.postMessage({ type: 'result', result });
+}
 
 try {
   const result = await executeTaskLocal(workerData);
-  postResult({ type: 'result', result });
+  postResult(result);
 } catch (error) {
-  postResult({
-    type: 'result',
-    result: createWorkerFailureResult(workerData, 'worker-failed', error?.message || String(error)),
-  });
+  postResult(createWorkerFailureResult(workerData, 'worker-failed', error?.message || String(error)));
+} finally {
+  clearInterval(keepAlive);
 }

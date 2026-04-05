@@ -8,12 +8,10 @@
 常用命令：
 
 ```bash
-node ./bin/nb-runjs.mjs models
-node ./bin/nb-runjs.mjs contexts --model JSBlockModel
 node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js
-node ./bin/nb-runjs.mjs preview --model JSBlockModel --code-file ./fixtures/js-block-code.js --context-file ./fixtures/js-block-context.json
 node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js --network-file ./fixtures/network-mock.json
-node ./bin/nb-runjs.mjs preview --model ChartOptionModel --stdin-json
+node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js --context-file ./fixtures/js-block-context.json
+node ./bin/nb-runjs.mjs validate --model ChartOptionModel --stdin-json
 node ./bin/nb-runjs.mjs validate --model ChartEventsModel --stdin-json
 node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 ```
@@ -38,8 +36,9 @@ node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 
 验证语义：
 
-- JSX 会在执行前做 compat lowering；是否能形成可视预览，取决于最终 `ctx.render(...)` 的值与当前 preview capabilities
+- 对外 CLI 只暴露 `validate` / `batch`；不再提供 public preview、`models`、`contexts` 命令
+- JSX 会在执行前做 compat lowering；strict render model 仍然要求显式 `ctx.render(...)`
 - 语法层使用 Node `vm.Script` 做基础语法门禁
 - 上下文层对 `ctx.*` / top-level alias 做静态契约检查，并对 strict render model 拒绝 bare compat access
 - 策略层静态阻断导航、写请求、`fetch`、动态代码生成等 side effect
-- 运行时层只提供最小 compat surface，用于验证“在约定环境下是否合法”
+- 运行时层只提供最小 compat surface，用于验证“在约定环境下是否合法”；结果只返回验证报告，不返回预览 payload

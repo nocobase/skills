@@ -1,5 +1,5 @@
 import { createCompatDayjs } from './compat-dayjs.js';
-import { READ_ONLY_HTTP_METHODS } from './constants.js';
+import { MAX_LOG_ENTRIES, READ_ONLY_HTTP_METHODS } from './constants.js';
 import {
   cloneSerializable,
   getByPath,
@@ -72,6 +72,18 @@ function throwBlockedSideEffect(state, name, detail = {}) {
 function createLogRecorder(state) {
   return {
     log(level, args) {
+      if (state.logs.length >= MAX_LOG_ENTRIES) {
+        if (!state.logOverflow) {
+          state.logOverflow = true;
+          pushRuntimeIssue(
+            state,
+            'log-output-truncated',
+            `Console output exceeded ${MAX_LOG_ENTRIES} entries; additional logs were omitted.`,
+            'warning',
+          );
+        }
+        return;
+      }
       state.logs.push({
         level,
         message: args
@@ -881,6 +893,7 @@ export function createTaskState(profile, mode) {
     profile,
     mode,
     logs: [],
+    logOverflow: false,
     runtimeIssues: [],
     sideEffectAttempts: [],
     preview: {

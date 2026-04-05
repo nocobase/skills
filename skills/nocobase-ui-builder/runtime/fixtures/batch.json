@@ -1,8 +1,7 @@
 {
   "tasks": [
     {
-      "id": "block-preview",
-      "mode": "preview",
+      "id": "block-validate",
       "model": "JSBlockModel",
       "codeFile": "./js-block-code.js",
       "contextFile": "./js-block-context.json"
