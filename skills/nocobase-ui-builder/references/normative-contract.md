@@ -28,7 +28,7 @@
 - 需要判断当前 target 是否真的支持创建某类 block / field / action
 - 需要依赖 live `configureOptions` / `settingsContract`
 - 需要判定 popup 内 `resourceBindings`，例如是否暴露 `currentRecord`
-- 需要为 JS / chart / relation popup / filterForm multi-target 等场景收敛 live capability
+- 需要为 JS / chart / association popup / filterForm multi-target 等场景收敛 live capability
 - 仅靠 `get` 无法确定容器公开能力、配置入口或语义 guard
 
 ### 何时可以跳过 `catalog`

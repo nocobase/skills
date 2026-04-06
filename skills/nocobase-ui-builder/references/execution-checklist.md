@@ -87,5 +87,5 @@
 
 - 遇到认证不足、schema 未刷新、capability / contract / guard 缺失、target 不唯一、validator 不可判定时，停止猜测写入；恢复动作统一看 [normative-contract.md](./normative-contract.md)。
 - ACL / 路由权限 / 角色权限 → `nocobase-acl-manage`
-- collection / relation / field schema authoring → `nocobase-data-modeling`
+- collection / association / field schema authoring → `nocobase-data-modeling`
 - workflow create / update / revision / execution path → `nocobase-workflow-manage`

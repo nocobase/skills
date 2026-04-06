@@ -24,7 +24,7 @@ description: 当用户要检查、创建、修改、重排或删除 NocoBase Mod
 - 不处理非 Modern page 的 desktop routes、工作台其它导航结构、浏览器 validation case 复现、页面报错复盘，以及 workflow / ACL / 数据建模细节。
 - 显式转交：
   - ACL / 路由权限 / 角色权限 → `nocobase-acl-manage`
-  - collection / relation / field schema authoring → `nocobase-data-modeling`
+  - collection / association / field schema authoring → `nocobase-data-modeling`
   - 消费现有 schema 做 UI resource binding → 保留在本 skill
   - workflow create / update / revision / execution path → `nocobase-workflow-manage`
 
@@ -52,10 +52,10 @@ description: 当用户要检查、创建、修改、重排或删除 NocoBase Mod
 - [execution-checklist.md](./references/execution-checklist.md)：默认执行入口；覆盖 preflight、intent、read/write path、risk gate、topic gate 与 stop/handoff。
 - [verification.md](./references/verification.md)：`inspect`、写后 `readback`、batch / high-impact / destructive 的验收标准。
 - [runtime-playbook.md](./references/runtime-playbook.md)：`target family`、locator、`pre-init ids`、write target 与 lifecycle 心智。
-- [capabilities.md](./references/capabilities.md)：block / form / action / field 选型，以及 display vs relation field 的默认设计。
+- [capabilities.md](./references/capabilities.md)：block / form / action / field 选型，以及 display vs association field 的默认设计。
 - [settings.md](./references/settings.md)：`add* + settings`、`configure`、`updateSettings` 的唯一选择规则。
 - [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、canonical payload，以及高风险 API 的请求形状。
-- [popup.md](./references/popup.md)：`currentRecord`、relation popup、`associatedRecords`、`openView` 与 popup opener 规则。
+- [popup.md](./references/popup.md)：`currentRecord`、association popup、`associatedRecords`、`openView` 与 popup opener 规则。
 - [chart.md](./references/chart.md)：chart 专题总入口与分流说明。
 - [chart-core.md](./references/chart-core.md)：chart 运行期搭建、重配、context 收敛与 readback 主链路。
 - [chart-validation.md](./references/chart-validation.md)：chart contract、负例与回归矩阵。

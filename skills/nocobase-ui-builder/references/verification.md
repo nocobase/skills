@@ -67,9 +67,9 @@
 - 页面 / `outer-tab`：page route/tab route 存在且顺序正确；如果现场可见，`pageRoute.options.flowSurfacePageInitialized = true`；新增 tab 补齐对应 grid anchor。
 - `popup-tab`：popup page 仍存在，tab 数量与顺序正确，`tree.use = ChildPageTabModel`，新增 tab 补齐对应 grid anchor。
 - popup subtree：确认 `popupPageUid/popupTabUid/popupGridUid` 挂在正确位置；如果本次目标只是 `shell-only popup`，这里最多记为 `structural-confirmed`；如果场景是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell，且若现场能看到 resource binding，再额外确认 `details/editForm` 绑定的是 `currentRecord`，才能记为 `semantic-confirmed`。
-- 结构 / 字段 / 配置：`tree/nodeMap` 能找到新增节点；table 的 `actionsColumnUid` 存在；record popup 的 `details/editForm/submit` 真正出现；字段定位到 `wrapperUid/fieldUid/innerFieldUid`；`flowRegistry`、layout、关系字段 `clickToOpen/openView` 已落盘。
+- 结构 / 字段 / 配置：`tree/nodeMap` 能找到新增节点；table 的 `actionsColumnUid` 存在；record popup 的 `details/editForm/submit` 真正出现；字段定位到 `wrapperUid/fieldUid/innerFieldUid`；`flowRegistry`、layout、association field `clickToOpen/openView` 已落盘。
 - `setLayout`：`rows/sizes/rowOrder` 完整匹配预期，且 child 覆盖与列宽数量一致；不要只看单个 child 是否还在。
 - `setEventFlows`：最终 flow 集合必须完整匹配预期，不残留旧 flow，也不丢失本次目标范围内应保留的绑定。
-- 直接 to-many relation display field：如果用户加的是 `users.roles` 这类 details/list/gridCard 字段，读回时确认它没有退化成 sub-table 类 use；必要时继续确认 `fieldSettings.init.fieldPath` 已归一到关系字段本身（例如 `roles` 而不是 `roles.title`）且 `titleField` 落盘。
+- 直接 to-many association display field：如果用户加的是 `users.roles` 这类 details/list/gridCard 字段，读回时确认它没有退化成 sub-table 类 use；必要时继续确认 `fieldSettings.init.fieldPath` 已归一到 association field 本身（例如 `roles` 而不是 `roles.title`）且 `titleField` 落盘。
 - `filterForm` 接线：不要只看 `addField` 返回值，也不要只看 filter field 自身是否存在；多目标场景下，推荐把父级内容容器读回里的 `filterManager` 当成常用成功信号，并在现场可见时一并核对字段级 target 绑定信息（例如 `defaultTargetUid`）是否符合预期。
 - RunJS：除了 UI 结构读回，还要确认最终落盘 `code` 与通过 validator gate 的代码完全一致。

@@ -15,7 +15,7 @@
 
 1. 先判断用户要的是 block、form、action 还是 field。
 2. 再按容器与 scope 收敛：`table/details/list/gridCard/filterForm/actionPanel/form/createForm/editForm`。
-3. 最后才看 JS、关系叶子字段、`openView`、layout 等专题配置。
+3. 最后才看 JS、association leaf field、`openView`、layout 等专题配置。
 
 下文中的 block / action 能力都是常见值，不是穷尽列表；最终以 live `catalog` 为准。
 
@@ -44,7 +44,7 @@
 
 ### 高频 block 提醒
 
-- `table`：读回重点是 `actionsColumnUid`、字段 uid、关系字段 `clickToOpen/openView`。
+- `table`：读回重点是 `actionsColumnUid`、字段 uid、association field `clickToOpen/openView`。
 - `details`：查看场景优先它，不要用 `editForm` 或 `form` 伪装详情页。
 - `filterForm`：它是通用数据筛选输入区块，不是 chart 专属能力；多目标时优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`。
 - block / field / action 的公开属性如何内联进 `settings`，统一看 [settings.md](./settings.md)。
@@ -138,12 +138,12 @@
 - `fixed` 只在 table column / action column / `jsColumn` 这类列语义里常见；不要把它当成所有 field wrapper 的通用设置。
 - 常见 field 配置：`titleField`、`clickToOpen`、`openView`、`allowClear`、`multiple`。
 
-### 关系叶子字段
+### association leaf field
 
 - 典型 `fieldPath`：`roles.title`、`department.name`。
-- 用户说“显示部门名 / 角色标题”时，优先映射到关系叶子字段，而不是只放关联 id。
-- to-many 关系叶子字段在 display 场景允许使用；常见下一步是 `clickToOpen = true` 和 `openView`。
-- 在 `details/list/gridCard` 里，直接 to-many relation 字段（例如 `users.roles`）默认也按这套 display 语义处理：应归一到目标表 `titleField` 的文本展示，而不是默认子表格。`roles` 与 `roles.title` 这类输入，如果 live `catalog` 已收敛成同一条 display field，就按 display field 处理；只有用户明确要求子表格/关联明细区块时，才改走 block 级方案。
+- 用户说“显示部门名 / 角色标题”时，优先映射到 association leaf field，而不是只放关联 id。
+- to-many association leaf field 在 display 场景允许使用；常见下一步是 `clickToOpen = true` 和 `openView`。
+- 在 `details/list/gridCard` 里，直接 to-many association 字段（例如 `users.roles`）默认也按这套 display 语义处理：应归一到目标表 `titleField` 的文本展示，而不是默认子表格。`roles` 与 `roles.title` 这类输入，如果 live `catalog` 已收敛成同一条 display field，就按 display field 处理；只有用户明确要求子表格/关联明细区块时，才改走 block 级方案。
 
 ### `filterForm` 特殊点
 
@@ -153,4 +153,4 @@
 
 ### 读回定位
 
-大多数精确改配都要区分 `wrapperUid`、`fieldUid`、`innerFieldUid`；关系字段加 popup/openView、或对字段做更细粒度配置时，通常需要其中一个具体 uid。
+大多数精确改配都要区分 `wrapperUid`、`fieldUid`、`innerFieldUid`；association field 加 popup/openView、或对字段做更细粒度配置时，通常需要其中一个具体 uid。
