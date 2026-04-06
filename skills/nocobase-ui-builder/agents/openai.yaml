@@ -1,6 +1,6 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "检查和搭建 NocoBase Modern page (v2) UI"
+  short_description: "Inspect and build NocoBase Modern page (v2) UI"
   default_prompt: "Use $nocobase-ui-builder to inspect or edit NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block/field/action surfaces. Treat inspect as read-only by default."
 
 dependencies:

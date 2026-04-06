@@ -1,96 +1,96 @@
 # Execution Checklist
 
-执行时默认按这份清单走；只有命中特定 contract 时，才继续打开对应专题 reference。`catalog`、popup shell fallback、schema drift / recovery 的跨专题规则统一看 [normative-contract.md](./normative-contract.md)。
+Use this checklist by default during execution. Only open a topic reference when a specific contract is actually hit. For cross-topic rules around `catalog`, popup shell fallback, and schema drift / recovery, see [normative-contract.md](./normative-contract.md).
 
 ## 1. Preflight
 
-- 写入前先确认 NocoBase MCP 可达、已认证、schema 可用。
-- `inspect` 默认只读；只有用户明确要求创建、修改、重排、删除或修复时才进入写流程。
-- 如果现场已经出现认证错误、关键 tool 缺失、schema 未刷新或 capability gap，先停止写入；恢复动作统一看 [normative-contract.md](./normative-contract.md)。
+- Before any write, confirm that the NocoBase MCP is reachable, authenticated, and the schema is usable.
+- `inspect` is read-only by default. Only enter a write flow when the user explicitly asks to create, modify, reorder, delete, or fix something.
+- If the live environment already shows an auth error, a missing critical tool, a stale schema, or a capability gap, stop writing first. For recovery, see [normative-contract.md](./normative-contract.md).
 
 ## 2. Choose Intent
 
-- 先判主意图：`inspect`、`create-menu-group`、`create-page`、`update-ui`、`move-menu`、`reorder`、`delete-ui`。
-- 只有真的命中 `popup`、`chart`、`js` 时才追加专题 gate。
-- 如果需求涉及 `title` / `icon`，先记下它是“改菜单入口、页面 header 标题、页面 header 图标，还是 tab/popup tab”的问题；不要因为已经拿到了 page/tab locator，就直接跳到某个 lifecycle API。
+- First decide the primary intent: `inspect`, `create-menu-group`, `create-page`, `update-ui`, `move-menu`, `reorder`, or `delete-ui`.
+- Only add a topic gate when the task truly hits `popup`, `chart`, or `js`.
+- If the request involves `title` / `icon`, first identify whether it means the menu entry, the page header title, the page header icon, or a tab / popup tab. Do not jump straight to a lifecycle API just because you already have a page/tab locator.
 
-默认路径速查：
+Default path quick reference:
 
-| intent | 默认主路径 | 最小读回 |
+| intent | Default primary path | Minimum readback |
 | --- | --- | --- |
-| `inspect` | 菜单标题先读菜单树；已初始化 surface 先 `get`；是否追加 `catalog` 按 [normative-contract.md](./normative-contract.md) | [verification.md](./verification.md) 的 `Inspect` |
-| `create-menu-group` | `createMenu(type="group")`；需要挂到指定父级时补 `parentMenuRouteId` | 返回值；必要时菜单树 |
+| `inspect` | For menu titles, read the menu tree first. For initialized surfaces, start with `get`. Decide whether to append `catalog` via [normative-contract.md](./normative-contract.md). | `Inspect` in [verification.md](./verification.md) |
+| `create-menu-group` | `createMenu(type="group")`; add `parentMenuRouteId` when it must attach under a specific parent | return value; menu tree if needed |
 | `create-page` | `createMenu(type="item") -> createPage(menuRouteId=...)` | `get({ pageSchemaUid })` |
-| `update-ui` | 先做 title/icon 可见位置判别；再走 `get -> [按 normative contract 判断是否追加 catalog] ->` 菜单入口优先 `updateMenu`，tab / popup tab 才走 `updateTab` / `updatePopupTab`，page header title 才考虑 page configure，page header icon 先查渲染链；其余优先 `compose/add*`，再考虑 `configure/updateSettings` | 直接父级、直接 target，或对应 lifecycle target |
-| `move-menu` | 已知 `menuRouteId` 时直接 `updateMenu(parentMenuRouteId=...)`；只有菜单标题时先读菜单树 | 菜单树 |
-| `reorder` | `get` 收敛 sibling / target 后，走 `moveTab` / `movePopupTab` / `moveNode` | 父级、page 或 route/tree |
-| `delete-ui` | `get` / 菜单树明确目标与影响范围后，走 `destroyPage` / `removeTab` / `removePopupTab` / `removeNode` | destructive / high-impact readback |
+| `update-ui` | First resolve the visible title/icon slot. Then use `get -> [append catalog if required by normative contract] ->`. Prefer `updateMenu` for menu entries, `updateTab` / `updatePopupTab` only for tab / popup-tab semantics, page `configure` only for page-header title, and inspect the render chain first for page-header icon. For everything else, prefer `compose/add*`, then consider `configure/updateSettings`. | direct parent, direct target, or the corresponding lifecycle target |
+| `move-menu` | If `menuRouteId` is already known, call `updateMenu(parentMenuRouteId=...)` directly. If you only have a menu title, read the menu tree first. | menu tree |
+| `reorder` | Narrow sibling / target via `get`, then use `moveTab`, `movePopupTab`, or `moveNode` | parent, page, or route/tree |
+| `delete-ui` | After `get` / menu tree makes the target and blast radius explicit, use `destroyPage`, `removeTab`, `removePopupTab`, or `removeNode` | destructive / high-impact readback |
 
-## 3. Resolve Visible Slot（title / icon only）
+## 3. Resolve Visible Slot (`title` / `icon` only)
 
-- 当自然语言涉及 `页面标题`、`菜单标题`、`tab 标题`、`图标`、`小图标` 这类高频词时，先判断用户说的是哪个**可见位置**：左侧菜单、页面内容区 header、外层 tab，还是 popup tab。
-- 默认猜测顺序统一按 [aliases.md](./aliases.md)：先看位置线索，再看对象名，最后才用 route-backed page 的默认入口语义。
-- 只说 `页面标题` / `页面图标` 且没有位置线索时，默认按**菜单入口**处理，不要直接默认到 `updateTab`。
-- 如果最后是默认猜测而不是用户显式点名，在真正写入前，先在 commentary 里明确一句“将修改的是左侧菜单项 / 页面 header / 外层 tab / popup tab”。
-- 如果语义落到 page header title，可以继续走 page configure。
-- 如果语义落到 page header icon，先确认当前 header 是否真的消费对应属性；没有渲染就不要把它宣传成菜单图标或 tab 图标，也不要把它当成默认可见路径。
+- When the natural language uses frequent terms like `page title`, `menu title`, `tab title`, `icon`, or `small icon`, first resolve which visible slot the user actually means: the left menu, the page content header, the outer tab, or the popup tab.
+- Use the default guess order from [aliases.md](./aliases.md): look for position clues first, then object name, and only then fall back to the default entry semantics of a route-backed page.
+- If the user only says `page title` / `page icon` with no position clue, default to the menu entry. Do not default directly to `updateTab`.
+- If the final target is a default guess rather than an explicit user designation, state it in commentary before writing: "this will modify the left menu item / page header / outer tab / popup tab".
+- If the semantics land on the page-header title, continue with page `configure`.
+- If the semantics land on the page-header icon, first confirm that the current header actually consumes the relevant property. If there is no rendering path, do not market it as a menu icon or tab icon, and do not treat it as the default visible path.
 
 ## 4. Resolve Family / Locator
 
-- 菜单标题发现统一先走 `desktop_routes_list_accessible(tree=true)`；它只代表当前角色可见菜单树，不是系统全量真相；只接受唯一命中的 `group`。
-- 已初始化 surface 默认先 `flow_surfaces_get`；根据现场定位字段选择 `uid`、`pageSchemaUid`、`tabSchemaUid`、`routeId`。
-- family / locator / write target 的映射统一看 [runtime-playbook.md](./runtime-playbook.md)。
-- target 仍然不唯一时停止，不猜 sibling 相对位置。
+- For menu-title discovery, always start with `desktop_routes_list_accessible(tree=true)`. It only represents the menu tree visible to the current role, not the full system truth. Only accept a uniquely matched `group`.
+- For initialized surfaces, default to `flow_surfaces_get` first. Choose `uid`, `pageSchemaUid`, `tabSchemaUid`, or `routeId` based on the live locator fields.
+- For mappings between family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md).
+- If the target is still not unique, stop. Do not guess based on sibling-relative position.
 
 ## 5. Choose Capability / Config Path
 
-- 不确定该选 block / action / field 时，看 [capabilities.md](./capabilities.md)。
-- 需要判断 `settings`、`configure(changes)`、`updateSettings` 的取舍时，看 [settings.md](./settings.md)。
-- 自然语言有高歧义时，看 [aliases.md](./aliases.md) 先收敛对象语义。
+- If you are unsure whether to choose a block, action, or field, see [capabilities.md](./capabilities.md).
+- If you need to choose between `settings`, `configure(changes)`, and `updateSettings`, see [settings.md](./settings.md).
+- If the natural language is highly ambiguous, use [aliases.md](./aliases.md) to narrow the object semantics first.
 
 ## 6. Read Path
 
-- 已有 surface 默认先 `get`；是否追加 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断。
-- 命中 popup guard-sensitive 场景时，走 [popup.md](./popup.md) 的 `guard-first popup flow`；`addField/addFields` 的 gate 统一看 [capabilities.md](./capabilities.md)。
-- `inspect` 只读；`get` / `catalog` / `context` 的请求形状统一看 [tool-shapes.md](./tool-shapes.md)。
+- For an existing surface, default to `get` first. Whether to append `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
+- For popup guard-sensitive scenarios, follow the `guard-first popup flow` in [popup.md](./popup.md). For the `addField/addFields` gate, see [capabilities.md](./capabilities.md).
+- `inspect` is read-only. For request shapes of `get` / `catalog` / `context`, see [tool-shapes.md](./tool-shapes.md).
 
 ## 7. Write Path
 
-- 默认写链：`get -> [按 normative contract 决定是否追加 catalog] -> write -> readback`。
-- 只创建菜单分组时，直接走 `createMenu(type="group")`。
-- 新建页面默认菜单优先：`createMenu(type="item") -> createPage(menuRouteId=...)`。
-- 命中 `title/icon` 元数据改动时：左侧菜单入口优先 `updateMenu`；只有显式 tab 语义才走 `updateTab` / `updatePopupTab`；page header title 才考虑 page configure；page header icon 先查渲染链，不默认承诺可见效果。
-- 已有 target 优先 `compose/add*`，再考虑 `configure/updateSettings`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
-- popup payload 形状与 `popup.mode` 统一看 [tool-shapes.md](./tool-shapes.md)。
-- guard-sensitive popup 统一走 [popup.md](./popup.md) 的 `guard-first popup flow`。
-- 命中 `setLayout` 时，先把自然语言翻译成 `row -> columns -> items` 三层语义，再写 payload：
-  - “同一行 / 左右分栏 / 并排” = 同一个 `rowKey` 下多个 column cell，例如 `[[left], [right]]`
-  - “同一列里上下堆叠” = 同一个 column cell 里多个 item，例如 `[[top, bottom]]`
-  - “上下两行” = 不同 `rowKey`，例如 `row1=[[top]]`、`row2=[[bottom]]`
-  - `sizes[rowKey]` 必须是 `number[]` 一维数组，长度必须等于该行列数；不要写成 `[[8,16]]`
-- 具体操作对应的最小读回目标，统一对照 [verification.md](./verification.md) 的 `操作 -> 最小读回目标`。
+- Default write chain: `get -> [append catalog if required by normative contract] -> write -> readback`.
+- If you are only creating a menu group, call `createMenu(type="group")` directly.
+- For creating a new page, prefer the menu-first path by default: `createMenu(type="item") -> createPage(menuRouteId=...)`.
+- For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.
+- For an existing target, prefer `compose/add*`, then consider `configure/updateSettings`. Only the immediate next target uid that was just returned by a write API may skip one leading `get`.
+- For popup payload shapes and `popup.mode`, see [tool-shapes.md](./tool-shapes.md).
+- For guard-sensitive popups, always follow the `guard-first popup flow` in [popup.md](./popup.md).
+- When the operation hits `setLayout`, first translate the natural language into the three-level semantics `row -> columns -> items` before writing the payload:
+  - "same row / side by side / left-right split" = multiple column cells under the same `rowKey`, for example `[[left], [right]]`
+  - "stacked vertically in the same column" = multiple items inside the same column cell, for example `[[top, bottom]]`
+  - "two rows vertically" = different `rowKey` values, for example `row1=[[top]]`, `row2=[[bottom]]`
+  - `sizes[rowKey]` must be a one-dimensional `number[]`, and its length must equal the number of columns in that row. Do not write `[[8,16]]`
+- For the minimum readback target per operation, use `Operation -> Minimum readback target` in [verification.md](./verification.md).
 
 ## 8. Risk Gate
 
-- `add*` 与 `compose(mode != "replace")` = append-like；`configure/updateSettings` = merge-like。
-- `setLayout/setEventFlows` = high-impact full-replace。
-- `destroyPage/remove*`、`apply(mode="replace")`、`compose(mode="replace")`、replace-style `mutate` = destructive。
-- high-impact / destructive 都先说明影响范围；用户不是在要求整体替换时，不要默认走这些路径。
+- `add*` and `compose(mode != "replace")` are append-like. `configure/updateSettings` are merge-like.
+- `setLayout/setEventFlows` are high-impact full-replace operations.
+- `destroyPage/remove*`, `apply(mode="replace")`, `compose(mode="replace")`, and replace-style `mutate` are destructive.
+- For high-impact or destructive paths, explain the blast radius first. Do not default to these paths unless the user is explicitly asking for a full replacement.
 
 ## 9. Topic Gate
 
-- `popup`：先看 [popup.md](./popup.md)；需要精确 payload 时再看 [tool-shapes.md](./tool-shapes.md)。
-- `chart`：先看 [chart.md](./chart.md)，再按需进入 `chart-core` / `chart-validation`。
-- `js`：看 [js.md](./js.md)；任何 JS 写入都必须先走本地 validator gate，CLI 入口看 [runjs-runtime.md](./runjs-runtime.md)。
+- `popup`: read [popup.md](./popup.md) first. For exact payloads, then read [tool-shapes.md](./tool-shapes.md).
+- `chart`: read [chart.md](./chart.md) first, then enter `chart-core` / `chart-validation` as needed.
+- `js`: read [js.md](./js.md). Any JS write must pass the local validator gate first. For the CLI entry, see [runjs-runtime.md](./runjs-runtime.md).
 
 ## 10. Retry / Batch Failure
 
-- 服务端 contract / validation error 若指向 schema drift / capability gap，按 [normative-contract.md](./normative-contract.md) 收口；当前不定义抽象 `refresh -> retry` 链路。
-- 批量写任一子项失败即停；分别报告成功项 / 失败项，不自动 rollback，不继续依赖“全部成功”的后续写入；写后验收看 [verification.md](./verification.md)。
+- If a server contract / validation error points to schema drift or a capability gap, close the loop through [normative-contract.md](./normative-contract.md). This skill does not define an abstract `refresh -> retry` chain.
+- If any child item in a batch write fails, stop immediately. Report successes and failures separately, do not auto-rollback, and do not continue with downstream writes that depend on "all succeeded". For post-write acceptance, see [verification.md](./verification.md).
 
 ## 11. Stop / Handoff
 
-- 遇到认证不足、schema 未刷新、capability / contract / guard 缺失、target 不唯一、validator 不可判定时，停止猜测写入；恢复动作统一看 [normative-contract.md](./normative-contract.md)。
-- ACL / 路由权限 / 角色权限 → `nocobase-acl-manage`
-- collection / association / field schema authoring → `nocobase-data-modeling`
-- workflow create / update / revision / execution path → `nocobase-workflow-manage`
+- If you hit insufficient auth, a stale schema, a missing capability / contract / guard, a non-unique target, or an undecidable validator result, stop guessing writes. For recovery, see [normative-contract.md](./normative-contract.md).
+- ACL / route permissions / role permissions -> `nocobase-acl-manage`
+- collection / association / field schema authoring -> `nocobase-data-modeling`
+- workflow create / update / revision / execution path -> `nocobase-workflow-manage`

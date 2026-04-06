@@ -1,110 +1,110 @@
 # Normative Contract
 
-本页是 `nocobase-ui-builder` 的**唯一规范真相**。涉及 `catalog`、popup shell fallback、schema drift / recovery 的规则，只在这里定义一次；其它文档只引用，不再重复定义。
+This page is the single source of truth for `nocobase-ui-builder`. Rules involving `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
 
 ## 1. Precedence
 
-规则优先级统一如下：
+Rule precedence is always:
 
-1. live MCP schema / 现场 `get` / `catalog` / `context` / `readback`
-2. 本页 `Normative Contract`
-3. topic references（`popup` / `settings` / `verification` / `runtime-playbook` 等）
-4. 示例 payload / 经验性说明
+1. live MCP schema / live `get` / `catalog` / `context` / `readback`
+2. this `Normative Contract`
+3. topic references (`popup` / `settings` / `verification` / `runtime-playbook`, etc.)
+4. example payloads / heuristic explanations
 
-如果低优先级文档与高优先级现场事实冲突，以高优先级为准。
+If a lower-priority document conflicts with a higher-priority live fact, follow the higher-priority source.
 
 ## 2. Catalog Contract
 
-### 默认原则
+### Default Principles
 
-- `catalog` **不是全局必读**。
-- 已有 surface 默认先 `get`；只有命中特定 contract 时，才追加 `catalog`。
-- 生命周期 API、固定 payload shape、以及不依赖 live capability 的简单写入，不要因为习惯而机械补一次 `catalog`。
+- `catalog` is not globally mandatory.
+- For an existing surface, default to `get` first. Only append `catalog` when a specific contract requires it.
+- For lifecycle APIs, fixed payload shapes, and simple writes that do not depend on live capability, do not mechanically add `catalog` out of habit.
 
-### 何时必须读 `catalog`
+### When You Must Read `catalog`
 
-出现以下任一情况时，必须先读 `catalog(target)`：
+You must read `catalog(target)` first when any of the following is true:
 
-- 需要判断当前 target 是否真的支持创建某类 block / field / action
-- 需要依赖 live `configureOptions` / `settingsContract`
-- 需要判定 popup 内 `resourceBindings`，例如是否暴露 `currentRecord`
-- 需要为 JS / chart / association popup / filterForm multi-target 等场景收敛 live capability
-- 仅靠 `get` 无法确定容器公开能力、配置入口或语义 guard
+- You need to decide whether the current target truly supports creating a certain block / field / action type.
+- You need live `configureOptions` / `settingsContract`.
+- You need to inspect popup `resourceBindings`, for example whether `currentRecord` is exposed.
+- You need to narrow live capability for JS / chart / association-popup / filterForm multi-target scenarios.
+- `get` alone cannot determine the container's public capability, configuration entry, or semantic guard.
 
-### 何时可以跳过 `catalog`
+### When You Can Skip `catalog`
 
-以下情况通常可以不读 `catalog`：
+You can usually skip `catalog` in the following cases:
 
-- 纯 `inspect`，且 `get` / 菜单树已经足够回答用户问题
-- `createMenu` / `updateMenu` / `createPage` / `moveTab` / `removeTab` 这类 lifecycle API，且 payload 不依赖 live capability
-- 已明确 target、且本次只是执行固定形状的小型 lifecycle 变更
+- Pure `inspect`, where `get` / menu-tree data is already enough to answer the user.
+- Lifecycle APIs such as `createMenu`, `updateMenu`, `createPage`, `moveTab`, or `removeTab`, when the payload does not depend on live capability.
+- The target is already explicit, and this write is only a small lifecycle change with a fixed shape.
 
-### 输出与措辞要求
+### Output and Phrasing Requirements
 
-- 不要把“没读 `catalog`”说成“能力已确认”。
-- 如果因为没有读 `catalog` 而只能确认结构，结果表述必须停留在结构层，不要提升为语义确认。
+- Do not describe "did not read `catalog`" as "capability confirmed".
+- If skipping `catalog` means you can only confirm structure, keep the result phrased at the structural level. Do not escalate it to semantic confirmation.
 
 ## 3. Popup Shell Fallback Contract
 
-### 术语
+### Terms
 
-- `shell-only popup`：只创建 opener / popup subtree，本次**不**补 `details`、`editForm`、`submit` 等内容。
-- `completed popup`：本次既创建 opener，也完成用户所要求的 popup 内容语义。
+- `shell-only popup`: only create the opener / popup subtree. Do not add `details`, `editForm`, `submit`, or similar content in this run.
+- `completed popup`: this run creates the opener and also completes the popup content semantics requested by the user.
 
-### 允许条件
+### Allowed Conditions
 
-只有在用户意图明确是“先建入口 / 按钮 / 壳子 / popup shell”，而**不是**要求完成内容时，才允许 `shell-only popup`。
+`shell-only popup` is only allowed when the user intent is explicitly "create the entry / button / shell / popup shell first", and not "complete the content".
 
-典型允许表达：
+Typical allowed phrasings:
 
-- “先加一个弹窗按钮”
-- “先把 popup 入口建出来”
-- “先只做壳子，内容后面再配”
+- "Add a popup button first"
+- "Create the popup entry first"
+- "Build only the shell first; content will be configured later"
 
-### 禁止条件
+### Forbidden Conditions
 
-以下情况**禁止**退化成 `shell-only popup`：
+You must not degrade to `shell-only popup` in the following cases:
 
-- 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”
-- 用户明确要求 `details`、`editForm`、`submit`、record popup 内容
-- 场景语义已经是“完成一个可用 popup”，只是 live guard / binding 不满足
+- The user asks to "view the current record / edit the current record / this record / this row".
+- The user explicitly asks for `details`, `editForm`, `submit`, or record-popup content.
+- The scenario semantics are already "complete a usable popup", but the live guard / binding is not satisfied.
 
-遇到这些场景时，要么完成用户要求的 popup 内容，要么停止并报告 guard / capability gap；不要静默降级成空壳。
+In these cases, either complete the popup content the user asked for, or stop and report the guard / capability gap. Do not silently degrade to an empty shell.
 
-### 输出与验收要求
+### Output and Acceptance Requirements
 
-- `shell-only popup` 只能表述为“已创建入口 / popup shell”，不能表述为“popup 已完成”。
-- `shell-only popup` 的成功等级最多是 `structural-confirmed`，不是 `semantic-confirmed`。
+- A `shell-only popup` may only be described as "entry / popup shell created". It must not be described as "popup completed".
+- The maximum success level for `shell-only popup` is `structural-confirmed`, not `semantic-confirmed`.
 
 ## 4. Schema Drift / Recovery Contract
 
-### 触发信号
+### Trigger Signals
 
-以下情况按 schema drift / recovery 处理：
+Treat the following as schema drift / recovery situations:
 
-- MCP 不可达或未认证
-- 关键 tool 缺失
-- schema 未刷新
-- live capability / contract / guard 与本地文档不一致
-- 服务端 validation error 暗示当前 payload shape 与现场 schema 漂移
+- MCP is unreachable or unauthenticated.
+- A critical tool is missing.
+- The schema is stale.
+- The live capability / contract / guard disagrees with local docs.
+- A server validation error suggests that the current payload shape drifted away from the live schema.
 
-### 统一处理
+### Unified Handling
 
-- 遇到上述信号时，停止猜测写入。
-- 当前 skill **不定义**抽象 `refresh -> retry` 自动链路。
-- 当前 skill **不允许** agent 在没有标准化工具的前提下，自行执行所谓 schema refresh。
+- When any of the signals above appears, stop guessing writes.
+- This skill does not define an abstract automatic `refresh -> retry` chain.
+- This skill does not allow the agent to perform an ad hoc schema refresh without a standardized tool.
 
-### 当前允许的恢复动作
+### Allowed Recovery Actions
 
-只能给出以下恢复建议：
+Only the following recovery suggestions are allowed:
 
-- 刷新当前 MCP 连接
-- 重新认证当前 NocoBase MCP
-- 走 `nocobase-mcp-setup`
+- refresh the current MCP connection
+- re-authenticate the current NocoBase MCP
+- use `nocobase-mcp-setup`
 
-用户完成外部恢复后，再从读链重新开始（通常从 `get`，必要时再补 `catalog`）。
+After the user completes the external recovery, restart from the read path again, usually from `get`, and append `catalog` only if required.
 
-### 明确禁止
+### Explicitly Forbidden
 
-- 不要在文档里继续写 `refresh/get/catalog/context -> 重算 payload -> 重试`
-- 不要把“抽象 refresh”描述成当前 agent 已有的可执行能力
+- Do not keep writing `refresh/get/catalog/context -> recompute payload -> retry` into the docs.
+- Do not describe "abstract refresh" as an executable capability that the current agent already has.

@@ -1,38 +1,38 @@
 # Tool Shapes
 
-当 family、locator 与 target uid 都已经确定，只差“这个 MCP 请求怎么包”时，读本文。family / locator 先看 [runtime-playbook.md](./runtime-playbook.md)，`settings` 的公开语义规则看 [settings.md](./settings.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，写后核对看 [verification.md](./verification.md)。
+Read this file when family, locator, and target uid are already known, and the only remaining question is how to wrap the MCP request. For family / locator, see [runtime-playbook.md](./runtime-playbook.md). For the public-semantic rules of `settings`, see [settings.md](./settings.md). For popup semantics and `currentRecord`, see [popup.md](./popup.md). For post-write verification, see [verification.md](./verification.md).
 
-## 目录
+## Contents
 
-1. 一屏硬规则
-2. 根级 locator `get`
-3. `requestBody` 但不带 `target`
+1. One-screen hard rules
+2. Root-level locator `get`
+3. `requestBody` without `target`
 4. target-based `requestBody.target.uid`
-5. `context` canonical payload
-6. `setLayout` canonical payload
+5. Canonical payload for `context`
+6. Canonical payload for `setLayout`
 7. `apply` / `mutate`
-8. 常见错误形状
+8. Common invalid shapes
 
-## 一屏硬规则
+## One-Screen Hard Rules
 
-- `flow_surfaces_get` 只接受 `uid`、`pageSchemaUid`、`tabSchemaUid`、`routeId`
-- `get` 不接受 `requestBody`，也不接受 `target`
-- family / locator 没确定前，不要直接拼 payload，先回 [runtime-playbook.md](./runtime-playbook.md)
-- 除 `pageSchemaUid/tabSchemaUid/routeId` 外，其他 id 读取时都默认写进 `uid`
-- 大多数写接口都要包 `requestBody`；其中很多再在 `requestBody` 内放 `target.uid`
-- `createMenu`、`updateMenu`、`createPage` 都是 lifecycle API，不接受 `target`
-- `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只在用户明确接受 standalone / compat page 副作用时允许
-- 在当前实现中，`tabSchemaUid` 既可作为 `outer-tab` 的 `get` locator，也可直接作为其写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
-- `setLayout` 与 `setEventFlows` 是 high-impact full-replace API；先读完整当前状态，再决定是否写入
-- popup-capable payload 的 canonical shape 统一在本文；`popup.mode` 必须显式写。inline 新 subtree 通常用 `replace`，明确追加时才用 `append`
-- popup 内依赖 `resourceBindings` 判定的语义资源，不走 one-shot inline popup；统一回 [popup.md](./popup.md) 的 `guard-first popup flow`
-- popup 内 block 的语义资源绑定统一走对象型 `resource`；`currentCollection`、`currentRecord`、`associatedRecords`、`otherRecords` 都不是字符串速记
+- `flow_surfaces_get` only accepts `uid`, `pageSchemaUid`, `tabSchemaUid`, and `routeId`
+- `get` accepts neither `requestBody` nor `target`
+- If family / locator is not resolved yet, do not assemble the payload directly. Go back to [runtime-playbook.md](./runtime-playbook.md) first
+- Other than `pageSchemaUid/tabSchemaUid/routeId`, all other ids should default into `uid` for reads
+- Most write APIs require a `requestBody`; many of them then place `target.uid` inside `requestBody`
+- `createMenu`, `updateMenu`, and `createPage` are lifecycle APIs and do not accept `target`
+- `createPage(menuRouteId=...)` is the recommended entry. Calling `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page
+- In the current implementation, `tabSchemaUid` can be used both as the `get` locator for `outer-tab` and directly as its write target uid, but `pageSchemaUid` and `routeId` are still `get` locators only
+- `setLayout` and `setEventFlows` are high-impact full-replace APIs. Read the full current state first, then decide whether to write
+- Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
+- Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
+- Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
 
-## 根级 locator `get`
+## Root-Level Locator `get`
 
-对应 MCP tool：`mcp__nocobase__flow_surfaces_get`
+Corresponding MCP tool: `mcp__nocobase__flow_surfaces_get`
 
-合法示例：
+Valid examples:
 
 ```json
 { "uid": "table-block-uid" }
@@ -50,42 +50,42 @@
 { "routeId": "123" }
 ```
 
-规则：
+Rules:
 
-- 只接受根级定位字段
-- 不接受 `requestBody`
-- 不接受 `target`
-- 一次只传一个 root locator
-- `hostUid`、`pageUid`、`gridUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 这类值，读取时都默认填进 `uid`
-- popup 场景下如果现场只暴露 `tabUid` 或 `gridUid`，也按 `uid` 处理
+- Only root-level locator fields are accepted
+- `requestBody` is not accepted
+- `target` is not accepted
+- Pass only one root locator at a time
+- Values such as `hostUid`, `pageUid`, `gridUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` should all default into `uid` when reading
+- In popup scenarios, if the live environment only exposes `tabUid` or `gridUid`, they still go into `uid`
 
-## `requestBody` 但不带 `target`
+## `requestBody` Without `target`
 
-这类工具都有 `requestBody`，但不接受 `requestBody.target.uid`：
+These tools all have `requestBody`, but do not accept `requestBody.target.uid`:
 
-| 语义名 | MCP tool | 关键字段 |
+| Semantic name | MCP tool | Key fields |
 | --- | --- | --- |
-| `createMenu` | `flow_surfaces_create_menu` | `requestBody.title`，可选 `type/icon/tooltip/hideInMenu/parentMenuRouteId` |
-| `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`，可选 `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
-| `createPage` | `flow_surfaces_create_page` | 推荐传 `requestBody.menuRouteId`；其余常用 `title/tabTitle/enableTabs` |
-| `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`，必须是 `pageUid` |
-| `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`；outer tab 直接用 `tabSchemaUid` |
-| `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid`；outer tab 直接用 `tabSchemaUid` |
+| `createMenu` | `flow_surfaces_create_menu` | `requestBody.title`, optional `type/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`, optional `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `createPage` | `flow_surfaces_create_page` | `requestBody.menuRouteId` is recommended; other common fields include `title/tabTitle/enableTabs` |
+| `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`, which must be `pageUid` |
+| `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`; outer tab uses `tabSchemaUid` directly |
+| `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid`; outer tab uses `tabSchemaUid` directly |
 | `movePopupTab` | `flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
 | `moveNode` | `flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
 
-规则：
+Rules:
 
-- 这些 lifecycle API 都只在 MCP 层包一层 `requestBody`
-- `createMenu`、`updateMenu`、`createPage` 都不接受 `target`
-- `createMenu(type="group")` 只返回菜单 route 信息，不返回可写页面 target
-- `createMenu(type="item")` 可能返回 `pageSchemaUid/pageUid/tabSchemaUid/routeId`，但此时页面仍可能未初始化；不要立刻调用 page/tab lifecycle API
-- `createPage(menuRouteId=...)` 会把 bindable 菜单项初始化为真正的 Modern page(v2)
-- `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
+- These lifecycle APIs only wrap one `requestBody` at the MCP layer
+- `createMenu`, `updateMenu`, and `createPage` do not accept `target`
+- `createMenu(type="group")` only returns menu route information. It does not return a writable page target
+- `createMenu(type="item")` may return `pageSchemaUid/pageUid/tabSchemaUid/routeId`, but the page may still be uninitialized. Do not call page/tab lifecycle APIs immediately
+- `createPage(menuRouteId=...)` initializes the bindable menu item into a real Modern page(v2)
+- The `pageUid` returned by `createPage` is used for page-level write APIs. `pageSchemaUid/tabSchemaUid/routeId` are for readback. `gridUid` is for subsequent content-area construction
 
 ## target-based `requestBody.target.uid`
 
-这类工具都要求：
+These tools all require:
 
 ```json
 {
@@ -95,38 +95,38 @@
 }
 ```
 
-### 常见 target-based 工具分组
+### Common Groups of target-based Tools
 
-- surface 与 lifecycle：`catalog`、`compose`、`configure`、`addTab`、`updateTab`、`addPopupTab`、`updatePopupTab`、`removePopupTab`
-- 内容追加：`addBlock` / `addBlocks`、`addField` / `addFields`、`addAction` / `addActions`、`addRecordAction` / `addRecordActions`
-- merge-like 配置：`updateSettings`
-- high-impact full-replace：`setEventFlows`、`setLayout`
-- 精确删除：`removeNode`
-- 兜底高级入口：`apply`
+- surface and lifecycle: `catalog`, `compose`, `configure`, `addTab`, `updateTab`, `addPopupTab`, `updatePopupTab`, `removePopupTab`
+- content append: `addBlock` / `addBlocks`, `addField` / `addFields`, `addAction` / `addActions`, `addRecordAction` / `addRecordActions`
+- merge-like configuration: `updateSettings`
+- high-impact full-replace: `setEventFlows`, `setLayout`
+- precise delete: `removeNode`
+- high-end fallback entry: `apply`
 
-### 常见 target 选择
+### Common target choices
 
 - `addTab.target.uid = pageUid`
 - `updateTab.target.uid = tabSchemaUid`
 - `addPopupTab.target.uid = popupPageUid`
 - `updatePopupTab/removePopupTab.target.uid = popupTabUid`
-- route-backed 内容区 `catalog/compose/add*` 优先 `target.uid = gridUid`
-- popup 内容区 `catalog/compose/add*` 优先 `target.uid = popupGridUid`
-- outer tab surface `catalog/configure` 用 `target.uid = tabSchemaUid`
-- popup tab surface `catalog/configure` 用 `target.uid = popupTabUid`
+- For route-backed content areas, `catalog/compose/add*` should prefer `target.uid = gridUid`
+- For popup content areas, `catalog/compose/add*` should prefer `target.uid = popupGridUid`
+- For outer-tab surface `catalog/configure`, use `target.uid = tabSchemaUid`
+- For popup-tab surface `catalog/configure`, use `target.uid = popupTabUid`
 
-规则：
+Rules:
 
-- `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
-- `settings` 的公开语义 key、何时 `add* + settings`、何时回退 `configure/updateSettings`，统一看 [settings.md](./settings.md)
-- `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
-- `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
-- `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程看 [popup.md](./popup.md)
-- `mutate` 不属于这组 top-level `target.uid` 入口；它使用 `requestBody.ops[]`，由各 op 自己决定是否带 `target`
+- `target` is part of the business payload, and the MCP layer wraps it again in `requestBody`
+- For public-semantic `settings` keys, when to use `add* + settings`, and when to fall back to `configure/updateSettings`, see [settings.md](./settings.md)
+- `pageSchemaUid` and `routeId` belong to `get` locators. Do not place them directly into `target.uid`
+- `pageUid`, `gridUid`, `tabSchemaUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` are not interchangeable "generic target uids"
+- `currentRecord` is neither a locator nor a `target.uid`; it is popup-internal block resource-binding semantics, and its decision flow lives in [popup.md](./popup.md)
+- `mutate` is not part of this top-level `target.uid` group; it uses `requestBody.ops[]`, and each op decides for itself whether to carry `target`
 
-### 不依赖 live guard 的 popup-capable `addRecordAction` 最小形状
+### Minimal shape of popup-capable `addRecordAction` that does not depend on a live guard
 
-在创建 opener 的同时把 popup subtree 一次带上，且 popup 内容不依赖 popup `resourceBindings` 判定时，使用这种 canonical 形状：
+When you want to create the opener and carry the popup subtree in one shot, and the popup content does not depend on popup `resourceBindings`, use this canonical shape:
 
 ```json
 {
@@ -134,7 +134,7 @@
     "target": { "uid": "details-block-uid" },
     "type": "popup",
     "settings": {
-      "title": "详情"
+      "title": "Details"
     },
     "popup": {
       "mode": "replace",
@@ -143,7 +143,7 @@
           "key": "help",
           "type": "markdown",
           "settings": {
-            "content": "# 详情说明"
+            "content": "# Details Help"
           }
         }
       ]
@@ -152,13 +152,13 @@
 }
 ```
 
-写后如果返回了 `popupPageUid` / `popupTabUid` / `popupGridUid`，后续写入直接复用，不再重新猜 popup host。
+If the write returns `popupPageUid` / `popupTabUid` / `popupGridUid`, all later writes should reuse those values directly rather than re-guessing the popup host.
 
-### guard-sensitive popup-content 的语义 `resource` 最小形状
+### Minimal semantic `resource` shape for guard-sensitive popup-content
 
-以下写法只在你已经拿到 `popupGridUid`，且 popup-content `catalog` 已确认对应 binding 可用后使用。`resource` 用语义化对象，不要退回字符串。示例只展示常见 binding；完整 binding 与 scene 限制统一看 [popup.md](./popup.md)。
+The following pattern should only be used after you already have `popupGridUid`, and after the popup-content `catalog` has confirmed that the relevant binding is available. `resource` should be semantic object form, not a fallback string. The examples below only show common bindings; for the full binding set and scene restrictions, see [popup.md](./popup.md).
 
-`currentRecord`：
+`currentRecord`:
 
 ```json
 {
@@ -179,7 +179,7 @@
 }
 ```
 
-`associatedRecords`：
+`associatedRecords`:
 
 ```json
 {
@@ -202,9 +202,9 @@
 }
 ```
 
-## `context` canonical payload
+## Canonical payload for `context`
 
-`flow_surfaces_context` 也属于 target-based `requestBody`，但常见会额外带 `path` / `maxDepth`：
+`flow_surfaces_context` is also a target-based `requestBody`, but commonly carries `path` / `maxDepth` in addition:
 
 ```json
 {
@@ -216,33 +216,33 @@
 }
 ```
 
-规则：
+Rules:
 
-- `path` 只接受裸路径，例如 `record`、`popup.record`、`item.parentItem.value`
-- 不要传 `ctx.record`、`{{ ctx.record }}` 这类模板包裹写法
-- 不传 `path` 时表示读取当前 target 下的默认上下文树
-- `maxDepth` 只在需要收敛上下文树时才传；拿到足够信息就停
+- `path` only accepts bare paths, such as `record`, `popup.record`, or `item.parentItem.value`
+- Do not pass template-wrapped forms like `ctx.record` or `{{ ctx.record }}`
+- Omitting `path` means reading the default context tree under the current target
+- Only pass `maxDepth` when you need to narrow the context tree; stop once you have enough information
 
-`add* + settings` 的高频模板统一看 [settings.md](./settings.md)；本文只保留 envelope / locator / target / 高风险 payload 形状，不重复展开公开 settings 模板。
+For frequent `add* + settings` templates, see [settings.md](./settings.md). This file only keeps envelope / locator / target / high-risk payload shapes and does not expand public settings templates again.
 
-## `setLayout` canonical payload
+## Canonical payload for `setLayout`
 
-`setLayout` 是 high-impact full-replace 写法；只有在用户明确接受整体替换、且你已经读过当前完整布局状态时才用。它的 `rows` / `sizes` 很容易写错，单独记住这条心智：
+`setLayout` is a high-impact full-replace write path. Use it only when the user explicitly accepts whole replacement and you have already read the full current layout state. `rows` / `sizes` are easy to get wrong, so keep this mental model:
 
-- `rows[rowKey]` 表示“这一行有哪些列”
-- `rows[rowKey]` 的每个元素又是“该列里有哪些 child uid”
-- 所以：**外层数组长度 = 列数 = `sizes[rowKey]` 的长度**
-- `sizes[rowKey]` 是 `number[]`，只能是一维数组；不要写成 `[[8,16]]`
+- `rows[rowKey]` describes which columns exist in that row
+- each element of `rows[rowKey]` then describes which child uids exist in that column
+- therefore: outer array length = column count = length of `sizes[rowKey]`
+- `sizes[rowKey]` must be a one-dimensional `number[]`; do not write `[[8,16]]`
 
-自然语言到 layout 结构的速查翻译：
+Quick translation from natural language to layout structure:
 
-| 用户意图 | 正确写法 | 语义 |
+| User intent | Correct shape | Semantics |
 | --- | --- | --- |
-| 两个区块同一行左右并排 | `row1: [["a"], ["b"]]` | 两列，每列一个区块 |
-| 左列上下两个区块，右列一个区块 | `row1: [["a1", "a2"], ["b"]]` | 两列；左列堆两个 item，右列一个 item |
-| 两个区块上下两行 | `row1: [["a"]]`, `row2: [["b"]]` | 两行，每行一列 |
+| two blocks side by side in one row | `row1: [["a"], ["b"]]` | two columns, one block per column |
+| two blocks stacked in left column, one block in right column | `row1: [["a1", "a2"], ["b"]]` | two columns; left column stacks two items, right column has one item |
+| two blocks in two vertical rows | `row1: [["a"]]`, `row2: [["b"]]` | two rows, one column in each row |
 
-双列、每列一个 child 的正确写法：
+Correct shape for two columns with one child in each:
 
 ```json
 {
@@ -259,12 +259,12 @@
 }
 ```
 
-关键区别：
+Key distinction:
 
-- `[["chart-a"], ["chart-b"]]` = 两列
-- `[["chart-a", "chart-b"]]` = 一列里堆两个 child
+- `[["chart-a"], ["chart-b"]]` = two columns
+- `[["chart-a", "chart-b"]]` = one column stacking two children
 
-因此下面这种写法是错的：
+So the following is wrong:
 
 ```json
 {
@@ -277,9 +277,9 @@
 }
 ```
 
-因为它实际只声明了 **1 列**，却给了 **2 个列宽**。
+Because it actually declares only 1 column while giving 2 column widths.
 
-还有一种高风险反例，服务端不一定总能帮你挡住，但运行时语义会错：
+Another high-risk anti-pattern may not always be blocked by the server, but its runtime semantics are wrong:
 
 ```json
 {
@@ -292,9 +292,9 @@
 }
 ```
 
-这不会得到“说明 + 表单左右并排”，而是得到“一个宽度为 8 的左侧列，里面把两个区块上下堆叠”。
+This does not produce "guide + form side by side". It produces "one left column with width 8, stacking both blocks vertically".
 
-另一种常见错法是把 `sizes` 写成二维数组：
+Another common mistake is writing `sizes` as a two-dimensional array:
 
 ```json
 {
@@ -307,11 +307,11 @@
 }
 ```
 
-这在 contract 语义上也是错的，因为 `sizes[rowKey]` 只接受一维 `number[]`。
+This is also wrong at the contract level, because `sizes[rowKey]` only accepts one-dimensional `number[]`.
 
 ## `apply` / `mutate`
 
-`apply(mode="replace")` 与 replace-style `mutate` 属于 destructive path：只有用户明确要求替换 subtree 时才执行，并在写前说明影响范围。
+`apply(mode="replace")` and replace-style `mutate` are destructive paths. Use them only when the user explicitly requests subtree replacement, and explain the blast radius before writing.
 
 `mcp__nocobase__flow_surfaces_apply`
 
@@ -349,29 +349,29 @@
 }
 ```
 
-规则：
+Rules:
 
-- `apply` 只支持 `mode = "replace"`
-- `mutate` 默认 `atomic = true`
-- `mutate` 的链式引用统一使用 `{ "ref": "<opId>.<path>" }`
-- 上面的 `mutate` 片段只示意请求形状与链式引用；不要把它当成普通页面创建或日常小改的推荐做法
-- 只有在公开入口无法表达、且你已经完全确认 target / shape / 顺序时，才使用 `apply/mutate`
-- `apply(mode="replace")` 与 replace-style `mutate` 默认按 destructive path 处理；先说明影响范围，再做完整 readback
+- `apply` only supports `mode = "replace"`
+- `mutate` defaults to `atomic = true`
+- Chain references inside `mutate` always use `{ "ref": "<opId>.<path>" }`
+- The `mutate` snippet above only demonstrates request shape and chained references. Do not treat it as the recommended method for ordinary page creation or small daily edits
+- Only use `apply/mutate` when public entry points cannot express the change and you have fully confirmed target / shape / ordering
+- `apply(mode="replace")` and replace-style `mutate` default to destructive-path handling: explain the blast radius first, then perform full readback
 
-## 常见错误形状
+## Common Invalid Shapes
 
-- 给 `get` 传 `requestBody` 或 `target`
-- 把 `pageSchemaUid` / `routeId` 错当成 `target.uid`
-- lifecycle API 外面漏掉 `requestBody`
-- 在 `createMenu(type="item")` 之后、`createPage(menuRouteId=...)` 之前就调用 page/tab lifecycle API
-- 把 `currentRecord` 当成裸 locator 或 `target.uid` 传进去
-- 把 `currentRecord` / `associatedRecords` 直接塞进未经过 popup-content `catalog` 验证的 inline popup subtree
-- 把 popup 内 `resource` 写成字符串，例如 `resource: "currentRecord"` 或 `resource: "associatedRecords"`
-- 带 `popup` subtree 却省略 `popup.mode`，再把行为寄托给运行时兜底；skill 的 canonical payload 必须显式写 `append` 或 `replace`
-- 在 popup collection block 上混用 `resource` 与 `resourceInit`：语义绑定走 `resource` 对象；非 popup 或 raw 资源初始化才走 `resourceInit`
-- 把 `settings.props.*`、`settings.decoratorProps.*`、`settings.stepParams.*` 当成 `add*` 的合法输入
-- 对已经暴露在 live `configureOptions` 里的高频属性，仍然默认拆成“先 add 再 configure”
-- 把双列布局写成 `rows[rowKey] = [[a, b]]`，同时又传 `sizes[rowKey] = [12, 12]`
-- `rows[rowKey]` 与 `sizes[rowKey]` 的顶层长度不一致
-- 把用户说的“同一行并排”误写成单个 cell，例如 `rows[rowKey] = [[left, right]]`
-- 把 `sizes[rowKey]` 写成二维数组，例如 `[[8, 16]]`
+- passing `requestBody` or `target` into `get`
+- treating `pageSchemaUid` / `routeId` as `target.uid`
+- forgetting the outer `requestBody` on lifecycle APIs
+- calling page/tab lifecycle APIs after `createMenu(type="item")` but before `createPage(menuRouteId=...)`
+- passing `currentRecord` as a bare locator or `target.uid`
+- placing `currentRecord` / `associatedRecords` directly into an inline popup subtree that has not gone through popup-content `catalog` validation
+- writing popup-internal `resource` as a string, such as `resource: "currentRecord"` or `resource: "associatedRecords"`
+- carrying a `popup` subtree but omitting `popup.mode`, then relying on runtime fallback; canonical skill payloads must explicitly write `append` or `replace`
+- mixing `resource` and `resourceInit` on a popup collection block: semantic binding uses the `resource` object; non-popup or raw resource initialization uses `resourceInit`
+- treating `settings.props.*`, `settings.decoratorProps.*`, or `settings.stepParams.*` as legal inputs to `add*`
+- still defaulting to "add first, then configure" for frequent attributes that are already exposed in live `configureOptions`
+- writing a two-column layout as `rows[rowKey] = [[a, b]]` while also passing `sizes[rowKey] = [12, 12]`
+- making the top-level lengths of `rows[rowKey]` and `sizes[rowKey]` inconsistent
+- miswriting the user's "side by side in one row" intent as a single cell such as `rows[rowKey] = [[left, right]]`
+- writing `sizes[rowKey]` as a two-dimensional array such as `[[8, 16]]`

@@ -1,36 +1,36 @@
 # RunJS runtime
 
-当你需要运行本地 RunJS validator CLI 时，读本文。JS model 选型与代码规则看 [js.md](./js.md)。
+Read this file when you need to run the local RunJS validator CLI. For JS model selection and code rules, see [js.md](./js.md).
 
-## 目录
+## Contents
 
-1. repo-root 的 canonical 入口
-2. `validate --stdin-json` 的 canonical payload 示例
-3. runtime 目录内的开发入口
-4. 网络模式约束
-5. validator 语义概览
+1. Canonical repo-root entry
+2. Canonical payload example for `validate --stdin-json`
+3. Dev entry points inside the runtime directory
+4. Network-mode constraints
+5. Validator semantics overview
 
-## repo-root 的 canonical 入口
+## Canonical repo-root entry
 
-以下命令假设当前 cwd 是**本仓库根目录**，并且 Node 版本满足 `>=18`。
+The commands below assume that the current cwd is the repository root and that the Node version is `>=18`.
 
 ```bash
 node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode
 node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./skills/nocobase-ui-builder/runtime/fixtures/batch.json --skill-mode
 ```
 
-本 skill 的 canonical 执行方式统一带 `--skill-mode`：
+The canonical execution path for this skill always includes `--skill-mode`:
 
-- 这是给 skill 正常执行准备的保守模式
-- public runtime mode 固定为 `validate`
-- 只允许 absent/mock network
-- 网络读取只允许 `ctx.request(...)` / `ctx.api.request(...)`；`fetch` 不属于公开 contract
-- `mode = "mock"` 下未命中显式 mock 时，会返回默认 auto-mock `200 + {}`
-- 遇到 `network.mode = "live"` 会直接阻断
+- This is the conservative mode intended for normal skill execution
+- public runtime mode is fixed to `validate`
+- only absent/mock network is allowed
+- network reads are only allowed through `ctx.request(...)` / `ctx.api.request(...)`; `fetch` is not part of the public contract
+- under `mode = "mock"`, an unmatched request returns the default auto-mock `200 + {}`
+- `network.mode = "live"` is blocked immediately
 
-## `validate --stdin-json` 的 canonical payload 示例
+## Canonical payload example for `validate --stdin-json`
 
-当你走 `validate --stdin-json` 时，stdin JSON 推荐按下面这组 canonical shape 组织：
+When using `validate --stdin-json`, the recommended stdin JSON follows this canonical shape:
 
 ```json
 {
@@ -40,20 +40,20 @@ node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./skill
 }
 ```
 
-字段说明：
+Field notes:
 
-- `model`：必填；也可由 CLI `--model` 提供，但两边同时传时必须一致
-- `code`：必填字符串
-- `context`：可选 JSON 对象
-- `network`：可选 JSON 对象；约束继续按下方“网络模式约束”
-- `skillMode`：可选；若 CLI 已显式传 `--skill-mode`，以 CLI 为准
-- `version`：可选；若 CLI 已显式传 `--version`，以 CLI 为准
-- `timeoutMs`：可选；若 CLI 已显式传 `--timeout`，以 CLI 为准
-- `filename`：可选；默认会回退到 `<stdin>`
+- `model`: required; it may also be provided via CLI `--model`, but if both are present they must match
+- `code`: required string
+- `context`: optional JSON object
+- `network`: optional JSON object; constraints continue to follow "Network-mode constraints" below
+- `skillMode`: optional; if the CLI explicitly passes `--skill-mode`, the CLI wins
+- `version`: optional; if the CLI explicitly passes `--version`, the CLI wins
+- `timeoutMs`: optional; if the CLI explicitly passes `--timeout`, the CLI wins
+- `filename`: optional; defaults to `<stdin>`
 
-## runtime 目录内的开发入口
+## Dev entry points inside the runtime directory
 
-如果当前 cwd 已经在 `skills/nocobase-ui-builder/runtime` 目录下，可使用更短的开发命令：
+If the current cwd is already `skills/nocobase-ui-builder/runtime`, you can use these shorter development commands:
 
 ```bash
 node ./bin/nb-runjs.mjs validate --model JSBlockModel --code-file ./fixtures/js-block-code.js
@@ -64,21 +64,21 @@ node ./bin/nb-runjs.mjs validate --model ChartEventsModel --stdin-json
 node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 ```
 
-这组命令主要用于 runtime 本地开发或调试；skill 正常执行仍优先使用上面的 repo-root canonical 入口。
+These commands are mainly for local runtime development or debugging. Normal skill execution should still prefer the repo-root canonical entry above.
 
-补充：
+Additional notes:
 
-- 单次验证可通过 `--network-file` 传入 mock 网络配置
-- batch task 支持 `network` 或 `networkFile`
+- Single validation can pass mock network config through `--network-file`
+- Batch tasks support either `network` or `networkFile`
 
-## 网络模式约束
+## Network-mode constraints
 
-- `network` 默认不传
-- 需要读请求时，优先 `mode = "mock"`，并统一通过 `ctx.request(...)` / `ctx.api.request(...)`
-- `--skill-mode` 下不允许 `mode = "live"`
-- 如果确实要调试 live network，请明确脱离本 skill 的 canonical 执行链路
+- `network` is omitted by default
+- When request reads are needed, prefer `mode = "mock"` and route them through `ctx.request(...)` / `ctx.api.request(...)`
+- `mode = "live"` is not allowed under `--skill-mode`
+- If you truly need to debug live network, explicitly step outside this skill's canonical execution chain
 
-可选 mock 网络配置示例：
+Optional mock-network config example:
 
 ```json
 {
@@ -92,13 +92,13 @@ node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 }
 ```
 
-## validator 语义概览
+## Validator semantics overview
 
-这里只保留 CLI / runtime 层语义；model 选型、strict render、上下文 contract 与 gate 规则仍以 [js.md](./js.md) 为准。
+This file only keeps CLI/runtime-layer semantics. For model selection, strict render rules, context contracts, and gate rules, [js.md](./js.md) remains authoritative.
 
-- 对外 CLI 只暴露 `validate` / `batch`
-- JSX 会在执行前做 compat lowering
-- 语法层使用 Node `vm.Script` 做基础语法门禁
-- 上下文层会检查 `ctx.*` / top-level alias 的静态契约
-- 策略层会静态阻断导航、写请求、`fetch`、动态代码生成等 side effect
-- 运行时层只提供最小 compat surface；结果返回验证报告，不返回 public preview payload
+- The public CLI only exposes `validate` / `batch`
+- JSX goes through compat lowering before execution
+- The syntax layer uses Node `vm.Script` as a baseline syntax gate
+- The context layer checks the static contract of `ctx.*` / top-level aliases
+- The policy layer statically blocks side effects such as navigation, write requests, `fetch`, and dynamic code generation
+- The runtime layer only provides a minimal compat surface; the result returns a validation report, not a public preview payload

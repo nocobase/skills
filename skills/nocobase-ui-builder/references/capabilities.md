@@ -1,108 +1,108 @@
 # Capabilities
 
-当你已经确定要往内容区搭东西，但还没决定该选什么 block / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart 专题入口看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。是否允许 `shell-only popup`，统一看 [normative-contract.md](./normative-contract.md)。
+Read this file when you already know you need to add something into a content area, but have not yet decided whether it should be a block, action, or field. For family / target, see [runtime-playbook.md](./runtime-playbook.md). For popup semantics and `currentRecord`, see [popup.md](./popup.md). For chart topic routing, see [chart.md](./chart.md). For JS rules, see [js.md](./js.md). Whether `shell-only popup` is allowed is governed by [normative-contract.md](./normative-contract.md).
 
-## 目录
+## Contents
 
-1. 选型顺序
-2. Block 选型
-3. 表单类 block 选型
+1. Selection order
+2. Block selection
+3. Form-like block selection
 4. Action scope
-5. FilterForm 通用能力
-6. Field 规则
+5. General FilterForm capabilities
+6. Field rules
 
-## 选型顺序
+## Selection Order
 
-1. 先判断用户要的是 block、action 还是 field。
-2. 再按容器与 scope 收敛：`table/details/list/gridCard/filterForm/actionPanel/createForm/editForm`。
-3. 最后才看 JS、association leaf field、`openView`、layout 等专题配置。
+1. First decide whether the user wants a block, an action, or a field.
+2. Then narrow by container and scope: `table/details/list/gridCard/filterForm/actionPanel/createForm/editForm`.
+3. Only after that consider JS, association leaf fields, `openView`, layout, and other topic-specific configuration.
 
-下文中的 block / action 能力都是常见值，不是穷尽列表；最终以 live `catalog` 为准。
+The block / action capabilities below are common values, not an exhaustive list. The final source of truth is live `catalog`.
 
-## Block 选型
+## Block Selection
 
-### 默认创建能力
+### Default Creation Capabilities
 
-- 默认可创建：`table`、`createForm`、`editForm`、`details`、`list`、`gridCard`、`filterForm`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`。
-- `map`、`comments` 仅在现场 `catalog` 明确允许时才创建或小范围改配。
-- 用户显式点名区块类型时，优先按这个 block 选型；区块语境里的 `Grid` 默认按 `gridCard` 处理。
+- Default creatable blocks: `table`, `createForm`, `editForm`, `details`, `list`, `gridCard`, `filterForm`, `markdown`, `iframe`, `chart`, `actionPanel`, `jsBlock`.
+- Only create or lightly reconfigure `map` and `comments` when the live `catalog` explicitly allows them.
+- When the user explicitly names a block type, prioritize that block choice. In block context, `Grid` defaults to `gridCard`.
 
-### 常见 block 选择
+### Common Block Choices
 
-| 用户目标 | 优先 block | 关键点 |
+| User goal | Preferred block | Key point |
 | --- | --- | --- |
-| 数据表格操作、批量操作、树表、固定列 | `table` | 需要 collection resource；`fields` 是列，`actions` 是 block 级动作，`recordActions` 是行级动作 |
-| 新建记录、录入页、addNew popup | `createForm` | 表单内容走 `fields` + `actions`，提交通常补 `submit` |
-| 编辑记录、编辑弹窗、edit popup | `editForm` | 用于编辑已有记录；查看场景不要拿它伪装详情 |
-| 单条记录只读详情 | `details` | 必须绑定 collection resource；动作只能走 `recordActions` |
-| 轻量条目浏览、移动端友好 | `list` | 以 item 展示字段与 item 级动作为主 |
-| 卡片墙、宫格、缩略图浏览 | `gridCard` | `fields` 是卡片展示字段，`recordActions` 是单卡动作 |
-| 筛选条件输入 | `filterForm` | 只负责筛选输入，不负责数据展示 |
-| 静态说明、帮助文案 | `markdown` | 不要为简单文案启用 `jsBlock` |
-| 嵌入网页 / HTML | `iframe` | 明确是嵌入内容时使用 |
-| 趋势图 / 报表图 | `chart` | 主要配置走 `query / visual / events`；只有兼容或极端高级场景才回退 `configure` |
-| 工具按钮区 | `actionPanel` | 不继承 collection block action 列表 |
-| 明确要求运行时代码 | `jsBlock` | 创建后要读回确认相关 JS 配置已落盘 |
+| table-like data operations, bulk actions, tree table, fixed columns | `table` | requires a collection resource; `fields` are columns, `actions` are block-level actions, `recordActions` are row-level actions |
+| create record, input page, addNew popup | `createForm` | form content is built through `fields` + `actions`; usually add `submit` for submission |
+| edit record, edit popup, edit page | `editForm` | used for editing existing records; do not fake details view with it |
+| read-only single-record details | `details` | must bind to a collection resource; actions only go through `recordActions` |
+| lightweight item browsing, mobile-friendly list | `list` | mainly displays item fields and item-level actions |
+| card wall, grid cards, thumbnail browsing | `gridCard` | `fields` are display fields on the card, `recordActions` are per-card actions |
+| filter condition input | `filterForm` | only handles filter input, not data display |
+| static help text, documentation text | `markdown` | do not enable `jsBlock` for simple copy |
+| embedded page / HTML | `iframe` | use when the content is clearly embedded external content |
+| charts / reports | `chart` | primary configuration goes through `query / visual / events`; only fall back to `configure` for compatibility or extreme advanced cases |
+| toolbar / utility button area | `actionPanel` | does not inherit collection-block action lists |
+| explicitly requested runtime code | `jsBlock` | after creation, read back and confirm the related JS config was persisted |
 
-### 高频 block 提醒
+### Frequent Block Reminders
 
-- `table`：读回重点是 `actionsColumnUid`、字段 uid、association field `clickToOpen/openView`。
-- `details`：查看场景优先它，不要用 `editForm` 伪装详情页。
-- `filterForm`：它是通用数据筛选输入区块，不是 chart 专属能力；多目标时优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`。
-- block / field / action 的公开属性如何内联进 `settings`，统一看 [settings.md](./settings.md)。
+- `table`: key readback points are `actionsColumnUid`, field uids, and association-field `clickToOpen/openView`.
+- `details`: prefer it for view-only scenarios. Do not fake a details page with `editForm`.
+- `filterForm`: it is a general data-filter input block, not a chart-only capability. In multi-target scenarios, prefer target-binding fields explicitly exposed by the contract, especially `defaultTargetUid`.
+- For how public block / field / action properties should be inlined into `settings`, see [settings.md](./settings.md).
 
-## 表单类 block 选型
+## Form-Like Block Selection
 
-- 表单场景默认优先 `createForm`、`editForm`。
-- 用户要“新建记录 / 录入页 / addNew popup”时，优先 `createForm`。
-- 用户要“编辑弹窗 / 编辑页 / record action edit popup”时，优先 `editForm`。
-- 表单类 block 的公开语义是 `fields` + `actions`，只承载 form actions，不承载 `recordActions`。
-- 查看场景优先 `details`，不要把表单类 block 当成详情替代品。
+- In form scenarios, prefer `createForm` and `editForm` by default.
+- If the user wants "create record / input page / addNew popup", prefer `createForm`.
+- If the user wants "edit popup / edit page / record-action edit popup", prefer `editForm`.
+- The public semantics of form-like blocks are `fields` + `actions`. They only host form actions, not `recordActions`.
+- For view-only scenarios, prefer `details`. Do not use form-like blocks as a details substitute.
 
-## Action scope
+## Action Scope
 
-### Scope 速查
+### Scope Quick Reference
 
-| scope | 典型容器 | 典型入口 | 什么时候用 |
+| scope | Typical container | Typical entry | When to use |
 | --- | --- | --- | --- |
-| `block` | `table`、`list`、`gridCard` | `addAction` / `actions` | 对整块数据集生效 |
-| `record` | `table`、`details`、`list`、`gridCard` | `addRecordAction` / `recordActions` | 对单条记录或单个 item 生效 |
-| `form` | `createForm`、`editForm` | `addAction` / `actions` | 表单提交类动作 |
-| `filterForm` | `filterForm` | `addAction` / `actions` | 筛选提交 / 重置 / 折叠 |
-| `actionPanel` | `actionPanel` | `addAction` / `actions` | 工具面板动作 |
+| `block` | `table`, `list`, `gridCard` | `addAction` / `actions` | affects the entire dataset |
+| `record` | `table`, `details`, `list`, `gridCard` | `addRecordAction` / `recordActions` | affects a single record or item |
+| `form` | `createForm`, `editForm` | `addAction` / `actions` | form-submission style actions |
+| `filterForm` | `filterForm` | `addAction` / `actions` | filter submit / reset / collapse |
+| `actionPanel` | `actionPanel` | `addAction` / `actions` | toolbar/panel actions |
 
-### 入口规则
+### Entry Rules
 
-- `addAction` / `actions` 只放非 `recordActions`；`addRecordAction` / `recordActions` 只放记录级动作。
-- `details` 虽然是 block，但公开动作能力属于 `recordActions`。
-- `table` 读回时会看到 `actionsColumnUid` 等内部容器，但 `addRecordAction` 的 target 必须传 `table/details/list/gridCard` 这类 owner target。
+- `addAction` / `actions` only host non-`recordActions`. `addRecordAction` / `recordActions` only host record-level actions.
+- `details` is a block, but its public action capability belongs to `recordActions`.
+- Readback for `table` may expose internal containers such as `actionsColumnUid`, but the target of `addRecordAction` must still be an owner target like `table/details/list/gridCard`.
 
-### 高频动作
+### Frequent Actions
 
-- block actions：`filter`、`addNew`、`popup`、`refresh`、`expandCollapse`、`bulkDelete`、`bulkEdit`、`bulkUpdate`、`export`、`exportAttachments`、`import`、`link`、`upload`、`composeEmail`、`templatePrint`、`triggerWorkflow`、`js`
-- record actions：`view`、`edit`、`popup`、`delete`、`updateRecord`、`duplicate`、`addChild`、`composeEmail`、`templatePrint`、`triggerWorkflow`、`js`
-- form actions：`submit`、`triggerWorkflow`、`js`、`jsItem`
-- filter-form actions：`submit`、`reset`、`collapse`、`js`
-- action-panel actions：`js`、`triggerWorkflow`
+- block actions: `filter`, `addNew`, `popup`, `refresh`, `expandCollapse`, `bulkDelete`, `bulkEdit`, `bulkUpdate`, `export`, `exportAttachments`, `import`, `link`, `upload`, `composeEmail`, `templatePrint`, `triggerWorkflow`, `js`
+- record actions: `view`, `edit`, `popup`, `delete`, `updateRecord`, `duplicate`, `addChild`, `composeEmail`, `templatePrint`, `triggerWorkflow`, `js`
+- form actions: `submit`, `triggerWorkflow`, `js`, `jsItem`
+- filter-form actions: `submit`, `reset`, `collapse`, `js`
+- action-panel actions: `js`, `triggerWorkflow`
 
-### 关键约束
+### Key Constraints
 
-- `view/edit/popup` 如果会打开 popup，只创建 action 不算完成；后续 popup 内容统一看 [popup.md](./popup.md)。
-- “查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”优先按 record popup 处理。
-- 是否允许只创建 `popup` shell，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；这里只记住：只创建 action 不算完成 popup 内容。
-- `submit` 在表单动作容器和 `filterForm` 是两个不同 scope 的公开能力；`collapse` 只属于 `filterForm`。
-- 动作标题、tooltip、按钮类型这类公开属性的内联策略，统一看 [settings.md](./settings.md)。
-- `triggerWorkflow` 在本 skill 中只负责把**已有 workflow 的 UI action 壳**挂到 surface；一旦需要创建 workflow、挑选 workflow key/id、改 trigger/node/execution path，立即转交 `nocobase-workflow-manage`。
+- If `view/edit/popup` opens a popup, creating only the action does not count as completion. For popup content, see [popup.md](./popup.md).
+- "view current record / edit current record / this record / this row" should default to record-popup handling.
+- Whether it is allowed to create only a popup shell is governed by the `Popup Shell Fallback Contract` in [normative-contract.md](./normative-contract.md). The key takeaway here is: creating only the action does not complete popup content.
+- `submit` is a public capability in both form-action containers and `filterForm`, but they are different scopes. `collapse` belongs only to `filterForm`.
+- For inlining action title, tooltip, button type, and similar public attributes, see [settings.md](./settings.md).
+- In this skill, `triggerWorkflow` only mounts the UI action shell for an existing workflow onto the surface. As soon as you need to create a workflow, choose a workflow key/id, or change trigger/node/execution path, hand off immediately to `nocobase-workflow-manage`.
 
-## FilterForm 通用能力
+## General FilterForm Capabilities
 
-- 一个 `filterForm` 可以服务多个数据区块；不要把它理解成 chart 特例。它可以服务于某些数据区块的筛选联动，最终以 live `catalog` 和 target contract 为准。
-- 多目标场景下，绑定粒度优先按**字段级**理解；不要默认整块 `filterForm` 只绑定一个 block，也不要假设所有字段会自动继承同一个 target。
-- 如果现场 contract 暴露 `defaultTargetUid`，优先在字段创建时显式填写，用它声明该字段的默认作用目标。
-- collection schema 里“有这个字段”，不等于当前 `filterForm` 就一定能 `addField`；字段是否可加，以 live `catalog.fields` / 当前 target 的 field capability 为准。
-- 写后接线确认看 [verification.md](./verification.md) 的 `Write Readback`；不要把写后断言混进 capability 选型规则。
+- A single `filterForm` can serve multiple data blocks. Do not treat it as a chart-only special case. It can drive filtering interactions for multiple data blocks, subject to live `catalog` and target contract.
+- In multi-target scenarios, prefer field-level binding granularity. Do not assume the whole `filterForm` binds to exactly one block, and do not assume all fields automatically inherit the same target.
+- If the live contract exposes `defaultTargetUid`, prefer filling it explicitly during field creation to declare the field's default target.
+- The fact that a field exists in collection schema does not mean the current `filterForm` can necessarily `addField` for it. Whether the field is addable depends on live `catalog.fields` and the field capability of the current target.
+- For post-write wiring confirmation, see `Write Readback` in [verification.md](./verification.md). Do not mix post-write assertions into capability-selection rules.
 
-示意片段：
+Illustrative fragment:
 
 ```json
 [
@@ -117,42 +117,42 @@
 ]
 ```
 
-上面表达的是：同一个 `filterForm` 里的不同字段，可以各自声明默认作用目标；精确 envelope 仍以 live tool schema（`addField` vs `addFields`）为准。
+This means that different fields inside the same `filterForm` may each declare their own default target. The exact envelope still follows the live tool schema, such as `addField` vs `addFields`.
 
-## Field 规则
+## Field Rules
 
-### 容器心智
+### Container Mental Model
 
-- `table/details/list/gridCard`：以 display 字段为主。
-- `createForm/editForm`：以 editable 字段为主。
-- `filterForm`：以 filter 字段为主，不是展示字段。
+- `table/details/list/gridCard`: primarily display fields
+- `createForm/editForm`: primarily editable fields
+- `filterForm`: primarily filter fields, not display fields
 
-### 绑定字段与常见配置
+### Bound Fields and Common Configuration
 
-- `compose(...).fields` 的最常见 shorthand 写法是字符串字段名，例如 `"nickname"`。
-- 在 `addField/addFields`，或需要显式声明字段路径时，统一用 `{ "fieldPath": "nickname" }`。
-- 绑定真实字段时，`fieldPath` 属于创建必需参数，不属于 `settings`；`jsColumn` / `jsItem` 这类 synthetic standalone field 则允许不传真实 `fieldPath`。
-- `addField/addFields` 默认先看 live `catalog.fields`；collection schema 里有字段，不等于当前 target 就一定能加。
-- 如果本轮没有先读 `catalog(target)`，只有在现场事实已经证明该字段有 `interface` 时才允许继续写；否则停止，不用试写去探测。
-- 服务端最终按字段 `interface` 判定可加性；没有 `interface` 的字段不能通过 `addField` 落到区块里。
-- 字段标签、必填、禁用等公开属性的内联策略，统一看 [settings.md](./settings.md)。
-- 常见 wrapper 配置：`label`、`showLabel`、`tooltip`、`extra`、`width`。
-- `fixed` 只在 table column / action column / `jsColumn` 这类列语义里常见；不要把它当成所有 field wrapper 的通用设置。
-- 常见 field 配置：`titleField`、`clickToOpen`、`openView`、`allowClear`、`multiple`。
+- The most common shorthand for `compose(...).fields` is a string field name, for example `"nickname"`.
+- In `addField/addFields`, or whenever you need to declare the field path explicitly, use `{ "fieldPath": "nickname" }`.
+- When binding a real field, `fieldPath` is a required creation parameter and does not belong in `settings`. Synthetic standalone fields such as `jsColumn` / `jsItem` may omit a real `fieldPath`.
+- `addField/addFields` should look at live `catalog.fields` first. A field existing in collection schema does not guarantee that it is addable on the current target.
+- If you did not read `catalog(target)` first in this round, you may continue only when live facts have already proven that the field has an `interface`. Otherwise stop. Do not probe with trial writes.
+- The server ultimately decides addability from the field's `interface`. A field without an `interface` cannot be added into a block through `addField`.
+- For inlining public field attributes such as label, required, and disabled, see [settings.md](./settings.md).
+- Common wrapper config: `label`, `showLabel`, `tooltip`, `extra`, `width`.
+- `fixed` is only common in column semantics such as table columns, action columns, and `jsColumn`. Do not treat it as a universal field-wrapper setting.
+- Common field config: `titleField`, `clickToOpen`, `openView`, `allowClear`, `multiple`.
 
 ### association leaf field
 
-- 典型 `fieldPath`：`roles.title`、`department.name`。
-- 用户说“显示部门名 / 角色标题”时，优先映射到 association leaf field，而不是只放关联 id。
-- to-many association leaf field 在 display 场景允许使用；常见下一步是 `clickToOpen = true` 和 `openView`。
-- 在 `details/list/gridCard` 里，直接 to-many association 字段（例如 `users.roles`）默认也按这套 display 语义处理：应归一到目标表 `titleField` 的文本展示，而不是默认子表格。`roles` 与 `roles.title` 这类输入，如果 live `catalog` 已收敛成同一条 display field，就按 display field 处理；只有用户明确要求子表格/关联明细区块时，才改走 block 级方案。
+- Typical `fieldPath`: `roles.title`, `department.name`.
+- When the user says "show department name" or "role title", prefer mapping it to an association leaf field rather than just an association id.
+- To-many association leaf fields are allowed in display scenarios. A common next step is `clickToOpen = true` plus `openView`.
+- Inside `details/list/gridCard`, direct to-many association fields such as `users.roles` also default to this display semantics: they should normalize to text display through the target table's `titleField`, not to a sub-table by default. Inputs like `roles` and `roles.title` should be treated as the same display field when live `catalog` has already narrowed them to one display field. Only switch to a block-level solution when the user explicitly asks for a sub-table or association-details block.
 
-### `filterForm` 特殊点
+### `filterForm` Special Points
 
-- 多目标绑定与字段可加性规则看上一节 `FilterForm 通用能力`。
-- 不支持 `renderer: "js"`、`jsColumn`、`jsItem`。
-- 需要 JS 时，换 block 或动作设计，不要强行塞进 filter 字段。
+- For multi-target binding and field-addability rules, see the previous section `General FilterForm Capabilities`.
+- `renderer: "js"`, `jsColumn`, and `jsItem` are not supported.
+- If JS is required, redesign it as a block or an action. Do not force it into a filter field.
 
-### 读回定位
+### Readback Location
 
-大多数精确改配都要区分 `wrapperUid`、`fieldUid`、`innerFieldUid`；association field 加 popup/openView、或对字段做更细粒度配置时，通常需要其中一个具体 uid。
+Most precise reconfiguration work must distinguish `wrapperUid`, `fieldUid`, and `innerFieldUid`. When adding popup/openView to an association field, or doing finer-grained field configuration, you usually need one of those specific uids.
