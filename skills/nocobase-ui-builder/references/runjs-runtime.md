@@ -5,9 +5,10 @@
 ## 目录
 
 1. repo-root 的 canonical 入口
-2. runtime 目录内的开发入口
-3. 网络模式约束
-4. validator 语义概览
+2. `validate --stdin-json` 的 canonical payload 示例
+3. runtime 目录内的开发入口
+4. 网络模式约束
+5. validator 语义概览
 
 ## repo-root 的 canonical 入口
 
@@ -26,6 +27,29 @@ node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs batch --input ./skill
 - 网络读取只允许 `ctx.request(...)` / `ctx.api.request(...)`；`fetch` 不属于公开 contract
 - `mode = "mock"` 下未命中显式 mock 时，会返回默认 auto-mock `200 + {}`
 - 遇到 `network.mode = "live"` 会直接阻断
+
+## `validate --stdin-json` 的 canonical payload 示例
+
+当你走 `validate --stdin-json` 时，stdin JSON 推荐按下面这组 canonical shape 组织：
+
+```json
+{
+  "model": "JSColumnModel",
+  "code": "ctx.render(String(ctx.record?.nickname || ''));",
+  "context": {}
+}
+```
+
+字段说明：
+
+- `model`：必填；也可由 CLI `--model` 提供，但两边同时传时必须一致
+- `code`：必填字符串
+- `context`：可选 JSON 对象
+- `network`：可选 JSON 对象；约束继续按下方“网络模式约束”
+- `skillMode`：可选；若 CLI 已显式传 `--skill-mode`，以 CLI 为准
+- `version`：可选；若 CLI 已显式传 `--version`，以 CLI 为准
+- `timeoutMs`：可选；若 CLI 已显式传 `--timeout`，以 CLI 为准
+- `filename`：可选；默认会回退到 `<stdin>`
 
 ## runtime 目录内的开发入口
 
@@ -46,7 +70,6 @@ node ./bin/nb-runjs.mjs batch --input ./fixtures/batch.json
 
 - 单次验证可通过 `--network-file` 传入 mock 网络配置
 - batch task 支持 `network` 或 `networkFile`
-- 对外 CLI 只暴露 `validate` / `batch`
 
 ## 网络模式约束
 
