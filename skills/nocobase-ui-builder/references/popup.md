@@ -13,7 +13,7 @@
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。
 - 如果 popup catalog 没有暴露 `currentRecord`，停止猜测，不要在普通 popup 上臆造记录绑定。
 - `currentRecord` 属于 popup 内 block 的资源绑定语义，不是复用页面上已有区块实例。
-- popup 内 collection block 的公开语义 binding 以 live `catalog.blocks[].resourceBindings` 为准；当前常见值包括 `currentCollection`、`currentRecord`、`associatedRecords`、`otherRecords`。
+- popup 内 collection block 的公开语义 binding 以 live `catalog.blocks[].resourceBindings` 为准；常见值包括 `currentCollection`、`currentRecord`、`associatedRecords`、`otherRecords`。
 - `select`、`subForm`、`bulkEditForm` scene 当前不支持 popup collection block 创建；命中这些 scene 时，不要继续 `compose/addBlock(table/details/list/gridCard/createForm/editForm/filterForm)`。
 - popup 内 block 的 `resource` 一律按对象型 wire shape 写入，不接受字符串简写。`details/editForm(currentRecord)` 用 `{ "binding": "currentRecord" }`；popup 内的 association collection block 用 `{ "binding": "associatedRecords", "associationField": "<field>" }`。
 - popup 里的关联 collection block 默认优先走语义化 `resource.binding="associatedRecords"`；写后必须确认 `resourceSettings.init.associationName` 是包含 `.` 的完整关联名，且 `sourceId` 仍然存在。若读回成裸字段名（例如 `roles`）或丢失 `sourceId`，视为失败并停止，不接受静默落盘。

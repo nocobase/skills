@@ -44,7 +44,7 @@
 
 ## 5. Choose Capability / Config Path
 
-- 不确定该选 block / form / action / field 时，看 [capabilities.md](./capabilities.md)。
+- 不确定该选 block / action / field 时，看 [capabilities.md](./capabilities.md)。
 - 需要判断 `settings`、`configure(changes)`、`updateSettings` 的取舍时，看 [settings.md](./settings.md)。
 - 自然语言有高歧义时，看 [aliases.md](./aliases.md) 先收敛对象语义。
 
