@@ -8,7 +8,6 @@ description: "Explains the condition list, 'otherwise' branch, and continuation 
 ## Node Type
 
 `multi-conditions`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Evaluates multiple conditions in sequential order; if a condition is met, the process enters the corresponding branch, otherwise it continues to evaluate the next condition. If none are met, it enters the "otherwise" branch.
@@ -61,9 +60,9 @@ Choosing different processing branches based on status/level, similar to switch/
     },
     {
       "uid": "c2",
-      "title": "Amount > 1000",
+      "title": "Total > 1000",
       "engine": "math.js",
-      "expression": "{{ $context.data.amount }} > 1000"
+      "expression": "{{ $context.data.total }} > 1000"
     }
   ],
   "continueOnNoMatch": true

@@ -8,7 +8,6 @@ description: "Dedicated flow triggered by approval initiation, used for managing
 ## Trigger Type
 
 `approval`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Business scenarios requiring approval flows (reimbursement, procurement, leave, etc.).

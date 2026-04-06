@@ -8,7 +8,6 @@ description: "Trigger flows via external HTTP POST calls, supporting request par
 ## Trigger Type
 
 `webhook`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - External system callbacks (payment, messaging, notifications, etc.).

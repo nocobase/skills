@@ -8,7 +8,6 @@ description: "Monitor additions/updates/deletions of specified data tables and t
 ## Trigger Type
 
 `collection`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Executing automated flows after data table records are added, updated, or deleted (e.g., inventory deduction, status synchronization).
@@ -55,6 +54,15 @@ Please use the `type` value above to create the trigger; do not use the document
     ]
   },
   "appends": ["category", "author"]
+}
+```
+
+### When delete a post in main data source
+
+```json
+{
+  "collection": "posts",
+  "mode": 4,
 }
 ```
 

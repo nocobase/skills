@@ -8,7 +8,6 @@ description: "Explains the engine selection, calculation structure, and branch r
 ## Node Type
 
 `condition`
-Use the above `type` value when creating the node; do not use the documentation filename as the type.
 
 ## Node Description
 Determines the flow direction based on the judgment result: it can either "continue only if true" or proceed via "Yes/No" branches.
@@ -38,6 +37,9 @@ Deciding whether to continue the process based on whether inventory is sufficien
   - `branchIndex=0`: Condition is false (No)
 
 ## Example Configuration
+
+### `basic` engine
+
 ```json
 {
   "rejectOnFalse": false,
@@ -53,5 +55,15 @@ Deciding whether to continue the process based on whether inventory is sufficien
       ]
     }
   }
+}
+```
+
+### `formula.js` engine
+
+```json
+{
+  "rejectOnFalse": false,
+  "engine": "formula.js",
+  "expression": "IF($context.data.status == 'paid', true, false)"
 }
 ```
