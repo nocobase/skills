@@ -41,6 +41,8 @@
 ## 5. Read Path
 
 - 已有 surface 默认先 `get`；是否追加 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断。
+- 只要本轮要判断 popup 内 `resourceBindings`、popup collection block 的 `resource` 语义，或字段是否可加，默认直接命中 `catalog(target)` gate，不靠试写探路。
+- `addField/addFields` 默认先读 `catalog(target)`；如果这一步没做，只有在现场事实已经证明目标字段有 `interface` 时才允许继续写。
 - `inspect` 只读；`get` / `catalog` / `context` 的请求形状统一看 [tool-shapes.md](./tool-shapes.md)。
 
 ## 6. Write Path
@@ -49,6 +51,8 @@
 - 只创建菜单分组时，直接走 `createMenu(type="group")`。
 - 新建页面默认菜单优先：`createMenu(type="item") -> createPage(menuRouteId=...)`。
 - 已有 target 优先 `compose/add*`，再考虑 `configure/updateSettings`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
+- 涉及 popup subtree 或 popup collection block 时，优先在 opener payload 里直接带 `popup`，并显式写 `popup.mode: "append"`；写接口一旦返回 `popupPageUid` / `popupTabUid` / `popupGridUid`，后续一律直接复用。
+- popup 内 block 的语义资源绑定统一使用对象型 `resource`；`currentRecord`、`associatedRecords` 都不允许当作字符串速记直接试写。
 - 具体操作对应的最小读回目标，统一对照 [verification.md](./verification.md) 的 `操作 -> 最小读回目标`。
 
 ## 7. Risk Gate
@@ -60,7 +64,7 @@
 
 ## 8. Topic Gate
 
-- `popup`：看 [popup.md](./popup.md)。
+- `popup`：看 [popup.md](./popup.md)。只要目标是“完成一个可用 popup”，默认走 popup-capable canonical payload，而不是先造 opener 再猜 popup subtree。
 - `chart`：先看 [chart.md](./chart.md)，再按需进入 `chart-core` / `chart-validation`。
 - `js`：看 [js.md](./js.md)；任何 JS 写入都必须先走本地 validator gate，CLI 入口看 [runjs-runtime.md](./runjs-runtime.md)。
 

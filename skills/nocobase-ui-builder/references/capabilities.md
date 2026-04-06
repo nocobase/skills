@@ -130,6 +130,9 @@
 - `compose(...).fields` 的最常见 shorthand 写法是字符串字段名，例如 `"nickname"`。
 - 在 `addField/addFields`，或需要显式声明字段路径时，统一用 `{ "fieldPath": "nickname" }`。
 - 绑定真实字段时，`fieldPath` 属于创建必需参数，不属于 `settings`；`jsColumn` / `jsItem` 这类 synthetic standalone field 则允许不传真实 `fieldPath`。
+- `addField/addFields` 默认先看 live `catalog.fields`；collection schema 里有字段，不等于当前 target 就一定能加。
+- 如果本轮没有先读 `catalog(target)`，只有在现场事实已经证明该字段有 `interface` 时才允许继续写；否则停止，不用试写去探测。
+- 服务端最终按字段 `interface` 判定可加性；没有 `interface` 的字段不能通过 `addField` 落到区块里。
 - 字段标签、必填、禁用等公开属性的内联策略，统一看 [settings.md](./settings.md)。
 - 常见 wrapper 配置：`label`、`showLabel`、`tooltip`、`extra`、`width`。
 - `fixed` 只在 table column / action column / `jsColumn` 这类列语义里常见；不要把它当成所有 field wrapper 的通用设置。

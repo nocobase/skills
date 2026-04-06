@@ -5,11 +5,14 @@
 ## Core Rules
 
 - `recordActions.view/edit/popup` 默认只创建 popup shell，不会自动生成 `details`、`editForm` 或 `submit`。
+- 用户要求完成一个可用 popup 时，skill 的 canonical opener 写法默认直接携带 `popup` subtree；不要先只造 opener，再靠第二轮猜 popup host。带 subtree 的 payload 显式写 `popup.mode: "append"`；只有用户明确要求整体替换现有 popup 内容时才改 `replace`。
 - 拿到 `popupPageUid` / `popupTabUid` / `popupGridUid` 只代表 popup subtree 已建立，不代表 popup 内容已经完成。
+- 只要写接口已经返回 `popupPageUid` / `popupTabUid` / `popupGridUid`，下一步一律直接复用这些 uid，不重新猜 hostUid / gridUid。
 - 是否允许把本次结果停在 `shell-only popup`，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；不要在本页重复定义跨专题门槛。
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。
 - 如果 popup catalog 没有暴露 `currentRecord`，停止猜测，不要在普通 popup 上臆造记录绑定。
 - `currentRecord` 属于 popup 内 block 的资源绑定语义，不是复用页面上已有区块实例。
+- popup 内 block 的 `resource` 一律按对象型 wire shape 写入，不接受字符串简写。`details/editForm(currentRecord)` 用 `{ "binding": "currentRecord" }`；popup 内关系 collection block 用 `{ "binding": "associatedRecords", "associationField": "<field>" }`。
 - popup 里的关联 collection block 默认优先走语义化 `resource.binding="associatedRecords"`；写后必须确认 `resourceSettings.init.associationName` 是包含 `.` 的完整关联名，且 `sourceId` 仍然存在。若读回成裸字段名（例如 `roles`）或丢失 `sourceId`，视为失败并停止，不接受静默落盘。
 - `openView.uid` 不是当前 skill 的默认写入手段；没有强证据时，不要主动用它做 popup 复用。
 - upstream contract 已明确禁止把一个 opener 的 uid 直接拿去给另一个 opener 复用；尤其不要把一个入口的 popup uid 写到另一个入口的 `openView.uid`。
@@ -21,11 +24,48 @@
 
 ## 默认 popup 写流程
 
-1. 先创建会打开 popup 的 action 或 field；如果当前已经拿到 popup 相关 uid，可直接从第 3 步开始。
+1. 先创建会打开 popup 的 action 或 field；如果用户要求的是“完成一个可用 popup”，默认直接提交带 `popup` subtree 的 popup-capable payload，并显式写 `popup.mode: "append"`。如果当前已经拿到 popup 相关 uid，可直接从第 3 步开始。
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target，不要重新猜 host。
 3. 明确本次写的是 `popup-page`、`popup-tab` 还是 `popup-content`。
 4. 是否需要先读 popup target 的 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断；命中后再按风险分级选择 `compose/add*`、`configure/updateSettings`，或在用户明确接受整体替换时才使用 `setEventFlows`。
 5. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
+
+最小 canonical 片段：
+
+```json
+{
+  "popup": {
+    "mode": "append",
+    "blocks": [
+      {
+        "key": "current-user-details",
+        "type": "details",
+        "resource": {
+          "binding": "currentRecord"
+        }
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "popup": {
+    "mode": "append",
+    "blocks": [
+      {
+        "key": "roles-table",
+        "type": "table",
+        "resource": {
+          "binding": "associatedRecords",
+          "associationField": "roles"
+        }
+      }
+    ]
+  }
+}
+```
 
 关系字段 popup 的最小验收：
 

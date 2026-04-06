@@ -24,6 +24,8 @@
 - `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只在用户明确接受 standalone / compat page 副作用时允许
 - 在当前实现中，`tabSchemaUid` 既可作为 `outer-tab` 的 `get` locator，也可直接作为其写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
 - `setLayout` 与 `setEventFlows` 是 high-impact full-replace API；先读完整当前状态，再决定是否写入
+- 只要 opener payload 同时要创建 popup subtree，默认显式写 `popup.mode: "append"`；只有用户明确要求整体替换 popup 内容时才写 `replace`
+- popup 内 block 的语义资源绑定统一走对象型 `resource`；`currentRecord` / `associatedRecords` 不是字符串速记
 
 ## 根级 locator `get`
 
@@ -120,6 +122,62 @@
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
 - `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程看 [popup.md](./popup.md)
 - `mutate` 不属于这组 top-level `target.uid` 入口；它使用 `requestBody.ops[]`，由各 op 自己决定是否带 `target`
+
+### popup-capable `addRecordAction` 最小形状
+
+在创建 opener 的同时把 popup subtree 一次带上时，使用这种 canonical 形状：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "details-block-uid" },
+    "type": "view",
+    "settings": {
+      "title": "详情"
+    },
+    "popup": {
+      "mode": "append",
+      "blocks": [
+        {
+          "key": "current-user-details",
+          "type": "details",
+          "resource": {
+            "binding": "currentRecord"
+          },
+          "fields": ["nickname", "email"]
+        }
+      ]
+    }
+  }
+}
+```
+
+写后如果返回了 `popupPageUid` / `popupTabUid` / `popupGridUid`，后续写入直接复用，不再重新猜 popup host。
+
+### popup collection block 的 `resource` 最小形状
+
+在 popup 内容区追加关系 collection block 时，`resource` 用语义化对象，不要退回字符串：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "mode": "append",
+    "blocks": [
+      {
+        "key": "roles-table",
+        "type": "table",
+        "resource": {
+          "binding": "associatedRecords",
+          "associationField": "roles"
+        },
+        "fields": ["name", "title"],
+        "recordActions": ["view"]
+      }
+    ]
+  }
+}
+```
 
 ## `context` canonical payload
 
@@ -245,6 +303,9 @@
 - lifecycle API 外面漏掉 `requestBody`
 - 在 `createMenu(type="item")` 之后、`createPage(menuRouteId=...)` 之前就调用 page/tab lifecycle API
 - 把 `currentRecord` 当成裸 locator 或 `target.uid` 传进去
+- 把 popup 内 `resource` 写成字符串，例如 `resource: "currentRecord"` 或 `resource: "associatedRecords"`
+- 带 `popup` subtree 却省略 `popup.mode`，再把行为寄托给运行时兜底；skill 的 canonical payload 必须显式写 `append` 或 `replace`
+- 在 popup collection block 上混用 `resource` 与 `resourceInit`：语义绑定走 `resource` 对象；非 popup 或 raw 资源初始化才走 `resourceInit`
 - 把 `settings.props.*`、`settings.decoratorProps.*`、`settings.stepParams.*` 当成 `add*` 的合法输入
 - 对已经暴露在 live `configureOptions` 里的高频属性，仍然默认拆成“先 add 再 configure”
 - 把双列布局写成 `rows[rowKey] = [[a, b]]`，同时又传 `sizes[rowKey] = [12, 12]`
