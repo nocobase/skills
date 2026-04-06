@@ -95,9 +95,34 @@ Tests for the `schedule` trigger type which triggers workflows based on time rul
   2. Verify endsOn and limit are set
   3. Schedule workflow and verify it respects limits
 
+#### TC-TRIGGER-SCHEDULE-005: Change from custom time to data table time mode
+- **Description**: Change trigger mode from custom time to data table time field
+- **Prompt**: "创建一个基于订单创建时间触发的工作流，触发时间为订单创建30分钟后"
+- **Expected Configuration** (updated):
+```json
+{
+  "mode": 1,
+  "collection": "orders",
+  "startsOn": {
+    "field": "createdAt",
+    "offset": 30,
+    "unit": 60000
+  }
+}
+```
+
+- **Validation Points**:
+  - Mode should be `1`
+  - Collection should be set to `orders`
+  - StartsOn should reference `createdAt` field, and have correct offset and unit
+- **Test Steps**:
+  1. Create workflow with custom time schedule
+  2. Verify configuration
+  3. Create an order and verify trigger timing
+
 ### Editing Scenarios
 
-#### TC-TRIGGER-SCHEDULE-005: Change schedule from daily to weekly
+#### TC-TRIGGER-SCHEDULE-006: Change schedule from daily to weekly
 - **Description**: Modify existing schedule from daily to weekly execution
 - **Prompt**: "将工作流的触发时间从每天改为每周一上午9点"
 - **Expected Configuration** (updated):
@@ -117,9 +142,9 @@ Tests for the `schedule` trigger type which triggers workflows based on time rul
   3. Verify repeat changed to weekly
   4. Verify workflow triggers on Mondays only
 
-#### TC-TRIGGER-SCHEDULE-006: Add preloaded relationships to data table time trigger
+#### TC-TRIGGER-SCHEDULE-007: Add preloaded relationships to data table time trigger
 - **Description**: Add relationship preloading to existing data table time trigger
-- **Prompt**: "在基于订单时间的触发器中预加载客户信息"
+- **Prompt**: "在基于订单时间触发的工作流中预加载创建人信息"
 - **Expected Configuration** (updated):
 ```json
 {
@@ -130,44 +155,19 @@ Tests for the `schedule` trigger type which triggers workflows based on time rul
     "offset": 30,
     "unit": 60000
   },
-  "appends": ["customer"]
+  "appends": ["createdBy"]
 }
 ```
 - **Validation Points**:
-  - Appends should include `customer` relationship
+  - Appends should include `createdBy` relationship
   - Other configuration preserved
 - **Test Steps**:
   1. Create workflow with data table time trigger
   2. Execute skill with edit prompt
   3. Verify appends added
-  4. Test trigger and verify customer data is loaded
-
-#### TC-TRIGGER-SCHEDULE-007: Change from custom time to data table time mode
-- **Description**: Change trigger mode from custom time to data table time field
-- **Prompt**: "将工作流改为基于订单创建时间触发"
-- **Expected Configuration** (updated):
-```json
-{
-  "mode": 1,
-  "collection": "orders",
-  "startsOn": {
-    "field": "createdAt",
-    "offset": 0,
-    "unit": 86400000
-  }
-}
-```
-- **Validation Points**:
-  - Mode should change from `0` to `1`
-  - Collection should be set to `orders`
-  - StartsOn should reference `createdAt` field
-- **Test Steps**:
-  1. Create workflow with custom time schedule
-  2. Execute skill with edit prompt
-  3. Verify mode and configuration updated
-  4. Create an order and verify trigger timing
+  4. Test trigger and verify createdBy data is loaded
 
 ## Test Data Requirements
 - `orders` collection with `createdAt` timestamp field
-- `customer` relationship on orders collection
+- `createdBy` relationship on orders collection
 - System clock should be accurate for time-based tests

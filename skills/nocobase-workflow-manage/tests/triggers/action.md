@@ -7,31 +7,27 @@ Tests for the `action` trigger type which triggers workflows after user actions 
 
 ### Creation Scenarios
 
-#### TC-TRIGGER-ACTION-001: Create workflow for post-order-creation actions
-- **Description**: Create workflow triggered after order creation
-- **Prompt**: "创建一个在订单创建后执行的工作流"
+#### TC-TRIGGER-ACTION-001: Create workflow for post-order-submission actions
+- **Description**: Create workflow triggered after order submission
+- **Prompt**: "创建一个在订单提交后执行的工作流，仅由特定的按钮操作触发"
 - **Expected Configuration**:
 ```json
 {
   "collection": "orders",
-  "global": true,
-  "actions": ["create"],
-  "appends": []
+  "global": false
 }
 ```
 - **Validation Points**:
-  - Trigger type should be `action`
-  - Collection should be `orders`
-  - Global should be `true` (global mode)
-  - Actions should include `"create"`
+  - Global should be `false` (local mode)
+  - No actions field (not required for local mode)
 - **Test Steps**:
   1. Execute skill with the prompt
-  2. Verify configuration matches expected
-  3. Create an order via UI/API and verify workflow triggers
+  2. Verify local mode configuration
+  3. Bind workflow to specific button and test
 
 #### TC-TRIGGER-ACTION-002: Create workflow for post-update actions with preloaded data
 - **Description**: Create workflow triggered after order updates with customer data preloaded
-- **Prompt**: "创建一个在订单更新后执行的工作流，预加载客户信息"
+- **Prompt**: "创建一个在订单提交更新后执行的工作流，预加载客户信息"
 - **Expected Configuration**:
 ```json
 {
@@ -49,36 +45,37 @@ Tests for the `action` trigger type which triggers workflows after user actions 
   2. Verify configuration
   3. Update an order and verify workflow triggers with customer data
 
-#### TC-TRIGGER-ACTION-003: Create local mode workflow for specific button
-- **Description**: Create workflow triggered only by specific button/operation
-- **Prompt**: "创建一个本地模式的工作流，仅由特定的按钮操作触发"
-- **Expected Configuration**:
-```json
-{
-  "collection": "orders",
-  "global": false,
-  "actions": ["create", "update"]
-}
-```
-- **Validation Points**:
-  - Global should be `false` (local mode)
-  - Actions should include both create and update (default)
-- **Test Steps**:
-  1. Execute skill with the prompt
-  2. Verify local mode configuration
-  3. Bind workflow to specific button and test
-
 ### Editing Scenarios
 
-#### TC-TRIGGER-ACTION-004: Change from global to local mode
+#### TC-TRIGGER-ACTION-003: Change from global to local mode
 - **Description**: Modify existing action trigger from global to local mode
-- **Prompt**: "将工作流改为本地模式，仅由绑定的按钮触发"
+- **Prompt**: "将订单提交后执行的工作流改为任何新增和更新操作都触发"
 - **Expected Configuration** (updated):
 ```json
 {
   "collection": "orders",
-  "global": false,
+  "global": true,
   "actions": ["create", "update"]
+}
+```
+- **Validation Points**:
+  - Global should change from `false` to `true`
+  - Collection preserved
+  - Actions should include both `create` and `update`
+- **Test Steps**:
+  1. Create workflow with local action trigger
+  2. Execute skill with edit prompt
+  3. Verify mode changed
+  4. Test that global action trigger
+
+#### TC-TRIGGER-ACTION-004: Change from global to local mode
+- **Description**: Modify existing action trigger from global to local mode
+- **Prompt**: "将订单提交后执行的工作流改为仅由绑定的按钮触发"
+- **Expected Configuration** (updated):
+```json
+{
+  "collection": "orders",
+  "global": false
 }
 ```
 - **Validation Points**:
@@ -92,7 +89,7 @@ Tests for the `action` trigger type which triggers workflows after user actions 
 
 #### TC-TRIGGER-ACTION-005: Add preloaded relationships
 - **Description**: Add relationship preloading to existing action trigger
-- **Prompt**: "在动作触发器中预加载订单明细和客户信息"
+- **Prompt**: "在订单提交后执行的工作流中预加载订单明细和客户信息"
 - **Expected Configuration** (updated):
 ```json
 {
@@ -112,7 +109,7 @@ Tests for the `action` trigger type which triggers workflows after user actions 
 
 #### TC-TRIGGER-ACTION-006: Change actions from create+update to update only
 - **Description**: Modify trigger to only respond to update actions
-- **Prompt**: "将工作流改为仅在订单更新时触发"
+- **Prompt**: "将订单提交后执行的工作流改为仅在订单更新时触发"
 - **Expected Configuration** (updated):
 ```json
 {
