@@ -5,7 +5,8 @@
 ## Core Rules
 
 - `recordActions.view/edit/popup` 默认只创建 popup shell，不会自动生成 `details`、`editForm` 或 `submit`。
-- 用户要求完成一个可用 popup 时，skill 的 canonical opener 写法默认直接携带 `popup` subtree；不要先只造 opener，再靠第二轮猜 popup host。带 subtree 的 payload 显式写 `popup.mode: "append"`；只有用户明确要求整体替换现有 popup 内容时才改 `replace`。
+- popup-capable payload 的 canonical shape 与 `popup.mode` 规则统一看 [tool-shapes.md](./tool-shapes.md)；inline 新 popup subtree 默认优先 `replace`。
+- 命中 `currentRecord`、`associatedRecords`、或 popup `resourceBindings` 判定时，统一走 `guard-first popup flow`：先创建 opener，复用返回的 popup uid，再读 `popup-content` 的 `catalog`。
 - 拿到 `popupPageUid` / `popupTabUid` / `popupGridUid` 只代表 popup subtree 已建立，不代表 popup 内容已经完成。
 - 只要写接口已经返回 `popupPageUid` / `popupTabUid` / `popupGridUid`，下一步一律直接复用这些 uid，不重新猜 hostUid / gridUid。
 - 是否允许把本次结果停在 `shell-only popup`，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；不要在本页重复定义跨专题门槛。
@@ -24,48 +25,11 @@
 
 ## 默认 popup 写流程
 
-1. 先创建会打开 popup 的 action 或 field；如果用户要求的是“完成一个可用 popup”，默认直接提交带 `popup` subtree 的 popup-capable payload，并显式写 `popup.mode: "append"`。如果当前已经拿到 popup 相关 uid，可直接从第 3 步开始。
+1. 先判断本次是否命中 `guard-first popup flow`。命中时先创建 opener 或 popup shell，拿到 popup uid；未命中时可直接按 [tool-shapes.md](./tool-shapes.md) 的 inline popup payload 完成 subtree。
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target，不要重新猜 host。
 3. 明确本次写的是 `popup-page`、`popup-tab` 还是 `popup-content`。
-4. 是否需要先读 popup target 的 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断；命中后再按风险分级选择 `compose/add*`、`configure/updateSettings`，或在用户明确接受整体替换时才使用 `setEventFlows`。
+4. 命中 `guard-first popup flow` 时，先按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 读取 `popup-content` 的 `catalog`，确认 `resourceBindings` 或字段能力后再继续 `compose/add*`。
 5. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
-
-最小 canonical 片段：
-
-```json
-{
-  "popup": {
-    "mode": "append",
-    "blocks": [
-      {
-        "key": "current-user-details",
-        "type": "details",
-        "resource": {
-          "binding": "currentRecord"
-        }
-      }
-    ]
-  }
-}
-```
-
-```json
-{
-  "popup": {
-    "mode": "append",
-    "blocks": [
-      {
-        "key": "roles-table",
-        "type": "table",
-        "resource": {
-          "binding": "associatedRecords",
-          "associationField": "roles"
-        }
-      }
-    ]
-  }
-}
-```
 
 关系字段 popup 的最小验收：
 
