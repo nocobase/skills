@@ -6,13 +6,15 @@
 
 - `recordActions.view/edit/popup` 默认只创建 popup shell，不会自动生成 `details`、`editForm` 或 `submit`。
 - popup-capable payload 的 canonical shape 与 `popup.mode` 规则统一看 [tool-shapes.md](./tool-shapes.md)；inline 新 popup subtree 默认优先 `replace`。
-- 命中 `currentRecord`、`associatedRecords`、或 popup `resourceBindings` 判定时，统一走 `guard-first popup flow`：先创建 opener，复用返回的 popup uid，再读 `popup-content` 的 `catalog`。
+- 命中 popup `resourceBindings` 判定时，统一走 `guard-first popup flow`：先创建 opener，复用返回的 popup uid，再读 `popup-content` 的 `catalog`。
 - 拿到 `popupPageUid` / `popupTabUid` / `popupGridUid` 只代表 popup subtree 已建立，不代表 popup 内容已经完成。
 - 只要写接口已经返回 `popupPageUid` / `popupTabUid` / `popupGridUid`，下一步一律直接复用这些 uid，不重新猜 hostUid / gridUid。
 - 是否允许把本次结果停在 `shell-only popup`，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；不要在本页重复定义跨专题门槛。
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。
 - 如果 popup catalog 没有暴露 `currentRecord`，停止猜测，不要在普通 popup 上臆造记录绑定。
 - `currentRecord` 属于 popup 内 block 的资源绑定语义，不是复用页面上已有区块实例。
+- popup 内 collection block 的公开语义 binding 以 live `catalog.blocks[].resourceBindings` 为准；当前常见值包括 `currentCollection`、`currentRecord`、`associatedRecords`、`otherRecords`。
+- `select`、`subForm`、`bulkEditForm` scene 当前不支持 popup collection block 创建；命中这些 scene 时，不要继续 `compose/addBlock(table/details/list/gridCard/createForm/editForm/filterForm)`。
 - popup 内 block 的 `resource` 一律按对象型 wire shape 写入，不接受字符串简写。`details/editForm(currentRecord)` 用 `{ "binding": "currentRecord" }`；popup 内的 association collection block 用 `{ "binding": "associatedRecords", "associationField": "<field>" }`。
 - popup 里的关联 collection block 默认优先走语义化 `resource.binding="associatedRecords"`；写后必须确认 `resourceSettings.init.associationName` 是包含 `.` 的完整关联名，且 `sourceId` 仍然存在。若读回成裸字段名（例如 `roles`）或丢失 `sourceId`，视为失败并停止，不接受静默落盘。
 - `openView.uid` 不是当前 skill 的默认写入手段；没有强证据时，不要主动用它做 popup 复用。
@@ -28,7 +30,7 @@
 1. 先判断本次是否命中 `guard-first popup flow`。命中时先创建 opener 或 popup shell，拿到 popup uid；未命中时可直接按 [tool-shapes.md](./tool-shapes.md) 的 inline popup payload 完成 subtree。
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target，不要重新猜 host。
 3. 明确本次写的是 `popup-page`、`popup-tab` 还是 `popup-content`。
-4. 命中 `guard-first popup flow` 时，先按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 读取 `popup-content` 的 `catalog`，确认 `resourceBindings` 或字段能力后再继续 `compose/add*`。
+4. 命中 `guard-first popup flow` 时，先按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 读取 `popup-content` 的 `catalog`，确认 `resourceBindings`、scene 限制或字段能力后再继续 `compose/add*`。
 5. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
 
 association field popup 的最小验收：

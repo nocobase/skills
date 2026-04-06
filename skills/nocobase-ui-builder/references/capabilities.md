@@ -1,20 +1,20 @@
 # Capabilities
 
-当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart 专题入口看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。是否允许 `shell-only popup`，统一看 [normative-contract.md](./normative-contract.md)。
+当你已经确定要往内容区搭东西，但还没决定该选什么 block / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart 专题入口看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。是否允许 `shell-only popup`，统一看 [normative-contract.md](./normative-contract.md)。
 
 ## 目录
 
 1. 选型顺序
 2. Block 选型
-3. Form 选型
+3. 表单类 block 选型
 4. Action scope
 5. FilterForm 通用能力
 6. Field 规则
 
 ## 选型顺序
 
-1. 先判断用户要的是 block、form、action 还是 field。
-2. 再按容器与 scope 收敛：`table/details/list/gridCard/filterForm/actionPanel/form/createForm/editForm`。
+1. 先判断用户要的是 block、action 还是 field。
+2. 再按容器与 scope 收敛：`table/details/list/gridCard/filterForm/actionPanel/createForm/editForm`。
 3. 最后才看 JS、association leaf field、`openView`、layout 等专题配置。
 
 下文中的 block / action 能力都是常见值，不是穷尽列表；最终以 live `catalog` 为准。
@@ -23,7 +23,7 @@
 
 ### 默认创建能力
 
-- 默认可创建：`table`、`details`、`list`、`gridCard`、`filterForm`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`。
+- 默认可创建：`table`、`createForm`、`editForm`、`details`、`list`、`gridCard`、`filterForm`、`markdown`、`iframe`、`chart`、`actionPanel`、`jsBlock`。
 - `map`、`comments` 仅在现场 `catalog` 明确允许时才创建或小范围改配。
 - 用户显式点名区块类型时，优先按这个 block 选型；区块语境里的 `Grid` 默认按 `gridCard` 处理。
 
@@ -32,6 +32,8 @@
 | 用户目标 | 优先 block | 关键点 |
 | --- | --- | --- |
 | 数据表格操作、批量操作、树表、固定列 | `table` | 需要 collection resource；`fields` 是列，`actions` 是 block 级动作，`recordActions` 是行级动作 |
+| 新建记录、录入页、addNew popup | `createForm` | 表单内容走 `fields` + `actions`，提交通常补 `submit` |
+| 编辑记录、编辑弹窗、edit popup | `editForm` | 用于编辑已有记录；查看场景不要拿它伪装详情 |
 | 单条记录只读详情 | `details` | 必须绑定 collection resource；动作只能走 `recordActions` |
 | 轻量条目浏览、移动端友好 | `list` | 以 item 展示字段与 item 级动作为主 |
 | 卡片墙、宫格、缩略图浏览 | `gridCard` | `fields` 是卡片展示字段，`recordActions` 是单卡动作 |
@@ -45,17 +47,17 @@
 ### 高频 block 提醒
 
 - `table`：读回重点是 `actionsColumnUid`、字段 uid、association field `clickToOpen/openView`。
-- `details`：查看场景优先它，不要用 `editForm` 或 `form` 伪装详情页。
+- `details`：查看场景优先它，不要用 `editForm` 伪装详情页。
 - `filterForm`：它是通用数据筛选输入区块，不是 chart 专属能力；多目标时优先使用 contract 明确暴露的 target 绑定字段，尤其是 `defaultTargetUid`。
 - block / field / action 的公开属性如何内联进 `settings`，统一看 [settings.md](./settings.md)。
 
-## Form 选型
+## 表单类 block 选型
 
-- 默认优先 `createForm`、`editForm`；`form` 只作为兼容历史 `FormBlockModel` 的 fallback。
+- 表单场景默认优先 `createForm`、`editForm`。
 - 用户要“新建记录 / 录入页 / addNew popup”时，优先 `createForm`。
 - 用户要“编辑弹窗 / 编辑页 / record action edit popup”时，优先 `editForm`。
 - 表单类 block 的公开语义是 `fields` + `actions`，只承载 form actions，不承载 `recordActions`。
-- 查看场景优先 `details`；只有现场已存在 `FormBlockModel` 或用户明确要求“通用表单”时，才考虑 `form`。
+- 查看场景优先 `details`，不要把表单类 block 当成详情替代品。
 
 ## Action scope
 
@@ -65,7 +67,7 @@
 | --- | --- | --- | --- |
 | `block` | `table`、`list`、`gridCard` | `addAction` / `actions` | 对整块数据集生效 |
 | `record` | `table`、`details`、`list`、`gridCard` | `addRecordAction` / `recordActions` | 对单条记录或单个 item 生效 |
-| `form` | `form`、`createForm`、`editForm` | `addAction` / `actions` | 表单提交类动作 |
+| `form` | `createForm`、`editForm` | `addAction` / `actions` | 表单提交类动作 |
 | `filterForm` | `filterForm` | `addAction` / `actions` | 筛选提交 / 重置 / 折叠 |
 | `actionPanel` | `actionPanel` | `addAction` / `actions` | 工具面板动作 |
 
@@ -73,13 +75,13 @@
 
 - `addAction` / `actions` 只放非 `recordActions`；`addRecordAction` / `recordActions` 只放记录级动作。
 - `details` 虽然是 block，但公开动作能力属于 `recordActions`。
-- `table` 的记录级动作实际挂在 actions column 容器下，读回时留意 `actionsColumnUid`。
+- `table` 读回时会看到 `actionsColumnUid` 等内部容器，但 `addRecordAction` 的 target 必须传 `table/details/list/gridCard` 这类 owner target。
 
 ### 高频动作
 
-- block actions：`filter`、`addNew`、`popup`、`refresh`、`expandCollapse`、`bulkDelete`、`bulkEdit`、`bulkUpdate`、`export`、`import`、`upload`、`triggerWorkflow`、`js`
-- record actions：`view`、`edit`、`popup`、`delete`、`updateRecord`、`duplicate`、`addChild`、`triggerWorkflow`、`js`
-- form actions：`submit`、`triggerWorkflow`、`js`
+- block actions：`filter`、`addNew`、`popup`、`refresh`、`expandCollapse`、`bulkDelete`、`bulkEdit`、`bulkUpdate`、`export`、`exportAttachments`、`import`、`link`、`upload`、`composeEmail`、`templatePrint`、`triggerWorkflow`、`js`
+- record actions：`view`、`edit`、`popup`、`delete`、`updateRecord`、`duplicate`、`addChild`、`composeEmail`、`templatePrint`、`triggerWorkflow`、`js`
+- form actions：`submit`、`triggerWorkflow`、`js`、`jsItem`
 - filter-form actions：`submit`、`reset`、`collapse`、`js`
 - action-panel actions：`js`、`triggerWorkflow`
 
@@ -88,7 +90,7 @@
 - `view/edit/popup` 如果会打开 popup，只创建 action 不算完成；后续 popup 内容统一看 [popup.md](./popup.md)。
 - “查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”优先按 record popup 处理。
 - 是否允许只创建 `popup` shell，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；这里只记住：只创建 action 不算完成 popup 内容。
-- `submit` 在普通 form 和 `filterForm` 是两个不同 scope 的公开能力；`collapse` 只属于 `filterForm`。
+- `submit` 在表单动作容器和 `filterForm` 是两个不同 scope 的公开能力；`collapse` 只属于 `filterForm`。
 - 动作标题、tooltip、按钮类型这类公开属性的内联策略，统一看 [settings.md](./settings.md)。
 - `triggerWorkflow` 在本 skill 中只负责把**已有 workflow 的 UI action 壳**挂到 surface；一旦需要创建 workflow、挑选 workflow key/id、改 trigger/node/execution path，立即转交 `nocobase-workflow-manage`。
 
@@ -122,7 +124,7 @@
 ### 容器心智
 
 - `table/details/list/gridCard`：以 display 字段为主。
-- `form/createForm/editForm`：以 editable 字段为主。
+- `createForm/editForm`：以 editable 字段为主。
 - `filterForm`：以 filter 字段为主，不是展示字段。
 
 ### 绑定字段与常见配置

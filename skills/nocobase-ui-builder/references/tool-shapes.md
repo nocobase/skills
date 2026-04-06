@@ -25,8 +25,8 @@
 - 在当前实现中，`tabSchemaUid` 既可作为 `outer-tab` 的 `get` locator，也可直接作为其写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
 - `setLayout` 与 `setEventFlows` 是 high-impact full-replace API；先读完整当前状态，再决定是否写入
 - popup-capable payload 的 canonical shape 统一在本文；`popup.mode` 必须显式写。inline 新 subtree 通常用 `replace`，明确追加时才用 `append`
-- `currentRecord` / `associatedRecords` 这类 popup guard-sensitive 语义，不走 one-shot inline popup；统一回 [popup.md](./popup.md) 的 `guard-first popup flow`
-- popup 内 block 的语义资源绑定统一走对象型 `resource`；`currentRecord` / `associatedRecords` 不是字符串速记
+- popup 内依赖 `resourceBindings` 判定的语义资源，不走 one-shot inline popup；统一回 [popup.md](./popup.md) 的 `guard-first popup flow`
+- popup 内 block 的语义资源绑定统一走对象型 `resource`；`currentCollection`、`currentRecord`、`associatedRecords`、`otherRecords` 都不是字符串速记
 
 ## 根级 locator `get`
 
@@ -126,7 +126,7 @@
 
 ### 不依赖 live guard 的 popup-capable `addRecordAction` 最小形状
 
-在创建 opener 的同时把 popup subtree 一次带上，且 popup 内容不依赖 `currentRecord` / `associatedRecords` / `resourceBindings` 判定时，使用这种 canonical 形状：
+在创建 opener 的同时把 popup subtree 一次带上，且 popup 内容不依赖 popup `resourceBindings` 判定时，使用这种 canonical 形状：
 
 ```json
 {
@@ -156,7 +156,7 @@
 
 ### guard-sensitive popup-content 的语义 `resource` 最小形状
 
-以下写法只在你已经拿到 `popupGridUid`，且 popup-content `catalog` 已确认对应 binding 可用后使用。`resource` 用语义化对象，不要退回字符串。
+以下写法只在你已经拿到 `popupGridUid`，且 popup-content `catalog` 已确认对应 binding 可用后使用。`resource` 用语义化对象，不要退回字符串。示例只展示常见 binding；完整 binding 与 scene 限制统一看 [popup.md](./popup.md)。
 
 `currentRecord`：
 

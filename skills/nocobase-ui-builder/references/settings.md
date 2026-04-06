@@ -19,6 +19,7 @@
 3. 如果用户需求能完全由 `settings` 表达，就直接 `add* + settings`，不要额外再补 `configure`。
 4. 如果只有部分字段能内联，先 `add* + settings`，再 `configure(changes)` 补剩余公开字段。
 5. 只有 path-level contract 才回退到 `updateSettings`；布局与事件流仍然使用专用 API。
+6. 如果 live `catalog.configureOptions` 已明确公开某个 key，而本文没列到，不要因此自动降级到 `updateSettings`；优先继续走 `add* + settings` 或 `configure(changes)`。
 
 ## 决策矩阵
 
@@ -129,13 +130,11 @@
 }
 ```
 
-适合直接内联的高频 block settings：
+适合直接内联的高频 settings：
 
-- `title`
-- `displayTitle`
-- `height`
-- `heightMode`
-- 表单类 block 常见还包括 `labelWidth`、`labelWrap`、`layout`、`labelAlign`、`colon`
+- 通用 block：`title`、`displayTitle`、`height`、`heightMode`
+- `table`：`quickEdit`、`treeTable`、`defaultExpandAllRows`、`dragSort`、`dragSortBy`
+- 表单类 block：`labelWidth`、`labelWrap`、`layout`、`labelAlign`、`colon`
 
 ### `addField`
 
@@ -210,6 +209,13 @@
 - `color`
 - `danger`
 - `confirm`
+- `editMode`
+- `updateMode`
+- `duplicateMode`
+- `collapsedRows`
+- `defaultCollapsed`
+- `emailFieldNames`
+- `defaultSelectAllRecords`
 
 ### `addRecordAction`
 
