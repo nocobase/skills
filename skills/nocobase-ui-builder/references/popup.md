@@ -1,6 +1,6 @@
 # Popup
 
-当你要处理 popup、`openView`、record popup 或 `currentRecord` guard 时，读本文。popup family 与 uid 来源看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后核对看 [verification.md](./verification.md)。
+当你要处理 popup、`openView`、record popup、`currentRecord` guard，或 popup 内的关联资源绑定时，读本文。popup family 与 uid 来源看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后核对看 [verification.md](./verification.md)。
 
 ## Core Rules
 
@@ -9,6 +9,7 @@
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。
 - 如果 popup catalog 没有暴露 `currentRecord`，停止猜测，不要在普通 popup 上臆造记录绑定。
 - `currentRecord` 属于 popup 内 block 的资源绑定语义，不是复用页面上已有区块实例。
+- popup 里的关联 collection block 默认优先走语义化 `resource.binding="associatedRecords"`；写后必须确认 `resourceSettings.init.associationName` 是包含 `.` 的完整关联名，且 `sourceId` 仍然存在。若读回成裸字段名（例如 `roles`）或丢失 `sourceId`，视为失败并停止，不接受静默落盘。
 - `openView.uid` 不允许作为复用已有 popup opener 的写入手段；如果用户要求几个按钮或字段打开同一个弹窗，直接停止并提示该 skill 不支持 popup 复用。
 - 相同内容如果要出现在多个入口，必须为每个 opener 各自创建独立 popup subtree；不要把一个 opener 的 uid 写到另一个 opener 的 `openView.uid`。
 - 关系字段的 `openView.collectionName` 默认保持目标 collection 语义；不要把 relation popup 改写成源 collection 来伪装“当前行详情”。
@@ -21,7 +22,7 @@
 1. 先创建会打开 popup 的 action 或 field；如果当前已经拿到 popup 相关 uid，可直接从第 3 步开始。
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target，不要重新猜 host。
 3. 明确本次写的是 `popup-page`、`popup-tab` 还是 `popup-content`。
-4. 对对应 popup target 先 `catalog`，再 `compose` / `configure` / `add*`；只有需要更细 path-level patch 时再看 `updateSettings` 或 `setEventFlows`。
+4. 对对应 popup target 先 `catalog`，再按风险分级选择 `compose/add*`、`configure/updateSettings`，或在用户明确接受整体替换时才使用 `setEventFlows`。
 5. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
 
 关系字段 popup 的最小验收：
@@ -64,5 +65,6 @@
 
 - `linkageRules` 属于具体 settings 域；`flowRegistry` 属于节点实例级事件流配置域，标准入口是 `setEventFlows`。
 - 不要混淆：`linkageRules` 不是 `flowRegistry`，`flowRegistry` 也不是可以脱离 contract 猜 path 的普通 settings patch。
-- 推荐顺序：`get -> catalog -> 写 popup/openView settings 或 linkageRules -> setEventFlows -> readback`。
+- `setEventFlows` 属于 high-impact full-replace API；必须先读当前 flows，只在用户明确接受整体替换时使用，并在写后按完整 flow 状态验收。
+- 推荐顺序：`get -> catalog -> 写 popup/openView settings 或 linkageRules`；只有在用户明确接受整体替换、且你已先读当前 flows 时，才继续 `setEventFlows -> readback`。
 - 如果 popup settings 被清空，但 flow 仍引用旧 path，优先修正 settings 或 flow 引用，不要强行猜兼容路径。

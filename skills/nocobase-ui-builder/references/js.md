@@ -1,6 +1,6 @@
 # JS
 
-当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem`、`js` action，或 chart 的 `visual.raw / events.raw` 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，chart 专题再看 [chart-core.md](./chart-core.md)，CLI 用法、Node 版本、repo-root 命令入口与 `--skill-mode` 再看 [runjs-runtime.md](./runjs-runtime.md)。
+当本次写入涉及 JS `code`、`renderer: "js"`、`jsBlock`、`jsColumn`、`jsItem`、`js` action，或 chart 的 `visual.raw / events.raw` 时，读本文。能力位置限制看 [capabilities.md](./capabilities.md)，family / locator / target 看 [runtime-playbook.md](./runtime-playbook.md)，chart 专题入口看 [chart.md](./chart.md)，CLI 用法、Node 版本、repo-root 命令入口与 `--skill-mode` 再看 [runjs-runtime.md](./runjs-runtime.md)。
 
 ## 目录
 
@@ -28,6 +28,7 @@
 - 这个 validator 的目标是**确定性的本地 contract 预验证**，不是安全沙箱承诺。
 - public runtime mode 固定为 `validate`
 - validator 失败就是失败，不能降级成 warning，也不能继续写入
+- 如果 validator 不可运行、Node 版本不满足或结果不可判定，也必须直接停止，不允许跳过 gate 继续写入
 - 运行时校验只允许依赖 `./runtime/bin/nb-runjs.mjs`，不允许在执行阶段读取 NocoBase 源码
 
 标准命令：

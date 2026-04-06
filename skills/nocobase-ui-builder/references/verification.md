@@ -34,7 +34,8 @@
 - 写后只核对本次变更直接相关的 target；只有生命周期或 route/tree 层级变化时，才升级为完整校验。
 - 菜单写入优先核对 `routeId/type/parentMenuRouteId`；菜单移动升级为菜单树读回，而不是 flow tree 校验。
 - popup、字段、配置断言都以现场读回为准；不要只看写接口返回值就认为完成。
-- 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查返回里的 `ok/error/index`，任一失败即停，不能只靠父容器 `readback` 判成功。
+- 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查返回里的 `ok/error/index`，任一失败即停，并分别报告成功项 / 失败项；不自动 rollback，也不继续执行依赖“全部成功”的后续写入。
+- `setLayout` 与 `setEventFlows` 属于 high-impact full-replace；写前先读当前完整状态，写后按完整 layout / flow 状态验收，不按局部 delta 判成功。
 - `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；执行前先说明影响范围，读回时优先确认删除/替换边界是否与预期一致。
 
 ### 操作 -> 最小读回目标
@@ -48,7 +49,9 @@
 | `addTab/updateTab/moveTab/removeTab` | `page` 或对应 `outer-tab` | 总是升级 |
 | `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | `popup-page` 或对应 `popup-tab` | 总是升级 |
 | `compose/addBlock/addField/addAction/addRecordAction` | 直接父级 / 直接容器 target | 不升级 |
-| `configure/updateSettings/setLayout/setEventFlows` | 被修改的 target；必要时读直接父级 | 不升级 |
+| `configure/updateSettings` | 被修改的 target；必要时读直接父级 | 不升级 |
+| `setLayout` | 目标容器 + 完整 `rows/sizes/rowOrder` 状态 | 总是按完整布局校验 |
+| `setEventFlows` | 被修改的 target + 完整 flow 状态 | 总是按完整 flow 状态校验 |
 | `apply/mutate` | 直接受影响 target；如涉及 subtree 层级变化，再读父级 | 仅结构层级真的改变时升级 |
 
 ### 读回重点
@@ -58,6 +61,8 @@
 - `popup-tab`：popup page 仍存在，tab 数量与顺序正确，`tree.use = ChildPageTabModel`，新增 tab 补齐对应 grid anchor。
 - popup subtree：确认 `popupPageUid/popupTabUid/popupGridUid` 挂在正确位置；如果场景是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell；如果现场能看到 resource binding，再额外确认 `details/editForm` 绑定的是 `currentRecord`。
 - 结构 / 字段 / 配置：`tree/nodeMap` 能找到新增节点；table 的 `actionsColumnUid` 存在；record popup 的 `details/editForm/submit` 真正出现；字段定位到 `wrapperUid/fieldUid/innerFieldUid`；`flowRegistry`、layout、关系字段 `clickToOpen/openView` 已落盘。
+- `setLayout`：`rows/sizes/rowOrder` 完整匹配预期，且 child 覆盖与列宽数量一致；不要只看单个 child 是否还在。
+- `setEventFlows`：最终 flow 集合必须完整匹配预期，不残留旧 flow，也不丢失本次目标范围内应保留的绑定。
 - 直接 to-many relation display field：如果用户加的是 `users.roles` 这类 details/list/gridCard 字段，读回时确认它没有退化成 sub-table 类 use；必要时继续确认 `fieldSettings.init.fieldPath` 已归一到关系字段本身（例如 `roles` 而不是 `roles.title`）且 `titleField` 落盘。
 - `filterForm` 接线：不要只看 `addField` 返回值，也不要只看 filter field 自身是否存在；多目标场景下，推荐把父级内容容器读回里的 `filterManager` 当成常用成功信号，并在现场可见时一并核对字段级 target 绑定信息（例如 `defaultTargetUid`）是否符合预期。
 - RunJS：除了 UI 结构读回，还要确认最终落盘 `code` 与通过 validator gate 的代码完全一致。

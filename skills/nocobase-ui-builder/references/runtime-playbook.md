@@ -52,7 +52,7 @@
 1. **按菜单标题发现父菜单**：`desktop_routes_list_accessible(tree=true)`，只接受唯一命中的 `group`；同时记住它只代表当前角色可见菜单树，不能把“没看到”直接推断成“系统不存在”。
 2. **新建菜单分组**：`createMenu(type="group")`；如需继续在该分组下建页面，复用返回的 `routeId` 作为 `parentMenuRouteId`。
 3. **新建完整页面**：`createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`；`createMenu(type="item")` 阶段拿到的 `pre-init ids` 只能继续用于初始化链路；继续搭内容时，对 `createPage` 返回的 `gridUid` 走 `catalog -> compose/add* + settings/configure -> readback`。
-4. **兼容模式下先建页面再移入菜单**：`createPage` 不传 `menuRouteId`；若用户还要求挂进某个菜单，再执行 `updateMenu`。
+4. **兼容模式下先建页面再移入菜单**：`createPage` 不传 `menuRouteId` 只在用户明确接受 standalone / compat page 的副作用时允许；若用户还要求挂进某个菜单，再执行 `updateMenu`。
 5. **已有 `page` 新增 `outer-tab`**：先读回 `page` 拿到 `pageUid`，再 `addTab(target.uid = pageUid)`。
-6. **已有 target 小改或精确追加**：`get -> catalog -> compose/add* + settings/configure/updateSettings/setLayout/setEventFlows/apply/mutate -> readback`。
+6. **已有 target 小改或精确追加**：`get -> catalog ->` 先优先选择 `compose/add*`，再考虑 `configure/updateSettings`；只有用户明确接受整体替换、且你已经读过当前完整状态时，才允许 `setLayout/setEventFlows`；`apply/mutate` 只在公开入口无法表达、且用户明确接受影响范围时再用。
 7. **已有 popup subtree 写入**：若当前执行链没有直接拿到 popup uid，先从 `hostUid` 或 `popupPageUid` 读回 popup subtree；record popup 的 `currentRecord` guard 统一看 [popup.md](./popup.md)。

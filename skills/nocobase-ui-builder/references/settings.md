@@ -7,9 +7,10 @@
 1. 核心规则
 2. 决策矩阵
 3. `settings` 的合法形状
-4. 高频模板
-5. 什么时候不要硬塞进 `settings`
-6. Readback 心智
+4. 高影响提醒
+5. 高频模板
+6. 什么时候不要硬塞进 `settings`
+7. Readback 心智
 
 ## 核心规则
 
@@ -26,8 +27,14 @@
 | 创建节点 + 高频公开属性 | `add* + settings` | `catalog.configureOptions` 已暴露目标字段 |
 | 已创建节点的小改 | `configure(changes)` | 仍然属于公开语义字段，但不必重建节点 |
 | path-level 精细 patch | `updateSettings` | 现场只暴露 domain contract，没有公开语义入口 |
-| 布局 | `setLayout` | `rows / sizes / rowOrder` |
-| 事件流 | `setEventFlows` | `flowRegistry`、事件绑定 |
+| 布局 | `setLayout` | 只有用户明确接受整体布局替换，且当前完整 layout 已读回 |
+| 事件流 | `setEventFlows` | 只有用户明确接受实例级 flow 整体替换，且当前完整 flow 已读回 |
+
+## 高影响提醒
+
+- `setLayout` 与 `setEventFlows` 不属于普通 patch；它们都是 high-impact full-replace API。
+- 不要因为“只是改一个布局项 / 一个 flow”就默认走这两个接口；如果用户不是在要求整体替换，优先回到 `compose/add*`、`configure` 或 `updateSettings`。
+- 一旦使用它们，写前先读完整当前状态，写后按完整状态做 `readback`，不要只看局部 delta。
 
 ## `settings` 的合法形状
 

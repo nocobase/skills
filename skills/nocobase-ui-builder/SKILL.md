@@ -1,6 +1,6 @@
 ---
 name: nocobase-ui-builder
-description: 当用户要通过 NocoBase MCP 检查、搭建、修改、重排或删除 Modern page (v2) 的菜单、页面、页签、弹窗，以及区块/字段/动作时使用；默认走 FlowSurfaces；不负责浏览器复现、页面报错复盘、ACL、数据建模与工作流细节。
+description: 当用户要通过 NocoBase MCP / FlowSurfaces 检查、创建、修改、重排或删除 Modern page (v2) 的菜单分组、菜单项、页面、页签、弹窗、布局，以及 block / field / action 配置时使用；不负责浏览器复现、ACL、数据建模或 workflow 编排。
 allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 ---
 
@@ -40,59 +40,41 @@ allowed-tools: Bash, Read, All MCP tools provided by NocoBase server
 1. live MCP tool schema，以及现场 `get` / `catalog` / `context` / `readback`，优先于本地文档。
 2. `inspect` 默认只读；只有用户明确要求创建、修改、重排或修复时才进入写流程。
 3. UI structure mutation 只走 `flow_surfaces_*`；菜单树发现只走 `desktop_routes_list_accessible(tree=true)`，并始终记住它只覆盖当前角色可见菜单。
-4. 不要用 `resource_*` / generic CRUD / 底层 route 记录写入来替代 page、tab、popup、block、field、action 的 surface API。
-5. 菜单标题不唯一不猜；只接受菜单树里唯一命中的 `group` 作为父菜单。
-6. 已有 target 的写入默认走 `get -> catalog -> write -> readback`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
-7. `addBlock` / `addField` / `addAction` / `addRecordAction` 默认优先把 live `catalog.configureOptions` 里能表达的公开语义字段直接写进 `requestBody.settings`；不要把 `props` / `decoratorProps` / `stepParams` / `flowRegistry` 当成 `settings` 的输入形状。JS raw code 与 chart contract 属于专题入口，不适用这条“优先塞进 settings”的默认心智。
-8. 如果 `settings` 已经能完整表达用户要求，不要额外再补一次 `configure`；只有仍有剩余公开字段时，才执行 `add* + settings -> configure(changes)`。涉及 JS 时默认先过 validator gate，再进入 `configure`。
-9. popup 里的关联 collection block 默认优先走语义化 `resource.binding="associatedRecords"`；写后 `readback` 必须确认 `resourceSettings.init.associationName` 是包含 `.` 的完整关联名，且 `sourceId` 仍然存在。若读回成裸字段名（例如 `roles`）或丢失 `sourceId`，视为失败并停止，不接受静默落盘。
-10. 关系字段（尤其 to-many relation field）开启 `clickToOpen/openView` 时，如果目标是 relation popup，`openView` 不能只保留目标 `collectionName`；写后 `readback` 必须确认它仍带完整 `associationName`。如果用户明确要配置非关联 popup，则不要自动保留旧的 `associationName`；同 collection 但要强制退化为 plain popup 时，显式传 `associationName: null`。若 popup 内再创建 `details/editForm(currentRecord)`，还要继续确认 relation popup 的 `resourceSettings.init` 同时保留 `associationName + sourceId`，不能退化成 plain target record。
-11. `details/list/gridCard` 里的直接 to-many relation 字段（例如 `users.roles`）默认必须与手工 UI Builder 一致：优先落成目标表 `titleField` 的文本展示，不要默认推成子表格字段。只有用户明确要求关系子区块/子表格时，才改走 relation block 或其它 block 级方案；写后至少确认 `fieldUid` 不是 sub-table 类 use，且 `titleField` 已落盘。
-12. 如果现场 `get/catalog/context` 没有明确暴露目标能力、target 绑定字段、resource binding、settings contract 或 `currentRecord` guard，停止猜测，不要臆造写入；只有文档显式允许的保守 fallback（例如用户明确接受仅保留 popup shell）才能继续。
-13. 如果 target 只能靠同一 `parent/subKey` 下多个相同 `use/type` sibling 的相对位置来猜，先停止并收敛唯一 target。
-14. page lifecycle 顺序不能乱：`createMenu(type="item")` 之后，先 `createPage(menuRouteId=...)` 初始化页面，再使用 page/tab lifecycle API。
-15. `pre-init ids` 在 `createPage(menuRouteId=...)` 完成前，只能继续用于初始化链路，不能当成 page/tab lifecycle 的 write-ready target。
-16. 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查 `ok/error/index`，任一失败即停，不能只靠父容器 `readback` 判成功。
-17. `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；只有用户明确要求删除 / 替换时才执行，并先说明影响范围。
-18. `openView.uid` 不允许作为写入输入来复用已有 popup opener；如果用户要求多个 opener / field / action 打开同一个弹窗，停止并提示该 skill 不支持 popup 复用，必须为每个 opener 单独创建 popup subtree。
-19. 认证不足、关键接口缺失或 MCP schema 未刷新时，先按 `Prerequisite & Recovery` 收口，不要绕过 MCP 专用接口。
+4. 定位不唯一不猜；菜单标题只接受唯一命中的 `group`；如果 target 只能靠 sibling 相对位置推断，就先收敛唯一 target；`createMenu(type="item")` 之后必须先 `createPage(menuRouteId=...)`，其返回前的 `pre-init ids` 不是 page/tab lifecycle 的 write-ready target。
+5. 已有 target 的写入默认走 `get -> catalog -> write -> readback`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
+6. 写入路径按风险分级处理：`compose/add*` = safe append；`configure/updateSettings` = merge-like config；`setLayout/setEventFlows` = high-impact full-replace；`destroyPage/remove*`、`apply(mode="replace")` 与 replace-style `mutate` = destructive。high-impact 与 destructive 都要求用户明确接受影响范围；若用户不是在要求整体替换，就不要选 `setLayout/setEventFlows`。
+7. 遇到认证不足、schema 未刷新、capability / contract / guard 缺失时停止猜测；批量写任一子项失败就停，并分别报告成功项与失败项，不自动 rollback，也不继续执行依赖“全部成功”的后续写入；服务端 contract / validation error 只允许一次 `refresh/get/catalog/context -> 重算 payload -> 重试`，第二次仍失败就按 capability gap / drift 收口。
+8. 任何 JS 写入都必须先通过本地 validator gate；若 validator 不可运行、Node 版本不满足、结果不可判定，统一停止，不允许跳过 validator 直接调用 MCP。
 
-## Intent Router
+## Execution Table
 
-先确定 primary intent，再按需叠加下方的 `Special Gates`；不要让专题 gate 反过来覆盖主链路。
+先确定 primary intent，再按需叠加下方 `Special Gates`；不要让专题 gate 反过来覆盖主链路。
 
-| 任务 | 先读什么 | 主写入口 | 主 reference |
-| --- | --- | --- | --- |
-| `inspect` | 菜单标题场景先读菜单树；已初始化 surface 默认 `get`，必要时再 `catalog` | 无写入 | [verification.md](./references/verification.md) |
-| `create-page` | 先发现或创建父菜单，再初始化页面 | `createMenu(type="item") -> createPage(menuRouteId=...)` | [runtime-playbook.md](./references/runtime-playbook.md) |
-| `update-ui` | `get -> catalog`；自然语言歧义时再看 aliases | `compose` / `add* + settings` / `configure` / `updateSettings` | [capabilities.md](./references/capabilities.md) |
-| `move-menu` | 已知 `menuRouteId` 直接移动；只给菜单标题时先读菜单树 | `updateMenu(parentMenuRouteId=...)` | [runtime-playbook.md](./references/runtime-playbook.md) |
-| `reorder` | 先 `get` 确认 sibling 与目标定位 | `moveTab` / `movePopupTab` / `moveNode` | [runtime-playbook.md](./references/runtime-playbook.md) |
-| `delete-ui` | 先 `get` / 菜单树明确目标与影响范围 | `destroyPage` / `removeTab` / `removePopupTab` / `removeNode` | [verification.md](./references/verification.md) |
+| 任务 | 默认先读 | 追加 gate | 主写路径 | 验证 |
+| --- | --- | --- | --- | --- |
+| `inspect` | 菜单标题场景先读菜单树；已初始化 surface 默认 `get` | 只有用户明确要 capability / contract 时才追加 `catalog` | 无写入 | [verification.md](./references/verification.md) 的 `Inspect` |
+| `create-page` | 先发现或创建父菜单；需要 uid / locator 时看 [runtime-playbook.md](./references/runtime-playbook.md) | 通常无；涉及 chart / js / popup 再叠加专题 gate | `createMenu(type="item") -> createPage(menuRouteId=...)`；兼容模式 `createPage` 不带 `menuRouteId` 只在用户明确接受副作用时允许 | `createPage` 总是升级为 `get({ pageSchemaUid })` readback，再按需读菜单树 |
+| `update-ui` | `get -> catalog`；自然语言歧义时再看 [aliases.md](./references/aliases.md) | `popup` / `chart` / `js` 按需追加 | 默认先选 `compose/add*`，再考虑 `configure/updateSettings`；只有用户明确接受整体替换时才允许 `setLayout/setEventFlows` | 直接父级或直接 target readback；high-impact 走完整状态校验 |
+| `move-menu` | 已知 `menuRouteId` 直接移动；只给菜单标题时先读菜单树 | 通常无 | `updateMenu(parentMenuRouteId=...)` | 菜单树读回挂接位置 |
+| `reorder` | 先 `get` 确认 sibling 与目标定位 | popup tab 场景再读 popup subtree | `moveTab` / `movePopupTab` / `moveNode` | 父级或 route/tree readback |
+| `delete-ui` | 先 `get` / 菜单树明确目标与影响范围 | 通常无 | `destroyPage` / `removeTab` / `removePopupTab` / `removeNode`；`apply(mode="replace")` 或 replace-style `mutate` 只在用户明确要求替换 subtree 时允许 | [verification.md](./references/verification.md) 的 destructive / high-impact readback |
 
 ## Special Gates
 
 | 专题 | 什么时候追加读取 | 关键要求 | 主 reference |
 | --- | --- | --- | --- |
-| `popup` | 涉及 action popup、record popup、`openView`、`currentRecord` | 先确认 popup family 与 `currentRecord` guard，再决定是否创建 record-bound 内容 | [popup.md](./references/popup.md) |
-| `chart` | 涉及 chart block 的创建、重配、SQL / custom visual / events | 创建 chart 时先建 block；builder query 先读 `path="collection"` 选字段，写入 `query` 后再读 `path="chart"` 收敛 `queryOutputs/mappings`；重配已有 chart 时可直接读 `path="chart"`；维护期 contract case 另看 validation 文档 | [chart-core.md](./references/chart-core.md) |
+| `popup` | 涉及 action popup、record popup、`openView`、`currentRecord` | 先确认 popup family 与 `currentRecord` guard；relation popup / `associatedRecords` / opener 复用限制统一看 popup 专题 | [popup.md](./references/popup.md) |
+| `chart` | 涉及 chart block 的创建、重配、SQL / custom visual / events | 先从 chart 总入口分流；运行期搭建 / 重配 / readback 看 `chart-core`，contract matrix / 回归案例看 `chart-validation` | [chart.md](./references/chart.md) |
 | `js` | 涉及 JS `code`、`renderer: "js"`、`jsBlock/jsColumn/jsItem/js action` 或 chart raw code | 必须先过本地 validator gate；skill canonical 调用统一走 validate-only 的 `--skill-mode`，不允许 live network | [js.md](./references/js.md) |
 
-## Read Order
+## Reference Roles
 
-### 默认先读
-
-- [verification.md](./references/verification.md)：`inspect` 流程、写后 `readback`、断言升级条件。
-- [runtime-playbook.md](./references/runtime-playbook.md)：target family、locator、write target 与默认写流程。
-- 如果任务涉及 `chart` 区块写入，进入写流程前先读 [chart-core.md](./references/chart-core.md)，不要跳过。
-
-### 按需再读
-
-- [popup.md](./references/popup.md)：popup / `openView` / `currentRecord` guard / `flowRegistry` / record popup recipes。
-- [capabilities.md](./references/capabilities.md)：block / form / action / field 的默认选型与 scope 规则；`filterForm` 的通用能力也看这里。
-- [settings.md](./references/settings.md)：`addBlock/addField/addAction/addRecordAction` 如何直接内联公开 `settings`、何时回退到 `configure` / `updateSettings`。
-- [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、`requestBody` 形状，以及 `setLayout` 的 canonical payload shape。
-- [chart-validation.md](./references/chart-validation.md)：chart block 的 contract 验证 case、复杂矩阵与负例。
-- [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格。
-- [runjs-runtime.md](./references/runjs-runtime.md)：RunJS CLI 的 repo-root 入口、validate-only 约束、Node 版本、`--skill-mode` 与 runtime cwd 约定。
+- [verification.md](./references/verification.md)：`inspect`、写后 `readback`、batch / high-impact / destructive 的验收标准。
+- [runtime-playbook.md](./references/runtime-playbook.md)：`target family`、locator、`pre-init ids`、write target 与 lifecycle 心智。
+- [capabilities.md](./references/capabilities.md)：block / form / action / field 选型，以及 display vs relation field 的默认设计。
+- [settings.md](./references/settings.md)：`add* + settings`、`configure`、`updateSettings` 的唯一选择规则。
+- [tool-shapes.md](./references/tool-shapes.md)：flow surfaces 请求 envelope、canonical payload，以及 high-impact API 的请求形状。
+- [popup.md](./references/popup.md)：`currentRecord`、relation popup、`associatedRecords`、`openView` 与 popup opener 规则。
+- [chart.md](./references/chart.md)：chart 总入口与分流说明。
+- [js.md](./references/js.md)：RunJS validator gate、model mapping、上下文语义与代码风格；CLI 细节再看 [runjs-runtime.md](./references/runjs-runtime.md)。
 - [aliases.md](./references/aliases.md)：高歧义自然语言表达如何先收敛到对象语义或能力。

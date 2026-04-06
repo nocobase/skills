@@ -1,6 +1,6 @@
 # Tool Shapes
 
-当 family、locator 与 target uid 都已经确定，只差“这个 MCP 请求怎么包”时，读本文。family / locator 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，写后核对看 [verification.md](./verification.md)。
+当 family、locator 与 target uid 都已经确定，只差“这个 MCP 请求怎么包”时，读本文。family / locator 先看 [runtime-playbook.md](./runtime-playbook.md)，`settings` 的公开语义规则看 [settings.md](./settings.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，写后核对看 [verification.md](./verification.md)。
 
 ## 目录
 
@@ -20,8 +20,9 @@
 - 除 `pageSchemaUid/tabSchemaUid/routeId` 外，其他 id 读取时都默认写进 `uid`
 - 大多数写接口都要包 `requestBody`；其中很多再在 `requestBody` 内放 `target.uid`
 - `createMenu`、`updateMenu`、`createPage` 都是 lifecycle API，不接受 `target`
-- `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只作为兼容 fallback
+- `createPage(menuRouteId=...)` 是推荐入口；`createPage` 不传 `menuRouteId` 只在用户明确接受 standalone / compat page 副作用时允许
 - 在当前实现中，`tabSchemaUid` 既可作为 `outer-tab` 的 `get` locator，也可直接作为其写 target uid；但 `pageSchemaUid`、`routeId` 仍然只是 `get` locator
+- `setLayout` 与 `setEventFlows` 是 high-impact full-replace API；先读完整当前状态，再决定是否写入
 
 ## 根级 locator `get`
 
@@ -93,7 +94,9 @@
 
 - surface 与 lifecycle：`catalog`、`compose`、`configure`、`addTab`、`updateTab`、`addPopupTab`、`updatePopupTab`、`removePopupTab`
 - 内容追加：`addBlock` / `addBlocks`、`addField` / `addFields`、`addAction` / `addActions`、`addRecordAction` / `addRecordActions`
-- 精确配置：`updateSettings`、`setEventFlows`、`setLayout`、`removeNode`
+- merge-like 配置：`updateSettings`
+- high-impact full-replace：`setEventFlows`、`setLayout`
+- 精确删除：`removeNode`
 - 兜底高级入口：`apply`、`mutate`
 
 ### 常见 target 选择
@@ -110,8 +113,7 @@
 规则：
 
 - `target` 是业务 payload 的一部分，MCP 层再包一层 `requestBody`
-- `addBlock/addField/addAction/addRecordAction` 的 `settings` 默认复用 live `catalog.configureOptions` 暴露的公开语义 key
-- `settings` 不接受 `props` / `decoratorProps` / `stepParams` / `flowRegistry` 这类 raw domain key
+- `settings` 的公开语义 key、何时 `add* + settings`、何时回退 `configure/updateSettings`，统一看 [settings.md](./settings.md)
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
 - `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程看 [popup.md](./popup.md)
@@ -202,7 +204,7 @@
 
 ## `setLayout` canonical payload
 
-`setLayout` 也是 target-based 写法，但它的 `rows` / `sizes` 很容易写错，单独记住这条心智：
+`setLayout` 是 high-impact full-replace 写法；只有在用户明确接受整体替换、且你已经读过当前完整布局状态时才用。它的 `rows` / `sizes` 很容易写错，单独记住这条心智：
 
 - `rows[rowKey]` 表示“这一行有哪些列”
 - `rows[rowKey]` 的每个元素又是“该列里有哪些 child uid”
@@ -296,6 +298,7 @@
 - `mutate` 默认 `atomic = true`
 - `mutate` 的链式引用统一使用 `{ "ref": "<opId>.<path>" }`
 - 只有在公开入口无法表达、且你已经完全确认 target / shape / 顺序时，才使用 `apply/mutate`
+- `apply(mode="replace")` 与 replace-style `mutate` 默认按 destructive path 处理；先说明影响范围，再做完整 readback
 
 ## 常见错误形状
 

@@ -1,6 +1,6 @@
 # Chart validation
 
-当你要维护 chart skill contract、设计验证矩阵，或补充 chart 负例回归时，读本文。运行期 DSL、query / visual / events 与 readback 规则看 [chart-core.md](./chart-core.md)。
+chart 任务先读 [chart.md](./chart.md)。当你已经进入 chart 专题，且当前要维护 chart skill contract、设计验证矩阵，或补充 chart 负例回归时，再读本文。运行期 DSL、query / visual / events 与 readback 规则看 [chart-core.md](./chart-core.md)。
 
 ## 目录
 

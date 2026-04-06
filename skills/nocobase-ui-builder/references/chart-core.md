@@ -1,6 +1,6 @@
 # Chart block
 
-当用户要搭建或修改 `chart` 区块时，优先读本文。目标不是暴露全部前端内部细节，而是用最少参数稳定生成**能渲染出来**的图表，并保留少量 escape hatch 覆盖复杂场景。
+chart 任务先读 [chart.md](./chart.md)。当你已经进入 chart 专题，且当前要处理运行期搭建、重配、readback 或 legacy fallback 时，再读本文。目标不是暴露全部前端内部细节，而是用最少参数稳定生成**能渲染出来**的图表，并保留少量 escape hatch 覆盖复杂场景。
 
 如果你要核对复杂 contract、负例或回归矩阵，请继续看 [chart-validation.md](./chart-validation.md)；本文只保留运行期主链路。
 

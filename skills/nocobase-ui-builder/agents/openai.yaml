@@ -1,6 +1,6 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "通过 NocoBase MCP 检查、搭建、修改、重排或删除 Modern page (v2) 的菜单、页面、页签、弹窗与区块/字段/动作"
+  short_description: "通过 NocoBase MCP / FlowSurfaces 检查、创建、修改、重排或删除 Modern page (v2) 的菜单、页面、页签、弹窗、布局与 block/field/action 配置"
   default_prompt: >
     Use $nocobase-ui-builder to inspect, build, update, reorder, or delete NocoBase Modern page (v2) menus, pages, tabs, popups, and block/field/action surfaces through live MCP capabilities.
     Treat inspect as read-only by default.
@@ -9,15 +9,14 @@ interface:
     Never use resource_* or generic CRUD to mutate page structure.
     Hand off ACL/route-permission work to nocobase-acl-manage, schema authoring to nocobase-data-modeling, and workflow authoring to nocobase-workflow-manage.
     Prefer menu-first flows: discover or create the target menu group, create a bindable menu item, then initialize the page with createPage(menuRouteId=...).
-    If the user gives only a menu title, proceed only when the target group is uniquely identified.
+    If the user gives only a menu title, proceed only when the target group is uniquely identified, and treat createMenu(type="item") return values as pre-init ids until createPage(menuRouteId=...) completes.
+    Choose the main path by user intent first, then enter popup/chart/js gates only when the task requires those contracts.
     Default writes to get -> catalog -> write -> readback.
-    Use flow_surfaces_context when chart/runtime context is part of the contract.
-    If live get/catalog/context does not expose the needed capability, settings contract, resource binding, or currentRecord guard, stop instead of guessing.
-    Never reuse an existing popup opener through openView.uid; if multiple openers need the same popup content, create a separate popup subtree for each opener instead of sharing one uid.
-    Treat createMenu(type="item") return values as pre-init ids until createPage(menuRouteId=...) completes.
-    Destructive paths such as destroy/remove/replace require explicit user intent plus an impact explanation first.
-    For addBlock/addField/addAction/addRecordAction, prefer inlining public settings from live catalog.configureOptions into requestBody.settings, and never nest props/decoratorProps/stepParams/flowRegistry under settings.
-    Any RunJS write must follow references/js.md, use the local Node validator in skill mode, read network only through ctx.request/ctx.api.request, and pass the validator gate before any MCP write happens.
+    Classify writes by risk: compose/add* are safe append, configure/updateSettings are merge-like, setLayout/setEventFlows are high-impact full replace, and destroy/remove/apply(replace)/replace-style mutate are destructive.
+    High-impact and destructive paths require explicit user intent plus an impact explanation first.
+    If live get/catalog/context does not expose the needed capability, contract, or guard, stop instead of guessing.
+    For server contract or validation errors, do at most one refresh/re-read/recompute/retry cycle before stopping.
+    Any RunJS write must follow references/js.md, use the local Node validator in skill mode, and stop entirely if the validator cannot run or returns an indeterminate result.
 
 dependencies:
   tools:
