@@ -9,10 +9,9 @@
 3. `requestBody` 但不带 `target`
 4. target-based `requestBody.target.uid`
 5. `context` canonical payload
-6. `add*` canonical payload
-7. `setLayout` canonical payload
-8. `apply` / `mutate`
-9. 常见错误形状
+6. `setLayout` canonical payload
+7. `apply` / `mutate`
+8. 常见错误形状
 
 ## 一屏硬规则
 
@@ -143,89 +142,7 @@
 - 不传 `path` 时表示读取当前 target 下的默认上下文树
 - `maxDepth` 只在需要收敛上下文树时才传；拿到足够信息就停
 
-## `add*` canonical payload
-
-`addBlock`
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "grid-uid" },
-    "type": "createForm",
-    "resourceInit": {
-      "dataSourceKey": "main",
-      "collectionName": "users"
-    },
-    "settings": {
-      "title": "新增用户",
-      "displayTitle": true
-    }
-  }
-}
-```
-
-`addField`
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "form-uid" },
-    "fieldPath": "password",
-    "settings": {
-      "label": "密码",
-      "required": true
-    }
-  }
-}
-```
-
-`addFields`
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "form-uid" },
-    "fields": [
-      {
-        "fieldPath": "password",
-        "settings": {
-          "label": "密码",
-          "required": true
-        }
-      }
-    ]
-  }
-}
-```
-
-`addAction`
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "form-uid" },
-    "type": "submit",
-    "settings": {
-      "title": "提交",
-      "type": "primary"
-    }
-  }
-}
-```
-
-`addRecordAction`
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "table-uid" },
-    "type": "view",
-    "settings": {
-      "title": "查看"
-    }
-  }
-}
-```
+`add* + settings` 的高频模板统一看 [settings.md](./settings.md)；本文只保留 envelope / locator / target / 高风险 payload 形状，不重复展开公开 settings 模板。
 
 ## `setLayout` canonical payload
 

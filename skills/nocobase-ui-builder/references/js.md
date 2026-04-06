@@ -27,41 +27,11 @@
 
 - 这个 validator 的目标是**确定性的本地 contract 预验证**，不是安全沙箱承诺。
 - 当前目标是 **public docs parity**：保证上游公开文档、默认模板与本 skill 默认生成的代码能被稳定校验；**不是**完整浏览器 / React runtime 仿真。
-- public runtime mode 固定为 `validate`
 - validator 失败就是失败，不能降级成 warning，也不能继续写入
 - 如果 validator 不可运行、Node 版本不满足或结果不可判定，也必须直接停止，不允许跳过 gate 继续写入
 - 运行时校验只允许依赖 `./runtime/bin/nb-runjs.mjs`，不允许在执行阶段读取 NocoBase 源码
-
-标准命令：
-
-```bash
-node ./skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode
-```
-
-stdin JSON 形状：
-
-```json
-{
-  "model": "JSColumnModel",
-  "code": "ctx.render(String(ctx.record?.nickname || ''));",
-  "context": {},
-  "network": {},
-  "version": "1",
-  "timeoutMs": 1000,
-  "filename": "inline-js-column.js"
-}
-```
-
-失败处理：根据 validator 返回的问题自动重写 code，并重新校验；最多 3 轮，3 轮后仍失败就停止，不要继续 MCP 写入。
-
-`--skill-mode` 是本 skill 的 canonical 执行方式：
-
-- 假设当前 cwd 是仓库根目录
-- 要求 Node `>=18`
-- 网络读取只允许 `ctx.request(...)` / `ctx.api.request(...)`；不要使用 `fetch` / `ctx.fetch`
-- 默认不允许 live network；`network` 要么不传，要么只传 `mode = "mock"`
-- `mode = "mock"` 下如果没有显式命中 `responses`，runtime 会返回默认 auto-mock `200 + {}`，并记录 warning，而不是让校验失败
-- 如果 payload 明确传了 `network.mode = "live"`，validator 会直接阻断，而不是退回到不稳定的外部依赖
+- CLI 用法、stdin JSON 形状、Node/cwd 假设、`--skill-mode` 与 network 约束，统一看 [runjs-runtime.md](./runjs-runtime.md)。
+- 失败处理：根据 validator 返回的问题自动重写 code，并重新校验；最多 3 轮，3 轮后仍失败就停止，不要继续 MCP 写入。
 
 ## Skill 到 Runtime 的映射
 
@@ -100,9 +70,7 @@ stdin JSON 形状：
 - 复杂模板字符串、条件分支、拼接逻辑先拆成局部变量，再传给 `ctx.render(...)`。
 - 先使用 runtime profile 的 `defaultContextShape`；如果 live MCP 已知更精确的 `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`，再用 live 数据覆盖默认值。
 - validator 已补最小公开 ctx：`ctx.runjs(...)`、`ctx.initResource(...)`、`ctx.libs.React/ReactDOM/antd/antdIcons`，以及 `ctx.React/ctx.ReactDOM/ctx.antd/ctx.antdIcons` alias；可用于公开文档与默认模板校验。
-- `network` 默认不传；只有 code 确实依赖读请求且你想覆盖默认 auto-mock 返回值时，才传显式 mock response。
-- 需要读请求时，只使用 `ctx.request(...)` 或 `ctx.api.request(...)`；不要写 `fetch(...)`、`window.fetch(...)`、`ctx.fetch(...)`。
-- 在本 skill 的 canonical 执行方式里，`network.mode = "live"` 一律视为不允许；live mode 只保留给 runtime 开发或脱离本 skill 的本地调试。
+- 如果代码依赖读请求，mock 配置与 network 约束统一看 [runjs-runtime.md](./runjs-runtime.md)。
 - 如果 JSBlock 示例需要主动取数，优先写 `ctx.initResource(...)` + `ctx.resource`；validator 只做最小模拟，不保证与上游运行态的资源生命周期完全一致。
 
 ## Strict Render 规则
