@@ -116,6 +116,7 @@ test('validate command accepts upstream-style libs and initResource helpers', as
       model: 'JSBlockModel',
       code: `
         const { Button } = ctx.libs.antd;
+        const preboundResourceType = typeof ctx.resource;
         ctx.initResource('MultiRecordResource');
         ctx.resource.setResourceName('users');
         await ctx.resource.refresh();
@@ -124,6 +125,7 @@ test('validate command accepts upstream-style libs and initResource helpers', as
           hasReact: typeof ctx.libs.React?.createElement === 'function',
           hasReactDOM: typeof ctx.libs.ReactDOM?.createRoot === 'function',
           hasAntd: typeof Button === 'function',
+          preboundResourceType,
           resourceName: ctx.resource.collectionName,
         };
       `,
@@ -145,6 +147,7 @@ test('validate command accepts upstream-style libs and initResource helpers', as
     hasReact: true,
     hasReactDOM: true,
     hasAntd: true,
+    preboundResourceType: 'undefined',
     resourceName: 'users',
   });
 });

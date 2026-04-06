@@ -380,13 +380,14 @@ test('JSActionModel treats ctx.runjs as a legal simulated helper', async () => {
   assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'ctx.runjs' && attempt.status === 'simulated'));
 });
 
-test('JSBlockModel exposes minimal upstream-like libs and initResource helpers', async () => {
+test('JSBlockModel exposes minimal upstream-like libs and requires initResource before ctx.resource exists', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSBlockModel',
     code: `
       const React = ctx.libs.React;
       const { Button } = ctx.libs.antd;
       const root = ctx.libs.ReactDOM.createRoot(ctx.element);
+      const preboundResourceType = typeof ctx.resource;
       ctx.initResource('MultiRecordResource');
       ctx.resource.setResourceName('users');
       await ctx.resource.refresh();
@@ -404,6 +405,7 @@ test('JSBlockModel exposes minimal upstream-like libs and initResource helpers',
         hasRootRender: typeof root?.render === 'function',
         hasAntd: typeof ctx.antd?.Button === 'function',
         hasAntdLib: typeof Button === 'function',
+        preboundResourceType,
         resourceName: ctx.resource.collectionName,
       };
     `,
@@ -417,6 +419,7 @@ test('JSBlockModel exposes minimal upstream-like libs and initResource helpers',
     hasRootRender: true,
     hasAntd: true,
     hasAntdLib: true,
+    preboundResourceType: 'undefined',
     resourceName: 'users',
   });
   assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'resource.refresh' && attempt.status === 'simulated'));

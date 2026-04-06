@@ -1242,11 +1242,9 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
 
   const ctx = {};
   let simulatedProps = {};
-  let resourceApi = createResourceApi(
-    withDefault(inputContext.resource, profile.defaultContextShape.resource || {}),
-    selectedRows,
-    state,
-  );
+  const initialResource = withDefault(inputContext.resource, profile.defaultContextShape.resource);
+  let resourceApi =
+    typeof initialResource === 'undefined' ? undefined : createResourceApi(initialResource, selectedRows, state);
   const fullCtxMembers = {
     t(key, variables) {
       return interpolate(key, variables);

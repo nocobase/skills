@@ -216,7 +216,6 @@ const PROFILES = [
     },
     defaultContextShape: {
       record: { id: 1, nickname: 'Alice', status: 'active' },
-      resource: { dataSourceKey: 'main', collectionName: 'users', selectedRows: [] },
       collection: { dataSourceKey: 'main', name: 'users', title: 'Users' },
       inputArgs: {},
     },
