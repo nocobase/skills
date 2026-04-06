@@ -8,7 +8,6 @@ description: "Manually trigger flows via a 'Trigger Workflow' button, supporting
 ## Trigger Type
 
 `custom-action`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Manually triggering flows via a "Trigger Workflow" button in the UI, rather than by data changes or built-in action buttons.
@@ -45,7 +44,7 @@ Please use the `type` value above to create the trigger; do not use the document
 
 ## Trigger Variables
 - `$context.data`: The trigger data.
-  - Global mode: Custom JSON data submitted by the user.
+  - Global mode: Custom JSON data submitted by the user. Deep properties in JSON can be parsed by JSON query node or mapped by JSON variable mapping node, and then they can be used in subsequent nodes.
   - Single record mode: Record data (including associated data preloaded via `appends`).
   - Multiple records mode: An array of record data.
 - `$context.user`: The user who triggered the operation (sanitized user information).

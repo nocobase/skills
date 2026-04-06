@@ -8,7 +8,6 @@ description: "Introduces the expression engine, configuration fields, and result
 ## Node Type
 
 `calculation`
-Use the above `type` value when creating the node; do not use the documentation filename as the type.
 
 ## Node Description
 Evaluates an expression based on a calculation engine and writes the result to the current node's execution result, which can be referenced by subsequent nodes.
@@ -26,9 +25,30 @@ Calculating order amounts, concatenating text, or generating derived fields.
 Does not support branching.
 
 ## Example Configuration
+
+### `formula.js` engine basic expression
+
 ```json
 {
   "engine": "formula.js",
-  "expression": "1 + 2"
+  "expression": "{{$context.data.quantity}} - 1"
+}
+```
+
+### `math.js` engine with variables
+
+```json
+{
+  "engine": "math.js",
+  "expression": "{{value1}} * {{value2}}"
+}
+```
+
+### `string` engine for text concatenation
+
+```json
+{
+  "engine": "string",
+  "expression": "Order #{{orderId}} - {{status}}"
 }
 ```

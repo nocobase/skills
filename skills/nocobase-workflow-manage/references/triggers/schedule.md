@@ -8,7 +8,6 @@ description: "Trigger flows based on time rules, supporting both custom time and
 ## Trigger Type
 
 `schedule`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Periodic tasks: scheduled cleanup, scheduled notifications, scheduled statistics.
@@ -41,9 +40,9 @@ Please use the `type` value above to create the trigger; do not use the document
 | startsOn.field | string | - | Yes | The name of the time field used as the trigger baseline. |
 | startsOn.offset | number | 0 | No | Offset (can be positive or negative), used in conjunction with `unit`. |
 | startsOn.unit | number | 86400000 | No | Offset unit (milliseconds): `1000` for seconds, `60000` for minutes, `3600000` for hours, `86400000` for days. |
-| repeat | string | number | null | null | No | Repeat rule: cron expression or millisecond interval. |
-| endsOn | string | object | null | No | End condition: fixed time (string) or time field configuration (object, structure same as `startsOn`). |
-| limit | number | null | No | Maximum trigger count. |
+| repeat | string \| number | null | null | No | Repeat rule: cron expression or millisecond interval. |
+| endsOn | string \| object | null | No | End condition: fixed time (string) or time field configuration (object, structure same as `startsOn`). |
+| limit | number \| null | No | Maximum trigger count. |
 | appends | string[] | [] | No | Paths of preloaded associated fields. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Trigger Variables
@@ -51,7 +50,7 @@ Please use the `type` value above to create the trigger; do not use the document
 - `$context.data`: Only exists in Data Table Time Field mode (mode=1), representing the triggered record data; includes associated fields preloaded via `appends`.
 
 ## Example Configuration
-### Custom Time
+### Custom Time, repeat by cron expression
 ```json
 {
   "mode": 0,
@@ -62,11 +61,20 @@ Please use the `type` value above to create the trigger; do not use the document
 }
 ```
 
+### Custom Time, repeat by interval
+```json
+{
+  "mode": 0,
+  "startsOn": "2026-02-01T09:00:00.000Z",
+  "repeat": 1800000
+}
+```
+
 ### Data Table Time Field
 ```json
 {
   "mode": 1,
-  "collection": "main.orders",
+  "collection": "orders",
   "startsOn": {
     "field": "createdAt",
     "offset": 30,
@@ -74,6 +82,6 @@ Please use the `type` value above to create the trigger; do not use the document
   },
   "repeat": null,
   "endsOn": null,
-  "appends": ["customer"]
+  "appends": ["createdBy"]
 }
 ```
