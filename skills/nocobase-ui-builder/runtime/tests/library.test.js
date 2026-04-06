@@ -218,6 +218,153 @@ test('ChartEventsModel simulates chart bindings and ctx.openView without blockin
   assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'ctx.openView' && attempt.status === 'simulated'));
 });
 
+test('ChartOptionModel accepts direct option returns without ctx.render', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'ChartOptionModel',
+    code: `
+      return {
+        xAxis: { type: 'category' },
+        yAxis: { type: 'value' },
+        series: [{ type: 'bar', data: [1, 2, 3] }],
+      };
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.equal(result.execution.returnValue.series[0].type, 'bar');
+});
+
+test('ChartOptionModel blocks popup side effects', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'ChartOptionModel',
+    code: `
+      ctx.openView({ title: 'Details' });
+      return {};
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.execution.executed, false);
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'blocked-static-side-effect'));
+});
+
+test('JSRecordActionModel can read record context and simulate messages', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSRecordActionModel',
+    code: `
+      ctx.message.success('ok');
+      return ctx.record?.id;
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.returnValue, 1);
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'message.success' && attempt.status === 'simulated'));
+});
+
+test('JSRecordActionModel blocks fetch side effects', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSRecordActionModel',
+    code: `
+      await fetch('https://example.com/api/users');
+      return ctx.record?.id;
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.execution.executed, false);
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'blocked-static-side-effect'));
+});
+
+test('JSCollectionActionModel reads selected rows from resource helpers', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSCollectionActionModel',
+    code: `
+      const rows = ctx.resource.getSelectedRows();
+      return rows.length;
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.returnValue, 1);
+  assert.ok(result.usedContextPaths.includes('resource.getSelectedRows'));
+});
+
+test('JSCollectionActionModel fails when using form-only helpers', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSCollectionActionModel',
+    code: `
+      return ctx.form.getFieldValue('status');
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.contextIssues.some((issue) => issue.ruleId === 'unknown-ctx-path'));
+  assert.ok(result.usedContextPaths.includes('form.getFieldValue'));
+});
+
+test('JSItemActionModel can mutate mock form state with record context', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSItemActionModel',
+    code: `
+      ctx.form.setFieldValue('status', 'done');
+      return {
+        id: ctx.record?.id,
+        status: ctx.form.getFieldValue('status'),
+      };
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.execution.returnValue, {
+    id: 1,
+    status: 'done',
+  });
+});
+
+test('JSItemActionModel fails on editable-field-only helpers', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSItemActionModel',
+    code: `
+      return ctx.setValue('done');
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.contextIssues.some((issue) => issue.ruleId === 'unknown-ctx-path'));
+  assert.ok(result.usedContextPaths.includes('setValue'));
+});
+
+test('FormJSFieldItemModel renders and simulates setProps', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'FormJSFieldItemModel',
+    code: `
+      ctx.render(String(ctx.formValues?.nickname || ''));
+      ctx.setProps({ hidden: true });
+      return ctx.form.getFieldValue('nickname');
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.returnValue, 'Alice');
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'ctx.setProps' && attempt.status === 'simulated'));
+});
+
+test('FormJSFieldItemModel requires explicit ctx.render', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'FormJSFieldItemModel',
+    code: `
+      ctx.setProps({ hidden: true });
+      return ctx.form.getFieldValue('nickname');
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.execution.executed, false);
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'));
+});
+
 test('runBatch propagates defaultSkillMode to tasks without explicit skillMode', async () => {
   const batch = await runBatch({
     tasks: [
