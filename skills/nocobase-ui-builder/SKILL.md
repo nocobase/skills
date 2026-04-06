@@ -5,6 +5,7 @@ description: 当用户要检查、创建、修改、重排或删除 NocoBase Mod
 
 # Start Here
 
+- 跨专题规范真相：先看 [normative-contract.md](./references/normative-contract.md)。
 - 默认执行入口：先看 [execution-checklist.md](./references/execution-checklist.md)。
 - 本文件只保留触发边界、跨专题硬规则、术语与 reference map。
 - live MCP schema，以及现场 `get` / `catalog` / `context` / `readback`，始终优先于本地文档。
@@ -13,6 +14,7 @@ description: 当用户要检查、创建、修改、重排或删除 NocoBase Mod
 
 - `agents/openai.yaml` 只负责 skill 唤起与最小护栏，不重复维护详细规则。
 - `SKILL.md` 维护触发边界、scope、跨专题硬规则与 reference map。
+- [normative-contract.md](./references/normative-contract.md) 维护 `catalog`、popup shell fallback、schema drift / recovery 的唯一规范真相。
 - [execution-checklist.md](./references/execution-checklist.md) 是默认执行入口，负责快速执行链，不再回跳本文件。
 - 各 `references/*.md` 维护各自专题 contract；若与概览描述粒度不同，以专题 reference 和 live MCP schema 为准。
 
@@ -37,15 +39,16 @@ description: 当用户要检查、创建、修改、重排或删除 NocoBase Mod
 
 1. `inspect` 默认只读；只有用户明确要求创建、修改、重排、删除或修复时才进入写流程。
 2. UI structure mutation 只走 `flow_surfaces_*`；允许的发现 / 读取入口只有 `flow_surfaces_get`、`flow_surfaces_catalog`、`flow_surfaces_context`、`desktop_routes_list_accessible(tree=true)`；不要用 `resource_*`、`collections_*`、`workflows_*`、`flow_nodes_*`、`roles_*` 或底层 route 记录写入替代 UI mutation。
-3. 写入前 MCP 必须可达且已认证；MCP 不可用、未认证、schema 未刷新，或现场缺少关键 tool / capability / guard 时，停止猜测写入；优先提示用户刷新连接或走 `nocobase-mcp-setup`。
+3. 写入前 MCP 必须可达且已认证；MCP 不可用、未认证、schema 未刷新，或现场缺少关键 tool / capability / guard 时，停止猜测写入；恢复动作统一看 [normative-contract.md](./references/normative-contract.md) 的 `Schema Drift / Recovery Contract`。
 4. `desktop_routes_list_accessible(tree=true)` 只代表**当前角色可见菜单树**，不是系统全量菜单真相；“没看到”不能直接推断为“系统不存在”。
 5. 定位不唯一不猜；菜单标题只接受唯一命中的 `group`；如果 target 只能靠 sibling 相对位置推断，就先收敛唯一 target；`createMenu(type="item")` 之后必须先 `createPage(menuRouteId=...)`，其返回前的 `pre-init ids` 不是 page/tab lifecycle 的 write-ready target。
-6. 已有 target 的写入默认走 `get -> catalog -> write -> readback`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
-7. 批量写任一子项失败就停，并分别报告成功项与失败项；不自动 rollback，也不继续执行依赖“全部成功”的后续写入。服务端 contract / validation error 只允许一次 `refresh/get/catalog/context -> 重算 payload -> 重试`，第二次仍失败就按 capability gap / drift 收口。
+6. 已有 target 的写入默认走 `get -> [按 normative contract 决定是否追加 catalog] -> write -> readback`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
+7. 批量写任一子项失败就停，并分别报告成功项与失败项；不自动 rollback，也不继续执行依赖“全部成功”的后续写入。服务端 contract / validation error 若指向 drift / capability gap，按 [normative-contract.md](./references/normative-contract.md) 收口，不定义抽象 refresh retry。
 8. 任何 JS 写入都必须先通过本地 validator gate；若 validator 不可运行、Node 版本不满足、结果不可判定，统一停止，不允许跳过 validator 直接调用 MCP。
 
 ## Reference Map
 
+- [normative-contract.md](./references/normative-contract.md)：`catalog`、popup shell fallback、schema drift / recovery 的唯一规范真相。
 - [execution-checklist.md](./references/execution-checklist.md)：默认执行入口；覆盖 preflight、intent、read/write path、risk gate、topic gate 与 stop/handoff。
 - [verification.md](./references/verification.md)：`inspect`、写后 `readback`、batch / high-impact / destructive 的验收标准。
 - [runtime-playbook.md](./references/runtime-playbook.md)：`target family`、locator、`pre-init ids`、write target 与 lifecycle 心智。

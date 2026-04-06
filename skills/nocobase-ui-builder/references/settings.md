@@ -1,6 +1,6 @@
 # Public settings
 
-当你已经知道要创建 block / field / action / record action，并且用户还要求标题、标签、必填、按钮样式这类高频属性时，优先读本文。目标是让 `add*` 直接内联**公开语义 settings**，而不是先创建空节点再机械补一次 `configure`。
+当你已经知道要创建 block / field / action / record action，并且用户还要求标题、标签、必填、按钮样式这类高频属性时，优先读本文。目标是让 `add*` 直接内联**公开语义 settings**，而不是先创建空节点再机械补一次 `configure`。`catalog` 是否必读，统一看 [normative-contract.md](./normative-contract.md)。
 
 ## 目录
 
@@ -14,7 +14,7 @@
 
 ## 核心规则
 
-1. 先 `catalog(target)`，以 live `configureOptions` 为准。
+1. 如果本次需要依赖 live `configureOptions` / `settingsContract` 判断公开字段，就先按 [normative-contract.md](./normative-contract.md) 读 `catalog(target)`。
 2. `requestBody.settings` 只写**公开语义 key**，不要写 raw `props / decoratorProps / stepParams / flowRegistry`。
 3. 如果用户需求能完全由 `settings` 表达，就直接 `add* + settings`，不要额外再补 `configure`。
 4. 如果只有部分字段能内联，先 `add* + settings`，再 `configure(changes)` 补剩余公开字段。
@@ -24,7 +24,7 @@
 
 | 需求类型 | 默认入口 | 什么时候用 |
 | --- | --- | --- |
-| 创建节点 + 高频公开属性 | `add* + settings` | `catalog.configureOptions` 已暴露目标字段 |
+| 创建节点 + 高频公开属性 | `add* + settings` | 目标字段已在现场暴露为公开语义；若需确认，按 normative contract 先读 `catalog` |
 | 已创建节点的小改 | `configure(changes)` | 仍然属于公开语义字段，但不必重建节点 |
 | path-level 精细 patch | `updateSettings` | 现场只暴露 domain contract，没有公开语义入口 |
 | 布局 | `setLayout` | 只有用户明确接受整体布局替换，且当前完整 layout 已读回 |

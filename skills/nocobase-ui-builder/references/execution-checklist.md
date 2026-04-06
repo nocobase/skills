@@ -1,12 +1,12 @@
 # Execution Checklist
 
-执行时默认按这份清单走；只有命中特定 contract 时，才继续打开对应专题 reference。
+执行时默认按这份清单走；只有命中特定 contract 时，才继续打开对应专题 reference。`catalog`、popup shell fallback、schema drift / recovery 的跨专题规则统一看 [normative-contract.md](./normative-contract.md)。
 
 ## 1. Preflight
 
 - 写入前先确认 NocoBase MCP 可达、已认证、schema 可用。
 - `inspect` 默认只读；只有用户明确要求创建、修改、重排、删除或修复时才进入写流程。
-- 如果现场已经出现认证错误、关键 tool 缺失、schema 未刷新或 capability gap，先停止写入并走恢复链路。
+- 如果现场已经出现认证错误、关键 tool 缺失、schema 未刷新或 capability gap，先停止写入；恢复动作统一看 [normative-contract.md](./normative-contract.md)。
 
 ## 2. Choose Intent
 
@@ -17,10 +17,10 @@
 
 | intent | 默认主路径 | 最小读回 |
 | --- | --- | --- |
-| `inspect` | 菜单标题先读菜单树；已初始化 surface 先 `get`；只有需要 capability / contract 时才追加 `catalog` | [verification.md](./verification.md) 的 `Inspect` |
+| `inspect` | 菜单标题先读菜单树；已初始化 surface 先 `get`；是否追加 `catalog` 按 [normative-contract.md](./normative-contract.md) | [verification.md](./verification.md) 的 `Inspect` |
 | `create-menu-group` | `createMenu(type="group")`；需要挂到指定父级时补 `parentMenuRouteId` | 返回值；必要时菜单树 |
 | `create-page` | `createMenu(type="item") -> createPage(menuRouteId=...)` | `get({ pageSchemaUid })` |
-| `update-ui` | `get -> catalog ->` route-backed 元数据更新优先 `updateMenu` / `updateTab` / `updatePopupTab`；其余优先 `compose/add*`，再考虑 `configure/updateSettings` | 直接父级、直接 target，或对应 lifecycle target |
+| `update-ui` | `get -> [按 normative contract 判断是否追加 catalog] ->` route-backed 元数据更新优先 `updateMenu` / `updateTab` / `updatePopupTab`；其余优先 `compose/add*`，再考虑 `configure/updateSettings` | 直接父级、直接 target，或对应 lifecycle target |
 | `move-menu` | 已知 `menuRouteId` 时直接 `updateMenu(parentMenuRouteId=...)`；只有菜单标题时先读菜单树 | 菜单树 |
 | `reorder` | `get` 收敛 sibling / target 后，走 `moveTab` / `movePopupTab` / `moveNode` | 父级、page 或 route/tree |
 | `delete-ui` | `get` / 菜单树明确目标与影响范围后，走 `destroyPage` / `removeTab` / `removePopupTab` / `removeNode` | destructive / high-impact readback |
@@ -40,12 +40,12 @@
 
 ## 5. Read Path
 
-- 已有 surface 默认先 `get`；只有用户明确要 capability / contract，或仅靠 `get` 不够时才追加 `catalog` / `context`。
+- 已有 surface 默认先 `get`；是否追加 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断。
 - `inspect` 只读；`get` / `catalog` / `context` 的请求形状统一看 [tool-shapes.md](./tool-shapes.md)。
 
 ## 6. Write Path
 
-- 默认写链：`get -> catalog -> write -> readback`。
+- 默认写链：`get -> [按 normative contract 决定是否追加 catalog] -> write -> readback`。
 - 只创建菜单分组时，直接走 `createMenu(type="group")`。
 - 新建页面默认菜单优先：`createMenu(type="item") -> createPage(menuRouteId=...)`。
 - 已有 target 优先 `compose/add*`，再考虑 `configure/updateSettings`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
@@ -66,12 +66,12 @@
 
 ## 9. Retry / Batch Failure
 
-- 服务端 contract / validation error 只允许一次 `refresh/get/catalog/context -> 重算 payload -> 重试`。
+- 服务端 contract / validation error 若指向 schema drift / capability gap，按 [normative-contract.md](./normative-contract.md) 收口；当前不定义抽象 `refresh -> retry` 链路。
 - 批量写任一子项失败即停；分别报告成功项 / 失败项，不自动 rollback，不继续依赖“全部成功”的后续写入；写后验收看 [verification.md](./verification.md)。
 
 ## 10. Stop / Handoff
 
-- 遇到认证不足、schema 未刷新、capability / contract / guard 缺失、target 不唯一、validator 不可判定时，停止猜测写入。
+- 遇到认证不足、schema 未刷新、capability / contract / guard 缺失、target 不唯一、validator 不可判定时，停止猜测写入；恢复动作统一看 [normative-contract.md](./normative-contract.md)。
 - ACL / 路由权限 / 角色权限 → `nocobase-acl-manage`
 - collection / relation / field schema authoring → `nocobase-data-modeling`
 - workflow create / update / revision / execution path → `nocobase-workflow-manage`

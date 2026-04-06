@@ -1,11 +1,12 @@
 # Popup
 
-当你要处理 popup、`openView`、record popup、`currentRecord` guard，或 popup 内的关联资源绑定时，读本文。popup family 与 uid 来源看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后核对看 [verification.md](./verification.md)。
+当你要处理 popup、`openView`、record popup、`currentRecord` guard，或 popup 内的关联资源绑定时，读本文。popup family 与 uid 来源看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，写后核对看 [verification.md](./verification.md)。是否允许 `shell-only popup`、以及何时必须先读 `catalog`，统一看 [normative-contract.md](./normative-contract.md)。
 
 ## Core Rules
 
 - `recordActions.view/edit/popup` 默认只创建 popup shell，不会自动生成 `details`、`editForm` 或 `submit`。
 - 拿到 `popupPageUid` / `popupTabUid` / `popupGridUid` 只代表 popup subtree 已建立，不代表 popup 内容已经完成。
+- 是否允许把本次结果停在 `shell-only popup`，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；不要在本页重复定义跨专题门槛。
 - 用户要求“查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”时，只有在 live `catalog.blocks[].resourceBindings` 明确暴露 `currentRecord` 时，才默认继续在 `popup-content` 下创建 `details(currentRecord)` 或 `editForm(currentRecord) + submit`。
 - 如果 popup catalog 没有暴露 `currentRecord`，停止猜测，不要在普通 popup 上臆造记录绑定。
 - `currentRecord` 属于 popup 内 block 的资源绑定语义，不是复用页面上已有区块实例。
@@ -22,7 +23,7 @@
 1. 先创建会打开 popup 的 action 或 field；如果当前已经拿到 popup 相关 uid，可直接从第 3 步开始。
 2. 如果写接口直接返回了 popup 相关 uid，优先复用这些 new target，不要重新猜 host。
 3. 明确本次写的是 `popup-page`、`popup-tab` 还是 `popup-content`。
-4. 对对应 popup target 先 `catalog`，再按风险分级选择 `compose/add*`、`configure/updateSettings`，或在用户明确接受整体替换时才使用 `setEventFlows`。
+4. 是否需要先读 popup target 的 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断；命中后再按风险分级选择 `compose/add*`、`configure/updateSettings`，或在用户明确接受整体替换时才使用 `setEventFlows`。
 5. 写后按 [verification.md](./verification.md) 做 popup 专项 `readback`。
 
 关系字段 popup 的最小验收：
@@ -37,7 +38,7 @@
 
 1. 在 `table/details/list/gridCard` 上创建 `recordActions.view`。
 2. 复用写接口返回的 `popupGridUid`。
-3. 对 `popup-content` 先 `catalog`。
+3. 因为这里要判定 `currentRecord` guard，先按 [normative-contract.md](./normative-contract.md) 读取 `popup-content` 的 `catalog`。
 4. 只有 guard 通过时，才创建 `details(currentRecord)`。
 5. 写后确认 popup 内容里实际出现 `details`，而不是只剩空 shell；如果现场 `get/catalog` 可见 resource binding，再额外确认它真的绑定到了 `currentRecord`。
 
@@ -45,7 +46,7 @@
 
 1. 在 `table/details/list/gridCard` 上创建 `recordActions.edit`。
 2. 复用写接口返回的 `popupGridUid`。
-3. 对 `popup-content` 先 `catalog`。
+3. 因为这里要判定 `currentRecord` guard，先按 [normative-contract.md](./normative-contract.md) 读取 `popup-content` 的 `catalog`。
 4. 只有 guard 通过时，才创建 `editForm(currentRecord)` 并补 `submit`。
 5. 写后确认 popup 内容里实际出现 `editForm` 与 `submit`；如果现场 `get/catalog` 可见 resource binding，再额外确认 `editForm` 绑定的是 `currentRecord`，且 `submit` 仍挂在该 form 下。
 

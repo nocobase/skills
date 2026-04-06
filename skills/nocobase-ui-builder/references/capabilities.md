@@ -1,6 +1,6 @@
 # Capabilities
 
-当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart 专题入口看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。
+当你已经确定要往内容区搭东西，但还没决定该选什么 block / form / action / field 时，读本文。family / target 先看 [runtime-playbook.md](./runtime-playbook.md)，popup 与 `currentRecord` 语义看 [popup.md](./popup.md)，chart 专题入口看 [chart.md](./chart.md)，JS 规则看 [js.md](./js.md)。是否允许 `shell-only popup`，统一看 [normative-contract.md](./normative-contract.md)。
 
 ## 目录
 
@@ -87,7 +87,7 @@
 
 - `view/edit/popup` 如果会打开 popup，只创建 action 不算完成；后续 popup 内容统一看 [popup.md](./popup.md)。
 - “查看当前记录 / 编辑当前记录 / 本条记录 / 这一行”优先按 record popup 处理。
-- 用户只说“加一个弹窗按钮”但没说明内容时，才允许只创建 `popup` shell；此时不要假设详情或表单会自动出现。
+- 是否允许只创建 `popup` shell，统一按 [normative-contract.md](./normative-contract.md) 的 `Popup Shell Fallback Contract` 判断；这里只记住：只创建 action 不算完成 popup 内容。
 - `submit` 在普通 form 和 `filterForm` 是两个不同 scope 的公开能力；`collapse` 只属于 `filterForm`。
 - 动作标题、tooltip、按钮类型这类公开属性的内联策略，统一看 [settings.md](./settings.md)。
 - `triggerWorkflow` 在本 skill 中只负责把**已有 workflow 的 UI action 壳**挂到 surface；一旦需要创建 workflow、挑选 workflow key/id、改 trigger/node/execution path，立即转交 `nocobase-workflow-manage`。

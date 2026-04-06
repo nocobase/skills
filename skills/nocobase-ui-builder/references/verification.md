@@ -1,6 +1,6 @@
 # Verification
 
-当你要做 `inspect`，或确认一次写入是否真的落盘时，读本文。family / locator / write target 看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，popup 细节看 [popup.md](./popup.md)。
+当你要做 `inspect`，或确认一次写入是否真的落盘时，读本文。family / locator / write target 看 [runtime-playbook.md](./runtime-playbook.md)，请求形状看 [tool-shapes.md](./tool-shapes.md)，popup 细节看 [popup.md](./popup.md)。`catalog` 是否必读、以及 `shell-only popup` 的成功措辞，统一看 [normative-contract.md](./normative-contract.md)。
 
 ## Inspect
 
@@ -8,12 +8,18 @@
 
 - `inspect` 只做只读检查，不调用任何写接口。
 - 菜单标题发现链路默认先 `desktop_routes_list_accessible(tree=true)`；但它只代表当前角色可见菜单树，不是系统全量真相。已初始化 surface 默认先 `get`。
-- 只有在用户明确要求 capability / contract / 可创建能力，或仅靠 `get` 无法判断目标语义时，才继续 `catalog`。
+- 是否继续 `catalog`，统一按 [normative-contract.md](./normative-contract.md) 的 `Catalog Contract` 判断。
 - `inspect` 输出应聚焦“当前结构、关键 uid / route / capability、阻塞点”，不要混用“写入成功 / 已落盘”措辞。
+
+### 验收级别
+
+- `structural-confirmed`：已通过菜单树 / `get` / route/tree 读回确认结构存在、位置正确、节点落盘。
+- `semantic-confirmed`：除结构外，还通过 live capability / binding / context / code 一致性确认了目标语义。
+- `partial/unverified`：写入返回成功，但现场读回不足以确认用户真正关心的语义；必须明确说明未完成验证。
 
 ### 最小读链
 
-| 目标 family | 默认读取顺序 | 何时需要 `catalog` |
+| 目标 family | 默认读取顺序 | 常见追加原因（仍以 normative contract 为准） |
 | --- | --- | --- |
 | `menu-group` | `desktop_routes_list_accessible(tree=true)` | 通常不需要 |
 | `menu-item` | 菜单树；必要时再用 `routeId/pageSchemaUid` 做 `get` | 用户要看页面内部 capability，且该菜单项已初始化为 `flowPage` |
@@ -34,6 +40,7 @@
 - 写后只核对本次变更直接相关的 target；只有生命周期或 route/tree 层级变化时，才升级为完整校验。
 - 菜单写入优先核对 `routeId/type/parentMenuRouteId`；菜单移动升级为菜单树读回，而不是 flow tree 校验。
 - popup、字段、配置断言都以现场读回为准；不要只看写接口返回值就认为完成。
+- `shell-only popup` 只能验收为 `structural-confirmed`；不要把它表述成 popup 内容已完成。
 - 批量写不是默认首选；若使用 `addBlocks/addFields/addActions/addRecordActions`，必须逐项检查返回里的 `ok/error/index`，任一失败即停，并分别报告成功项 / 失败项；不自动 rollback，也不继续执行依赖“全部成功”的后续写入。
 - `setLayout` 与 `setEventFlows` 属于 high-impact full-replace；写前先读当前完整状态，写后按完整 layout / flow 状态验收，不按局部 delta 判成功。
 - `destroyPage`、`removeTab`、`removePopupTab`、`removeNode`、`apply(mode="replace")`，以及会删除 / 替换现有 subtree 的 `mutate` 组合属于 destructive path；执行前先说明影响范围，读回时优先确认删除/替换边界是否与预期一致。
@@ -59,7 +66,7 @@
 - 菜单：`routeId` 类型正确，`parentMenuRouteId`、标题、图标、tooltip、`hideInMenu` 同步；`createMenu(type="item")` 后不要误判为已初始化页面。
 - 页面 / `outer-tab`：page route/tab route 存在且顺序正确；如果现场可见，`pageRoute.options.flowSurfacePageInitialized = true`；新增 tab 补齐对应 grid anchor。
 - `popup-tab`：popup page 仍存在，tab 数量与顺序正确，`tree.use = ChildPageTabModel`，新增 tab 补齐对应 grid anchor。
-- popup subtree：确认 `popupPageUid/popupTabUid/popupGridUid` 挂在正确位置；如果场景是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell；如果现场能看到 resource binding，再额外确认 `details/editForm` 绑定的是 `currentRecord`。
+- popup subtree：确认 `popupPageUid/popupTabUid/popupGridUid` 挂在正确位置；如果本次目标只是 `shell-only popup`，这里最多记为 `structural-confirmed`；如果场景是查看或编辑当前记录，`popupGridUid` 下不能只是空 shell，且若现场能看到 resource binding，再额外确认 `details/editForm` 绑定的是 `currentRecord`，才能记为 `semantic-confirmed`。
 - 结构 / 字段 / 配置：`tree/nodeMap` 能找到新增节点；table 的 `actionsColumnUid` 存在；record popup 的 `details/editForm/submit` 真正出现；字段定位到 `wrapperUid/fieldUid/innerFieldUid`；`flowRegistry`、layout、关系字段 `clickToOpen/openView` 已落盘。
 - `setLayout`：`rows/sizes/rowOrder` 完整匹配预期，且 child 覆盖与列宽数量一致；不要只看单个 child 是否还在。
 - `setEventFlows`：最终 flow 集合必须完整匹配预期，不残留旧 flow，也不丢失本次目标范围内应保留的绑定。
