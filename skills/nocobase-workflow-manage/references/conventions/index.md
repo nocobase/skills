@@ -112,6 +112,8 @@ See each trigger's reference documentation for full details.
 
 Reference an upstream node's output by its `key` (not `id`). Every node has a `key` property — a short random string (e.g., `6qww6wh1wb8`) assigned at creation. You can find it by reading the node via `flow_nodes:get`.
 
+The upstream means all the ancestor nodes search up the workflow graph by `upstreamId` recursively until null. Any other node ou of this path is not accessible.
+
 **Format**: `{{$jobsMapByNodeKey.<nodeKey>.<propertyPath>}}`
 
 **Examples**:

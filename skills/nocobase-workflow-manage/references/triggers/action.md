@@ -8,7 +8,6 @@ description: "Trigger flows after user actions (creation/update) are completed, 
 ## Trigger Type
 
 `action`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Executing flows immediately after user operations (e.g., notifications, approvals, synchronization after creation/update).
@@ -33,9 +32,21 @@ Please use the `type` value above to create the trigger; do not use the document
 - `$context.roleName`: The role name of the user who triggered the operation.
 
 ## Example Configuration
+
+### Local mode, triggered only by buttons/operations bound to this workflow
 ```json
 {
-  "collection": "main:posts",
+  "collection": "posts",
+  "global": false,
+  "appends": ["category", "author"]
+}
+```
+
+### Global mode, triggered for all create/update operations on the `posts` table of the default data source
+
+```json
+{
+  "collection": "posts",
   "global": true,
   "actions": ["create", "update"],
   "appends": ["category", "author"]

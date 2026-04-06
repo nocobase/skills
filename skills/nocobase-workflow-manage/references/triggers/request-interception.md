@@ -8,7 +8,6 @@ description: "Intercepts before data operation requests are executed, suitable f
 ## Trigger Type
 
 `request-interception`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Performing validation or logic judgment before data create, update, or delete operations are executed.
