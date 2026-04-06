@@ -139,6 +139,7 @@
 - 典型 `fieldPath`：`roles.title`、`department.name`。
 - 用户说“显示部门名 / 角色标题”时，优先映射到关系叶子字段，而不是只放关联 id。
 - to-many 关系叶子字段在 display 场景允许使用；常见下一步是 `clickToOpen = true` 和 `openView`。
+- 在 `details/list/gridCard` 里，直接 to-many relation 字段（例如 `users.roles`）默认也按这套 display 语义处理：应归一到目标表 `titleField` 的文本展示，而不是默认子表格。`roles` 与 `roles.title` 这类输入，如果 live `catalog` 已收敛成同一条 display field，就按 display field 处理；只有用户明确要求子表格/关联明细区块时，才改走 block 级方案。
 
 ### `filterForm` 特殊点
 

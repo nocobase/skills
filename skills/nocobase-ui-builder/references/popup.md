@@ -13,6 +13,7 @@
 - 相同内容如果要出现在多个入口，必须为每个 opener 各自创建独立 popup subtree；不要把一个 opener 的 uid 写到另一个 opener 的 `openView.uid`。
 - 关系字段的 `openView.collectionName` 默认保持目标 collection 语义；不要把 relation popup 改写成源 collection 来伪装“当前行详情”。
 - 关系字段开启 `clickToOpen/openView` 时，`openView` 不能只剩目标 `collectionName`；写后必须确认 `associationName` 仍存在。对 to-many relation field，若读回后只剩 `collectionName='roles'` 这类 plain target collection 语义，说明 popup 会丢失关联上下文。
+- 如果你是在关系字段上故意配置非关联 popup，不要自动保留旧的 `associationName`。当 `collectionName/dataSourceKey` 明确切到别的记录语义时，读回不应再带旧关联名；如果仍想打开同一个 target collection 但要求 plain popup，显式传 `associationName: null`。
 - 如果 relation field popup 里再创建 `details(currentRecord)`、`editForm(currentRecord)` 或它们内部的 record action popup，写后必须继续确认 `resourceSettings.init` 保留完整 `associationName` 与 `sourceId`。缺任何一个，都意味着后续弹窗会把关系记录误当成普通目标表记录。
 
 ## 默认 popup 写流程
