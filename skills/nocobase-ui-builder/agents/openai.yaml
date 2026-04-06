@@ -1,14 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "通过 NocoBase MCP / FlowSurfaces 检查、创建、修改、重排或删除 Modern page (v2) 的菜单、页面、页签、弹窗、布局与 block/field/action 配置"
-  default_prompt: >
-    Use $nocobase-ui-builder to inspect, build, update, reorder, or delete NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block/field/action surfaces through live MCP capabilities.
-    Treat inspect as read-only by default.
-    Use FlowSurfaces for UI mutation and desktop_routes_list_accessible(tree=true) for menu discovery.
-    Never use resource_* or generic CRUD to mutate page structure.
-    Hand off ACL/route-permission work to nocobase-acl-manage, schema authoring to nocobase-data-modeling, and workflow authoring to nocobase-workflow-manage.
-    Follow SKILL.md as the global source of truth.
-    Start from references/execution-checklist.md for the compressed execution path, then expand into runtime-playbook/tool-shapes/popup/chart/js only when the task requires those contracts.
+  short_description: "检查和搭建 NocoBase Modern page (v2) UI"
+  default_prompt: "Use $nocobase-ui-builder to inspect or edit NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block/field/action surfaces. Treat inspect as read-only by default."
 
 dependencies:
   tools:

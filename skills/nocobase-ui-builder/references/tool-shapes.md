@@ -8,9 +8,11 @@
 2. 根级 locator `get`
 3. `requestBody` 但不带 `target`
 4. target-based `requestBody.target.uid`
-5. `setLayout` canonical payload
-6. `apply` / `mutate`
-7. 常见错误形状
+5. `context` canonical payload
+6. `add*` canonical payload
+7. `setLayout` canonical payload
+8. `apply` / `mutate`
+9. 常见错误形状
 
 ## 一屏硬规则
 
@@ -65,7 +67,8 @@
 | `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`，可选 `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
 | `createPage` | `flow_surfaces_create_page` | 推荐传 `requestBody.menuRouteId`；其余常用 `title/tabTitle/enableTabs` |
 | `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`，必须是 `pageUid` |
-| `moveTab` / `removeTab` | `flow_surfaces_move_tab` / `flow_surfaces_remove_tab` | outer tab 直接用 `tabSchemaUid` |
+| `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`；outer tab 直接用 `tabSchemaUid` |
+| `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid`；outer tab 直接用 `tabSchemaUid` |
 | `movePopupTab` | `flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
 | `moveNode` | `flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
 
@@ -74,7 +77,7 @@
 - 这些 lifecycle API 都只在 MCP 层包一层 `requestBody`
 - `createMenu`、`updateMenu`、`createPage` 都不接受 `target`
 - `createMenu(type="group")` 只返回菜单 route 信息，不返回可写页面 target
-- `createMenu(type="item")` 可能返回 `pageSchemaUid/pageUid/tabSchemaUid/tabRouteId`，但此时页面仍可能未初始化；不要立刻调用 page/tab lifecycle API
+- `createMenu(type="item")` 可能返回 `pageSchemaUid/pageUid/tabSchemaUid/routeId`，但此时页面仍可能未初始化；不要立刻调用 page/tab lifecycle API
 - `createPage(menuRouteId=...)` 会把 bindable 菜单项初始化为真正的 Modern page(v2)
 - `createPage` 返回的 `pageUid` 用于 page 级写接口；`pageSchemaUid/tabSchemaUid/routeId` 用于读回；`gridUid` 用于后续内容区搭建
 
@@ -97,7 +100,7 @@
 - merge-like 配置：`updateSettings`
 - high-impact full-replace：`setEventFlows`、`setLayout`
 - 精确删除：`removeNode`
-- 兜底高级入口：`apply`、`mutate`
+- 兜底高级入口：`apply`
 
 ### 常见 target 选择
 
@@ -117,8 +120,30 @@
 - `pageSchemaUid`、`routeId` 属于 `get` locator，不要直接塞进 `target.uid`
 - `pageUid`、`gridUid`、`tabSchemaUid`、`popupPageUid`、`popupTabUid`、`popupGridUid` 不是可互换的“通用 target uid”
 - `currentRecord` 不属于 locator，也不属于 `target.uid`；它属于 popup 内 block 的资源绑定语义，决策流程看 [popup.md](./popup.md)
+- `mutate` 不属于这组 top-level `target.uid` 入口；它使用 `requestBody.ops[]`，由各 op 自己决定是否带 `target`
 
-### `add*` canonical payload
+## `context` canonical payload
+
+`flow_surfaces_context` 也属于 target-based `requestBody`，但常见会额外带 `path` / `maxDepth`：
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "path": "record",
+    "maxDepth": 2
+  }
+}
+```
+
+规则：
+
+- `path` 只接受裸路径，例如 `record`、`popup.record`、`item.parentItem.value`
+- 不要传 `ctx.record`、`{{ ctx.record }}` 这类模板包裹写法
+- 不传 `path` 时表示读取当前 target 下的默认上下文树
+- `maxDepth` 只在需要收敛上下文树时才传；拿到足够信息就停
+
+## `add*` canonical payload
 
 `addBlock`
 
@@ -249,7 +274,7 @@
 
 ## `apply` / `mutate`
 
-`apply(mode="replace")` 与大多数 `mutate` 组合都属于 destructive path：只有用户明确要求替换 subtree 时才执行，并在写前说明影响范围。
+`apply(mode="replace")` 与 replace-style `mutate` 属于 destructive path：只有用户明确要求替换 subtree 时才执行，并在写前说明影响范围。
 
 `mcp__nocobase__flow_surfaces_apply`
 
@@ -271,20 +296,15 @@
     "atomic": true,
     "ops": [
       {
-        "opId": "menu",
-        "type": "createMenu",
-        "values": {
-          "title": "Employees",
-          "type": "item"
-        }
+        "opId": "step1",
+        "type": "<advanced-op>",
+        "values": {}
       },
       {
-        "opId": "page",
-        "type": "createPage",
+        "opId": "step2",
+        "type": "<advanced-op>",
         "values": {
-          "menuRouteId": {
-            "ref": "menu.routeId"
-          }
+          "someRef": { "ref": "step1.id" }
         }
       }
     ]
@@ -297,6 +317,7 @@
 - `apply` 只支持 `mode = "replace"`
 - `mutate` 默认 `atomic = true`
 - `mutate` 的链式引用统一使用 `{ "ref": "<opId>.<path>" }`
+- 上面的 `mutate` 片段只示意请求形状与链式引用；不要把它当成普通页面创建或日常小改的推荐做法
 - 只有在公开入口无法表达、且你已经完全确认 target / shape / 顺序时，才使用 `apply/mutate`
 - `apply(mode="replace")` 与 replace-style `mutate` 默认按 destructive path 处理；先说明影响范围，再做完整 readback
 
