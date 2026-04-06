@@ -4,7 +4,7 @@ Read this file when the user only gives natural-language expressions and you sti
 
 ## `Grid`
 
-- When the user says `Grid`, `Grid block`, or `Grid` in a "block / area" context, map it to `gridCard` by default.
+- When the user says `Grid` or `Grid block` in a "block / area" context, map it to `gridCard` by default.
 - Only switch into layout semantics when the user explicitly means layout, columns, rows, or arrangement.
 - Once the user explicitly names a block type, such as table block, details block, or Grid block, the explicit block name wins.
 
@@ -21,7 +21,7 @@ Read this file when the user only gives natural-language expressions and you sti
 - When the user mentions `left side`, `menu`, `navigation`, `menu title`, `menu icon`, or `group title`, narrow to `menu-group` / `menu-item` first.
 - When the user mentions `tab`, `label`, or `tab title`, narrow to `outer-tab` / `popup-tab` first.
 - When the user mentions `page top title`, `header title`, or `content-area title`, narrow to `page` first.
-- When the user mentions `page top icon`, `header icon`, or `header icon`, do not promise visible effect immediately. First inspect whether the page-header render chain actually consumes `icon`.
+- When the user mentions `page top icon` or `header icon`, do not promise visible effect immediately. First inspect whether the page-header render chain actually consumes `icon`.
 - If the user only says `page title` or `page icon` without a position clue, and the target is a route-backed page, default to the page entry path, which means `menu-item -> updateMenu`. Do not default directly to `outer-tab -> updateTab`.
 - If the user only says "add an icon to the page title", do not jump straight to `updateTab`. If it is clearly about the page-header icon, inspect the render chain first. If there is no position clue, default to the page-entry icon and state in commentary that this is the default guess.
 - If the same sentence contains conflicting visible-slot clues, such as both `left menu` and `tab title`, stop default guessing and narrow the target first.

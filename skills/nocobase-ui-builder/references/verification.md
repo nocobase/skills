@@ -6,7 +6,7 @@ Read this file when you need to do `inspect`, or when you need to confirm whethe
 
 ### Core Rules
 
-- `inspect` is read-only only. Do not call any write API.
+- `inspect` is read-only. Do not call any write API.
 - For menu-title discovery, default to `desktop_routes_list_accessible(tree=true)` first. It only represents the menu tree visible to the current role, not the full system truth. For initialized surfaces, default to `get` first.
 - Whether to continue with `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
 - `inspect` output should focus on the current structure, key uid / route / capability, and blockers. Do not mix in wording like "write succeeded" or "already persisted".
@@ -72,6 +72,7 @@ Read this file when you need to do `inspect`, or when you need to confirm whethe
 - `setLayout`: if the user intent is "side by side in the same row / left-right split", readback must confirm that each target uid lands in a different top-level cell within the same row, for example `[[left], [right]]`. If readback shows `[[left, right]]`, it is a failure even if both children exist.
 - `setLayout`: `sizes[rowKey]` must be a one-dimensional `number[]`, and its length must equal the number of columns in that row. Nested arrays or readback that degenerates into "only one narrow left column with blank space on the right" both count as failure, not partial success.
 - `setEventFlows`: the final flow set must fully match expectations, with no stale flow left behind and no required binding within scope accidentally dropped.
-- Direct to-many association display field: if the user added a details/list/gridCard field like `users.roles`, confirm during readback that it did not degrade into a sub-table-style use. If needed, also confirm that `fieldSettings.init.fieldPath` was normalized to the association field itself, such as `roles` rather than `roles.title`, and that `titleField` was persisted.
+- Direct to-many association display field with ordinary display intent: if the user added a details/list/gridCard field like `users.roles`, confirm during readback that it did not degrade into a sub-table-style use. If needed, also confirm that `fieldSettings.init.fieldPath` was normalized to the association field itself, such as `roles` rather than `roles.title`, and that `titleField` was persisted.
+- Explicit sub-table intent on an existing association field: if the user asked to switch an existing details/list/gridCard field such as `roles` into sub-table display, confirm during readback that the original field wrapper still exists, its wrapper-level model setting switched to `DisplaySubTableFieldModel`, the inner field `tree.use` also became `DisplaySubTableFieldModel`, and `fieldSettings.init` still binds to the same association field. Also confirm that no accidental extra table block or stale layout row was left behind while performing the switch.
 - `filterForm` wiring: do not only look at the `addField` return value, and do not only check whether the filter field itself exists. In multi-target scenarios, treat `filterManager` in the parent content-container readback as a common success signal, and when live visibility allows, also verify that field-level target binding info such as `defaultTargetUid` matches expectations.
 - RunJS: besides UI-structure readback, also confirm that the final persisted `code` is exactly the same as the code that passed the validator gate.

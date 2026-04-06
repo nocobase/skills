@@ -1,6 +1,11 @@
 ---
 name: nocobase-ui-builder
-description: Use when the user wants to inspect, create, modify, reorder, or delete NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block / field / action configuration; does not handle ACL, data modeling, workflow orchestration, browser reproduction, page error postmortems, or non-Modern-page navigation. Chinese trigger anchors: 检查、创建、修改、重排、删除、菜单、页面、页签、弹窗、布局、区块、字段、动作.
+description: >-
+  Use when the user wants to inspect, create, modify, reorder, or delete
+  NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block /
+  field / action configuration; does not handle ACL, data modeling, workflow
+  orchestration, browser reproduction, page error postmortems, or
+  non-Modern-page navigation.
 ---
 
 # Start Here

@@ -45,7 +45,7 @@ Notes: `menu-group` has no corresponding flow tree, so do not treat it like a no
 | --- | --- | --- | --- | --- |
 | menu title / menu icon / left-navigation icon | left menu | `menu-item` / `menu-group` | `updateMenu` | even for a route-backed page, modify the page entry first; do not jump to tab |
 | page content title / page top title / header title | page header title | `page` | page `configure` | this is the title-text path, not the page-top icon path |
-| page top icon / header icon / header icon | page header icon | `page` | inspect render chain first | do not promise visible effect by default; only continue after confirming that the header consumes `icon` |
+| page top icon / header icon | page header icon | `page` | inspect render chain first | do not promise visible effect by default; only continue after confirming that the header consumes `icon` |
 | tab title / tab icon | outer tab | `outer-tab` | `updateTab` | requires explicit tab clues, or a clear `tabSchemaUid` / `RootPageTabModel` |
 | title / icon of a tab inside popup | popup tab | `popup-tab` | `updatePopupTab` | requires popup-tab clues, or a clear `ChildPageTabModel` |
 | page title / page icon with no position clue | default to page entry | `menu-item` | `updateMenu` | default guess is menu entry; must not silently default to `updateTab` |

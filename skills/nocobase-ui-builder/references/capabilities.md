@@ -145,7 +145,9 @@ This means that different fields inside the same `filterForm` may each declare t
 - Typical `fieldPath`: `roles.title`, `department.name`.
 - When the user says "show department name" or "role title", prefer mapping it to an association leaf field rather than just an association id.
 - To-many association leaf fields are allowed in display scenarios. A common next step is `clickToOpen = true` plus `openView`.
-- Inside `details/list/gridCard`, direct to-many association fields such as `users.roles` also default to this display semantics: they should normalize to text display through the target table's `titleField`, not to a sub-table by default. Inputs like `roles` and `roles.title` should be treated as the same display field when live `catalog` has already narrowed them to one display field. Only switch to a block-level solution when the user explicitly asks for a sub-table or association-details block.
+- Inside `details/list/gridCard`, direct to-many association fields such as `users.roles` also default to this display semantics: they should normalize to text display through the target table's `titleField`, not to a sub-table by default. Inputs like `roles` and `roles.title` should be treated as the same display field when live `catalog` has already narrowed them to one display field.
+- If the user explicitly asks to make an existing association field display as a "sub-table", first interpret that as a field-wrapper reconfiguration problem, not as "add a new table block". Read back the existing field, locate `wrapperUid/fieldUid/innerFieldUid`, and if the live wrapper contract exposes `fieldComponent`, prefer `configure(changes.fieldComponent = "DisplaySubTableFieldModel")` on the wrapper uid.
+- Only switch to a block-level solution when the user explicitly asks for a separate table region / association-details block / independent block actions, or when live facts prove that the current wrapper cannot support the requested `fieldComponent`.
 
 ### `filterForm` Special Points
 
@@ -156,3 +158,5 @@ This means that different fields inside the same `filterForm` may each declare t
 ### Readback Location
 
 Most precise reconfiguration work must distinguish `wrapperUid`, `fieldUid`, and `innerFieldUid`. When adding popup/openView to an association field, or doing finer-grained field configuration, you usually need one of those specific uids.
+
+- For wrapper-level changes such as association-field `fieldComponent`, target `wrapperUid` for the write, then read back both the wrapper and the inner field. Do not write `fieldComponent` to `innerFieldUid` and do not replace the field with a new block unless the user explicitly wants a block-level solution.

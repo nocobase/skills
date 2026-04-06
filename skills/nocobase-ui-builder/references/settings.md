@@ -27,6 +27,7 @@ Read this file first when you already know you are creating a block / field / ac
 | --- | --- | --- |
 | create node + frequent public attributes | `add* + settings` | the target fields have already been exposed as public semantics in the live environment; if confirmation is needed, read `catalog` first via normative contract |
 | small update to an existing node | `configure(changes)` | still within public semantic fields, but the node does not need to be recreated |
+| switch an existing field wrapper to another public field component | `configure(changes)` on `wrapperUid` | use this first for requests such as "change the existing roles field into sub-table display", especially when the live wrapper contract exposes `fieldComponent` |
 | path-level fine-grained patch | `updateSettings` | the live environment only exposes a domain contract, without a public semantic entry |
 | layout | `setLayout` | only when the user explicitly accepts whole-layout replacement and the full current layout has already been read back |
 | event flows | `setEventFlows` | only when the user explicitly accepts full instance-level flow replacement and the full current flow has already been read back |
@@ -69,6 +70,22 @@ Valid examples:
   }
 }
 ```
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "details-item-wrapper-uid" },
+    "changes": {
+      "fieldComponent": "DisplaySubTableFieldModel"
+    }
+  }
+}
+```
+
+Notes:
+
+- For field-component switching, prefer targeting the field wrapper rather than the inner field.
+- After writing, always read back both the wrapper and the inner field to confirm that the server rebuilt the field sub-model instead of leaving stale UI structure behind.
 
 Invalid:
 
