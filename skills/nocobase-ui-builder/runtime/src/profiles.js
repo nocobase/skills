@@ -30,17 +30,27 @@ const BASE_CONTRACT = {
   render: functionDoc(
     'Render one HTML string or structured value into the render container. JSX syntax is lowered before execution; chart profiles write plain text while other profiles write HTML.',
   ),
+  runjs: functionDoc('Execute one nested RunJS snippet in simulated mode.'),
   request: functionDoc('HTTP read helper. Only GET/HEAD are allowed.'),
   api: objectDoc('API helper namespace.', {
     request: functionDoc('Same behavior as ctx.request.'),
   }),
   getVar: functionDoc('Resolve one ctx.* path from the current mock context.'),
   getVarInfos: functionDoc('Inspect available keys under the current mock context.'),
+  initResource: functionDoc('Initialize one simulated resource on ctx.resource when needed.'),
   importAsync: functionDoc('Blocked in this runtime.'),
   requireAsync: functionDoc('Blocked in this runtime.'),
   loadCSS: functionDoc('Blocked in this runtime.'),
+  React: valueDoc('Top-level alias for ctx.libs.React.', 'object'),
+  ReactDOM: valueDoc('Top-level alias for ctx.libs.ReactDOM.', 'object'),
+  antd: valueDoc('Top-level alias for ctx.libs.antd.', 'object'),
+  antdIcons: valueDoc('Top-level alias for ctx.libs.antdIcons.', 'object'),
   dayjs: functionDoc('Minimal dayjs-compatible helper.'),
   libs: objectDoc('Shared library namespace.', {
+    React: valueDoc('Minimal React-compatible namespace.', 'object'),
+    ReactDOM: valueDoc('Minimal ReactDOM-compatible namespace.', 'object'),
+    antd: valueDoc('Minimal Ant Design-compatible namespace.', 'object'),
+    antdIcons: valueDoc('Minimal Ant Design icon namespace.', 'object'),
     dayjs: functionDoc('Minimal dayjs-compatible helper.'),
   }),
   element: ELEMENT_CONTRACT,
@@ -122,8 +132,12 @@ const CHART_INSTANCE_CONTRACT = objectDoc('ECharts-like chart instance.', {
   resize: functionDoc('Resize the chart instance.'),
 });
 
-const PRECISE_ROOTS = new Set(['api', 'form', 'viewer', 'message', 'notification', 'modal', 'element', 'libs', 'chart']);
+const PRECISE_ROOTS = new Set(['api', 'form', 'viewer', 'message', 'notification', 'modal', 'element', 'chart']);
 const OPAQUE_ROOTS = new Set([
+  'React',
+  'ReactDOM',
+  'antd',
+  'antdIcons',
   'record',
   'formValues',
   'selectedRows',
@@ -138,6 +152,7 @@ const OPAQUE_ROOTS = new Set([
   'disabled',
   'readOnly',
   'dayjs',
+  'libs',
 ]);
 
 function createProfile({

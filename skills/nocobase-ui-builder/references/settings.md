@@ -14,8 +14,8 @@
 
 ## 核心规则
 
-1. 如果本次需要依赖 live `configureOptions` / `settingsContract` 判断公开字段，就先按 [normative-contract.md](./normative-contract.md) 读 `catalog(target)`。
-2. `requestBody.settings` 只写**公开语义 key**，不要写 raw `props / decoratorProps / stepParams / flowRegistry`。
+1. 如果本次需要依赖 live `configureOptions` / `settingsContract` 判断公开字段，就先按 [normative-contract.md](./normative-contract.md) 读 `catalog(target)`；判断依据同时包括 target 顶层 `configureOptions` 与 item 级 `configureOptions`。
+2. `requestBody.settings` 只写**公开语义 key**，不要写 raw `props / decoratorProps / stepParams / flowRegistry / wrapperProps / fieldProps`。
 3. 如果用户需求能完全由 `settings` 表达，就直接 `add* + settings`，不要额外再补 `configure`。
 4. 如果只有部分字段能内联，先 `add* + settings`，再 `configure(changes)` 补剩余公开字段。
 5. 只有 path-level contract 才回退到 `updateSettings`；布局与事件流仍然使用专用 API。

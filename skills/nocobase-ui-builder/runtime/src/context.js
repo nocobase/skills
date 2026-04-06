@@ -791,21 +791,214 @@ function createFormApi(formValues) {
   };
 }
 
-function createResourceApi(resource = {}, selectedRows) {
+function createCompatReactElement(type, props, ...children) {
+  const normalizedChildren = children.flat(Infinity).filter((child) => child !== null && child !== undefined && child !== false);
+  const nextProps = isPlainObject(props) ? { ...props } : {};
+  if (normalizedChildren.length === 1) {
+    nextProps.children = normalizedChildren[0];
+  } else if (normalizedChildren.length > 1) {
+    nextProps.children = normalizedChildren;
+  }
+  return {
+    $$typeof: Symbol.for('react.element'),
+    type,
+    props: nextProps,
+  };
+}
+
+function createCompatReactApi(state) {
+  return {
+    Fragment: 'Fragment',
+    createElement: createCompatReactElement,
+    useState(initialValue) {
+      let current = typeof initialValue === 'function' ? initialValue() : initialValue;
+      return [
+        current,
+        (nextValue) => {
+          current = typeof nextValue === 'function' ? nextValue(current) : nextValue;
+          state.sideEffectAttempts.push({
+            name: 'React.useState.setState',
+            status: 'simulated',
+            args: cloneSerializable([current]),
+          });
+          return current;
+        },
+      ];
+    },
+    useEffect(effect) {
+      state.sideEffectAttempts.push({
+        name: 'React.useEffect',
+        status: 'simulated',
+        args: [],
+      });
+      if (typeof effect === 'function') {
+        try {
+          return effect();
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    },
+    useMemo(factory) {
+      return typeof factory === 'function' ? factory() : factory;
+    },
+    useCallback(callback) {
+      return callback;
+    },
+    useRef(initialValue) {
+      return { current: initialValue };
+    },
+    memo(component) {
+      return component;
+    },
+    forwardRef(render) {
+      return render;
+    },
+  };
+}
+
+function createComponentLibrary(prefix) {
+  return new Proxy(
+    {},
+    {
+      get(_target, key) {
+        if (typeof key !== 'string') return undefined;
+        const component = function CompatComponent(props) {
+          return createCompatReactElement(`${prefix}.${key}`, props);
+        };
+        Object.defineProperty(component, 'name', {
+          configurable: true,
+          value: key,
+        });
+        return component;
+      },
+    },
+  );
+}
+
+function createResourceApi(resource = {}, selectedRows, state, options = {}) {
   const current = {
+    kind: options.kind || resource.kind || resource.type || 'BoundResource',
     dataSourceKey: resource.dataSourceKey || 'main',
     collectionName: resource.collectionName || 'unknown',
     associationName: resource.associationName,
     sourceId: resource.sourceId,
+    filterByTk: resource.filterByTk,
     selectedRows,
+    data: cloneSerializable(withDefault(resource.data, Array.isArray(resource.rows) ? resource.rows : [])),
+  };
+  const listeners = new Map();
+  const emit = (eventName, payload) => {
+    for (const listener of listeners.get(eventName) || []) {
+      try {
+        listener(payload);
+      } catch {
+        // best effort only
+      }
+    }
   };
   return {
-    ...current,
+    get kind() {
+      return current.kind;
+    },
+    set kind(nextValue) {
+      current.kind = nextValue;
+    },
+    get dataSourceKey() {
+      return current.dataSourceKey;
+    },
+    get collectionName() {
+      return current.collectionName;
+    },
+    get associationName() {
+      return current.associationName;
+    },
+    get sourceId() {
+      return current.sourceId;
+    },
+    get filterByTk() {
+      return current.filterByTk;
+    },
+    get selectedRows() {
+      return current.selectedRows;
+    },
+    getData() {
+      return cloneSerializable(current.data);
+    },
+    setData(value) {
+      current.data = cloneSerializable(value);
+      return current.data;
+    },
+    setDataSourceKey(nextValue) {
+      current.dataSourceKey = String(nextValue || 'main');
+      return current.dataSourceKey;
+    },
+    setResourceName(nextValue) {
+      current.collectionName = String(nextValue || 'unknown');
+      return current.collectionName;
+    },
+    setAssociationName(nextValue) {
+      current.associationName = typeof nextValue === 'undefined' ? undefined : String(nextValue || '');
+      return current.associationName;
+    },
+    setFilterByTk(nextValue) {
+      current.filterByTk = nextValue;
+      return current.filterByTk;
+    },
     getSelectedRows() {
       return current.selectedRows;
     },
     getSourceId() {
       return current.sourceId;
+    },
+    async refresh() {
+      state?.sideEffectAttempts.push({
+        name: 'resource.refresh',
+        status: 'simulated',
+        args: cloneSerializable([
+          {
+            kind: current.kind,
+            dataSourceKey: current.dataSourceKey,
+            collectionName: current.collectionName,
+            filterByTk: current.filterByTk,
+          },
+        ]),
+      });
+      if (typeof current.filterByTk !== 'undefined' && !isPlainObject(current.data) && !Array.isArray(current.data)) {
+        current.data = { id: current.filterByTk };
+      }
+      emit('refresh', cloneSerializable(current.data));
+      return cloneSerializable(current.data);
+    },
+    async runAction(actionName, payload = {}) {
+      const response = {
+        action: String(actionName || ''),
+        ok: true,
+        data: cloneSerializable(payload?.data),
+      };
+      state?.sideEffectAttempts.push({
+        name: 'resource.runAction',
+        status: 'simulated',
+        args: cloneSerializable([actionName, payload]),
+      });
+      emit('saved', cloneSerializable(response));
+      return response;
+    },
+    on(eventName, listener) {
+      if (typeof listener !== 'function') return () => {};
+      const key = String(eventName || '');
+      const currentListeners = listeners.get(key) || new Set();
+      currentListeners.add(listener);
+      listeners.set(key, currentListeners);
+      return () => currentListeners.delete(listener);
+    },
+    off(eventName, listener) {
+      const key = String(eventName || '');
+      const currentListeners = listeners.get(key);
+      if (!currentListeners) return;
+      if (typeof listener === 'function') currentListeners.delete(listener);
+      else currentListeners.clear();
     },
   };
 }
@@ -1027,13 +1220,46 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
     return null;
   };
 
+  const compatReact = createCompatReactApi(state);
+  const compatAntd = createComponentLibrary('antd');
+  const compatAntdIcons = createComponentLibrary('antdIcons');
+  const compatReactDOM = {
+    createRoot(container) {
+      return {
+        render(vnode) {
+          return render(vnode, container);
+        },
+        unmount() {
+          state.sideEffectAttempts.push({
+            name: 'ReactDOM.createRoot.unmount',
+            status: 'simulated',
+            args: [],
+          });
+        },
+      };
+    },
+  };
+
   const ctx = {};
   let simulatedProps = {};
+  let resourceApi = createResourceApi(
+    withDefault(inputContext.resource, profile.defaultContextShape.resource || {}),
+    selectedRows,
+    state,
+  );
   const fullCtxMembers = {
     t(key, variables) {
       return interpolate(key, variables);
     },
     render,
+    async runjs(code, variables = {}, runOptions = {}) {
+      state.sideEffectAttempts.push({
+        name: 'ctx.runjs',
+        status: 'simulated',
+        args: cloneSerializable([code, variables, runOptions]),
+      });
+      return undefined;
+    },
     request,
     api: {
       request,
@@ -1086,8 +1312,32 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
       state.sideEffectAttempts.push(detail);
       throw new CompatBlockedError('Blocked ctx.loadCSS.', detail);
     },
+    initResource(type = 'MultiRecordResource') {
+      if (!resourceApi) {
+        resourceApi = createResourceApi(
+          {
+            dataSourceKey: 'main',
+            collectionName: 'unknown',
+          },
+          selectedRows,
+          state,
+          { kind: type },
+        );
+      }
+      resourceApi.kind = String(type || resourceApi.kind || 'MultiRecordResource');
+      ctx.resource = resourceApi;
+      return resourceApi;
+    },
+    React: compatReact,
+    ReactDOM: compatReactDOM,
+    antd: compatAntd,
+    antdIcons: compatAntdIcons,
     dayjs: compatDayjs,
     libs: {
+      React: compatReact,
+      ReactDOM: compatReactDOM,
+      antd: compatAntd,
+      antdIcons: compatAntdIcons,
       dayjs: compatDayjs,
     },
     element: elementProxy,
@@ -1115,10 +1365,7 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
     value: currentValue.value,
     formValues,
     form: createFormApi(formValues),
-    resource: createResourceApi(
-      withDefault(inputContext.resource, profile.defaultContextShape.resource || {}),
-      selectedRows,
-    ),
+    resource: resourceApi,
     collection: cloneSerializable(withDefault(inputContext.collection, profile.defaultContextShape.collection)),
     collectionField: cloneSerializable(
       withDefault(inputContext.collectionField, profile.defaultContextShape.collectionField),

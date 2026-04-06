@@ -131,7 +131,8 @@
 - 在 `addField/addFields`，或需要显式声明字段路径时，统一用 `{ "fieldPath": "nickname" }`。
 - 绑定真实字段时，`fieldPath` 属于创建必需参数，不属于 `settings`；`jsColumn` / `jsItem` 这类 synthetic standalone field 则允许不传真实 `fieldPath`。
 - 字段标签、必填、禁用等公开属性的内联策略，统一看 [settings.md](./settings.md)。
-- 常见 wrapper 配置：`label`、`showLabel`、`tooltip`、`extra`、`width`、`fixed`。
+- 常见 wrapper 配置：`label`、`showLabel`、`tooltip`、`extra`、`width`。
+- `fixed` 只在 table column / action column / `jsColumn` 这类列语义里常见；不要把它当成所有 field wrapper 的通用设置。
 - 常见 field 配置：`titleField`、`clickToOpen`、`openView`、`allowClear`、`multiple`。
 
 ### 关系叶子字段

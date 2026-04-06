@@ -108,6 +108,47 @@ test('validate command blocks live network in skill mode', async () => {
   assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'blocked-skill-live-network'));
 });
 
+test('validate command accepts upstream-style libs and initResource helpers', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      model: 'JSBlockModel',
+      code: `
+        const { Button } = ctx.libs.antd;
+        ctx.initResource('MultiRecordResource');
+        ctx.resource.setResourceName('users');
+        await ctx.resource.refresh();
+        ctx.render(<Button>{ctx.resource.collectionName}</Button>);
+        return {
+          hasReact: typeof ctx.libs.React?.createElement === 'function',
+          hasReactDOM: typeof ctx.libs.ReactDOM?.createRoot === 'function',
+          hasAntd: typeof Button === 'function',
+          resourceName: ctx.resource.collectionName,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.execution.returnValue, {
+    hasReact: true,
+    hasReactDOM: true,
+    hasAntd: true,
+    resourceName: 'users',
+  });
+});
+
 test('batch command resolves task file paths relative to the input file and keeps task id', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

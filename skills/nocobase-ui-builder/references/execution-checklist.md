@@ -53,9 +53,9 @@
 
 ## 7. Risk Gate
 
-- `compose/add*` = safe append；`configure/updateSettings` = merge-like。
+- `add*` 与 `compose(mode != "replace")` = append-like；`configure/updateSettings` = merge-like。
 - `setLayout/setEventFlows` = high-impact full-replace。
-- `destroyPage/remove*`、`apply(mode="replace")`、replace-style `mutate` = destructive。
+- `destroyPage/remove*`、`apply(mode="replace")`、`compose(mode="replace")`、replace-style `mutate` = destructive。
 - high-impact / destructive 都先说明影响范围；用户不是在要求整体替换时，不要默认走这些路径。
 
 ## 8. Topic Gate

@@ -26,6 +26,7 @@
 只要本次写入涉及 JS `code`，就必须先运行本地 validator，再决定是否调用 MCP 写入。
 
 - 这个 validator 的目标是**确定性的本地 contract 预验证**，不是安全沙箱承诺。
+- 当前目标是 **public docs parity**：保证上游公开文档、默认模板与本 skill 默认生成的代码能被稳定校验；**不是**完整浏览器 / React runtime 仿真。
 - public runtime mode 固定为 `validate`
 - validator 失败就是失败，不能降级成 warning，也不能继续写入
 - 如果 validator 不可运行、Node 版本不满足或结果不可判定，也必须直接停止，不允许跳过 gate 继续写入
@@ -98,9 +99,11 @@ stdin JSON 形状：
 - 默认输出可读的多行 JS，统一使用 2 空格缩进。
 - 复杂模板字符串、条件分支、拼接逻辑先拆成局部变量，再传给 `ctx.render(...)`。
 - 先使用 runtime profile 的 `defaultContextShape`；如果 live MCP 已知更精确的 `resource` / `collection` / `collectionField` / `record` / `formValues` / `namePath`，再用 live 数据覆盖默认值。
+- validator 已补最小公开 ctx：`ctx.runjs(...)`、`ctx.initResource(...)`、`ctx.libs.React/ReactDOM/antd/antdIcons`，以及 `ctx.React/ctx.ReactDOM/ctx.antd/ctx.antdIcons` alias；可用于公开文档与默认模板校验。
 - `network` 默认不传；只有 code 确实依赖读请求且你想覆盖默认 auto-mock 返回值时，才传显式 mock response。
 - 需要读请求时，只使用 `ctx.request(...)` 或 `ctx.api.request(...)`；不要写 `fetch(...)`、`window.fetch(...)`、`ctx.fetch(...)`。
 - 在本 skill 的 canonical 执行方式里，`network.mode = "live"` 一律视为不允许；live mode 只保留给 runtime 开发或脱离本 skill 的本地调试。
+- 如果 JSBlock 示例需要主动取数，优先写 `ctx.initResource(...)` + `ctx.resource`；validator 只做最小模拟，不保证与上游运行态的资源生命周期完全一致。
 
 ## Strict Render 规则
 

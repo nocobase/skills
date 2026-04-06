@@ -365,6 +365,63 @@ test('FormJSFieldItemModel requires explicit ctx.render', async () => {
   assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'));
 });
 
+test('JSActionModel treats ctx.runjs as a legal simulated helper', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSActionModel',
+    code: `
+      await ctx.runjs('console.log("hello from nested")');
+      ctx.message.info('done');
+      return ctx.resource?.collectionName;
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.returnValue, 'users');
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'ctx.runjs' && attempt.status === 'simulated'));
+});
+
+test('JSBlockModel exposes minimal upstream-like libs and initResource helpers', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSBlockModel',
+    code: `
+      const React = ctx.libs.React;
+      const { Button } = ctx.libs.antd;
+      const root = ctx.libs.ReactDOM.createRoot(ctx.element);
+      ctx.initResource('MultiRecordResource');
+      ctx.resource.setResourceName('users');
+      await ctx.resource.refresh();
+
+      function Banner() {
+        return <Button>{ctx.resource.collectionName}</Button>;
+      }
+
+      root.render(<Banner />);
+      ctx.render(<Banner />);
+      return {
+        hasReactAlias: typeof ctx.React?.createElement === 'function',
+        hasReactLib: typeof React?.createElement === 'function',
+        hasReactDOM: typeof ctx.ReactDOM?.createRoot === 'function',
+        hasRootRender: typeof root?.render === 'function',
+        hasAntd: typeof ctx.antd?.Button === 'function',
+        hasAntdLib: typeof Button === 'function',
+        resourceName: ctx.resource.collectionName,
+      };
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.execution.returnValue, {
+    hasReactAlias: true,
+    hasReactLib: true,
+    hasReactDOM: true,
+    hasRootRender: true,
+    hasAntd: true,
+    hasAntdLib: true,
+    resourceName: 'users',
+  });
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'resource.refresh' && attempt.status === 'simulated'));
+});
+
 test('runBatch propagates defaultSkillMode to tasks without explicit skillMode', async () => {
   const batch = await runBatch({
     tasks: [
