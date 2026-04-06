@@ -63,6 +63,11 @@
 - 已有 target 优先 `compose/add*`，再考虑 `configure/updateSettings`；只有刚由写接口直接返回的下一个 target uid，才允许跳过一次前置 `get`。
 - popup payload 形状与 `popup.mode` 统一看 [tool-shapes.md](./tool-shapes.md)。
 - guard-sensitive popup 统一走 [popup.md](./popup.md) 的 `guard-first popup flow`。
+- 命中 `setLayout` 时，先把自然语言翻译成 `row -> columns -> items` 三层语义，再写 payload：
+  - “同一行 / 左右分栏 / 并排” = 同一个 `rowKey` 下多个 column cell，例如 `[[left], [right]]`
+  - “同一列里上下堆叠” = 同一个 column cell 里多个 item，例如 `[[top, bottom]]`
+  - “上下两行” = 不同 `rowKey`，例如 `row1=[[top]]`、`row2=[[bottom]]`
+  - `sizes[rowKey]` 必须是 `number[]` 一维数组，长度必须等于该行列数；不要写成 `[[8,16]]`
 - 具体操作对应的最小读回目标，统一对照 [verification.md](./verification.md) 的 `操作 -> 最小读回目标`。
 
 ## 8. Risk Gate
