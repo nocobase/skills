@@ -15,6 +15,17 @@
 | 页面 | 有现成 locator/uid 时先按已有 `page` 处理；明确“新建页面”且带菜单语境时默认走菜单优先链路 | 同时存在“新建页面”和“修改已有页面”两种解释 | `menu-item` / `page` |
 | 页面入口、菜单、导航项 | 先判断是在说 `menu-group`、`menu-item`，还是已初始化 `page` | 可能是在说外链、移动端或工作台其它导航 | `menu-group` / `menu-item` / `page` |
 
+## 标题 / 图标
+
+- 默认猜测顺序：**先看可见位置线索，再看对象名，再看 route-backed page 的默认入口语义**。
+- 提到 `左侧`、`菜单`、`导航`、`菜单标题`、`菜单图标`、`分组标题` 时，优先收敛到 `menu-group` / `menu-item`。
+- 提到 `页签`、`tab`、`标签` 时，优先收敛到 `outer-tab` / `popup-tab`。
+- 提到 `页面顶部标题`、`页头标题`、`header 标题`、`内容区标题` 时，优先收敛到 `page`。
+- 提到 `页面顶部图标`、`页头图标`、`header icon` 时，不要直接承诺可见效果；先检查 page header 渲染链是否真的消费 `icon`。
+- 只说 `页面标题`、`页面图标`，但没有位置线索时：如果目标是 route-backed page，默认先按**页面入口**处理，也就是 `menu-item -> updateMenu`，不要直接默认成 `outer-tab -> updateTab`。
+- 只说 `给页面标题加图标` 时，不要直接猜成 `updateTab`；如果明确是在说 page header icon，先查渲染链；如果没有位置线索，默认按页面入口图标处理，并在 commentary 里声明这是默认猜测。
+- 同一句里如果同时出现互相冲突的位置线索，例如同时提到 `左侧菜单` 和 `tab 标题`，就停止默认猜测，先收敛目标。
+
 ## `tab`
 
 - page route 上下文时先按 `outer-tab`。
@@ -43,3 +54,4 @@
 - alias 只决定对象语义或 capability，不决定具体 API、payload shape 或 readback。
 - 菜单表达如果只给标题，必须先做菜单树发现；只有唯一命中的 `group` 才能继续写入。
 - 只要会跨 family 或跨 action scope，就先收敛目标，不要直接生成写请求。
+- Prompt 回归样例统一看 [runtime-playbook.md](./runtime-playbook.md)。

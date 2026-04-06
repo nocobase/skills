@@ -39,6 +39,21 @@
 
 说明：`menu-group` 没有对应的 flow tree，不要把它当成普通 `get -> tree -> nodeMap` surface；`menu-item` 在 `createPage(menuRouteId=...)` 之前只允许 `createPage` / `updateMenu`；`pre-init ids` 在初始化完成前都不是 write-ready target；在当前实现中，`tabSchemaUid` 既是 `outer-tab` 的读 locator，也是其写 target uid，若现场明确不同，以现场为准。
 
+## 标题 / 图标速查矩阵
+
+| 自然语言 | 默认可见位置 | family | 首选 API / 路径 | 备注 |
+| --- | --- | --- | --- | --- |
+| 菜单标题 / 菜单图标 / 左侧导航图标 | 左侧菜单 | `menu-item` / `menu-group` | `updateMenu` | 如果是 route-backed page，也先改页面入口，不要跳到 tab |
+| 页面内容区标题 / 页面顶部标题 / 页头标题 | page header title | `page` | page `configure` | 这是标题文案路径，不等于页面顶部图标路径 |
+| 页面顶部图标 / 页头图标 / header icon | page header icon | `page` | 先查渲染链 | 不默认承诺可见效果；只有确认 header 消费 `icon` 后才继续 |
+| tab 标题 / tab 图标 / 页签图标 | outer tab | `outer-tab` | `updateTab` | 需要显式 tab 线索，或明确 `tabSchemaUid` / `RootPageTabModel` |
+| 弹窗里 tab 的标题 / 图标 | popup tab | `popup-tab` | `updatePopupTab` | 需要 popup tab 线索，或明确 `ChildPageTabModel` |
+| 页面标题 / 页面图标（无位置线索） | 默认按页面入口 | `menu-item` | `updateMenu` | 默认猜测菜单入口；不能无提示地默认成 `updateTab` |
+
+- `page.icon` 不是左侧菜单图标的同义词。
+- `page.icon` 也不是默认可见的 page header icon 路径；只有确认 header 渲染链消费它，才可以承诺效果。
+- 没有显式 tab 线索时，不要因为页面是 route-backed，就默认选择 `updateTab`。
+
 ## `outer-tab` 与 `popup-tab` 的判别
 
 - `get(...).tree.use = RootPageTabModel` -> `outer-tab`
@@ -56,3 +71,13 @@
 5. **已有 `page` 新增 `outer-tab`**：先读回 `page` 拿到 `pageUid`，再 `addTab(target.uid = pageUid)`。
 6. **已有 target 小改或精确追加**：`get -> [按 normative contract 判断是否追加 catalog] ->` 先优先选择 `compose/add*`，再考虑 `configure/updateSettings`；只有用户明确接受整体替换、且你已经读过当前完整状态时，才允许 `setLayout/setEventFlows`；`apply/mutate` 只在公开入口无法表达、且用户明确接受影响范围时再用。
 7. **已有 popup subtree 写入**：若当前执行链没有直接拿到 popup uid，先从 `hostUid` 或 `popupPageUid` 读回 popup subtree；record popup 的 `currentRecord` guard 统一看 [popup.md](./popup.md)。
+
+## Prompt 回归样例
+
+- `给这个页面加个小图标` -> 默认按 `menu-item -> updateMenu`
+- `改左侧菜单标题的图标` -> `menu-item -> updateMenu`
+- `改页面顶部标题文案` -> `page -> configure`
+- `改页面顶部图标` -> 先查渲染链，不默认承诺可见效果
+- `改这个 tab 的图标` -> `outer-tab -> updateTab`
+- `改弹窗里 tab 的图标` -> `popup-tab -> updatePopupTab`
+- `给页面标题加图标` -> 默认按菜单入口处理，并先在 commentary 说明这是默认猜测
