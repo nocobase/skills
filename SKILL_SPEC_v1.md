@@ -1,6 +1,6 @@
-# SKILL Spec v0.1
+# SKILL Spec v1
 
-Version: `0.0.1`  
+Version: `1.0.0`  
 Status: `active`  
 Applies to: all skills under `skills/*/SKILL.md`
 

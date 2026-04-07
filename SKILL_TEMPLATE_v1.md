@@ -1,4 +1,4 @@
-# SKILL Template v0.1
+# SKILL Template v1
 
 Use this template to create new skills under `skills/<skill-name>/SKILL.md`.
 
