@@ -1,0 +1,7 @@
+export const COMPAT_PROFILE_VERSION = '2026.04.02';
+export const DEFAULT_VERSION = 'compat';
+export const VALIDATOR_TYPE = 'compat';
+export const DEFAULT_TIMEOUT_MS = 4000;
+export const MAX_LOG_ENTRIES = 200;
+export const MAX_ISSUE_MESSAGE_CHARS = 1200;
+export const READ_ONLY_HTTP_METHODS = new Set(['GET', 'HEAD']);

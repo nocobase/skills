@@ -1,0 +1,377 @@
+# Tool Shapes
+
+Read this file when family, locator, and target uid are already known, and the only remaining question is how to wrap the MCP request. For family / locator, see [runtime-playbook.md](./runtime-playbook.md). For the public-semantic rules of `settings`, see [settings.md](./settings.md). For popup semantics and `currentRecord`, see [popup.md](./popup.md). For post-write verification, see [verification.md](./verification.md).
+
+## Contents
+
+1. One-screen hard rules
+2. Root-level locator `get`
+3. `requestBody` without `target`
+4. target-based `requestBody.target.uid`
+5. Canonical payload for `context`
+6. Canonical payload for `setLayout`
+7. `apply` / `mutate`
+8. Common invalid shapes
+
+## One-Screen Hard Rules
+
+- `flow_surfaces_get` only accepts `uid`, `pageSchemaUid`, `tabSchemaUid`, and `routeId`
+- `get` accepts neither `requestBody` nor `target`
+- If family / locator is not resolved yet, do not assemble the payload directly. Go back to [runtime-playbook.md](./runtime-playbook.md) first
+- Other than `pageSchemaUid/tabSchemaUid/routeId`, all other ids should default into `uid` for reads
+- Most write APIs require a `requestBody`; many of them then place `target.uid` inside `requestBody`
+- `createMenu`, `updateMenu`, and `createPage` are lifecycle APIs and do not accept `target`
+- `createPage(menuRouteId=...)` is the recommended entry. Calling `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page
+- In the current implementation, `tabSchemaUid` can be used both as the `get` locator for `outer-tab` and directly as its write target uid, but `pageSchemaUid` and `routeId` are still `get` locators only
+- `setLayout` and `setEventFlows` are high-impact full-replace APIs. Read the full current state first, then decide whether to write
+- Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
+- Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
+- Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
+
+## Root-Level Locator `get`
+
+Corresponding MCP tool: `mcp__nocobase__flow_surfaces_get`
+
+Valid examples:
+
+```json
+{ "uid": "table-block-uid" }
+```
+
+```json
+{ "pageSchemaUid": "employees-page-schema" }
+```
+
+```json
+{ "tabSchemaUid": "overview-tab-schema" }
+```
+
+```json
+{ "routeId": "123" }
+```
+
+Rules:
+
+- Only root-level locator fields are accepted
+- `requestBody` is not accepted
+- `target` is not accepted
+- Pass only one root locator at a time
+- Values such as `hostUid`, `pageUid`, `gridUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` should all default into `uid` when reading
+- In popup scenarios, if the live environment only exposes `tabUid` or `gridUid`, they still go into `uid`
+
+## `requestBody` Without `target`
+
+These tools all have `requestBody`, but do not accept `requestBody.target.uid`:
+
+| Semantic name | MCP tool | Key fields |
+| --- | --- | --- |
+| `createMenu` | `flow_surfaces_create_menu` | `requestBody.title`, optional `type/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`, optional `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
+| `createPage` | `flow_surfaces_create_page` | `requestBody.menuRouteId` is recommended; other common fields include `title/tabTitle/enableTabs` |
+| `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`, which must be `pageUid` |
+| `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`; outer tab uses `tabSchemaUid` directly |
+| `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid`; outer tab uses `tabSchemaUid` directly |
+| `movePopupTab` | `flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
+| `moveNode` | `flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
+
+Rules:
+
+- These lifecycle APIs only wrap one `requestBody` at the MCP layer
+- `createMenu`, `updateMenu`, and `createPage` do not accept `target`
+- `createMenu(type="group")` only returns menu route information. It does not return a writable page target
+- `createMenu(type="item")` may return `pageSchemaUid/pageUid/tabSchemaUid/routeId`, but the page may still be uninitialized. Do not call page/tab lifecycle APIs immediately
+- `createPage(menuRouteId=...)` initializes the bindable menu item into a real Modern page(v2)
+- The `pageUid` returned by `createPage` is used for page-level write APIs. `pageSchemaUid/tabSchemaUid/routeId` are for readback. `gridUid` is for subsequent content-area construction
+
+## target-based `requestBody.target.uid`
+
+These tools all require:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "..." }
+  }
+}
+```
+
+### Common Groups of target-based Tools
+
+- surface and lifecycle: `catalog`, `compose`, `configure`, `addTab`, `updateTab`, `addPopupTab`, `updatePopupTab`, `removePopupTab`
+- content append: `addBlock` / `addBlocks`, `addField` / `addFields`, `addAction` / `addActions`, `addRecordAction` / `addRecordActions`
+- merge-like configuration: `updateSettings`
+- high-impact full-replace: `setEventFlows`, `setLayout`
+- precise delete: `removeNode`
+- high-end fallback entry: `apply`
+
+### Common target choices
+
+- `addTab.target.uid = pageUid`
+- `updateTab.target.uid = tabSchemaUid`
+- `addPopupTab.target.uid = popupPageUid`
+- `updatePopupTab/removePopupTab.target.uid = popupTabUid`
+- For route-backed content areas, `catalog/compose/add*` should prefer `target.uid = gridUid`
+- For popup content areas, `catalog/compose/add*` should prefer `target.uid = popupGridUid`
+- For outer-tab surface `catalog/configure`, use `target.uid = tabSchemaUid`
+- For popup-tab surface `catalog/configure`, use `target.uid = popupTabUid`
+
+Rules:
+
+- `target` is part of the business payload, and the MCP layer wraps it again in `requestBody`
+- For public-semantic `settings` keys, when to use `add* + settings`, and when to fall back to `configure/updateSettings`, see [settings.md](./settings.md)
+- `pageSchemaUid` and `routeId` belong to `get` locators. Do not place them directly into `target.uid`
+- `pageUid`, `gridUid`, `tabSchemaUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` are not interchangeable "generic target uids"
+- `currentRecord` is neither a locator nor a `target.uid`; it is popup-internal block resource-binding semantics, and its decision flow lives in [popup.md](./popup.md)
+- `mutate` is not part of this top-level `target.uid` group; it uses `requestBody.ops[]`, and each op decides for itself whether to carry `target`
+
+### Minimal shape of popup-capable `addRecordAction` that does not depend on a live guard
+
+When you want to create the opener and carry the popup subtree in one shot, and the popup content does not depend on popup `resourceBindings`, use this canonical shape:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "details-block-uid" },
+    "type": "popup",
+    "settings": {
+      "title": "Details"
+    },
+    "popup": {
+      "mode": "replace",
+      "blocks": [
+        {
+          "key": "help",
+          "type": "markdown",
+          "settings": {
+            "content": "# Details Help"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+If the write returns `popupPageUid` / `popupTabUid` / `popupGridUid`, all later writes should reuse those values directly rather than re-guessing the popup host.
+
+### Minimal semantic `resource` shape for guard-sensitive popup-content
+
+The following pattern should only be used after you already have `popupGridUid`, and after the popup-content `catalog` has confirmed that the relevant binding is available. `resource` should be semantic object form, not a fallback string. The examples below only show common bindings; for the full binding set and scene restrictions, see [popup.md](./popup.md).
+
+`currentRecord`:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "mode": "append",
+    "blocks": [
+      {
+        "key": "current-user-details",
+        "type": "details",
+        "resource": {
+          "binding": "currentRecord"
+        },
+        "fields": ["nickname", "email"]
+      }
+    ]
+  }
+}
+```
+
+`associatedRecords`:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "mode": "append",
+    "blocks": [
+      {
+        "key": "roles-table",
+        "type": "table",
+        "resource": {
+          "binding": "associatedRecords",
+          "associationField": "roles"
+        },
+        "fields": ["name", "title"],
+        "recordActions": ["view"]
+      }
+    ]
+  }
+}
+```
+
+## Canonical payload for `context`
+
+`flow_surfaces_context` is also a target-based `requestBody`, but commonly carries `path` / `maxDepth` in addition:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "popup-grid-uid" },
+    "path": "record",
+    "maxDepth": 2
+  }
+}
+```
+
+Rules:
+
+- `path` only accepts bare paths, such as `record`, `popup.record`, or `item.parentItem.value`
+- Do not pass template-wrapped forms like `ctx.record` or `{{ ctx.record }}`
+- Omitting `path` means reading the default context tree under the current target
+- Only pass `maxDepth` when you need to narrow the context tree; stop once you have enough information
+
+For frequent `add* + settings` templates, see [settings.md](./settings.md). This file only keeps envelope / locator / target / high-risk payload shapes and does not expand public settings templates again.
+
+## Canonical payload for `setLayout`
+
+`setLayout` is a high-impact full-replace write path. Use it only when the user explicitly accepts whole replacement and you have already read the full current layout state. `rows` / `sizes` are easy to get wrong, so keep this mental model:
+
+- `rows[rowKey]` describes which columns exist in that row
+- each element of `rows[rowKey]` then describes which child uids exist in that column
+- therefore: outer array length = column count = length of `sizes[rowKey]`
+- `sizes[rowKey]` must be a one-dimensional `number[]`; do not write `[[8,16]]`
+
+Quick translation from natural language to layout structure:
+
+| User intent | Correct shape | Semantics |
+| --- | --- | --- |
+| two blocks side by side in one row | `row1: [["a"], ["b"]]` | two columns, one block per column |
+| two blocks stacked in left column, one block in right column | `row1: [["a1", "a2"], ["b"]]` | two columns; left column stacks two items, right column has one item |
+| two blocks in two vertical rows | `row1: [["a"]]`, `row2: [["b"]]` | two rows, one column in each row |
+
+Correct shape for two columns with one child in each:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "grid-uid" },
+    "rowOrder": ["row1"],
+    "rows": {
+      "row1": [["chart-a"], ["chart-b"]]
+    },
+    "sizes": {
+      "row1": [12, 12]
+    }
+  }
+}
+```
+
+Key distinction:
+
+- `[["chart-a"], ["chart-b"]]` = two columns
+- `[["chart-a", "chart-b"]]` = one column stacking two children
+
+So the following is wrong:
+
+```json
+{
+  "rows": {
+    "row1": [["chart-a", "chart-b"]]
+  },
+  "sizes": {
+    "row1": [12, 12]
+  }
+}
+```
+
+Because it actually declares only 1 column while giving 2 column widths.
+
+Another high-risk anti-pattern may not always be blocked by the server, but its runtime semantics are wrong:
+
+```json
+{
+  "rows": {
+    "row1": [["guide", "form"]]
+  },
+  "sizes": {
+    "row1": [8]
+  }
+}
+```
+
+This does not produce "guide + form side by side". It produces "one left column with width 8, stacking both blocks vertically".
+
+Another common mistake is writing `sizes` as a two-dimensional array:
+
+```json
+{
+  "rows": {
+    "row1": [["guide"], ["form"]]
+  },
+  "sizes": {
+    "row1": [[8, 16]]
+  }
+}
+```
+
+This is also wrong at the contract level, because `sizes[rowKey]` only accepts one-dimensional `number[]`.
+
+## `apply` / `mutate`
+
+`apply(mode="replace")` and replace-style `mutate` are destructive paths. Use them only when the user explicitly requests subtree replacement, and explain the blast radius before writing.
+
+`mcp__nocobase__flow_surfaces_apply`
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "table-block-uid" },
+    "mode": "replace",
+    "spec": { "subModels": {} }
+  }
+}
+```
+
+`mcp__nocobase__flow_surfaces_mutate`
+
+```json
+{
+  "requestBody": {
+    "atomic": true,
+    "ops": [
+      {
+        "opId": "step1",
+        "type": "<advanced-op>",
+        "values": {}
+      },
+      {
+        "opId": "step2",
+        "type": "<advanced-op>",
+        "values": {
+          "someRef": { "ref": "step1.id" }
+        }
+      }
+    ]
+  }
+}
+```
+
+Rules:
+
+- `apply` only supports `mode = "replace"`
+- `mutate` defaults to `atomic = true`
+- Chain references inside `mutate` always use `{ "ref": "<opId>.<path>" }`
+- The `mutate` snippet above only demonstrates request shape and chained references. Do not treat it as the recommended method for ordinary page creation or small daily edits
+- Only use `apply/mutate` when public entry points cannot express the change and you have fully confirmed target / shape / ordering
+- `apply(mode="replace")` and replace-style `mutate` default to destructive-path handling: explain the blast radius first, then perform full readback
+
+## Common Invalid Shapes
+
+- passing `requestBody` or `target` into `get`
+- treating `pageSchemaUid` / `routeId` as `target.uid`
+- forgetting the outer `requestBody` on lifecycle APIs
+- calling page/tab lifecycle APIs after `createMenu(type="item")` but before `createPage(menuRouteId=...)`
+- passing `currentRecord` as a bare locator or `target.uid`
+- placing `currentRecord` / `associatedRecords` directly into an inline popup subtree that has not gone through popup-content `catalog` validation
+- writing popup-internal `resource` as a string, such as `resource: "currentRecord"` or `resource: "associatedRecords"`
+- carrying a `popup` subtree but omitting `popup.mode`, then relying on runtime fallback; canonical skill payloads must explicitly write `append` or `replace`
+- mixing `resource` and `resourceInit` on a popup collection block: semantic binding uses the `resource` object; non-popup or raw resource initialization uses `resourceInit`
+- treating `settings.props.*`, `settings.decoratorProps.*`, or `settings.stepParams.*` as legal inputs to `add*`
+- still defaulting to "add first, then configure" for frequent attributes that are already exposed in live `configureOptions`
+- writing a two-column layout as `rows[rowKey] = [[a, b]]` while also passing `sizes[rowKey] = [12, 12]`
+- making the top-level lengths of `rows[rowKey]` and `sizes[rowKey]` inconsistent
+- miswriting the user's "side by side in one row" intent as a single cell such as `rows[rowKey] = [[left, right]]`
+- writing `sizes[rowKey]` as a two-dimensional array such as `[[8, 16]]`

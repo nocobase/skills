@@ -1,92 +1,69 @@
 ---
 name: nocobase-ui-builder
-description: 通过 MCP 创建、读取、更新、移动、删除 NocoBase Modern page (v2) 页面与区块；validation、review、smoke 仅在用户明确要求时进入。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/*.mjs under this skill
+description: >-
+  Use when the user wants to inspect, create, modify, reorder, or delete
+  NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block /
+  field / action configuration; does not handle ACL, data modeling, workflow
+  orchestration, browser reproduction, page error postmortems, or
+  non-Modern-page navigation.
 ---
 
-# 目标
+# Start Here
 
-通过 `desktopRoutes` 与 `flowModels` MCP 工具处理 NocoBase Modern page (v2) 页面与区块。
+- Cross-topic source of truth: read [normative-contract.md](./references/normative-contract.md) first.
+- Default execution entry: read [execution-checklist.md](./references/execution-checklist.md) first.
+- This file only keeps trigger boundaries, cross-topic hard rules, terminology, and the reference map.
+- The live MCP schema, plus live `get` / `catalog` / `context` / `readback`, always take precedence over local documents.
 
-这个 skill 覆盖：
+## Operating Model
 
-- create / read / update / move / delete 页面、tab、block、action、JS model
-- route-ready、readback、payload guard 驱动的结构化交付
-- validation / review / improve / smoke，但只在用户明确要求时进入
+- `agents/openai.yaml` only handles skill invocation and minimal guardrails. It does not duplicate detailed rules.
+- `SKILL.md` maintains trigger boundaries, scope, cross-topic hard rules, and the reference map.
+- [normative-contract.md](./references/normative-contract.md) is the single source of truth for `catalog`, popup shell fallback, and schema drift / recovery.
+- [execution-checklist.md](./references/execution-checklist.md) is the default execution entry and owns the fast execution chain. Do not bounce back to this file during normal execution.
+- Each `references/*.md` file owns its topic-specific contract. If its granularity differs from the overview here, follow the topic reference and the live MCP schema.
 
-顶层 `SKILL.md` 只保留触发边界、统一入口、少量硬 gate 和最终汇报轴。具体任务路由、recipe、block/pattern/JS 契约都以下面的 canonical docs 为准：
+## Scope & Handoff
 
-- [references/index.md](references/index.md)
+- Only handle `group / flowPage / page / tab / popup / content` surfaces that are directly related to Modern page (v2), plus block / field / action / layout / configuration inside content areas.
+- Do not handle non-Modern-page desktop routes, other workbench navigation structures, browser validation-case reproduction, page error postmortems, or workflow / ACL / data-modeling details.
+- Explicit handoff:
+  - ACL / route permissions / role permissions -> `nocobase-acl-manage`
+  - collection / association / field schema authoring -> `nocobase-data-modeling`
+  - consuming existing schema for UI resource binding -> stays in this skill
+  - workflow create / update / revision / execution path -> `nocobase-workflow-manage`
 
-## 何时触发
+## Key Terms
 
-- 用户要创建、读取、更新、移动、删除 Modern page (v2) 页面或区块
-- 用户要用 `desktopRoutes v2` / `flowModels` 修改现有 Modern page
-- 用户要求 route-ready、readback、guard 或结构化 validation 结论
-- 用户明确要求 validation / review / improve / smoke / 浏览器验证
+- `target family`: the surface family that the current target belongs to. Always use `menu-group`, `menu-item`, `page`, `outer-tab`, `route-content`, `popup-page`, `popup-tab`, `popup-content`, or `node`.
+- `pre-init ids`: page / tab / route-related ids returned by `createMenu(type="item")` before `createPage(menuRouteId=...)` finishes initialization. They are not write-ready targets for the page/tab lifecycle yet.
+- `initialized page`: a page that has already gone through `createPage(menuRouteId=...)` and can continue using page/tab lifecycle APIs.
+- `readback`: the minimum necessary read after a write, used to confirm that structure, route state, popup subtree, or configuration was actually persisted.
 
-## 何时不要触发
+## Cross-cutting Guardrails
 
-- 只处理 collections / fields / relations：改用 `nocobase-data-modeling`
-- 只处理 workflow：改用 `nocobase-workflow-manage`
-- 只做 MCP 安装或连接：改用 `nocobase-mcp-setup`
+1. `inspect` is read-only by default. Only enter a write flow when the user explicitly asks to create, modify, reorder, delete, or fix something.
+2. UI structure mutation must go through `flow_surfaces_*` only. The only allowed discovery / read entries are `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context`, and `desktop_routes_list_accessible(tree=true)`. Do not substitute UI mutation with `resource_*`, `collections_*`, `workflows_*`, `flow_nodes_*`, `roles_*`, or low-level route-record writes.
+3. Before any write, MCP must be reachable and authenticated. If MCP is unavailable, unauthenticated, the schema is stale, or the live environment lacks a required tool / capability / guard, stop guessing writes. For recovery, follow the `Schema Drift / Recovery Contract` in [normative-contract.md](./references/normative-contract.md).
+4. `desktop_routes_list_accessible(tree=true)` only represents the menu tree visible to the current role. It is not the full system menu truth. Do not infer "does not exist in the system" from "not visible here".
+5. Do not guess when the target is not unique. A menu title only accepts a uniquely matched `group`. If the target can only be inferred from sibling-relative position, narrow it to a unique target first. After `createMenu(type="item")`, you must run `createPage(menuRouteId=...)` before anything else. Its `pre-init ids` are not write-ready targets for the page/tab lifecycle.
+6. The default write path for an existing target is `get -> [decide whether to append catalog by normative contract] -> write -> readback`. The only time you may skip one leading `get` is when the next target uid was just returned directly by the previous write API.
+7. If any child item in a batch write fails, stop immediately and report successes and failures separately. Do not auto-rollback, and do not continue with downstream writes that depend on "all succeeded". If a server contract / validation error points to drift or a capability gap, close the loop through [normative-contract.md](./references/normative-contract.md). Do not define an abstract refresh-retry loop.
+8. Any JS write must pass the local validator gate first. If the validator cannot run, the Node version is unsupported, or the result is not decidable, stop. Do not bypass the validator and call MCP directly.
 
-## 统一入口
+## Reference Map
 
-1. 先打开 [references/index.md](references/index.md)。
-2. 按任务路由补读对应 canonical docs、recipes、block docs、pattern docs、JS docs。
-3. 除 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这类内建流水线外，默认只通过 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` 执行写入。
-4. wrapper 内部负责 `start-run -> guard -> write -> readback`；不要在外层手动拆流程。
-5. validation / review / improve 只有在用户明确要求时才进入；未进入浏览器验证时，`browser_attach` / `smoke` 要记为 `skipped`。
-
-## 默认硬 gate
-
-1. 只要能探测，就不要猜 `use`、slot、`requestBody` 结构。
-2. 任何探测或写操作前都必须先 `start-run`；不要先探测、后补日志。
-3. 裸 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure` 默认全部禁用；agent 默认只能走 `ui_write_wrapper.mjs` 或已内置完整验证链路的 builder 流水线。
-4. `preflight_write_gate.mjs`、`flow_write_wrapper.mjs` 现在是底层/兼容组件，不再是默认 agent 入口；不要手动拆成“先 gate、再自己写、再自己补 readback”。
-5. `createV2` 成功只代表 `page shell created`；没有 route-ready 与 anchor readback 证据前，不得报页面 ready。
-6. `save` / `mutate` / `ensure` 返回 `ok` 只代表请求提交成功；最终以后续 readback 为准。
-7. 对现有页面默认做局部补丁，不要为了局部改动重建整棵页面树。
-8. 未经 schema / graph 放行的内部、未解析或高风险 model/use，不得直接写入。
-9. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器。
-10. validation 结论必须拆开 `page shell`、`route-ready`、`readback`、`data`、`runtime`，不能合并成一个“成功”。
-11. live tree patch 禁止靠“旧 uid + 新 parent/subKey/subType”做 reparent；需要移动、克隆或重挂载业务子树时，默认 fresh remap descendants，而不是复用旧 block uid。
-12. 只要 `gridSettings.rows` 与 `subModels.items` 成员不一致，就视为高风险坏树；`save ok` 但 readback 没有稳定 `items` / slot membership 时，一律不得报成功。
-
-## validation / review 子路径
-
-只有在用户明确要求 validation / review / improve / smoke 时才进入这一支：
-
-- 结构化 validation 规则见 [references/validation.md](references/validation.md)
-- run log、phase/gate、report、improve 规则见 [references/ops-and-review.md](references/ops-and-review.md)
-
-如果用户没有明确要求浏览器验证：
-
-- 只做到 route-ready、readback、data-ready 这一级
-- `browser_attach` / `smoke` 记为 `skipped (not requested)`
-- `runtime-usable` 汇报为 `not-run`
-
-## 最终汇报轴
-
-最终说明和 review report 默认至少单独汇报这些轴：
-
-- `pageShellCreated`
-- `routeReady`
-- `readbackMatched`
-- `dataReady`
-- `runtimeUsable`
-- `browserValidation`
-- `dataPreparation`
-- `pageUrl`
-
-允许出现的保守状态包括：
-
-- `not-recorded`
-- `evidence-insufficient`
-- `skipped (not requested)`
-- `not-run`
-
-没有 route-ready 或 readback 证据时，不要写“页面已可打开”或“已落库完成”。
-
-如果本轮实际创建或更新了页面，并且能够拿到 `adminBase`、候选页面 URL 或其他可推导地址，最终结果必须给出实际页面 URL，方便用户点击查看；只有确实无法推导时，才允许说明阻塞原因。
+- [normative-contract.md](./references/normative-contract.md): the single source of truth for `catalog`, popup shell fallback, and schema drift / recovery.
+- [execution-checklist.md](./references/execution-checklist.md): the default execution entry; covers preflight, intent, read/write path, risk gate, topic gate, and stop/handoff.
+- [verification.md](./references/verification.md): acceptance rules for `inspect`, post-write `readback`, and batch / high-impact / destructive paths.
+- [runtime-playbook.md](./references/runtime-playbook.md): the mental model for `target family`, locators, `pre-init ids`, write targets, and lifecycle flow.
+- [capabilities.md](./references/capabilities.md): how to choose blocks / forms / actions / fields, plus the default design for display vs association fields.
+- [settings.md](./references/settings.md): the sole decision rules for `add* + settings`, `configure`, and `updateSettings`.
+- [tool-shapes.md](./references/tool-shapes.md): flow-surfaces request envelopes, canonical payloads, and request shapes for high-risk APIs.
+- [popup.md](./references/popup.md): rules for `currentRecord`, association popups, `associatedRecords`, `openView`, and popup openers.
+- [chart.md](./references/chart.md): the chart topic entry point and routing guidance.
+- [chart-core.md](./references/chart-core.md): the main chart runtime path for setup, reconfiguration, context narrowing, and readback.
+- [chart-validation.md](./references/chart-validation.md): chart contract cases, negative cases, and regression matrices.
+- [js.md](./references/js.md): the RunJS validator gate, model mapping, context semantics, and code style.
+- [runjs-runtime.md](./references/runjs-runtime.md): the RunJS CLI entry, cwd assumptions, runtime-local dev commands, and `--skill-mode` constraints.
+- [aliases.md](./references/aliases.md): how to narrow high-ambiguity natural-language expressions to object semantics or capabilities first.
