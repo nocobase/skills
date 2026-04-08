@@ -1,6 +1,6 @@
 # Skill Lint Checklist
 
-Version: `1.0.0`  
+Version: `1.1.0`  
 Depends on: [`SKILL_SPEC_v1.md`](./SKILL_SPEC_v1.md)
 
 ## 1. Purpose
@@ -28,6 +28,7 @@ Apply this merge decision policy:
 Checks in this document apply to:
 
 - `skills/*/SKILL.md`
+- `skills/*/references/**/*.md`
 - `skills/*/agents/*.yaml` (for optional invocation policy checks)
 
 ## 5. Rule Checklist
@@ -73,6 +74,7 @@ Mandatory sections:
 - `# Non-Goals`
 - `# Input Contract`
 - `# Workflow`
+- `# Reference Loading Map`
 - `# Safety Gate`
 - `# Verification Checklist`
 - `# References`
@@ -106,6 +108,19 @@ Mandatory sections:
 | `GOV-002` | error | Version bump policy | breaking behavior updates version | `breaking change without version bump` |
 | `GOV-003` | warn | Review freshness | `last-reviewed` within 90 days | `last-reviewed is stale` |
 
+### 5.6 Reference Rules
+
+| Rule ID | Severity | Check | Pass Criteria | Fail Message |
+|---|---|---|---|---|
+| `REF-001` | error | References section has links | `# References` exists and contains >=1 Markdown link | `References section missing or empty` |
+| `REF-002` | error | Local link style | local links are relative and use `/` path separators | `local references must use relative Markdown links with / separators` |
+| `REF-003` | error | Local link validity | local links resolve to existing files | `broken local reference link detected` |
+| `REF-004` | warn | Reference depth | reference files avoid deep chain links (`reference -> reference -> reference`) | `reference link depth should be one hop from SKILL.md` |
+| `REF-005` | warn | Long reference TOC | `references/*.md` files over 100 lines contain a TOC section | `long reference file should include a table of contents` |
+| `REF-006` | warn | Reference filename quality | reference filenames are descriptive kebab-case | `reference filename should be descriptive kebab-case` |
+| `REF-007` | warn | External link freshness | external links include freshness marker (`[verified: YYYY-MM-DD]`) or file-level metadata | `external reference missing freshness marker` |
+| `REF-008` | error | High-risk reference coverage | `risk-level: high` skills include >=1 official external link and >=1 internal runbook/reference path | `high-risk skill missing official + internal reference coverage` |
+
 ## 6. Suggested Lint Output Format
 
 Use this format in CI logs:
@@ -113,6 +128,7 @@ Use this format in CI logs:
 ```text
 [ERROR] META-002 skills/nocobase-foo/SKILL.md: missing required frontmatter key(s): owner,last-reviewed
 [WARN ] SIZE-002 skills/nocobase-bar/SKILL.md: line count 341 without split plan marker
+[WARN ] REF-005 skills/nocobase-baz/references/http-api.md: long reference file should include a table of contents
 [PASS ] CLAR-003 skills/nocobase-baz/SKILL.md
 ```
 
@@ -143,7 +159,7 @@ Phase 1:
 
 Phase 2:
 
-- turn `SIZE-002` and `GOV-003` into blocking checks for new skills
+- turn `SIZE-002`, `GOV-003`, and `REF-005` into blocking checks for new skills
 - keep legacy skills under migration exceptions
 
 Phase 3:
@@ -152,4 +168,5 @@ Phase 3:
 
 ## 10. Changelog
 
+- `1.1.0`: added `REF-*` reference lint rules and reference-file scope.
 - `1.0.0`: initial lint checklist release.

@@ -72,6 +72,23 @@ Rules:
 8. Summarize done items and unresolved gaps.
 9. Provide next-step options if relevant.
 
+# Reference Loading Map
+
+Use this section to prevent vague reference usage. Each entry should say exactly when to read it.
+
+| Reference | Use When | Notes |
+|---|---|---|
+| `references/{{topic-a}}.md` | {{condition-a}} | {{short note}} |
+| `references/{{topic-b}}.md` | {{condition-b}} | {{short note}} |
+| `https://{{official-doc-url}}` | {{condition-c}} | [verified: YYYY-MM-DD] |
+
+Reference rules:
+
+- Use relative Markdown links for local files.
+- Use `/` path separators in links.
+- Keep references one hop from `SKILL.md` where possible.
+- If a reference file exceeds 100 lines, add a TOC in that file.
+
 # Safety Gate
 
 - High-risk actions require secondary confirmation before execution.
@@ -128,9 +145,9 @@ Final response must include:
 
 # References
 
-- Official docs: {{url-1}}
-- Official docs: {{url-2}}
-- Internal reference: `references/{{topic}}.md`
+- [Official docs - {{topic-1}}]({{url-1}}): use when {{condition-1}}. [verified: YYYY-MM-DD]
+- [Official docs - {{topic-2}}]({{url-2}}): use when {{condition-2}}. [verified: YYYY-MM-DD]
+- [Internal reference - {{topic}}](references/{{topic}}.md): use when {{condition-3}}.
 ```
 
 ## Optional Variant: High-Risk Skills

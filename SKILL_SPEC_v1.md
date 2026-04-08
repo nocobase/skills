@@ -1,6 +1,6 @@
 # SKILL Spec v1
 
-Version: `1.0.0`  
+Version: `1.1.0`  
 Status: `active`  
 Applies to: all skills under `skills/*/SKILL.md`
 
@@ -14,6 +14,7 @@ This specification governs:
 
 - skill metadata (frontmatter)
 - skill file structure
+- reference architecture and loading strategy
 - user-input and clarification flow
 - safety gates for risky actions
 - verification and testability
@@ -23,7 +24,7 @@ This specification does not replace product requirements. It standardizes how re
 
 ## 3. Core Principles and Hard Standards
 
-The following four principles are mandatory. Each includes hard constraints and merge-block conditions.
+The following standards are mandatory. Each includes hard constraints and merge-block conditions.
 
 ### 3.1 Principle A: Metadata Must Be Short and Precise
 
@@ -44,7 +45,7 @@ The following four principles are mandatory. Each includes hard constraints and 
 |---|---|---|---|---|
 | `SIZE-001` | error | `SKILL.md` line count must be `<= 500`. | Line count within limit. | Line count exceeds 500. |
 | `SIZE-002` | warn | Line count over 300 requires a split plan into `references/`. | Split plan is documented in PR. | No split plan when over 300 lines. |
-| `SIZE-003` | error | Required sections must exist: `Goal`, `Scope`, `Non-Goals`, `Input Contract`, `Workflow`, `Safety Gate`, `Verification Checklist`, `References`. | All section headers found. | Any required section missing. |
+| `SIZE-003` | error | Required sections must exist: `Goal`, `Scope`, `Non-Goals`, `Input Contract`, `Workflow`, `Reference Loading Map`, `Safety Gate`, `Verification Checklist`, `References`. | All section headers found. | Any required section missing. |
 | `SIZE-004` | warn | Long examples (`>15` lines each) should live in `references/*.md`. | Long samples moved to references. | Long inline samples remain in main file. |
 | `SIZE-005` | warn | External links should be limited to 10 per `SKILL.md`. | Link count <= 10. | Link count > 10 without justification. |
 
@@ -68,6 +69,19 @@ The following four principles are mandatory. Each includes hard constraints and 
 | `EVAL-003` | error | Skill must define minimal test set: 5 scenarios. | Scenarios include normal, missing-input, auth/permission failure. | Missing scenario coverage. |
 | `EVAL-004` | warn | Checklist should include one allowed and one denied case. | Positive and negative case entries exist. | Missing either case type. |
 | `EVAL-005` | error | High-impact operations must include rollback guidance. | Rollback conditions and steps documented. | No rollback section for high-impact operations. |
+
+### 3.5 Cross-Cutting Contract: References Must Be Structured and Actionable
+
+| Rule ID | Severity | Hard Standard | Pass Criteria | Block Condition |
+|---|---|---|---|---|
+| `REF-001` | error | `# References` must exist and contain at least one link entry in the skill file. | Section exists and includes link entries. | Missing section or empty references. |
+| `REF-002` | error | Local file references must use relative Markdown links with `/` separators. | Relative links parse and use normalized path style. | Bare filenames, absolute local paths, or `\` separators. |
+| `REF-003` | error | Every local reference link must resolve to an existing file. | All local links are valid targets. | Any broken local reference link. |
+| `REF-004` | warn | Avoid deep link chains. Keep reference depth to one hop from `SKILL.md`. | Skill links directly to needed references. | Habitual `SKILL.md -> reference A -> reference B` dependency chains. |
+| `REF-005` | warn | Reference files over 100 lines should include a table of contents. | TOC section exists for long files. | Missing TOC on long reference files. |
+| `REF-006` | warn | Reference files should be single-topic and named in descriptive kebab-case. | Filename and content are topic-focused and readable. | Generic filenames or mixed-topic reference files. |
+| `REF-007` | warn | External references should include freshness metadata in line (`[verified: YYYY-MM-DD]`) or in file-level metadata. | Freshness marker exists for external links. | External links without freshness marker. |
+| `REF-008` | error | For `risk-level: high`, references must include at least one official external source and one internal runbook/reference path. | Both source types are present and explicit. | High-risk skill lacks official + internal reference coverage. |
 
 ## 4. Required Frontmatter Template
 
@@ -102,6 +116,8 @@ Use this skeleton for all new `SKILL.md` files.
 # Mandatory Clarification Gate
 
 # Workflow
+
+# Reference Loading Map
 
 # Safety Gate
 
@@ -167,7 +183,9 @@ Phase 3 (full enforcement):
 
 - turn selected warning rules into blocking rules
 - enforce stale-review and size discipline
+- enforce reference quality and freshness discipline
 
 ## 10. Changelog
 
+- `1.1.0`: added `REF-*` reference architecture and quality standards.
 - `1.0.0`: initial hard-standard release.
