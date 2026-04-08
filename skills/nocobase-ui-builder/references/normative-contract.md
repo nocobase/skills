@@ -1,6 +1,6 @@
 # Normative Contract
 
-This page is the single source of truth for `nocobase-ui-builder`. Rules involving `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
+This page is the single source of truth for `nocobase-ui-builder`. Rules involving blueprint-first page planning, `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
 
 ## 1. Precedence
 
@@ -13,7 +13,39 @@ Rule precedence is always:
 
 If a lower-priority document conflicts with a higher-priority live fact, follow the higher-priority source.
 
-## 2. Catalog Contract
+## 2. Blueprint-First Contract
+
+### Default Principles
+
+- High-level page-building requests default to `blueprint-first`.
+- `blueprint-first` means: discover real schema facts, produce a `pageBlueprint`, let the user confirm it, and only then enter UI writes.
+- Blueprint planning is read-only. Do not call any `flow_surfaces_*` write API before confirmation.
+- This contract applies to requests like "build/create/design a page", including business-intent requests such as "build a user management page", unless the user is clearly asking for a low-level patch on an existing surface.
+
+### Allowed Read Surface During Planning
+
+During blueprint planning, the skill may use:
+
+- `desktop_routes_list_accessible(tree=true)` for menu discovery
+- `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context` for live UI capability and target-state inspection
+- read-only collection/schema discovery such as `collections:list`, `collections:get`, and `collections/{collectionName}/fields:list`
+
+Do not use collection reads to mutate schema, and do not use schema reads as a substitute for UI writes.
+
+### Data-Bound vs Non-Data Blocks
+
+- Every `data-bound block` in a blueprint must be backed by a real collection / association path / live binding fact.
+- `non-data block`s may omit a data source entirely.
+- Do not overstate this as "every block must bind a collection". Static or tool-like blocks such as `markdown`, `iframe`, `actionPanel`, or `jsBlock` may stay unbound.
+- If a requested field or binding does not exist in live schema facts, stop guessing. Surface the gap in the blueprint or hand off to `nocobase-data-modeling`.
+
+### Confirmation Requirement
+
+- For page-building requests, showing the blueprint is mandatory before writes.
+- Only after the user confirms the blueprint may the skill enter `createPage`, `compose`, `add*`, `configure`, `setLayout`, or other mutation flows.
+- If the user confirms only part of the blueprint, only execute the confirmed subset.
+
+## 3. Catalog Contract
 
 ### Default Principles
 
@@ -44,12 +76,12 @@ You can usually skip `catalog` in the following cases:
 - Do not describe "did not read `catalog`" as "capability confirmed".
 - If skipping `catalog` means you can only confirm structure, keep the result phrased at the structural level. Do not escalate it to semantic confirmation.
 
-## 3. Popup Shell Fallback Contract
+## 4. Popup Shell Fallback Contract
 
 ### Terms
 
-- `shell-only popup`: only create the opener / popup subtree. Do not add `details`, `editForm`, `submit`, or similar content in this run.
-- `completed popup`: this run creates the opener and also completes the popup content semantics requested by the user.
+- `shell-only popup`: a popup entry whose blueprint `completion = "shell-only"`. Only create the opener / popup subtree. Do not add `details`, `editForm`, `submit`, or similar content in this run.
+- `completed popup`: a popup entry whose blueprint `completion = "completed"`. This run creates the opener and also completes the popup content semantics requested by the user.
 
 ### Allowed Conditions
 
@@ -76,7 +108,7 @@ In these cases, either complete the popup content the user asked for, or stop an
 - A `shell-only popup` may only be described as "entry / popup shell created". It must not be described as "popup completed".
 - The maximum success level for `shell-only popup` is `structural-confirmed`, not `semantic-confirmed`.
 
-## 4. Schema Drift / Recovery Contract
+## 5. Schema Drift / Recovery Contract
 
 ### Trigger Signals
 

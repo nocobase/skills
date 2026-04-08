@@ -12,7 +12,7 @@ Read this file when the user only gives natural-language expressions and you sti
 
 | User expression | Default narrowing path | When you must stop and confirm | Possible landing points |
 | --- | --- | --- | --- |
-| page | If there is already a locator/uid, handle it as an existing `page` first. If the user explicitly says "create page" and the context includes menus, default to the menu-first path. | When both "create a page" and "modify an existing page" remain plausible | `menu-item` / `page` |
+| page | If there is already a locator/uid, handle it as an existing `page` first. If the user explicitly says "create page" or describes a whole page in business terms, default to blueprint-first planning before low-level APIs. | When both "create a page" and "modify an existing page" remain plausible | `menu-item` / `page` |
 | page entry, menu, navigation item | First decide whether it means a `menu-group`, `menu-item`, or an already initialized `page` | When it might actually mean an external link, mobile navigation, or another workbench navigation structure | `menu-group` / `menu-item` / `page` |
 
 ## Title / Icon
@@ -53,5 +53,6 @@ Read this file when the user only gives natural-language expressions and you sti
 
 - Aliases only decide object semantics or capability. They do not decide the concrete API, payload shape, or readback path.
 - If menu-related input gives only a title, you must do menu-tree discovery first. Only a uniquely matched `group` may proceed to writing.
+- If the input still describes a whole page rather than a concrete node patch, route it to blueprint-first planning instead of directly choosing a lifecycle API.
 - As soon as the action would cross families or action scopes, narrow the target first. Do not generate a write request directly.
 - For prompt regression examples, see [runtime-playbook.md](./runtime-playbook.md).

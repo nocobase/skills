@@ -1,21 +1,23 @@
 # Capabilities
 
-Read this file when you already know you need to add something into a content area, but have not yet decided whether it should be a block, action, or field. For family / target, see [runtime-playbook.md](./runtime-playbook.md). For popup semantics and `currentRecord`, see [popup.md](./popup.md). For chart topic routing, see [chart.md](./chart.md). For JS rules, see [js.md](./js.md). Whether `shell-only popup` is allowed is governed by [normative-contract.md](./normative-contract.md).
+Read this file when you already know you need to add something into a content area, but have not yet decided whether it should be a block, action, or field. If the request is still at the "what kind of page should this become" stage, go to [page-intent-planning.md](./page-intent-planning.md) first. For family / target, see [runtime-playbook.md](./runtime-playbook.md). For popup semantics and `currentRecord`, see [popup.md](./popup.md). For chart topic routing, see [chart.md](./chart.md). For JS rules, see [js.md](./js.md). Whether `shell-only popup` is allowed is governed by [normative-contract.md](./normative-contract.md).
 
 ## Contents
 
 1. Selection order
 2. Block selection
-3. Form-like block selection
-4. Action scope
-5. General FilterForm capabilities
-6. Field rules
+3. Block resource expectations
+4. Form-like block selection
+5. Action scope
+6. General FilterForm capabilities
+7. Field rules
 
 ## Selection Order
 
 1. First decide whether the user wants a block, an action, or a field.
 2. Then narrow by container and scope: `table/details/list/gridCard/filterForm/actionPanel/createForm/editForm`.
 3. Only after that consider JS, association leaf fields, `openView`, layout, and other topic-specific configuration.
+4. If the request is still describing a whole page rather than one concrete container, stop low-level selection and return to `pageBlueprint` planning first.
 
 The block / action capabilities below are common values, not an exhaustive list. The final source of truth is live `catalog`.
 
@@ -31,10 +33,10 @@ The block / action capabilities below are common values, not an exhaustive list.
 
 | User goal | Preferred block | Key point |
 | --- | --- | --- |
-| table-like data operations, bulk actions, tree table, fixed columns | `table` | requires a collection resource; `fields` are columns, `actions` are block-level actions, `recordActions` are row-level actions |
+| table-like data operations, bulk actions, tree table, fixed columns | `table` | requires a real data source; `fields` are columns, `actions` are block-level actions, `recordActions` are row-level actions |
 | create record, input page, addNew popup | `createForm` | form content is built through `fields` + `actions`; usually add `submit` for submission |
 | edit record, edit popup, edit page | `editForm` | used for editing existing records; do not fake details view with it |
-| read-only single-record details | `details` | must bind to a collection resource; actions only go through `recordActions` |
+| read-only single-record details | `details` | must bind to a real data source; actions only go through `recordActions` |
 | lightweight item browsing, mobile-friendly list | `list` | mainly displays item fields and item-level actions |
 | card wall, grid cards, thumbnail browsing | `gridCard` | `fields` are display fields on the card, `recordActions` are per-card actions |
 | filter condition input | `filterForm` | only handles filter input, not data display |
@@ -44,11 +46,31 @@ The block / action capabilities below are common values, not an exhaustive list.
 | toolbar / utility button area | `actionPanel` | does not inherit collection-block action lists |
 | explicitly requested runtime code | `jsBlock` | after creation, read back and confirm the related JS config was persisted |
 
+## Block Resource Expectations
+
+Do not overgeneralize collection binding. The correct rule is: `data-bound block`s need a real data source; `non-data block`s may stay unbound.
+
+| block family | Default resource expectation | Notes |
+| --- | --- | --- |
+| `table`, `details`, `list`, `gridCard` | required | bind to a real collection or association-backed resource |
+| `createForm`, `editForm` | required | bind to the collection or record semantics the form edits |
+| `filterForm` | usually required | binding may be field-level and may target one or more data blocks |
+| `chart` | conditional | data-driven charts need real query/resource facts; purely presentational chart shells are not a default assumption |
+| `markdown`, `iframe`, `actionPanel`, `jsBlock` | optional | may be created without a collection |
+
+Rules:
+
+- Do not say "every block must bind a collection".
+- In a `pageBlueprint`, every `data-bound block` must carry an explicit real data source or live binding fact, preferably through `dataSourceKey`.
+- `non-data block`s may omit `dataSourceKey` entirely.
+- Multi-collection pages are allowed, but each `data-bound block` must keep its own data-source boundary clear.
+
 ### Frequent Block Reminders
 
 - `table`: key readback points are `actionsColumnUid`, field uids, and association-field `clickToOpen/openView`.
 - `details`: prefer it for view-only scenarios. Do not fake a details page with `editForm`.
 - `filterForm`: it is a general data-filter input block, not a chart-only capability. In multi-target scenarios, prefer target-binding fields explicitly exposed by the contract, especially `defaultTargetUid`.
+- `markdown`, `iframe`, `actionPanel`, and `jsBlock` are valid non-data blocks. Do not force a collection binding onto them unless the live capability or the user requirement actually needs one.
 - For how public block / field / action properties should be inlined into `settings`, see [settings.md](./settings.md).
 
 ## Form-Like Block Selection
@@ -98,6 +120,7 @@ The block / action capabilities below are common values, not an exhaustive list.
 
 - A single `filterForm` can serve multiple data blocks. Do not treat it as a chart-only special case. It can drive filtering interactions for multiple data blocks, subject to live `catalog` and target contract.
 - In multi-target scenarios, prefer field-level binding granularity. Do not assume the whole `filterForm` binds to exactly one block, and do not assume all fields automatically inherit the same target.
+- In `pageBlueprint` planning, capture multi-target filter semantics explicitly in `interactions`; do not leave the eventual `defaultTargetUid` decision implicit.
 - If the live contract exposes `defaultTargetUid`, prefer filling it explicitly during field creation to declare the field's default target.
 - The fact that a field exists in collection schema does not mean the current `filterForm` can necessarily `addField` for it. Whether the field is addable depends on live `catalog.fields` and the field capability of the current target.
 - For post-write wiring confirmation, see `Write Readback` in [verification.md](./verification.md). Do not mix post-write assertions into capability-selection rules.

@@ -1,15 +1,15 @@
 # Verification
 
-Read this file when you need to do `inspect`, or when you need to confirm whether a write was actually persisted. For family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md). For request shapes, see [tool-shapes.md](./tool-shapes.md). For popup details, see [popup.md](./popup.md). Whether `catalog` is required, and how success must be phrased for `shell-only popup`, is governed by [normative-contract.md](./normative-contract.md).
+Read this file when you need to do `inspect`, `page blueprint` planning, or when you need to confirm whether a write was actually persisted. For family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md). For request shapes, see [tool-shapes.md](./tool-shapes.md). For popup details, see [popup.md](./popup.md). Whether blueprint confirmation or `catalog` is required, and how success must be phrased for `shell-only popup`, is governed by [normative-contract.md](./normative-contract.md).
 
 ## Inspect
 
 ### Core Rules
 
-- `inspect` is read-only. Do not call any write API.
+- `inspect` and `page blueprint` planning are read-only. Do not call any write API.
 - For menu-title discovery, default to `desktop_routes_list_accessible(tree=true)` first. It only represents the menu tree visible to the current role, not the full system truth. For initialized surfaces, default to `get` first.
 - Whether to continue with `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
-- `inspect` output should focus on the current structure, key uid / route / capability, and blockers. Do not mix in wording like "write succeeded" or "already persisted".
+- `inspect` or blueprint output should focus on the current structure, key uid / route / capability / schema facts, and blockers. Do not mix in wording like "write succeeded" or "already persisted".
 
 ### Acceptance Levels
 
@@ -26,12 +26,14 @@ Read this file when you need to do `inspect`, or when you need to confirm whethe
 | `page` / `outer-tab` / `route-content` | `get` | need capability / contract / `configureOptions` / `settingsContract` |
 | `popup-page` / `popup-tab` / `popup-content` | `get` | need popup creation capability, `resourceBindings`, or event/settings contract |
 | `node` | `get` | need to determine public container capability or a path-level contract precisely |
+| `page blueprint` | schema discovery + menu/context reads only | need live capability narrowing, real field proof, or association facts |
 
 ### Read-Only Assertions
 
 - Menu: unique match, clear `routeId/type/parentMenuRouteId`, and whether the `menu-item` has already been initialized.
 - Page / `outer-tab`: `pageSchemaUid/tabSchemaUid/routeId` is locatable, title / icon / documentTitle / order are clear, and `gridUid` has been obtained when needed.
 - `route-content` / popup subtree / normal node: whether `tree/nodeMap` contains the target block / field / action; whether the popup subtree already has `popupPageUid/popupTabUid/popupGridUid`; and if the user cares about "current record", whether live `catalog.blocks[].resourceBindings` actually exposes `currentRecord`.
+- `page blueprint`: whether each `data-bound block` is backed by real schema facts through `dataSources` / `dataSourceKey`, whether popup-scoped bindings such as `currentRecord` or `associatedRecords` were actually proven by live facts, whether each `non-data block` is correctly left unbound when appropriate, whether `update-page` includes a real target locator, whether required `interactions` are explicit, whether popup `completion` is explicit, whether every page block is covered by `layout`, and whether unresolved schema gaps are stated before execution.
 
 ## Write Readback
 
