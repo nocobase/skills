@@ -34,3 +34,10 @@ Does not support branches.
   "withMeta": false
 }
 ```
+
+## Output Variables
+This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+- Exposed root: the full SQL execution result.
+- No child field tree is provided. If you need named fields from a row set or metadata tuple, follow this node with `json-query` or `json-variable-mapping`.
+- Example reference: `{{$jobsMapByNodeKey.sql_stats}}`.

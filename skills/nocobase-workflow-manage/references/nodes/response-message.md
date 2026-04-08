@@ -30,3 +30,6 @@ Does not support branches.
   "message": "Operation Successful: {{ $context.data.title }}"
 }
 ```
+
+## Output Variables
+This node does not output variables.

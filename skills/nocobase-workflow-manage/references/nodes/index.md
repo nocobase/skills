@@ -25,7 +25,11 @@ The `type` field is determined when the node is created and cannot be changed af
 
 ## Variables Produced by Nodes
 
-Some nodes produce variables that can be used by subsequent nodes. These variables are referenced in the format `{{$jobsMapByNodeKey.<nodeKey>.<variableName>}}`. Refer to each node's documentation for details. If a variable points to a data table structure, the internal property paths match the table's field names.
+Some nodes produce variables that can be used by subsequent nodes. In the UI, these variables are exposed as a tree array of `{ label, value, children? }`. `label` is only for display; the actual runtime expression is built from the `value` path.
+
+For node variables, join the `value` path segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`, for example `{{$jobsMapByNodeKey.query_posts.title}}`. Nodes that expose only a single root value are referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+Each node document with an `Output Variables` section that describes whether the node exposes a variable tree, what the roots are, and how to reference them.
 
 Subsequent nodes can reference these variables in their configuration to implement dynamic workflow logic as required by business needs.
 

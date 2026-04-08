@@ -36,3 +36,10 @@ Does not support branches.
   }
 }
 ```
+
+## Output Variables
+This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+- Exposed root: the called workflow's final output value.
+- No child field tree is provided. If the sub-workflow returns structured JSON and you need named child variables, follow this node with `json-query` or `json-variable-mapping`.
+- Example reference: `{{$jobsMapByNodeKey.call_order_calc}}`.

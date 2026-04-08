@@ -58,3 +58,6 @@ When `condition` is an object:
   "exit": 2
 }
 ```
+
+## Output Variables
+This node does not output variables.
