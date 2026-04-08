@@ -52,3 +52,10 @@ Does not support branching.
   "expression": "Order #{{orderId}} - {{status}}"
 }
 ```
+
+## Output Variables
+This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+- Exposed root: the calculated result of the current node.
+- No child field tree is provided; the result is consumed as a scalar or whole value.
+- Example reference: `{{$jobsMapByNodeKey.abc123}}`.

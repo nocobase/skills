@@ -47,3 +47,10 @@ Does not support branching.
   "precision": 2
 }
 ```
+
+## Output Variables
+This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+- Exposed root: the aggregate result of the current node.
+- No child field tree is provided; downstream nodes consume the number/string result directly.
+- Example reference: `{{$jobsMapByNodeKey.abc123}}`.

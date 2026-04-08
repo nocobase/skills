@@ -36,3 +36,11 @@ Does not support branches.
   "title": "{{ $context.data.title }} - Pending"
 }
 ```
+
+## Output Variables
+The variable selector for this node is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`.
+
+- This node exposes variables only when `config.forms` contains one or more configured forms.
+- Each form key becomes a child root under the node, and that form root expands to the form collection's fields.
+- Example reference pattern: `{{$jobsMapByNodeKey.manual_review.<formKey>.<fieldName>}}`.
+- If `forms` is empty, this node provides no output variable tree.

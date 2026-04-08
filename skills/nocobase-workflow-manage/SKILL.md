@@ -113,6 +113,27 @@ After completing any workflow operation, verify:
 6. `enabled` status matches the intended state
 7. For edits on frozen versions: the new revision `id` is being used, not the old one
 
+## Operation Result
+
+After each successful write operation (create, update, delete workflow or node), output a result block so the user can easily reference and verify what was created or modified. Use this exact format at the end of the response:
+
+```
+[OPERATION_RESULT]
+{"resource":"workflow","action":"created","id":<id>,"key":"<key>","config":<config object>}
+```
+
+- `resource`: `"workflow"` or `"node"`
+- `action`: `"created"`, `"updated"`, or `"deleted"`
+- `id`: the numeric id returned by the API
+- `key`: the `key` field of the workflow (workflows only; omit for nodes)
+- `config`: the final `config` object stored, as returned by the read-back verification
+
+Example:
+```
+[OPERATION_RESULT]
+{"resource":"workflow","action":"created","id":42,"key":"a1b2c3","config":{"collection":"orders","mode":1,"appends":[]}}
+```
+
 # Reference Index
 
 | Topic | File |

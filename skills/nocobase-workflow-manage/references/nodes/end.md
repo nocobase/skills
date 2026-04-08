@@ -30,3 +30,6 @@ Branches are not supported.
   "endStatus": -1
 }
 ```
+
+## Output Variables
+This node does not output variables.
