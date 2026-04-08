@@ -3,7 +3,8 @@ name: nocobase-ui-builder
 description: >-
   Use when the user wants to inspect, plan, create, modify, reorder, or delete
   NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block /
-  field / action configuration, including turning high-level page intent into a
+  field / action configuration, including block / fields / popup template reuse
+  through flow-surfaces APIs and turning high-level page intent into a
   confirmed page blueprint before building; does not handle ACL, data modeling,
   workflow orchestration, browser reproduction, page error postmortems, or
   non-Modern-page navigation.
@@ -72,6 +73,7 @@ description: >-
 - [capabilities.md](./references/capabilities.md): how to choose blocks / forms / actions / fields, plus the default design for display vs association fields.
 - [settings.md](./references/settings.md): the sole decision rules for `add* + settings`, `configure`, and `updateSettings`.
 - [tool-shapes.md](./references/tool-shapes.md): flow-surfaces request envelopes, canonical payloads, and request shapes for high-risk APIs.
+- [templates.md](./references/templates.md): when and how to save, search, apply, detach, and verify reusable block / fields / popup templates.
 - [popup.md](./references/popup.md): rules for `currentRecord`, association popups, `associatedRecords`, `openView`, and popup openers.
 - [chart.md](./references/chart.md): the chart topic entry point and routing guidance.
 - [chart-core.md](./references/chart-core.md): the main chart runtime path for setup, reconfiguration, context narrowing, and readback.

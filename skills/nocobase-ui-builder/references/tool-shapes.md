@@ -25,6 +25,7 @@ Read this file when family, locator, and target uid are already known, and the o
 - In the current implementation, `tabSchemaUid` can be used both as the `get` locator for `outer-tab` and directly as its write target uid, but `pageSchemaUid` and `routeId` are still `get` locators only
 - `setLayout` and `setEventFlows` are high-impact full-replace APIs. Read the full current state first, then decide whether to write
 - Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
+- Template-aware creation uses the same payload families. `addBlock/addBlocks/compose` may carry `template`; `addField/addFields` may carry `template` for fields templates; popup-capable actions and fields may carry `popup.template`
 - Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
 - Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
 
@@ -153,6 +154,56 @@ When you want to create the opener and carry the popup subtree in one shot, and 
 ```
 
 If the write returns `popupPageUid` / `popupTabUid` / `popupGridUid`, all later writes should reuse those values directly rather than re-guessing the popup host.
+
+### Canonical template refs
+
+Block template or fields-template import:
+
+```json
+{
+  "template": {
+    "uid": "employee-form-template",
+    "mode": "reference",
+    "usage": "block"
+  }
+}
+```
+
+For form-field-only reuse, switch `usage` to `"fields"` when the API accepts `FlowSurfaceBlockTemplateRef` (for example `addBlock`, `addBlocks`, or `compose`).
+
+Field-template import into an existing form host / target form grid:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-form-block" },
+    "template": {
+      "uid": "employee-form-template",
+      "mode": "reference"
+    }
+  }
+}
+```
+
+Popup-template import (the same inner `popup.template` shape is used by `addAction`, `addRecordAction`, `addField`, `addFields`, and compose action/field specs):
+
+```json
+{
+  "popup": {
+    "template": {
+      "uid": "employee-popup-template",
+      "mode": "reference"
+    }
+  }
+}
+```
+
+Rules:
+
+- `mode="reference"` preserves a live template reference and may increase `usageCount`
+- `mode="copy"` creates a detached copy immediately and should not keep a template reference on the created node
+- For popup templates, `popup.template` replaces inline popup content; do not mix it with guessed low-level popup internals
+- For template discovery, saving, and detach behavior, see [templates.md](./templates.md)
 
 ### Minimal semantic `resource` shape for guard-sensitive popup-content
 

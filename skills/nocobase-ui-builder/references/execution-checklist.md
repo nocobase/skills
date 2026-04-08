@@ -12,6 +12,7 @@ Use this checklist by default during execution. Only open a topic reference when
 
 - First decide the primary intent: `inspect`, `plan-page-blueprint`, `create-menu-group`, `create-page`, `update-ui`, `move-menu`, `reorder`, or `delete-ui`.
 - Only add a topic gate when the task truly hits `popup`, `chart`, or `js`.
+- If the request mentions template reuse, save-as-template, copy/reference mode, convert-to-copy, or template search/selection, read [templates.md](./templates.md) before choosing the write path.
 - If the request involves `title` / `icon`, first identify whether it means the menu entry, the page header title, the page header icon, or a tab / popup tab. Do not jump straight to a lifecycle API just because you already have a page/tab locator.
 
 Default path quick reference:
@@ -61,6 +62,7 @@ Default path quick reference:
 ## 6. Choose Capability / Config Path
 
 - If you are unsure whether to choose a block, action, or field, see [capabilities.md](./capabilities.md).
+- If the request is about reusing or maintaining saved templates, read [templates.md](./templates.md) first. Template choice should be resolved before assembling `addBlock/addField/addAction/compose/configure` payloads.
 - If the request is still at the "what kind of page should this become" level, go back to [page-intent-planning.md](./page-intent-planning.md) instead of guessing low-level containers too early.
 - If you need to choose between `settings`, `configure(changes)`, and `updateSettings`, see [settings.md](./settings.md).
 - If the natural language is highly ambiguous, use [aliases.md](./aliases.md) to narrow the object semantics first.
@@ -86,6 +88,7 @@ Default path quick reference:
 - For `target.mode = "update-page"`, resolve the existing target from the confirmed locator first. Do not silently downgrade to `create-page`.
 - For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.
 - For an existing target, prefer `compose/add*`, then consider `configure/updateSettings`. Only the immediate next target uid that was just returned by a write API may skip one leading `get`.
+- For template-aware writes, first decide whether the write should use local inline content or a saved template reference/copy. Use [templates.md](./templates.md) for `listTemplates`, `saveTemplate`, `convertTemplateToCopy`, and `add*/compose/configure` template shapes.
 - For popup payload shapes and `popup.mode`, see [tool-shapes.md](./tool-shapes.md).
 - For guard-sensitive popups, always follow the `guard-first popup flow` in [popup.md](./popup.md).
 - When the operation hits `setLayout`, first translate the natural language into the three-level semantics `row -> columns -> items` before writing the payload:
@@ -105,6 +108,7 @@ Default path quick reference:
 
 ## 10. Topic Gate
 
+- `template`: read [templates.md](./templates.md) first. Also read [popup.md](./popup.md) when the template is popup-backed or field `openView`-backed.
 - `popup`: read [popup.md](./popup.md) first. For exact payloads, then read [tool-shapes.md](./tool-shapes.md).
 - `chart`: read [chart.md](./chart.md) first, then enter `chart-core` / `chart-validation` as needed.
 - `js`: read [js.md](./js.md). Any JS write must pass the local validator gate first. For the CLI entry, see [runjs-runtime.md](./runjs-runtime.md).

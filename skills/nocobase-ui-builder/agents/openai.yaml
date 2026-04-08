@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "Plan, inspect, and build NocoBase Modern page (v2) UI"
-  default_prompt: "Use $nocobase-ui-builder to inspect, plan, or edit NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and block/field/action surfaces. For high-level page-building requests, first produce a confirmed page blueprint from real schema facts, then execute. Treat inspect and blueprint planning as read-only by default."
+  short_description: "Plan, inspect, build, and reuse NocoBase Modern page (v2) UI templates"
+  default_prompt: "Use $nocobase-ui-builder to inspect, plan, or edit NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, block/field/action surfaces, and flow-surfaces template reuse. For high-level page-building requests, first produce a confirmed page blueprint from real schema facts, then execute. Treat inspect and blueprint planning as read-only by default. When template reuse is requested, prefer saved template search plus the documented reference/copy flows over guessed low-level FlowModel edits."
 
 dependencies:
   tools:

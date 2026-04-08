@@ -6,6 +6,7 @@ Read this file when you need to work on popup, `openView`, record popups, the `c
 
 - `recordActions.view/edit/popup` only creates the popup shell by default. It does not automatically generate `details`, `editForm`, or `submit`.
 - For the canonical shape of popup-capable payloads and `popup.mode`, see [tool-shapes.md](./tool-shapes.md). For a new inline popup subtree, default to `replace`.
+- Popup templates are saved and searched through the flow-surfaces template APIs, not by reusing raw `openView.uid`. For save/search/detach rules, see [templates.md](./templates.md).
 - When popup `resourceBindings` are part of the decision, always follow the `guard-first popup flow`: create the opener first, reuse the returned popup uid, then read the `catalog` of `popup-content`.
 - Getting `popupPageUid` / `popupTabUid` / `popupGridUid` only means the popup subtree was established. It does not mean the popup content is complete.
 - As soon as a write API returns `popupPageUid` / `popupTabUid` / `popupGridUid`, always reuse those uids directly for the next step. Do not guess `hostUid` / `gridUid` again.
@@ -18,6 +19,8 @@ Read this file when you need to work on popup, `openView`, record popups, the `c
 - Inside popup, block `resource` must always be written in object wire shape, not string shorthand. Use `{ "binding": "currentRecord" }` for `details/editForm(currentRecord)`. Use `{ "binding": "associatedRecords", "associationField": "<field>" }` for an association collection block inside popup.
 - Association collection blocks inside popup should prefer semantic `resource.binding="associatedRecords"` by default. After writing, confirm that `resourceSettings.init.associationName` is still the full association name containing `.`, and that `sourceId` still exists. If readback degrades into a bare field name such as `roles`, or `sourceId` is missing, treat it as failure and stop. Do not accept silent persistence.
 - `openView.uid` is not the default write mechanism in this skill. Without strong evidence, do not proactively use it for popup reuse.
+- For popup template reuse, prefer `popup.template` on `addAction/addRecordAction/addField/addFields`, or `configure(changes.openView.template)` when the opener already exists and the backend contract allows template switching.
+- `popup.template.mode = "reference"` keeps a live template reference; popup blocks then become read-only until `convertTemplateToCopy` or another allowed popup-template reconfiguration is used. `mode = "copy"` detaches immediately and does not increase template usage.
 - The upstream contract explicitly forbids taking the uid from one opener and reusing it on another opener. In particular, do not write the popup uid from one entry into another entry's `openView.uid`.
 - If the user explicitly requests reuse of an existing popup, only evaluate that path when live facts have already proven that the uid is valid, exists, and does not point to a page/tab/popup-subtree node. Otherwise stop by default. Do not guess.
 - For association fields, `openView.collectionName` should preserve target-collection semantics by default. Do not rewrite an association popup into the source collection just to fake "current row details".
@@ -68,6 +71,7 @@ Minimum acceptance for association-field popup:
 | open as normal dialog | `openView.mode = "dialog"` or popup action | prefer `openView` for field sources, popup for action sources |
 
 Common field-level `openView` changes: `clickToOpen`, `openView.mode`, `openView.collectionName`.
+When a field or action uses a popup template in `reference` mode, do not mutate popup inner blocks directly. If the user wants to edit popup content itself, first detach with `convertTemplateToCopy`; if the user wants to switch to another popup template, use `configure(changes.openView.template)` where the live contract supports it.
 
 ## `linkageRules` and `flowRegistry`
 
