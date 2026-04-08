@@ -67,3 +67,6 @@ Deciding whether to continue the process based on whether inventory is sufficien
   "expression": "IF($context.data.status == 'paid', true, false)"
 }
 ```
+
+## Output Variables
+This node does not output variables.

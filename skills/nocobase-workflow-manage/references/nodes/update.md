@@ -110,3 +110,6 @@ Does not support branches.
   }
 }
 ```
+
+## Output Variables
+This node does not output variables.

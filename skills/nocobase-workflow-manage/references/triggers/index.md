@@ -13,7 +13,11 @@ The `type` field is determined when the workflow is created and cannot be change
 
 ## Variables Produced by Triggers
 
-Some triggers can produce variables for use by subsequent nodes. Variables are referenced in the form `{{$context.<:variableName>}}`; please refer to the documentation of each trigger for specifics. If a variable points to a data table structure, its internal property paths match the data table field names.
+Some triggers produce variables for use by subsequent nodes. In the UI, these variables are exposed as a tree array of `{ label, value, children? }`. `label` is only for display; the actual runtime expression is built from the `value` path.
+
+For trigger variables, join the `value` path segments with `.` and prepend `$context`, for example `{{$context.data.title}}` or `{{$context.date}}`.
+
+Each trigger document with an `Output Variables` section describes the exact tree roots it provides and shows example expressions.
 
 Subsequent nodes can reference these variables in their configuration items based on business needs to achieve dynamic workflow logic.
 

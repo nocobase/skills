@@ -33,3 +33,10 @@ Does not support branches.
   }
 }
 ```
+
+## Output Variables
+This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+- Exposed root: the configured workflow output value of this node.
+- No child field tree is provided. If the output is a complex JSON object and you need named child variables in the selector, follow this node with `json-query` or `json-variable-mapping`.
+- Example reference: `{{$jobsMapByNodeKey.workflow_output}}`.

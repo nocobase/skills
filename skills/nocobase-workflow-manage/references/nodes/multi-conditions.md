@@ -68,3 +68,6 @@ Choosing different processing branches based on status/level, similar to switch/
   "continueOnNoMatch": true
 }
 ```
+
+## Output Variables
+This node does not output variables.
