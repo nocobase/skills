@@ -1,0 +1,7 @@
+interface:
+  display_name: "NocoBase Env Bootstrap"
+  short_description: "Preflight, install, deploy, mcp-connect, upgrade, and diagnose one NocoBase environment"
+  default_prompt: "Use $nocobase-env-bootstrap to run preflight checks, install, deploy, mcp-connect, upgrade, or diagnose this NocoBase environment."
+
+policy:
+  allow_implicit_invocation: true
