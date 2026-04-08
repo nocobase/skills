@@ -39,6 +39,65 @@ Interpretation rules:
 - Use `getTemplate` when the user already knows a template uid and needs its latest metadata or `usageCount`.
 - Use `updateTemplate` when the user wants to rename a template or improve its searchable `description` without changing the stored FlowModel tree.
 
+## Canonical Request Shapes
+
+`listTemplates` for popup-template discovery in a concrete opener context:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-table-block" },
+    "type": "popup",
+    "actionType": "view",
+    "actionScope": "record",
+    "search": "employee popup",
+    "page": 1,
+    "pageSize": 20
+  }
+}
+```
+
+For form fields templates, change the search filter to `type = "block"` plus `usage = "fields"`.
+
+`saveTemplate`:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-create-form" },
+    "name": "Employee create form",
+    "description": "Reusable employee create form with common fields and popup behavior.",
+    "saveMode": "duplicate"
+  }
+}
+```
+
+`updateTemplate` / `getTemplate` / `destroyTemplate` all center on the template uid. Minimal shapes:
+
+```json
+{ "requestBody": { "uid": "employee-form-template" } }
+```
+
+```json
+{
+  "requestBody": {
+    "uid": "employee-form-template",
+    "name": "Employee create form",
+    "description": "Reusable employee create form with validated field order."
+  }
+}
+```
+
+`convertTemplateToCopy`:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-form-block" }
+  }
+}
+```
+
 ## Save a Template
 
 Use `saveTemplate` for all supported save cases. Do not invent separate save APIs such as "save block template" or "save popup template".
