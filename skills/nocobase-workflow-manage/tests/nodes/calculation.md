@@ -130,7 +130,7 @@ Tests for the `calculation` node type which performs calculations using various 
 ```json
 {
   "engine": "formula.js",
-  "expression": "{{$jobsMapByNodeKey.previousCalculationNode.result}} / {{$context.data.itemCount}}"
+  "expression": "{{$jobsMapByNodeKey.previousCalculationNode}} / {{$context.data.itemCount}}"
 }
 ```
 - **Validation Points**:
