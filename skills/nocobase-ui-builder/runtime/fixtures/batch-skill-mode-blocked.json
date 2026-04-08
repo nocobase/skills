@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "id": "skill-mode-live-network",
+      "model": "JSBlockModel",
+      "code": "ctx.render('blocked');",
+      "network": {
+        "mode": "live",
+        "allowHosts": ["example.com"]
+      }
+    }
+  ]
+}

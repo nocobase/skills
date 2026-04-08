@@ -26,11 +26,6 @@ description: "Trigger flows after user actions (creation/update) are completed, 
 | actions | string[] | - | Required only in Global mode | Operation types allowed to trigger in Global mode, currently supported: `"create"`, `"update"`. |
 | appends | string[] | [] | No | Paths of associated fields to be preloaded. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
-## Trigger Variables
-- `$context.data`: The triggered data record (preloaded via `appends` when necessary).
-- `$context.user`: The user who triggered the operation (sanitized user information).
-- `$context.roleName`: The role name of the user who triggered the operation.
-
 ## Example Configuration
 
 ### Local mode, triggered only by buttons/operations bound to this workflow
@@ -52,3 +47,11 @@ description: "Trigger flows after user actions (creation/update) are completed, 
   "appends": ["category", "author"]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`, for example `{{$context.data.title}}`.
+
+- Exposed roots: `data`, `user`, `roleName`.
+- `data` follows the triggered collection schema; any configured `appends` are added as nested children under `data`.
+- `user` follows the `users` collection schema; `roleName` is a scalar string.
+- Example references: `{{$context.data.id}}`, `{{$context.data.author.nickname}}`, `{{$context.user.nickname}}`, `{{$context.roleName}}`.

@@ -31,3 +31,6 @@ The parallel node opens multiple branches:
   "mode": "all"
 }
 ```
+
+## Output Variables
+This node does not output variables.

@@ -26,11 +26,6 @@ description: "Monitor additions/updates/deletions of specified data tables and t
 | condition | object | null | No | Filter conditions, effective only for add/update. The trigger occurs only when conditions are met. See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | appends | string[] | [] | No | Paths of associated fields to be preloaded. Associations are not loaded for delete events. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
-## Trigger Variables
-- `$context.data`: The triggered data record.
-  - Add/Update: A snapshot of the latest record, including associated data preloaded via `appends`.
-  - Delete: A snapshot of the data before deletion, `appends` are not loaded.
-
 ## Example Configuration
 
 ### When add a post in main data source
@@ -80,3 +75,11 @@ description: "Monitor additions/updates/deletions of specified data tables and t
   }
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`, for example `{{$context.data.title}}`.
+
+- Exposed root: `data`.
+- `data` follows the configured collection schema; any configured `appends` are added as nested children under `data`.
+- In delete mode, `data` is still the trigger root, but there is usually no appended association tree because `appends` is not configured.
+- Example references: `{{$context.data.id}}`, `{{$context.data.status}}`, `{{$context.data.author.nickname}}`.

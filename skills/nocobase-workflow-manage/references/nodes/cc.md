@@ -35,3 +35,6 @@ Does not support branching.
   "title": "{{ $context.data.title }} - CC"
 }
 ```
+
+## Output Variables
+This node does not output variables.

@@ -39,3 +39,6 @@ Does not support branches (terminal node).
   }
 }
 ```
+
+## Output Variables
+This node does not output variables.

@@ -42,3 +42,11 @@ Branches are not supported.
   ]
 }
 ```
+
+## Output Variables
+The variable selector for this node is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`.
+
+- The root is the current node key.
+- Each child comes from `model[]`; the runtime path uses `model[].alias` when present, otherwise `model[].path`.
+- `model[].label` affects only display text and does not change the expression path.
+- Example references for the sample configuration above: `{{$jobsMapByNodeKey.json_query.item_id}}`, `{{$jobsMapByNodeKey.json_query.name}}`.
