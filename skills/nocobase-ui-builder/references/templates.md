@@ -32,6 +32,7 @@ Interpretation rules:
 
 - `available = true` means the backend considers the template usable in the current context.
 - `disabledReason` explains why it cannot be used in the current context. Surface that reason instead of retrying with guessed payloads.
+- Treat `listTemplates` as the source of truth for template availability. Do not try to recreate the frontend filtering logic inside the skill; trust the backend-filtered `available / disabledReason` result.
 - `description` is required and intentionally searchable. Encourage precise descriptions when saving templates.
 
 ## Read or Refine Template Metadata
@@ -97,6 +98,78 @@ For form fields templates, change the search filter to `type = "block"` plus `us
   }
 }
 ```
+
+`addBlock` with a block template:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "page-grid-uid" },
+    "template": {
+      "uid": "employee-form-template",
+      "mode": "reference",
+      "usage": "block"
+    }
+  }
+}
+```
+
+For form-field-only reuse from a form template, keep the same envelope and switch `usage` to `"fields"`. The same `template` shape is also used inside `addBlocks` items and compose block specs.
+
+`addField` / `addFields` with a saved fields template:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-form-block" },
+    "template": {
+      "uid": "employee-form-template",
+      "mode": "reference"
+    }
+  }
+}
+```
+
+Use this path when importing only the saved form-grid fields into an existing form host / target form grid.
+
+`addAction` with `popup.template`:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-table-block" },
+    "type": "popup",
+    "popup": {
+      "template": {
+        "uid": "employee-popup-template",
+        "mode": "reference"
+      }
+    }
+  }
+}
+```
+
+The same inner `popup.template` shape is reused by `addRecordAction`, popup-capable `addField/addFields`, and compose action / field specs.
+
+`configure(changes.openView.template)` to switch a popup template on an existing opener:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-view-action" },
+    "changes": {
+      "openView": {
+        "template": {
+          "uid": "employee-popup-template-v2",
+          "mode": "reference"
+        }
+      }
+    }
+  }
+}
+```
+
+Use this only for popup action / field openers whose live contract supports template switching. Do not generalize this to block or fields-template references.
 
 ## Save a Template
 

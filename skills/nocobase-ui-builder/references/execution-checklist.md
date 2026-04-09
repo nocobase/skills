@@ -62,7 +62,6 @@ Default path quick reference:
 ## 6. Choose Capability / Config Path
 
 - If you are unsure whether to choose a block, action, or field, see [capabilities.md](./capabilities.md).
-- If the request is about reusing or maintaining saved templates, read [templates.md](./templates.md) first. Template choice should be resolved before assembling `addBlock/addField/addAction/compose/configure` payloads.
 - If the request is still at the "what kind of page should this become" level, go back to [page-intent-planning.md](./page-intent-planning.md) instead of guessing low-level containers too early.
 - If you need to choose between `settings`, `configure(changes)`, and `updateSettings`, see [settings.md](./settings.md).
 - If the natural language is highly ambiguous, use [aliases.md](./aliases.md) to narrow the object semantics first.

@@ -155,55 +155,13 @@ When you want to create the opener and carry the popup subtree in one shot, and 
 
 If the write returns `popupPageUid` / `popupTabUid` / `popupGridUid`, all later writes should reuse those values directly rather than re-guessing the popup host.
 
-### Canonical template refs
+### Template-aware payload placement
 
-Block template or fields-template import:
-
-```json
-{
-  "template": {
-    "uid": "employee-form-template",
-    "mode": "reference",
-    "usage": "block"
-  }
-}
-```
-
-For form-field-only reuse, switch `usage` to `"fields"` when the API accepts `FlowSurfaceBlockTemplateRef` (for example `addBlock`, `addBlocks`, or `compose`).
-
-Field-template import into an existing form host / target form grid:
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "employee-form-block" },
-    "template": {
-      "uid": "employee-form-template",
-      "mode": "reference"
-    }
-  }
-}
-```
-
-Popup-template import (the same inner `popup.template` shape is used by `addAction`, `addRecordAction`, `addField`, `addFields`, and compose action/field specs):
-
-```json
-{
-  "popup": {
-    "template": {
-      "uid": "employee-popup-template",
-      "mode": "reference"
-    }
-  }
-}
-```
-
-Rules:
-
-- `mode="reference"` preserves a live template reference and may increase `usageCount`
-- `mode="copy"` creates a detached copy immediately and should not keep a template reference on the created node
-- For popup templates, `popup.template` replaces inline popup content; do not mix it with guessed low-level popup internals
-- For template discovery, saving, and detach behavior, see [templates.md](./templates.md)
+- For `addBlock`, `addBlocks`, and compose block specs, place the block template under `requestBody.template` (or the corresponding inner block spec)
+- For `addField` and `addFields` when importing saved form-grid fields, place the fields template under `requestBody.template`
+- For popup-capable actions and fields, place popup template reuse under `requestBody.popup.template`
+- `configure` switches an existing popup template through `requestBody.changes.openView.template` when the live contract allows it
+- For complete template envelopes, selection rules, and reference/copy semantics, see [templates.md](./templates.md)
 
 ### Minimal semantic `resource` shape for guard-sensitive popup-content
 
