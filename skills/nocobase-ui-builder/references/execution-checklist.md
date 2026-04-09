@@ -86,7 +86,7 @@ Default path quick reference:
 - When executing from a confirmed `pageBlueprint`, keep each block/action/field mapped back to the blueprint node:
   - `data-bound block`s must preserve the confirmed data-source semantics from `dataSources` / `dataSourceKey`.
   - `non-data block`s may stay unbound.
-  - Popup actions count as incomplete unless the blueprint explicitly scoped the popup as `completion = "shell-only"` or explicitly relies on backend default CRUD popup completion.
+  - Popup actions count as incomplete unless the blueprint explicitly scoped the popup as `completion = "shell-only"` or can be deterministically satisfied by one backend-default CRUD completion path.
 - If the confirmed blueprint uses popup-scoped binding data sources such as `currentRecord` or `associatedRecords`, follow the popup guard flow and verify that the live popup `catalog` still exposes the required binding before finishing execution.
 - For `target.mode = "update-page"`, resolve the existing target from the confirmed locator first. Do not silently downgrade to `create-page`.
 - For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.

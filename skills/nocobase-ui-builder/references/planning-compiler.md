@@ -65,7 +65,7 @@ This table is the authoritative mapping for default compiler output.
 | record action node under an existing container | `addRecordAction` | existing-surface | record-capable owner target only |
 | existing node reorder | `moveNode` | existing-surface | use when reordering sibling nodes under the same parent/subKey |
 | popup node with backend-default CRUD completion | opener step only | existing-surface | `addNew/view/edit` with no explicit `popup.blocks` and no explicit `popup.template` |
-| popup node with explicit popup content | opener step + popup-content step(s) | existing-surface | popup-content step(s) must reuse popup uids from the opener result |
+| popup node with explicit popup content | opener step carrying the confirmed popup content by default; emit later popup-content step(s) only when popup-targeted facts are required | existing-surface | preserve the confirmed popup semantics; do not split into later popup-content writes unless they are actually needed |
 | popup node with popup template | opener step carrying `popup.template`, or opener step + later `configure` | existing-surface | choose by whether the opener already exists |
 | popup node with `completion = "shell-only"` | opener step only | existing-surface | do not emit popup-content steps |
 | small public configure-style change | `configure` | existing-surface | use `updateSettings` only when `configure` cannot express the confirmed change |
@@ -89,7 +89,7 @@ Unless the confirmed intent explicitly requires another topological dependency, 
 3. page-level blocks in layout order; if layout order is absent, use declaration order
 4. fields / actions / recordActions that belong to an existing container, in declaration order
 5. popup opener steps
-6. popup content steps, only when the popup is not satisfied by backend-default CRUD completion or when explicit popup content/template routing requires it
+6. popup content steps, only when the popup cannot stay on the opener step and instead requires later popup-targeted writes
 7. supported interaction wiring such as `configure`, `updateSettings`, `setEventFlows`, and `setLayout`
 
 Additional ordering rules:
@@ -190,13 +190,21 @@ In this case, the compiler should not emit extra popup-content composition by de
 
 ### Explicit popup content or guard-sensitive popup
 
-Emit staged popup steps when any of the following is true:
+When the opener is being created now and the confirmed popup content is already known, keep that popup content on the opener step by default. This is an execution-time boundary, not a planner-facing feature: the compiler only needs to know whether later popup-targeted writes are required.
 
-- the confirmed popup includes explicit `popup.blocks`
+Emit staged popup steps only when any of the following is true:
+
 - the popup decision depends on popup-content `resourceBindings` or scene guards
-- the confirmed intent requires custom popup content beyond backend-default CRUD completion
+- the confirmed change needs later popup-targeted writes that require `popupPageUid/popupTabUid/popupGridUid`
+- the opener already exists and the confirmed change is adding or replacing popup content after the opener step
 
-Compiler output shape:
+Rules:
+
+- Explicit `popup.blocks` alone does not force staged popup-content steps.
+- If the confirmed popup content can be expressed directly on the opener payload, prefer that path.
+- Only reuse popup uids from the opener result when a later popup-targeted step is actually needed.
+
+Compiler output shape when staged popup steps are required:
 
 1. opener step first
 2. popup-content step(s) that reuse `popupPageUid/popupTabUid/popupGridUid` from the opener result
@@ -293,5 +301,5 @@ These are not default compiler output:
 
 Fallback is allowed only when:
 
-- current plan coverage cannot express the change safely
+- current plan coverage cannot express the change safely and without losing the confirmed semantics
 - or the user explicitly asks for low-level control on a concrete target

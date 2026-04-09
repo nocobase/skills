@@ -337,17 +337,21 @@ Each popup entry should include:
 - `id`
 - `title` when user-facing labeling matters
 - `completion`: `completed` or `shell-only`
-- `blocks` when `completion = "completed"` and execution does not rely on backend default CRUD popup completion
+- `blocks` when `completion = "completed"` and the popup cannot be deterministically satisfied by one backend-default CRUD completion path
 
 Rules:
 
 - Put popup content into `popups` when the page structure depends on popup completion.
 - A popup action is not "done" unless the popup content semantics were also planned, unless the user explicitly wants shell-only popup setup.
-- `completion = "completed"` requires meaningful popup content, either through explicit `blocks` or through a clearly stated dependency on backend default CRUD popup completion.
+- `completion = "completed"` requires meaningful popup content.
+- `completion = "completed"` may omit `blocks` only when every inbound reference to that `popupId` resolves to the same backend-default CRUD opener semantics: all `addNew`, all `view`, or all `edit`.
+- If inbound references mix different CRUD semantics, include any generic `popup`, or otherwise fail to resolve to one such path, `completion = "completed"` must provide explicit `blocks`.
 - `completion = "shell-only"` may omit `blocks` or use an empty list, but it must not be described as completed popup content.
 - Every referenced `popupId` must resolve to a defined popup entry in the same blueprint.
 - Popup blocks follow the same `dataBound` / `dataSourceKey` rules as page blocks.
 - If a popup block uses a popup-scoped `kind = "binding"` data source, that data source must reference the same popup through `popupId`.
+- The current `pageBlueprint` DSL does not model `popup.template`. Do not infer template-driven popup planning from omitted `blocks`; add explicit popup blocks or extend the DSL first.
+- `assumptions` and `unresolvedQuestions` may explain the planner's reasoning, but execution must not depend on free-text statements to infer backend-default CRUD completion.
 
 Illustrative shell-only popup:
 
@@ -358,6 +362,55 @@ Illustrative shell-only popup:
   "completion": "shell-only"
 }
 ```
+
+Illustrative completed-popup fragment that relies on one backend-default CRUD path:
+
+```json
+{
+  "blocks": [
+    {
+      "id": "users-table",
+      "type": "table",
+      "recordActions": [
+        { "id": "users-view", "type": "view", "popupId": "user-view-popup" }
+      ]
+    }
+  ],
+  "popups": [
+    {
+      "id": "user-view-popup",
+      "title": "View user",
+      "completion": "completed"
+    }
+  ]
+}
+```
+
+Illustrative invalid mixed-reference fragment:
+
+```json
+{
+  "blocks": [
+    {
+      "id": "users-table",
+      "type": "table",
+      "recordActions": [
+        { "id": "users-view", "type": "view", "popupId": "user-record-popup" },
+        { "id": "users-edit", "type": "edit", "popupId": "user-record-popup" }
+      ]
+    }
+  ],
+  "popups": [
+    {
+      "id": "user-record-popup",
+      "title": "User record",
+      "completion": "completed"
+    }
+  ]
+}
+```
+
+This mixed-reference popup is invalid without explicit `blocks`, because execution cannot deterministically choose one backend-default CRUD completion path.
 
 ## 8. Non-Data Example
 
@@ -379,11 +432,12 @@ Illustrative shell-only popup:
 - Popup blocks live only under `popups[*].blocks`; they must not be reused as page-level `blocks`.
 - Every `popupId` referenced from `actions`, `recordActions`, or `interactions` must resolve to a popup entry in `popups`.
 - Every popup-scoped `kind = "binding"` source must reference an existing popup entry through `popupId`.
-- `assumptions` and `unresolvedQuestions` may surface ambiguity, but they must not hide required execution steps such as "decide popup content later" when the popup was already promised as completed.
+- `assumptions` and `unresolvedQuestions` may surface ambiguity, but they must not hide required execution steps such as "decide popup content later" when the popup was already promised as completed, and they must not be the only signal that a completed popup relies on backend-default CRUD completion.
 
 ## 10. Execution Expectations
 
 - Execution should hand the confirmed `pageBlueprint` to [planning-compiler.md](./planning-compiler.md), compile it into `plan.steps[]`, and then run `validatePlan` / `executePlan` by default.
 - Execution should translate blueprint-level `dataSources` into live `resource` / `resourceInit` payloads only at write time.
 - Execution must not silently widen the scope beyond the confirmed blueprint.
-- If a confirmed blueprint node cannot be expressed through live `catalog` facts or current plan coverage, stop execution and return to blueprint revision instead of guessing a low-level path.
+- If the high-level plan path cannot express a confirmed blueprint node without losing required semantics, execution may use the low-level fallback allowed by [normative-contract.md](./normative-contract.md) and [execution-checklist.md](./execution-checklist.md), but only when that path can preserve the confirmed semantics without guessing.
+- If neither the high-level plan path nor the allowed low-level fallback can preserve the confirmed semantics safely, stop execution and return to blueprint revision.
