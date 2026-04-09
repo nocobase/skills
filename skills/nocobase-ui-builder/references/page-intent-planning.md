@@ -21,6 +21,7 @@ Gather only live facts that are necessary to turn user intent into a page struct
 Allowed discovery stays read-only:
 
 - `desktop_routes_list_accessible(tree=true)`
+- `flow_surfaces_describe_surface`
 - `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context`
 - read-only collection/schema discovery such as `collections:list`, `collections:get`, and `collections/{collectionName}/fields:list`
 
@@ -34,6 +35,7 @@ Allowed discovery stays read-only:
 6. Add explicit `interactions` whenever cross-block binding should not be guessed later, especially `filterForm -> target block` cases.
 7. Output a `pageBlueprint` through [page-blueprint-dsl.md](./page-blueprint-dsl.md).
 8. Stop for confirmation.
+9. After confirmation, hand the blueprint to [planning-compiler.md](./planning-compiler.md), compile it into `plan.steps[]`, and then prefer `validatePlan` / `executePlan` for execution.
 
 ## 4. Data-Source Rules
 

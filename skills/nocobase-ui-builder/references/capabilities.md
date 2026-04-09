@@ -21,6 +21,8 @@ Read this file when you already know you need to add something into a content ar
 
 The block / action capabilities below are common values, not an exhaustive list. The final source of truth is live `catalog`.
 
+This file chooses capabilities. It does not choose execution entry or plan-step compilation.
+
 ## Block Selection
 
 ### Default Creation Capabilities
@@ -109,9 +111,10 @@ Rules:
 
 ### Key Constraints
 
-- If `view/edit/popup` opens a popup, creating only the action does not count as completion. For popup content, see [popup.md](./popup.md).
+- `addNew`, `view`, and `edit` are CRUD-style popup actions. When no explicit `popup.blocks` or `popup.template` is supplied, backend may provide a standard popup completion.
+- Generic `popup` actions, custom popup semantics, and completion verification still belong to [popup.md](./popup.md) and [verification.md](./verification.md).
 - "view current record / edit current record / this record / this row" should default to record-popup handling.
-- Whether it is allowed to create only a popup shell is governed by the `Popup Shell Fallback Contract` in [normative-contract.md](./normative-contract.md). The key takeaway here is: creating only the action does not complete popup content.
+- Whether it is allowed to create only a popup shell is governed by the `Popup Shell Fallback Contract` in [normative-contract.md](./normative-contract.md).
 - `submit` is a public capability in both form-action containers and `filterForm`, but they are different scopes. `collapse` belongs only to `filterForm`.
 - For inlining action title, tooltip, button type, and similar public attributes, see [settings.md](./settings.md).
 - In this skill, `triggerWorkflow` only mounts the UI action shell for an existing workflow onto the surface. As soon as you need to create a workflow, choose a workflow key/id, or change trigger/node/execution path, hand off immediately to `nocobase-workflow-manage`.

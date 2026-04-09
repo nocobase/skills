@@ -8,6 +8,7 @@ Read this file when you need to do `inspect`, `page blueprint` planning, or when
 
 - `inspect` and `page blueprint` planning are read-only. Do not call any write API.
 - For menu-title discovery, default to `desktop_routes_list_accessible(tree=true)` first. It only represents the menu tree visible to the current role, not the full system truth. For initialized surfaces, default to `get` first.
+- `describeSurface` is the execution-anchor read for an existing surface. Use it when the next step is high-level execution and you need `fingerprint` / `refs`; do not treat it as the default inspect entry.
 - Whether to continue with `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
 - `inspect` or blueprint output should focus on the current structure, key uid / route / capability / schema facts, and blockers. Do not mix in wording like "write succeeded" or "already persisted".
 
@@ -28,6 +29,8 @@ Read this file when you need to do `inspect`, `page blueprint` planning, or when
 | `node` | `get` | need to determine public container capability or a path-level contract precisely |
 | `page blueprint` | schema discovery + menu/context reads only | need live capability narrowing, real field proof, or association facts |
 
+For high-level execution on an existing surface, treat `describeSurface` as the read that anchors the current editable surface; bootstrap execution is the exception and has no `describeSurface` / `expectedFingerprint` pre-read. Keep `get` as the default local confirmation and post-write verification read.
+
 ### Read-Only Assertions
 
 - Menu: unique match, clear `routeId/type/parentMenuRouteId`, and whether the `menu-item` has already been initialized.
@@ -42,6 +45,8 @@ Read this file when you need to do `inspect`, `page blueprint` planning, or when
 - After a write, only verify targets directly related to the current change. Upgrade to full verification only when lifecycle or route/tree hierarchy changed.
 - For menu writes, prioritize checking `routeId/type/parentMenuRouteId`. For menu moves, upgrade to menu-tree readback rather than flow-tree validation.
 - Popup, field, and configuration assertions must follow live readback. Do not treat the write response alone as completion.
+- For `executePlan`, do not treat returned `results`, `compiledSteps`, or a returned target id as sufficient readback on their own; verify the outcome according to the lifecycle semantics of the executed steps.
+- Bootstrap `executePlan` that creates menu/group/page chains must split readback into menu-tree confirmation and page-surface confirmation. One does not replace the other.
 - `shell-only popup` can only be accepted as `structural-confirmed`. Do not describe it as popup content being completed.
 - Batch writes are not the default preference. If you use `addBlocks/addFields/addActions/addRecordActions`, inspect `ok/error/index` item by item. Stop on any failure, report successes and failures separately, do not auto-rollback, and do not continue downstream writes that depend on "all succeeded".
 - `setLayout` and `setEventFlows` are high-impact full-replace operations. Read the full current state before writing, and validate against the full layout / flow state after writing. Do not judge success by a local delta.
@@ -55,6 +60,8 @@ Read this file when you need to do `inspect`, `page blueprint` planning, or when
 | `createMenu(type="item")` | return value; if the user only wants a menu entry, read the menu tree to confirm position | do not upgrade separately when `createPage(menuRouteId=...)` follows immediately |
 | `updateMenu` | return value; read the menu tree when moving | when changing parent, discovering the target menu by title, or confirming the final attachment position |
 | `createPage` | `get({ pageSchemaUid })` | always upgrade |
+| `executePlan` (bootstrap menu/page plan) | returned ids -> menu tree for created/moved groups or items -> `get({ pageSchemaUid })` for any created page | when the plan creates multiple menu/page nodes, changes parent attachment, or initializes a new route-backed page |
+| `executePlan` (existing-surface plan) | directly affected surface or returned target, then local `get` readback as needed | when the compiled steps changed route/tree hierarchy, or when popup/page/tab structure changed |
 | `addTab/updateTab/moveTab/removeTab` | `page` or the corresponding `outer-tab` | always upgrade |
 | `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | `popup-page` or the corresponding `popup-tab` | always upgrade |
 | `compose/addBlock/addField/addAction/addRecordAction` | direct parent / direct container target | do not upgrade |
@@ -63,12 +70,20 @@ Read this file when you need to do `inspect`, `page blueprint` planning, or when
 | `setEventFlows` | modified target + full flow state | always validate as a full flow state |
 | `apply/mutate` | directly affected target; if subtree hierarchy changes, then read the parent too | only upgrade when structural hierarchy actually changed |
 
+### Bootstrap Execution Notes
+
+- When bootstrap `executePlan` created a menu group or page chain, treat the returned ids as the first anchor of truth for that whole compiled result. Then verify menu attachment through the menu tree and page initialization through `get({ pageSchemaUid })` as needed.
+- Do not mentally split one bootstrap `executePlan` back into separate low-level success standards unless a later troubleshooting step requires isolating one primitive API.
+- If the bootstrap plan created both menu structure and a page surface, you still need both checks: menu-tree confirmation proves attachment, and `get({ pageSchemaUid })` proves page initialization. Neither check replaces the other.
+
 ### Readback Focus Points
 
+- Bootstrap `executePlan` / create-menu-group: confirm the menu tree really contains the new group in the intended position. Do not stop at `results[].routeId`.
+- Bootstrap `executePlan` / create-menu-item -> createPage: confirm the menu item is no longer a pre-init placeholder, `pageSchemaUid` is readable through `get`, page/tab routes exist, and the grid anchor has been initialized.
 - Menu: correct `routeId` type, synchronized `parentMenuRouteId`, title, icon, tooltip, and `hideInMenu`; do not misclassify `createMenu(type="item")` as an initialized page.
 - Page / `outer-tab`: page route / tab route exists and is in the right order; if visible in the live environment, `pageRoute.options.flowSurfacePageInitialized = true`; a newly added tab has its grid anchor filled in.
 - `popup-tab`: the popup page still exists, tab count and order are correct, `tree.use = ChildPageTabModel`, and any newly added tab has its grid anchor filled in.
-- Popup subtree: confirm that `popupPageUid/popupTabUid/popupGridUid` is attached at the correct place. If the target was only a `shell-only popup`, it can be at most `structural-confirmed`. If the scenario is viewing or editing the current record, `popupGridUid` must contain more than an empty shell, and if resource binding is visible live, additionally confirm that `details/editForm` binds to `currentRecord` before calling it `semantic-confirmed`.
+- Popup subtree: confirm that `popupPageUid/popupTabUid/popupGridUid` is attached at the correct place. If the target was only a `shell-only popup`, it can be at most `structural-confirmed`. If the scenario is viewing or editing the current record, `popupGridUid` must contain more than an empty shell. Backend-default CRUD popup content counts as valid only after readback has confirmed `details`, `editForm`, or `submit` as applicable, and if resource binding is visible live, additionally confirm that it binds to `currentRecord` before calling it `semantic-confirmed`.
 - Structure / fields / configuration: the new node is findable in `tree/nodeMap`; the table has `actionsColumnUid`; record-popup `details/editForm/submit` actually exists; the field is located down to `wrapperUid/fieldUid/innerFieldUid`; and `flowRegistry`, layout, and association-field `clickToOpen/openView` were persisted.
 - `setLayout`: `rows/sizes/rowOrder` fully matches expectations, and child coverage matches the number of column widths. Do not only check whether a single child still exists.
 - `setLayout`: if the user intent is "side by side in the same row / left-right split", readback must confirm that each target uid lands in a different top-level cell within the same row, for example `[[left], [right]]`. If readback shows `[[left, right]]`, it is a failure even if both children exist.

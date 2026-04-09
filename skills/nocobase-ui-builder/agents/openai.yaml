@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "Build NocoBase Modern pages with template reuse"
-  default_prompt: "Use $nocobase-ui-builder to inspect, plan, or edit NocoBase Modern page (v2) UI, and when template reuse is needed, search templates first, then apply them in reference/copy mode."
+  short_description: "Build Modern pages with high-level flow-surfaces APIs"
+  default_prompt: "Use $nocobase-ui-builder to inspect, plan, or edit NocoBase Modern page (v2) UI. Keep blueprint-first planning for high-level page intent, follow the skill's compiler contract for confirmed structural edits, and use live MCP schema as the source of truth. When template reuse is needed, search templates first, then apply them in reference/copy mode."
 
 dependencies:
   tools:

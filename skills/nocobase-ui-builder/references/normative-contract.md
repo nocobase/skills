@@ -1,12 +1,12 @@
 # Normative Contract
 
-This page is the single source of truth for `nocobase-ui-builder`. Rules involving blueprint-first page planning, `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
+This page is the single source of truth for `nocobase-ui-builder`. Rules involving blueprint-first page planning, high-level execution entry, `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
 
 ## 1. Precedence
 
 Rule precedence is always:
 
-1. live MCP schema / live `get` / `catalog` / `context` / `readback`
+1. live MCP schema / live `describeSurface` / `get` / `catalog` / `context` / `readback`
 2. this `Normative Contract`
 3. topic references (`popup` / `settings` / `verification` / `runtime-playbook`, etc.)
 4. example payloads / heuristic explanations
@@ -27,6 +27,7 @@ If a lower-priority document conflicts with a higher-priority live fact, follow 
 During blueprint planning, the skill may use:
 
 - `desktop_routes_list_accessible(tree=true)` for menu discovery
+- `flow_surfaces_describe_surface` when an existing surface needs public-tree / refs / fingerprint facts
 - `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context` for live UI capability and target-state inspection
 - read-only collection/schema discovery such as `collections:list`, `collections:get`, and `collections/{collectionName}/fields:list`
 
@@ -42,16 +43,67 @@ Do not use collection reads to mutate schema, and do not use schema reads as a s
 ### Confirmation Requirement
 
 - For page-building requests, showing the blueprint is mandatory before writes.
-- Only after the user confirms the blueprint may the skill enter `createPage`, `compose`, `add*`, `configure`, `setLayout`, or other mutation flows.
+- Only after the user confirms the blueprint may the skill enter `validatePlan` / `executePlan`, or low-level mutation flows such as `createPage`, `compose`, `add*`, `configure`, or `setLayout`.
 - If the user confirms only part of the blueprint, only execute the confirmed subset.
 
-## 3. Catalog Contract
+## 3. Execution Entry Contract
 
 ### Default Principles
 
+- Confirmed structural edits should default to backend planning execution, not hand-written primitive chaining.
+- For an existing surface, prefer `describeSurface -> validatePlan -> executePlan`.
+- For bootstrap menu/page creation, prefer `validatePlan -> executePlan` without a surface.
+- The low-level path `get -> [catalog] -> createPage/compose/add*/configure -> readback` is a fallback, not the default.
+- For the action mapping, `compose vs add*` choice, popup compilation rules, and coverage / fallback rules, follow [planning-compiler.md](./planning-compiler.md).
+
+### When High-Level Execution Is the Default
+
+Use backend planning execution by default when any of the following is true:
+
+- you are executing a confirmed `pageBlueprint`
+- you are creating a menu/page/tab chain that can be expressed as ordered plan steps
+- you are making a structural edit on an existing surface and can describe it as `plan.steps[]`
+- you want backend selector resolution, step refs, or fingerprint validation
+
+### When Low-Level Fallback Is Allowed
+
+Use direct primitive APIs only when any of the following is true:
+
+- the required action is not covered by current plan actions
+- the task is template search/save/manage rather than structure execution
+- the user explicitly asks for low-level control on a concrete target
+- the high-level plan path cannot express the change without losing required semantics
+
+### Encapsulation Requirement
+
+- `bindRefs` persistence and declared-ref storage are backend details. Do not surface them as required user-facing parameters or workflow steps.
+- Reverse persistence / ref persistence details are backend internals. Do not add them to the caller-facing workflow or parameter checklist.
+
+## 4. Catalog Contract
+
+### Default Principles
+
+- `catalog` is smart by default.
 - `catalog` is not globally mandatory.
+- When you call `catalog` without explicit `sections`, trust the returned `scenario` and `selectedSections` as the backend-chosen light response.
+- Only add `sections` when you need to override the default response shape.
+- Only add `expand` when you truly need heavier metadata such as `configureOptions`, contracts, or allowed container uses.
 - For an existing surface, default to `get` first. Only append `catalog` when a specific contract requires it.
 - For lifecycle APIs, fixed payload shapes, and simple writes that do not depend on live capability, do not mechanically add `catalog` out of habit.
+
+### Smart Response Workflow
+
+- Start with the light response: `catalog({ target })`.
+- Only add `expand` when you truly need heavier metadata such as `configureOptions`, contracts, or allowed container uses.
+- Only add `sections` when the default `selectedSections` is not enough, or when you intentionally want a narrower response surface.
+- Do not mechanically combine `sections + expand` on every call. Let the returned `selectedSections` drive the next step first.
+
+### Scenario Is Response Metadata
+
+- `scenario` is response metadata that explains how the backend interpreted the current target.
+- `scenario.surfaceKind` is always the stable top-level surface signal.
+- Depending on the target, the response may also include `scenario.popup`, `scenario.fieldContainer`, or `scenario.actionContainer`.
+- Do not invent request parameters such as `scenarioMode`, `smartMode`, or `surfaceScenario`. The caller only controls `target`, optional `sections`, and optional `expand`.
 
 ### When You Must Read `catalog`
 
@@ -76,12 +128,12 @@ You can usually skip `catalog` in the following cases:
 - Do not describe "did not read `catalog`" as "capability confirmed".
 - If skipping `catalog` means you can only confirm structure, keep the result phrased at the structural level. Do not escalate it to semantic confirmation.
 
-## 4. Popup Shell Fallback Contract
+## 5. Popup Shell Fallback Contract
 
 ### Terms
 
 - `shell-only popup`: a popup entry whose blueprint `completion = "shell-only"`. Only create the opener / popup subtree. Do not add `details`, `editForm`, `submit`, or similar content in this run.
-- `completed popup`: a popup entry whose blueprint `completion = "completed"`. This run creates the opener and also completes the popup content semantics requested by the user.
+- `completed popup`: a popup entry whose blueprint `completion = "completed"`. This run creates the opener and also completes the popup content semantics requested by the user, either through explicit popup blocks or through backend-supported default CRUD popup completion.
 
 ### Allowed Conditions
 
@@ -108,7 +160,7 @@ In these cases, either complete the popup content the user asked for, or stop an
 - A `shell-only popup` may only be described as "entry / popup shell created". It must not be described as "popup completed".
 - The maximum success level for `shell-only popup` is `structural-confirmed`, not `semantic-confirmed`.
 
-## 5. Schema Drift / Recovery Contract
+## 6. Schema Drift / Recovery Contract
 
 ### Trigger Signals
 

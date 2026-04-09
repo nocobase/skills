@@ -19,11 +19,11 @@ Default path quick reference:
 
 | intent | Default primary path | Minimum readback |
 | --- | --- | --- |
-| `inspect` | For menu titles, read the menu tree first. For initialized surfaces, start with `get`. Decide whether to append `catalog` via [normative-contract.md](./normative-contract.md). | `Inspect` in [verification.md](./verification.md) |
+| `inspect` | For menu titles, read the menu tree first. For initialized surfaces, start with `get`; only switch to `describeSurface` when the next step is existing-surface high-level execution. Decide whether to append `catalog` via [normative-contract.md](./normative-contract.md). | `Inspect` in [verification.md](./verification.md) |
 | `plan-page-blueprint` | Read [page-intent-planning.md](./page-intent-planning.md). Discover real schema facts, produce a `pageBlueprint`, and stop for user confirmation before any write. | read-only facts only; no write readback |
-| `create-menu-group` | `createMenu(type="group")`; add `parentMenuRouteId` when it must attach under a specific parent | return value; menu tree if needed |
-| `create-page` | `createMenu(type="item") -> createPage(menuRouteId=...)` | `get({ pageSchemaUid })` |
-| `update-ui` | First resolve the visible title/icon slot. Then use `get -> [append catalog if required by normative contract] ->`. Prefer `updateMenu` for menu entries, `updateTab` / `updatePopupTab` only for tab / popup-tab semantics, page `configure` only for page-header title, and inspect the render chain first for page-header icon. For everything else, prefer `compose/add*`, then consider `configure/updateSettings`. | direct parent, direct target, or the corresponding lifecycle target |
+| `create-menu-group` | Prefer bootstrap `validatePlan -> executePlan`, even for a single group. Direct `createMenu(type="group")` is the low-level fallback when you only need one isolated group. | return value; menu tree if needed |
+| `create-page` | Prefer bootstrap `validatePlan -> executePlan`; low-level fallback is `createMenu(type="item") -> createPage(menuRouteId=...)` | `get({ pageSchemaUid })` |
+| `update-ui` | First resolve the visible title/icon slot. For structural edits on an existing surface, prefer `describeSurface -> validatePlan -> executePlan`. Only fall back to `get -> [append catalog if required by normative contract] -> write -> readback` when the plan path cannot express the change or the user explicitly asks for low-level control. Prefer `updateMenu` for menu entries, `updateTab` / `updatePopupTab` only for tab / popup-tab semantics, page `configure` only for page-header title, and inspect the render chain first for page-header icon. | direct parent, direct target, or the corresponding lifecycle target |
 | `move-menu` | If `menuRouteId` is already known, call `updateMenu(parentMenuRouteId=...)` directly. If you only have a menu title, read the menu tree first. | menu tree |
 | `reorder` | Narrow sibling / target via `get`, then use `moveTab`, `movePopupTab`, or `moveNode` | parent, page, or route/tree |
 | `delete-ui` | After `get` / menu tree makes the target and blast radius explicit, use `destroyPage`, `removeTab`, `removePopupTab`, or `removeNode` | destructive / high-impact readback |
@@ -41,7 +41,7 @@ Default path quick reference:
 - If the blueprint includes popup semantics, make `popups[*].completion` explicit. Do not leave execution to guess whether a popup is `shell-only` or `completed`.
 - Do not invent missing fields. If the requested page depends on schema that does not exist, surface that gap in the blueprint and stop before writes.
 - Present the result as: human-readable explanation first, then a structured `pageBlueprint`.
-- Stop for confirmation. Do not call `createPage`, `compose`, `add*`, `configure`, `setLayout`, or popup-building writes before the user confirms the blueprint.
+- Stop for confirmation. Do not call `validatePlan` / `executePlan`, `createPage`, `compose`, `add*`, `configure`, `setLayout`, or popup-building writes before the user confirms the blueprint.
 
 ## 4. Resolve Visible Slot (`title` / `icon` only)
 
@@ -55,7 +55,7 @@ Default path quick reference:
 ## 5. Resolve Family / Locator
 
 - For menu-title discovery, always start with `desktop_routes_list_accessible(tree=true)`. It only represents the menu tree visible to the current role, not the full system truth. Only accept a uniquely matched `group`.
-- For initialized surfaces, default to `flow_surfaces_get` first. Choose `uid`, `pageSchemaUid`, `tabSchemaUid`, or `routeId` based on the live locator fields.
+- For initialized surfaces, use `flow_surfaces_get` when you still need to narrow the family, local structure, or exact write target uid. Choose `uid`, `pageSchemaUid`, `tabSchemaUid`, or `routeId` based on the live locator fields.
 - For mappings between family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md).
 - If the target is still not unique, stop. Do not guess based on sibling-relative position.
 
@@ -68,25 +68,29 @@ Default path quick reference:
 
 ## 7. Read Path
 
-- For an existing surface, default to `get` first. Whether to append `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
+- For localized inspection, low-level fallback writes, or direct readback, default to `get` first.
+- For an existing surface, switch to `describeSurface` when the next step is high-level execution and you need `fingerprint`, existing refs, or a public-tree anchor for `validatePlan` / `executePlan`.
+- When you do call `catalog`, default to the smart response first. Do not add `sections/expand` unless the current decision truly needs a broader payload.
 - For page-blueprint planning, use read-only schema discovery first; do not jump into write-target reads until the blueprint is already confirmed.
 - For popup guard-sensitive scenarios, follow the `guard-first popup flow` in [popup.md](./popup.md). For the `addField/addFields` gate, see [capabilities.md](./capabilities.md).
-- `inspect` is read-only. For request shapes of `get` / `catalog` / `context`, see [tool-shapes.md](./tool-shapes.md).
+- `inspect` is read-only. For request shapes of `describeSurface` / `get` / `catalog` / `context`, see [tool-shapes.md](./tool-shapes.md).
 
 ## 8. Write Path
 
-- Default write chain: `get -> [append catalog if required by normative contract] -> write -> readback`.
+- Default write chain for a confirmed structural edit is `describeSurface -> validatePlan -> executePlan -> readback`.
+- Default write chain for bootstrap page/menu creation is bootstrap `validatePlan -> executePlan -> readback`.
+- Low-level fallback remains `get -> [append catalog if required by normative contract] -> write -> readback`.
 - If the request came in as a high-level page-building request, do not enter this section until the blueprint has been confirmed.
-- If you are only creating a menu group, call `createMenu(type="group")` directly.
-- For creating a new page, prefer the menu-first path by default: `createMenu(type="item") -> createPage(menuRouteId=...)`.
+- If you are only creating a menu group, prefer a one-step bootstrap plan; direct `createMenu(type="group")` is acceptable as fallback.
+- For creating a new page, prefer bootstrap planning by default; low-level fallback is the menu-first path `createMenu(type="item") -> createPage(menuRouteId=...)`.
 - When executing from a confirmed `pageBlueprint`, keep each block/action/field mapped back to the blueprint node:
   - `data-bound block`s must preserve the confirmed data-source semantics from `dataSources` / `dataSourceKey`.
   - `non-data block`s may stay unbound.
-  - Popup actions count as incomplete unless the blueprint explicitly scoped the popup as `completion = "shell-only"`.
+  - Popup actions count as incomplete unless the blueprint explicitly scoped the popup as `completion = "shell-only"` or explicitly relies on backend default CRUD popup completion.
 - If the confirmed blueprint uses popup-scoped binding data sources such as `currentRecord` or `associatedRecords`, follow the popup guard flow and verify that the live popup `catalog` still exposes the required binding before finishing execution.
 - For `target.mode = "update-page"`, resolve the existing target from the confirmed locator first. Do not silently downgrade to `create-page`.
 - For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.
-- For an existing target, prefer `compose/add*`, then consider `configure/updateSettings`. Only the immediate next target uid that was just returned by a write API may skip one leading `get`.
+- Compile confirmed structure changes into `plan.steps[]` first, then use `validatePlan` / `executePlan`. For the action mapping, `compose vs add*` choice, popup compilation rules, and coverage / fallback rules, follow [planning-compiler.md](./planning-compiler.md).
 - For template-aware writes, first decide whether the write should use local inline content or a saved template reference/copy. Use [templates.md](./templates.md) for `listTemplates`, `saveTemplate`, `convertTemplateToCopy`, and `add*/compose/configure` template shapes.
 - For popup payload shapes and `popup.mode`, see [tool-shapes.md](./tool-shapes.md).
 - For guard-sensitive popups, always follow the `guard-first popup flow` in [popup.md](./popup.md).
@@ -103,6 +107,7 @@ Default path quick reference:
 - `setLayout/setEventFlows` are high-impact full-replace operations.
 - `destroyPage/remove*`, `apply(mode="replace")`, `compose(mode="replace")`, and replace-style `mutate` are destructive.
 - Blueprint confirmation is also a risk gate for page-building requests. Do not treat "the user asked for a page" as automatic approval to write a guessed structure.
+- `executePlan` does not remove blast-radius review. For high-impact or destructive plan steps, explain the boundary before execution just as you would for direct low-level writes.
 - For high-impact or destructive paths, explain the blast radius first. Do not default to these paths unless the user is explicitly asking for a full replacement.
 
 ## 10. Topic Gate

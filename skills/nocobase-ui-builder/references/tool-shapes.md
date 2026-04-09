@@ -5,29 +5,219 @@ Read this file when family, locator, and target uid are already known, and the o
 ## Contents
 
 1. One-screen hard rules
-2. Root-level locator `get`
-3. `requestBody` without `target`
-4. target-based `requestBody.target.uid`
-5. Canonical payload for `context`
-6. Canonical payload for `setLayout`
-7. `apply` / `mutate`
-8. Common invalid shapes
+2. Minimal plan envelopes
+3. `catalog` request / response shape
+4. Root-level locator `get`
+5. `requestBody` without `target`
+6. target-based `requestBody.target.uid`
+7. Canonical payload for `context`
+8. Canonical payload for `setLayout`
+9. `apply` / `mutate`
+10. Common invalid shapes
 
 ## One-Screen Hard Rules
 
 - `flow_surfaces_get` only accepts `uid`, `pageSchemaUid`, `tabSchemaUid`, and `routeId`
+- `get` accepts root-level locators only; `describeSurface`, `validatePlan`, and `executePlan` use the request envelopes shown below
 - `get` accepts neither `requestBody` nor `target`
 - If family / locator is not resolved yet, do not assemble the payload directly. Go back to [runtime-playbook.md](./runtime-playbook.md) first
 - Other than `pageSchemaUid/tabSchemaUid/routeId`, all other ids should default into `uid` for reads
 - Most write APIs require a `requestBody`; many of them then place `target.uid` inside `requestBody`
 - `createMenu`, `updateMenu`, and `createPage` are lifecycle APIs and do not accept `target`
-- `createPage(menuRouteId=...)` is the recommended entry. Calling `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page
+- `createPage` initializes a bindable menu item when `menuRouteId` is provided. Calling `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page
 - In the current implementation, `tabSchemaUid` can be used both as the `get` locator for `outer-tab` and directly as its write target uid, but `pageSchemaUid` and `routeId` are still `get` locators only
 - `setLayout` and `setEventFlows` are high-impact full-replace APIs. Read the full current state first, then decide whether to write
 - Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
 - Template-aware creation uses the same payload families. `addBlock/addBlocks/compose` may carry `template`; `addField/addFields` may carry `template` for fields templates; popup-capable actions and fields may carry `popup.template`
+- `validatePlan` / `executePlan` caller input should use `{ "step": "...", "path": "..." }` for cross-step references. Do not hand-write raw `{ "ref": "..." }` or `$ref`
 - Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
 - Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
+
+## Minimal plan envelopes
+
+This section only records the legal envelope of the high-level plan / execution APIs. Execution preference, compilation policy, and fallback rules live in [execution-checklist.md](./execution-checklist.md) and [planning-compiler.md](./planning-compiler.md).
+
+### Existing surface: `describeSurface -> validatePlan -> executePlan`
+
+`describeSurface` anchors an existing editable surface:
+
+```json
+{
+  "requestBody": {
+    "locator": {
+      "pageSchemaUid": "employees-page-schema"
+    }
+  }
+}
+```
+
+`validatePlan` for an existing surface uses the `surface` + `expectedFingerprint` envelope:
+
+```json
+{
+  "requestBody": {
+    "surface": {
+      "locator": {
+        "pageSchemaUid": "employees-page-schema"
+      }
+    },
+    "expectedFingerprint": "fingerprint-from-describeSurface",
+    "plan": {
+      "steps": [
+        {
+          "id": "composeTable",
+          "action": "compose",
+          "selectors": {
+            "target": {
+              "locator": {
+                "uid": "page-grid-uid"
+              }
+            }
+          },
+          "values": {
+            "mode": "append",
+            "blocks": [
+              {
+                "key": "employeesTable",
+                "type": "table",
+                "resource": {
+                  "dataSourceKey": "main",
+                  "collectionName": "employees"
+                },
+                "fields": ["nickname"]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+`executePlan` for the same existing surface uses the same request envelope as `validatePlan`.
+
+### Bootstrap creation: `validatePlan -> executePlan`
+
+`validatePlan` for bootstrap creation omits both `surface` and `expectedFingerprint`:
+
+```json
+{
+  "requestBody": {
+    "plan": {
+      "steps": [
+        {
+          "id": "workspace",
+          "action": "createMenu",
+          "values": {
+            "title": "Workspace",
+            "type": "group"
+          }
+        },
+        {
+          "id": "employeesMenu",
+          "action": "createMenu",
+          "values": {
+            "title": "Employees",
+            "type": "item",
+            "parentMenuRouteId": {
+              "step": "workspace",
+              "path": "routeId"
+            }
+          }
+        },
+        {
+          "id": "employeesPage",
+          "action": "createPage",
+          "values": {
+            "menuRouteId": {
+              "step": "employeesMenu",
+              "path": "routeId"
+            },
+            "tabTitle": "Overview"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+`executePlan` for bootstrap uses the same request envelope as `validatePlan`.
+
+Shape rules:
+
+- Existing-surface plans carry `surface.locator` plus `expectedFingerprint`; bootstrap plans carry neither.
+- In caller input, plan-step cross references use `{ "step": "...", "path": "..." }`.
+- `selectors.target/source` belong to the plan-step layer; do not mix low-level `target.uid` into plan-step `values`.
+- Use `locator` inside `selectors` when the step points to an already existing surface or node.
+
+## `catalog` request / response shape
+
+When `requestBody.sections` is omitted, the backend may choose `selectedSections` automatically and report them in the response.
+
+Minimal light-response request:
+
+```json
+{
+  "requestBody": {
+    "target": {
+      "uid": "page-grid-uid"
+    }
+  }
+}
+```
+
+Example with `expand`:
+
+```json
+{
+  "requestBody": {
+    "target": {
+      "uid": "page-grid-uid"
+    },
+    "expand": [
+      "item.configureOptions",
+      "item.contracts",
+      "node.contracts"
+    ]
+  }
+}
+```
+
+Example with explicit `sections` override:
+
+```json
+{
+  "requestBody": {
+    "target": {
+      "uid": "details-block-uid"
+    },
+    "sections": ["recordActions", "node"]
+  }
+}
+```
+
+Minimal response skeleton:
+
+```json
+{
+  "target": {
+    "uid": "page-grid-uid",
+    "kind": "route-content"
+  },
+  "scenario": {
+    "surfaceKind": "route-content"
+  },
+  "selectedSections": ["blocks", "actions", "node"]
+}
+```
+
+Notes:
+
+- `scenario` and `selectedSections` are response metadata; they are not request-mode switches
+- Depending on the target, `scenario.popup`, `scenario.fieldContainer`, and `scenario.actionContainer` may also appear
+- `response.selectedSections` reports the effective section selection used by the backend
 
 ## Root-Level Locator `get`
 
@@ -68,7 +258,7 @@ These tools all have `requestBody`, but do not accept `requestBody.target.uid`:
 | --- | --- | --- |
 | `createMenu` | `flow_surfaces_create_menu` | `requestBody.title`, optional `type/icon/tooltip/hideInMenu/parentMenuRouteId` |
 | `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`, optional `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
-| `createPage` | `flow_surfaces_create_page` | `requestBody.menuRouteId` is recommended; other common fields include `title/tabTitle/enableTabs` |
+| `createPage` | `flow_surfaces_create_page` | `requestBody.menuRouteId` initializes a bindable menu item; other common fields include `title/tabTitle/enableTabs` |
 | `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`, which must be `pageUid` |
 | `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`; outer tab uses `tabSchemaUid` directly |
 | `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid`; outer tab uses `tabSchemaUid` directly |
@@ -111,10 +301,10 @@ These tools all require:
 - `updateTab.target.uid = tabSchemaUid`
 - `addPopupTab.target.uid = popupPageUid`
 - `updatePopupTab/removePopupTab.target.uid = popupTabUid`
-- For route-backed content areas, `catalog/compose/add*` should prefer `target.uid = gridUid`
-- For popup content areas, `catalog/compose/add*` should prefer `target.uid = popupGridUid`
-- For outer-tab surface `catalog/configure`, use `target.uid = tabSchemaUid`
-- For popup-tab surface `catalog/configure`, use `target.uid = popupTabUid`
+- For route-backed content areas, the common `target.uid` is `gridUid`
+- For popup content areas, the common `target.uid` is `popupGridUid`
+- For outer-tab surface `catalog/configure`, the common `target.uid` is `tabSchemaUid`
+- For popup-tab surface `catalog/configure`, the common `target.uid` is `popupTabUid`
 
 Rules:
 
@@ -363,9 +553,8 @@ Rules:
 - `apply` only supports `mode = "replace"`
 - `mutate` defaults to `atomic = true`
 - Chain references inside `mutate` always use `{ "ref": "<opId>.<path>" }`
-- The `mutate` snippet above only demonstrates request shape and chained references. Do not treat it as the recommended method for ordinary page creation or small daily edits
-- Only use `apply/mutate` when public entry points cannot express the change and you have fully confirmed target / shape / ordering
-- `apply(mode="replace")` and replace-style `mutate` default to destructive-path handling: explain the blast radius first, then perform full readback
+- The `mutate` snippet above only demonstrates request shape and chained references
+- `apply(mode="replace")` and replace-style `mutate` are destructive request shapes and require full readback after execution
 
 ## Common Invalid Shapes
 
@@ -373,13 +562,13 @@ Rules:
 - treating `pageSchemaUid` / `routeId` as `target.uid`
 - forgetting the outer `requestBody` on lifecycle APIs
 - calling page/tab lifecycle APIs after `createMenu(type="item")` but before `createPage(menuRouteId=...)`
+- hand-writing raw `{ "ref": "step.path" }` or `$ref` inside `validatePlan/executePlan` caller input instead of `{ "step": "...", "path": "..." }`
 - passing `currentRecord` as a bare locator or `target.uid`
 - placing `currentRecord` / `associatedRecords` directly into an inline popup subtree that has not gone through popup-content `catalog` validation
 - writing popup-internal `resource` as a string, such as `resource: "currentRecord"` or `resource: "associatedRecords"`
 - carrying a `popup` subtree but omitting `popup.mode`, then relying on runtime fallback; canonical skill payloads must explicitly write `append` or `replace`
 - mixing `resource` and `resourceInit` on a popup collection block: semantic binding uses the `resource` object; non-popup or raw resource initialization uses `resourceInit`
 - treating `settings.props.*`, `settings.decoratorProps.*`, or `settings.stepParams.*` as legal inputs to `add*`
-- still defaulting to "add first, then configure" for frequent attributes that are already exposed in live `configureOptions`
 - writing a two-column layout as `rows[rowKey] = [[a, b]]` while also passing `sizes[rowKey] = [12, 12]`
 - making the top-level lengths of `rows[rowKey]` and `sizes[rowKey]` inconsistent
 - miswriting the user's "side by side in one row" intent as a single cell such as `rows[rowKey] = [[left, right]]`

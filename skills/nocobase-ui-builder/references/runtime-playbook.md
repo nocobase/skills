@@ -23,6 +23,8 @@ Read this file when you already know what needs to be created, modified, or reor
 
 Compatibility aliases: in popup scenarios, if the live environment only exposes `tabUid`, treat it as `popupTabUid`; if it only exposes `gridUid`, treat it as `popupGridUid`. In menu discovery results, `routeId` usually becomes `menuRouteId` / `parentMenuRouteId` in menu semantics.
 
+For confirmed structural edits, prefer anchoring the current surface through `describeSurface` before compiling plan steps. Keep `get` for localized inspection, low-level fallback, and post-write readback.
+
 ## Surface Families
 
 | Family | Semantics | Default write target uid | Preferred read locator | Common use |
@@ -65,12 +67,11 @@ Notes: `menu-group` has no corresponding flow tree, so do not treat it like a no
 ## Default Write Flow
 
 1. **Discover parent menu by menu title**: `desktop_routes_list_accessible(tree=true)`. Only accept a uniquely matched `group`. Also remember that it only shows the menu tree visible to the current role, so you must not infer "system does not exist" from "not visible here".
-2. **Create a menu group**: `createMenu(type="group")`. If a page will be created under this group next, reuse the returned `routeId` as `parentMenuRouteId`.
-3. **Create a complete page**: `createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`. The `pre-init ids` returned from `createMenu(type="item")` may only continue the initialization chain. When continuing to add content, take the `gridUid` returned by `createPage` and run `[decide whether to append catalog by normative contract] -> compose/add* + settings/configure -> readback`.
+2. **Create a menu group**: default to a bootstrap one-step plan `validatePlan -> executePlan`. Direct `createMenu(type="group")` is only the low-level fallback when the user truly wants one isolated group and nothing else in the same chain.
+3. **Create a complete page**: default to bootstrap `validatePlan -> executePlan`, typically chaining `createMenu(type="group"/"item") -> createPage(menuRouteId=...) -> addTab/configure/compose`. The low-level fallback is `createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`. The `pre-init ids` returned from `createMenu(type="item")` may only continue the initialization chain.
 4. **Compatibility-mode create page first, then move it into menu**: `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page. If the user also wants it mounted under a menu, run `updateMenu` afterwards.
-5. **Add an `outer-tab` to an existing `page`**: read back the `page` first, get `pageUid`, then call `addTab(target.uid = pageUid)`.
-6. **Small adjustment or precise append on an existing target**: `get -> [decide whether to append catalog by normative contract] ->` prefer `compose/add*` first, then consider `configure/updateSettings`. Only use `setLayout/setEventFlows` when the user explicitly accepts whole replacement and you have already read the full current state. Only use `apply/mutate` when the public entry points cannot express the change and the user explicitly accepts the blast radius.
-7. **Write into an existing popup subtree**: if the current execution chain did not directly receive popup uids, read back the popup subtree first from `hostUid` or `popupPageUid`. For the record-popup `currentRecord` guard, see [popup.md](./popup.md).
+5. **Existing-surface structural edit**: default to `describeSurface -> validatePlan -> executePlan`. Keep `get` for local inspection, low-level fallback, and readback. For the action mapping, compiler coverage, and fallback rules, see [planning-compiler.md](./planning-compiler.md).
+6. **Write into an existing popup subtree**: if the current execution chain did not directly receive popup uids, read back the popup subtree first from `hostUid` or `popupPageUid`. For the record-popup `currentRecord` guard and backend-default CRUD popup completion, see [popup.md](./popup.md).
 
 ## Prompt Regression Examples
 

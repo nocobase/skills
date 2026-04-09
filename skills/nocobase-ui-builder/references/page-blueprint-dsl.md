@@ -337,13 +337,13 @@ Each popup entry should include:
 - `id`
 - `title` when user-facing labeling matters
 - `completion`: `completed` or `shell-only`
-- `blocks` when `completion = "completed"`
+- `blocks` when `completion = "completed"` and execution does not rely on backend default CRUD popup completion
 
 Rules:
 
 - Put popup content into `popups` when the page structure depends on popup completion.
 - A popup action is not "done" unless the popup content semantics were also planned, unless the user explicitly wants shell-only popup setup.
-- `completion = "completed"` requires meaningful popup content in `blocks`.
+- `completion = "completed"` requires meaningful popup content, either through explicit `blocks` or through a clearly stated dependency on backend default CRUD popup completion.
 - `completion = "shell-only"` may omit `blocks` or use an empty list, but it must not be described as completed popup content.
 - Every referenced `popupId` must resolve to a defined popup entry in the same blueprint.
 - Popup blocks follow the same `dataBound` / `dataSourceKey` rules as page blocks.
@@ -383,7 +383,7 @@ Illustrative shell-only popup:
 
 ## 10. Execution Expectations
 
-- Execution should translate `pageBlueprint` node by node into `createPage`, `setLayout`, `compose`, `add*`, `configure`, and popup-building writes.
+- Execution should hand the confirmed `pageBlueprint` to [planning-compiler.md](./planning-compiler.md), compile it into `plan.steps[]`, and then run `validatePlan` / `executePlan` by default.
 - Execution should translate blueprint-level `dataSources` into live `resource` / `resourceInit` payloads only at write time.
 - Execution must not silently widen the scope beyond the confirmed blueprint.
-- If a confirmed blueprint node cannot be expressed through live `catalog` facts, stop execution and return to blueprint revision.
+- If a confirmed blueprint node cannot be expressed through live `catalog` facts or current plan coverage, stop execution and return to blueprint revision instead of guessing a low-level path.
