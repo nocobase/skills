@@ -44,11 +44,6 @@ description: "Trigger flows via external HTTP POST calls, supporting request par
 | response.headers[].value | string | - | Yes | Response header value (supports template variables). |
 | response.body | object | - | No | Response body (JSON), supports template variables. |
 
-## Trigger Variables
-- `$context.headers`: Request headers object (complete raw headers).
-- `$context.query`: Parsed query parameters object, including raw objects and mapped variables (e.g., `query_$0`).
-- `$context.body`: Parsed JSON request body object, including raw objects and mapped variables (e.g., `body_$0`).
-
 ## Example Configuration
 ```json
 {
@@ -79,3 +74,11 @@ description: "Trigger flows via external HTTP POST calls, supporting request par
   }
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
+
+- Exposed roots are created only from the configured request extraction items: `headers`, `query`, and `body`.
+- Each child node uses `alias` for display, but the runtime path uses `_var` when present; otherwise it falls back to `key`.
+- That means a configured query item may display as `Event` while the actual expression is still `{{$context.query.query_$0}}`.
+- Example references for the sample configuration above: `{{$context.query.query_$0}}`, `{{$context.body.body_$0}}`, `{{$context.headers.x-signature}}`.

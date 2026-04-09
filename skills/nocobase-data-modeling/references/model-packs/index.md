@@ -20,7 +20,7 @@ Use a pack only after the table, field, relation, and plugin decisions are alrea
 Compact modeling reminder:
 
 - model packs often contain expanded or read-back style structures;
-- do not copy them directly into `nocobase-api data-modeling collections apply` or `fields apply`;
+- do not copy them directly into a compact `collections apply` or `fields apply` request;
 - first reduce them to compact payloads that keep only collection template, business fields, relation intent, and the small set of non-derivable options.
 
 Current packs:
