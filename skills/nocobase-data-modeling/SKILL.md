@@ -1,43 +1,58 @@
 ---
 name: nocobase-data-modeling
-description: Create and manage NocoBase data models via nocobase-api. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
+description: Create and manage NocoBase data models through the available data-modeling surface. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
 argument-hint: "[collection-name] [operation: list|get|apply|destroy|fields|db-views]"
-allowed-tools: shell, local file reads, nocobase-api
+allowed-tools: shell, local file reads
 ---
 
 # Goal
 
-Use `nocobase-api` to inspect and change collections, fields, relations, and view-backed schemas.
+Use the available NocoBase data-modeling surface to inspect and change collections, fields, relations, and view-backed schemas.
+
+Prefer the transport in this order:
+
+- the `nocobase` CLI whenever it is available
+- MCP only when the CLI is unavailable and the current session is already connected through MCP with the needed operation exposed there
+- another equivalent data-modeling transport only when the CLI is unavailable and it exposes the same operation surface
+
+Do not make the skill depend on one executable name. Treat CLI command names, MCP tool names, and equivalent wrappers as transport details around the same modeling operations.
+
+Transport-selection rule:
+
+1. Check whether the `nocobase` CLI is available in the current environment.
+2. If it is available, use the CLI.
+3. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI instead of switching to MCP.
+4. Only fall back to MCP or another transport when the CLI itself is unavailable.
 
 Read `references/decision-matrix.md` first when the request is broad or the correct modeling path is unclear.
 
 # Mandatory Gates
 
-1. Confirm `nocobase-api` is reachable and authenticated before any write operation.
+1. Confirm the chosen data-modeling transport is reachable and authenticated before any write operation. If `nocobase` CLI is available, that should be the chosen transport.
 2. For plugin-backed tables or fields, read `references/plugin-provided-capabilities.md` before mutating schema.
 3. For `view` collections, verify the upstream database view exists with `db-views list|get` before creating or updating anything.
-4. Before using a modeling command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples.
+4. Before using a `nocobase` CLI modeling command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples. When CLI is unavailable and the transport is MCP or another non-CLI surface, inspect its exposed parameter schema before first use.
 
-Stop and ask the user to fix auth when CLI returns `401`, `403`, `Auth required`, or equivalent token errors.
+Stop and ask the user to fix auth when the chosen transport returns `401`, `403`, `Auth required`, or equivalent access errors. If the chosen transport is `nocobase` CLI, guide the user to restore CLI authentication rather than switching transports.
 
 # Final Command Surface
 
-Use only the `nocobase-api data-modeling` commands:
+Use only this final data-modeling operation surface:
 
-- Inspect collections: `nocobase-api data-modeling collections list`
-- Inspect one collection: `nocobase-api data-modeling collections get`
-- Inspect fields in one collection: `nocobase-api data-modeling collections fields list`
-- Create or update a collection with compact payload: `nocobase-api data-modeling collections apply`
-- Create or update fields with compact payload: `nocobase-api data-modeling fields apply`
-- Delete a collection: `nocobase-api data-modeling collections destroy`
-- Inspect database views: `nocobase-api data-modeling db-views list|get`
+- Inspect collections: `collections list`
+- Inspect one collection: `collections get`
+- Inspect fields in one collection: `collections fields list`
+- Create or update a collection with compact payload: `collections apply`
+- Create or update fields with compact payload: `fields apply`
+- Delete a collection: `collections destroy`
+- Inspect database views: `db-views list|get`
 
-Prefer learning exact flags from help instead of keeping large command-shape reminders in prompt context:
+When the transport is CLI-based, prefer learning exact flags from help instead of keeping large command-shape reminders in prompt context:
 
-- `nocobase-api data-modeling collections apply --help`
-- `nocobase-api data-modeling collections fields list --help`
-- `nocobase-api data-modeling fields apply --help`
-- `nocobase-api data-modeling collections destroy --help`
+- `nocobase data-modeling collections apply --help`
+- `nocobase data-modeling collections fields list --help`
+- `nocobase data-modeling fields apply --help`
+- `nocobase data-modeling collections destroy --help`
 
 Do not prefer older low-level collection or nested field commands when the final command surface can handle the task.
 
@@ -48,7 +63,7 @@ Do not prefer older low-level collection or nested field commands when the final
 3. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
 4. Relations come after the base collection and scalar fields are correct.
 5. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
-6. If the requested behavior cannot be expressed through the final command surface, stop and explain what is missing instead of silently falling back to an older path.
+6. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
 
 ## Compact Payload Rules
 
@@ -60,7 +75,7 @@ Do not prefer older low-level collection or nested field commands when the final
 - Usually do not pass `type`. Let the server derive it from `interface`. Only pass `type` when the current command help or a reference explicitly requires it.
 - Unknown `interface` values now fail fast. If the correct interface is unclear, stop and inspect references or command help instead of guessing.
 - If you choose a plugin-backed interface such as `vditor`, `formula`, map geometry fields, or special relation fields, confirm the plugin-backed capability first.
-- If a reference file shows a fully expanded collection JSON, treat it as structure reference or read-back reference, not as the preferred compact CLI payload.
+- If a reference file shows a fully expanded collection JSON, treat it as structure reference or read-back reference, not as the preferred compact apply payload.
 
 ## Default Interface Bias
 
@@ -92,7 +107,7 @@ Do not prefer older low-level collection or nested field commands when the final
 - Start with `collections list` or `collections get`.
 - When you need the current field set of one collection, use `collections fields list`.
 - When the request involves a view-backed model, inspect `db-views list|get` first.
-- Run the relevant command `--help` before first use in the current task.
+- In CLI flows, run the relevant command `--help` before first use in the current task.
 - For broad modeling tasks, load the matching references before writing.
 
 ## 2. Decide the model
@@ -166,7 +181,7 @@ Do not emulate `tree` or `file` with weaker general-table substitutes unless the
 # Error Handling
 
 - `400` or `422`: inspect the payload, then correct collection type, field interface, missing required options, enum shape, or relation keys before retrying.
-- Auth errors: stop and ask the user to restore CLI auth.
+- Auth errors: stop and ask the user to restore access for the chosen transport.
 - Missing plugin or view prerequisite: stop and tell the user exactly what is missing.
 
 # Reference Index
