@@ -25,7 +25,7 @@ Common field groups to mention first:
 
 ## Compact first checklist
 
-For `nocobase-api data-modeling fields apply` and compact `collections apply` payloads, start from the smallest safe shape:
+For compact `fields apply` and `collections apply` payloads, start from the smallest safe shape:
 
 - `name`
 - `interface`

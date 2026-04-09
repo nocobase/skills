@@ -38,3 +38,6 @@ Branches are not supported.
   }
 }
 ```
+
+## Output Variables
+This node does not output variables.

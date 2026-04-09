@@ -4,7 +4,7 @@ Use this file for ordinary text, numbers, booleans, and specialized scalar input
 
 Compact-flow rule:
 
-- for `nocobase-api data-modeling`, the usual request only needs `name`, `interface`, and optional `title`;
+- for the compact data-modeling apply flow, the usual request only needs `name`, `interface`, and optional `title`;
 - do not proactively send `type` or `uiSchema` unless the task is explicitly about advanced overrides or stored-shape inspection;
 - the expanded snippets below are structure references, not the default request payload.
 

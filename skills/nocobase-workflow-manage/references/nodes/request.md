@@ -29,7 +29,7 @@ Calling external system interfaces such as payment or logistics.
 | ignoreFail | boolean | false | No | Whether to ignore request failure and continue the process. |
 | onlyData | boolean | false | No | Return only the `data` field (interface response body); defaults to returning full response information. |
 
-### data Format Description
+### Data Format Description
 - `application/json`: Object or array.
 - `application/x-www-form-urlencoded`: Array `[{ name, value }]`.
 - `multipart/form-data`: Array `[{ name, valueType: 'text'|'file', text?, file? }]`; files support attachment records or arrays.
@@ -58,3 +58,11 @@ Does not support branches.
   "ignoreFail": false
 }
 ```
+
+## Output Variables
+The variable selector for this node is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`.
+
+- When `onlyData=false`, the node exposes `status`, `data`, and `headers`.
+- When `onlyData=true`, only the node root is exposed, so reference the whole result as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+- The selector does not expand nested fields inside `data`; if the response body is structured JSON and you need named child variables, follow this node with `json-query` or `json-variable-mapping`.
+- Example references: `{{$jobsMapByNodeKey.http_call.status}}`, `{{$jobsMapByNodeKey.http_call.data}}`, `{{$jobsMapByNodeKey.http_call.headers}}`.
