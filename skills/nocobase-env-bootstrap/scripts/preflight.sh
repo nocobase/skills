@@ -47,6 +47,44 @@ resolve_mcp_url() {
   printf 'http://127.0.0.1:%s/api/mcp' "$DEFAULT_PORT"
 }
 
+activation_plugins_csv() {
+  local plugins="@nocobase/plugin-mcp-server"
+  case "$MCP_AUTH_MODE" in
+    api-key) plugins="${plugins},@nocobase/plugin-api-keys" ;;
+    oauth) plugins="${plugins},@nocobase/plugin-idp-oauth" ;;
+  esac
+  printf '%s' "$plugins"
+}
+
+plugin_step_id() {
+  case "$1" in
+    @nocobase/plugin-mcp-server) printf 'plugin_manage_enable_mcp_server' ;;
+    @nocobase/plugin-api-keys) printf 'plugin_manage_enable_api_keys' ;;
+    @nocobase/plugin-idp-oauth) printf 'plugin_manage_enable_idp_oauth' ;;
+    *) printf 'plugin_manage_enable_plugin' ;;
+  esac
+}
+
+plugin_enable_hint() {
+  local plugins_csv="$1"
+  local plugin_args
+  plugin_args="$(printf '%s' "$plugins_csv" | tr ',' ' ')"
+  printf 'Run fixed sequence: Use $nocobase-plugin-manage enable %s -> restart app -> rerun postcheck. Enable bundle: %s. Do not bypass plugin-manage with ad-hoc container shell plugin commands; plugin-manage may auto-select docker CLI internally.' "$plugin_args" "$plugins_csv"
+}
+
+emit_activate_plugin_action() {
+  local plugins_csv="$1"
+  printf 'action_required: activate_plugin\n'
+  local old_ifs="$IFS"
+  IFS=','
+  for plugin in $plugins_csv; do
+    printf 'required_step: %s\n' "$(plugin_step_id "$plugin")"
+  done
+  IFS="$old_ifs"
+  printf 'required_step: restart_app\n'
+  printf 'required_step: rerun_mcp_postcheck\n'
+}
+
 http_status() {
   local url="$1"
   local token="${2:-}"
@@ -165,9 +203,18 @@ else
 fi
 
 if [[ "$MCP_REQUIRED" == "1" || "$MCP_REQUIRED" == "true" || "$MCP_REQUIRED" == "TRUE" ]]; then
+  APP_BASE_URL="http://127.0.0.1:${DEFAULT_PORT}"
+  PLUGIN_MANAGER_URL="${APP_BASE_URL}/admin/settings/plugin-manager"
+  API_KEYS_CONFIG_URL="${APP_BASE_URL}/admin/settings/api-keys"
   TARGET_MCP_URL="$(resolve_mcp_url)"
+  ACTIVATION_PLUGINS_CSV="$(activation_plugins_csv)"
+  PLUGIN_ENABLE_HINT="$(plugin_enable_hint "$ACTIVATION_PLUGINS_CSV")"
+  APP_RESTART_HINT="App may still be reloading. Restart app, wait for startup complete, then retry."
   printf 'mcp_target: %s\n' "$TARGET_MCP_URL"
   printf 'mcp_auth_mode: %s\n' "$MCP_AUTH_MODE"
+  printf 'mcp_activation_plugins: %s\n' "$ACTIVATION_PLUGINS_CSV"
+  printf 'mcp_manual_plugin_manager_url: %s\n' "$PLUGIN_MANAGER_URL"
+  printf 'mcp_manual_api_keys_url: %s\n' "$API_KEYS_CONFIG_URL"
 
   if [[ -n "$MCP_PACKAGES" ]]; then
     record pass MCP-PKG-001 "x-mcp-packages configured ($MCP_PACKAGES)."
@@ -176,29 +223,57 @@ if [[ "$MCP_REQUIRED" == "1" || "$MCP_REQUIRED" == "true" || "$MCP_REQUIRED" == 
   fi
 
   ROUTE_STATUS="$(http_status "$TARGET_MCP_URL")"
+  ROUTE_BLOCKED=0
   if [[ -z "$ROUTE_STATUS" ]]; then
     record warn MCP-ENDPOINT-001 "Cannot verify MCP endpoint reachability." "Ensure app is running and MCP endpoint is reachable."
+    ROUTE_BLOCKED=1
   elif [[ "$ROUTE_STATUS" == "404" ]]; then
-    record fail MCP-ENDPOINT-001 "MCP endpoint returned 404 ($TARGET_MCP_URL)." "Activate MCP Server plugin manually in NocoBase admin, then retry preflight."
+    record fail MCP-ENDPOINT-001 "MCP endpoint returned 404 ($TARGET_MCP_URL)." "$PLUGIN_ENABLE_HINT"
+    emit_activate_plugin_action "$ACTIVATION_PLUGINS_CSV"
+    ROUTE_BLOCKED=1
+  elif [[ "$ROUTE_STATUS" == "503" || "$ROUTE_STATUS" == 5* ]]; then
+    record fail MCP-ENDPOINT-001 "MCP endpoint responded with $ROUTE_STATUS ($TARGET_MCP_URL)." "$APP_RESTART_HINT"
+    printf 'action_required: restart_app\n'
+    printf 'required_step: restart_app\n'
+    printf 'required_step: rerun_mcp_postcheck\n'
+    ROUTE_BLOCKED=1
   else
     record pass MCP-ENDPOINT-001 "MCP endpoint route responded with status $ROUTE_STATUS."
   fi
 
   if [[ "$MCP_AUTH_MODE" == "api-key" ]]; then
-    TOKEN_VALUE="${!MCP_TOKEN_ENV:-}"
-    if [[ -z "$TOKEN_VALUE" ]]; then
-      record fail MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing." "Activate API Keys plugin manually in NocoBase admin, create an API key, set $MCP_TOKEN_ENV, then retry."
+    if [[ "$ROUTE_BLOCKED" == "1" ]]; then
+      record warn MCP-AUTH-APIKEY-000 "Skip token gate because MCP endpoint is not ready yet." "Resolve endpoint blocker first, then rerun preflight/postcheck."
     else
-      record pass MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is present."
-      AUTH_STATUS="$(http_status "$TARGET_MCP_URL" "$TOKEN_VALUE")"
-      if [[ -z "$AUTH_STATUS" ]]; then
-        record warn MCP-AUTH-APIKEY-002 "Cannot verify API key auth reachability." "Ensure app network path is reachable and retry."
-      elif [[ "$AUTH_STATUS" == "404" ]]; then
-        record fail MCP-AUTH-APIKEY-002 "MCP endpoint returned 404 in API key probe ($TARGET_MCP_URL)." "Activate MCP Server plugin manually in NocoBase admin, then retry."
-      elif [[ "$AUTH_STATUS" == "401" || "$AUTH_STATUS" == "403" ]]; then
-        record fail MCP-AUTH-APIKEY-002 "MCP API key auth probe returned $AUTH_STATUS." "Activate API Keys plugin manually in NocoBase admin, regenerate API key, update token env var, then retry."
+      TOKEN_VALUE="${!MCP_TOKEN_ENV:-}"
+      if [[ -z "$TOKEN_VALUE" ]]; then
+        record fail MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing." "Open $API_KEYS_CONFIG_URL, click Add API Key, copy token, set $MCP_TOKEN_ENV, then retry."
+        printf 'action_required: provide_api_token\n'
+        printf 'required_step: manual_user_create_token\n'
+        printf 'required_step: manual_user_send_token_in_chat\n'
+        printf 'required_step: no_agent_token_automation\n'
       else
-        record pass MCP-AUTH-APIKEY-002 "MCP API key auth probe responded with status $AUTH_STATUS."
+        record pass MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is present."
+        AUTH_STATUS="$(http_status "$TARGET_MCP_URL" "$TOKEN_VALUE")"
+        if [[ -z "$AUTH_STATUS" ]]; then
+          record warn MCP-AUTH-APIKEY-002 "Cannot verify API key auth reachability." "Ensure app network path is reachable and retry."
+        elif [[ "$AUTH_STATUS" == "404" ]]; then
+          record fail MCP-AUTH-APIKEY-002 "MCP endpoint returned 404 in API key probe ($TARGET_MCP_URL)." "$PLUGIN_ENABLE_HINT"
+          emit_activate_plugin_action "$ACTIVATION_PLUGINS_CSV"
+        elif [[ "$AUTH_STATUS" == "503" || "$AUTH_STATUS" == 5* ]]; then
+          record fail MCP-AUTH-APIKEY-002 "MCP endpoint responded with $AUTH_STATUS in API key probe ($TARGET_MCP_URL)." "$APP_RESTART_HINT"
+          printf 'action_required: restart_app\n'
+          printf 'required_step: restart_app\n'
+          printf 'required_step: rerun_mcp_postcheck\n'
+        elif [[ "$AUTH_STATUS" == "401" || "$AUTH_STATUS" == "403" ]]; then
+          record fail MCP-AUTH-APIKEY-002 "MCP API key auth probe returned $AUTH_STATUS." "Open $API_KEYS_CONFIG_URL, regenerate API key, update $MCP_TOKEN_ENV, then retry."
+          printf 'action_required: provide_api_token\n'
+          printf 'required_step: manual_user_create_token\n'
+          printf 'required_step: manual_user_send_token_in_chat\n'
+          printf 'required_step: no_agent_token_automation\n'
+        else
+          record pass MCP-AUTH-APIKEY-002 "MCP API key auth probe responded with status $AUTH_STATUS."
+        fi
       fi
     fi
   elif [[ "$MCP_AUTH_MODE" == "oauth" ]]; then

@@ -161,12 +161,20 @@ Checks:
 1. Confirm endpoint path (`/api/mcp` for main app, `/api/__app/<app_name>/mcp` for non-main app).
 2. Confirm app name segment is correct for non-main app.
 3. Confirm `MCP Server` plugin activation state in NocoBase admin.
+4. Confirm auth companion plugin state:
+- `api-key` mode: `API Keys`
+- `oauth` mode: `IdP: OAuth`
 
 Actions:
 
-1. Activate `MCP Server` plugin manually.
-2. Re-check endpoint after plugin activation.
-3. Re-run client MCP add/connect command.
+1. Run fixed sequence only: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun postcheck`.
+2. Activation bundle by auth mode:
+- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
+- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
+- `none`: `@nocobase/plugin-mcp-server`
+3. Do not run alternative diagnostics before the fixed sequence is completed.
+4. If endpoint remains `404` or becomes `503`, repeat restart + postcheck loop.
+5. Re-check endpoint and rerun client MCP add/connect command.
 
 ---
 
@@ -184,7 +192,7 @@ Checks:
 
 Actions:
 
-1. Activate `API Keys` plugin manually.
+1. Ensure activation bundle includes `@nocobase/plugin-api-keys` (run plugin-manage bundle first; use manual plugin page only when backend unavailable).
 2. Regenerate API key and update env var.
 3. Retry MCP probe and client connect command.
 

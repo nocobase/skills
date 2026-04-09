@@ -9,11 +9,12 @@ Bootstrap and verify NocoBase MCP connectivity so downstream development workflo
 1. Prerequisites
 2. Endpoint Selection
 3. Activation Gate
-4. API Key Path
-5. OAuth Path
-6. Package Scope Control
-7. Verification Checklist
-8. Failure Handling
+4. Post-Start Gate Command
+5. API Key Path
+6. OAuth Path
+7. Package Scope Control
+8. Verification Checklist
+9. Failure Handling
 
 ## Prerequisites
 
@@ -43,15 +44,72 @@ http(s)://<host>:<port>/api/__app/<app_name>/mcp
 
 Treat plugin activation as a hard gate.
 
-1. MCP Server activation gate:
-- If endpoint probe returns `404`, treat as MCP server route unavailable.
-- Stop workflow and instruct user to activate `MCP Server` plugin manually in NocoBase admin, then retry probe.
+Admin URL templates (replace `<base_url>` with actual app base URL):
 
-2. API Keys activation gate (API key mode only):
+- Plugin manager: `<base_url>/admin/settings/plugin-manager`
+- API keys page: `<base_url>/admin/settings/api-keys`
+
+1. MCP plugin-bundle activation gate:
+- If endpoint probe returns `404`, treat as MCP route unavailable.
+- Build auth-mode bundle first:
+- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
+- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
+- `none`: `@nocobase/plugin-mcp-server`
+- MUST use `nocobase-plugin-manage` primary path with compact invocation:
+- `Use $nocobase-plugin-manage enable <activation_plugin_bundle>`
+- Runtime implementation maps to plugin-manager action `pm:enable`.
+- Do not bypass `nocobase-plugin-manage` with ad-hoc container shell plugin commands.
+- `nocobase-plugin-manage` may auto-select docker CLI internally for local Docker apps.
+- Fixed execution sequence:
+- 1) run `Use $nocobase-plugin-manage enable <activation_plugin_bundle>`
+- 2) restart app immediately
+- 3) rerun postcheck
+- If plugin-manage returns backend unavailable/unreachable, output rich fallback hints directly:
+- plugin manager URL
+- API keys URL
+- manual activation + restart + rerun postcheck steps
+- Only if runtime action path is unavailable, fallback to manual activation in NocoBase admin.
+- User steps:
+- Open plugin manager URL.
+- Enable all plugins in auth-mode bundle.
+- Wait for refresh/restart.
+- If endpoint still returns `404` or `503`, restart app, wait for startup complete, then retry probe.
+
+2. API key token gate (API key mode only):
 - If API token is missing or probe returns `401/403`, stop workflow.
-- Instruct user to activate `API Keys` plugin manually, create/recreate API token, and retry.
+- `@nocobase/plugin-api-keys` should already be included in activation bundle for `api-key` mode.
+- Ask user to create/recreate API token and retry.
+- Do not attempt automatic API key creation or token retrieval via CLI/API/DB/UI automation.
+- User steps:
+- Open API keys page URL.
+- Add an API key with required role permissions.
+- Copy token and export to env var (default `NOCOBASE_API_TOKEN`).
 
 3. Do not continue downstream MCP-dependent development when any activation blocker exists.
+
+## Post-Start Gate Command
+
+Run MCP postcheck after app startup and before client `mcp add`.
+
+1. Windows:
+
+```powershell
+powershell -File scripts/mcp-postcheck.ps1 -Port 13000 -McpAuthMode api-key -McpTokenEnv NOCOBASE_API_TOKEN
+```
+
+2. Linux/macOS:
+
+```bash
+MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postcheck.sh 13000
+```
+
+3. Gate interpretation:
+- If output contains `action_required: activate_plugin`, run fixed sequence `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart_app -> rerun_postcheck` first.
+- Do not run alternative diagnostics before the fixed sequence above is completed.
+- If output contains `action_required: restart_app`, restart app and rerun postcheck.
+- Do not request token/manual API-key step while endpoint blocker (`activate_plugin` or `restart_app`) is unresolved.
+- If output contains `action_required: provide_api_token`, stop automation and ask user to create/regenerate API key manually and send token value.
+- After user confirms activation or provides token, rerun postcheck until pass.
 
 ## API Key Path
 
@@ -101,19 +159,24 @@ Use `x-mcp-packages` to limit exposed package capabilities.
 3. Activation blockers are resolved:
 - `MCP Server` plugin activated.
 - `API Keys` plugin activated for API key mode.
-4. Client command and endpoint values are recorded.
-5. Final output contains endpoint, auth mode, package scope, and next action.
+4. Post-start gate command is executed and passes.
+5. Client command and endpoint values are recorded.
+6. Final output contains endpoint, auth mode, package scope, and next action.
 
 ## Failure Handling
 
 1. `404` on endpoint:
 - Root-cause hypothesis: MCP route not active.
-- Action: activate `MCP Server` plugin manually and retry probe.
+- Action: run fixed sequence `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun postcheck`.
 
 2. `401/403` in API key mode:
-- Root-cause hypothesis: `API Keys` plugin inactive or token invalid.
-- Action: activate `API Keys` plugin manually, regenerate token, retry.
+- Root-cause hypothesis: activation bundle incomplete or token invalid.
+- Action: ensure activation bundle includes `@nocobase/plugin-api-keys` (plugin-manage first, manual fallback only if backend unavailable), regenerate token manually, retry.
 
-3. Network timeout:
+3. `503` on endpoint:
+- Root-cause hypothesis: app is still preparing or reload not completed.
+- Action: restart app and wait for startup completion, then rerun postcheck.
+
+4. Network timeout:
 - Root-cause hypothesis: service not reachable or proxy/firewall issue.
 - Action: verify host/port routing, service health, and network policy.

@@ -3,6 +3,9 @@
 ## Purpose
 
 Run this checklist before install, deploy, or upgrade. Block execution on `fail` items.
+Preflight checks do not replace startup-complete MCP verification; use
+`scripts/mcp-postcheck.ps1` or `scripts/mcp-postcheck.sh` after app startup when
+`mcp_required=true`.
 
 ## Blocking Checks
 
@@ -37,12 +40,18 @@ Run this checklist before install, deploy, or upgrade. Block execution on `fail`
 
 6. MCP endpoint activation (`mcp_required=true`)
 - Verify MCP endpoint route exists (`/api/mcp` or `/api/__app/<app_name>/mcp`).
-- If endpoint returns `404`, treat as blocker and require user to activate `MCP Server` plugin manually.
+- If endpoint returns `404`, treat as blocker; run fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
+- Activation bundle by `mcp_auth_mode`:
+- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
+- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
+- `none`: `@nocobase/plugin-mcp-server`
+- Plugin manager page is fallback only when runtime plugin-manage enable path is unavailable or failed.
+- If endpoint returns `503` or other `5xx`, treat as blocker; restart app and retry after startup completes.
 
 7. API key activation (`mcp_required=true` and `mcp_auth_mode=api-key`)
 - Verify token env var exists (default `NOCOBASE_API_TOKEN`).
 - Probe endpoint with bearer token.
-- If token probe returns `401/403`, treat as blocker and require user to activate `API Keys` plugin manually and refresh token.
+- If token probe returns `401/403`, treat as blocker and require user manual token refresh from API keys page.
 
 ## Warning Checks
 
@@ -74,5 +83,7 @@ Preflight output should always include:
 
 ## Execution Rule
 
-- If any `fail` exists, stop and ask user to fix blockers first.
+- If any non-MCP `fail` exists, stop and ask user to fix blockers first.
+- For `task=mcp-connect`, if fails are only MCP activation/auth blockers, continue into MCP post-start state machine and auto-run fixed sequence first.
+- Only when MCP gate emits `action_required: provide_api_token`, stop and require user to manually create/regenerate token and send it in chat.
 - If only `warn` exists, continue after showing warnings and confirmation.

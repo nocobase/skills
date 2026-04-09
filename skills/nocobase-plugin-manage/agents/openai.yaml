@@ -1,0 +1,4 @@
+interface:
+  display_name: "NocoBase Plugin Manage"
+  short_description: "Safe plugin management for NocoBase apps"
+  default_prompt: "Use $nocobase-plugin-manage <action> [plugin] to inspect plugin status and run safe install, enable, or disable operations with auto local/remote and backend resolution (prefer docker compose CLI for local Docker apps)."

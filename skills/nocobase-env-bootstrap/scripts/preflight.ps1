@@ -100,6 +100,24 @@ function Get-HttpStatus {
   }
 }
 
+function Get-McpEndpointState {
+  param([int]$StatusCode)
+
+  if ($StatusCode -eq 404) {
+    return 'missing_route'
+  }
+
+  if ($StatusCode -eq 503) {
+    return 'app_preparing'
+  }
+
+  if ($StatusCode -ge 500) {
+    return 'server_error'
+  }
+
+  return 'ready'
+}
+
 function Get-McpUrl {
   param(
     [int]$TargetPort,
@@ -116,6 +134,48 @@ function Get-McpUrl {
   }
 
   return "http://127.0.0.1:$TargetPort/api/mcp"
+}
+
+function Get-ActivationPlugins {
+  param([string]$AuthMode)
+
+  $plugins = @('@nocobase/plugin-mcp-server')
+  switch ($AuthMode) {
+    'api-key' { $plugins += '@nocobase/plugin-api-keys' }
+    'oauth' { $plugins += '@nocobase/plugin-idp-oauth' }
+  }
+  return ,$plugins
+}
+
+function Get-PluginStepId {
+  param([string]$PluginName)
+
+  switch ($PluginName) {
+    '@nocobase/plugin-mcp-server' { return 'plugin_manage_enable_mcp_server' }
+    '@nocobase/plugin-api-keys' { return 'plugin_manage_enable_api_keys' }
+    '@nocobase/plugin-idp-oauth' { return 'plugin_manage_enable_idp_oauth' }
+    default { return 'plugin_manage_enable_plugin' }
+  }
+}
+
+function Get-PluginEnableHint {
+  param([string[]]$Plugins)
+
+  $pluginArgs = ($Plugins -join ' ')
+  $pluginList = ($Plugins -join ', ')
+  return "Run fixed sequence: Use `$nocobase-plugin-manage enable $pluginArgs -> restart app -> rerun postcheck. Enable bundle: $pluginList. Do not bypass plugin-manage with ad-hoc container shell plugin commands; plugin-manage may auto-select docker CLI internally."
+}
+
+function Emit-ActivatePluginAction {
+  param([string[]]$Plugins)
+
+  Write-Host 'action_required: activate_plugin'
+  foreach ($plugin in $Plugins) {
+    $stepId = Get-PluginStepId -PluginName $plugin
+    Write-Host "required_step: $stepId"
+  }
+  Write-Host 'required_step: restart_app'
+  Write-Host 'required_step: rerun_mcp_postcheck'
 }
 
 Write-Host "cwd: $(Get-Location)"
@@ -210,9 +270,18 @@ if (Test-Path -LiteralPath '.env') {
 }
 
 if ($McpRequired) {
+  $appBaseUrl = "http://127.0.0.1:$Port"
+  $pluginManagerUrl = "$appBaseUrl/admin/settings/plugin-manager"
+  $apiKeysConfigUrl = "$appBaseUrl/admin/settings/api-keys"
   $targetMcpUrl = Get-McpUrl -TargetPort $Port -InputUrl $McpUrl -InputAppName $McpAppName
+  $activationPlugins = Get-ActivationPlugins -AuthMode $McpAuthMode
+  $pluginEnableHint = Get-PluginEnableHint -Plugins $activationPlugins
+  $appRestartHint = 'App may still be reloading. Restart app, wait for startup complete, then retry.'
   Write-Host "mcp_target: $targetMcpUrl"
   Write-Host "mcp_auth_mode: $McpAuthMode"
+  Write-Host "mcp_activation_plugins: $($activationPlugins -join ',')"
+  Write-Host "mcp_manual_plugin_manager_url: $pluginManagerUrl"
+  Write-Host "mcp_manual_api_keys_url: $apiKeysConfigUrl"
 
   if ($McpPackages) {
     Record-Check pass 'MCP-PKG-001' "x-mcp-packages configured ($McpPackages)."
@@ -221,29 +290,74 @@ if ($McpRequired) {
   }
 
   $routeStatus = Get-HttpStatus -Url $targetMcpUrl
+  $routeBlocked = $false
   if ($null -eq $routeStatus) {
     Record-Check warn 'MCP-ENDPOINT-001' 'Cannot verify MCP endpoint reachability.' 'Ensure app is running and MCP endpoint is reachable.'
-  } elseif ($routeStatus -eq 404) {
-    Record-Check fail 'MCP-ENDPOINT-001' "MCP endpoint returned 404 ($targetMcpUrl)." 'Activate MCP Server plugin manually in NocoBase admin, then retry preflight.'
+    $routeBlocked = $true
   } else {
-    Record-Check pass 'MCP-ENDPOINT-001' "MCP endpoint route responded with status $routeStatus."
+    $routeState = Get-McpEndpointState -StatusCode $routeStatus
+    switch ($routeState) {
+      'missing_route' {
+        Record-Check fail 'MCP-ENDPOINT-001' "MCP endpoint returned 404 ($targetMcpUrl)." $pluginEnableHint
+        Emit-ActivatePluginAction -Plugins $activationPlugins
+        $routeBlocked = $true
+      }
+      'app_preparing' {
+        Record-Check fail 'MCP-ENDPOINT-001' "MCP endpoint responded with 503 ($targetMcpUrl)." $appRestartHint
+        Write-Host 'action_required: restart_app'
+        Write-Host 'required_step: restart_app'
+        Write-Host 'required_step: rerun_mcp_postcheck'
+        $routeBlocked = $true
+      }
+      'server_error' {
+        Record-Check fail 'MCP-ENDPOINT-001' "MCP endpoint responded with $routeStatus ($targetMcpUrl)." $appRestartHint
+        Write-Host 'action_required: restart_app'
+        Write-Host 'required_step: restart_app'
+        Write-Host 'required_step: rerun_mcp_postcheck'
+        $routeBlocked = $true
+      }
+      default {
+        Record-Check pass 'MCP-ENDPOINT-001' "MCP endpoint route responded with status $routeStatus."
+      }
+    }
   }
 
   if ($McpAuthMode -eq 'api-key') {
-    $token = [System.Environment]::GetEnvironmentVariable($McpTokenEnv)
-    if ([string]::IsNullOrWhiteSpace($token)) {
-      Record-Check fail 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is missing." "Activate API Keys plugin manually in NocoBase admin, create an API key, set $McpTokenEnv, then retry."
+    if ($routeBlocked) {
+      Record-Check warn 'MCP-AUTH-APIKEY-000' 'Skip token gate because MCP endpoint is not ready yet.' 'Resolve endpoint blocker first, then rerun preflight/postcheck.'
     } else {
-      Record-Check pass 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is present."
-      $authStatus = Get-HttpStatus -Url $targetMcpUrl -Headers @{ Authorization = "Bearer $token" }
-      if ($null -eq $authStatus) {
-        Record-Check warn 'MCP-AUTH-APIKEY-002' 'Cannot verify API key auth reachability.' 'Ensure app network path is reachable and retry.'
-      } elseif ($authStatus -eq 404) {
-        Record-Check fail 'MCP-AUTH-APIKEY-002' "MCP endpoint returned 404 in API key probe ($targetMcpUrl)." 'Activate MCP Server plugin manually in NocoBase admin, then retry.'
-      } elseif ($authStatus -in 401, 403) {
-        Record-Check fail 'MCP-AUTH-APIKEY-002' "MCP API key auth probe returned $authStatus." 'Activate API Keys plugin manually in NocoBase admin, regenerate API key, update token env var, then retry.'
+      $token = [System.Environment]::GetEnvironmentVariable($McpTokenEnv)
+      if ([string]::IsNullOrWhiteSpace($token)) {
+        Record-Check fail 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is missing." "Open $apiKeysConfigUrl, click Add API Key, copy token, set $McpTokenEnv, then retry."
+        Write-Host 'action_required: provide_api_token'
+        Write-Host 'required_step: manual_user_create_token'
+        Write-Host 'required_step: manual_user_send_token_in_chat'
+        Write-Host 'required_step: no_agent_token_automation'
       } else {
-        Record-Check pass 'MCP-AUTH-APIKEY-002' "MCP API key auth probe responded with status $authStatus."
+        Record-Check pass 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is present."
+        $authStatus = Get-HttpStatus -Url $targetMcpUrl -Headers @{ Authorization = "Bearer $token" }
+        if ($null -eq $authStatus) {
+          Record-Check warn 'MCP-AUTH-APIKEY-002' 'Cannot verify API key auth reachability.' 'Ensure app network path is reachable and retry.'
+        } else {
+          $authState = Get-McpEndpointState -StatusCode $authStatus
+          if ($authState -eq 'missing_route') {
+            Record-Check fail 'MCP-AUTH-APIKEY-002' "MCP endpoint returned 404 in API key probe ($targetMcpUrl)." $pluginEnableHint
+            Emit-ActivatePluginAction -Plugins $activationPlugins
+          } elseif ($authState -eq 'app_preparing' -or $authState -eq 'server_error') {
+            Record-Check fail 'MCP-AUTH-APIKEY-002' "MCP endpoint responded with $authStatus in API key probe ($targetMcpUrl)." $appRestartHint
+            Write-Host 'action_required: restart_app'
+            Write-Host 'required_step: restart_app'
+            Write-Host 'required_step: rerun_mcp_postcheck'
+          } elseif ($authStatus -in 401, 403) {
+            Record-Check fail 'MCP-AUTH-APIKEY-002' "MCP API key auth probe returned $authStatus." "Open $apiKeysConfigUrl, regenerate API key, update $McpTokenEnv, then retry."
+            Write-Host 'action_required: provide_api_token'
+            Write-Host 'required_step: manual_user_create_token'
+            Write-Host 'required_step: manual_user_send_token_in_chat'
+            Write-Host 'required_step: no_agent_token_automation'
+          } else {
+            Record-Check pass 'MCP-AUTH-APIKEY-002' "MCP API key auth probe responded with status $authStatus."
+          }
+        }
       }
     }
   } elseif ($McpAuthMode -eq 'oauth') {

@@ -25,17 +25,24 @@ Install and start NocoBase in one environment with minimal friction.
 3. Alternative: Git source
 - Best for source-level development and customization.
 
+## Docker Template Source Priority
+
+1. First choice: local templates from `assets/docker-templates/`.
+2. Fallback only: official Docker docs via WebFetch when a required local template is missing.
+3. Always report template source in output (`local` or `web-fallback`).
+
 ## Quick Mode (Recommended)
 
 Inputs:
 
 - release channel (`latest`, `beta`, `alpha`)
+- database dialect (`postgres`, `mysql`, `mariadb`; default `postgres`)
 - target directory
 
 Flow:
 
 1. Run preflight and confirm zero blockers.
-2. Prepare project directory and compose config from official docs.
+2. Copy local compose template from `assets/docker-templates/` based on `db_dialect`.
 3. Start app stack.
 4. Verify app is reachable and login page loads.
 
@@ -53,13 +60,13 @@ docker compose logs --tail=200 app
 
 Required decisions:
 
-- database mode: `bundled` or `existing`
+- database dialect: `postgres`, `mysql`, or `mariadb`
 - release channel
 - target directory
 
 Steps:
 
-1. Build or update compose file according to docs.
+1. Select local compose template by database dialect and copy it to `docker-compose.yml`.
 2. Set required environment variables (`APP_KEY`, `DB_DIALECT`, DB connection fields).
 3. Start services with `docker compose up -d`.
 4. Validate app and logs.
@@ -132,14 +139,42 @@ Example next-step text:
 Run this section when downstream work depends on MCP.
 
 1. Build endpoint URL (`/api/mcp` for main app, `/api/__app/<app_name>/mcp` for non-main app).
-2. Probe endpoint route before client config.
-3. If endpoint probe is `404`, stop and ask user to activate `MCP Server` plugin manually.
-4. If `mcp_auth_mode=api-key`:
-- Ensure API token env var exists.
-- Probe with bearer token.
-- If probe is `401/403`, stop and ask user to activate `API Keys` plugin manually and regenerate token.
-5. Run client connection commands from [MCP Runbook](mcp-runbook.md).
-6. Record endpoint, auth mode, package scope, and verification evidence.
+2. Run post-start MCP gate (`mcp-postcheck`) before client config.
+3. Windows command pattern:
+
+```powershell
+powershell -File scripts/mcp-postcheck.ps1 -Port 13000 -McpAuthMode api-key -McpTokenEnv NOCOBASE_API_TOKEN
+```
+
+4. Linux/macOS command pattern:
+
+```bash
+MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postcheck.sh 13000
+```
+
+5. If gate output contains `action_required: activate_plugin`, run automation first and use manual page only as fallback:
+- Required automation: run `Use $nocobase-plugin-manage enable <activation_plugin_bundle>`.
+- Activation bundle by `mcp_auth_mode`:
+- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
+- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
+- `none`: `@nocobase/plugin-mcp-server`
+- Do not bypass `nocobase-plugin-manage` with ad-hoc container shell plugin commands before this path is attempted.
+- `nocobase-plugin-manage` may auto-select docker CLI internally for local Docker apps.
+- Fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
+- Plugin manager: `{{app_url}}/admin/settings/plugin-manager`
+- Enable all plugins in auth-mode bundle
+- If endpoint still returns `404` or `503`, restart app and rerun `mcp-postcheck`.
+
+6. If gate output contains `action_required: provide_api_token`, stop and ask user to create/regenerate token:
+- This step is only valid after endpoint blocker is cleared (`activate_plugin`/`restart_app` resolved).
+- API keys page: `{{app_url}}/admin/settings/api-keys`
+- Click `Add API Key`.
+- Ask user to copy token value and send it back in chat.
+- Do not auto-create or auto-retrieve token via CLI/API/DB/UI automation in this step.
+- Set token to env var (default `NOCOBASE_API_TOKEN`) and rerun `mcp-postcheck`.
+
+7. Only after `mcp-postcheck` passes, run client connection commands from [MCP Runbook](mcp-runbook.md).
+8. Record endpoint, auth mode, package scope, gate status, and final connection evidence.
 
 ## Known Pitfalls
 
