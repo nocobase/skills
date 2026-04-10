@@ -1,43 +1,56 @@
-module: Opportunities Copy
+module: CRM Opportunities
 icon: fundoutlined
 pages:
-- blocks:
+- page: Opportunities
+  icon: fundoutlined
+  coll: nb_crm_opportunities
+  blocks:
   - key: filterForm_0
     type: filterForm
     fields:
-    - name
-    - name
+    - field: name
+      label: Search
     js_items:
     - desc: Pipeline Stats Filter Block
       file: ./js/opp_filterForm_0_pipeline_stats_filter_block.js
     field_layout:
     - - '[JS:Pipeline Stats Filter Block]'
     - - name
-    - - name
-    coll: nb_crm_opportunities
-  - key: table
-    type: table
-    coll: nb_crm_opportunities
-    fields:
-    - name
-    - currency
-    - amount
-    - stage
-    - lead_source
-    - win_probability
-    - customer
-    - expected_close_date
-    - contact
-    actions:
-    - filter
-    - refresh
-    - addNew
-    recordActions:
-    - edit
-    - delete
+  - key: reference_1
+    type: reference
+    template_uid: m39e2ahdwsf
+    template_name: 'Table: Opportunities'
+    reference_mode: reference
+    template_content:
+      key: table_0
+      type: table
+      coll: nb_crm_opportunities
+      fields:
+      - name
+      - amount
+      - currency
+      - stage
+      - lead_source
+      - contact
+      - customer
+      - expected_close_date
+      - win_probability
+      actions:
+      - filter
+      - refresh
+      - addNew
+      - ai
+      event_flows:
+      - event:
+          eventName: beforeRender
+          defaultParams:
+            condition:
+              items: []
+              logic: $and
+        flow_key: 858jqylowfr
+        step_key: vf3lwi5tk73
+        desc: 858jqylowfr
+        file: ./js/opp_tpl_table_0_event_858jqylowfr_vf3lwi5tk73.js
   layout:
   - - filterForm_0
-  - - table
-  page: Opportunities Copy
-  icon: fundoutlined
-  coll: nb_crm_opportunities
+  - - reference_1

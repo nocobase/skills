@@ -1,0 +1,52 @@
+field: addnew
+field_uid: 5f1df03938d
+block_key: table_0
+blocks:
+- key: reference_0
+  type: reference
+  template_uid: 5tpe5cpsnuf
+  template_name: 'Form (Add new): Opportunities'
+  reference_mode: reference
+  template_content:
+    key: createForm_0
+    type: createForm
+    coll: nb_crm_opportunities
+    fields:
+    - name
+    - lead_source
+    - amount
+    - currency
+    - exchange_rate
+    - amount_usd
+    - stage
+    - win_probability
+    - expected_close_date
+    - expected_revenue
+    - customer
+    - contact
+    - owner
+    field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - lead_source
+    - '--- Financial Info ---'
+    - - amount
+      - currency
+    - - exchange_rate
+      - amount_usd
+    - - stage
+      - win_probability
+    - - expected_close_date
+      - expected_revenue
+    - '--- Relations ---'
+    - - col:
+        - customer
+        - owner
+        size: 12
+      - contact
+    actions:
+    - submit
+    - ai
+layout:
+- - reference_0
+mode: drawer

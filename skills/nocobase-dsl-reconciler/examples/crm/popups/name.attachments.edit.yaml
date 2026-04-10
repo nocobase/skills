@@ -1,5 +1,5 @@
 field: edit
-field_uid: z3aijuf0lg0
+field_uid: 75c7fe03c8e
 block_key: attachments
 blocks:
 - key: editForm_0
@@ -11,6 +11,4 @@ blocks:
   - attachments
   actions:
   - submit
-layout:
-- - editForm_0
 mode: dialog

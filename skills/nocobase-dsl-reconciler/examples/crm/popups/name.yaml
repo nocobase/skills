@@ -1,4 +1,5 @@
-target: $opportunities_copy.table.fields.name
+field: name
+field_uid: fc8f91d937e
 mode: embed
 tabs:
 - blocks:
@@ -8,19 +9,19 @@ tabs:
     resource_binding:
       filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
     fields:
-    - owner
-    - createdAt
     - customer
     - contact
+    - owner
+    - createdAt
     js_items:
     - desc: Opportunity Key Stats Block
       file: ./js/popup_name_tab0_details_0_opportunity_key_stats_block.js
     field_layout:
+    - - '---'
     - - customer
       - contact
       - owner
       - createdAt
-    - - '[JS:Opportunity Key Stats Block]'
     actions:
     - edit
   - key: ai_smart_analysis
@@ -65,6 +66,12 @@ tabs:
       step_key: 9ibklmbe1vr
       desc: 4z3wblmtie1
       file: ./js/popup_name_tab0_quotations_event_4z3wblmtie1_9ibklmbe1vr.js
+  - key: comments_3
+    type: comments
+    coll: nb_crm_comments
+    resource_binding:
+      associationName: nb_crm_opportunities.comments
+      sourceId: '{{ctx.view.inputArgs.filterByTk}}'
   - key: attachments
     type: details
     title: Attachments
@@ -75,62 +82,48 @@ tabs:
     - attachments
     actions:
     - edit
-  - key: details_4
-    type: details
-    coll: nb_crm_opportunities
-    resource_binding:
-      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    js_items:
-    - desc: Opportunity Stage Flow Block
-      file: ./js/popup_name_tab0_details_4_opportunity_stage_flow_block.js
   - key: details_5
     type: details
     coll: nb_crm_opportunities
     resource_binding:
       filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
     js_items:
-    - desc: Quote Status Flow Block
-      file: ./js/popup_name_tab0_details_5_quote_status_flow_block.js
-  - key: comments_6
-    type: comments
-    coll: nb_crm_comments
+    - desc: Opportunity Stage Flow Block
+      file: ./js/popup_name_tab0_details_5_opportunity_stage_flow_block.js
+  - key: details_6
+    type: details
+    coll: nb_crm_opportunities
     resource_binding:
-      associationName: nb_crm_opportunities.comments
-      sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    js_items:
+    - desc: Quote Status Flow Block
+      file: ./js/popup_name_tab0_details_6_quote_status_flow_block.js
   layout:
   - - col:
       - details_0
-      - details_4
+      - details_5
       - ai_smart_analysis
       - quotations
-      - details_5
+      - details_6
       size: 17
     - col:
       - attachments
-      - comments_6
+      - comments_3
       size: 7
   popups:
-  - field: edit
-    field_uid: erdabyuhnhn
-    popup_page_uid: 62af7odoh24
-    block_key: details_0
   - field: quotation_no
-    field_uid: dsfvvg59avf
+    field_uid: d86a47d422c
     mode: drawer
-    popup_page_uid: ehpehi6soig
-  - field: currencyInfo
-    field_uid: gp6b0v3o793
-    mode: drawer
-    popup_page_uid: 2f2939c5409
+    popup_page_uid: dfd9e2bcc4b
   - field: addnew
-    field_uid: bfahizxnylr
-    popup_page_uid: 368chlyzxrh
+    field_uid: 694763bbe38
+    popup_page_uid: 781ffa74340
     block_key: quotations
   - field: edit
-    field_uid: z3aijuf0lg0
-    popup_page_uid: bi16jkk3ucl
+    field_uid: 75c7fe03c8e
+    popup_page_uid: f161da30485
     block_key: attachments
-  title: Details
+  title: Tab0
 - blocks: []
   title: Tab1
 - blocks:

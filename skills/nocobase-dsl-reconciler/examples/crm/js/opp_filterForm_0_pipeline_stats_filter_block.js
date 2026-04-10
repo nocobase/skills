@@ -5,7 +5,7 @@
  * Table: nb_crm_opportunities
  */
 
-const TARGET_BLOCK_UID = 'm157t7ngzap';
+const TARGET_BLOCK_UID = 'c02af2d19b9';
 
 const { useState, useEffect } = ctx.React;
 const { Button, Badge, Space, Spin } = ctx.antd;

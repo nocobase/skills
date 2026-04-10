@@ -1,50 +1,52 @@
 field: quotation_no
-field_uid: dsfvvg59avf
+field_uid: d86a47d422c
+blocks:
+- key: editForm_0
+  type: editForm
+  coll: nb_crm_quotations
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  field_template:
+    templateUid: odc3k4if9n5
+    templateName: 'Form (Add new): Opportunities > Quotations (Quotations)'
+    targetUid: 005986ec9fd
+    mode: reference
+  actions:
+  - submit
+  event_flows:
+  - event:
+      eventName: formValuesChange
+      defaultParams:
+        condition:
+          logic: $and
+          items: []
+    flow_key: t70yztbfbwy
+    step_key: mtz6um1hsoe
+    desc: t70yztbfbwy
+    file: ./js/popup_name_quotation_no_editForm_0_event_t70yztbfbwy_mtz6um1hsoe.js
+- key: details_1
+  type: details
+  coll: nb_crm_quotations
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  js_items:
+  - desc: Quote Key Metrics Block
+    file: ./js/popup_name_quotation_no_details_1_quote_key_metrics_block.js
+  field_layout:
+  - - '---'
+  - - '[JS:Quote Key Metrics Block]'
+- key: details_2
+  type: details
+  coll: nb_crm_quotations
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  js_items:
+  - desc: Quotation Status Flow Block
+    file: ./js/popup_name_quotation_no_details_2_quotation_status_flow_block.js
+layout:
+- - col:
+    - details_1
+    - details_2
+    size: 24
+- - editForm_0
 mode: drawer
-tabs:
-- blocks:
-  - key: details_0
-    type: details
-    coll: nb_crm_quotations
-    resource_binding:
-      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    js_items:
-    - desc: Quote Key Metrics Block
-      file: ./js/popup_name_quotation_no_tab0_details_0_quote_key_metrics_block.js
-    field_layout:
-    - - '[JS:Quote Key Metrics Block]'
-  - key: details_1
-    type: details
-    coll: nb_crm_quotations
-    resource_binding:
-      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    js_items:
-    - desc: Quotation Status Flow Block
-      file: ./js/popup_name_quotation_no_tab0_details_1_quotation_status_flow_block.js
-  - key: reference_2
-    type: reference
-    template_uid: lvqgjptnoio
-    template_name: 'Details: Quotations'
-    reference_mode: reference
-  layout:
-  - - col:
-      - details_0
-      - details_1
-      size: 24
-  - - reference_2
-  title: Details
-- blocks:
-  - key: reference_0
-    type: reference
-    template_uid: yjwjoi4erle
-    template_name: 'Table: Orders'
-    reference_mode: reference
-  title: Tab1
-- blocks:
-  - key: recordHistory_0
-    type: recordHistory
-    coll: nb_crm_quotations
-    actions:
-    - filter
-    - refresh
-  title: Tab2

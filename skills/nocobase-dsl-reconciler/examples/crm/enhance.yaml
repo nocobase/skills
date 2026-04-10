@@ -1,7 +1,8 @@
+# CRM Opportunities — addNew popup with auto-derived edit + detail
 popups:
-- target: $opportunities_copy.table.actions.addNew
-  auto:
-  - edit
+- target: $opportunities.table.actions.addNew
+  auto: [edit, detail]
+  view_field: name
   coll: nb_crm_opportunities
   blocks:
   - key: form
@@ -10,26 +11,26 @@ popups:
       binding: currentCollection
     fields:
     - name
+    - lead_source
     - amount
     - currency
     - stage
-    - lead_source
-    - contact
-    - customer
-    - expected_close_date
     - win_probability
+    - expected_close_date
+    - customer
+    - contact
     field_layout:
-    - '--- Opportunity Info ---'
+    - '--- Basic Info ---'
     - - name
-      - stage
-      - win_probability
+      - lead_source
+    - '--- Financial ---'
     - - amount
       - currency
-    - '--- Source ---'
-    - - lead_source
-      - contact
-      - customer
-    - '--- Timeline ---'
+    - - stage
+      - win_probability
     - - expected_close_date
+    - '--- Relations ---'
+    - - customer
+      - contact
     actions:
     - submit
