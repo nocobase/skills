@@ -155,7 +155,7 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
                 )
             bcoll = bs.get("coll", ps.get("coll", ""))
             if not bcoll:
-                errors.append(f"filterForm on page '{ps.get('page', '?')}' missing 'coll'")
+                warnings.append(f"filterForm on page '{ps.get('page', '?')}' has no 'coll' (cross-collection filter?)")
 
             # text fields need filterPaths
             if bcoll:
@@ -1237,6 +1237,20 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
     """Fill a compose-created block with fields, actions, JS items, dividers."""
     btype = bs.get("type", "")
     coll = bs.get("coll", default_coll)
+
+    # ── Table settings: dataScope + pageSize ──
+    table_updates = {}
+    if bs.get("dataScope"):
+        table_updates["dataScope"] = {"filter": bs["dataScope"]}
+    if bs.get("pageSize"):
+        table_updates["pageSize"] = {"pageSize": bs["pageSize"]}
+    if bs.get("sort"):
+        table_updates["sort"] = bs["sort"]
+    if table_updates:
+        try:
+            nb.update_model(block_uid, {"tableSettings": table_updates})
+        except Exception:
+            pass
 
     # ── Fields ──
     # compose includes fields but uses DisplayTextFieldModel for all.
