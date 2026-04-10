@@ -1,6 +1,7 @@
 # Page Blueprint DSL
 
 This file defines the stable `pageBlueprint` structure used between read-only planning and UI execution.
+`pageBlueprint` may still use local DSL identifiers such as `dataSources[*].key` or layout row/column `key`, but those identifiers are blueprint-internal only. They are not FlowSurfaces plan refs, and execution must not translate them into key-based result paths such as `blocksByKey.*`.
 
 ## 1. Core Shape
 
@@ -276,6 +277,7 @@ popup-scoped `associatedRecords`:
 Rules:
 
 - `dataSources[*].key` must be unique inside one blueprint.
+- `dataSources[*].key`, layout `rows[*].key`, and `columns[*].key` are blueprint-local identifiers only. They must not be used as FlowSurfaces execution refs.
 - `dataSources[*].dataSourceKey`, when present, means the underlying NocoBase data-source key such as `main`. By contrast, `blocks[*].dataSourceKey` refers to the blueprint entry key in `dataSources[*].key`.
 - `data-bound block`s should prefer `dataSourceKey` over repeating a raw low-level `resource` object in the blueprint.
 - Execution may later map a blueprint data source into live `resource` or `resourceInit`, but that translation belongs to execution, not to the blueprint contract.

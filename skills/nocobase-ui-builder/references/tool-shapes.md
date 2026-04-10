@@ -29,8 +29,8 @@ Read this file when family, locator, and target uid are already known, and the o
 - `setLayout` and `setEventFlows` are high-impact full-replace APIs. Read the full current state first, then decide whether to write
 - Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
 - Template-aware creation uses the same payload families. `addBlock/addBlocks/compose` may carry `template`; `addField/addFields` may carry `template` for fields templates; popup-capable actions and fields may carry `popup.template`
-- `validatePlan` / `executePlan` caller input should use `{ "step": "...", "path": "..." }` for cross-step references. Do not hand-write raw `{ "ref": "..." }` or `$ref`
-- When a prior step returns `compose` data, prefer key-based paths such as `blocksByKey.usersTable.recordActionsByKey.viewUser.popupGridUid` over array paths such as `blocks.0.recordActions.0.popupGridUid`
+- `validatePlan` / `executePlan` caller input supports two reference forms: use `{ "ref": "..." }` for existing named nodes or earlier-step created refs, and use `{ "step": "...", "path": "..." }` only for raw prior-step outputs such as `routeId`. Do not use `$ref`
+- For plan chaining, do not rely on `blocksByKey.*`, `actionsByKey.*`, `recordActionsByKey.*`, or array-index result paths. Declare stable `ref` values on the producer node instead
 - Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
 - Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
 
@@ -79,13 +79,13 @@ This section only records the legal envelope of the high-level plan / execution 
             "mode": "append",
             "blocks": [
               {
-                "key": "employeesTable",
+                "ref": "employeesTable",
                 "type": "table",
                 "resource": {
                   "dataSourceKey": "main",
                   "collectionName": "employees"
                 },
-                "fields": ["nickname"]
+                "fields": [{ "ref": "employeesTable.nickname", "fieldPath": "nickname" }]
               }
             ]
           }
@@ -179,6 +179,7 @@ Representative continuation for a one-shot complex bootstrap plan:
               "step": "menu",
               "path": "routeId"
             },
+            "ref": "usersPage",
             "tabTitle": "Overview"
           }
         },
@@ -187,24 +188,26 @@ Representative continuation for a one-shot complex bootstrap plan:
           "action": "compose",
           "selectors": {
             "target": {
-              "step": "page",
-              "path": "tabSchemaUid"
+              "ref": "usersPage.tab"
             }
           },
           "values": {
             "mode": "append",
             "blocks": [
               {
-                "key": "usersTable",
+                "ref": "usersTable",
                 "type": "table",
                 "resource": {
                   "dataSourceKey": "main",
                   "collectionName": "users"
                 },
-                "fields": ["username", "nickname"],
+                "fields": [
+                  { "ref": "usersTable.username", "fieldPath": "username" },
+                  { "ref": "usersTable.nickname", "fieldPath": "nickname" }
+                ],
                 "recordActions": [
                   {
-                    "key": "viewUser",
+                    "ref": "usersTable.viewUser",
                     "type": "view"
                   }
                 ]
@@ -217,15 +220,14 @@ Representative continuation for a one-shot complex bootstrap plan:
           "action": "compose",
           "selectors": {
             "target": {
-              "step": "composeMain",
-              "path": "blocksByKey.usersTable.recordActionsByKey.viewUser.popupGridUid"
+              "ref": "usersTable.viewUser.popupGrid"
             }
           },
           "values": {
             "mode": "replace",
             "blocks": [
               {
-                "key": "userDetails",
+                "ref": "userDetails",
                 "type": "details",
                 "resource": {
                   "binding": "currentRecord"
@@ -240,7 +242,7 @@ Representative continuation for a one-shot complex bootstrap plan:
 }
 ```
 
-This is the canonical pattern when one bootstrap `executePlan` needs to continue from newly created page/tab ids into later `compose` steps, and then continue again through a stable compose key path such as `blocksByKey.*.recordActionsByKey.*.popupGridUid`.
+This is the canonical pattern when one bootstrap `executePlan` needs to continue from raw lifecycle results such as `routeId`, then switch to stable semantic refs such as `usersPage.tab`, `usersTable.viewUser.popupGrid`, or `userDetails.editUser.popupGrid`.
 The same chaining rule also applies when the downstream step is `configure`, `addField`, `addAction`, or another target-taking structural step.
 
 `executePlan` for bootstrap uses the same request envelope as `validatePlan`.
@@ -248,10 +250,18 @@ The same chaining rule also applies when the downstream step is `configure`, `ad
 Shape rules:
 
 - Existing-surface plans carry `surface.locator` plus `expectedFingerprint`; bootstrap plans carry neither.
-- In caller input, plan-step cross references use `{ "step": "...", "path": "..." }`.
-- Newly created nodes in the same plan should always be routed through previous-step refs; `bindRefs` are only for already existing nodes on the current surface.
+- In caller input, use `{ "step": "...", "path": "..." }` only for raw prior-step outputs such as `routeId`.
+- Named nodes in the same plan should be routed through `{ "ref": "..." }`, including earlier-step created refs such as `usersPage.tab` or `usersTable.viewUser.popupGrid`; `bindRefs` are only for already existing nodes on the current surface.
 - `selectors.target/source` belong to the plan-step layer; do not mix low-level `target.uid` into plan-step `values`.
 - Use `locator` inside `selectors` when the step points to an already existing surface or node.
+- Any remaining `key` examples in low-level popup/block payloads below are local payload identifiers only. They are not the naming contract for `validatePlan` / `executePlan`, and they must not replace `ref` for plan chaining.
+
+Common derived refs:
+
+- `createPage(ref="usersPage")` -> `usersPage`, `usersPage.tab`, `usersPage.grid`
+- block `ref="usersTable"` -> `usersTable`, `usersTable.grid`, `usersTable.item`, `usersTable.actionsColumn`
+- field `ref="userDetails.username"` -> `userDetails.username`, `userDetails.username.field`, `userDetails.username.innerField`, plus popup refs when the field opens a popup
+- action / recordAction `ref="usersTable.viewUser"` -> `usersTable.viewUser`, `usersTable.viewUser.assignForm`, `usersTable.viewUser.popupGrid`
 
 ## `catalog` request / response shape
 

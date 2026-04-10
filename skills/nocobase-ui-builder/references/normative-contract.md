@@ -82,6 +82,7 @@ Use direct primitive APIs only when any of the following is true:
 
 ### Encapsulation Requirement
 
+- FlowSurfaces public naming should use `ref`. Do not introduce key-based result maps, `blocksByKey.*`, or other parallel naming concepts into the caller-facing workflow.
 - `bindRefs` persistence and declared-ref storage are backend details. Do not surface them as required user-facing parameters or workflow steps.
 - Reverse persistence / ref persistence details are backend internals. Do not add them to the caller-facing workflow or parameter checklist.
 

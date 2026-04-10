@@ -21,7 +21,7 @@ Rules:
 
 - do not send `surface`
 - do not send `expectedFingerprint`
-- use step-to-step references through `{ "step": "...", "path": "..." }`
+- use `{ "step": "...", "path": "..." }` for raw lifecycle outputs such as `routeId`, and use `{ "ref": "..." }` once an earlier step has declared a named node such as `usersPage.tab`
 
 ### Existing-surface mode
 
@@ -39,8 +39,9 @@ Rules:
 ## 2. Compiler-Wide Rules
 
 - Compile only the confirmed subset of the request. Do not silently widen scope.
-- Cross-step references must use caller input shape `{ "step": "...", "path": "..." }`.
-- Do not hand-write raw `{ "ref": "..." }` or `$ref`.
+- Same-run raw prior-step outputs should use caller input shape `{ "step": "...", "path": "..." }`.
+- Use `{ "ref": "..." }` for any existing named node or any named node created by an earlier step in the same plan.
+- Do not use `$ref`.
 - "one-shot complex page" means one `executePlan` carrying multiple topologically ordered steps. It does **not** mean every structure must collapse into one `compose`.
 - `selectors.target/source` belong to the plan-step layer.
 - One semantic step should have one clear owner target. Do not hide extra writes inside unrelated steps.
@@ -50,18 +51,11 @@ Rules:
 
 Reference resolution rules inside one compiled plan:
 
-- Same-run newly created nodes -> use `{ "step": "...", "path": "..." }`
-- Existing-surface stable naming has two cases: `describeSurface` keeps using `locator + bindRefs`, while `validatePlan/executePlan` may use `bindRefs` + `{ "ref": "..." }` only in existing-surface request positions (`surface` or `selectors.*`)
-- Do not try to bootstrap a new page/menu chain through `bindRefs`; bootstrap creation only has prior-step refs
-
-When a step returns `compose` results, prefer key-based result paths over array indexes whenever the server exposes them:
-
-- `blocksByKey.<blockKey>.uid`
-- `blocksByKey.<blockKey>.fieldsByKey.<fieldKey>.wrapperUid`
-- `blocksByKey.<blockKey>.actionsByKey.<actionKey>.popupGridUid`
-- `blocksByKey.<blockKey>.recordActionsByKey.<actionKey>.popupGridUid`
-
-Only fall back to array paths such as `blocks.0.fields.2.wrapperUid` when a stable key path truly does not exist.
+- Same-run newly created named nodes -> declare a `ref` on the producing step and consume the derived `{ "ref": "..." }` in later steps.
+- Same-run raw prior-step outputs without a named ref, such as `createMenu.routeId`, still use `{ "step": "...", "path": "..." }`.
+- Existing-surface stable naming has two cases: `describeSurface` keeps using `locator + bindRefs`, while `validatePlan/executePlan` may use `bindRefs` + `{ "ref": "..." }` in request positions such as `surface`, `selectors.*`, or value fields that accept a write target.
+- Bootstrap plans do not use `bindRefs`, but they may still reuse earlier-step created refs through `{ "ref": "..." }`.
+- Do not use array-index result paths such as `blocks.0.fields.2.wrapperUid` as a default chaining mechanism. If a downstream step needs a block / field / action / popup target, give that producer a stable `ref` first.
 
 ## 3. Blueprint Node -> Plan Step Mapping
 
