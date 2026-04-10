@@ -84,7 +84,7 @@ Shorthand: `this.db` is equivalent to `this.app.db`.
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/server/plugin.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/plugin.md
 
 ## Related
 

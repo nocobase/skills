@@ -168,7 +168,7 @@ ctx.permission = { skip: true };
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/server/context.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/context.md
 
 ## Related
 

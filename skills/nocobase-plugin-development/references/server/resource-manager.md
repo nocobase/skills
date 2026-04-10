@@ -153,7 +153,7 @@ this.app.dataSourceManager.afterAddDataSource((ds) => {
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/server/resource-manager.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/resource-manager.md
 
 ## Related
 

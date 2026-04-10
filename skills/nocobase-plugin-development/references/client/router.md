@@ -133,7 +133,7 @@ Full list: https://5x.ant.design/components/icon
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/client/router.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/router.md
 
 ## Related
 

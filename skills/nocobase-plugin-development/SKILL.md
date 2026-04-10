@@ -235,6 +235,6 @@ Final response must include:
 
 - [Reference Index](references/index.md): global index of all reference files.
 - [Getting Started](references/getting-started.md): plugin scaffold and project structure.
-- [Online Docs — Plugin Development](https://docs.nocobase.com/cn/plugin-development/index.md): full plugin development documentation. [verified: 2026-04-10]
-- [Online Docs — FlowEngine](https://docs.nocobase.com/cn/flow-engine/index.md): FlowEngine complete reference. [verified: 2026-04-10]
+- [Online Docs — Plugin Development](https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/index.md): full plugin development documentation. [verified: 2026-04-10]
+- [Online Docs — FlowEngine](https://pr-8998.v2.docs.nocobase.com/cn/flow-engine/index.md): FlowEngine complete reference. [verified: 2026-04-10]
 - [Example Plugins (GitHub)](https://github.com/nocobase/nocobase/tree/main/packages/plugins/%40nocobase-example): working example plugins. [verified: 2026-04-10]

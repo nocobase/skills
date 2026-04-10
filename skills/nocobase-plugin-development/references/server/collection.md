@@ -169,8 +169,8 @@ After defining a collection, NocoBase automatically creates REST endpoints: `lis
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/server/collections.md
-- https://docs.nocobase.com/cn/plugin-development/server/collection-options.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/collections.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/collection-options.md
 
 ## Related
 

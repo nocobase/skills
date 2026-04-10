@@ -49,6 +49,6 @@ After analyzing the user's requirement (Step 1), read only the references needed
 
 For topics not covered in these references, consult the full documentation:
 
-- Plugin Development: https://docs.nocobase.com/cn/plugin-development/index.md
-- FlowEngine: https://docs.nocobase.com/cn/flow-engine/index.md
-- API Reference: https://docs.nocobase.com/cn/api/index.md
+- Plugin Development: https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/index.md
+- FlowEngine: https://pr-8998.v2.docs.nocobase.com/cn/flow-engine/index.md
+- API Reference: https://pr-8998.v2.docs.nocobase.com/cn/api/index.md

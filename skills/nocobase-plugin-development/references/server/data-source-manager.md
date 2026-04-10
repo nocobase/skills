@@ -90,7 +90,7 @@ async load() {
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/server/data-source-manager.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/data-source-manager.md
 
 ## Related
 

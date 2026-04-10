@@ -51,7 +51,7 @@ Upload the `.tar.gz` file to the target application's `./storage/plugins` direct
 
 ## Deep Reference
 
-- https://docs.nocobase.com/cn/plugin-development/build.md
+- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/build.md
 
 ## Related Links
 
