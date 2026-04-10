@@ -312,15 +312,60 @@ python sync.py mymodule/     # capture any manual UI adjustments back to specs
 python deployer.py mymodule/ --force  # re-apply to ensure consistency
 ```
 
-### Replicate Existing Module
+### Replicate Existing Module (Export → Import)
+
+Full copy of an existing page with all nested popups, JS, event flows:
+
+```python
+# export.py — run in tools/ directory
+from nb import NocoBase
+from exporter import export_page_surface, export_all_popups
+from pathlib import Path
+from nb import dump_yaml
+
+nb = NocoBase()  # connects to NOCOBASE_URL env or http://localhost:14000
+mod = Path("../mymodule")
+mod.mkdir(exist_ok=True)
+js_dir = mod / "js"; js_dir.mkdir(exist_ok=True)
+popups_dir = mod / "popups"; popups_dir.mkdir(exist_ok=True)
+
+# 1. Export page (use tab schemaUid from desktopRoutes)
+tab_uid = "dnvkm1bv4vy"   # ← get from browser URL or desktopRoutes:list
+result = export_page_surface(nb, tab_uid, js_dir, "page")
+
+# 2. Save structure.yaml
+spec = {
+    "module": "My Module", "icon": "fundoutlined",
+    "pages": [{"page": "My Page", "coll": "my_collection", **result}]
+}
+spec.pop("_state", None)
+(mod / "structure.yaml").write_text(dump_yaml(spec))
+
+# 3. Recursive popup export (depth=8, stops at already-exported UIDs)
+popup_refs = result.get("popups", [])
+for tab in result.get("tabs", [result]):
+    popup_refs.extend(tab.get("popups", []))
+export_all_popups(nb, popup_refs, js_dir, popups_dir,
+                  prefix="popup", max_depth=8)
+
+# 4. Add target: to top-level popup files so deployer can load them
+# Popup files matching page block fields need target refs, e.g.:
+#   popups/name.yaml → add "target: $my_page.table.fields.name"
+```
 
 ```bash
-# Export from source system:
-python exporter.py   # (library calls to export_page_surface + export_all_popups)
+# 5. Deploy to target system
+cd tools && python deployer.py ../mymodule/
 
-# Deploy to target system:
-python deployer.py mymodule/
+# 6. Incremental update after edits
+python deployer.py ../mymodule/ --force
 ```
+
+Key points:
+- `max_depth=8` recursively exports popup → sub-table → nested popup → ... up to 8 levels
+- Popup files use dot-path naming: `name.yaml`, `name.quotation_no.yaml`, `name.quotation_no.addnew.yaml`
+- `auto: [edit, detail]` in enhance.yaml auto-generates simple popups; if `popups/*.yaml` with matching `target:` exists, it takes priority
+- Reference blocks export with `template_content` fallback for cross-system portability
 
 ## Key Rules
 

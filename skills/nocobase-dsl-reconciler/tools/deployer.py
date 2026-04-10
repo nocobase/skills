@@ -2245,8 +2245,15 @@ def _expand_popups(popups: list[dict]) -> list[dict]:
     auto options:
       - edit: derive editForm from addNew (same fields/layout)
       - detail: derive details popup for first table field click (name/title)
+
+    If a popup with the same target already exists (e.g., from popups/*.yaml),
+    the auto-derived one is skipped.
     """
     import copy
+
+    # Collect existing targets to avoid duplicates
+    existing_targets = {ps.get("target", "") for ps in popups if ps.get("target")}
+
     result = []
     for ps in popups:
         result.append(ps)
@@ -2268,11 +2275,9 @@ def _expand_popups(popups: list[dict]) -> list[dict]:
         view_field = ps.get("view_field", "name")
 
         if "edit" in auto:
-            # Don't create blocks — NocoBase auto-generates editForm at runtime
-            result.append({
-                "target": f"{base_ref}.record_actions.edit",
-                "coll": coll,
-            })
+            edit_target = f"{base_ref}.record_actions.edit"
+            if edit_target not in existing_targets:
+                result.append({"target": edit_target, "coll": coll})
 
         if "detail" in auto:
             # Auto-generate detail popup from addNew form fields
@@ -2292,12 +2297,14 @@ def _expand_popups(popups: list[dict]) -> list[dict]:
                 detail_fields.append("createdAt")
             detail_block["fields"] = detail_fields
 
-            result.append({
-                "target": f"{base_ref}.fields.{view_field}",
-                "mode": "drawer",
-                "coll": coll,
-                "blocks": [detail_block],
-            })
+            detail_target = f"{base_ref}.fields.{view_field}"
+            if detail_target not in existing_targets:
+                result.append({
+                    "target": detail_target,
+                    "mode": "drawer",
+                    "coll": coll,
+                    "blocks": [detail_block],
+                })
 
         # Legacy: "view" still supported
         if "view" in auto and view_field:
