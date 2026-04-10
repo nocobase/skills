@@ -884,59 +884,18 @@ def _extract_js_desc(code: str) -> str:
 #  CLI
 # ══════════════════════════════════════════════════════════════════
 
-def export_module(page_title: str, out_dir: str, group_name: str = None,
-                  tab_index: int = 0, coll: str = ""):
-    """Export a page as a deployable module.
-
-    Args:
-        page_title: Page title to find in routes (e.g., "Leads")
-        out_dir: Output directory (e.g., "crm-full/leads")
-        group_name: Group name for structure.yaml (e.g., "Main Copy")
-        tab_index: Which tab to export (0 = first)
-        coll: Default collection name
-    """
-    nb = NocoBase()
-    mod = Path(out_dir)
-    mod.mkdir(parents=True, exist_ok=True)
-    js_dir = mod / "js"; js_dir.mkdir(exist_ok=True)
-    popups_dir = mod / "popups"; popups_dir.mkdir(exist_ok=True)
-
-    # Find page in routes
-    tab_uid = None
-    for r in nb.routes():
-        for c in r.get("children", []):
-            if c.get("title") == page_title:
-                tabs = c.get("children", [])
-                if tabs and tab_index < len(tabs):
-                    tab_uid = tabs[tab_index].get("schemaUid")
-                else:
-                    tab_uid = c.get("schemaUid")
-                if not coll:
-                    coll = ""  # will be inferred from blocks
-                break
-        if tab_uid:
-            break
-
-    if not tab_uid:
-        print(f"Page '{page_title}' not found")
-        return
-
-    page_key = slugify(page_title) + "_copy"
-
-    # Export
-    result = export_page_surface(nb, tab_uid, js_dir, slugify(page_title))
+def _export_tab_surface(nb, tab_uid, js_dir, prefix, page_key, coll):
+    """Export one tab surface and return (result, popup_refs, coll)."""
+    result = export_page_surface(nb, tab_uid, js_dir, prefix)
     if not result:
-        print("Empty page")
-        return
+        return None, [], coll
 
-    # Collect popup refs + add targets
     popup_refs = list(result.get("popups", []))
     for b in result.get("blocks", []):
         popup_refs.extend(b.pop("_popups", []))
         tpl = b.get("template_content", {})
         if isinstance(tpl, dict):
             popup_refs.extend(tpl.pop("_popups", []))
-        # Reference → plain table
         if b.get("type") == "reference" and b.get("template_content"):
             idx = result["blocks"].index(b)
             tpl = b["template_content"]
@@ -954,14 +913,13 @@ def export_module(page_title: str, out_dir: str, group_name: str = None,
         elif field:
             p["target"] = f"${page_key}.{block_ref}.fields.{field}"
 
-    # Infer coll from first table block
     if not coll:
         for b in result.get("blocks", []):
             if b.get("type") == "table" and b.get("coll"):
                 coll = b["coll"]
                 break
 
-    # Fix layout — replace 'reference' with actual block key
+    # Fix layout
     layout = result.get("layout", [])
     def fix_layout(item):
         if isinstance(item, str) and "reference" in item:
@@ -973,40 +931,100 @@ def export_module(page_title: str, out_dir: str, group_name: str = None,
         return item
     result["layout"] = fix_layout(layout)
 
+    return result, popup_refs, coll
+
+
+def export_module(page_title: str, out_dir: str, group_name: str = None,
+                  tab_index: int = 0, coll: str = ""):
+    """Export a page (all tabs) as a deployable module."""
+    nb = NocoBase()
+    mod = Path(out_dir)
+    mod.mkdir(parents=True, exist_ok=True)
+    js_dir = mod / "js"; js_dir.mkdir(exist_ok=True)
+    popups_dir = mod / "popups"; popups_dir.mkdir(exist_ok=True)
+
+    # Find page in routes
+    page_route = None
+    for r in nb.routes():
+        for c in r.get("children", []):
+            if c.get("title") == page_title:
+                page_route = c
+                break
+            # Also check sub-groups
+            if c.get("type") == "group":
+                for sc in c.get("children", []):
+                    if sc.get("title") == page_title:
+                        page_route = sc
+                        break
+        if page_route:
+            break
+
+    if not page_route:
+        print(f"  Page '{page_title}' not found")
+        return
+
+    page_key = slugify(page_title) + "_copy"
+    tabs = page_route.get("children", [])
+    all_popup_refs = []
+
+    if len(tabs) <= 1:
+        # Single tab — flat page
+        tab_uid = tabs[0].get("schemaUid") if tabs else page_route.get("schemaUid")
+        if not tab_uid:
+            return
+        result, popup_refs, coll = _export_tab_surface(
+            nb, tab_uid, js_dir, slugify(page_title), page_key, coll)
+        if not result:
+            return
+        all_popup_refs = popup_refs
+        page_spec = {k: v for k, v in result.items() if k not in ("_state", "popups")}
+    else:
+        # Multi-tab — export each tab
+        tab_specs = []
+        for i, tab in enumerate(tabs):
+            tab_uid = tab.get("schemaUid", "")
+            tab_title = tab.get("title", f"Tab{i}")
+            if not tab_uid:
+                continue
+            result, popup_refs, coll = _export_tab_surface(
+                nb, tab_uid, js_dir, f"{slugify(page_title)}_{slugify(tab_title)}",
+                page_key, coll)
+            if not result:
+                tab_specs.append({"title": tab_title, "blocks": []})
+                continue
+            all_popup_refs.extend(popup_refs)
+            tab_spec = {"title": tab_title}
+            tab_spec.update({k: v for k, v in result.items() if k not in ("_state", "popups")})
+            tab_specs.append(tab_spec)
+
+        page_spec = {"tabs": tab_specs}
+
     # Save structure.yaml
-    spec = {
-        "module": page_title + " Copy",
-        "icon": "fundoutlined",
-    }
+    spec = {"module": page_title + " Copy", "icon": "fundoutlined"}
     if group_name:
         spec["group"] = group_name
     spec["pages"] = [{
-        "page": page_title + " Copy",
-        "coll": coll, "icon": "fundoutlined",
-        **{k: v for k, v in result.items() if k not in ("_state", "popups")},
+        "page": page_title + " Copy", "coll": coll, "icon": "fundoutlined",
+        **page_spec,
     }]
     (mod / "structure.yaml").write_text(dump_yaml(spec))
 
     # Export popups
     n_popups = 0
-    if popup_refs:
-        exported = export_all_popups(nb, popup_refs, js_dir, popups_dir,
+    if all_popup_refs:
+        exported = export_all_popups(nb, all_popup_refs, js_dir, popups_dir,
                                       prefix=f"popup_{slugify(page_title)}")
         n_popups = len(exported)
 
-    blocks_count = len(result.get("blocks", []))
+    n_tabs = len(tabs) if len(tabs) > 1 else 0
+    blocks_count = sum(len(t.get("blocks", [])) for t in page_spec.get("tabs", [page_spec]))
+    tab_info = f" ({n_tabs} tabs)" if n_tabs else ""
     print(f"  Exported: {page_title} → {out_dir}/")
-    print(f"    {blocks_count} blocks, {n_popups} popups")
-    print(f"  Deploy: python deployer.py {out_dir}/")
+    print(f"    {blocks_count} blocks, {n_popups} popups{tab_info}")
 
 
 def export_all_pages(out_dir: str, group_filter: str = None):
-    """Export ALL pages from the system.
-
-    Args:
-        out_dir: Base output directory (e.g., "crm-full")
-        group_filter: Only export pages from this group (e.g., "Main")
-    """
+    """Export ALL pages from the system, including sub-groups."""
     nb = NocoBase()
     routes = nb.routes()
 
@@ -1022,13 +1040,24 @@ def export_all_pages(out_dir: str, group_filter: str = None):
         print(f"\n{group_title}:")
 
         for c in children:
-            page_title = c.get("title", "")
-            if not page_title:
+            c_title = c.get("title", "")
+            if not c_title:
                 continue
-            page_key = slugify(page_title)
-            mod_dir = f"{out_dir}/{page_key}"
 
-            export_module(page_title, mod_dir, group_name=group_copy)
+            if c.get("type") == "group":
+                # Sub-group: export each child page with sub-group name
+                sub_group_copy = c_title + " Copy"
+                print(f"  {c_title} (sub-group):")
+                for sc in c.get("children", []):
+                    sc_title = sc.get("title", "")
+                    if not sc_title:
+                        continue
+                    mod_dir = f"{out_dir}/{slugify(c_title)}/{slugify(sc_title)}"
+                    export_module(sc_title, mod_dir,
+                                  group_name=f"{group_copy}/{sub_group_copy}")
+            else:
+                mod_dir = f"{out_dir}/{slugify(c_title)}"
+                export_module(c_title, mod_dir, group_name=group_copy)
 
 
 if __name__ == "__main__":

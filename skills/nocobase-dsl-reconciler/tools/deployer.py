@@ -330,17 +330,28 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
         except Exception:
             pass
 
-    # Group — use existing group if "group" is specified, otherwise create/find by module name
+    # Group — supports nested groups via "Parent/Child" format
     module_name = structure.get("module", "Untitled")
-    group_name = structure.get("group", module_name)
+    group_path = structure.get("group", module_name)
     icon = structure.get("icon", "appstoreoutlined")
-    group_id = state.get("group_id") or _find_group(nb, group_name)
+
+    # Split group path for nested groups (e.g., "Main Copy/More Charts Copy")
+    group_parts = [p.strip() for p in group_path.split("/")]
+    group_id = state.get("group_id")
     if not group_id:
-        result = nb.create_group(group_name, icon=icon)
-        group_id = result["routeId"]
-        print(f"  + group: {group_name}")
+        parent_id = None
+        for i, gname in enumerate(group_parts):
+            gid = _find_group(nb, gname, parent_id)
+            if not gid:
+                result = nb.create_group(gname, icon=icon, parent_id=parent_id)
+                gid = result["routeId"]
+                print(f"  + group: {gname}")
+            else:
+                print(f"  = group: {gname}")
+            parent_id = gid
+        group_id = parent_id
     else:
-        print(f"  = group: {group_name}")
+        print(f"  = group: {group_path}")
     state["group_id"] = group_id
     state.setdefault("pages", {})
 
@@ -363,11 +374,62 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
         else:
             print(f"  = page: {page_title}")
 
-        # Deploy surface (blocks + layout)
-        existing_blocks = page_state.get("blocks", {})
-        blocks_state = deploy_surface(nb, page_state["tab_uid"], ps, mod, force,
-                                       existing_blocks)
-        page_state["blocks"] = blocks_state
+        page_tabs = ps.get("tabs", [])
+        if page_tabs:
+            # Multi-tab page: deploy each tab
+            tab_states = page_state.get("tab_states", {})
+            for ti, tab_spec in enumerate(page_tabs):
+                tab_title = tab_spec.get("title", f"Tab{ti}")
+                tab_key = slugify(tab_title)
+
+                if ti == 0:
+                    # First tab = default tab (already created)
+                    tab_uid = page_state["tab_uid"]
+                    # Rename if needed
+                    if tab_title:
+                        route_id = page_state.get("route_id")
+                        if route_id:
+                            try:
+                                # Find the tabs child route and rename
+                                r_data = nb.s.get(f"{nb.base}/api/desktopRoutes:list",
+                                    params={"filter": json.dumps({"parentId": route_id, "type": "tabs"}),
+                                            "pageSize": 10}, timeout=30)
+                                tab_routes = r_data.json().get("data", [])
+                                if tab_routes:
+                                    nb.s.post(f"{nb.base}/api/desktopRoutes:update",
+                                              params={"filterByTk": tab_routes[0]["id"]},
+                                              json={"title": tab_title}, timeout=30)
+                            except Exception:
+                                pass
+                elif tab_key in tab_states:
+                    tab_uid = tab_states[tab_key].get("tab_uid", "")
+                else:
+                    # Create additional tab
+                    try:
+                        route_id = page_state.get("route_id")
+                        r2 = nb.s.post(f"{nb.base}/api/desktopRoutes:create",
+                                       json={"type": "tabs", "title": tab_title,
+                                             "parentId": route_id}, timeout=30)
+                        tab_data = r2.json().get("data", {})
+                        tab_uid = tab_data.get("schemaUid", "")
+                        print(f"    + tab: {tab_title}")
+                    except Exception as e:
+                        print(f"    ! tab {tab_title}: {e}")
+                        continue
+
+                existing_blocks = tab_states.get(tab_key, {}).get("blocks", {})
+                blocks_state = deploy_surface(nb, tab_uid, tab_spec, mod, force,
+                                               existing_blocks)
+                tab_states[tab_key] = {"tab_uid": tab_uid, "blocks": blocks_state}
+
+            page_state["tab_states"] = tab_states
+        else:
+            # Single tab page
+            existing_blocks = page_state.get("blocks", {})
+            blocks_state = deploy_surface(nb, page_state["tab_uid"], ps, mod, force,
+                                           existing_blocks)
+            page_state["blocks"] = blocks_state
+
         state["pages"][page_key] = page_state
 
     # Popups
@@ -2714,8 +2776,19 @@ def _build_ai_button(aspec: dict, block_uid: str, mod: Path) -> tuple[dict, dict
     return step_params, props
 
 
-def _find_group(nb: NocoBase, title: str) -> int | None:
-    for r in nb.routes():
+def _find_group(nb: NocoBase, title: str, parent_id: int = None) -> int | None:
+    """Find a menu group by title, optionally within a parent group."""
+    routes = nb.routes()
+    if parent_id:
+        # Search within parent's children
+        for r in routes:
+            if r.get("id") == parent_id:
+                for c in r.get("children", []):
+                    if c.get("type") == "group" and c.get("title") == title:
+                        return c["id"]
+                return None
+    # Search top-level
+    for r in routes:
         if r.get("type") == "group" and r.get("title") == title:
             return r["id"]
     return None
