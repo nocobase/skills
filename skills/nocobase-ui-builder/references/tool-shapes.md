@@ -442,7 +442,7 @@ When you want to create the opener and carry the popup subtree in one shot, and 
       "mode": "replace",
       "blocks": [
         {
-          "key": "help",
+          "ref": "help",
           "type": "markdown",
           "settings": {
             "content": "# Details Help"
@@ -477,7 +477,7 @@ The following pattern should only be used after you already have `popupGridUid`,
     "mode": "append",
     "blocks": [
       {
-        "key": "current-user-details",
+        "ref": "current-user-details",
         "type": "details",
         "resource": {
           "binding": "currentRecord"
@@ -498,7 +498,7 @@ The following pattern should only be used after you already have `popupGridUid`,
     "mode": "append",
     "blocks": [
       {
-        "key": "roles-table",
+        "ref": "roles-table",
         "type": "table",
         "resource": {
           "binding": "associatedRecords",
@@ -673,7 +673,7 @@ Rules:
 - treating `pageSchemaUid` / `routeId` as `target.uid`
 - forgetting the outer `requestBody` on lifecycle APIs
 - calling page/tab lifecycle APIs after `createMenu(type="item")` but before `createPage(menuRouteId=...)`
-- hand-writing raw `{ "ref": "step.path" }` or `$ref` inside `validatePlan/executePlan` caller input instead of `{ "step": "...", "path": "..." }`
+- hand-writing raw `{ "ref": "step.path" }` or `$ref` for plain earlier-step output fields that should be passed as `{ "step": "...", "path": "..." }`; keep using `{ "ref": "..." }` for named nodes / created refs
 - passing `currentRecord` as a bare locator or `target.uid`
 - placing `currentRecord` / `associatedRecords` directly into an inline popup subtree that has not gone through popup-content `catalog` validation
 - writing popup-internal `resource` as a string, such as `resource: "currentRecord"` or `resource: "associatedRecords"`

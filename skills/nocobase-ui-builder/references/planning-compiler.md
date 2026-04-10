@@ -131,7 +131,8 @@ Normalization rules:
 ## 6. Selector / Locator Policy
 
 - Use `selectors.target/source.locator` when the step points to an already existing surface or node.
-- Use `{ "step": "...", "path": "..." }` when the step points to a result created earlier in the same plan.
+- Use `{ "step": "...", "path": "..." }` only when you need a raw earlier-step result value that is not itself a named flow-surface ref, such as `routeId`, `pageSchemaUid`, or another plain output field.
+- When an earlier step already created or registered a named node/ref, later selectors and popup chaining should continue to use `{ "ref": "..." }`.
 - Prefer `locator.uid` for node-like existing targets. Use `pageSchemaUid/tabSchemaUid/routeId` only when the target is genuinely being anchored through those root locators.
 - Bootstrap `createMenu` / `createPage` steps do not use selectors; they carry their linkage through `values` plus `{ step, path }` references only.
 - When `createPage` consumes a menu-item created earlier in the same plan, `values.menuRouteId` should come from the previous step result, not from a guessed route id.
