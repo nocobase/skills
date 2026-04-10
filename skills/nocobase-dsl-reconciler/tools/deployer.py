@@ -330,16 +330,17 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
         except Exception:
             pass
 
-    # Group
+    # Group — use existing group if "group" is specified, otherwise create/find by module name
     module_name = structure.get("module", "Untitled")
+    group_name = structure.get("group", module_name)
     icon = structure.get("icon", "appstoreoutlined")
-    group_id = state.get("group_id") or _find_group(nb, module_name)
+    group_id = state.get("group_id") or _find_group(nb, group_name)
     if not group_id:
-        result = nb.create_group(module_name, icon=icon)
+        result = nb.create_group(group_name, icon=icon)
         group_id = result["routeId"]
-        print(f"  + group: {module_name}")
+        print(f"  + group: {group_name}")
     else:
-        print(f"  = group: {module_name}")
+        print(f"  = group: {group_name}")
     state["group_id"] = group_id
     state.setdefault("pages", {})
 
@@ -1365,9 +1366,13 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
     all_actions = list(bs.get("actions", []))
     all_rec_actions = list(bs.get("recordActions", []))
 
-    for atype in all_actions + all_rec_actions:
-        if isinstance(atype, dict):
-            atype = atype.get("type", "")
+    for aspec in all_actions + all_rec_actions:
+        action_sp = {}
+        if isinstance(aspec, dict):
+            atype = aspec.get("type", "")
+            action_sp = aspec.get("stepParams", {})
+        else:
+            atype = aspec
         amodel = _NON_COMPOSE_ACTION_MAP.get(atype)
         if not amodel:
             continue
@@ -1375,9 +1380,14 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
         existing_actions = block_state.get("actions", {})
         existing_rec = block_state.get("record_actions", {})
         if a_key in existing_actions or a_key in existing_rec:
+            # Already tracked in state — but update stepParams if spec has config
+            if action_sp:
+                existing_uid = (existing_actions.get(a_key) or existing_rec.get(a_key, {})).get("uid", "")
+                if existing_uid:
+                    nb.save_model({"uid": existing_uid, "stepParams": action_sp})
             continue
         # Determine correct subKey from spec position
-        desired_sub_key = "recordActions" if atype in all_rec_actions else "actions"
+        desired_sub_key = "recordActions" if aspec in all_rec_actions else "actions"
 
         # Check live block for existing action
         try:
@@ -1394,9 +1404,12 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                 if found_uid:
                     break
             if found_uid:
-                # Fix subKey if mismatched (e.g., was recordActions, should be actions)
+                # Fix subKey if mismatched
                 if found_sub_key != desired_sub_key:
                     nb.save_model({"uid": found_uid, "subKey": desired_sub_key})
+                # Update stepParams if spec has config (e.g., AI button)
+                if action_sp:
+                    nb.save_model({"uid": found_uid, "stepParams": action_sp})
                 # Track in block_state so refs can resolve
                 state_key = "record_actions" if desired_sub_key == "recordActions" else "actions"
                 block_state.setdefault(state_key, {})[atype] = {"uid": found_uid}
@@ -1408,7 +1421,7 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
         nb.save_model({
             "uid": new_uid, "use": amodel,
             "parentId": block_uid, "subKey": desired_sub_key, "subType": "array",
-            "sortIndex": 0, "stepParams": {}, "flowRegistry": {},
+            "sortIndex": 0, "stepParams": action_sp, "flowRegistry": {},
         })
         # Track in block_state
         state_key = "record_actions" if desired_sub_key == "recordActions" else "actions"

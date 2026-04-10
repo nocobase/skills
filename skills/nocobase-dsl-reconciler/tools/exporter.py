@@ -778,16 +778,27 @@ def _collect_action_popups(actions, popup_refs: list, block_key: str = ""):
             popup_refs.append(ref)
 
 
-def _export_actions(actions) -> list[str]:
+def _export_actions(actions) -> list:
+    """Export actions. Simple actions → string, complex (with config) → dict."""
     if not isinstance(actions, list):
         return []
+    # Actions that need stepParams preserved
+    _COMPLEX_ACTIONS = {"AIEmployeeButtonModel", "CollectionTriggerWorkflowActionModel",
+                        "PopupCollectionActionModel", "UpdateRecordActionModel"}
     result = []
     for act in actions:
         use = act.get("use", "")
         if "TableActionsColumn" in use:
             continue
         semantic = ACTION_MAP.get(use, use.replace("Model", ""))
-        result.append(semantic)
+        if use in _COMPLEX_ACTIONS:
+            sp = act.get("stepParams", {})
+            if sp:
+                result.append({"type": semantic, "stepParams": sp})
+            else:
+                result.append(semantic)
+        else:
+            result.append(semantic)
     return result
 
 
