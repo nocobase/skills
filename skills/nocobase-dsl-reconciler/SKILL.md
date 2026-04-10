@@ -258,27 +258,54 @@ python deployer.py mymodule/ --force
 # Verify: addNew form opens, edit works, name click shows detail with same layout
 ```
 
-### Round 4: Detail Enhancement
+### Round 4: Plan JS + Detail Design
 
-Refine detail popups: add sub-tables (association), comments, attachments, record history tabs.
-Write `popups/*.yaml` only for pages that need custom detail beyond the auto-generated one.
+Before writing detail popups, plan what custom JS is needed per page.
+Output a planning table like this:
 
-```bash
-python deployer.py mymodule/ --force
-# Verify: nested tables show data, nested popups open correctly
+```
+| Page     | Table JS Columns          | Detail JS Blocks              | Event Flows        |
+|----------|---------------------------|-------------------------------|-------------------|
+| Projects | progress_bar, budget_util | KPI stats, timeline chart     | beforeRender      |
+| Tasks    | hours_compare, due_badge  | assignee workload             |                   |
+| Members  | skill_tags                | project participation summary |                   |
 ```
 
-### Round 5: JS Customization
+JS column types to consider:
+- **composite**: combine multiple fields (e.g., "name + code")
+- **progress**: progress bar from percentage field
+- **currency**: formatted money display
+- **countdown**: days until due date
+- **status_tag**: colored tag from select field
+- **comparison**: compare two number fields (e.g., estimated vs actual hours)
 
-Add JS items: KPI cards, status flow blocks, custom column renderers, event flows.
+Detail block types to consider:
+- **KPI stats**: key metrics summary at top of detail
+- **timeline/flow**: status progression visualization
+- **related summary**: aggregated data from child tables
+
+### Round 5: Detail Popups
+
+Write `popups/*.yaml` for pages that need custom detail beyond auto-generated.
+Each detail popup typically has:
+
+```yaml
+tabs:
+- title: Overview
+  blocks:
+  - details block (fields + JS KPI block)
+  - sub-table (association data)
+- title: History
+  blocks:
+  - recordHistory
+```
+
+### Round 6: JS Implementation
+
 Write JS files in `js/`, reference from specs.
+One file per JS column/block. Keep code in SES sandbox format (var, function, no arrow/const).
 
-```bash
-python deployer.py mymodule/ --force
-# Verify: JS blocks render, event flows trigger
-```
-
-### Round 6: Sync + Polish
+### Round 7: Sync + Polish
 
 ```bash
 python sync.py mymodule/     # capture any manual UI adjustments back to specs
