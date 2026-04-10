@@ -9,14 +9,30 @@ description: >-
 
 # NocoBase DSL Reconciler
 
-Declarative YAML+JS specs for NocoBase pages. Export from live system, edit specs, deploy to any instance.
+Build NocoBase applications from YAML + JS specs. Deploy to any instance.
 
-## When to Use
+## Quick Start
 
-- Export existing pages/popups to reusable YAML specs
-- Deploy a complete module (pages + popups + JS + layout) from specs
-- Sync live UI changes back to spec files
-- Replicate a module from one NocoBase instance to another
+```bash
+# 1. Generate module scaffold
+cd tools
+python deployer.py --new ../myapp "My App" --pages "Dashboard,Orders,Products,Customers,Reports"
+
+# 2. Edit the generated files:
+#    ../myapp/structure.yaml  — collections (fields) + pages (blocks, layout)
+#    ../myapp/enhance.yaml    — addNew popups (auto derives edit + detail)
+
+# 3. Deploy
+python deployer.py ../myapp/
+
+# 4. Iterate: edit specs → force deploy
+python deployer.py ../myapp/ --force
+
+# 5. Preview without deploying
+python deployer.py ../myapp/ --plan
+```
+
+See `examples/crm/` for a complete 16-page CRM system with dashboards, charts, KPI cards, detail popups, and nested sub-tables.
 
 ## Tools
 

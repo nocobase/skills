@@ -2845,12 +2845,112 @@ def _find_group(nb: NocoBase, title: str, parent_id: int = None) -> int | None:
 #  CLI
 # ══════════════════════════════════════════════════════════════════
 
+def scaffold(mod_dir: str, module_name: str, pages: list[str]):
+    """Generate a new module scaffold with structure.yaml + enhance.yaml."""
+    mod = Path(mod_dir)
+    mod.mkdir(parents=True, exist_ok=True)
+    (mod / "js").mkdir(exist_ok=True)
+    (mod / "charts").mkdir(exist_ok=True)
+    (mod / "popups").mkdir(exist_ok=True)
+    (mod / "ai").mkdir(exist_ok=True)
+
+    page_specs = []
+    enhance_popups = []
+    for page_name in pages:
+        page_key = slugify(page_name)
+        coll = f"nb_{slugify(module_name)}_{page_key}"
+        page_spec = {
+            "page": page_name,
+            "icon": "fileoutlined",
+            "coll": coll,
+            "blocks": [
+                {
+                    "key": "filterForm",
+                    "type": "filterForm",
+                    "coll": coll,
+                    "fields": [
+                        {"field": "name", "filterPaths": ["name"]},
+                    ],
+                },
+                {
+                    "key": "table",
+                    "type": "table",
+                    "coll": coll,
+                    "fields": ["name", "status", "createdAt"],
+                    "actions": ["filter", "refresh", "addNew"],
+                    "recordActions": ["edit", "delete"],
+                },
+            ],
+            "layout": [["filterForm"], ["table"]],
+        }
+        page_specs.append(page_spec)
+
+        enhance_popups.append({
+            "target": f"${page_key}.table.actions.addNew",
+            "auto": ["edit", "detail"],
+            "view_field": "name",
+            "coll": coll,
+            "blocks": [{
+                "key": "form",
+                "type": "createForm",
+                "resource": {"binding": "currentCollection"},
+                "fields": ["name", "status"],
+                "field_layout": [
+                    "--- Basic Info ---",
+                    ["name", "status"],
+                ],
+                "actions": ["submit"],
+            }],
+        })
+
+    structure = {
+        "module": module_name,
+        "icon": "appstoreoutlined",
+        "collections": {
+            f"nb_{slugify(module_name)}_{slugify(p)}": {
+                "title": p,
+                "fields": [
+                    {"name": "name", "interface": "input", "title": "Name"},
+                    {"name": "status", "interface": "select", "title": "Status",
+                     "options": ["Active", "Inactive"]},
+                ],
+            } for p in pages
+        },
+        "pages": page_specs,
+    }
+    enhance = {"popups": enhance_popups}
+
+    (mod / "structure.yaml").write_text(dump_yaml(structure))
+    (mod / "enhance.yaml").write_text(dump_yaml(enhance))
+
+    print(f"\n  Scaffold created: {mod_dir}/")
+    print(f"    {len(pages)} pages: {', '.join(pages)}")
+    print(f"\n  Next steps:")
+    print(f"    1. Edit structure.yaml — add fields to collections + blocks")
+    print(f"    2. Edit enhance.yaml — customize addNew form fields + layout")
+    print(f"    3. Deploy: cd tools && python deployer.py ../{mod_dir}/")
+    print(f"    4. Test in browser, then iterate with --force")
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
 
-    mod_dir = sys.argv[1]
-    force = "--force" in sys.argv
-    plan_only = "--plan" in sys.argv
-    deploy(mod_dir, force, plan_only)
+    if sys.argv[1] == "--new":
+        if len(sys.argv) < 4:
+            print("Usage: python deployer.py --new <dir> <module_name> --pages Page1,Page2,...")
+            sys.exit(1)
+        mod_dir = sys.argv[2]
+        module_name = sys.argv[3]
+        pages_str = ""
+        if "--pages" in sys.argv:
+            pi = sys.argv.index("--pages")
+            pages_str = sys.argv[pi + 1]
+        pages = [p.strip() for p in pages_str.split(",")] if pages_str else ["Main"]
+        scaffold(mod_dir, module_name, pages)
+    else:
+        mod_dir = sys.argv[1]
+        force = "--force" in sys.argv
+        plan_only = "--plan" in sys.argv
+        deploy(mod_dir, force, plan_only)
