@@ -1,0 +1,27 @@
+{
+  "query": {
+    "mode": "sql",
+    "sql": "SELECT\n  COALESCE(s.name, o.stage) as stage_name,\n  s.sort_order,\n  s.color,\n  COUNT(*) as deal_count,\n  SUM(o.amount) as total_value,\n  ROUND(AVG(o.ai_win_probability)::numeric, 1) as avg_ai_prob\nFROM nb_crm_opportunities o\nLEFT JOIN nb_crm_opportunity_stages s ON s.code = o.stage\nWHERE 1=1\n  AND o.stage NOT IN ('won', 'lost')\n{% if ctx.role != 'root' and ctx.role != 'admin' %}\n  AND o.owner_id = {{ ctx.user.id }}\n{% endif %}\nGROUP BY s.name, o.stage, s.sort_order, s.color\nORDER BY COALESCE(s.sort_order, 99)"
+  },
+  "chart": {
+    "option": {
+      "mode": "custom",
+      "builder": {
+        "legend": true,
+        "tooltip": true,
+        "label": false,
+        "type": "line",
+        "xField": "active_opps",
+        "yField": "pipeline_value",
+        "smooth": false,
+        "xAxisLabelRotate": 0,
+        "yAxisSplitLine": true
+      },
+      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\nconst data = ctx.data.objects || [];\n\nconst formatCurrency = function(val) {\n  if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';\n  if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'K';\n  return '$' + val.toFixed(0);\n};\n\n// Prepare donut data\nconst pieData = data.map(function(item) { return {\n  name: item.stage_name,\n  value: Number(item.deal_count),\n  amount: Number(item.total_value),\n  avgProb: Number(item.avg_ai_prob),\n  itemStyle: {\n    color: item.color || '#1890ff'\n  }\n}; });\n\nconst totalDeals = pieData.reduce(function(sum, item) { return sum + item.value; }, 0);\nconst totalValue = pieData.reduce(function(sum, item) { return sum + item.amount; }, 0);\n\nreturn {\n  title: {\n    text: t('My Opportunities by Stage'),\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'item',\n    formatter: function(params) {\n      const d = params.data;\n      return `<b>${d.name}</b><br/>\n        ${t('Deals')}: ${d.value} (${params.percent}%)<br/>\n        ${t('Value')}: ${formatCurrency(d.amount)}<br/>\n        ${t('Avg AI Prob')}: ${d.avgProb}%`;\n    }\n  },\n  legend: {\n    orient: 'vertical',\n    right: 10,\n    top: 'center'\n  },\n  series: [\n    {\n      name: t('Stage'),\n      type: 'pie',\n      radius: ['40%', '70%'],\n      center: ['40%', '55%'],\n      avoidLabelOverlap: true,\n      itemStyle: {\n        borderRadius: 6,\n        borderColor: '#fff',\n        borderWidth: 2\n      },\n      label: {\n        show: true,\n        formatter: '{b}: {c}'\n      },\n      emphasis: {\n        label: {\n          show: true,\n          fontSize: 16,\n          fontWeight: 'bold'\n        }\n      },\n      data: pieData\n    }\n  ],\n  graphic: [\n    {\n      type: 'text',\n      left: '35%',\n      top: '48%',\n      style: {\n        text: totalDeals.toString(),\n        textAlign: 'center',\n        fontSize: 28,\n        fontWeight: 'bold',\n        fill: '#333'\n      }\n    },\n    {\n      type: 'text',\n      left: '35%',\n      top: '57%',\n      style: {\n        text: t('Deals'),\n        textAlign: 'center',\n        fontSize: 12,\n        fill: '#999'\n      }\n    },\n    {\n      type: 'text',\n      left: 'center',\n      bottom: 10,\n      style: {\n        text: `${t('Total Pipeline')}: ${formatCurrency(totalValue)}`,\n        fontSize: 13,\n        fill: '#666'\n      }\n    }\n  ]\n}\n"
+    },
+    "events": {
+      "mode": "custom",
+      "raw": "chart.off('click');\nchart.on('click', function(params) {\n    var stage = params.name || params.data.name;\n    if (stage) ctx.router.navigate('/admin/vga8g2pgnnu?filter=' + encodeURIComponent(stage));\n});"
+    }
+  }
+}

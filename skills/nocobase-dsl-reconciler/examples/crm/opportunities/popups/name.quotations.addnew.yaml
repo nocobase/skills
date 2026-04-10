@@ -1,0 +1,138 @@
+field: addnew
+field_uid: 694763bbe38
+block_key: quotations
+blocks:
+- key: reference
+  type: reference
+  template_uid: odc3k4if9n5
+  template_name: 'Form (Add new): Opportunities > Quotations (Quotations)'
+  reference_mode: reference
+  template_content:
+    key: createForm
+    type: createForm
+    coll: nb_crm_quotations
+    resource_binding:
+      associationName: nb_crm_opportunities.quotations
+      sourceId: '{{ctx.view.inputArgs.sourceId}}'
+    fields:
+    - quotation_no
+    - version
+    - name
+    - opportunity
+    - contact
+    - customer
+    - items
+    - exchange_rate
+    - currencyInfo
+    - payment_terms
+    - terms_condition
+    - address
+    - description
+    - subtotal
+    - discount_rate
+    - discount_amount
+    - shipping_handling
+    - tax_rate
+    - tax_amount
+    - total_amount
+    - total_amount_usd
+    js_items:
+    - desc: Line Item Auto-Fill Tip
+      file: ./js/popup_opportunities_name_addnew_tpl_createForm_line_item_auto_fill_tip.js
+    - desc: Price Calculation Formula Tip
+      file: ./js/popup_opportunities_name_addnew_tpl_createForm_price_calculation_formula_tip.js
+    field_layout:
+    - '--- Basic Info ---'
+    - - quotation_no
+      - version
+    - - name
+    - '--- Relations ---'
+    - - opportunity
+      - customer
+      - contact
+    - '--- Items ---'
+    - - '[JS:Line Item Auto-Fill Tip]': 8
+      - items: 16
+    - '--- Financial Info ---'
+    - - currencyInfo
+      - exchange_rate
+    - '--- Pricing Summary ---'
+    - - '[JS:Price Calculation Formula Tip]'
+      - col:
+        - subtotal
+        - discount_rate
+        - discount_amount
+        - shipping_handling
+        - tax_rate
+        - tax_amount
+        size: 12
+    - - total_amount
+      - total_amount_usd
+    - '--- Terms ---'
+    - - col:
+        - payment_terms
+        - address
+        size: 12
+      - terms_condition
+    - '--- Description ---'
+    - - description
+    actions:
+    - submit
+    linkage_rules:
+      value:
+      - key: s5lzewfj6rm
+        title: Linkage rule
+        enable: false
+        condition:
+          logic: $and
+          items:
+          - path: '{{ ctx.popup.record.status }}'
+            operator: $ne
+            value: draft
+            noValue: false
+          - path: '{{ ctx.popup.record.id }}'
+            operator: $notEmpty
+            value: true
+            noValue: true
+        actions:
+        - key: ejdmhj6x82k
+          name: linkageSetFieldProps
+          params:
+            value:
+              fields:
+              - 37ec8e9e2d6
+              - 7a2830de859
+              - 90176a0341d
+              - d50e9de3025
+              - 6ca871546d5
+              - 34eb27a48ee
+              - 050e0375144
+              - 014b6a471fa
+              - 2eea8ec0e14
+              - 9118933769e
+              - 222da51e139
+              - c7b7a310c82
+              - 63cda93724c
+              - 56be69dd537
+              - c0a52427d65
+              - d102c1f072b
+              - 1f9cbb04508
+              - 2cf564f39fa
+              - 2b8eae3d355
+              - 48ff0d41cd1
+              - ea135d7c6ff
+              state: disabled
+    event_flows:
+    - event:
+        eventName: formValuesChange
+        defaultParams:
+          condition:
+            logic: $and
+            items: []
+      flow_key: yrohvt81g2k
+      step_key: 5rp447eybr2
+      desc: yrohvt81g2k
+      file: ./js/popup_opportunities_name_addnew_tpl_createForm_event_yrohvt81g2k_5rp447eybr2.js
+layout:
+- - reference
+mode: embed

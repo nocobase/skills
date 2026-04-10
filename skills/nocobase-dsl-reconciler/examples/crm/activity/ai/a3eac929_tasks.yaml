@@ -1,0 +1,5 @@
+tasks:
+- title: Activities Analysis
+  user: Show me activity trends and productivity metrics.
+  autoSend: true
+  system_file: ./ai/a3eac929_task0.md

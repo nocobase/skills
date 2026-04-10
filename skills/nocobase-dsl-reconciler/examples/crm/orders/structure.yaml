@@ -1,0 +1,63 @@
+module: Orders Copy
+icon: fundoutlined
+group: Main Copy
+pages:
+- page: Orders Copy
+  coll: nb_crm_orders
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - field: order_no
+      label: Search
+    js_items:
+    - desc: Order Stats Filter Block
+      file: ./js/orders_filterForm_order_stats_filter_block.js
+    field_layout:
+    - - col:
+        - '[JS:Order Stats Filter Block]'
+        - order_no
+        size: 24
+  - key: table
+    type: table
+    coll: nb_crm_orders
+    dataScope:
+      logic: $and
+      items:
+      - path: order_date
+        operator: $dateBetween
+        value: '{{ ctx.urlSearchParams.month }}'
+        noValue: false
+    fields:
+    - order_no
+    - customer
+    - order_amount
+    - payment_status
+    - owner
+    - createdAt
+    js_columns:
+    - title: Order Progress
+      desc: Order Progress Column
+      file: ./js/orders_tpl_table_col_order_progress.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    - type: ai
+      employee: viz
+      tasks_file: ./ai/6c50faf8_tasks.yaml
+    event_flows:
+    - event:
+        eventName: beforeRender
+        defaultParams:
+          condition:
+            items: []
+            logic: $and
+      flow_key: hclqnhu563i
+      step_key: csgv61i1xv9
+      desc: hclqnhu563i
+      file: ./js/orders_tpl_table_event_hclqnhu563i_csgv61i1xv9.js
+  layout:
+  - - filterForm
+  - - table
