@@ -1368,9 +1368,16 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
 
     for aspec in all_actions + all_rec_actions:
         action_sp = {}
+        action_props = {}
         if isinstance(aspec, dict):
             atype = aspec.get("type", "")
             action_sp = aspec.get("stepParams", {})
+            action_props = aspec.get("props", {})
+
+            # AI button shorthand: {type: ai, employee: viz, tasks_file: ./ai/tasks.yaml}
+            if atype == "ai" and aspec.get("employee") and not action_sp:
+                action_sp, action_props = _build_ai_button(
+                    aspec, block_uid, mod)
         else:
             atype = aspec
         amodel = _NON_COMPOSE_ACTION_MAP.get(atype)
@@ -1381,10 +1388,15 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
         existing_rec = block_state.get("record_actions", {})
         if a_key in existing_actions or a_key in existing_rec:
             # Already tracked in state — but update stepParams if spec has config
-            if action_sp:
+            if action_sp or action_props:
                 existing_uid = (existing_actions.get(a_key) or existing_rec.get(a_key, {})).get("uid", "")
                 if existing_uid:
-                    nb.save_model({"uid": existing_uid, "stepParams": action_sp})
+                    update = {"uid": existing_uid}
+                    if action_sp:
+                        update["stepParams"] = action_sp
+                    if action_props:
+                        update["props"] = action_props
+                    nb.save_model(update)
             continue
         # Determine correct subKey from spec position
         desired_sub_key = "recordActions" if aspec in all_rec_actions else "actions"
@@ -1408,8 +1420,13 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                 if found_sub_key != desired_sub_key:
                     nb.save_model({"uid": found_uid, "subKey": desired_sub_key})
                 # Update stepParams if spec has config (e.g., AI button)
-                if action_sp:
-                    nb.save_model({"uid": found_uid, "stepParams": action_sp})
+                if action_sp or action_props:
+                    update = {"uid": found_uid}
+                    if action_sp:
+                        update["stepParams"] = action_sp
+                    if action_props:
+                        update["props"] = action_props
+                    nb.save_model(update)
                 # Track in block_state so refs can resolve
                 state_key = "record_actions" if desired_sub_key == "recordActions" else "actions"
                 block_state.setdefault(state_key, {})[atype] = {"uid": found_uid}
@@ -1421,7 +1438,7 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
         nb.save_model({
             "uid": new_uid, "use": amodel,
             "parentId": block_uid, "subKey": desired_sub_key, "subType": "array",
-            "sortIndex": 0, "stepParams": action_sp, "flowRegistry": {},
+            "sortIndex": 0, "stepParams": action_sp, "props": action_props, "flowRegistry": {},
         })
         # Track in block_state
         state_key = "record_actions" if desired_sub_key == "recordActions" else "actions"
@@ -2627,6 +2644,60 @@ def _ensure_collection(nb: NocoBase, name: str, coll_def: dict):
             print(f"    + {name}.{fname}")
         except Exception as e:
             print(f"    ! {name}.{fname}: {e}")
+
+
+def _build_ai_button(aspec: dict, block_uid: str, mod: Path) -> tuple[dict, dict]:
+    """Build AI button stepParams + props from shorthand DSL.
+
+    Shorthand: {type: ai, employee: viz, tasks_file: ./ai/tasks.yaml}
+    Tasks file: {tasks: [{title, user, system_file, autoSend}]}
+
+    Returns (stepParams, props).
+    """
+    employee = aspec.get("employee", "")
+    tasks_file = aspec.get("tasks_file", "")
+
+    # Load tasks
+    tasks_spec = []
+    if tasks_file and mod:
+        tf = mod / tasks_file
+        if tf.exists():
+            td = yaml.safe_load(tf.read_text()) or {}
+            tasks_spec = td.get("tasks", [])
+
+    # Build tasks → stepParams format
+    built_tasks = []
+    for t in tasks_spec:
+        system_text = t.get("system", "")
+        if not system_text and t.get("system_file") and mod:
+            sf = mod / t["system_file"]
+            if sf.exists():
+                system_text = sf.read_text()
+
+        built_tasks.append({
+            "title": t.get("title", ""),
+            "autoSend": t.get("autoSend", True),
+            "message": {
+                "user": t.get("user", ""),
+                "system": system_text,
+                "workContext": [{"type": "flow-model", "uid": block_uid}],
+                "skillSettings": {},
+            },
+        })
+
+    step_params = {
+        "shortcutSettings": {
+            "editTasks": {"tasks": built_tasks},
+        }
+    }
+
+    props = {
+        "aiEmployee": {"username": employee},
+        "context": {"workContext": [{"type": "flow-model", "uid": block_uid}]},
+        "auto": False,
+    }
+
+    return step_params, props
 
 
 def _find_group(nb: NocoBase, title: str) -> int | None:

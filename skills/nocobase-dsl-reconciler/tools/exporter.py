@@ -328,7 +328,7 @@ def _export_block(nb: NocoBase, item: dict, js_dir: Path = None,
         popup_refs.extend(field_popups)
 
         # Actions
-        actions = _export_actions(subs.get("actions", []))
+        actions = _export_actions(subs.get("actions", []), js_dir)
         if actions:
             spec["actions"] = actions
         rec_actions = _export_record_actions(subs)
@@ -415,10 +415,10 @@ def _export_block(nb: NocoBase, item: dict, js_dir: Path = None,
             popup_refs.extend(field_popups)
 
         # Actions
-        actions = _export_actions(subs.get("actions", []))
+        actions = _export_actions(subs.get("actions", []), js_dir)
         if actions:
             spec["actions"] = actions
-        rec_actions = _export_actions(subs.get("recordActions", []))
+        rec_actions = _export_actions(subs.get("recordActions", []), js_dir)
         if rec_actions:
             spec["recordActions"] = rec_actions
 
@@ -485,14 +485,14 @@ def _export_block(nb: NocoBase, item: dict, js_dir: Path = None,
                 popup_refs.extend(li_popups)
 
             # ListItem actions (e.g., EditAction with popup)
-            li_actions = _export_actions(list_item.get("subModels", {}).get("actions", []))
+            li_actions = _export_actions(list_item.get("subModels", {}).get("actions", []), js_dir)
             if li_actions:
                 spec["item_actions"] = li_actions
             # Collect popup refs from list item actions
             _collect_action_popups(list_item.get("subModels", {}).get("actions", []), popup_refs, key)
 
         # Block-level actions
-        actions = _export_actions(subs.get("actions", []))
+        actions = _export_actions(subs.get("actions", []), js_dir)
         if actions:
             spec["actions"] = actions
 
@@ -528,13 +528,13 @@ def _export_block(nb: NocoBase, item: dict, js_dir: Path = None,
     elif btype == "comments":
         # Comments block — preserve association binding
         # Actions
-        actions = _export_actions(subs.get("actions", []))
+        actions = _export_actions(subs.get("actions", []), js_dir)
         if actions:
             spec["actions"] = actions
 
     elif btype == "recordHistory":
         # RecordHistory block — export actions (filter, refresh, expand, collapse)
-        actions = _export_actions(subs.get("actions", []))
+        actions = _export_actions(subs.get("actions", []), js_dir)
         if actions:
             spec["actions"] = actions
 
@@ -778,7 +778,7 @@ def _collect_action_popups(actions, popup_refs: list, block_key: str = ""):
             popup_refs.append(ref)
 
 
-def _export_actions(actions) -> list:
+def _export_actions(actions, js_dir: Path = None) -> list:
     """Export actions. Simple actions → string, complex (with config) → dict."""
     if not isinstance(actions, list):
         return []
@@ -793,8 +793,47 @@ def _export_actions(actions) -> list:
         semantic = ACTION_MAP.get(use, use.replace("Model", ""))
         if use in _COMPLEX_ACTIONS:
             sp = act.get("stepParams", {})
-            if sp:
-                result.append({"type": semantic, "stepParams": sp})
+            props = act.get("props", {})
+            if use == "AIEmployeeButtonModel" and props.get("aiEmployee") and js_dir:
+                # AI button → export as shorthand + tasks file
+                employee = props.get("aiEmployee", {}).get("username", "")
+                tasks = sp.get("shortcutSettings", {}).get("editTasks", {}).get("tasks", [])
+                if tasks:
+                    ai_dir = js_dir.parent / "ai"
+                    ai_dir.mkdir(exist_ok=True)
+                    # Write tasks file
+                    block_key_slug = act.get("parentId", "table")[-8:]
+                    tasks_fname = f"{block_key_slug}_tasks.yaml"
+                    export_tasks = []
+                    for ti, t in enumerate(tasks):
+                        msg = t.get("message", {})
+                        system_text = msg.get("system", "")
+                        task_entry: dict = {
+                            "title": t.get("title", f"Task {ti}"),
+                            "user": msg.get("user", ""),
+                            "autoSend": t.get("autoSend", True),
+                        }
+                        if system_text:
+                            prompt_fname = f"{block_key_slug}_task{ti}.md"
+                            (ai_dir / prompt_fname).write_text(system_text)
+                            task_entry["system_file"] = f"./ai/{prompt_fname}"
+                        export_tasks.append(task_entry)
+                    from nb import dump_yaml
+                    (ai_dir / tasks_fname).write_text(dump_yaml({"tasks": export_tasks}))
+                    result.append({
+                        "type": "ai",
+                        "employee": employee,
+                        "tasks_file": f"./ai/{tasks_fname}",
+                    })
+                else:
+                    result.append({"type": semantic, "employee": employee})
+            elif sp or props:
+                entry = {"type": semantic}
+                if sp:
+                    entry["stepParams"] = sp
+                if props:
+                    entry["props"] = props
+                result.append(entry)
             else:
                 result.append(semantic)
         else:
