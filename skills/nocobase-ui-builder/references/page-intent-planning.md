@@ -18,24 +18,31 @@ Gather only live facts that are necessary to turn user intent into a page struct
 - real association facts when the page may need association display or association popups
 - live `catalog` facts when block capability or resource binding is uncertain
 
+Use the collection discovery priority below:
+
+- `collections:list` narrows collection candidates.
+- `collections:get(appends=["fields"])` is the default field truth for planning. Use it to confirm scalar fields, relation fields, `interface`, and association metadata that the blueprint depends on.
+- If the planning question is target-specific addability rather than schema existence, read `flow_surfaces_catalog({ target, sections: ["fields"] })`.
+
 Allowed discovery stays read-only:
 
 - `desktop_routes_list_accessible(tree=true)`
 - `flow_surfaces_describe_surface`
 - `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context`
-- read-only collection/schema discovery such as `collections:list`, `collections:get`, and `collections/{collectionName}/fields:list`
+- read-only collection/schema discovery such as `collections:list` and `collections:get`
 
 ## 3. Planning Flow
 
 1. Decide whether this is actually a page-building request.
 2. Choose a `page archetype` through [page-archetypes.md](./page-archetypes.md).
 3. Identify the real data sources that the page may need.
-4. Choose blocks from the archetype pattern.
-5. Fill each block with real fields / actions / popup semantics.
-6. Add explicit `interactions` whenever cross-block binding should not be guessed later, especially `filterForm -> target block` cases.
-7. Output a `pageBlueprint` through [page-blueprint-dsl.md](./page-blueprint-dsl.md).
-8. Stop for confirmation.
-9. After confirmation, hand the blueprint to [planning-compiler.md](./planning-compiler.md), compile it into `plan.steps[]`, and then prefer `validatePlan` / `executePlan` for execution.
+4. Follow the collection discovery priority above to confirm the real collections, fields, and target-specific addability facts the page will rely on.
+5. Choose blocks from the archetype pattern.
+6. Fill each block with real fields / actions / popup semantics.
+7. Add explicit `interactions` whenever cross-block binding should not be guessed later, especially `filterForm -> target block` cases.
+8. Output a `pageBlueprint` through [page-blueprint-dsl.md](./page-blueprint-dsl.md).
+9. Stop for confirmation.
+10. After confirmation, hand the blueprint to [planning-compiler.md](./planning-compiler.md), compile it into `plan.steps[]`, and then prefer `validatePlan` / `executePlan` for execution.
 
 ## 4. Data-Source Rules
 

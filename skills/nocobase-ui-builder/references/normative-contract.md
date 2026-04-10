@@ -29,9 +29,15 @@ During blueprint planning, the skill may use:
 - `desktop_routes_list_accessible(tree=true)` for menu discovery
 - `flow_surfaces_describe_surface` when an existing surface needs public-tree / refs / fingerprint facts
 - `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context` for live UI capability and target-state inspection
-- read-only collection/schema discovery such as `collections:list`, `collections:get`, and `collections/{collectionName}/fields:list`
+- read-only collection/schema discovery such as `collections:list` and `collections:get`
 
 Do not use collection reads to mutate schema, and do not use schema reads as a substitute for UI writes.
+
+### Collection Discovery Priority During Planning
+
+- Use `collections:list` only to narrow candidate collections.
+- Use `collections:get(appends=["fields"])` as the default field-schema truth during planning whenever field coverage, `interface`, or relation metadata matters. Treat this as the primary source for both scalar fields and relation fields.
+- When the question is "can this target/container add this field now?", the source of truth is `flow_surfaces_catalog({ target, sections: ["fields"] })`, not collection schema alone.
 
 ### Data-Bound vs Non-Data Blocks
 
@@ -81,6 +87,8 @@ Use direct primitive APIs only when any of the following is true:
 
 ## 4. Catalog Contract
 
+In this section, `catalog(...)` is shorthand for `flow_surfaces_catalog(...)`.
+
 ### Default Principles
 
 - `catalog` is smart by default.
@@ -107,7 +115,7 @@ Use direct primitive APIs only when any of the following is true:
 
 ### When You Must Read `catalog`
 
-You must read `catalog(target)` first when any of the following is true:
+You must read `catalog({ target })` first when any of the following is true:
 
 - You need to decide whether the current target truly supports creating a certain block / field / action type.
 - You need live `configureOptions` / `settingsContract`.
@@ -186,7 +194,7 @@ Only the following recovery suggestions are allowed:
 - re-authenticate the current NocoBase MCP
 - use `nocobase-mcp-setup`
 
-After the user completes the external recovery, restart from the read path again, usually from `get`, and append `catalog` only if required.
+After the user completes the external recovery, restart from the relevant read path for the current task. If field truth or relation metadata matters, restart from `collections:get(appends=["fields"])`. If the question is current-target field addability, then read `flow_surfaces_catalog({ target, sections: ["fields"] })`. For other structural questions, return to the normal read path for the current task and append `catalog` only when required.
 
 ### Explicitly Forbidden
 

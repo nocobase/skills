@@ -30,6 +30,7 @@ Read this file when family, locator, and target uid are already known, and the o
 - Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
 - Template-aware creation uses the same payload families. `addBlock/addBlocks/compose` may carry `template`; `addField/addFields` may carry `template` for fields templates; popup-capable actions and fields may carry `popup.template`
 - `validatePlan` / `executePlan` caller input should use `{ "step": "...", "path": "..." }` for cross-step references. Do not hand-write raw `{ "ref": "..." }` or `$ref`
+- When a prior step returns `compose` data, prefer key-based paths such as `blocksByKey.usersTable.recordActionsByKey.viewUser.popupGridUid` over array paths such as `blocks.0.recordActions.0.popupGridUid`
 - Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
 - Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
 
@@ -143,12 +144,112 @@ This section only records the legal envelope of the high-level plan / execution 
 }
 ```
 
+Representative continuation for a one-shot complex bootstrap plan:
+
+```json
+{
+  "requestBody": {
+    "plan": {
+      "steps": [
+        {
+          "id": "group",
+          "action": "createMenu",
+          "values": {
+            "title": "Workspace",
+            "type": "group"
+          }
+        },
+        {
+          "id": "menu",
+          "action": "createMenu",
+          "values": {
+            "title": "Users",
+            "type": "item",
+            "parentMenuRouteId": {
+              "step": "group",
+              "path": "routeId"
+            }
+          }
+        },
+        {
+          "id": "page",
+          "action": "createPage",
+          "values": {
+            "menuRouteId": {
+              "step": "menu",
+              "path": "routeId"
+            },
+            "tabTitle": "Overview"
+          }
+        },
+        {
+          "id": "composeMain",
+          "action": "compose",
+          "selectors": {
+            "target": {
+              "step": "page",
+              "path": "tabSchemaUid"
+            }
+          },
+          "values": {
+            "mode": "append",
+            "blocks": [
+              {
+                "key": "usersTable",
+                "type": "table",
+                "resource": {
+                  "dataSourceKey": "main",
+                  "collectionName": "users"
+                },
+                "fields": ["username", "nickname"],
+                "recordActions": [
+                  {
+                    "key": "viewUser",
+                    "type": "view"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "composeUserPopup",
+          "action": "compose",
+          "selectors": {
+            "target": {
+              "step": "composeMain",
+              "path": "blocksByKey.usersTable.recordActionsByKey.viewUser.popupGridUid"
+            }
+          },
+          "values": {
+            "mode": "replace",
+            "blocks": [
+              {
+                "key": "userDetails",
+                "type": "details",
+                "resource": {
+                  "binding": "currentRecord"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+This is the canonical pattern when one bootstrap `executePlan` needs to continue from newly created page/tab ids into later `compose` steps, and then continue again through a stable compose key path such as `blocksByKey.*.recordActionsByKey.*.popupGridUid`.
+The same chaining rule also applies when the downstream step is `configure`, `addField`, `addAction`, or another target-taking structural step.
+
 `executePlan` for bootstrap uses the same request envelope as `validatePlan`.
 
 Shape rules:
 
 - Existing-surface plans carry `surface.locator` plus `expectedFingerprint`; bootstrap plans carry neither.
 - In caller input, plan-step cross references use `{ "step": "...", "path": "..." }`.
+- Newly created nodes in the same plan should always be routed through previous-step refs; `bindRefs` are only for already existing nodes on the current surface.
 - `selectors.target/source` belong to the plan-step layer; do not mix low-level `target.uid` into plan-step `values`.
 - Use `locator` inside `selectors` when the step points to an already existing surface or node.
 

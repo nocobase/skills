@@ -125,7 +125,7 @@ Rules:
 - In multi-target scenarios, prefer field-level binding granularity. Do not assume the whole `filterForm` binds to exactly one block, and do not assume all fields automatically inherit the same target.
 - In `pageBlueprint` planning, capture multi-target filter semantics explicitly in `interactions`; do not leave the eventual `defaultTargetUid` decision implicit.
 - If the live contract exposes `defaultTargetUid`, prefer filling it explicitly during field creation to declare the field's default target.
-- The fact that a field exists in collection schema does not mean the current `filterForm` can necessarily `addField` for it. Whether the field is addable depends on live `catalog.fields` and the field capability of the current target.
+- A field existing in collection schema does not guarantee that the current `filterForm` can `addField`; current-target addability still depends on live `catalog.fields`. For the detailed field-truth and addability rules, follow `Field Rules` below.
 - For post-write wiring confirmation, see `Write Readback` in [verification.md](./verification.md). Do not mix post-write assertions into capability-selection rules.
 
 Illustrative fragment:
@@ -158,9 +158,10 @@ This means that different fields inside the same `filterForm` may each declare t
 - The most common shorthand for `compose(...).fields` is a string field name, for example `"nickname"`.
 - In `addField/addFields`, or whenever you need to declare the field path explicitly, use `{ "fieldPath": "nickname" }`.
 - When binding a real field, `fieldPath` is a required creation parameter and does not belong in `settings`. Synthetic standalone fields such as `jsColumn` / `jsItem` may omit a real `fieldPath`.
-- `addField/addFields` should look at live `catalog.fields` first. A field existing in collection schema does not guarantee that it is addable on the current target.
-- If you did not read `catalog(target)` first in this round, you may continue only when live facts have already proven that the field has an `interface`. Otherwise stop. Do not probe with trial writes.
-- The server ultimately decides addability from the field's `interface`. A field without an `interface` cannot be added into a block through `addField`.
+- Use `collections:get(appends=["fields"])` as the default live fact source to prove that the field exists, has an `interface`, and carries the needed scalar/relation metadata. This read includes relation fields too.
+- `addField/addFields` should look at live `catalog.fields` first when deciding whether the current target can actually add the field. A field existing in collection schema does not guarantee that it is addable on the current target.
+- If you did not read `catalog({ target, sections: ["fields"] })` first in this round, you may continue only when `collections:get(appends=["fields"])` or an equivalent live fact has already proven that the field has an `interface`. Otherwise stop. Do not probe with trial writes.
+- The server ultimately decides addability from the field's `interface`, but current-target addability is confirmed through `catalog.fields`. A field without an `interface` cannot be added into a block through `addField`.
 - For inlining public field attributes such as label, required, and disabled, see [settings.md](./settings.md).
 - Common wrapper config: `label`, `showLabel`, `tooltip`, `extra`, `width`.
 - `fixed` is only common in column semantics such as table columns, action columns, and `jsColumn`. Do not treat it as a universal field-wrapper setting.

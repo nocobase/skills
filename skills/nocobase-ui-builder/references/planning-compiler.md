@@ -41,11 +41,27 @@ Rules:
 - Compile only the confirmed subset of the request. Do not silently widen scope.
 - Cross-step references must use caller input shape `{ "step": "...", "path": "..." }`.
 - Do not hand-write raw `{ "ref": "..." }` or `$ref`.
+- "one-shot complex page" means one `executePlan` carrying multiple topologically ordered steps. It does **not** mean every structure must collapse into one `compose`.
 - `selectors.target/source` belong to the plan-step layer.
 - One semantic step should have one clear owner target. Do not hide extra writes inside unrelated steps.
 - Compiler output must be deterministic for the same confirmed intent.
 - Reuse blueprint ids when they are stable; otherwise generate readable step ids through the policy below.
 - `update-page` requires a real existing-surface locator. It must not silently downgrade into bootstrap `create-page`.
+
+Reference resolution rules inside one compiled plan:
+
+- Same-run newly created nodes -> use `{ "step": "...", "path": "..." }`
+- Existing-surface stable naming has two cases: `describeSurface` keeps using `locator + bindRefs`, while `validatePlan/executePlan` may use `bindRefs` + `{ "ref": "..." }` only in existing-surface request positions (`surface` or `selectors.*`)
+- Do not try to bootstrap a new page/menu chain through `bindRefs`; bootstrap creation only has prior-step refs
+
+When a step returns `compose` results, prefer key-based result paths over array indexes whenever the server exposes them:
+
+- `blocksByKey.<blockKey>.uid`
+- `blocksByKey.<blockKey>.fieldsByKey.<fieldKey>.wrapperUid`
+- `blocksByKey.<blockKey>.actionsByKey.<actionKey>.popupGridUid`
+- `blocksByKey.<blockKey>.recordActionsByKey.<actionKey>.popupGridUid`
+
+Only fall back to array paths such as `blocks.0.fields.2.wrapperUid` when a stable key path truly does not exist.
 
 ## 3. Blueprint Node -> Plan Step Mapping
 

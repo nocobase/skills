@@ -7,7 +7,7 @@ dependencies:
   tools:
     - type: "mcp"
       value: "nocobase"
-      description: "NocoBase MCP server for UI surface operations plus read-only schema discovery during blueprint planning"
+      description: "NocoBase MCP server for UI surface operations plus read-only schema discovery for blueprint planning and field pre-write verification"
 
 policy:
   allow_implicit_invocation: true

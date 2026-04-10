@@ -32,6 +32,7 @@ Default path quick reference:
 
 - Read [page-intent-planning.md](./page-intent-planning.md) first for any high-level page-building request.
 - Use read-only schema discovery to identify real collections, fields, and associations. The allowed planning-time schema sources are the live read APIs described by the `Blueprint-First Contract` in [normative-contract.md](./normative-contract.md).
+- During planning, use collection discovery in this order: `collections:list` to narrow candidates, `collections:get(appends=["fields"])` as the default schema truth for real fields / `interface` / relation metadata, and `flow_surfaces_catalog({ target, sections: ["fields"] })` only when target-specific field addability is the question.
 - Choose a `page archetype`, then build a `pageBlueprint` through [page-archetypes.md](./page-archetypes.md) and [page-blueprint-dsl.md](./page-blueprint-dsl.md).
 - Distinguish `data-bound block`s from `non-data block`s:
   - `data-bound block`s need an explicit real data source.
@@ -71,6 +72,7 @@ Default path quick reference:
 - For localized inspection, low-level fallback writes, or direct readback, default to `get` first.
 - For an existing surface, switch to `describeSurface` when the next step is high-level execution and you need `fingerprint`, existing refs, or a public-tree anchor for `validatePlan` / `executePlan`.
 - When you do call `catalog`, default to the smart response first. Do not add `sections/expand` unless the current decision truly needs a broader payload.
+- For collection/field discovery outside blueprint planning, keep the same fact priority: narrow with `collections:list`, confirm field truth through `collections:get(appends=["fields"])`, and only read `catalog({ target, sections: ["fields"] })` when current-target field addability is the question.
 - For page-blueprint planning, use read-only schema discovery first; do not jump into write-target reads until the blueprint is already confirmed.
 - For popup guard-sensitive scenarios, follow the `guard-first popup flow` in [popup.md](./popup.md). For the `addField/addFields` gate, see [capabilities.md](./capabilities.md).
 - `inspect` is read-only. For request shapes of `describeSurface` / `get` / `catalog` / `context`, see [tool-shapes.md](./tool-shapes.md).
@@ -83,6 +85,7 @@ Default path quick reference:
 - If the request came in as a high-level page-building request, do not enter this section until the blueprint has been confirmed.
 - If you are only creating a menu group, prefer a one-step bootstrap plan; direct `createMenu(type="group")` is acceptable as fallback.
 - For creating a new page, prefer bootstrap planning by default; low-level fallback is the menu-first path `createMenu(type="item") -> createPage(menuRouteId=...)`.
+- Before any field-adding write path such as `compose(...fields)`, `addField`, or `addFields`, first confirm field truth through `collections:get(appends=["fields"])`, then confirm current-target addability through `catalog({ target, sections: ["fields"] })` when the container capability matters.
 - When executing from a confirmed `pageBlueprint`, keep each block/action/field mapped back to the blueprint node:
   - `data-bound block`s must preserve the confirmed data-source semantics from `dataSources` / `dataSourceKey`.
   - `non-data block`s may stay unbound.
@@ -91,6 +94,7 @@ Default path quick reference:
 - For `target.mode = "update-page"`, resolve the existing target from the confirmed locator first. Do not silently downgrade to `create-page`.
 - For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.
 - Compile confirmed structure changes into `plan.steps[]` first, then use `validatePlan` / `executePlan`. For the action mapping, `compose vs add*` choice, popup compilation rules, and coverage / fallback rules, follow [planning-compiler.md](./planning-compiler.md).
+- For a confirmed complex page, prefer one `executePlan` carrying multiple dependent steps instead of round-tripping through many separate writes. Within that plan, route same-run dependencies through `{ "step": "...", "path": "..." }`, and prefer stable `compose` key maps when available. See the representative bootstrap example in [tool-shapes.md](./tool-shapes.md).
 - For template-aware writes, first decide whether the write should use local inline content or a saved template reference/copy. Use [templates.md](./templates.md) for `listTemplates`, `saveTemplate`, `convertTemplateToCopy`, and `add*/compose/configure` template shapes.
 - For popup payload shapes and `popup.mode`, see [tool-shapes.md](./tool-shapes.md).
 - For guard-sensitive popups, always follow the `guard-first popup flow` in [popup.md](./popup.md).

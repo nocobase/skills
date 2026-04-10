@@ -14,7 +14,7 @@ Read this file first when you already know you are creating a block / field / ac
 
 ## Core Rules
 
-1. If the current change needs live `configureOptions` / `settingsContract` to determine which public fields exist, read `catalog(target)` first via [normative-contract.md](./normative-contract.md). The decision should consider both target-level `configureOptions` and item-level `configureOptions`.
+1. If the current change needs live `configureOptions` / `settingsContract` to determine which public fields exist, read `catalog({ target })` first via [normative-contract.md](./normative-contract.md). The decision should consider both target-level `configureOptions` and item-level `configureOptions`.
 2. `requestBody.settings` must only contain public semantic keys. Do not write raw `props / decoratorProps / stepParams / flowRegistry / wrapperProps / fieldProps`.
 3. If the user's requirement can be fully expressed through `settings`, do `add* + settings` directly. Do not add an extra `configure`.
 4. If only part of the fields can be inlined, do `add* + settings` first, then use `configure(changes)` to fill the remaining public fields.
