@@ -19,6 +19,24 @@ variant is missing locally.
 Note: external database compose templates are intentionally not included in this
 revision. If users explicitly require external DB, use official docs as fallback.
 
+## APP_KEY Policy
+
+Templates require `APP_KEY` explicitly and fail fast if it is missing.
+Do not use placeholder values such as `please-change-me` or `*-secret-key-change-me`.
+Use a random key with at least 32 characters.
+
+PowerShell:
+
+```powershell
+$env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+```
+
+Bash:
+
+```bash
+export APP_KEY="$(openssl rand -hex 32)"
+```
+
 ## Release Channel Mapping
 
 Templates expose `NOCOBASE_APP_IMAGE` with a default of `latest-full`.

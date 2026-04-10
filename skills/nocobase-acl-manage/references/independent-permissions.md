@@ -1,5 +1,16 @@
 # Table Independent Permissions
 
+## Table of Contents
+
+- [MANDATORY: Field Configuration](#mandatory-field-configuration)
+- [Before configuring independent permissions](#before-configuring-independent-permissions)
+- [Field configuration rules](#field-configuration-rules)
+- [Actions that support field configuration](#actions-that-support-field-configuration)
+- [Field configuration examples](#field-configuration-examples)
+- [Relation field guidance](#relation-field-guidance)
+- [Realistic-role guidance](#realistic-role-guidance)
+- [Common mistakes to avoid](#common-mistakes-to-avoid)
+
 Use collection-level independent permissions when a collection needs behavior that differs from the global table strategy.
 
 Common cases:

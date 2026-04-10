@@ -1,5 +1,20 @@
 # ACL Safety And Debug
 
+## Table of Contents
+
+- [Role selection security](#role-selection-security)
+- [Association operation safety](#association-operation-safety)
+- [Association payload sanitization](#association-payload-sanitization)
+- [Association endpoints use source update permission](#association-endpoints-use-source-update-permission)
+- [Field-to-append transformation for read operations](#field-to-append-transformation-for-read-operations)
+- [Own-scope prerequisites](#own-scope-prerequisites)
+- [Snippet permissions are high leverage](#snippet-permissions-are-high-leverage)
+- [Route permissions are independent](#route-permissions-are-independent)
+- [Scoped action verification caveat](#scoped-action-verification-caveat)
+- [Built-in scope safety](#built-in-scope-safety)
+- [Scope variable source of truth](#scope-variable-source-of-truth)
+- [Common Pitfalls](#common-pitfalls)
+
 ## Role selection security
 
 - Current role is resolved from `X-Role`, the user’s assigned roles, and the system role mode.

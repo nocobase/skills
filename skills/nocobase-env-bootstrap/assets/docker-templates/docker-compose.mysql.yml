@@ -11,7 +11,7 @@ services:
     depends_on:
       - mysql
     environment:
-      - APP_KEY=${APP_KEY:-please-change-me}
+      - APP_KEY=${APP_KEY:?APP_KEY is required. Set a random value in .env}
       - DB_DIALECT=mysql
       - DB_HOST=mysql
       - DB_PORT=3306

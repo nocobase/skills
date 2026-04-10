@@ -33,6 +33,60 @@ has_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+dotenv_value() {
+  local key="$1"
+  local file="${2:-.env}"
+
+  if [[ ! -f "$file" ]]; then
+    printf ''
+    return
+  fi
+
+  local line
+  line="$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null | tail -n 1 || true)"
+  if [[ -z "$line" ]]; then
+    printf ''
+    return
+  fi
+
+  local value
+  value="$(printf '%s' "$line" | sed -E 's/^[^=]*=[[:space:]]*//')"
+  value="${value%\"}"
+  value="${value#\"}"
+  value="${value%\'}"
+  value="${value#\'}"
+  printf '%s' "$value"
+}
+
+compose_file_path() {
+  local candidate
+  for candidate in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return
+    fi
+  done
+  printf ''
+}
+
+is_placeholder_app_key() {
+  local value="$1"
+  local normalized
+  normalized="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+
+  if [[ "$normalized" == *change-me* || "$normalized" == *change_me* ]]; then
+    return 0
+  fi
+  if [[ "$normalized" == *please-change* || "$normalized" == *please_change* ]]; then
+    return 0
+  fi
+  if [[ "$normalized" == *secret-key* || "$normalized" == *secret_key* ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
 resolve_mcp_url() {
   if [[ -n "$MCP_URL" ]]; then
     printf '%s' "$MCP_URL"
@@ -192,14 +246,48 @@ else
   record warn NET-001 "Could not verify DNS reachability." "If offline/restricted, use offline package workflow."
 fi
 
-if [[ -f .env ]]; then
-  if grep -E '^[[:space:]]*DB_DIALECT[[:space:]]*=' .env >/dev/null 2>&1; then
-    record pass ENV-001 ".env contains DB_DIALECT."
-  else
-    record warn ENV-001 ".env found but DB_DIALECT is missing." "Set DB_DIALECT before start/upgrade."
-  fi
+DB_DIALECT_FROM_ENV="$(dotenv_value "DB_DIALECT")"
+COMPOSE_FILE_PATH="$(compose_file_path)"
+HAS_DB_DIALECT_IN_COMPOSE=0
+if [[ -n "$COMPOSE_FILE_PATH" ]] && grep -E 'DB_DIALECT=' "$COMPOSE_FILE_PATH" >/dev/null 2>&1; then
+  HAS_DB_DIALECT_IN_COMPOSE=1
+fi
+
+if [[ -n "$DB_DIALECT_FROM_ENV" ]]; then
+  record pass ENV-001 ".env contains DB_DIALECT."
+elif [[ "$HAS_DB_DIALECT_IN_COMPOSE" == "1" ]]; then
+  record pass ENV-001 "${COMPOSE_FILE_PATH} contains DB_DIALECT for Docker runtime."
+elif [[ -f .env ]]; then
+  record warn ENV-001 ".env found but DB_DIALECT is missing, and compose file has no DB_DIALECT." "Set DB_DIALECT in .env or docker-compose app environment before start/upgrade."
 else
-  record warn ENV-001 ".env not found in current directory." "Create .env before start/upgrade."
+  record warn ENV-001 ".env not found and compose file has no DB_DIALECT." "Create .env with DB_DIALECT or add DB_DIALECT to docker-compose app environment before start/upgrade."
+fi
+
+APP_KEY_VALUE="$(dotenv_value "APP_KEY")"
+if [[ -z "$APP_KEY_VALUE" ]]; then
+  APP_KEY_VALUE="${APP_KEY:-}"
+fi
+
+if [[ -z "$APP_KEY_VALUE" ]]; then
+  record fail ENV-APPKEY-001 "APP_KEY is missing." "Generate and set APP_KEY (example: openssl rand -hex 32)."
+elif is_placeholder_app_key "$APP_KEY_VALUE"; then
+  record fail ENV-APPKEY-001 "APP_KEY uses an insecure placeholder-like value." "Set a random APP_KEY with at least 32 characters; avoid values containing change-me/secret-key."
+elif [[ ${#APP_KEY_VALUE} -lt 32 ]]; then
+  record fail ENV-APPKEY-001 "APP_KEY is too short (length=${#APP_KEY_VALUE})." "Set a random APP_KEY with at least 32 characters."
+elif printf '%s' "$APP_KEY_VALUE" | grep -Eq '[[:space:]]'; then
+  record fail ENV-APPKEY-001 "APP_KEY must not include whitespace." "Set a random APP_KEY without spaces."
+else
+  record pass ENV-APPKEY-001 "APP_KEY is present and appears non-placeholder."
+fi
+
+if [[ -n "$COMPOSE_FILE_PATH" ]]; then
+  if grep -E 'APP_KEY=\$\{APP_KEY:-please-change-me\}' "$COMPOSE_FILE_PATH" >/dev/null 2>&1; then
+    record fail ENV-APPKEY-002 "${COMPOSE_FILE_PATH} still contains insecure APP_KEY fallback 'please-change-me'." "Use required form: APP_KEY=\${APP_KEY:?APP_KEY is required. Set a random value in .env}"
+  elif grep -E 'APP_KEY=\$\{APP_KEY:\?' "$COMPOSE_FILE_PATH" >/dev/null 2>&1; then
+    record pass ENV-APPKEY-002 "${COMPOSE_FILE_PATH} enforces APP_KEY as required."
+  else
+    record warn ENV-APPKEY-002 "${COMPOSE_FILE_PATH} APP_KEY rule is not in required-form check." "Ensure compose requires APP_KEY and avoids placeholder fallbacks."
+  fi
 fi
 
 if [[ "$MCP_REQUIRED" == "1" || "$MCP_REQUIRED" == "true" || "$MCP_REQUIRED" == "TRUE" ]]; then

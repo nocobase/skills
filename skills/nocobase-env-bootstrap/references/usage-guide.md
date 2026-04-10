@@ -36,9 +36,19 @@ Only use WebFetch to official docs when a required local template is missing.
 
 1. Run preflight and ensure no blocking failure.
 2. Pick local compose template by `db_dialect`.
-3. Set required variables (`APP_KEY`, optional `APP_PORT`, optional `NOCOBASE_APP_IMAGE`).
+3. Set required variables (`APP_KEY` required and random, optional `APP_PORT`, optional `NOCOBASE_APP_IMAGE`).
 4. Run `docker compose pull` and `docker compose up -d`.
 5. Verify logs and login URL.
+
+APP_KEY examples:
+
+```powershell
+$env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+```
+
+```bash
+export APP_KEY="$(openssl rand -hex 32)"
+```
 
 ## MCP Gate
 

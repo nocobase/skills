@@ -52,6 +52,62 @@ function Test-CommandSuccess {
   }
 }
 
+function Get-DotEnvValue {
+  param(
+    [string]$Key,
+    [string]$FilePath = '.env'
+  )
+
+  if (-not (Test-Path -LiteralPath $FilePath)) {
+    return ''
+  }
+
+  $pattern = "^[\s]*{0}[\s]*=(.*)$" -f [regex]::Escape($Key)
+  $match = Select-String -Path $FilePath -Pattern $pattern | Select-Object -Last 1
+  if (-not $match) {
+    return ''
+  }
+
+  $value = $match.Matches[0].Groups[1].Value.Trim()
+  if ($value.Length -ge 2) {
+    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+      $value = $value.Substring(1, $value.Length - 2)
+    }
+  }
+  return $value
+}
+
+function Get-ComposeFilePath {
+  $candidates = @('docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml')
+  foreach ($candidate in $candidates) {
+    if (Test-Path -LiteralPath $candidate) {
+      return $candidate
+    }
+  }
+  return ''
+}
+
+function Test-IsPlaceholderAppKey {
+  param([string]$Value)
+
+  if ([string]::IsNullOrWhiteSpace($Value)) {
+    return $false
+  }
+
+  $normalized = $Value.Trim().ToLowerInvariant()
+  if ($normalized -match 'change[-_]?me') {
+    return $true
+  }
+  if ($normalized -match 'please[-_]?change') {
+    return $true
+  }
+  if ($normalized -match 'secret[-_]?key') {
+    return $true
+  }
+
+  return $false
+}
+
 function Test-PortInUse {
   param([int]$TargetPort)
 
@@ -259,14 +315,52 @@ try {
 }
 
 if (Test-Path -LiteralPath '.env') {
-  $hasDbDialect = Select-String -Path '.env' -Pattern '^[\s]*DB_DIALECT[\s]*=' -Quiet
-  if ($hasDbDialect) {
-    Record-Check pass 'ENV-001' '.env contains DB_DIALECT.'
-  } else {
-    Record-Check warn 'ENV-001' '.env found but DB_DIALECT is missing.' 'Set DB_DIALECT before start/upgrade.'
-  }
+  $dbDialectFromEnv = Get-DotEnvValue -Key 'DB_DIALECT'
 } else {
-  Record-Check warn 'ENV-001' '.env not found in current directory.' 'Create .env before start/upgrade.'
+  $dbDialectFromEnv = ''
+}
+
+$composeFilePath = Get-ComposeFilePath
+$hasDbDialectInCompose = $false
+if ($composeFilePath) {
+  $hasDbDialectInCompose = Select-String -Path $composeFilePath -Pattern 'DB_DIALECT=' -Quiet
+}
+
+if (-not [string]::IsNullOrWhiteSpace($dbDialectFromEnv)) {
+  Record-Check pass 'ENV-001' '.env contains DB_DIALECT.'
+} elseif ($hasDbDialectInCompose) {
+  Record-Check pass 'ENV-001' "$composeFilePath contains DB_DIALECT for Docker runtime."
+} elseif (Test-Path -LiteralPath '.env') {
+  Record-Check warn 'ENV-001' '.env found but DB_DIALECT is missing, and compose file has no DB_DIALECT.' 'Set DB_DIALECT in .env or docker-compose app environment before start/upgrade.'
+} else {
+  Record-Check warn 'ENV-001' '.env not found and compose file has no DB_DIALECT.' 'Create .env with DB_DIALECT or add DB_DIALECT to docker-compose app environment before start/upgrade.'
+}
+
+$appKey = Get-DotEnvValue -Key 'APP_KEY'
+if ([string]::IsNullOrWhiteSpace($appKey)) {
+  $appKey = [System.Environment]::GetEnvironmentVariable('APP_KEY')
+}
+
+if ([string]::IsNullOrWhiteSpace($appKey)) {
+  Record-Check fail 'ENV-APPKEY-001' 'APP_KEY is missing.' "Generate and set APP_KEY (for example: [System.BitConverter]::ToString((1..32 | ForEach-Object {Get-Random -Max 256})).Replace('-', '').ToLower())."
+} elseif (Test-IsPlaceholderAppKey -Value $appKey) {
+  Record-Check fail 'ENV-APPKEY-001' 'APP_KEY uses an insecure placeholder-like value.' 'Set a random APP_KEY with at least 32 characters; avoid values containing change-me/secret-key.'
+} elseif ($appKey.Length -lt 32) {
+  Record-Check fail 'ENV-APPKEY-001' "APP_KEY is too short (length=$($appKey.Length))." 'Set a random APP_KEY with at least 32 characters.'
+} elseif ($appKey -match '\s') {
+  Record-Check fail 'ENV-APPKEY-001' 'APP_KEY must not include whitespace.' 'Set a random APP_KEY without spaces.'
+} else {
+  Record-Check pass 'ENV-APPKEY-001' 'APP_KEY is present and appears non-placeholder.'
+}
+
+if ($composeFilePath) {
+  if (Select-String -Path $composeFilePath -Pattern 'APP_KEY=\$\{APP_KEY:-please-change-me\}' -Quiet) {
+    Record-Check fail 'ENV-APPKEY-002' "$composeFilePath still contains insecure APP_KEY fallback 'please-change-me'." 'Use required form: APP_KEY=${APP_KEY:?APP_KEY is required. Set a random value in .env}'
+  } elseif (Select-String -Path $composeFilePath -Pattern 'APP_KEY=\$\{APP_KEY:\?' -Quiet) {
+    Record-Check pass 'ENV-APPKEY-002' "$composeFilePath enforces APP_KEY as required."
+  } else {
+    Record-Check warn 'ENV-APPKEY-002' "$composeFilePath APP_KEY rule is not in required-form check." 'Ensure compose requires APP_KEY and avoids placeholder fallbacks.'
+  }
 }
 
 if ($McpRequired) {

@@ -1,5 +1,14 @@
 # Scopes
 
+## Table of Contents
+
+- [CRITICAL: Scope Format Rule](#critical-scope-format-rule)
+- [CRITICAL: Always Check Built-in Scopes First](#critical-always-check-built-in-scopes-first)
+- [Custom Scope Creation Rules](#custom-scope-creation-rules)
+- [API Rules](#api-rules)
+- [Scope Variables](#scope-variables)
+- [Boundary Notes](#boundary-notes)
+
 Use scopes for:
 
 - own-record access

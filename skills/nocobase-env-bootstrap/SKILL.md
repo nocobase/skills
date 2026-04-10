@@ -4,8 +4,8 @@ description: "Use when users need to prepare a NocoBase environment, install and
 argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|deploy|mcp-connect|upgrade|diagnose] [target-dir]"
 allowed-tools: Bash, Read, Write, Grep, Glob, WebFetch
 owner: platform-tools
-version: 1.1.0
-last-reviewed: 2026-04-08
+version: 1.1.1
+last-reviewed: 2026-04-10
 risk-level: medium
 ---
 
@@ -194,6 +194,7 @@ Confirmation template:
 # Verification Checklist
 
 - Preflight completed and contains zero unresolved non-MCP blocking failures.
+- Preflight fails when `APP_KEY` is missing, placeholder-like, too short, or whitespace-containing.
 - Method and release channel are explicitly confirmed or defaulted.
 - Install/deploy commands are recorded and reproducible.
 - MCP checks include endpoint probe and auth probe when `mcp_required=true`.
@@ -212,17 +213,18 @@ Confirmation template:
 
 1. Quick install on a clean host with Docker available.
 2. Preflight with missing Docker and missing Node.
-3. MCP preflight detects missing MCP/auth companion activation and outputs auto fixed sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`), without asking manual activation first.
-4. MCP preflight/postcheck in API-key mode only asks manual action after endpoint is ready and token is missing/invalid.
-5. Upgrade with backup confirmed and successful post-check.
-6. Diagnose `Environment mismatch` and produce actionable steps.
-7. Diagnose startup failure caused by port conflict and provide fix command.
-8. Diagnose startup failure caused by file permission denied (`EACCES`) and provide concrete permission/access fix steps.
-9. Docker install in offline mode succeeds using local compose template without WebFetch.
-10. MCP post-start gate fails with `404`, triggers fixed auto sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`) before any manual fallback.
-11. MCP post-start gate fails with `401/403`, requests token refresh, then passes after user provides new token.
-12. MCP post-start gate passes, live `tools/list` probe returns tools, and onboarding examples are generated from live tool list (not static template).
-13. MCP post-start gate passes but live probe cannot fetch tools; onboarding falls back with explicit warning.
+3. Preflight fails on missing or placeholder-like `APP_KEY`, and passes after random key is set.
+4. MCP preflight detects missing MCP/auth companion activation and outputs auto fixed sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`), without asking manual activation first.
+5. MCP preflight/postcheck in API-key mode only asks manual action after endpoint is ready and token is missing/invalid.
+6. Upgrade with backup confirmed and successful post-check.
+7. Diagnose `Environment mismatch` and produce actionable steps.
+8. Diagnose startup failure caused by port conflict and provide fix command.
+9. Diagnose startup failure caused by file permission denied (`EACCES`) and provide concrete permission/access fix steps.
+10. Docker install in offline mode succeeds using local compose template without WebFetch.
+11. MCP post-start gate fails with `404`, triggers fixed auto sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`) before any manual fallback.
+12. MCP post-start gate fails with `401/403`, requests token refresh, then passes after user provides new token.
+13. MCP post-start gate passes, live `tools/list` probe returns tools, and onboarding examples are generated from live tool list (not static template).
+14. MCP post-start gate passes but live probe cannot fetch tools; onboarding falls back with explicit warning.
 
 # Output Contract
 

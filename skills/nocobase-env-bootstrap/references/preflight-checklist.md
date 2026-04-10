@@ -34,8 +34,9 @@ Preflight checks do not replace startup-complete MCP verification; use
 - Avoid path containing spaces for CLI path compatibility.
 
 5. Required env keys for startup and upgrade
-- `DB_DIALECT` must be defined for app runtime.
-- Recommended minimum keys: `APP_ENV`, `APP_PORT`, `DB_DIALECT`.
+- `APP_KEY` must be defined and random (at least 32 chars, no whitespace, not placeholder-like values such as `change-me`).
+- `DB_DIALECT` must be available for runtime. For Docker templates, it can come from compose app environment; for non-Docker paths, set it in `.env`.
+- Recommended minimum keys: `APP_KEY`, `APP_PORT`, `DB_DIALECT`.
 - Reference: <https://docs.nocobase.com/cn/get-started/installation/env>
 
 6. MCP endpoint activation (`mcp_required=true`)

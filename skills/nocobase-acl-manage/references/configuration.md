@@ -1,5 +1,21 @@
 # ACL Configuration
 
+## Table of Contents
+
+- [Configuration standard](#configuration-standard)
+- [1. Create or update the role itself](#1-create-or-update-the-role-itself)
+- [2. Configure system permissions](#2-configure-system-permissions)
+- [3. Set the default role](#3-set-the-default-role)
+- [4. Set the system role mode](#4-set-the-system-role-mode)
+- [5. Configure route permissions](#5-configure-route-permissions)
+- [6. Configure global table permissions](#6-configure-global-table-permissions)
+- [7. Configure table independent permissions](#7-configure-table-independent-permissions)
+- [8. Configure field permissions](#8-configure-field-permissions)
+- [9. Configure row scopes](#9-configure-row-scopes)
+- [Recommended MCP Workflow](#recommended-mcp-workflow)
+- [CRM Example](#crm-example)
+- [Verification API Pattern](#verification-api-pattern)
+
 ## Configuration standard
 
 When the user asks for a realistic business-role configuration, do not stop after creating roles and adding a few actions.

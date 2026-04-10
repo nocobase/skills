@@ -43,8 +43,19 @@ Flow:
 
 1. Run preflight and confirm zero blockers.
 2. Copy local compose template from `assets/docker-templates/` based on `db_dialect`.
-3. Start app stack.
-4. Verify app is reachable and login page loads.
+3. Prepare `.env` with a random `APP_KEY` (required), optional `APP_PORT`, and optional `NOCOBASE_APP_IMAGE`.
+4. Start app stack.
+5. Verify app is reachable and login page loads.
+
+APP_KEY generation examples:
+
+```powershell
+$env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+```
+
+```bash
+export APP_KEY="$(openssl rand -hex 32)"
+```
 
 Core command pattern (Docker):
 
@@ -67,7 +78,7 @@ Required decisions:
 Steps:
 
 1. Select local compose template by database dialect and copy it to `docker-compose.yml`.
-2. Set required environment variables (`APP_KEY`, `DB_DIALECT`, DB connection fields).
+2. Set required environment variables. `APP_KEY` must be random and non-placeholder. `DB_DIALECT` is usually provided by the selected compose template, and may be overridden only when intentionally needed.
 3. Start services with `docker compose up -d`.
 4. Validate app and logs.
 
@@ -179,7 +190,7 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 ## Known Pitfalls
 
 1. Port already in use.
-2. Missing `DB_DIALECT`.
+2. Missing or weak `APP_KEY` (for example `please-change-me` / `*-secret-key-change-me`).
 3. Node/Yarn version mismatch on non-Docker paths.
 4. Missing internet access for dependency/plugin download.
 5. MCP endpoint `404` because `MCP Server` plugin is not activated.
