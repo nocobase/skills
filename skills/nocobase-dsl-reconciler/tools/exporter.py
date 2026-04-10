@@ -252,23 +252,23 @@ def _export_block(nb: NocoBase, item: dict, js_dir: Path = None,
     # Block title
     title = sp.get("cardSettings", {}).get("titleDescription", {}).get("title", "")
 
-    # Generate semantic key: title > JS desc > type+index
+    # Generate semantic key: title > JS desc > type (no index for first of each type)
     if title:
         key = slugify(title)
     elif btype == "jsBlock":
         code = sp.get("jsSettings", {}).get("runJs", {}).get("code", "")
         desc = _extract_js_desc(code)
-        key = slugify(desc) if desc else f"{btype}_{index}"
+        key = slugify(desc) if desc else btype
     else:
-        key = f"{btype}_{index}"
+        key = btype  # no _0 suffix — cleaner variable names
 
-    # Deduplicate key within same page
+    # Deduplicate: first=table, second=table_2, third=table_3
     _keys = used_keys if used_keys is not None else set()
-    base_key = key
-    counter = 2
-    while key in _keys:
-        key = f"{base_key}_{counter}"
-        counter += 1
+    if key in _keys:
+        counter = 2
+        while f"{key}_{counter}" in _keys:
+            counter += 1
+        key = f"{key}_{counter}"
     _keys.add(key)
 
     spec: dict[str, Any] = {"key": key, "type": btype}
