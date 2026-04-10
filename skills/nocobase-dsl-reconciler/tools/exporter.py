@@ -32,13 +32,52 @@ def export_page_surface(nb: NocoBase, tab_uid: str,
     """Export a complete page/popup surface.
 
     Returns a spec dict matching enhance.yaml popup format:
-      {blocks: [...], layout: [...]}
+      {blocks: [...], layout: [...], page_event_flows: [...]}
     """
     data = nb.get(tabSchemaUid=tab_uid)
     tree = data.get("tree", {})
     grid = tree.get("subModels", {}).get("grid", {})
 
-    return _export_grid(nb, grid, js_dir, page_key, reset_keys=True)
+    result = _export_grid(nb, grid, js_dir, page_key, reset_keys=True)
+
+    # Export page-level event flows (on RootPageModel, above the tab)
+    # e.g., customVariable bindings for filterForm → chart SQL params
+    try:
+        # Find page schemaUid from routes (tab → parent page)
+        page_schema_uid = ""
+        for r in nb.routes():
+            for c in r.get("children", []):
+                for t in c.get("children", []):
+                    if t.get("schemaUid") == tab_uid:
+                        page_schema_uid = c.get("schemaUid", "")
+                        break
+                if not page_schema_uid and c.get("schemaUid") == tab_uid:
+                    page_schema_uid = c.get("schemaUid", "")
+                if page_schema_uid:
+                    break
+            if page_schema_uid:
+                break
+
+        if page_schema_uid:
+            page_data = nb.get(pageSchemaUid=page_schema_uid)
+            page_tree = page_data.get("tree", {})
+            page_fr = page_tree.get("flowRegistry", {}) or {}
+            if page_fr:
+                page_flows = []
+                for flow_key, flow_def in page_fr.items():
+                    if not isinstance(flow_def, dict):
+                        continue
+                    page_flows.append({
+                        "flow_key": flow_key,
+                        "event": flow_def.get("on", {}),
+                        "steps": flow_def.get("steps", {}),
+                    })
+                if page_flows:
+                    result["page_event_flows"] = page_flows
+    except Exception:
+        pass
+
+    return result
 
 
 def export_all_popups(nb: NocoBase, popup_refs: list[dict],

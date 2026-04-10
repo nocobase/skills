@@ -434,6 +434,27 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
                                            existing_blocks)
             page_state["blocks"] = blocks_state
 
+        # Page-level event flows (e.g., customVariable for filterForm → chart binding)
+        page_flows = ps.get("page_event_flows", [])
+        if page_flows and page_state.get("page_uid"):
+            flow_registry = {}
+            for pf in page_flows:
+                flow_key = pf.get("flow_key", "")
+                if flow_key:
+                    flow_registry[flow_key] = {
+                        "key": flow_key,
+                        "title": pf.get("title", "Event flow"),
+                        "on": pf.get("event", {}),
+                        "steps": pf.get("steps", {}),
+                    }
+            if flow_registry:
+                try:
+                    page_uid = page_state["page_uid"]
+                    nb.save_model({"uid": page_uid, "flowRegistry": flow_registry})
+                    print(f"    + page event flows: {len(flow_registry)}")
+                except Exception as e:
+                    print(f"    ! page event flows: {e}")
+
         state["pages"][page_key] = page_state
 
     # Popups
