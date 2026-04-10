@@ -1,0 +1,43 @@
+module: Opportunities Copy
+icon: fundoutlined
+pages:
+- blocks:
+  - key: filterForm_0
+    type: filterForm
+    fields:
+    - name
+    - name
+    js_items:
+    - desc: Pipeline Stats Filter Block
+      file: ./js/opp_filterForm_0_pipeline_stats_filter_block.js
+    field_layout:
+    - - '[JS:Pipeline Stats Filter Block]'
+    - - name
+    - - name
+    coll: nb_crm_opportunities
+  - key: table
+    type: table
+    coll: nb_crm_opportunities
+    fields:
+    - name
+    - currency
+    - amount
+    - stage
+    - lead_source
+    - win_probability
+    - customer
+    - expected_close_date
+    - contact
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm_0
+  - - table
+  page: Opportunities Copy
+  icon: fundoutlined
+  coll: nb_crm_opportunities

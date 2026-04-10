@@ -1,0 +1,35 @@
+popups:
+- target: $opportunities_copy.table.actions.addNew
+  auto:
+  - edit
+  coll: nb_crm_opportunities
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - name
+    - amount
+    - currency
+    - stage
+    - lead_source
+    - contact
+    - customer
+    - expected_close_date
+    - win_probability
+    field_layout:
+    - '--- Opportunity Info ---'
+    - - name
+      - stage
+      - win_probability
+    - - amount
+      - currency
+    - '--- Source ---'
+    - - lead_source
+      - contact
+      - customer
+    - '--- Timeline ---'
+    - - expected_close_date
+    actions:
+    - submit

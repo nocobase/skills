@@ -1,0 +1,145 @@
+target: $opportunities_copy.table.fields.name
+mode: embed
+tabs:
+- blocks:
+  - key: details_0
+    type: details
+    coll: nb_crm_opportunities
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    fields:
+    - owner
+    - createdAt
+    - customer
+    - contact
+    js_items:
+    - desc: Opportunity Key Stats Block
+      file: ./js/popup_name_tab0_details_0_opportunity_key_stats_block.js
+    field_layout:
+    - - customer
+      - contact
+      - owner
+      - createdAt
+    - - '[JS:Opportunity Key Stats Block]'
+    actions:
+    - edit
+  - key: ai_smart_analysis
+    type: details
+    title: AI Smart Analysis
+    coll: nb_crm_opportunities
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    js_items:
+    - desc: AI Risk Analysis
+      file: ./js/popup_name_tab0_ai_smart_analysis_ai_risk_analysis.js
+    field_layout:
+    - - '[JS:AI Risk Analysis]'
+  - key: quotations
+    type: table
+    title: Quotations
+    coll: nb_crm_quotations
+    resource_binding:
+      associationName: nb_crm_opportunities.quotations
+      sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+    fields:
+    - quotation_no
+    - currencyInfo
+    - discount_rate
+    - status
+    - total_amount_usd
+    - total_amount
+    - version
+    - createdAt
+    actions:
+    - filter
+    - refresh
+    - addNew
+    event_flows:
+    - event:
+        eventName: beforeRender
+        defaultParams:
+          condition:
+            items: []
+            logic: $and
+      flow_key: 4z3wblmtie1
+      step_key: 9ibklmbe1vr
+      desc: 4z3wblmtie1
+      file: ./js/popup_name_tab0_quotations_event_4z3wblmtie1_9ibklmbe1vr.js
+  - key: attachments
+    type: details
+    title: Attachments
+    coll: nb_crm_opportunities
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    fields:
+    - attachments
+    actions:
+    - edit
+  - key: details_4
+    type: details
+    coll: nb_crm_opportunities
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    js_items:
+    - desc: Opportunity Stage Flow Block
+      file: ./js/popup_name_tab0_details_4_opportunity_stage_flow_block.js
+  - key: details_5
+    type: details
+    coll: nb_crm_opportunities
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    js_items:
+    - desc: Quote Status Flow Block
+      file: ./js/popup_name_tab0_details_5_quote_status_flow_block.js
+  - key: comments_6
+    type: comments
+    coll: nb_crm_comments
+    resource_binding:
+      associationName: nb_crm_opportunities.comments
+      sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+  layout:
+  - - col:
+      - details_0
+      - details_4
+      - ai_smart_analysis
+      - quotations
+      - details_5
+      size: 17
+    - col:
+      - attachments
+      - comments_6
+      size: 7
+  popups:
+  - field: edit
+    field_uid: erdabyuhnhn
+    popup_page_uid: 62af7odoh24
+    block_key: details_0
+  - field: quotation_no
+    field_uid: dsfvvg59avf
+    mode: drawer
+    popup_page_uid: ehpehi6soig
+  - field: currencyInfo
+    field_uid: gp6b0v3o793
+    mode: drawer
+    popup_page_uid: 2f2939c5409
+  - field: addnew
+    field_uid: bfahizxnylr
+    popup_page_uid: 368chlyzxrh
+    block_key: quotations
+  - field: edit
+    field_uid: z3aijuf0lg0
+    popup_page_uid: bi16jkk3ucl
+    block_key: attachments
+  title: Details
+- blocks: []
+  title: Tab1
+- blocks:
+  - key: recordHistory_0
+    type: recordHistory
+    coll: nb_crm_opportunities
+    actions:
+    - filter
+    - refresh
+    - historyExpand
+    - historyCollapse
+  title: Tab2

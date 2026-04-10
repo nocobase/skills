@@ -1,0 +1,152 @@
+popups:
+  # Assets - addNew
+  - target: $assets.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_asset_items
+    view_field: name
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - asset_no
+          - category
+          - location
+          - status
+          - purchase_date
+          - purchase_price
+          - current_value
+          - department
+          - warranty_expiry
+        field_layout:
+          - '--- 基本信息 ---'
+          - - name
+            - asset_no
+          - - category
+            - status
+          - '--- 财务信息 ---'
+          - - purchase_date
+            - purchase_price
+          - - current_value
+            - warranty_expiry
+          - '--- 位置信息 ---'
+          - - location
+            - department
+        actions:
+          - submit
+
+  # Categories - addNew
+  - target: $categories.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_asset_categories
+    view_field: name
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - code
+          - parent_category
+          - depreciation_rate
+        field_layout:
+          - '--- 分类信息 ---'
+          - - name
+            - code
+          - - parent_category
+            - depreciation_rate
+        actions:
+          - submit
+
+  # Maintenance - addNew
+  - target: $maintenance.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_asset_maintenance
+    view_field: asset
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - asset
+          - type
+          - date
+          - cost
+          - technician
+          - description
+          - status
+        field_layout:
+          - '--- 维护信息 ---'
+          - - asset
+            - type
+          - - date
+            - status
+          - '--- 详细信息 ---'
+          - - cost
+            - technician
+          - - description
+        actions:
+          - submit
+
+  # Transfers - addNew
+  - target: $transfers.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_asset_transfers
+    view_field: asset
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - asset
+          - from_dept
+          - to_dept
+          - transfer_date
+          - reason
+          - status
+        field_layout:
+          - '--- 调拨信息 ---'
+          - - asset
+            - status
+          - '--- 部门信息 ---'
+          - - from_dept
+            - to_dept
+          - '--- 其他 ---'
+          - - transfer_date
+            - reason
+        actions:
+          - submit
+
+  # Disposal - addNew
+  - target: $disposal.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_asset_disposal
+    view_field: asset
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - asset
+          - disposal_date
+          - disposal_type
+          - sale_price
+          - reason
+          - status
+        field_layout:
+          - '--- 处置信息 ---'
+          - - asset
+            - status
+          - - disposal_date
+            - disposal_type
+          - '--- 其他 ---'
+          - - sale_price
+            - reason
+        actions:
+          - submit

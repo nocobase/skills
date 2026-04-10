@@ -1,0 +1,16 @@
+field: edit
+field_uid: z3aijuf0lg0
+block_key: attachments
+blocks:
+- key: editForm_0
+  type: editForm
+  coll: nb_crm_opportunities
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - attachments
+  actions:
+  - submit
+layout:
+- - editForm_0
+mode: dialog

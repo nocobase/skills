@@ -1,0 +1,19 @@
+field: edit
+field_uid: erdabyuhnhn
+block_key: details_0
+blocks:
+- key: editForm_0
+  type: editForm
+  coll: nb_crm_opportunities
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  field_template:
+    templateUid: 5tpe5cpsnuf
+    templateName: 'Form (Add new): Opportunities'
+    targetUid: d7e295047ff
+    mode: reference
+  actions:
+  - submit
+layout:
+- - editForm_0
+mode: dialog

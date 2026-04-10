@@ -1,0 +1,12 @@
+field: addnew
+field_uid: bfahizxnylr
+block_key: quotations
+blocks:
+- key: reference_0
+  type: reference
+  template_uid: odc3k4if9n5
+  template_name: 'Form (Add new): Opportunities > Quotations (Quotations)'
+  reference_mode: reference
+layout:
+- - reference_0
+mode: embed

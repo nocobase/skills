@@ -1,0 +1,153 @@
+popups:
+  # Projects Page
+  - target: $projects.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_pm_projects
+    view_field: name
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - code
+          - description
+          - status
+          - priority
+          - start_date
+          - end_date
+          - budget
+          - progress
+        field_layout:
+          - '--- 基本信息 ---'
+          - - name
+            - code
+          - - status
+            - priority
+          - '--- 时间安排 ---'
+          - - start_date
+            - end_date
+          - '--- 其他信息 ---'
+          - - budget
+            - progress
+          - description
+        actions:
+          - submit
+
+  # Tasks Page
+  - target: $tasks.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_pm_tasks
+    view_field: title
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - title
+          - description
+          - project
+          - assignee
+          - status
+          - priority
+          - due_date
+          - estimated_hours
+        field_layout:
+          - '--- 任务信息 ---'
+          - - title
+            - status
+          - - priority
+            - due_date
+          - - project
+            - assignee
+          - - estimated_hours
+          - description
+        actions:
+          - submit
+
+  # Members Page
+  - target: $members.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_pm_members
+    view_field: name
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - role
+          - email
+          - phone
+          - department
+          - hourly_rate
+        field_layout:
+          - '--- 基本信息 ---'
+          - - name
+            - role
+          - '--- 联系方式 ---'
+          - - email
+            - phone
+          - '--- 工作信息 ---'
+          - - department
+            - hourly_rate
+        actions:
+          - submit
+
+  # Milestones Page
+  - target: $milestones.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_pm_milestones
+    view_field: name
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - project
+          - due_date
+          - status
+        field_layout:
+          - '--- 里程碑信息 ---'
+          - - name
+            - project
+          - - due_date
+            - status
+        actions:
+          - submit
+
+  # Risks Page
+  - target: $risks.table.actions.addNew
+    auto: [edit, detail]
+    coll: nb_pm_risks
+    view_field: title
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - title
+          - project
+          - category
+          - probability
+          - impact
+          - mitigation
+          - status
+        field_layout:
+          - '--- 风险信息 ---'
+          - - title
+            - project
+          - - category
+            - status
+          - '--- 评估 ---'
+          - - probability
+            - impact
+          - mitigation
+        actions:
+          - submit

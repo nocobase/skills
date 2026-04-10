@@ -1,0 +1,407 @@
+module: Project Management
+icon: projectoutlined
+
+collections:
+  nb_pm_projects:
+    fields:
+      - name: name
+        interface: input
+        required: true
+      - name: code
+        interface: input
+      - name: description
+        interface: textarea
+      - name: status
+        interface: select
+        enum:
+          - value: planning
+            label: Planning
+            color: blue
+          - value: active
+            label: Active
+            color: green
+          - value: on_hold
+            label: On Hold
+            color: orange
+          - value: completed
+            label: Completed
+            color: gray
+      - name: priority
+        interface: select
+        enum:
+          - value: high
+            label: High
+            color: red
+          - value: medium
+            label: Medium
+            color: blue
+          - value: low
+            label: Low
+            color: green
+      - name: start_date
+        interface: date
+      - name: end_date
+        interface: date
+      - name: budget
+        interface: number
+        precision: 2
+      - name: progress
+        interface: integer
+    titleField: name
+
+  nb_pm_tasks:
+    fields:
+      - name: title
+        interface: input
+        required: true
+      - name: description
+        interface: textarea
+      - name: project
+        interface: m2o
+        target: nb_pm_projects
+        foreignKey: project_id
+      - name: assignee
+        interface: m2o
+        target: nb_pm_members
+        foreignKey: assignee_id
+      - name: status
+        interface: select
+        enum:
+          - value: todo
+            label: To Do
+            color: gray
+          - value: in_progress
+            label: In Progress
+            color: blue
+          - value: review
+            label: Review
+            color: orange
+          - value: done
+            label: Done
+            color: green
+      - name: priority
+        interface: select
+        enum:
+          - value: critical
+            label: Critical
+            color: red
+          - value: high
+            label: High
+            color: orange
+          - value: medium
+            label: Medium
+            color: blue
+          - value: low
+            label: Low
+            color: green
+      - name: due_date
+        interface: date
+      - name: estimated_hours
+        interface: number
+        precision: 1
+    titleField: title
+
+  nb_pm_members:
+    fields:
+      - name: name
+        interface: input
+        required: true
+      - name: role
+        interface: select
+        enum:
+          - value: pm
+            label: Project Manager
+            color: purple
+          - value: developer
+            label: Developer
+            color: blue
+          - value: designer
+            label: Designer
+            color: pink
+          - value: tester
+            label: Tester
+            color: cyan
+      - name: email
+        interface: email
+      - name: phone
+        interface: phone
+      - name: department
+        interface: input
+      - name: hourly_rate
+        interface: number
+        precision: 2
+    titleField: name
+
+  nb_pm_milestones:
+    fields:
+      - name: name
+        interface: input
+        required: true
+      - name: project
+        interface: m2o
+        target: nb_pm_projects
+        foreignKey: project_id
+      - name: due_date
+        interface: date
+      - name: status
+        interface: select
+        enum:
+          - value: pending
+            label: Pending
+            color: blue
+          - value: achieved
+            label: Achieved
+            color: green
+          - value: missed
+            label: Missed
+            color: red
+    titleField: name
+
+  nb_pm_risks:
+    fields:
+      - name: title
+        interface: input
+        required: true
+      - name: project
+        interface: m2o
+        target: nb_pm_projects
+        foreignKey: project_id
+      - name: category
+        interface: select
+        enum:
+          - value: technical
+            label: Technical
+            color: blue
+          - value: resource
+            label: Resource
+            color: orange
+          - value: schedule
+            label: Schedule
+            color: red
+          - value: budget
+            label: Budget
+            color: green
+      - name: probability
+        interface: select
+        enum:
+          - value: high
+            label: High
+            color: red
+          - value: medium
+            label: Medium
+            color: orange
+          - value: low
+            label: Low
+            color: green
+      - name: impact
+        interface: select
+        enum:
+          - value: critical
+            label: Critical
+            color: red
+          - value: high
+            label: High
+            color: orange
+          - value: medium
+            label: Medium
+            color: blue
+          - value: low
+            label: Low
+            color: green
+      - name: mitigation
+        interface: textarea
+      - name: status
+        interface: select
+        enum:
+          - value: open
+            label: Open
+            color: red
+          - value: mitigated
+            label: Mitigated
+            color: blue
+          - value: closed
+            label: Closed
+            color: green
+    titleField: title
+
+pages:
+  # Projects Page
+  - page: Projects
+    icon: projectoutlined
+    coll: nb_pm_projects
+    blocks:
+      - key: filterForm_0
+        type: filterForm
+        coll: nb_pm_projects
+        fields:
+          - field: name
+            filterPaths: [name, code]
+          - status
+          - priority
+
+      - key: table
+        type: table
+        coll: nb_pm_projects
+        fields:
+          - name
+          - code
+          - status
+          - priority
+          - start_date
+          - end_date
+          - budget
+          - progress
+        actions:
+          - filter
+          - refresh
+          - addNew
+        recordActions:
+          - edit
+          - delete
+
+    layout:
+      - - filterForm_0
+      - - table
+
+  # Tasks Page
+  - page: Tasks
+    icon: unorderedlistoutlined
+    coll: nb_pm_tasks
+    blocks:
+      - key: filterForm_0
+        type: filterForm
+        coll: nb_pm_tasks
+        fields:
+          - field: title
+            filterPaths: [title, description]
+          - status
+          - due_date
+
+      - key: table
+        type: table
+        coll: nb_pm_tasks
+        fields:
+          - title
+          - project
+          - assignee
+          - status
+          - priority
+          - due_date
+          - estimated_hours
+        actions:
+          - filter
+          - refresh
+          - addNew
+        recordActions:
+          - edit
+          - delete
+
+    layout:
+      - - filterForm_0
+      - - table
+
+  # Members Page
+  - page: Members
+    icon: teamoutlined
+    coll: nb_pm_members
+    blocks:
+      - key: filterForm_0
+        type: filterForm
+        coll: nb_pm_members
+        fields:
+          - field: name
+            filterPaths: [name, department]
+          - role
+          - email
+
+      - key: table
+        type: table
+        coll: nb_pm_members
+        fields:
+          - name
+          - role
+          - email
+          - phone
+          - department
+          - hourly_rate
+        actions:
+          - filter
+          - refresh
+          - addNew
+        recordActions:
+          - edit
+          - delete
+
+    layout:
+      - - filterForm_0
+      - - table
+
+  # Milestones Page
+  - page: Milestones
+    icon: flagoutlined
+    coll: nb_pm_milestones
+    blocks:
+      - key: filterForm_0
+        type: filterForm
+        coll: nb_pm_milestones
+        fields:
+          - field: name
+            filterPaths: [name]
+          - status
+          - due_date
+
+      - key: table
+        type: table
+        coll: nb_pm_milestones
+        fields:
+          - name
+          - project
+          - due_date
+          - status
+        actions:
+          - filter
+          - refresh
+          - addNew
+        recordActions:
+          - edit
+          - delete
+
+    layout:
+      - - filterForm_0
+      - - table
+
+  # Risks Page
+  - page: Risks
+    icon: warningoutlined
+    coll: nb_pm_risks
+    blocks:
+      - key: filterForm_0
+        type: filterForm
+        coll: nb_pm_risks
+        fields:
+          - field: title
+            filterPaths: [title, mitigation]
+          - category
+          - status
+
+      - key: table
+        type: table
+        coll: nb_pm_risks
+        fields:
+          - title
+          - project
+          - category
+          - probability
+          - impact
+          - status
+        actions:
+          - filter
+          - refresh
+          - addNew
+        recordActions:
+          - edit
+          - delete
+
+    layout:
+      - - filterForm_0
+      - - table
