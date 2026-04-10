@@ -1404,6 +1404,7 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                 nb.update_model(block_uid, {
                         "jsSettings": {"runJs": {"code": code, "version": "v1"}}
                     })
+                print(f"      ~ JS: {bs.get('desc', js_file)[:40]}")
 
     # ── Chart config ──
     if btype == "chart":
