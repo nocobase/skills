@@ -74,6 +74,20 @@ class RefResolver:
             if with_blocks in self._index:
                 return self._index[with_blocks]
 
+            # Fuzzy match: "table" matches "table_0", "table_1", etc.
+            block_and_rest = parts[1].split(".", 1)
+            if len(block_and_rest) == 2:
+                block_prefix = block_and_rest[0]  # e.g., "table"
+                rest = block_and_rest[1]           # e.g., "fields.name"
+                for idx_key in self._index:
+                    if idx_key.startswith(f"{parts[0]}.blocks.{block_prefix}_") or \
+                       idx_key.startswith(f"{parts[0]}.blocks.{block_prefix}."):
+                        # Found a match like "page.blocks.table_0"
+                        actual_block = idx_key.split(".")[2]  # "table_0"
+                        fuzzy_path = f"{parts[0]}.blocks.{actual_block}.{rest}"
+                        if fuzzy_path in self._index:
+                            return self._index[fuzzy_path]
+
         raise KeyError(f"Ref not found: {ref}\n  Available: {self.suggest(path)}")
 
     def resolve_uid(self, ref: str) -> str:

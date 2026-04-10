@@ -715,14 +715,13 @@ def _to_compose_block(bs: dict, default_coll: str) -> dict | None:
 
     # Include actions — compose handles standard action types
     # Exclude edit/view — compose auto-creates empty popup stubs for these.
-    # Instead, create them via _fill_block (save_model) so NocoBase
-    # generates the popup form at runtime.
-    _POPUP_ACTIONS = {"edit", "view", "duplicate"}
+    # Only pass compose-supported actions. Others created via save_model in _fill_block.
+    _COMPOSE_ACTIONS = {"filter", "refresh", "addNew", "delete", "bulkDelete", "submit", "reset"}
     actions = list(bs.get("actions", []))
     record_actions = list(bs.get("recordActions", []))
 
-    compose_actions = [a for a in actions if a not in _POPUP_ACTIONS]
-    compose_rec_actions = [a for a in record_actions if a not in _POPUP_ACTIONS]
+    compose_actions = [a for a in actions if (a if isinstance(a, str) else a.get("type", "")) in _COMPOSE_ACTIONS]
+    compose_rec_actions = [a for a in record_actions if (a if isinstance(a, str) else a.get("type", "")) in _COMPOSE_ACTIONS]
 
     if compose_actions:
         block["actions"] = [{"type": a} if isinstance(a, str) else a for a in compose_actions]
@@ -1105,13 +1104,20 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                         "dataSourceKey": "main", "sql": clean, "bind": {},
                     }, timeout=30)
 
-    # ── Actions (popup-type: edit/view/duplicate) ──
-    # These are excluded from compose to avoid empty popup stubs.
-    # Create as plain action buttons — NocoBase auto-generates popup at runtime.
-    _POPUP_ACTION_MAP = {
+    # ── Actions not created by compose ──
+    # Compose only handles a whitelist. Others created here via save_model.
+    _NON_COMPOSE_ACTION_MAP = {
         "edit": "EditActionModel",
         "view": "ViewActionModel",
         "duplicate": "DuplicateActionModel",
+        "export": "ExportActionModel",
+        "import": "ImportActionModel",
+        "link": "LinkActionModel",
+        "workflowTrigger": "CollectionTriggerWorkflowActionModel",
+        "ai": "AIEmployeeButtonModel",
+        "expandCollapse": "ExpandCollapseActionModel",
+        "popup": "PopupCollectionActionModel",
+        "updateRecord": "UpdateRecordActionModel",
     }
     all_actions = list(bs.get("actions", []))
     all_rec_actions = list(bs.get("recordActions", []))
@@ -1119,10 +1125,9 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
     for atype in all_actions + all_rec_actions:
         if isinstance(atype, dict):
             atype = atype.get("type", "")
-        amodel = _POPUP_ACTION_MAP.get(atype)
+        amodel = _NON_COMPOSE_ACTION_MAP.get(atype)
         if not amodel:
             continue
-        # Check if compose already created it
         a_key = atype
         existing_actions = block_state.get("actions", {})
         existing_rec = block_state.get("record_actions", {})
