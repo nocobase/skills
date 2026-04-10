@@ -137,7 +137,7 @@ Independent permissions should usually include:
 
 ### Common mistakes to avoid:
 
-❌ **Wrong: Configuring actions without fields**
+Wrong example: configuring actions without fields
 ```json
 {
   "name": "orders",
@@ -150,7 +150,7 @@ Independent permissions should usually include:
 }
 ```
 
-✅ **Correct: Configuring actions with explicit field decisions**
+Correct example: configuring actions with explicit field decisions
 ```json
 {
   "name": "orders",

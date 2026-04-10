@@ -4,7 +4,7 @@ description: "Use when users need to prepare a NocoBase environment, install and
 argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|deploy|mcp-connect|upgrade|diagnose] [target-dir]"
 allowed-tools: Bash, Read, Write, Grep, Glob, WebFetch
 owner: platform-tools
-version: 1.1.1
+version: 1.2.0
 last-reviewed: 2026-04-10
 risk-level: medium
 ---
@@ -113,6 +113,8 @@ Default behavior when user says "you decide":
 - If `mcp_required=true`, run startup-complete MCP gate:
 - Windows: execute `powershell -File scripts/mcp-postcheck.ps1` and pass MCP flags.
 - Linux/macOS: execute `bash scripts/mcp-postcheck.sh` and pass MCP env flags.
+- MCP postcheck must verify protocol chain with correct headers: `initialize -> tools/list -> tools/call`.
+- MCP requests must include `Accept: application/json, text/event-stream`.
 - If MCP gate fails with `action_required: activate_plugin`, do not ask user to manually activate first; run fixed auto sequence first.
 - For MCP plugin activation, MUST use `nocobase-plugin-manage` compact invocation `Use $nocobase-plugin-manage enable <activation_plugin_bundle>` (runtime maps to `pm:enable`).
 - Activation plugin bundle is auth-mode aware:
@@ -168,6 +170,10 @@ Default behavior when user says "you decide":
 | [references/preflight-checklist.md](references/preflight-checklist.md) | before install/deploy/upgrade | dependency, path, network, and port checks |
 | [references/install-runbook.md](references/install-runbook.md) | install and first startup | docker/create-app/git execution guide |
 | [references/mcp-runbook.md](references/mcp-runbook.md) | mcp-connect and post-install MCP bootstrap | endpoint, auth, package scope, and client command guide |
+| [references/mcp-call-examples.md](references/mcp-call-examples.md) | MCP JSON-RPC call formatting | `tools/call` wrapper and request examples |
+| [references/mcp-tool-shapes.md](references/mcp-tool-shapes.md) | MCP tool argument examples | nested `requestBody` and common ACL/data-source calls |
+| [references/mcp-troubleshooting.md](references/mcp-troubleshooting.md) | MCP error diagnosis | `-32601`, header mismatch, and status triage |
+| [references/mcp-powershell-helpers.md](references/mcp-powershell-helpers.md) | Windows MCP helper snippets | reusable JSON/SSE parsing and call helpers |
 | [references/upgrade-runbook.md](references/upgrade-runbook.md) | single-instance upgrade | pre-check, execution, post-check, rollback guidance |
 | [references/troubleshooting.md](references/troubleshooting.md) | diagnose and recovery | high-frequency issue decision table |
 
@@ -198,6 +204,7 @@ Confirmation template:
 - Method and release channel are explicitly confirmed or defaulted.
 - Install/deploy commands are recorded and reproducible.
 - MCP checks include endpoint probe and auth probe when `mcp_required=true`.
+- MCP protocol chain is verified with `initialize`, `tools/list`, and at least one `tools/call` probe when possible.
 - Missing MCP/auth companion activation is handled by fixed auto sequence first (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`); manual plugin activation is fallback only.
 - Missing/invalid API key remains a manual blocker and requires user-provided token.
 - MCP `activate_plugin` blocker follows fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
@@ -225,6 +232,7 @@ Confirmation template:
 12. MCP post-start gate fails with `401/403`, requests token refresh, then passes after user provides new token.
 13. MCP post-start gate passes, live `tools/list` probe returns tools, and onboarding examples are generated from live tool list (not static template).
 14. MCP post-start gate passes but live probe cannot fetch tools; onboarding falls back with explicit warning.
+15. MCP post-start gate fails when request headers miss `application/json, text/event-stream`, then passes after header fix.
 
 # Output Contract
 
@@ -254,6 +262,10 @@ For `install/deploy` tasks, `recommended next action` must include:
 - [Preflight Checklist](references/preflight-checklist.md): use before any mutable action.
 - [Install Runbook](references/install-runbook.md): use for install and startup flows.
 - [MCP Runbook](references/mcp-runbook.md): use for MCP endpoint and client connection bootstrap.
+- [MCP Call Examples](references/mcp-call-examples.md): canonical JSON-RPC request envelopes and wrong-vs-right patterns.
+- [MCP Tool Shapes](references/mcp-tool-shapes.md): commonly used MCP tool argument examples.
+- [MCP Troubleshooting](references/mcp-troubleshooting.md): error-code based MCP diagnosis and fixes.
+- [MCP PowerShell Helpers](references/mcp-powershell-helpers.md): reusable Windows helper functions for JSON/SSE parsing.
 - [Upgrade Runbook](references/upgrade-runbook.md): use for safe single-instance upgrades.
 - [Troubleshooting KB](references/troubleshooting.md): use for high-frequency failures.
 - [NocoBase MCP](https://docs.nocobase.com/cn/ai-employees/mcp/): endpoint, auth mode, and MCP client integration references. [verified: 2026-04-08]

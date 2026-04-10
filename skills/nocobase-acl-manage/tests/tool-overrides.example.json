@@ -1,0 +1,10 @@
+﻿{
+  "bind_user": "roles_users_add",
+  "default_role": "roles_set_default",
+  "role_mode_write": "roles_mode_set",
+  "role_mode_read": "roles_mode_get",
+  "route_write": "roles_desktop_routes_add",
+  "route_list": "roles_desktop_routes_list",
+  "resource_update": "data_sources_roles_resources_update",
+  "resource_get": "data_sources_roles_resources_get"
+}

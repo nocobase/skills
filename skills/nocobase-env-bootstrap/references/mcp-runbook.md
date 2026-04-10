@@ -8,13 +8,16 @@ Bootstrap and verify NocoBase MCP connectivity so downstream development workflo
 
 1. Prerequisites
 2. Endpoint Selection
-3. Activation Gate
-4. Post-Start Gate Command
-5. API Key Path
-6. OAuth Path
-7. Package Scope Control
-8. Verification Checklist
-9. Failure Handling
+3. RPC Contract
+4. Initialize and Session Strategy
+5. Activation Gate
+6. Post-Start Gate Command
+7. API Key Path
+8. OAuth Path
+9. Package Scope Control
+10. Verification Checklist
+11. Failure Handling
+12. Reference Files
 
 ## Prerequisites
 
@@ -23,6 +26,44 @@ Bootstrap and verify NocoBase MCP connectivity so downstream development workflo
 - Main app: `/api/mcp`
 - Non-main app: `/api/__app/<app_name>/mcp`
 3. Client transport uses streamable HTTP.
+
+## RPC Contract
+
+1. Use JSON-RPC over streamable HTTP.
+2. Tool execution must use method `tools/call`.
+3. Request headers must include:
+- `Content-Type: application/json`
+- `Accept: application/json, text/event-stream`
+4. Do not execute business operations as raw methods such as `resource_update`.
+
+Canonical tool call shape:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "method": "tools/call",
+  "params": {
+    "name": "data_sources_roles_update",
+    "arguments": {
+      "dataSourceKey": "main",
+      "filterByTk": "member",
+      "requestBody": {
+        "strategy": {
+          "actions": ["view"]
+        }
+      }
+    }
+  }
+}
+```
+
+## Initialize and Session Strategy
+
+1. Use stable sequence: `initialize -> tools/list -> tools/call`.
+2. If initialize returns `Mcp-Session-Id` response header, pass it in later requests.
+3. If no session header is returned, continue without session id.
+4. Treat JSON-RPC `error` as blocking failure before mutation work.
 
 ## Endpoint Selection
 
@@ -109,6 +150,7 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 - If output contains `action_required: restart_app`, restart app and rerun postcheck.
 - Do not request token/manual API-key step while endpoint blocker (`activate_plugin` or `restart_app`) is unresolved.
 - If output contains `action_required: provide_api_token`, stop automation and ask user to create/regenerate API key manually and send token value.
+- If output contains protocol failure (`MCP-PROTO-*`), fix request shape/headers first.
 - After user confirms activation or provides token, rerun postcheck until pass.
 
 ## API Key Path
@@ -160,8 +202,9 @@ Use `x-mcp-packages` to limit exposed package capabilities.
 - `MCP Server` plugin activated.
 - `API Keys` plugin activated for API key mode.
 4. Post-start gate command is executed and passes.
-5. Client command and endpoint values are recorded.
-6. Final output contains endpoint, auth mode, package scope, and next action.
+5. Protocol chain probe passes (`initialize`, `tools/list`, and at least one `tools/call` probe when available).
+6. Client command and endpoint values are recorded.
+7. Final output contains endpoint, auth mode, package scope, and next action.
 
 ## Failure Handling
 
@@ -180,3 +223,18 @@ Use `x-mcp-packages` to limit exposed package capabilities.
 4. Network timeout:
 - Root-cause hypothesis: service not reachable or proxy/firewall issue.
 - Action: verify host/port routing, service health, and network policy.
+
+5. JSON-RPC `-32601 Method not found`:
+- Root-cause hypothesis: wrong method pattern.
+- Action: use `tools/call` wrapper and runtime tool names from `tools/list`.
+
+6. `Client must accept both application/json and text/event-stream`:
+- Root-cause hypothesis: incorrect `Accept` header.
+- Action: send `Accept: application/json, text/event-stream`.
+
+## Reference Files
+
+- [MCP Call Examples](mcp-call-examples.md)
+- [MCP Tool Shapes](mcp-tool-shapes.md)
+- [MCP Troubleshooting](mcp-troubleshooting.md)
+- [MCP PowerShell Helpers](mcp-powershell-helpers.md)

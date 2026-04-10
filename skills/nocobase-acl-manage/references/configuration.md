@@ -14,7 +14,7 @@
 - [9. Configure row scopes](#9-configure-row-scopes)
 - [Recommended MCP Workflow](#recommended-mcp-workflow)
 - [CRM Example](#crm-example)
-- [Verification API Pattern](#verification-api-pattern)
+- [Verification MCP Pattern](#verification-mcp-pattern)
 
 ## Configuration standard
 
@@ -90,11 +90,11 @@ General rule:
 
 Use the dedicated default-role action when the user wants all new users to receive a specific role automatically.
 
-Do not infer this from the role title or from a role being “basic”.
+Do not infer this from the role title or from a role being "basic".
 
 ## 4. Set the system role mode
 
-Check role mode before debugging “wrong permissions” for multi-role users.
+Check role mode before debugging "wrong permissions" for multi-role users.
 
 - `default`
   - Users operate under one active role.
@@ -363,15 +363,17 @@ Field guidance for this CRM:
 - For view and export actions, include relation labels only if the action supports field configuration and the UI actually needs them.
 - When create and update actions carry association values, make sure the association fields are not accidentally excluded from the allowed field list.
 
-## Verification API Pattern
+## Verification MCP Pattern
 
-Use the real API shape when auditing results:
+Use MCP tool contracts when auditing results. Do not fallback to direct HTTP `/api/*` calls.
 
-1. `dataSources:list`
-2. `dataSources/{dataSourceKey}/roles:get`
-3. `roles/{roleName}/dataSourcesCollections:list`
-4. `roles/{roleName}/dataSourceResources:get`
-5. `rolesResourcesScopes:get` or `dataSources/{dataSourceKey}/rolesResourcesScopes:get`
+1. `roles_list`
+2. `data_sources_roles_get`
+3. `roles_data_sources_collections_list`
+4. `roles_data_source_resources_get`
+5. `data_sources_roles_resources_scopes_get` or `data_sources_roles_resources_scopes_list`
+
+All checks above should be executed through `tools/call` with runtime tool names from `tools/list`.
 
 For scoped actions, do not rely only on appended `actions.scope` payloads. Prefer:
 

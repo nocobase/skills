@@ -132,8 +132,8 @@ The compact style is normalized to the structured payload internally.
 
 When `target.mode` is omitted or set to `auto`, resolve channel with this priority:
 
-1. explicit `target.base_url` -> `remote`
-2. explicit `target.app_path` -> `local`
+1. explicit `target.app_path` -> `local` (this remains true even if `target.base_url` is also provided)
+2. explicit `target.base_url` with no `target.app_path` -> `remote`
 3. workspace looks like a NocoBase app -> `local`
 4. `NOCOBASE_BASE_URL` or `APP_BASE_URL` env exists -> `remote`
 5. fallback -> `local` using current working directory
@@ -145,8 +145,13 @@ When channel resolves to `local`, resolve execution backend with this priority:
 1. explicit `execution_backend` (if not `auto`)
 2. local Docker backend (`docker_cli`) when compose environment is available and service exists (default `app`)
 3. local host backend (`host_cli`) when `yarn nocobase` is available
-4. fallback to `remote_api` when base URL and auth prerequisites are satisfied
-5. if none are available, stop and return rich fallback hints
+4. if none are available, stop and return rich fallback hints (do not silently fallback to `remote_api`)
+
+Local channel semantics note:
+
+- local writes should use local CLI backend (`docker_cli` or `host_cli`)
+- local inspect/readback should use runtime API (`pm:list`, `pm:get`) when reachable
+- this CLI mutate + API readback split is expected and should not be treated as backend drift
 
 ## Verification Rules
 
@@ -158,6 +163,7 @@ When channel resolves to `local`, resolve execution backend with this priority:
 - Default timeout: 90 seconds.
 - If timeout occurs, return `pending_verification` with last known state.
 - Commands in output must reflect actual backend (`docker compose ...` or `yarn ...` or API routes).
+- When `target.mode=auto` includes both `target.app_path` and `target.base_url`, channel should still resolve to `local`.
 
 ## Failure Handling
 
@@ -166,7 +172,7 @@ When channel resolves to `local`, resolve execution backend with this priority:
 - Plugin not found during disable: stop and return explicit not-found state.
 - API unavailable in safe mode: stop mutation; ask for reachable `base_url` or explicit switch to `fast` mode.
 - Async mutation uncertainty: never mark success without readback confirmation.
-- Backend unavailable (`docker_cli`, `host_cli`, and `remote_api` all unavailable): return `verification=failed` and rich fallback hints:
+- Backend unavailable (`docker_cli`/`host_cli` unavailable for local channel, or `remote_api` unavailable for remote channel): return `verification=failed` and rich fallback hints:
 - `Plugin manager URL`: `<base_url>/admin/settings/plugin-manager`
 - `API keys URL`: `<base_url>/admin/settings/api-keys`
 - when `base_url` is unknown, use default `http://127.0.0.1:13000`

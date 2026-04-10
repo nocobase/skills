@@ -17,7 +17,7 @@
 
 ## Role selection security
 
-- Current role is resolved from `X-Role`, the user’s assigned roles, and the system role mode.
+- Current role is resolved from `X-Role`, the user's assigned roles, and the system role mode.
 - If a requested role does not belong to the user, middleware rejects it.
 - In `default` mode, asking for union role does not behave like true union mode.
 
@@ -43,7 +43,7 @@ Implications:
 
 - disallowed association writes may be removed from the payload instead of behaving like a simple scalar-field denial
 - relation updates need to be explicitly covered by the permitted action config
-- if the user reports “association data silently not saved”, inspect ACL first, not only form payloads
+- if the user reports "association data silently not saved", inspect ACL first, not only form payloads
 - a relation field being present in view permissions does not imply it may be changed in create/update payloads
 - relation-field update permission should be read as association-change permission for ordinary form submissions
 

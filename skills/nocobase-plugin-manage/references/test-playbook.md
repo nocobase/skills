@@ -451,6 +451,7 @@ Expected:
 - `execution_backend=docker_cli`
 - `commands_or_actions` includes `docker compose exec -T app yarn nocobase pm enable`
 - verification behavior remains readback-based (`passed` or `pending_verification`)
+- readback may include API actions such as `pm:get`; this is expected for local safe-mode verification
 
 ### TC14 All Backends Unavailable (Rich Guidance)
 
@@ -458,19 +459,53 @@ Prompt:
 
 ```text
 Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server
-Assume docker/host CLI are unavailable and remote API is unreachable.
+Assume current workspace resolves to a local target.
+Assume docker/host CLI are unavailable, while remote API is reachable.
 ```
 
 Task:
 
-- Validate failure output quality when no backend can be used.
+- Validate local-channel behavior does not silently switch to remote API when local backends are unavailable.
 
 Expected:
 
 - `verification=failed`
+- no silent `execution_backend=remote_api` fallback for this local-target case
 - output includes `fallback_hints` with concrete manual actions
 - fallback includes plugin manager URL and API keys URL templates
 - next steps explicitly mention manual UI activation and retry path
+
+### TC15 Auto Mode With Both app_path + base_url
+
+Prompt:
+
+```text
+Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
+Run action=enable with:
+{
+  "action": "enable",
+  "target": {
+    "mode": "auto",
+    "app_path": "<LOCAL_APP_PATH>",
+    "base_url": "http://127.0.0.1:13000",
+    "compose_service": "<COMPOSE_SERVICE>"
+  },
+  "plugins": ["<VALID_PLUGIN>"],
+  "execution_backend": "auto",
+  "execution_mode": "safe"
+}
+```
+
+Task:
+
+- Validate `target.mode=auto` prefers local when both `app_path` and `base_url` are provided.
+
+Expected:
+
+- `channel=local`
+- `target_resolution` explicitly mentions `app_path` precedence
+- `execution_backend` resolves to `docker_cli` or `host_cli` (not `remote_api`)
+- verification remains readback-based (`passed` or `pending_verification`)
 
 ## Quick Regression Set
 
@@ -483,3 +518,4 @@ Use this set for fast smoke checks:
 5. TC05 local disable
 6. TC02 remote inspect
 7. TC14 all backends unavailable guidance
+8. TC15 auto mode app_path precedence

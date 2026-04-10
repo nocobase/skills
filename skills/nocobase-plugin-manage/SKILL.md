@@ -1,11 +1,11 @@
 ---
 name: nocobase-plugin-manage
-description: Inspect NocoBase plugin inventory and plugin state from runtime-backed sources, and safely install, enable, or disable plugins for local or remote applications. For local Docker apps, automatically prefer docker-compose CLI execution.
+description: Inspect NocoBase plugin inventory and plugin state from runtime-backed sources, and safely install, enable, or disable plugins for local or remote applications. For local Docker apps, writes should prefer docker-compose CLI, while inspect/readback remains API-based.
 allowed-tools: Bash, Read, Grep, Write
 metadata:
   owner: platform-tools
-  version: 1.1.0
-  last-reviewed: 2026-04-09
+  version: 1.1.1
+  last-reviewed: 2026-04-10
   risk-level: medium
 ---
 
@@ -57,8 +57,8 @@ Rules:
 - Accept both short plugin names and full package names where NocoBase parser supports them.
 - In `safe` mode, require pre-check and post-check status readback.
 - Resolve `target.mode=auto` with this priority:
-- explicit `target.base_url` => `remote`
-- explicit `target.app_path` => `local`
+- if explicit `target.app_path` exists, choose `local` (even when `target.base_url` is also present)
+- if explicit `target.base_url` exists and `target.app_path` is absent, choose `remote`
 - if current workspace contains a NocoBase app (for example `.env` and app package metadata), choose `local`
 - if `NOCOBASE_BASE_URL` or `APP_BASE_URL` env is set, choose `remote`
 - fallback to `local` with current working directory
@@ -66,8 +66,8 @@ Rules:
 - if channel is `local` and docker compose is available for `target.app_path`, prefer `docker_cli`
 - if channel is `local` and host CLI is available, use `host_cli`
 - if channel is `remote`, use `remote_api`
-- if local backends are unavailable and remote prerequisites are satisfied, fallback to `remote_api`
-- if all backends are unavailable, stop and return rich fallback guidance
+- if channel is `local` and local backends are unavailable, stop and return rich fallback guidance (do not silently switch to `remote_api`)
+- if channel is `remote` and remote prerequisites are unavailable, stop and return rich fallback guidance
 - If user says "you decide", use defaults in this table.
 
 Invocation payload template:
@@ -121,8 +121,9 @@ Invocation payload template:
 - Apply `target.mode=auto` resolution rules.
 - Apply `execution_backend=auto` resolution rules.
 - `remote_api`: inspect and mutate through runtime API actions.
-- `docker_cli`: mutate through `docker compose exec -T <service> yarn nocobase pm ...`; inspect through app API endpoint when reachable.
-- `host_cli`: mutate through host `yarn nocobase pm ...`; inspect through local API endpoint when reachable.
+- `docker_cli`: mutate through `docker compose exec -T <service> yarn nocobase pm ...`; inspect/readback through app API endpoint when reachable.
+- `host_cli`: mutate through host `yarn nocobase pm ...`; inspect/readback through local API endpoint when reachable.
+- In local channel, API-based inspect/readback is expected behavior and is not a backend drift from CLI mutation path.
 
 2. Resolve runtime evidence source (never docs as source of truth).
 - For full catalog/status, use `pm:list` and `pm:get`.
@@ -176,6 +177,8 @@ Operational notes:
 - `pm:add`, `pm:enable`, and `pm:disable` in resource actions are asynchronous (`runAsCLI`), so readback polling is mandatory.
 - Prefer API-client style URLs (`pm:list`, `pm:get`, `pm:add`, `pm:enable`, `pm:disable`) when a NocoBase API client is available.
 - For local Docker environments, prefer `docker_cli` as primary backend.
+- For local Docker flows in `safe` mode, the expected split is CLI mutate + API readback; this is intentional.
+- If deterministic local command path is required, set `target.mode=local` and `execution_backend=docker_cli`.
 
 # Reference Loading Map
 
@@ -219,6 +222,7 @@ Operational notes:
 - Execution channel (`local` or `remote`) is explicit in output.
 - `execution_backend` is explicit in output.
 - Auto-resolution decisions are recorded in output assumptions and target resolution evidence.
+- When both `target.app_path` and `target.base_url` are present under `target.mode=auto`, resolution must remain `local`.
 - Pre-state is captured in `safe` mode.
 - Mutation call(s) succeeded without shell/API errors.
 - Post-state was fetched by readback polling.
@@ -240,6 +244,7 @@ Operational notes:
 7. Disable guarded case: attempt to disable critical plugin requires confirmation.
 8. Remote mutation failure: missing token blocks mutation with actionable error.
 9. Backend unavailable path returns rich manual guidance (plugin manager/API keys URLs and concrete next actions).
+10. Auto target with both `app_path` and `base_url` resolves to local; backend remains `docker_cli` or `host_cli` only.
 
 # Output Contract
 
