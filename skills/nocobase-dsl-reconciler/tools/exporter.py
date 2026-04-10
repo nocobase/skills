@@ -328,12 +328,27 @@ def _export_block(nb: NocoBase, item: dict, js_dir: Path = None,
     elif btype == "chart":
         config = sp.get("chartSettings", {}).get("configure", {})
         if config and js_dir:
-            import json
-            fname = f"{prefix}_{key}.json" if prefix else f"{key}.json"
             chart_dir = js_dir.parent / "charts"
             chart_dir.mkdir(exist_ok=True)
-            (chart_dir / fname).write_text(json.dumps(config, indent=2, ensure_ascii=False))
-            spec["chart_config"] = f"./charts/{fname}"
+            base = f"{prefix}_{key}" if prefix else key
+
+            # Extract SQL and render JS into separate files
+            sql = config.get("query", {}).get("sql", "")
+            render_js = config.get("chart", {}).get("option", {}).get("raw", "")
+
+            chart_spec: dict[str, Any] = {}
+            if sql:
+                sql_fname = f"{base}.sql"
+                (chart_dir / sql_fname).write_text(sql)
+                chart_spec["sql_file"] = f"./charts/{sql_fname}"
+            if render_js:
+                render_fname = f"{base}_render.js"
+                (chart_dir / render_fname).write_text(render_js)
+                chart_spec["render_file"] = f"./charts/{render_fname}"
+
+            yaml_fname = f"{base}.yaml"
+            (chart_dir / yaml_fname).write_text(dump_yaml(chart_spec))
+            spec["chart_config"] = f"./charts/{yaml_fname}"
 
     elif btype == "table":
         fields, js_cols, field_popups = _export_table_contents(item, js_dir, prefix, key)

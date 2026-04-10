@@ -163,10 +163,14 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
                     meta = nb.field_meta(bcoll)
                 except Exception:
                     meta = {}
+                # Also check collections definitions for new collections
+                coll_fields_def = {fd["name"]: fd.get("interface", "input")
+                                   for fd in coll_defs.get(bcoll, {}).get("fields", [])
+                                   if isinstance(fd, dict)}
                 text_fields = []
                 for f in fields:
                     fp = f if isinstance(f, str) else f.get("field", "")
-                    iface = meta.get(fp, {}).get("interface", "input")
+                    iface = meta.get(fp, {}).get("interface") or coll_fields_def.get(fp, "input")
                     if iface in ("input", "textarea", "email", "phone", "url"):
                         has_paths = isinstance(f, dict) and f.get("filterPaths")
                         if not has_paths:
@@ -1407,9 +1411,28 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
         if config_file:
             p = mod / config_file
             if p.exists():
-                config = json.loads(p.read_text())
+                if config_file.endswith(".yaml") or config_file.endswith(".yml"):
+                    # New format: YAML with sql_file + render_file refs
+                    chart_spec = yaml.safe_load(p.read_text()) or {}
+                    sql = chart_spec.get("sql", "")
+                    if chart_spec.get("sql_file"):
+                        sf = mod / chart_spec["sql_file"]
+                        if sf.exists():
+                            sql = sf.read_text()
+                    render_js = chart_spec.get("render", "")
+                    if chart_spec.get("render_file"):
+                        rf = mod / chart_spec["render_file"]
+                        if rf.exists():
+                            render_js = rf.read_text()
+                    config = {
+                        "query": {"mode": "sql", "sql": sql},
+                        "chart": {"option": {"mode": "custom", "raw": render_js}},
+                    }
+                else:
+                    # Legacy: JSON with everything inline
+                    config = json.loads(p.read_text())
+
                 nb.update_model(block_uid, {"chartSettings": {"configure": config}})
-                # flowSql:save + run
                 sql = config.get("query", {}).get("sql", "")
                 if sql:
                     import re
@@ -1423,6 +1446,7 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                         "type": "selectRows", "uid": block_uid,
                         "dataSourceKey": "main", "sql": clean, "bind": {},
                     }, timeout=30)
+                    print(f"      + chart: {config_file}")
 
     # ── Actions not created by compose ──
     # Compose only handles a whitelist. Others created here via save_model.
