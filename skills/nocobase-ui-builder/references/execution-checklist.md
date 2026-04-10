@@ -1,16 +1,17 @@
 # Execution Checklist
 
-Use this checklist by default during execution. Only open a topic reference when a specific contract is actually hit. For cross-topic rules around blueprint-first page planning, `catalog`, popup shell fallback, and schema drift / recovery, see [normative-contract.md](./normative-contract.md).
+Use this checklist by default during execution. Only open a topic reference when a specific contract is actually hit. For cross-topic rules around DSL-first drafting/execution, `catalog`, popup shell fallback, and schema drift / recovery, see [normative-contract.md](./normative-contract.md).
 
 ## 1. Preflight
 
 - Before any write, confirm that the NocoBase MCP is reachable, authenticated, and the schema is usable.
-- `inspect` and `page blueprint` planning are read-only by default. Only enter a write flow when the user explicitly asks to create, modify, reorder, delete, or fix something, or when a previously shown blueprint has already been confirmed.
+- Before any structural write, decide the DSL path first and plan to attempt `validateDsl` before any low-level page-building write. Do not treat complexity or missing local examples as a DSL exclusion signal.
+- `inspect` and DSL drafting are read-only by default. Only enter a write flow when the user explicitly asks to create, modify, reorder, delete, or fix something, or when a previously shown DSL draft has already been confirmed.
 - If the live environment already shows an auth error, a missing critical tool, a stale schema, or a capability gap, stop writing first. For recovery, see [normative-contract.md](./normative-contract.md).
 
 ## 2. Choose Intent
 
-- First decide the primary intent: `inspect`, `plan-page-blueprint`, `create-menu-group`, `create-page`, `update-ui`, `move-menu`, `reorder`, or `delete-ui`.
+- First decide the primary intent: `inspect`, `draft-blueprint-dsl`, `execute-blueprint-dsl`, `execute-patch-dsl`, `create-menu-group`, `move-menu`, `reorder`, or `delete-ui`.
 - Only add a topic gate when the task truly hits `popup`, `chart`, or `js`.
 - If the request mentions template reuse, save-as-template, copy/reference mode, convert-to-copy, or template search/selection, read [templates.md](./templates.md) before choosing the write path.
 - If the request involves `title` / `icon`, first identify whether it means the menu entry, the page header title, the page header icon, or a tab / popup tab. Do not jump straight to a lifecycle API just because you already have a page/tab locator.
@@ -19,117 +20,73 @@ Default path quick reference:
 
 | intent | Default primary path | Minimum readback |
 | --- | --- | --- |
-| `inspect` | For menu titles, read the menu tree first. For initialized surfaces, start with `get`; only switch to `describeSurface` when the next step is existing-surface high-level execution. Decide whether to append `catalog` via [normative-contract.md](./normative-contract.md). | `Inspect` in [verification.md](./verification.md) |
-| `plan-page-blueprint` | Read [page-intent-planning.md](./page-intent-planning.md). Discover real schema facts, produce a `pageBlueprint`, and stop for user confirmation before any write. | read-only facts only; no write readback |
-| `create-menu-group` | Prefer bootstrap `validatePlan -> executePlan`, even for a single group. Direct `createMenu(type="group")` is the low-level fallback when you only need one isolated group. | return value; menu tree if needed |
-| `create-page` | Prefer bootstrap `validatePlan -> executePlan`; low-level fallback is `createMenu(type="item") -> createPage(menuRouteId=...)` | `get({ pageSchemaUid })` |
-| `update-ui` | First resolve the visible title/icon slot. For structural edits on an existing surface, prefer `describeSurface -> validatePlan -> executePlan`. Only fall back to `get -> [append catalog if required by normative contract] -> write -> readback` when the plan path cannot express the change or the user explicitly asks for low-level control. Prefer `updateMenu` for menu entries, `updateTab` / `updatePopupTab` only for tab / popup-tab semantics, page `configure` only for page-header title, and inspect the render chain first for page-header icon. | direct parent, direct target, or the corresponding lifecycle target |
+| `inspect` | For menu titles, read the menu tree first. For initialized surfaces, start with `get`; only switch to `describeSurface` when the next step is existing-surface DSL execution. Decide whether to append `catalog` via [normative-contract.md](./normative-contract.md). | `Inspect` in [verification.md](./verification.md) |
+| `draft-blueprint-dsl` | Read [page-intent-blueprint.md](./page-intent-blueprint.md). Discover real schema facts, produce a blueprint DSL draft, and stop for confirmation. | read-only facts only; no write readback |
+| `execute-blueprint-dsl` | Author blueprint DSL through [page-intent-blueprint.md](./page-intent-blueprint.md) + [ui-dsl.md](./ui-dsl.md), then follow [dsl-execution.md](./dsl-execution.md). | `executeDsl` readback in [verification.md](./verification.md) |
+| `execute-patch-dsl` | Read `get` / `describeSurface`, author patch DSL through [ui-dsl.md](./ui-dsl.md), then follow [dsl-execution.md](./dsl-execution.md). | `executeDsl` readback in [verification.md](./verification.md) |
+| `create-menu-group` | Use direct `createMenu(type="group")`. This is outside current DSL coverage unless the group is just a parent inside a full-page DSL. | return value; menu tree if needed |
 | `move-menu` | If `menuRouteId` is already known, call `updateMenu(parentMenuRouteId=...)` directly. If you only have a menu title, read the menu tree first. | menu tree |
-| `reorder` | Narrow sibling / target via `get`, then use `moveTab`, `movePopupTab`, or `moveNode` | parent, page, or route/tree |
-| `delete-ui` | After `get` / menu tree makes the target and blast radius explicit, use `destroyPage`, `removeTab`, `removePopupTab`, or `removeNode` | destructive / high-impact readback |
+| `reorder` | Prefer patch DSL for supported tab/node reorder cases; otherwise narrow sibling / target via `get`, then use `moveTab`, `movePopupTab`, or `moveNode`. | parent, page, or route/tree |
+| `delete-ui` | Prefer patch DSL for `page.destroy`, `tab.remove`, and `node.remove` when covered; otherwise use the corresponding lifecycle delete after `get` / menu tree makes blast radius explicit. | destructive / high-impact readback |
 
-## 3. Blueprint-First Path (`plan-page-blueprint`)
+## 3. High-Level Page Path (`draft-blueprint-dsl` / `execute-blueprint-dsl`)
 
-- Read [page-intent-planning.md](./page-intent-planning.md) first for any high-level page-building request.
-- Use read-only schema discovery to identify real collections, fields, and associations. The allowed planning-time schema sources are the live read APIs described by the `Blueprint-First Contract` in [normative-contract.md](./normative-contract.md).
-- During planning, use collection discovery in this order: `collections:list` to narrow candidates, `collections:get(appends=["fields"])` as the default schema truth for real fields / `interface` / relation metadata, and `flow_surfaces_catalog({ target, sections: ["fields"] })` only when target-specific field addability is the question.
-- Choose a `page archetype`, then build a `pageBlueprint` through [page-archetypes.md](./page-archetypes.md) and [page-blueprint-dsl.md](./page-blueprint-dsl.md).
+- Read [page-intent-blueprint.md](./page-intent-blueprint.md) first for any high-level page-building request.
+- Nested popups, `currentRecord`, `associatedRecords`, same-row layouts, and field `clickToOpen/openView` still belong to blueprint authoring first. Do not skip blueprint DSL just because the page is complex.
+- Use read-only schema discovery to identify real collections, fields, and associations. The allowed blueprint-authoring schema sources are the live read APIs described by the `DSL-First Contract` in [normative-contract.md](./normative-contract.md).
+- During blueprint authoring, use collection discovery in this order: `collections:list` to narrow candidates, `collections:get(appends=["fields"])` as the default schema truth for real fields / `interface` / relation metadata, and `flow_surfaces_catalog({ target, sections: ["fields"] })` only when target-specific field addability is the question.
+- Choose a `page archetype`, then build blueprint DSL through [page-archetypes.md](./page-archetypes.md) and [ui-dsl.md](./ui-dsl.md).
 - Distinguish `data-bound block`s from `non-data block`s:
   - `data-bound block`s need an explicit real data source.
   - `non-data block`s may omit `dataSourceKey`.
-- Use `dataSources` to keep collection facts, association-path facts, and popup-scoped live bindings such as `currentRecord` or `associatedRecords` explicit. Do not write raw low-level `resource` objects into the blueprint layer.
-- If the blueprint targets an existing page, require a real target locator in `target.locator` before the blueprint can claim `update-page`.
-- If the blueprint includes popup semantics, make `popups[*].completion` explicit. Do not leave execution to guess whether a popup is `shell-only` or `completed`.
-- Do not invent missing fields. If the requested page depends on schema that does not exist, surface that gap in the blueprint and stop before writes.
-- Present the result as: human-readable explanation first, then a structured `pageBlueprint`.
-- Stop for confirmation. Do not call `validatePlan` / `executePlan`, `createPage`, `compose`, `add*`, `configure`, `setLayout`, or popup-building writes before the user confirms the blueprint.
+- Use `dataSources` to keep collection facts, association-path facts, and popup-scoped live bindings such as `currentRecord` or `associatedRecords` explicit. Do not write raw low-level `resource` objects into the DSL layer.
+- If the blueprint targets an existing page, require a real target locator in `target.locator` before the DSL can claim `update-page`.
+- If the DSL includes popup semantics, make `popups[*].completion` explicit. Do not leave execution to guess whether a popup is `shell-only` or `completed`.
+- Do not invent missing fields. If the requested page depends on schema that does not exist, surface that gap in DSL and stop before writes.
+- If the request is complex, ambiguous, destructive, or still depends on non-empty `unresolvedQuestions`, present the result as: human-readable explanation first, then a structured DSL draft, and stop for confirmation.
+- If the request is clear, bounded, and `unresolvedQuestions` is empty, you may continue directly into [dsl-execution.md](./dsl-execution.md).
 
-## 4. Resolve Visible Slot (`title` / `icon` only)
+## 4. Existing-Surface Structural Edit Path (`execute-patch-dsl`)
+
+- Use `get` to narrow family / target / local structure. Switch to `describeSurface` when the next step is structural execution and you need `fingerprint`, surface anchoring, or stable refs.
+- Author `kind = "patch"` DSL through [ui-dsl.md](./ui-dsl.md). Keep `target.locator` explicit, and use stable ids or locators for each change target/source.
+- If you need stable names for already existing nodes, bind them through `describeSurface.bindRefs` and reuse those ids in patch DSL. Do not expose ref persistence internals in user-facing commentary.
+- If the change is still a page / block / field / action / popup / layout edit, do not downgrade to low-level writes merely because the edit looks complex. Let `validateDsl` determine whether coverage is sufficient.
+- If the desired edit is outside patch coverage, do not force it into DSL. Use the low-level fallback allowed by [dsl-execution.md](./dsl-execution.md).
+
+## 5. Resolve Visible Slot (`title` / `icon` only)
 
 - When the natural language uses frequent terms like `page title`, `menu title`, `tab title`, `icon`, or `small icon`, first resolve which visible slot the user actually means: the left menu, the page content header, the outer tab, or the popup tab.
-- Use the default guess order from [aliases.md](./aliases.md): look for position clues first, then object name, and only then fall back to the default entry semantics of a route-backed page.
+- Use the default guess order from [aliases.md](./aliases.md): look for position clues first, then object name, and only then the default entry semantics of a route-backed page.
 - If the user only says `page title` / `page icon` with no position clue, default to the menu entry. Do not default directly to `updateTab`.
-- If the final target is a default guess rather than an explicit user designation, state it in commentary before writing: "this will modify the left menu item / page header / outer tab / popup tab".
+- If the final target is a default guess rather than an explicit user designation, state it in commentary before writing.
 - If the semantics land on the page-header title, continue with page `configure`.
-- If the semantics land on the page-header icon, first confirm that the current header actually consumes the relevant property. If there is no rendering path, do not market it as a menu icon or tab icon, and do not treat it as the default visible path.
+- If the semantics land on the page-header icon, first confirm that the current header actually consumes the relevant property. If there is no rendering path, do not market it as a menu icon or tab icon.
 
-## 5. Resolve Family / Locator
-
-- For menu-title discovery, always start with `desktop_routes_list_accessible(tree=true)`. It only represents the menu tree visible to the current role, not the full system truth. Only accept a uniquely matched `group`.
-- For initialized surfaces, use `flow_surfaces_get` when you still need to narrow the family, local structure, or exact write target uid. Choose `uid`, `pageSchemaUid`, `tabSchemaUid`, or `routeId` based on the live locator fields.
-- For mappings between family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md).
-- If the target is still not unique, stop. Do not guess based on sibling-relative position.
-
-## 6. Choose Capability / Config Path
-
-- If you are unsure whether to choose a block, action, or field, see [capabilities.md](./capabilities.md).
-- If the request is still at the "what kind of page should this become" level, go back to [page-intent-planning.md](./page-intent-planning.md) instead of guessing low-level containers too early.
-- If you need to choose between `settings`, `configure(changes)`, and `updateSettings`, see [settings.md](./settings.md).
-- If the natural language is highly ambiguous, use [aliases.md](./aliases.md) to narrow the object semantics first.
-
-## 7. Read Path
+## 6. Read Path
 
 - For localized inspection, low-level fallback writes, or direct readback, default to `get` first.
-- For an existing surface, switch to `describeSurface` when the next step is high-level execution and you need `fingerprint`, existing refs, or a public-tree anchor for `validatePlan` / `executePlan`.
+- For an existing surface, switch to `describeSurface` when the next step is DSL execution and you need `fingerprint`, existing refs, or a public-tree anchor.
 - When you do call `catalog`, default to the smart response first. Do not add `sections/expand` unless the current decision truly needs a broader payload.
-- For collection/field discovery outside blueprint planning, keep the same fact priority: narrow with `collections:list`, confirm field truth through `collections:get(appends=["fields"])`, and only read `catalog({ target, sections: ["fields"] })` when current-target field addability is the question.
-- For page-blueprint planning, use read-only schema discovery first; do not jump into write-target reads until the blueprint is already confirmed.
+- For collection/field discovery outside blueprint authoring, keep the same fact priority: narrow with `collections:list`, confirm field truth through `collections:get(appends=["fields"])`, and only read `catalog({ target, sections: ["fields"] })` when current-target field addability is the question.
 - For popup guard-sensitive scenarios, follow the `guard-first popup flow` in [popup.md](./popup.md). For the `addField/addFields` gate, see [capabilities.md](./capabilities.md).
 - `inspect` is read-only. For request shapes of `describeSurface` / `get` / `catalog` / `context`, see [tool-shapes.md](./tool-shapes.md).
 
-## 8. Write Path
+## 7. Write Path
 
-- Default write chain for a confirmed structural edit is `describeSurface -> validatePlan -> executePlan -> readback`.
-- Default write chain for bootstrap page/menu creation is bootstrap `validatePlan -> executePlan -> readback`.
-- Low-level fallback remains `get -> [append catalog if required by normative contract] -> write -> readback`.
-- If the request came in as a high-level page-building request, do not enter this section until the blueprint has been confirmed.
-- If you are only creating a menu group, prefer a one-step bootstrap plan; direct `createMenu(type="group")` is acceptable as fallback.
-- For creating a new page, prefer bootstrap planning by default; low-level fallback is the menu-first path `createMenu(type="item") -> createPage(menuRouteId=...)`.
+- Default structural chain for a new page is `blueprint DSL -> validateDsl -> executeDsl -> readback`.
+- Default structural chain for an existing surface is `describeSurface -> patch DSL (or update-page DSL) -> validateDsl -> executeDsl -> readback`.
+- Use `verificationMode = "strict"` by default on `executeDsl`.
+- Low-level fallback remains `get -> [append catalog if required by normative contract] -> write -> readback`, but only after a prior `validateDsl` failure has produced concrete fallback evidence, or when the task is a lifecycle-only exception outside DSL coverage.
+- If the request came in as a high-level page-building request, do not enter low-level write mode until the blueprint DSL is either confirmed or clearly safe to execute directly under the confirmation threshold.
+- If fallback happens after a DSL attempt, explain which `validateDsl` failed, the concrete error, and why it proves the current write cannot stay in DSL.
 - Before any field-adding write path such as `compose(...fields)`, `addField`, or `addFields`, first confirm field truth through `collections:get(appends=["fields"])`, then confirm current-target addability through `catalog({ target, sections: ["fields"] })` when the container capability matters.
-- When executing from a confirmed `pageBlueprint`, keep each block/action/field mapped back to the blueprint node:
-  - `data-bound block`s must preserve the confirmed data-source semantics from `dataSources` / `dataSourceKey`.
-  - `non-data block`s may stay unbound.
-  - Popup actions count as incomplete unless the blueprint explicitly scoped the popup as `completion = "shell-only"` or can be deterministically satisfied by one backend-default CRUD completion path.
-- If the confirmed blueprint uses popup-scoped binding data sources such as `currentRecord` or `associatedRecords`, follow the popup guard flow and verify that the live popup `catalog` still exposes the required binding before finishing execution.
-- For `target.mode = "update-page"`, resolve the existing target from the confirmed locator first. Do not silently downgrade to `create-page`.
 - For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.
-- Compile confirmed structure changes into `plan.steps[]` first, then use `validatePlan` / `executePlan`. For the action mapping, `compose vs add*` choice, popup compilation rules, and coverage / fallback rules, follow [planning-compiler.md](./planning-compiler.md).
-- For a confirmed complex page, prefer one `executePlan` carrying multiple dependent steps instead of round-tripping through many separate writes. Within that plan, prefer `{ "ref": "..." }` for named nodes that already exist or are created by earlier steps in the same plan, and use `{ "step": "...", "path": "..." }` only for raw prior-step outputs such as `routeId`. See the representative bootstrap example in [tool-shapes.md](./tool-shapes.md).
-- For template-aware writes, first decide whether the write should use local inline content or a saved template reference/copy. Use [templates.md](./templates.md) for `listTemplates`, `saveTemplate`, `convertTemplateToCopy`, and `add*/compose/configure` template shapes.
-- For popup payload shapes and `popup.mode`, see [tool-shapes.md](./tool-shapes.md).
-- For guard-sensitive popups, always follow the `guard-first popup flow` in [popup.md](./popup.md).
-- When the operation hits `setLayout`, first translate the natural language into the three-level semantics `row -> columns -> items` before writing the payload:
-  - "same row / side by side / left-right split" = multiple column cells under the same `rowKey`, for example `[[left], [right]]`
-  - "stacked vertically in the same column" = multiple items inside the same column cell, for example `[[top, bottom]]`
-  - "two rows vertically" = different `rowKey` values, for example `row1=[[top]]`, `row2=[[bottom]]`
-  - `sizes[rowKey]` must be a one-dimensional `number[]`, and its length must equal the number of columns in that row. Do not write `[[8,16]]`
-- For the minimum readback target per operation, use `Operation -> Minimum readback target` in [verification.md](./verification.md).
+- If the write is high-impact or destructive, explain the blast radius before execution, even when the path is DSL-based.
+- Any JS write still must pass the RunJS validator gate before it reaches MCP.
 
-## 9. Risk Gate
+## 8. Stop / Handoff Conditions
 
-- `add*` and `compose(mode != "replace")` are append-like. `configure/updateSettings` are merge-like.
-- `setLayout/setEventFlows` are high-impact full-replace operations.
-- `destroyPage/remove*`, `apply(mode="replace")`, `compose(mode="replace")`, and replace-style `mutate` are destructive.
-- Blueprint confirmation is also a risk gate for page-building requests. Do not treat "the user asked for a page" as automatic approval to write a guessed structure.
-- `executePlan` does not remove blast-radius review. For high-impact or destructive plan steps, explain the boundary before execution just as you would for direct low-level writes.
-- For high-impact or destructive paths, explain the blast radius first. Do not default to these paths unless the user is explicitly asking for a full replacement.
-
-## 10. Topic Gate
-
-- `template`: read [templates.md](./templates.md) first. Also read [popup.md](./popup.md) when the template is popup-backed or field `openView`-backed.
-- `popup`: read [popup.md](./popup.md) first. For exact payloads, then read [tool-shapes.md](./tool-shapes.md).
-- `chart`: read [chart.md](./chart.md) first, then enter `chart-core` / `chart-validation` as needed.
-- `js`: read [js.md](./js.md). Any JS write must pass the local validator gate first. For the CLI entry, see [runjs-runtime.md](./runjs-runtime.md).
-
-## 11. Retry / Batch Failure
-
-- If a server contract / validation error points to schema drift or a capability gap, close the loop through [normative-contract.md](./normative-contract.md). This skill does not define an abstract `refresh -> retry` chain.
-- If any child item in a batch write fails, stop immediately. Report successes and failures separately, do not auto-rollback, and do not continue with downstream writes that depend on "all succeeded". For post-write acceptance, see [verification.md](./verification.md).
-
-## 12. Stop / Handoff
-
-- If you hit insufficient auth, a stale schema, a missing capability / contract / guard, a non-unique target, or an undecidable validator result, stop guessing writes. For recovery, see [normative-contract.md](./normative-contract.md).
-- If page-blueprint planning proves that the requested fields, relations, or collections do not exist yet, stop the UI write path and hand off schema authoring to `nocobase-data-modeling`.
-- ACL / route permissions / role permissions -> `nocobase-acl-manage`
-- collection / association / field schema authoring -> `nocobase-data-modeling`
-- workflow create / update / revision / execution path -> `nocobase-workflow-manage`
+- If page authoring proves that the requested fields, relations, or collections do not exist yet, stop the UI write path and hand off schema authoring to `nocobase-data-modeling`.
+- If the required structure is not covered by DSL and low-level fallback would still require guessing, stop and ask for clarification instead of improvising.
+- If the request is actually about ACL, workflows, non-Modern-page routing, or browser reproduction, hand off to the appropriate skill.

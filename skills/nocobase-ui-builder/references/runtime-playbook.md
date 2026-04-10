@@ -23,7 +23,7 @@ Read this file when you already know what needs to be created, modified, or reor
 
 Compatibility aliases: in popup scenarios, if the live environment only exposes `tabUid`, treat it as `popupTabUid`; if it only exposes `gridUid`, treat it as `popupGridUid`. In menu discovery results, `routeId` usually becomes `menuRouteId` / `parentMenuRouteId` in menu semantics.
 
-For confirmed structural edits, prefer anchoring the current surface through `describeSurface` before compiling plan steps. Keep `get` for localized inspection, low-level fallback, and post-write readback.
+For confirmed existing-surface edits, prefer anchoring the surface through `describeSurface` before authoring patch DSL. Keep `get` for localized inspection, low-level fallback that is already justified by concrete `validateDsl` evidence, and post-write readback.
 
 ## Surface Families
 
@@ -52,10 +52,6 @@ Notes: `menu-group` has no corresponding flow tree, so do not treat it like a no
 | title / icon of a tab inside popup | popup tab | `popup-tab` | `updatePopupTab` | requires popup-tab clues, or a clear `ChildPageTabModel` |
 | page title / page icon with no position clue | default to page entry | `menu-item` | `updateMenu` | default guess is menu entry; must not silently default to `updateTab` |
 
-- `page.icon` is not a synonym for the left-menu icon.
-- `page.icon` is also not the default visible path of a page-header icon. Only promise visible effect after confirming that the header render chain consumes it.
-- Without explicit tab clues, do not default to `updateTab` just because the page is route-backed.
-
 ## Distinguishing `outer-tab` vs `popup-tab`
 
 - `get(...).tree.use = RootPageTabModel` -> `outer-tab`
@@ -67,10 +63,10 @@ Notes: `menu-group` has no corresponding flow tree, so do not treat it like a no
 ## Default Write Flow
 
 1. **Discover parent menu by menu title**: `desktop_routes_list_accessible(tree=true)`. Only accept a uniquely matched `group`. Also remember that it only shows the menu tree visible to the current role, so you must not infer "system does not exist" from "not visible here".
-2. **Create a menu group**: default to a bootstrap one-step plan `validatePlan -> executePlan`. Direct `createMenu(type="group")` is only the low-level fallback when the user truly wants one isolated group and nothing else in the same chain.
-3. **Create a complete page**: default to bootstrap `validatePlan -> executePlan`, typically chaining `createMenu(type="group"/"item") -> createPage(menuRouteId=...) -> addTab/configure/compose`. The low-level fallback is `createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)`. The `pre-init ids` returned from `createMenu(type="item")` may only continue the initialization chain.
+2. **Create a menu group only**: use direct `createMenu(type="group")`. This is a lifecycle-only path, not the default DSL path.
+3. **Create a complete page**: default to `blueprint DSL -> validateDsl -> executeDsl -> readback`. The low-level fallback `createMenu(type="item", parentMenuRouteId=...) -> createPage(menuRouteId=routeId)` only becomes available after `validateDsl` has produced concrete fallback evidence.
 4. **Compatibility-mode create page first, then move it into menu**: `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page. If the user also wants it mounted under a menu, run `updateMenu` afterwards.
-5. **Existing-surface structural edit**: default to `describeSurface -> validatePlan -> executePlan`. Keep `get` for local inspection, low-level fallback, and readback. For the action mapping, compiler coverage, and fallback rules, see [planning-compiler.md](./planning-compiler.md).
+5. **Existing-surface structural edit**: default to `describeSurface -> patch DSL -> validateDsl -> executeDsl -> readback`. Keep `get` for local inspection, low-level fallback that is already justified by concrete `validateDsl` evidence, and readback.
 6. **Write into an existing popup subtree**: if the current execution chain did not directly receive popup uids, read back the popup subtree first from `hostUid` or `popupPageUid`. For the record-popup `currentRecord` guard and backend-default CRUD popup completion, see [popup.md](./popup.md).
 
 ## Prompt Regression Examples

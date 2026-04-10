@@ -2,43 +2,23 @@
 
 Read this file when family, locator, and target uid are already known, and the only remaining question is how to wrap the MCP request. For family / locator, see [runtime-playbook.md](./runtime-playbook.md). For the public-semantic rules of `settings`, see [settings.md](./settings.md). For popup semantics and `currentRecord`, see [popup.md](./popup.md). For post-write verification, see [verification.md](./verification.md).
 
-## Contents
+## 1. One-Screen Hard Rules
 
-1. One-screen hard rules
-2. Minimal plan envelopes
-3. `catalog` request / response shape
-4. Root-level locator `get`
-5. `requestBody` without `target`
-6. target-based `requestBody.target.uid`
-7. Canonical payload for `context`
-8. Canonical payload for `setLayout`
-9. `apply` / `mutate`
-10. Common invalid shapes
-
-## One-Screen Hard Rules
-
-- `flow_surfaces_get` only accepts `uid`, `pageSchemaUid`, `tabSchemaUid`, and `routeId`
-- `get` accepts root-level locators only; `describeSurface`, `validatePlan`, and `executePlan` use the request envelopes shown below
+- `flow_surfaces_get` only accepts root-level `uid`, `pageSchemaUid`, `tabSchemaUid`, or `routeId`
 - `get` accepts neither `requestBody` nor `target`
-- If family / locator is not resolved yet, do not assemble the payload directly. Go back to [runtime-playbook.md](./runtime-playbook.md) first
-- Other than `pageSchemaUid/tabSchemaUid/routeId`, all other ids should default into `uid` for reads
+- Existing-surface DSL execution should use `describeSurface` first so `expectedFingerprint` can be passed into `validateDsl` / `executeDsl`
+- Always emit explicit `dsl.kind` and `dsl.version = "1"`
+- Use `verificationMode = "strict"` by default on `executeDsl`
+- This skill's default structural path is `validateDsl` / `executeDsl`
+- Lifecycle APIs such as `createMenu`, `updateMenu`, and `createPage` remain direct APIs only for lifecycle-only exceptions or for low-level fallback that is already justified by concrete `validateDsl` evidence
 - Most write APIs require a `requestBody`; many of them then place `target.uid` inside `requestBody`
-- `createMenu`, `updateMenu`, and `createPage` are lifecycle APIs and do not accept `target`
-- `createPage` initializes a bindable menu item when `menuRouteId` is provided. Calling `createPage` without `menuRouteId` is only allowed when the user explicitly accepts the side effects of a standalone / compat page
-- In the current implementation, `tabSchemaUid` can be used both as the `get` locator for `outer-tab` and directly as its write target uid, but `pageSchemaUid` and `routeId` are still `get` locators only
-- `setLayout` and `setEventFlows` are high-impact full-replace APIs. Read the full current state first, then decide whether to write
-- Popup-capable canonical payload shapes are defined in this file. `popup.mode` must be written explicitly. New inline subtrees usually use `replace`, while explicit append uses `append`
-- Template-aware creation uses the same payload families. `addBlock/addBlocks/compose` may carry `template`; `addField/addFields` may carry `template` for fields templates; popup-capable actions and fields may carry `popup.template`
-- `validatePlan` / `executePlan` caller input supports two reference forms: use `{ "ref": "..." }` for existing named nodes or earlier-step created refs, and use `{ "step": "...", "path": "..." }` only for raw prior-step outputs such as `routeId`. Do not use `$ref`
-- For plan chaining, do not rely on `blocksByKey.*`, `actionsByKey.*`, `recordActionsByKey.*`, or array-index result paths. Declare stable `ref` values on the producer node instead
-- Semantic resources inside popup that depend on `resourceBindings` must not use a one-shot inline popup. Go back to the `guard-first popup flow` in [popup.md](./popup.md)
+- This file only keeps the minimum request envelopes. For popup semantics, guards, and popup-specific write flow, follow [popup.md](./popup.md). When a low-level popup payload is needed, keep `popup.mode` explicit. New inline subtrees usually use `replace`, while explicit append uses `append`
 - Semantic resource bindings inside popup blocks must always use object-shaped `resource`; `currentCollection`, `currentRecord`, `associatedRecords`, and `otherRecords` are never string shorthand
+- The presence or absence of a local example in this file does not change DSL coverage. Coverage policy still follows [normative-contract.md](./normative-contract.md) and [dsl-execution.md](./dsl-execution.md).
 
-## Minimal plan envelopes
+## 2. Primary DSL Envelopes
 
-This section only records the legal envelope of the high-level plan / execution APIs. Execution preference, compilation policy, and fallback rules live in [execution-checklist.md](./execution-checklist.md) and [planning-compiler.md](./planning-compiler.md).
-
-### Existing surface: `describeSurface -> validatePlan -> executePlan`
+### Existing surface: `describeSurface -> validateDsl -> executeDsl`
 
 `describeSurface` anchors an existing editable surface:
 
@@ -52,218 +32,161 @@ This section only records the legal envelope of the high-level plan / execution 
 }
 ```
 
-`validatePlan` for an existing surface uses the `surface` + `expectedFingerprint` envelope:
+`validateDsl` for an existing-surface patch run:
 
 ```json
 {
   "requestBody": {
-    "surface": {
-      "locator": {
-        "pageSchemaUid": "employees-page-schema"
-      }
-    },
     "expectedFingerprint": "fingerprint-from-describeSurface",
-    "plan": {
-      "steps": [
+    "bindRefs": [
+      {
+        "ref": "employeesTable",
+        "locator": {
+          "uid": "employees-table-uid"
+        },
+        "expectedKind": "block"
+      }
+    ],
+    "dsl": {
+      "version": "1",
+      "kind": "patch",
+      "target": {
+        "locator": {
+          "pageSchemaUid": "employees-page-schema"
+        }
+      },
+      "changes": [
         {
-          "id": "composeTable",
-          "action": "compose",
-          "selectors": {
-            "target": {
-              "locator": {
-                "uid": "page-grid-uid"
-              }
-            }
+          "id": "addNickname",
+          "op": "field.add",
+          "target": {
+            "id": "employeesTable"
           },
           "values": {
-            "mode": "append",
-            "blocks": [
-              {
-                "ref": "employeesTable",
-                "type": "table",
-                "resource": {
-                  "dataSourceKey": "main",
-                  "collectionName": "employees"
-                },
-                "fields": [{ "ref": "employeesTable.nickname", "fieldPath": "nickname" }]
-              }
-            ]
+            "fieldPath": "nickname"
           }
         }
-      ]
+      ],
+      "assumptions": [],
+      "unresolvedQuestions": []
     }
   }
 }
 ```
 
-`executePlan` for the same existing surface uses the same request envelope as `validatePlan`.
-
-### Bootstrap creation: `validatePlan -> executePlan`
-
-`validatePlan` for bootstrap creation omits both `surface` and `expectedFingerprint`:
+`executeDsl` for the same run keeps the same envelope and adds `verificationMode`:
 
 ```json
 {
   "requestBody": {
-    "plan": {
-      "steps": [
-        {
-          "id": "workspace",
-          "action": "createMenu",
-          "values": {
-            "title": "Workspace",
-            "type": "group"
-          }
+    "expectedFingerprint": "fingerprint-from-describeSurface",
+    "bindRefs": [
+      {
+        "ref": "employeesTable",
+        "locator": {
+          "uid": "employees-table-uid"
         },
+        "expectedKind": "block"
+      }
+    ],
+    "verificationMode": "strict",
+    "dsl": {
+      "version": "1",
+      "kind": "patch",
+      "target": {
+        "locator": {
+          "pageSchemaUid": "employees-page-schema"
+        }
+      },
+      "changes": [
         {
-          "id": "employeesMenu",
-          "action": "createMenu",
+          "id": "addNickname",
+          "op": "field.add",
+          "target": {
+            "id": "employeesTable"
+          },
           "values": {
-            "title": "Employees",
-            "type": "item",
-            "parentMenuRouteId": {
-              "step": "workspace",
-              "path": "routeId"
-            }
-          }
-        },
-        {
-          "id": "employeesPage",
-          "action": "createPage",
-          "values": {
-            "menuRouteId": {
-              "step": "employeesMenu",
-              "path": "routeId"
-            },
-            "tabTitle": "Overview"
+            "fieldPath": "nickname"
           }
         }
-      ]
+      ],
+      "assumptions": [],
+      "unresolvedQuestions": []
     }
   }
 }
 ```
 
-Representative continuation for a one-shot complex bootstrap plan:
+### New page: `validateDsl -> executeDsl`
 
 ```json
 {
   "requestBody": {
-    "plan": {
-      "steps": [
-        {
-          "id": "group",
-          "action": "createMenu",
-          "values": {
-            "title": "Workspace",
-            "type": "group"
-          }
-        },
-        {
-          "id": "menu",
-          "action": "createMenu",
-          "values": {
-            "title": "Users",
-            "type": "item",
-            "parentMenuRouteId": {
-              "step": "group",
-              "path": "routeId"
-            }
-          }
-        },
-        {
-          "id": "page",
-          "action": "createPage",
-          "values": {
-            "menuRouteId": {
-              "step": "menu",
-              "path": "routeId"
-            },
-            "ref": "usersPage",
-            "tabTitle": "Overview"
-          }
-        },
-        {
-          "id": "composeMain",
-          "action": "compose",
-          "selectors": {
-            "target": {
-              "ref": "usersPage.tab"
-            }
-          },
-          "values": {
-            "mode": "append",
-            "blocks": [
-              {
-                "ref": "usersTable",
-                "type": "table",
-                "resource": {
-                  "dataSourceKey": "main",
-                  "collectionName": "users"
-                },
-                "fields": [
-                  { "ref": "usersTable.username", "fieldPath": "username" },
-                  { "ref": "usersTable.nickname", "fieldPath": "nickname" }
-                ],
-                "recordActions": [
-                  {
-                    "ref": "usersTable.viewUser",
-                    "type": "view"
-                  }
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "id": "composeUserPopup",
-          "action": "compose",
-          "selectors": {
-            "target": {
-              "ref": "usersTable.viewUser.popupGrid"
-            }
-          },
-          "values": {
-            "mode": "replace",
-            "blocks": [
-              {
-                "ref": "userDetails",
-                "type": "details",
-                "resource": {
-                  "binding": "currentRecord"
-                }
-              }
-            ]
-          }
+    "dsl": {
+      "version": "1",
+      "kind": "blueprint",
+      "intent": "management",
+      "title": "Employees",
+      "target": {
+        "mode": "create-page"
+      },
+      "navigation": {
+        "item": {
+          "title": "Employees"
         }
-      ]
+      },
+      "dataSources": [
+        {
+          "key": "employees",
+          "kind": "collection",
+          "dataSourceKey": "main",
+          "collectionName": "employees"
+        }
+      ],
+      "layout": {
+        "kind": "rows-columns",
+        "rows": [
+          {
+            "key": "main",
+            "columns": [
+              {
+                "key": "table",
+                "width": 12,
+                "items": ["employeesTable"]
+              }
+            ]
+          }
+        ]
+      },
+      "blocks": [
+        {
+          "id": "employeesTable",
+          "type": "table",
+          "title": "Employees",
+          "dataBound": true,
+          "dataSourceKey": "employees",
+          "fields": [{ "fieldPath": "nickname" }]
+        }
+      ],
+      "interactions": [],
+      "popups": [],
+      "assumptions": [],
+      "unresolvedQuestions": []
     }
   }
 }
 ```
 
-This is the canonical pattern when one bootstrap `executePlan` needs to continue from raw lifecycle results such as `routeId`, then switch to stable semantic refs such as `usersPage.tab`, `usersTable.viewUser.popupGrid`, or `userDetails.editUser.popupGrid`.
-The same chaining rule also applies when the downstream step is `configure`, `addField`, `addAction`, or another target-taking structural step.
-
-`executePlan` for bootstrap uses the same request envelope as `validatePlan`.
+Use the same envelope for `executeDsl`, plus `verificationMode = "strict"`.
 
 Shape rules:
 
-- Existing-surface plans carry `surface.locator` plus `expectedFingerprint`; bootstrap plans carry neither.
-- In caller input, use `{ "step": "...", "path": "..." }` only for raw prior-step outputs such as `routeId`.
-- Named nodes in the same plan should be routed through `{ "ref": "..." }`, including earlier-step created refs such as `usersPage.tab` or `usersTable.viewUser.popupGrid`; `bindRefs` are only for already existing nodes on the current surface.
-- `selectors.target/source` belong to the plan-step layer; do not mix low-level `target.uid` into plan-step `values`.
-- Use `locator` inside `selectors` when the step points to an already existing surface or node.
-- Any remaining `key` examples in low-level popup/block payloads below are local payload identifiers only. They are not the naming contract for `validatePlan` / `executePlan`, and they must not replace `ref` for plan chaining.
+- Existing-surface DSL runs carry `expectedFingerprint`; pure bootstrap blueprint runs usually do not.
+- For this skill, put the normalized document under `requestBody.dsl` instead of relying on top-level shorthand.
+- `bindRefs` are only for already existing nodes on the current surface.
+- `unresolvedQuestions` must be empty before `executeDsl`.
 
-Common derived refs:
-
-- `createPage(ref="usersPage")` -> `usersPage`, `usersPage.tab`, `usersPage.grid`
-- block `ref="usersTable"` -> `usersTable`, `usersTable.grid`, `usersTable.item`, `usersTable.actionsColumn`
-- field `ref="userDetails.username"` -> `userDetails.username`, `userDetails.username.field`, `userDetails.username.innerField`, plus popup refs when the field opens a popup
-- action / recordAction `ref="usersTable.viewUser"` -> `usersTable.viewUser`, `usersTable.viewUser.assignForm`, `usersTable.viewUser.popupGrid`
-
-## `catalog` request / response shape
+## 3. `catalog` Request / Response Shape
 
 When `requestBody.sections` is omitted, the backend may choose `selectedSections` automatically and report them in the response.
 
@@ -296,19 +219,6 @@ Example with `expand`:
 }
 ```
 
-Example with explicit `sections` override:
-
-```json
-{
-  "requestBody": {
-    "target": {
-      "uid": "details-block-uid"
-    },
-    "sections": ["recordActions", "node"]
-  }
-}
-```
-
 Minimal response skeleton:
 
 ```json
@@ -324,13 +234,7 @@ Minimal response skeleton:
 }
 ```
 
-Notes:
-
-- `scenario` and `selectedSections` are response metadata; they are not request-mode switches
-- Depending on the target, `scenario.popup`, `scenario.fieldContainer`, and `scenario.actionContainer` may also appear
-- `response.selectedSections` reports the effective section selection used by the backend
-
-## Root-Level Locator `get`
+## 4. Root-Level Locator `get`
 
 Corresponding MCP tool: `mcp__nocobase__flow_surfaces_get`
 
@@ -359,11 +263,10 @@ Rules:
 - `target` is not accepted
 - Pass only one root locator at a time
 - Values such as `hostUid`, `pageUid`, `gridUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` should all default into `uid` when reading
-- In popup scenarios, if the live environment only exposes `tabUid` or `gridUid`, they still go into `uid`
 
-## `requestBody` Without `target`
+## 5. Low-Level Fallback Request Placement
 
-These tools all have `requestBody`, but do not accept `requestBody.target.uid`:
+These lifecycle APIs use `requestBody`, but do not accept `requestBody.target.uid`:
 
 | Semantic name | MCP tool | Key fields |
 | --- | --- | --- |
@@ -371,21 +274,18 @@ These tools all have `requestBody`, but do not accept `requestBody.target.uid`:
 | `updateMenu` | `flow_surfaces_update_menu` | `requestBody.menuRouteId`, optional `title/icon/tooltip/hideInMenu/parentMenuRouteId` |
 | `createPage` | `flow_surfaces_create_page` | `requestBody.menuRouteId` initializes a bindable menu item; other common fields include `title/tabTitle/enableTabs` |
 | `destroyPage` | `flow_surfaces_destroy_page` | `requestBody.uid`, which must be `pageUid` |
-| `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position`; outer tab uses `tabSchemaUid` directly |
-| `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid`; outer tab uses `tabSchemaUid` directly |
+| `moveTab` | `flow_surfaces_move_tab` | `requestBody.sourceUid/targetUid/position` |
+| `removeTab` | `flow_surfaces_remove_tab` | `requestBody.uid` |
 | `movePopupTab` | `flow_surfaces_move_popup_tab` | `requestBody.sourceUid/targetUid/position` |
 | `moveNode` | `flow_surfaces_move_node` | `requestBody.sourceUid/targetUid/position` |
 
-Rules:
+Additional lifecycle notes:
 
-- These lifecycle APIs only wrap one `requestBody` at the MCP layer
-- `createMenu`, `updateMenu`, and `createPage` do not accept `target`
-- `createMenu(type="group")` only returns menu route information. It does not return a writable page target
-- `createMenu(type="item")` may return `pageSchemaUid/pageUid/tabSchemaUid/routeId`, but the page may still be uninitialized. Do not call page/tab lifecycle APIs immediately
+- `createMenu(type="group")` only returns menu route information; it does not return a writable page target
+- `createMenu(type="item")` may return `pageSchemaUid/pageUid/tabSchemaUid/routeId`, but the page may still be uninitialized
+- Do not call page/tab lifecycle APIs after `createMenu(type="item")` until `createPage(menuRouteId=...)` finishes initialization
 - `createPage(menuRouteId=...)` initializes the bindable menu item into a real Modern page(v2)
-- The `pageUid` returned by `createPage` is used for page-level write APIs. `pageSchemaUid/tabSchemaUid/routeId` are for readback. `gridUid` is for subsequent content-area construction
-
-## target-based `requestBody.target.uid`
+- The `pageUid` returned by `createPage` is for page-level writes; `pageSchemaUid/tabSchemaUid/routeId` stay in the readback / locator lane; `gridUid` is for subsequent content-area construction
 
 These tools all require:
 
@@ -397,124 +297,41 @@ These tools all require:
 }
 ```
 
-### Common Groups of target-based Tools
+Common groups:
 
-- surface and lifecycle: `catalog`, `compose`, `configure`, `addTab`, `updateTab`, `addPopupTab`, `updatePopupTab`, `removePopupTab`
-- content append: `addBlock` / `addBlocks`, `addField` / `addFields`, `addAction` / `addActions`, `addRecordAction` / `addRecordActions`
-- merge-like configuration: `updateSettings`
-- high-impact full-replace: `setEventFlows`, `setLayout`
-- precise delete: `removeNode`
-- high-end fallback entry: `apply`
+- `catalog`, `compose`, `configure`, `addTab`, `updateTab`, `addPopupTab`, `updatePopupTab`, `removePopupTab`
+- `addBlock` / `addBlocks`, `addField` / `addFields`, `addAction` / `addActions`, `addRecordAction` / `addRecordActions`
+- `updateSettings`, `setEventFlows`, `setLayout`, `removeNode`, `apply`
 
-### Common target choices
+Common target choices:
 
-- `addTab.target.uid = pageUid`
-- `updateTab.target.uid = tabSchemaUid`
-- `addPopupTab.target.uid = popupPageUid`
-- `updatePopupTab/removePopupTab.target.uid = popupTabUid`
-- For route-backed content areas, the common `target.uid` is `gridUid`
-- For popup content areas, the common `target.uid` is `popupGridUid`
-- For outer-tab surface `catalog/configure`, the common `target.uid` is `tabSchemaUid`
-- For popup-tab surface `catalog/configure`, the common `target.uid` is `popupTabUid`
+- page lifecycle target -> `pageUid`
+- route-content append target -> `gridUid`
+- outer-tab target -> `tabSchemaUid`
+- popup-page target -> `popupPageUid`
+- popup-tab target -> `popupTabUid`
+- popup-content append target -> `popupGridUid`
 
 Rules:
 
-- `target` is part of the business payload, and the MCP layer wraps it again in `requestBody`
-- For public-semantic `settings` keys, when to use `add* + settings`, and when to fall back to `configure/updateSettings`, see [settings.md](./settings.md)
-- `pageSchemaUid` and `routeId` belong to `get` locators. Do not place them directly into `target.uid`
-- `pageUid`, `gridUid`, `tabSchemaUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` are not interchangeable "generic target uids"
-- `currentRecord` is neither a locator nor a `target.uid`; it is popup-internal block resource-binding semantics, and its decision flow lives in [popup.md](./popup.md)
-- `mutate` is not part of this top-level `target.uid` group; it uses `requestBody.ops[]`, and each op decides for itself whether to carry `target`
+- `pageSchemaUid` and `routeId` belong to `get` locators. Do not place them directly into `target.uid`.
+- `pageUid`, `gridUid`, `tabSchemaUid`, `popupPageUid`, `popupTabUid`, and `popupGridUid` are not interchangeable "generic target uids".
+- `currentRecord` is neither a locator nor a `target.uid`; it is popup-internal block resource-binding semantics.
 
-### Minimal shape of popup-capable `addRecordAction` that does not depend on a live guard
+Template-aware payload placement:
 
-When you want to create the opener and carry the popup subtree in one shot, and the popup content does not depend on popup `resourceBindings`, use this canonical shape:
+- block templates -> `requestBody.template` (or inner block spec `template`)
+- fields templates -> `addField/addFields.requestBody.template`
+- popup templates -> `requestBody.popup.template`
+- existing opener switches popup template through `configure(changes.openView.template)` when allowed by the live contract
 
-```json
-{
-  "requestBody": {
-    "target": { "uid": "details-block-uid" },
-    "type": "popup",
-    "settings": {
-      "title": "Details"
-    },
-    "popup": {
-      "mode": "replace",
-      "blocks": [
-        {
-          "ref": "help",
-          "type": "markdown",
-          "settings": {
-            "content": "# Details Help"
-          }
-        }
-      ]
-    }
-  }
-}
-```
+Minimal semantic popup `resource` reminders:
 
-If the write returns `popupPageUid` / `popupTabUid` / `popupGridUid`, all later writes should reuse those values directly rather than re-guessing the popup host.
+- `currentRecord` -> `{ "binding": "currentRecord" }`
+- `associatedRecords` -> `{ "binding": "associatedRecords", "associationField": "<field>" }`
+- keep these bindings in object form; never use string shorthand such as `resource: "currentRecord"`
 
-### Template-aware payload placement
-
-- For `addBlock`, `addBlocks`, and compose block specs, place the block template under `requestBody.template` (or the corresponding inner block spec)
-- For `addField` and `addFields` when importing saved form-grid fields, place the fields template under `requestBody.template`
-- For popup-capable actions and fields, place popup template reuse under `requestBody.popup.template`
-- `configure` switches an existing popup template through `requestBody.changes.openView.template` when the live contract allows it
-- For complete template envelopes, selection rules, and reference/copy semantics, see [templates.md](./templates.md)
-
-### Minimal semantic `resource` shape for guard-sensitive popup-content
-
-The following pattern should only be used after you already have `popupGridUid`, and after the popup-content `catalog` has confirmed that the relevant binding is available. `resource` should be semantic object form, not a fallback string. The examples below only show common bindings; for the full binding set and scene restrictions, see [popup.md](./popup.md).
-
-`currentRecord`:
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "popup-grid-uid" },
-    "mode": "append",
-    "blocks": [
-      {
-        "ref": "current-user-details",
-        "type": "details",
-        "resource": {
-          "binding": "currentRecord"
-        },
-        "fields": ["nickname", "email"]
-      }
-    ]
-  }
-}
-```
-
-`associatedRecords`:
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "popup-grid-uid" },
-    "mode": "append",
-    "blocks": [
-      {
-        "ref": "roles-table",
-        "type": "table",
-        "resource": {
-          "binding": "associatedRecords",
-          "associationField": "roles"
-        },
-        "fields": ["name", "title"],
-        "recordActions": ["view"]
-      }
-    ]
-  }
-}
-```
-
-## Canonical payload for `context`
-
-`flow_surfaces_context` is also a target-based `requestBody`, but commonly carries `path` / `maxDepth` in addition:
+## 6. Canonical Payload for `context`
 
 ```json
 {
@@ -531,28 +348,13 @@ Rules:
 - `path` only accepts bare paths, such as `record`, `popup.record`, or `item.parentItem.value`
 - Do not pass template-wrapped forms like `ctx.record` or `{{ ctx.record }}`
 - Omitting `path` means reading the default context tree under the current target
-- Only pass `maxDepth` when you need to narrow the context tree; stop once you have enough information
+- Use `maxDepth` only when you need to narrow the context tree
 
-For frequent `add* + settings` templates, see [settings.md](./settings.md). This file only keeps envelope / locator / target / high-risk payload shapes and does not expand public settings templates again.
+## 7. Canonical Payload for `setLayout`
 
-## Canonical payload for `setLayout`
+`setLayout` is a full-replace write. Use it only when the user really wants layout replacement and you have already read the current layout.
 
-`setLayout` is a high-impact full-replace write path. Use it only when the user explicitly accepts whole replacement and you have already read the full current layout state. `rows` / `sizes` are easy to get wrong, so keep this mental model:
-
-- `rows[rowKey]` describes which columns exist in that row
-- each element of `rows[rowKey]` then describes which child uids exist in that column
-- therefore: outer array length = column count = length of `sizes[rowKey]`
-- `sizes[rowKey]` must be a one-dimensional `number[]`; do not write `[[8,16]]`
-
-Quick translation from natural language to layout structure:
-
-| User intent | Correct shape | Semantics |
-| --- | --- | --- |
-| two blocks side by side in one row | `row1: [["a"], ["b"]]` | two columns, one block per column |
-| two blocks stacked in left column, one block in right column | `row1: [["a1", "a2"], ["b"]]` | two columns; left column stacks two items, right column has one item |
-| two blocks in two vertical rows | `row1: [["a"]]`, `row2: [["b"]]` | two rows, one column in each row |
-
-Correct shape for two columns with one child in each:
+Correct two-column same-row shape:
 
 ```json
 {
@@ -560,7 +362,7 @@ Correct shape for two columns with one child in each:
     "target": { "uid": "grid-uid" },
     "rowOrder": ["row1"],
     "rows": {
-      "row1": [["chart-a"], ["chart-b"]]
+      "row1": [["left-block"], ["right-block"]]
     },
     "sizes": {
       "row1": [12, 12]
@@ -569,118 +371,33 @@ Correct shape for two columns with one child in each:
 }
 ```
 
-Key distinction:
+Layout rules:
 
-- `[["chart-a"], ["chart-b"]]` = two columns
-- `[["chart-a", "chart-b"]]` = one column stacking two children
+- `rows[rowKey]` outer-array length = column count
+- `sizes[rowKey]` must have the same length as `rows[rowKey]`
+- `[["a"], ["b"]]` means side by side
+- `[["a", "b"]]` means one column stacking two items vertically
+- `sizes[rowKey]` must be one-dimensional `number[]`
 
-So the following is wrong:
+## 8. Destructive Advanced Shapes
 
-```json
-{
-  "rows": {
-    "row1": [["chart-a", "chart-b"]]
-  },
-  "sizes": {
-    "row1": [12, 12]
-  }
-}
-```
+- `apply(mode="replace")` and replace-style `setLayout` are destructive / full-replace paths
+- Use them only when the user explicitly accepts subtree or layout replacement
+- Always follow with full readback
 
-Because it actually declares only 1 column while giving 2 column widths.
-
-Another high-risk anti-pattern may not always be blocked by the server, but its runtime semantics are wrong:
-
-```json
-{
-  "rows": {
-    "row1": [["guide", "form"]]
-  },
-  "sizes": {
-    "row1": [8]
-  }
-}
-```
-
-This does not produce "guide + form side by side". It produces "one left column with width 8, stacking both blocks vertically".
-
-Another common mistake is writing `sizes` as a two-dimensional array:
-
-```json
-{
-  "rows": {
-    "row1": [["guide"], ["form"]]
-  },
-  "sizes": {
-    "row1": [[8, 16]]
-  }
-}
-```
-
-This is also wrong at the contract level, because `sizes[rowKey]` only accepts one-dimensional `number[]`.
-
-## `apply` / `mutate`
-
-`apply(mode="replace")` and replace-style `mutate` are destructive paths. Use them only when the user explicitly requests subtree replacement, and explain the blast radius before writing.
-
-`mcp__nocobase__flow_surfaces_apply`
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "table-block-uid" },
-    "mode": "replace",
-    "spec": { "subModels": {} }
-  }
-}
-```
-
-`mcp__nocobase__flow_surfaces_mutate`
-
-```json
-{
-  "requestBody": {
-    "atomic": true,
-    "ops": [
-      {
-        "opId": "step1",
-        "type": "<advanced-op>",
-        "values": {}
-      },
-      {
-        "opId": "step2",
-        "type": "<advanced-op>",
-        "values": {
-          "someRef": { "ref": "step1.id" }
-        }
-      }
-    ]
-  }
-}
-```
-
-Rules:
-
-- `apply` only supports `mode = "replace"`
-- `mutate` defaults to `atomic = true`
-- Chain references inside `mutate` always use `{ "ref": "<opId>.<path>" }`
-- The `mutate` snippet above only demonstrates request shape and chained references
-- `apply(mode="replace")` and replace-style `mutate` are destructive request shapes and require full readback after execution
-
-## Common Invalid Shapes
+## 9. Common Invalid Shapes
 
 - passing `requestBody` or `target` into `get`
+- omitting explicit `dsl.kind` and relying on backend inference
+- calling `executeDsl` while `unresolvedQuestions` is still non-empty
 - treating `pageSchemaUid` / `routeId` as `target.uid`
 - forgetting the outer `requestBody` on lifecycle APIs
 - calling page/tab lifecycle APIs after `createMenu(type="item")` but before `createPage(menuRouteId=...)`
-- hand-writing raw `{ "ref": "step.path" }` or `$ref` for plain earlier-step output fields that should be passed as `{ "step": "...", "path": "..." }`; keep using `{ "ref": "..." }` for named nodes / created refs
 - passing `currentRecord` as a bare locator or `target.uid`
-- placing `currentRecord` / `associatedRecords` directly into an inline popup subtree that has not gone through popup-content `catalog` validation
-- writing popup-internal `resource` as a string, such as `resource: "currentRecord"` or `resource: "associatedRecords"`
-- carrying a `popup` subtree but omitting `popup.mode`, then relying on runtime fallback; canonical skill payloads must explicitly write `append` or `replace`
-- mixing `resource` and `resourceInit` on a popup collection block: semantic binding uses the `resource` object; non-popup or raw resource initialization uses `resourceInit`
+- writing popup-internal `resource` as a string, such as `resource: "currentRecord"`
+- carrying a `popup` subtree but omitting `popup.mode`, then relying on runtime fallback
+- mixing `resource` and `resourceInit` on a popup collection block
 - treating `settings.props.*`, `settings.decoratorProps.*`, or `settings.stepParams.*` as legal inputs to `add*`
-- writing a two-column layout as `rows[rowKey] = [[a, b]]` while also passing `sizes[rowKey] = [12, 12]`
-- making the top-level lengths of `rows[rowKey]` and `sizes[rowKey]` inconsistent
-- miswriting the user's "side by side in one row" intent as a single cell such as `rows[rowKey] = [[left, right]]`
+- writing side-by-side layout as `rows[rowKey] = [[left, right]]`
+- making `rows[rowKey]` and `sizes[rowKey]` lengths inconsistent
 - writing `sizes[rowKey]` as a two-dimensional array such as `[[8, 16]]`

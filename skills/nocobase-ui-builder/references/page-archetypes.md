@@ -1,10 +1,10 @@
 # Page Archetypes
 
-Read this file after [page-intent-planning.md](./page-intent-planning.md) has already established that the request is a high-level page-building task. Use these archetypes to produce a first-pass `pageBlueprint`, then tighten it with live schema facts.
+Read this file after [page-intent-blueprint.md](./page-intent-blueprint.md) has already established that the request is a high-level page-building task. Use these archetypes to produce a first-pass blueprint DSL, then tighten it with live schema facts.
 
 ## Management
 
-Use when the user wants a CRUD-style business page such as "user management", "order list", or "customer admin".
+Use when the user wants a CRUD-style business page such as `user management`, `order list`, or `customer admin`.
 
 Default pattern:
 
@@ -47,7 +47,7 @@ Default pattern:
 
 Rules:
 
-- only plan data-driven visuals that can be backed by live schema facts
+- only design data-driven visuals that can be backed by live schema facts
 - do not invent KPI semantics or aggregation columns
 
 ## Portal
