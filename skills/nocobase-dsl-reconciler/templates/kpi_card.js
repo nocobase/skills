@@ -3,9 +3,11 @@
  *
  * Copy this file → change CONFIG only:
  *   - label: card title
- *   - color/bgColor: theme colors
- *   - sql: query returning { value, sub_text } in first row
+ *   - color/bgColor/strokeColor: theme colors
  *   - format: 'number' | 'percent' | 'money'
+ *   - sql: query returning { value, sub_text } in first row
+ *         Use bind vars: $1, $2 etc. matched to params function
+ *   - params: function(ctx) returning bind object for SQL
  *   - popup: { title, mode, size } (optional, click to open)
  */
 
@@ -23,7 +25,18 @@ SELECT
   COUNT(*) AS value,
   SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END) || ' active' AS sub_text
 FROM nb_hrm_employees
+WHERE 1=1
+  {% if __var1 %} AND department_id = {{ __var1 }} {% endif %}
 `,
+  // params: build bind vars from filterForm
+  // params: (ctx) => {
+  //   const vals = ctx.form?.getFieldsValue?.() || {};
+  //   const d = vals.date_range || [];
+  //   return {
+  //     __var1: d[0]?.format?.('YYYY-MM-DD') || '',
+  //     __var2: d[1]?.format?.('YYYY-MM-DD') || '',
+  //   };
+  // },
   // popup: { title: 'Employee Details', mode: 'drawer', size: 'large' },
 };
 // ==================== END CONFIG ====================
@@ -56,7 +69,11 @@ const KpiCard = () => {
         try { await ctx.sql.save({ uid: CONFIG.reportUid, sql: CONFIG.sql.trim(), dataSourceKey: CONFIG.dataSourceKey }); } catch(e) {}
       }
       try {
-        const result = await ctx.sql.runById(CONFIG.reportUid, { type: 'selectRows', dataSourceKey: CONFIG.dataSourceKey });
+        const runOpts = { type: 'selectRows', dataSourceKey: CONFIG.dataSourceKey };
+        if (CONFIG.params) {
+          runOpts.bind = CONFIG.params(ctx);
+        }
+        const result = await ctx.sql.runById(CONFIG.reportUid, runOpts);
         const r = result?.[0] || {};
         setData({ value: r.value || 0, sub: r.sub_text || '', loading: false });
       } catch(e) { console.error(e); setData(prev => ({ ...prev, loading: false })); }
