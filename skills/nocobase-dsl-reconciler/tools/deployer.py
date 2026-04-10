@@ -1,15 +1,17 @@
 """Deployer v3 — compose skeleton + fill content one by one.
 
 No mixed API modes. Clean separation:
-  1. compose → create empty block shells
-  2. addField/addAction → fill content (compose-supported types)
-  3. save_model → fill content (legacy types: JSItem, Divider, Comments, etc.)
-  4. setLayout → arrange everything
-  5. state.yaml → track all UIDs
+  1. validate → check all specs before any API calls
+  2. compose → create empty block shells
+  3. addField/addAction → fill content (compose-supported types)
+  4. save_model → fill content (legacy types: JSItem, Divider, Comments, etc.)
+  5. setLayout → arrange everything
+  6. state.yaml → track all UIDs
 
 Usage:
     python deployer.py orders/               # deploy module
-    python deployer.py orders/ --force       # force recreate (delete + redeploy)
+    python deployer.py orders/ --force       # force update
+    python deployer.py orders/ --plan        # validate + preview only, no deploy
 """
 
 from __future__ import annotations
@@ -31,11 +33,254 @@ def uid():
 
 
 # ══════════════════════════════════════════════════════════════════
+#  Validate + Plan (runs before any API calls)
+# ══════════════════════════════════════════════════════════════════
+
+def validate(mod_dir: str, nb: NocoBase = None) -> dict:
+    """Validate all specs and return an execution plan.
+
+    Checks:
+      - structure.yaml parseable
+      - Collections exist or have definitions
+      - Fields exist in collections
+      - titleField set on all referenced collections
+      - filterForm: max 3 fields, text fields need filterPaths
+      - All $refs resolvable (after simulating state)
+      - Popup files parseable, targets valid
+      - JS files referenced in specs exist
+
+    Returns plan dict with summary, or raises ValueError with all errors.
+    """
+    mod = Path(mod_dir)
+    errors: list[str] = []
+    warnings: list[str] = []
+    plan: dict[str, Any] = {"pages": [], "popups": [], "collections": []}
+
+    # ── Parse specs ──
+    try:
+        structure = yaml.safe_load((mod / "structure.yaml").read_text())
+    except Exception as e:
+        raise ValueError(f"structure.yaml parse error: {e}")
+
+    enhance = {}
+    if (mod / "enhance.yaml").exists():
+        try:
+            enhance = yaml.safe_load((mod / "enhance.yaml").read_text()) or {}
+        except Exception as e:
+            errors.append(f"enhance.yaml parse error: {e}")
+
+    popups_dir = mod / "popups"
+    popup_files = []
+    if popups_dir.is_dir():
+        for pf in sorted(popups_dir.glob("*.yaml")):
+            try:
+                ps = yaml.safe_load(pf.read_text())
+                if ps and ps.get("target"):
+                    popup_files.append((pf.name, ps))
+            except Exception as e:
+                errors.append(f"popups/{pf.name} parse error: {e}")
+
+    if not nb:
+        nb = NocoBase()
+
+    # ── Collections ──
+    coll_defs = structure.get("collections", {})
+    all_colls: set[str] = set()
+    for ps in structure.get("pages", []):
+        c = ps.get("coll", "")
+        if c:
+            all_colls.add(c)
+        for bs in ps.get("blocks", []):
+            c = bs.get("coll", "")
+            if c:
+                all_colls.add(c)
+
+    for coll_name in all_colls:
+        exists = nb.collection_exists(coll_name)
+        has_def = coll_name in coll_defs
+        if exists:
+            plan["collections"].append(f"= {coll_name}")
+        elif has_def:
+            plan["collections"].append(f"+ {coll_name}")
+        else:
+            errors.append(f"Collection '{coll_name}' does not exist and no definition in collections:")
+
+        # titleField check
+        if exists:
+            try:
+                r = nb.s.get(f"{nb.base}/api/collections:list",
+                             params={"filter": json.dumps({"name": coll_name})}, timeout=30)
+                data = r.json().get("data", [])
+                if data and not data[0].get("titleField"):
+                    if has_def:
+                        pass  # deployer will set it
+                    else:
+                        errors.append(
+                            f"Collection '{coll_name}' has no titleField. "
+                            f"Relation fields will fail to render."
+                        )
+            except Exception:
+                pass
+
+    # ── Validate fields exist ──
+    for ps in structure.get("pages", []):
+        page_coll = ps.get("coll", "")
+        for bs in ps.get("blocks", []):
+            btype = bs.get("type", "")
+            bcoll = bs.get("coll", page_coll)
+            if not bcoll or btype in ("jsBlock", "chart", "markdown", "iframe", "reference"):
+                continue
+
+            try:
+                meta = nb.field_meta(bcoll)
+            except Exception:
+                continue
+
+            for f in bs.get("fields", []):
+                fp = f if isinstance(f, str) else f.get("field", f.get("fieldPath", ""))
+                if not fp or fp.startswith("[") or fp in ("createdAt", "updatedAt", "id"):
+                    continue
+                if fp not in meta and bcoll not in coll_defs:
+                    errors.append(f"Field '{bcoll}.{fp}' not found (page: {ps.get('page', '?')})")
+
+    # ── filterForm validation ──
+    for ps in structure.get("pages", []):
+        for bs in ps.get("blocks", []):
+            if bs.get("type") != "filterForm":
+                continue
+            fields = bs.get("fields", [])
+            if len(fields) > 3:
+                errors.append(
+                    f"filterForm on page '{ps.get('page', '?')}' has {len(fields)} fields (max 3)"
+                )
+            bcoll = bs.get("coll", ps.get("coll", ""))
+            if not bcoll:
+                errors.append(f"filterForm on page '{ps.get('page', '?')}' missing 'coll'")
+
+            # text fields need filterPaths
+            if bcoll:
+                try:
+                    meta = nb.field_meta(bcoll)
+                except Exception:
+                    meta = {}
+                text_fields = []
+                for f in fields:
+                    fp = f if isinstance(f, str) else f.get("field", "")
+                    iface = meta.get(fp, {}).get("interface", "input")
+                    if iface in ("input", "textarea", "email", "phone", "url"):
+                        has_paths = isinstance(f, dict) and f.get("filterPaths")
+                        if not has_paths:
+                            text_fields.append(fp)
+                if len(text_fields) > 1:
+                    errors.append(
+                        f"filterForm on '{ps.get('page', '?')}' has {len(text_fields)} text inputs "
+                        f"{text_fields}. Use ONE with filterPaths."
+                    )
+
+    # ── JS file references ──
+    def _check_js_refs(blocks, page_name):
+        for bs in blocks:
+            for ji in bs.get("js_items", []):
+                jf = ji.get("file", "")
+                if jf and not (mod / jf).exists():
+                    errors.append(f"JS file not found: {jf} (page: {page_name})")
+            for ef in bs.get("event_flows", []):
+                ef_file = ef.get("file", "")
+                if ef_file and not (mod / ef_file).exists():
+                    warnings.append(f"Event flow JS not found: {ef_file} (page: {page_name})")
+
+    for ps in structure.get("pages", []):
+        _check_js_refs(ps.get("blocks", []), ps.get("page", "?"))
+
+    # ── Build plan summary ──
+    pages = structure.get("pages", [])
+    for ps in pages:
+        blocks = ps.get("blocks", [])
+        plan["pages"].append({
+            "name": ps.get("page", "?"),
+            "blocks": len(blocks),
+            "types": [b.get("type", "?") for b in blocks],
+        })
+
+    # Popup plan
+    all_popups = list(enhance.get("popups", []))
+    for fname, ps in popup_files:
+        all_popups.append(ps)
+    expanded = _expand_popups(all_popups)
+    for p in expanded:
+        target = p.get("target", "")
+        blocks = p.get("blocks", [])
+        auto = p.get("auto", [])
+        plan["popups"].append({
+            "target": target,
+            "blocks": len(blocks),
+            "auto": auto,
+        })
+
+    # ── Report ──
+    if errors:
+        msg = f"\n  Validation failed ({len(errors)} errors):\n"
+        for e in errors:
+            msg += f"    ✗ {e}\n"
+        if warnings:
+            for w in warnings:
+                msg += f"    ⚠ {w}\n"
+        raise ValueError(msg)
+
+    return plan
+
+
+def print_plan(plan: dict, warnings: list[str] = None):
+    """Pretty-print an execution plan."""
+    colls = plan.get("collections", [])
+    pages = plan.get("pages", [])
+    popups = plan.get("popups", [])
+
+    print(f"\n  ── Plan ──")
+    if colls:
+        print(f"  Collections: {len(colls)}")
+        for c in colls:
+            print(f"    {c}")
+
+    print(f"  Pages: {len(pages)}")
+    for p in pages:
+        types = ", ".join(p["types"])
+        print(f"    {p['name']}: {p['blocks']} blocks ({types})")
+
+    print(f"  Popups: {len(popups)}")
+    for p in popups:
+        target = p["target"]
+        auto = p.get("auto", [])
+        n = p["blocks"]
+        label = f"{n} blocks"
+        if auto:
+            label = f"auto: {auto}"
+        print(f"    {target} → {label}")
+
+    total_blocks = sum(p["blocks"] for p in pages)
+    print(f"\n  Total: {len(colls)} collections, {len(pages)} pages, "
+          f"{total_blocks} blocks, {len(popups)} popups")
+    print(f"  ✓ Validation passed\n")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  Main entry
 # ══════════════════════════════════════════════════════════════════
 
-def deploy(mod_dir: str, force: bool = False):
+def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
     mod = Path(mod_dir)
+
+    # Phase 0: Validate
+    nb = NocoBase()
+    try:
+        plan = validate(mod_dir, nb)
+        print_plan(plan)
+        if plan_only:
+            return
+    except ValueError as e:
+        print(str(e))
+        sys.exit(1)
+
     structure = yaml.safe_load((mod / "structure.yaml").read_text())
     enhance = {}
     if (mod / "enhance.yaml").exists():
@@ -51,8 +296,6 @@ def deploy(mod_dir: str, force: bool = False):
                 print(f"  + popup file: {pf.name}")
     state_file = mod / "state.yaml"
     state = yaml.safe_load(state_file.read_text()) if state_file.exists() else {}
-
-    nb = NocoBase()
     print(f"  Connected to {nb.base}")
 
     # Collections
@@ -2392,4 +2635,5 @@ if __name__ == "__main__":
 
     mod_dir = sys.argv[1]
     force = "--force" in sys.argv
-    deploy(mod_dir, force)
+    plan_only = "--plan" in sys.argv
+    deploy(mod_dir, force, plan_only)

@@ -87,8 +87,12 @@ def export_all_popups(nb: NocoBase, popup_refs: list[dict],
         for tab in popup_data.get("tabs", []):
             tab.pop("_state", None)
 
-        popup_spec = {"field": field_name, "field_uid": field_uid}
-        # Preserve block_key if present
+        popup_spec = {}
+        # Preserve target if present (for top-level popups loaded by deploy)
+        if p.get("target"):
+            popup_spec["target"] = p["target"]
+        popup_spec["field"] = field_name
+        popup_spec["field_uid"] = field_uid
         if p.get("block_key"):
             popup_spec["block_key"] = p["block_key"]
         popup_spec.update(popup_data)
