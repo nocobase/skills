@@ -1,447 +1,161 @@
 ---
 name: nocobase-dsl-reconciler
 description: >-
-  Build NocoBase applications from YAML + JS specs. Handles new system builds,
-  page exports, deployments, and cross-instance replication.
-  Trigger: user wants to build/create a system, module, or application on NocoBase.
+  Build NocoBase applications from YAML + JS specs.
+  Trigger: user wants to build, create, export, or replicate a NocoBase system/module.
 ---
 
 # NocoBase Application Builder
 
-## How to Respond to User Requests
+## How to Respond
 
-Read the user's message and pick ONE mode:
+| User says | Do this |
+|-----------|---------|
+| "Build me a XXX system" | **Build Mode** → design → confirm → build in rounds |
+| "Modify / add a field" | Edit structure.yaml → `python deployer.py dir/ --force` |
+| "Export pages" | `python exporter.py "Page" outdir/` |
 
-| User says | Mode | What to do |
-|-----------|------|------------|
-| "Build me a helpdesk system" / "搭一个工单系统" | **Build** | Design collections + pages, scaffold, deploy in rounds |
-| "Add a field to the Tickets table" / "给xx加个字段" | **Modify** | Edit structure.yaml, deploy --force |
-| "Export the CRM pages" / "把页面导出来" | **Export** | Run exporter.py |
-| "Copy this page to another instance" | **Replicate** | Export → deploy on target |
+## Build Mode
 
-### Build Mode (most common)
+### Step 1 — Design (show plan, ask to confirm)
 
-When user describes a system (even vaguely), DO THIS:
-
-**Step 1 — Design** (ask user to confirm before building):
 ```
-Based on your description, here's my plan:
-
 Module: Helpdesk
 Pages: Dashboard, Tickets, Users, SLA Configs, Knowledge Base
 
 Collections:
-  nb_helpdesk_tickets: title, description, priority(P0-P3), status(open/in_progress/resolved/closed), ...
+  nb_helpdesk_tickets: title, description, priority(P0-P3), status, assignee(m2o), ...
   nb_helpdesk_users: name, email, role(admin/agent/user), ...
-  ...
 
 Dashboard: 4 KPI cards + 5 charts
 Each page: search filter + table + addNew/edit/detail popups
 
-Shall I start building? (I'll deploy Round 1 skeleton first, then add data and details)
+Shall I start building?
 ```
 
-**Step 2 — Build in Rounds** (after user confirms):
-- Round 1: Write structure.yaml + deploy skeleton → verify pages appear
-- Round 2: Insert test data → verify tables show data
-- Round 3: Write enhance.yaml + deploy popups → verify forms work
-- Round 4+: Customize Dashboard KPI SQL, chart SQL, detail popups
+### Step 2 — Build in Rounds
 
-**Step 3 — Report** each round result to user, ask before continuing.
+| Round | What | Verify |
+|-------|------|--------|
+| 1 | Write structure.yaml → `python deployer.py dir/` | Pages appear in sidebar |
+| 2 | Insert test data (5-8 records per table) | Tables show data |
+| 3 | Write enhance.yaml → `python deployer.py dir/ --force` | Popups work |
 
-### Key Rule: Design First, Build After Confirmation
+Report each round result. Ask before continuing.
 
-Never start writing YAML without showing the plan to the user first.
-For vague requests like "帮我搭个系统", ask what the system is about, then propose a design.
+### Step 3 — Dashboard KPI + Charts
 
-## Quick Start (for agents)
+Dashboard page auto-scaffolds 4 KPI cards + 5 charts. Edit:
+- `js/kpi_*.js` — change CONFIG.label and CONFIG.sql
+- `charts/chart_*.sql` — change SQL query
+- `charts/chart_*_render.js` — change ECharts option
+
+See `templates/kpi_card.js` for KPI template. See `examples/crm/analytics/` for chart examples.
+
+## Commands
 
 ```bash
-# All tools are in ./tools/ directory
 cd tools
 
-# 1. Generate module scaffold (auto-creates Dashboard with KPI + charts)
-python deployer.py --new ../myapp "My App" --pages "Dashboard,Orders,Products,Customers,Reports"
+# Scaffold new module (Dashboard auto-generated with KPI + charts)
+python deployer.py --new ../myapp "My App" --pages "Dashboard,Orders,Products"
 
-# 2. Edit the generated files:
-#    ../myapp/structure.yaml  — collections (fields) + pages (blocks, layout)
-#    ../myapp/enhance.yaml    — addNew popups (auto derives edit + detail)
-
-# 3. Deploy
+# Deploy
 python deployer.py ../myapp/
 
-# 4. Iterate: edit specs → force deploy
+# Force update after edits
 python deployer.py ../myapp/ --force
 
-# 5. Preview without deploying
+# Preview only
 python deployer.py ../myapp/ --plan
+
+# Export existing page
+python exporter.py "Leads" ../export/leads/
+
+# Export all pages
+python exporter.py --all ../export/
 ```
 
-See `examples/crm/` for a complete 16-page CRM system with dashboards, charts, KPI cards, detail popups, and nested sub-tables.
-
-## Tools
-
-| Tool | Purpose | Command |
-|------|---------|---------|
-| `exporter.py` | Live system → YAML + JS files | `python exporter.py` (library) |
-| `deployer.py` | YAML specs → live NocoBase | `python deployer.py <module_dir>/ [--force]` |
-| `sync.py` | Live changes → update specs | `python sync.py <module_dir>/` |
-| `split_popups.py` | Split popups into individual files | `python split_popups.py <module_dir>/` |
-| `view.py` | Tree view of exported module | `python view.py <module_dir>/` |
-| `refs.py` | List available $variable paths | `python refs.py <state.yaml>` |
-
-## Module Directory Structure
-
-```
-module/
-├── structure.yaml          # Pages: blocks, fields, layout, actions
-├── enhance.yaml            # Top-level popups (addNew with auto-derive edit)
-├── state.yaml              # UID registry (auto-generated, don't edit)
-├── popups/                 # Detail popups (one file per popup)
-│   ├── name.yaml                      # L0: table.fields.name click
-│   ├── name.details_0.edit.yaml       # L1: details_0 edit action
-│   ├── name.quotation_no.yaml         # L1: quotation_no column click
-│   ├── name.quotations.addnew.yaml    # L1: quotations addNew action
-│   └── name.attachments.edit.yaml     # L1: attachments edit action
-├── js/                     # JS code files (referenced by specs)
-│   ├── opp_filterForm_0_pipeline_stats_filter_block.js
-│   ├── popup_name_tab0_quotations_event_4z3wblmtie1_9ibklmbe1vr.js
-│   └── ...
-└── charts/                 # Chart config JSON (optional)
-```
-
-### Popup File Naming
-
-Dot-separated path reflecting the nesting hierarchy:
-
-```
-name.yaml                          # page → name field click popup
-name.quotation_no.yaml             # name popup → quotation_no click
-name.quotations.addnew.yaml        # name popup → quotations table → addNew
-name.details_0.edit.yaml           # name popup → details_0 → edit action
-```
-
-Format: `<parent_path>.<block_key>.<action_or_field>.yaml`
-
-## DSL Quick Reference
-
-### structure.yaml — Page Definition
+## structure.yaml Template
 
 ```yaml
 module: My Module
 icon: fundoutlined
+
+collections:
+  nb_mymod_items:
+    title: Items
+    fields:
+    - name: name
+      interface: input
+      title: Name
+    - name: status
+      interface: select
+      title: Status
+      options: [Active, Inactive]
+    - name: category
+      interface: m2o
+      title: Category
+      target: nb_mymod_categories
+
 pages:
-- page: My Module
-  icon: fundoutlined
-  coll: my_collection        # default collection for blocks
+- page: Dashboard
+  icon: dashboardoutlined
+  blocks: []  # auto-filled by scaffold
+
+- page: Items
+  icon: fileoutlined
+  coll: nb_mymod_items
   blocks:
-  - key: filterForm_0
+  - key: filterForm
     type: filterForm
-    coll: my_collection
+    coll: nb_mymod_items
     fields:
     - field: name
-      filterPaths: [name, department, position]
+      filterPaths: [name]
     - status
-
   - key: table
     type: table
-    coll: my_collection
-    fields: [name, amount, status, createdAt]
+    coll: nb_mymod_items
+    fields: [name, status, category, createdAt]
     actions: [filter, refresh, addNew]
     recordActions: [edit, delete]
-
   layout:
-  - - filterForm_0
+  - - filterForm
   - - table
 ```
 
-### enhance.yaml — Complete Template
+## enhance.yaml Template
 
 ```yaml
-# ← Copy this, change collection/fields/page name
 popups:
-- target: $my_page.table.actions.addNew    # ← $<page_key>.table.actions.addNew
-  auto: [edit, detail]                      # auto-derive: edit popup + name-click detail popup
-  view_field: name                          # which column click opens detail (default: name)
-  coll: my_collection                       # ← your collection name
+- target: $items.table.actions.addNew
+  auto: [edit, detail]
+  view_field: name
+  coll: nb_mymod_items
   blocks:
   - key: form
     type: createForm
     resource:
       binding: currentCollection
-    fields:                                 # ← all editable fields
-    - name
-    - amount
-    - status
-    - category
-    - start_date
-    - description
-    field_layout:                            # ← group fields with dividers
+    fields: [name, status, category, description]
+    field_layout:
     - '--- Basic Info ---'
     - - name
       - status
-    - - amount
-      - category
-    - '--- Details ---'
-    - - start_date
+    - - category
     - - description
     actions: [submit]
 ```
 
-### popups/*.yaml — Custom Detail (Round 4 only)
-
-`auto: [detail]` auto-generates basic detail popups. Only write popups/*.yaml when you need custom content (sub-tables, tabs, nested popups). See `examples/crm/popups/` for full examples.
-
-## Block Types
-
-| Type | Model | Use Case |
-|------|-------|----------|
-| `table` | TableBlockModel | Data table with columns, actions |
-| `details` | DetailsBlockModel | Read-only detail view |
-| `createForm` | CreateFormModel | New record form |
-| `editForm` | EditFormModel | Edit record form |
-| `filterForm` | FilterFormBlockModel | Filter panel |
-| `comments` | CommentsBlockModel | Comment thread |
-| `recordHistory` | RecordHistoryBlockModel | Change history |
-| `list` | ListBlockModel | Card list view |
-| `reference` | ReferenceBlockModel | Reference to a template block |
-
-## Special Features
-
-### Reference Blocks (Template Reuse)
-
-```yaml
-- key: ref_detail
-  type: reference
-  template_uid: lvqgjptnoio
-  template_name: 'Details: Quotations'
-  reference_mode: reference    # reference | copy
-```
-
-### Field Templates (ReferenceFormGridModel)
-
-Form/detail block whose fields come from a shared template:
-
-```yaml
-- key: editForm_0
-  type: editForm
-  coll: my_collection
-  field_template:
-    templateUid: 5tpe5cpsnuf
-    templateName: 'Form (Add new): Opportunities'
-    targetUid: d7e295047ff
-    mode: reference
-  actions: [submit]
-```
-
-### Event Flows (JS on Block Events)
-
-```yaml
-- key: table_0
-  type: table
-  event_flows:
-  - event:
-      eventName: beforeRender
-    flow_key: custom_render
-    step_key: runJs
-    desc: Custom table render
-    file: ./js/table_custom_render.js
-```
-
-### Field Layout DSL
-
-```yaml
-field_layout:
-- '--- Section Title ---'            # divider
-- - field_a                           # row with fields
-  - field_b
-- - '[JS:Widget Name]'               # JS item
-- - field_c: 16                       # field with column width (24-grid)
-  - field_d: 8
-- - col:                              # vertical column group
-    - field_e
-    - field_f
-    size: 12
-```
-
-### $Variable References
-
-Spec files use `$page.block.path` to reference UIDs:
-
-```
-$my_module.table.actions.addNew     → addNew action UID
-$my_module.table.fields.name        → name field UID
-$my_module.table.record_actions.edit → edit record action UID
-```
-
-Resolved at deploy time via `state.yaml`.
-
-## Workflow — Build a Module in Rounds
-
-A typical module has 5-10 pages. Build in rounds, each round deploy + verify + next round.
-
-### Round 1: Skeleton — All Pages + Tables
-
-Write `structure.yaml` with ALL pages at once. Each page: table + filterForm + actions. No popups yet.
-
-```bash
-python deployer.py mymodule/
-# Verify: all pages appear in sidebar, tables render with columns
-```
-
-### Round 2: Test Data
-
-Insert test data via NocoBase API or UI so tables are not empty. Verify field types render correctly (select shows tags, dates formatted, etc.).
-
-### Round 3: Popups — AddNew + Edit + Detail (auto-generated)
-
-Write `enhance.yaml` only. Use `auto: [edit, detail]` to auto-derive all popups from addNew form:
-- `edit` → edit popup with same fields/layout
-- `detail` → name-click detail popup with same fields/layout + edit action + createdAt
-
-No need to write `popups/*.yaml` at this stage — deployer generates them automatically.
-
-```yaml
-# enhance.yaml
-popups:
-- target: $my_page.table.actions.addNew
-  auto: [edit, detail]     # auto-derive edit + detail from this form
-  view_field: name          # which field click opens detail (default: name)
-  coll: my_collection
-  blocks:
-  - key: form
-    type: createForm
-    ...
-```
-
-```bash
-python deployer.py mymodule/ --force
-# Verify: addNew form opens, edit works, name click shows detail with same layout
-```
-
-### Round 4: Plan JS + Detail Design
-
-Before writing detail popups, plan what custom JS is needed per page.
-Output a planning table like this:
-
-```
-| Page     | Table JS Columns          | Detail JS Blocks              | Event Flows        |
-|----------|---------------------------|-------------------------------|-------------------|
-| Projects | progress_bar, budget_util | KPI stats, timeline chart     | beforeRender      |
-| Tasks    | hours_compare, due_badge  | assignee workload             |                   |
-| Members  | skill_tags                | project participation summary |                   |
-```
-
-JS column types to consider:
-- **composite**: combine multiple fields (e.g., "name + code")
-- **progress**: progress bar from percentage field
-- **currency**: formatted money display
-- **countdown**: days until due date
-- **status_tag**: colored tag from select field
-- **comparison**: compare two number fields (e.g., estimated vs actual hours)
-
-Detail block types to consider:
-- **KPI stats**: key metrics summary at top of detail
-- **timeline/flow**: status progression visualization
-- **related summary**: aggregated data from child tables
-
-### Round 5: Detail Popups
-
-Write `popups/*.yaml` for pages that need custom detail beyond auto-generated.
-Each detail popup typically has:
-
-```yaml
-tabs:
-- title: Overview
-  blocks:
-  - details block (fields + JS KPI block)
-  - sub-table (association data)
-- title: History
-  blocks:
-  - recordHistory
-```
-
-### Round 6: JS Implementation
-
-Write JS files in `js/`, reference from specs.
-One file per JS column/block. Keep code in SES sandbox format (var, function, no arrow/const).
-
-### Round 7: Sync + Polish
-
-```bash
-python sync.py mymodule/     # capture any manual UI adjustments back to specs
-python deployer.py mymodule/ --force  # re-apply to ensure consistency
-```
-
-### Replicate Existing Module (Export → Import)
-
-Full copy of an existing page with all nested popups, JS, event flows:
-
-```python
-# export.py — run in tools/ directory
-from nb import NocoBase
-from exporter import export_page_surface, export_all_popups
-from pathlib import Path
-from nb import dump_yaml
-
-nb = NocoBase()  # connects to NOCOBASE_URL env or http://localhost:14000
-mod = Path("../mymodule")
-mod.mkdir(exist_ok=True)
-js_dir = mod / "js"; js_dir.mkdir(exist_ok=True)
-popups_dir = mod / "popups"; popups_dir.mkdir(exist_ok=True)
-
-# 1. Export page (use tab schemaUid from desktopRoutes)
-tab_uid = "dnvkm1bv4vy"   # ← get from browser URL or desktopRoutes:list
-result = export_page_surface(nb, tab_uid, js_dir, "page")
-
-# 2. Save structure.yaml
-spec = {
-    "module": "My Module", "icon": "fundoutlined",
-    "pages": [{"page": "My Page", "coll": "my_collection", **result}]
-}
-spec.pop("_state", None)
-(mod / "structure.yaml").write_text(dump_yaml(spec))
-
-# 3. Recursive popup export (depth=8, stops at already-exported UIDs)
-popup_refs = result.get("popups", [])
-for tab in result.get("tabs", [result]):
-    popup_refs.extend(tab.get("popups", []))
-export_all_popups(nb, popup_refs, js_dir, popups_dir,
-                  prefix="popup", max_depth=8)
-
-# 4. Add target: to top-level popup files so deployer can load them
-# Popup files matching page block fields need target refs, e.g.:
-#   popups/name.yaml → add "target: $my_page.table.fields.name"
-```
-
-```bash
-# 5. Deploy to target system
-cd tools && python deployer.py ../mymodule/
-
-# 6. Incremental update after edits
-python deployer.py ../mymodule/ --force
-```
-
-Key points:
-- `max_depth=8` recursively exports popup → sub-table → nested popup → ... up to 8 levels
-- Popup files use dot-path naming: `name.yaml`, `name.quotation_no.yaml`, `name.quotation_no.addnew.yaml`
-- `auto: [edit, detail]` in enhance.yaml auto-generates simple popups; if `popups/*.yaml` with matching `target:` exists, it takes priority
-- Reference blocks export with `template_content` fallback for cross-system portability
-
 ## Key Rules
 
-1. **Never destroy+recreate** — always incremental update, UIDs must be stable
-2. **Popup fields first** — table columns with click-to-open popups auto-sort to front
-3. **edit/view actions** — created without popup stubs, NocoBase auto-generates form at runtime
-4. **Recursive popups** — nested popups auto-loaded from `popups/` by dot-path matching
-5. **field_template** — replaces FormGridModel with ReferenceFormGridModel at deploy time
-6. **Event flows** — JS code in separate files, only config metadata in YAML
+1. **Design first** — never build without user confirmation
+2. **filterForm** — max 3 fields: 1 search (with filterPaths) + 1-2 select/date
+3. **auto: [edit, detail]** — auto-derives edit + detail popups from addNew form
+4. **Incremental** — always `--force` update, never destroy + recreate
+5. **Validate** — deployer checks fields, tables, SQL before any API calls
 
-## Example
+## Examples
 
-See [examples/crm/](./examples/crm/) for a complete CRM Opportunities module with:
-- Main page: filter + table
-- Name detail popup (3 tabs, 7 blocks, nested popups)
-- Quotation detail (reference blocks, 3 tabs)
-- AddNew popup (reference block form)
-- Event flows, JS items, field templates
+See `examples/crm/` — complete 16-page CRM with dashboards, charts, KPI cards, nested popups.
