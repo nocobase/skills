@@ -10,6 +10,10 @@ Before restricting fields:
 General rule:
 
 - For realistic business roles, configure field lists wherever the business distinguishes between readable fields and editable fields.
+- If the user does not provide field-level restrictions, default to all fields for the selected action.
+- When user asks to grant `view` without field details, apply `view` to all fields by default.
+- For full-field defaults, resolve concrete field names from collection metadata and write explicit non-empty field arrays.
+- Do not use `fields: []` as a synonym for full-field access.
 
 Strong signals that field permissions should be explicit:
 
