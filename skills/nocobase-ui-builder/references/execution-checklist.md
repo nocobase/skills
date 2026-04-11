@@ -55,6 +55,9 @@ Use this path when the user is describing one page as a whole.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
+- `field.target` is only a string block key; do not send object selectors.
+- At block root use `collection`; inside nested `resource` use `collectionName`.
+- Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`.
 - If layout is omitted, the server auto-generates a simple top-to-bottom layout.
 - If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
 - `replace` mode is for rebuilding one page, not for a tiny local edit.

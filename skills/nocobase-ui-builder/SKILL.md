@@ -13,10 +13,12 @@ description: >-
 # Start Here
 
 - Treat the live MCP schema as the source of truth.
-- Read [normative-contract.md](./references/normative-contract.md) first.
-- Read [execution-checklist.md](./references/execution-checklist.md) second.
-- Read [ui-dsl.md](./references/ui-dsl.md) only when authoring a whole-page `executeDsl` payload.
-- Read [page-intent.md](./references/page-intent.md) only when converting business intent into a page DSL draft.
+- Minimum read set:
+  1. Read [normative-contract.md](./references/normative-contract.md) first.
+  2. Read [execution-checklist.md](./references/execution-checklist.md) second.
+  3. Then choose **one** path:
+     - whole-page `executeDsl` authoring -> [ui-dsl.md](./references/ui-dsl.md), plus [page-intent.md](./references/page-intent.md) when starting from business intent
+     - localized existing-surface edit -> [runtime-playbook.md](./references/runtime-playbook.md), then only the specific low-level topic docs you need
 
 ## Routing
 
@@ -35,18 +37,29 @@ description: >-
 
 ## Reference Map
 
+### Always
+
 - [normative-contract.md](./references/normative-contract.md): global contract and precedence.
 - [execution-checklist.md](./references/execution-checklist.md): default runbook.
+- [verification.md](./references/verification.md): readback rules.
+
+### Whole-page `executeDsl` path
+
 - [ui-dsl.md](./references/ui-dsl.md): public page DSL contract.
 - [page-intent.md](./references/page-intent.md): high-level page intent -> page DSL authoring heuristics.
-- [verification.md](./references/verification.md): readback rules.
-- [runtime-playbook.md](./references/runtime-playbook.md): family/locator/write-target mental model.
 - [page-archetypes.md](./references/page-archetypes.md): first-pass page patterns.
+- [tool-shapes.md](./references/tool-shapes.md): minimal request envelopes and common invalid payloads.
+
+### Localized low-level path
+
+- [runtime-playbook.md](./references/runtime-playbook.md): family/locator/write-target mental model.
 - [capabilities.md](./references/capabilities.md): block / field / action capability selection.
 - [settings.md](./references/settings.md): `configure` / `updateSettings` semantics.
-- [tool-shapes.md](./references/tool-shapes.md): minimal request envelopes and common invalid payloads.
 - [templates.md](./references/templates.md): template search / apply / save / detach rules.
 - [popup.md](./references/popup.md): popup semantics and guardrails.
+- [aliases.md](./references/aliases.md): narrowing ambiguous user wording.
+
+### Topic-specific
+
 - [chart.md](./references/chart.md): chart topic routing.
 - [js.md](./references/js.md): RunJS validator contract.
-- [aliases.md](./references/aliases.md): narrowing ambiguous user wording.

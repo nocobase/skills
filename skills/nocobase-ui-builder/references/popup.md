@@ -26,6 +26,14 @@ For `addNew`, `view`, and `edit`:
 
 Use inline popup when the page as a whole is being created/replaced and the popup is part of that page structure.
 
+The popup subtree in public `executeDsl` still follows the same public page-DSL rules:
+
+- nested popup blocks use the same canonical block grammar as top-level tab blocks
+- nested `resource` objects use `collectionName`, not `collection`
+- `field.target` is only a string block key in the same popup scope
+- popup `layout.rows` uses block keys / `{ key, span }`, never `uid`, `ref`, or `$ref`
+- keep popup intent inline with `popup`, not low-level `openView` authoring
+
 Typical shape:
 
 ```json

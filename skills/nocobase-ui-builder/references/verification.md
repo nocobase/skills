@@ -19,6 +19,8 @@ A page-DSL draft is good when:
 - create vs replace is clear
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
+- canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
+- low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
 - destructive blast radius is explicit for replace/delete scenarios
 - remaining assumptions are stated outside the JSON payload
 

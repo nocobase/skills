@@ -38,6 +38,7 @@ This file provides the family / locator / write-target mental model for the skil
 
 - `createMenu(type="item")` returns pre-init ids. The item is not a write-ready page until `createPage(menuRouteId=...)` finishes.
 - `executeDsl(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
+- public `executeDsl` is structure-only: layout and in-document targeting use local `key`; do not author `uid`, `ref`, or `$ref` selectors there.
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
 
 ## 5. Practical Rules

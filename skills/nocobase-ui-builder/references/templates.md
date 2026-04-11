@@ -4,6 +4,14 @@ Read this file when the task involves saving a reusable UI template, searching/s
 
 For payload envelopes, see [tool-shapes.md](./tool-shapes.md). For popup-specific rules, see [popup.md](./popup.md). For general execution order, see [execution-checklist.md](./execution-checklist.md).
 
+## Public page DSL vs low-level template APIs
+
+- If the user is authoring one whole page through public `executeDsl`, keep template usage inline inside the public page DSL:
+  - block template -> block `template`
+  - popup template -> action/field `popup.template`
+- Public `executeDsl` still stays structure-only. Do not translate low-level `openView` config shapes into the page DSL.
+- This file is mainly about template lifecycle and low-level template entry points after the routing decision is already clear.
+
 ## What a Template Means
 
 - A flow-surfaces template is a reusable FlowModel-backed subtree exposed through flow-surfaces APIs.
@@ -227,6 +235,8 @@ Use popup templates through the popup-capable creation entry points:
 - `compose` action / field specs via `popup.template`
 
 Use inline `popup.blocks/layout` only when the user wants local popup content rather than template reuse.
+
+For public `executeDsl`, keep the same rule: use inline `popup` / `popup.template` only, never low-level popup-retarget config shapes.
 
 ## Update an Existing Popup Template Reference
 

@@ -1,7 +1,7 @@
 interface:
   display_name: "NocoBase UI Builder"
   short_description: "Build Modern pages with simplified executeDsl or low-level flow-surfaces APIs"
-  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI. Route whole-page creation or replacement to executeDsl with the simplified page-structure JSON DSL. In replace mode, treat tabs as ordered page-structure input that rewrites existing route-backed tab slots by index; only use key when local layout or in-document targeting needs it. Route localized edits on existing pages/tabs/popups/nodes to low-level flow-surfaces APIs (read with get/describeSurface as needed, then write with compose/configure/add*/move*/remove*/updateMenu). Treat the live MCP schema as the source of truth and confirm real collections/fields/bindings before UI writes."
+  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI. Read the global contract first, then choose exactly one write path per task: whole-page creation/replacement -> public executeDsl with the simplified page-structure JSON DSL; localized edits on existing pages/tabs/popups/nodes -> low-level flow-surfaces APIs. In executeDsl replace mode, treat tabs as ordered page-structure input that rewrites existing route-backed tab slots by index; only use key when local layout or in-document targeting needs it. In executeDsl, use block-level collection but nested resource.collectionName, keep field.target as a string block key only, and do not author ref/$ref or uid-style selectors. Treat the live MCP schema as the source of truth and confirm real collections/fields/bindings before UI writes."
 
 dependencies:
   tools:

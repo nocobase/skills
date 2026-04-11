@@ -20,7 +20,7 @@ Turn business intent into one executable JSON page document for `executeDsl`.
 3. Decide the minimal tab structure.
 4. For each tab, decide major blocks first, then fields/actions/record actions.
 5. Keep popup behavior inline under the relevant field/action/record action.
-6. Assemble the final JSON page DSL from [ui-dsl.md](./ui-dsl.md).
+6. Assemble the final JSON page DSL from [ui-dsl.md](./ui-dsl.md), using only canonical public names.
 7. If the request is ambiguous, high-impact, or destructive, show the DSL draft first.
 
 ## 3. Authoring Heuristics
@@ -29,6 +29,8 @@ Turn business intent into one executable JSON page document for `executeDsl`.
 - Prefer one dominant archetype before mixing patterns.
 - Choose major content areas first; fill in fields/actions only after the structure is stable.
 - Do not over-specify popup content when a simple opener is enough for the request.
+- Add `key` only when layout or `field.target` truly needs a stable local identifier.
+- Keep low-level selectors and internals out of the draft JSON; do not leak `uid`, `ref`, `$ref`, or other non-public write shapes.
 
 ## 4. Draft Output Pattern
 

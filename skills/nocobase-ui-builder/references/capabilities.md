@@ -4,7 +4,7 @@ Read this file when you already know you need to add something into a content ar
 
 ## 1. First Routing Rule
 
-- If the request is still a **whole-page** request, go back to [page-intent.md](./page-intent.md) first.
+- If the request is still a **whole-page** request, go back to [page-intent.md](./page-intent.md) first and stay in the public page DSL / `executeDsl` path.
 - If the request is a **localized edit**, stay in low-level APIs and use this file.
 
 ## 2. Block vs Field vs Action

@@ -171,12 +171,63 @@ Each tab contains `blocks[]`. A block can carry:
 - `recordActions[]`
 - `script` / `chart` asset references
 
+### Canonical resource shapes
+
+Use **one** of these two styles per block:
+
+#### A. Block-level shorthand
+
+```json
+{
+  "type": "table",
+  "collection": "employees",
+  "associationPathName": "department",
+  "fields": ["nickname"]
+}
+```
+
+Rules:
+
+- at block root, use `collection`, not `collectionName`
+- at block root, use `binding`, not `resourceBinding`
+- at block root, use `associationPathName`, not `association`
+- `associationField` only makes sense when `binding` is present
+
+#### B. Nested `resource` object
+
+```json
+{
+  "type": "details",
+  "resource": {
+    "binding": "currentRecord",
+    "collectionName": "employees"
+  },
+  "fields": ["nickname"]
+}
+```
+
+Rules:
+
+- inside `resource`, use `collectionName`, not `collection`
+- inside `resource`, use `binding`, not `resourceBinding`
+- inside `resource`, use `associationPathName`, not `association`
+- do not mix block-level shorthand and nested `resource` on the same block
+- when `resource.binding` is present, treat the object as binding-centered; do not mix it with raw locator-only forms such as `sourceId`
+
 ### Field shorthand
 
 A field entry may be:
 
 - a string, for example `"nickname"`
 - an object with optional `key`, `field`, `renderer`, `type`, optional `target`, `settings`, and optional inline `popup`
+
+`field.target` is only a **string block key** in the same tab or popup scope:
+
+```json
+{ "field": "status", "type": "filter", "target": "employeesTable" }
+```
+
+Do not send object selectors there.
 
 ### Action shorthand
 
@@ -201,6 +252,22 @@ Inline popup is supported beneath a field/action/record action through:
 }
 ```
 
+### Layout cell shape
+
+`layout.rows` accepts only:
+
+```json
+["employeesTable"]
+```
+
+or
+
+```json
+[{ "key": "employeesTable", "span": 12 }]
+```
+
+Public `executeDsl` layout cells do **not** use `uid`, `ref`, or `$ref`.
+
 ### Assets
 
 `assets.scripts` and `assets.charts` are reusable object maps. A block/field/action may refer to them by `script` or `chart`.
@@ -209,12 +276,15 @@ Inline popup is supported beneath a field/action/record action through:
 
 When this skill authors `executeDsl`, always emit the canonical public names above.
 
-- use `collection`, not block-level `collectionName`
+- use block-level `collection`, not block-level `collectionName`
+- use nested `resource.collectionName`, not `resource.collection`
 - use `associationPathName`, not `association`
 - use `field`, not `fieldPath`
 - use `binding`, not `resourceBinding`
 - use `popup`, not `openView`
 - use string `target`, not object-style target selectors
+- use layout cell `key`, not `uid`
+- do not use `ref` or `$ref`
 
 ## 7. Unsupported / Forbidden Public Fields
 
@@ -222,6 +292,7 @@ Use this file as the **shape reference**, not as a second full contract document
 
 - Send only the structure fields described here.
 - Use the canonical names from Section 6.
+- Keep `ref`, `$ref`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
 - Keep non-DSL control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
 
 ## 8. Response Shape

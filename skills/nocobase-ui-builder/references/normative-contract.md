@@ -30,13 +30,24 @@ The public `executeDsl` payload is:
 - structure-only
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
+- key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
+
+Canonical resource rule:
+
+- block-level shorthand uses `collection`, `binding`, and `associationPathName`
+- nested `block.resource` uses `collectionName`, `binding`, and `associationPathName`
+- block-level shorthand and nested `resource` are mutually exclusive on the same block
 
 It is **not** a plan API and must not expose:
 
 - `kind`, `target.mode`, or patch-style change lists
 - plan preview / compiled steps / execution internals
 - workflow-ish control fields
+- `ref` / `$ref`
+- object-style `field.target` selectors
+- layout-cell `uid`
 - deprecated executeDsl aliases such as block `collectionName` / `association` / `resourceBinding` and field `fieldPath` / `openView` / `targetBlock`
+- deprecated nested-resource aliases such as `resource.collection` / `resource.association` / `resource.resourceBinding`
 
 For `replace` runs:
 
@@ -45,6 +56,7 @@ For `replace` runs:
 - DSL tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
 - if the current page has `enableTabs = false` and the new DSL contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
+- layout cells are only block key strings or `{ key, span }`
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 
 The public response returns only the resolved page `target` and final `surface` readback.

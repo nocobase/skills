@@ -153,7 +153,62 @@ Use `catalog` when current-target capability is the question.
 }
 ```
 
-## 5. Common Invalid Public `executeDsl` Shapes
+## 5. Canonical Public `executeDsl` Details
+
+### Nested `resource` object
+
+At block root, use `collection`. Inside nested `resource`, use `resource.collectionName`.
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "key": "employeesTable",
+          "type": "table",
+          "collection": "employees",
+          "recordActions": [
+            {
+              "type": "view",
+              "popup": {
+                "blocks": [
+                  {
+                    "key": "employeeDetails",
+                    "type": "details",
+                    "resource": {
+                      "binding": "currentRecord",
+                      "collectionName": "employees"
+                    },
+                    "fields": ["nickname"]
+                  }
+                ],
+                "layout": {
+                  "rows": [["employeeDetails"]]
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "layout": {
+        "rows": [[{ "key": "employeesTable", "span": 24 }]]
+      }
+    }
+  ]
+}
+```
+
+Notes:
+
+- `field.target` is only a string block key.
+- layout cells are only `"blockKey"` or `{ "key": "blockKey", "span": 12 }`.
+- public `executeDsl` never uses `ref` / `$ref` / `uid` selectors.
+
+## 6. Common Invalid Public `executeDsl` Shapes
 
 These are invalid for the new public `executeDsl` path:
 
@@ -171,4 +226,24 @@ These are invalid for the new public `executeDsl` path:
 
 ```json
 { "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "fields": [{ "fieldPath": "nickname" }] }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "details", "resource": { "collection": "employees" } }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "details", "resource": { "resourceBinding": "currentRecord" } }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "recordActions": [{ "type": "view", "popup": { "$ref": "#/popup" } }] }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "layout": { "rows": [[{ "uid": "employeesTable" }]] }, "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees", "fields": [{ "field": "nickname", "type": "filter", "target": { "key": "employeesTable" } }] }] }] }
 ```

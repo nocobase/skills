@@ -1,6 +1,6 @@
 # Page Archetypes
 
-Use these archetypes as first-pass patterns when converting business intent into the simplified page DSL.
+Use these archetypes as first-pass patterns when converting business intent into the simplified public page DSL.
 
 ## 1. Management Page
 
@@ -54,4 +54,4 @@ Typical pattern:
 
 ## 6. Selection Rule
 
-Choose the simplest archetype that explains the user intent. Archetypes are starting patterns, not rigid templates.
+Choose the simplest archetype that explains the user intent. Archetypes are starting patterns for public whole-page structure, not rigid templates and not low-level mutation plans.
