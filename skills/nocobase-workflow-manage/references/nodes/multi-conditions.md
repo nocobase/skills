@@ -8,7 +8,6 @@ description: "Explains the condition list, 'otherwise' branch, and continuation 
 ## Node Type
 
 `multi-conditions`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Evaluates multiple conditions in sequential order; if a condition is met, the process enters the corresponding branch, otherwise it continues to evaluate the next condition. If none are met, it enters the "otherwise" branch.
@@ -27,9 +26,9 @@ Choosing different processing branches based on status/level, similar to switch/
 | --- | --- | --- | --- | --- |
 | uid | string | None | No | Unique identifier for the conditional branch, mainly used for front-end display; recommended to provide. |
 | title | string | None | No | Title of the conditional branch; defaults to "Condition X" if not set. |
-| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. |
+| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
 | calculation | object | None | Yes (engine=basic) | Used when `engine=basic`, structure same as `calculation` in the Condition node. |
-| expression | string | None | Yes (engine!=basic) | Expression used when `engine` is not `basic`. |
+| expression | string | None | Yes (engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md). |
 
 ## Branch Description
 
@@ -61,11 +60,14 @@ Choosing different processing branches based on status/level, similar to switch/
     },
     {
       "uid": "c2",
-      "title": "Amount > 1000",
+      "title": "Total > 1000",
       "engine": "math.js",
-      "expression": "{{ $context.data.amount }} > 1000"
+      "expression": "{{ $context.data.total }} > 1000"
     }
   ],
   "continueOnNoMatch": true
 }
 ```
+
+## Output Variables
+This node does not output variables.

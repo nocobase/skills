@@ -41,3 +41,10 @@ Branches are not supported.
   ]
 }
 ```
+
+## Output Variables
+The variable selector for this node is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`.
+
+- The root is the current node key.
+- Each child path uses `variables[].key`; `variables[].alias` and `variables[].path` are display or parsing metadata only.
+- Example references for the sample configuration above: `{{$jobsMapByNodeKey.json_map.user_id}}`, `{{$jobsMapByNodeKey.json_map.first_item_name}}`.

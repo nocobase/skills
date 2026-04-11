@@ -8,7 +8,6 @@ description: "Explains the engine selection, calculation structure, and branch r
 ## Node Type
 
 `condition`
-Use the above `type` value when creating the node; do not use the documentation filename as the type.
 
 ## Node Description
 Determines the flow direction based on the judgment result: it can either "continue only if true" or proceed via "Yes/No" branches.
@@ -20,9 +19,9 @@ Deciding whether to continue the process based on whether inventory is sufficien
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | rejectOnFalse | boolean | true | Yes | Mode selection. `true` means continue only if the condition is true, otherwise end with a failed status; `false` enables "Yes/No" branching. |
-| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. |
+| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
 | calculation | object | None | Yes (if engine=basic) | Logical calculation configuration used when `engine=basic`. See "basic structure description" below. |
-| expression | string | None | Yes (if engine!=basic) | Expression used when `engine` is not `basic`. |
+| expression | string | None | Yes (if engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md). |
 
 ### basic Structure Description
 `calculation` supports grouping and nesting:
@@ -38,6 +37,9 @@ Deciding whether to continue the process based on whether inventory is sufficien
   - `branchIndex=0`: Condition is false (No)
 
 ## Example Configuration
+
+### `basic` engine
+
 ```json
 {
   "rejectOnFalse": false,
@@ -55,3 +57,16 @@ Deciding whether to continue the process based on whether inventory is sufficien
   }
 }
 ```
+
+### `formula.js` engine
+
+```json
+{
+  "rejectOnFalse": false,
+  "engine": "formula.js",
+  "expression": "IF($context.data.status == 'paid', true, false)"
+}
+```
+
+## Output Variables
+This node does not output variables.

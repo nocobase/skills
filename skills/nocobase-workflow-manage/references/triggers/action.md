@@ -8,7 +8,6 @@ description: "Trigger flows after user actions (creation/update) are completed, 
 ## Trigger Type
 
 `action`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Executing flows immediately after user operations (e.g., notifications, approvals, synchronization after creation/update).
@@ -25,19 +24,34 @@ Please use the `type` value above to create the trigger; do not use the document
 | collection | string | - | Yes | The data table where the trigger data resides, format is `"<dataSource>:<collection>"`. |
 | global | boolean | false | Yes | Trigger mode: `false` Local mode (binding required), `true` Global mode (effective based on `actions`). |
 | actions | string[] | - | Required only in Global mode | Operation types allowed to trigger in Global mode, currently supported: `"create"`, `"update"`. |
-| appends | string[] | [] | No | Paths of associated fields to be preloaded, used to supplement trigger data. |
-
-## Trigger Variables
-- `$context.data`: The triggered data record (preloaded via `appends` when necessary).
-- `$context.user`: The user who triggered the operation (sanitized user information).
-- `$context.roleName`: The role name of the user who triggered the operation.
+| appends | string[] | [] | No | Paths of associated fields to be preloaded. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Example Configuration
+
+### Local mode, triggered only by buttons/operations bound to this workflow
 ```json
 {
-  "collection": "main:posts",
+  "collection": "posts",
+  "global": false,
+  "appends": ["category", "author"]
+}
+```
+
+### Global mode, triggered for all create/update operations on the `posts` table of the default data source
+
+```json
+{
+  "collection": "posts",
   "global": true,
   "actions": ["create", "update"],
   "appends": ["category", "author"]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`, for example `{{$context.data.title}}`.
+
+- Exposed roots: `data`, `user`, `roleName`.
+- `data` follows the triggered collection schema; any configured `appends` are added as nested children under `data`.
+- `user` follows the `users` collection schema; `roleName` is a scalar string.
+- Example references: `{{$context.data.id}}`, `{{$context.data.author.nickname}}`, `{{$context.user.nickname}}`, `{{$context.roleName}}`.

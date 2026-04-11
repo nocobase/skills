@@ -18,6 +18,7 @@ Configure and diagnose NocoBase ACL safely through MCP: roles, default role, rol
 Useful references:
 
 - MCP setup: `nocobase-mcp-setup`
+- Filter condition format (for scope `scope` field): `nocobase-utils` → [references/filter/index.md](../nocobase-utils/references/filter/index.md)
 - Roles and permissions handbook: https://docs.nocobase.com/handbook/acl
 - Data modeling handbook: https://docs.nocobase.com/data-sources/data-modeling
 - Full docs index used for ACL terminology: https://docs.nocobase.com/llms-full.txt
@@ -124,7 +125,7 @@ Hard rules:
   - Built-in scopes were checked first before creating custom scopes.
   - For "own records" requirements, the built-in `own` scope is used (not a custom scope).
   - Custom scopes are only created when built-in scopes cannot satisfy the requirement.
-  - **CRITICAL: All custom scope definitions use logical operator wrappers (`$and` or `$or`). Single conditions use `$and`.** This is mandatory NocoBase filter structure.
+  - **CRITICAL: All custom scope definitions follow the NocoBase filter condition format** — see [filter reference](../nocobase-utils/references/filter/index.md). Always wrap with `$and` or `$or`; never place field conditions at the root.
   - Scoped actions carry the expected `scopeId` (the actual numeric ID from scopes list).
   - Scope definitions are re-read separately and their filters reference real fields and real relation paths.
   - Business scopes are created under the target data source, not in global `rolesResourcesScopes`.

@@ -14,13 +14,14 @@ General rule:
 
 ## ⚠️ CRITICAL: Scope Format Rule
 
-**ALL custom scopes MUST wrap conditions with logical operators (`$and` or `$or`).**
+A scope's `scope` field uses the same filter condition format as all other NocoBase filter configurations.
 
-This is a mandatory NocoBase filter structure requirement. Violating this rule will result in incorrect scope behavior.
+**Full format reference**: [nocobase-utils / Filter Condition Format](../../../../nocobase-utils/references/filter/index.md)
 
-- **Single condition**: Use `$and` array wrapper
-- **Multiple conditions with AND logic**: Use `$and` array wrapper
-- **Multiple conditions with OR logic**: Use `$or` array wrapper
+Key rules (summary):
+- **Always wrap conditions with `$and` or `$or`** — never place field conditions at the root level.
+- Use `$and` for single or AND-combined conditions; `$or` for OR-combined conditions.
+- Values can be dynamic variables with `{{path}}` syntax. In ACL scopes, the available variables are `$user` (current user) and `$nRole` (current role).
 
 ❌ **Wrong** (missing logical operator wrapper):
 ```json
@@ -33,42 +34,26 @@ This is a mandatory NocoBase filter structure requirement. Violating this rule w
 }
 ```
 
-✅ **Correct** (single condition with `$and`):
 ```json
+// ✅ Single condition
+{ "$and": [ { "createdBy": { "id": { "$eq": "{{$user.id}}" } } } ] }
+
+// ✅ Multiple AND conditions
 {
   "$and": [
-    {
-      "department": {
-        "id": {
-          "$eq": "{{$user.department.id}}"
-        }
-      }
-    }
+    { "status": { "$eq": "published" } },
+    { "department": { "id": { "$eq": "{{$user.department.id}}" } } }
   ]
 }
-```
 
-✅ **Correct** (multiple conditions with `$or`):
-```json
+// ✅ OR conditions
 {
   "$or": [
-    {
-      "status": {
-        "$eq": "published"
-      }
-    },
-    {
-      "createdBy": {
-        "id": {
-          "$eq": "{{$user.id}}"
-        }
-      }
-    }
+    { "status": { "$eq": "published" } },
+    { "createdBy": { "id": { "$eq": "{{$user.id}}" } } }
   ]
 }
 ```
-
-**Always use `$and` or `$or` wrapper, no exceptions.**
 
 ## CRITICAL: Always Check Built-in Scopes First
 
@@ -116,7 +101,7 @@ Use the `id` from the built-in scope when configuring actions:
 ```json
 {
   "name": "update",
-  "scopeId": 355828166098946,  // Use the actual ID of the built-in "own" scope
+  "scopeId": 355828166098946,
   "fields": ["quantity", "notes"]
 }
 ```
@@ -132,65 +117,7 @@ Examples of when custom scopes are needed:
 - Published content only
 - Custom ownership fields (not `createdBy`)
 
-### Scope Structure Format
-
-**CRITICAL: Custom scopes must use the correct NocoBase filter structure.**
-
-For relation-based scopes (recommended):
-```json
-{
-  "$and": [
-    {
-      "createdBy": {
-        "id": {
-          "$eq": "{{$user.id}}"
-        }
-      }
-    }
-  ]
-}
-```
-
-For direct field scopes:
-```json
-{
-  "$and": [
-    {
-      "departmentId": {
-        "$eq": "{{$user.departmentId}}"
-      }
-    }
-  ]
-}
-```
-
-For multiple conditions:
-```json
-{
-  "$and": [
-    {
-      "status": {
-        "$eq": "published"
-      }
-    },
-    {
-      "department": {
-        "id": {
-          "$eq": "{{$user.departmentId}}"
-        }
-      }
-    }
-  ]
-}
-```
-
-**Key points:**
-- Always wrap conditions in `$and` array (even for single conditions)
-- For relation fields, use the relation name (e.g., `createdBy`, `department`) and access nested fields (e.g., `id`)
-- For direct fields, use the field name directly (e.g., `departmentId`, `status`)
-- Use NocoBase filter operators: `$eq`, `$ne`, `$in`, `$notIn`, `$gt`, `$gte`, `$lt`, `$lte`, etc.
-
-### Custom Scope Creation Rules
+### API Rules
 
 - Business scopes should be created under the target data source.
 - Do not create business scopes in global `rolesResourcesScopes`.
@@ -199,31 +126,17 @@ For multiple conditions:
 - When binding an existing scope to an action, pass `scopeId`.
 - Do not bind a scope by passing nested `scope.id` or a full `scope` object in place of `scopeId`.
 
-Scope variables and built-in scopes:
+### Scope Variables
 
-- In the ACL scope editor, the frontend variable selector primarily exposes:
-  - `$user`
-    - Current user
-    - Backed by the `users` collection
-    - Default depth is 3, so nested paths such as `{{$user.department.manager.id}}` may be selectable when those relations exist on `users`
-  - `$nRole`
-    - Current role
-    - Bound to the `roles` collection
-    - Intended mainly for the current role value itself
-- Recommended variable usage:
-  - use `$user` for most business scopes
-  - example: `{{$user.id}}`
-  - example: `{{$user.site.id}}`
-  - example: `{{$user.company.id}}`
+In ACL scopes, the frontend variable selector primarily exposes:
 
-Built-in scopes:
+- `$user` — current user, backed by the `users` collection. Default depth is 3, so nested paths like `{{$user.department.manager.id}}` are selectable when those relations exist.
+- `$nRole` — current role, bound to the `roles` collection. Intended mainly for the current role value itself.
 
-- `all`
-  - Means no row restriction
-- `own`
-  - Means own-record semantics based on `createdById`
+Recommended usage:
+- Use `$user` for most business scopes: `{{$user.id}}`, `{{$user.site.id}}`, `{{$user.company.id}}`
 
-Important boundary:
+### Boundary Notes
 
 - `own` does not mean owner, assignee, approver, manager, or department member.
 - For those business semantics, create a custom scope and reference `$user` against the real business relation path.

@@ -1,118 +1,197 @@
 ---
 name: nocobase-data-modeling
-description: Create and manage NocoBase data models via MCP. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
-argument-hint: "[collection-name] [operation: inspect|create|update|fields|relations|sync-view]"
-allowed-tools: All MCP tools provided by NocoBase server
+description: Create and manage NocoBase data models through the available data-modeling surface. Use when users want to inspect or change collections, fields, relations, or view-backed schemas in a NocoBase app.
+argument-hint: "[collection-name] [operation: list|get|apply|destroy|fields|db-views]"
+allowed-tools: shell, local file reads
 ---
 
 # Goal
 
-Use NocoBase MCP tools to inspect and change collections, fields, relations, and view-backed schemas.
+Use the available NocoBase data-modeling surface to inspect and change collections, fields, relations, and view-backed schemas.
 
-# Prerequisite
+Prefer the transport in this order:
 
-- NocoBase MCP must already be authenticated before running modeling actions.
-- If MCP tools return authentication errors such as `Auth required`, do not try to sign in automatically through ad hoc requests.
-- Instead, stop and ask the user to complete MCP authentication or refresh the MCP connection, then continue with the modeling workflow.
+- the `nocobase` CLI whenever it is available
+- MCP only when the CLI is unavailable and the current session is already connected through MCP with the needed operation exposed there
+- another equivalent data-modeling transport only when the CLI is unavailable and it exposes the same operation surface
 
-Useful references:
+Do not make the skill depend on one executable name. Treat CLI command names, MCP tool names, and equivalent wrappers as transport details around the same modeling operations.
 
-- MCP setup and token configuration: `nocobase-mcp-setup`
-- Data modeling overview: https://docs.nocobase.com/data-sources/data-modeling
-- Collection overview and collection types: https://docs.nocobase.com/data-sources/data-modeling/collection
-- Collection options reference: https://docs.nocobase.com/plugin-development/server/collection-options
-- Collection field overview: https://docs.nocobase.com/data-sources/data-modeling/collection-fields
-- Canonical create payload examples by collection type:
-  - `references/collection-types/general.md`
-  - `references/collection-types/file.md`
-  - `references/collection-types/tree.md`
+Transport-selection rule:
 
-# Preferred order
+1. Check whether the `nocobase` CLI is available in the current environment.
+2. If it is available, use the CLI.
+3. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI instead of switching to MCP.
+4. Only fall back to MCP or another transport when the CLI itself is unavailable.
 
-1. Inspect first.
-   - Prefer `collections:listMeta` when available because it includes loaded collection options and field definitions.
-   - Otherwise use `collections:list`, `collections:get`, and `collections/{collectionName}/fields:list`.
-2. Make the smallest safe change.
-   - Create collections first, then add or edit fields incrementally.
-3. Use bulk sync only when appropriate.
-   - Use `collections:setFields` only when replacing the full field set is intentional.
-4. Verify after each modeling step.
-   - Re-read the collection and field metadata.
-   - Check collection titles on the collection itself, but check field labels in `uiSchema.title`.
-   - For relation fields, verify the declared field and any generated foreign key or reverse field.
+Read `references/decision-matrix.md` first when the request is broad or the correct modeling path is unclear.
 
-# Operational guidance
+# Mandatory Gates
 
-- Focus on the final usable data model only. Do not provide temporary, fallback, placeholder, transitional, or "upgrade later" schema designs as the modeling result.
-- Do not weaken the target schema just to make the turn succeed. If the correct business model is a file model, relation model, tree model, or other stronger structure, model that structure directly.
-- Do not use plain text fields as substitutes for a real business structure unless the user explicitly wants that plain text design as the final model.
-- The result delivered in the turn should be the model the user can actually keep and use, not an intermediate compromise.
-- Choose the collection type before designing fields. Do not default to `general` until you have checked whether the business object is actually hierarchical, calendar-oriented, file-oriented, SQL-backed, or view-backed.
-- Common collection-type selection rules:
-  - `general`: ordinary transactional or master-data tables with custom business fields and relations.
-  - `tree`: hierarchical data such as departments, categories, region trees, or any structure where parent/child semantics are core to the model.
-  - `calendar`: date-centric business objects that are primarily scheduled or displayed on calendars.
-  - `file`: attachment, upload, document, image, scan, or archive records where the file itself is a first-class object.
-  - `sql`: SQL-defined collections whose schema/query logic is intentionally driven by SQL rather than ordinary field-by-field modeling.
-  - `view`: database-view-backed read models or reporting/query projections that should sync from an existing database view.
-- For attachments, scans, certificates files, photos, contracts, and similar file-centric records, prefer a `file` collection instead of modeling them as a `general` collection unless the user explicitly wants to decouple metadata from the file storage object.
-- For attachments, scans, certificates files, photos, contracts, vouchers, and similar file-centric records, you must use either an attachment field or a real `file` collection as the final model.
-- When the file itself is a first-class business object or needs independent records, the default and required choice is a real `file` collection, not a `general` collection that imitates file storage.
-- Do not model file storage with a `general` collection unless the user explicitly requires metadata-only external file storage as the final design.
-- For images, attachments, scanned copies, vouchers, contracts, device photos, and similar file-bearing business data, do not default to plain text URL/path fields.
-- Prefer one of these two patterns:
-  - use an attachment field when the file is only a simple subordinate field of the current business record;
-  - create a dedicated `file` collection and relate it to the business table when the file needs reusable metadata, independent querying, batch export, lifecycle management, or may be attached multiple times.
-- In most cases, prefer modeling file-bearing data with a dedicated `file` collection rather than a plain attachment field, because it is easier to extend, verify, query, and reuse across downstream UI, workflow, and export scenarios.
-- A `general` collection with `fileName`, `fileUrl`, or `storageName` fields can be acceptable only when the design intentionally stores external file metadata rather than using NocoBase's file collection semantics. Treat this as an explicit design choice, not the default.
-- A reliable file-collection create shape should mirror the real collection-manager request body instead of assuming `template: "file"` will always inject every expected field automatically.
-- Preset fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy` should follow the same request shape used by the real collection manager flow when the task is meant to validate realistic modeling or ACL behavior.
-- Unless the user explicitly asks for a different primary-key strategy or the table truly has unusual requirements, you must create `id` explicitly as a preset field instead of relying on implicit/default id generation.
-- Treat explicit preset `id` as the default rule, not an optional improvement.
-- For ordinary business tables, `createdAt`, `createdBy`, `updatedAt`, and `updatedBy` are usually needed and should normally be created explicitly as preset fields too.
-- A reliable general create shape for such tables is:
-  - `template: "general"`
-  - `logging: true` when record history matters
-  - `autoGenId: false`
-  - explicit preset fields in `fields`: `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`
-- Append business fields after these preset fields unless the user explicitly wants a different layout.
-- When the task is validating realistic file modeling, start from this file-collection baseline and append business-specific relation or classification fields after the built-in file fields.
-- Keep large canonical payloads in the `references/collection-types/` folder. `SKILL.md` should explain selection and rules; the reference files should hold reusable request bodies for each collection type.
-- For `id`, follow the actual request shape used by collection manager flows, including interfaces such as `snowflakeId`, `uuid`, or `nanoid`.
-- `collections:create`, `collections:update`, and `collections/{collectionName}/fields:update` use direct request bodies. Do not add an extra `values` wrapper.
-- If a collection uses a custom primary key strategy, disable `autoGenId`, create the primary key field explicitly, and verify that the resulting collection metadata has the expected `filterTargetKey`.
-- Do not treat collection-level convenience flags as a substitute for the real preset-field payload when the goal is to mirror an actual business collection definition.
-- If the created collection does not expose the expected explicit preset `id` field after re-reading metadata, treat that as a modeling failure and correct it before continuing with downstream ACL or workflow setup.
-- Prefer explicit relation payloads when relation behavior matters. Generated defaults are fine for ad hoc modeling, but they are harder to verify and reuse in automation.
-- If reverse behavior matters, pass `reverseField` explicitly instead of assuming the server will infer the right alias or UI schema.
-- On `collections:*`, `filterByTk` usually means collection name. On `collections/{collectionName}/fields:*`, it usually means the field name inside that collection. If names are unstable, use `filter` with the field `key`.
-- For local option fields such as `select`, `multipleSelect`, `radioGroup`, and `checkboxGroup`, follow the collection manager request shape and put structured options in `uiSchema.enum`, usually with items like `{ value, label }`.
-- If record pickers or workflow selectors show raw IDs instead of readable names, check the collection `titleField`.
-- Common minimal shapes:
-  - Collection: `{ name, title, fields }`
-  - Field update: `{ description, uiSchema, enum, ... }`
-  - Local select field: `{ name, type: "string", interface: "select", uiSchema: { "x-component": "Select", enum: [{ value, label }] } }`
-- Use `dbViews:list` or `dbViews:get` before touching a view-backed collection. Treat `collections:setFields` as replacement, not patching.
-- Use collection-type-specific docs before modeling non-general collections such as inheritance, tree, calendar, SQL, file, or view collections.
-- For inheritance collections, keep shared fields on the parent and only child-specific fields on derived collections. Re-check query scope and selector behavior after changes because inheritance increases query complexity.
-- For tree collections, treat the hierarchy as first-class structure rather than emulating it with ad hoc self-relations in a general collection.
-- For file collections, model the uploaded file as the primary record. Add business relations around that file record instead of replacing the file collection with a plain general table unless the business requirement clearly calls for metadata-only storage.
-- If the user asks to "store images/files" without further constraints, bias toward a dedicated `file` collection first, and fall back to an attachment field only when the file is clearly just a lightweight subordinate field on a business record.
+1. Confirm the chosen data-modeling transport is reachable and authenticated before any write operation. If `nocobase` CLI is available, that should be the chosen transport.
+2. For plugin-backed tables or fields, read `references/plugin-provided-capabilities.md` before mutating schema.
+3. For `view` collections, verify the upstream database view exists with `db-views list|get` before creating or updating anything.
+4. Before using a `nocobase` CLI modeling command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples. When CLI is unavailable and the transport is MCP or another non-CLI surface, inspect its exposed parameter schema before first use.
 
-# Common pitfalls
+Stop and ask the user to fix auth when the chosen transport returns `401`, `403`, `Auth required`, or equivalent access errors. If the chosen transport is `nocobase` CLI, guide the user to restore CLI authentication rather than switching transports.
 
-- Do not treat MCP authentication failures as normal API failures. Resolve authentication first.
-- Do not use `collections:setFields` for small edits on ordinary collections; it can remove fields omitted from the payload.
-- When changing relation fields, re-check the target collection because foreign keys and reverse fields may be created or removed as side effects.
-- Deleting a relation field may leave reverse fields or foreign-key fields behind. Re-read both collections and clean up leftovers explicitly if the model should be fully removed.
+# Final Command Surface
 
-# Verification checklist
+Use only this final data-modeling operation surface:
 
-- Collection exists and has expected options.
-- The collection uses an explicit preset `id` field unless the user explicitly requested a different primary-key strategy.
-- Preset audit fields are added where the business model actually needs them, and the primary-key strategy matches the intended creation flow.
-- `filterTargetKey` and `titleField` match how the collection should be referenced in MCP queries and selectors.
-- Field exists with expected `type`, `interface`, and `uiSchema.title`.
-- Local option fields expose the expected labels and values in `uiSchema.enum`, not only a bare string array.
-- Relation field created the expected `foreignKey`, `through`, or `reverseField`.
-- View collections still match `dbViews:get` output after synchronization.
+- Inspect collections: `collections list`
+- Inspect one collection: `collections get`
+- Inspect fields in one collection: `collections fields list`
+- Create or update a collection with compact payload: `collections apply`
+- Create or update fields with compact payload: `fields apply`
+- Delete a collection: `collections destroy`
+- Inspect database views: `db-views list|get`
+
+When the transport is CLI-based, prefer learning exact flags from help instead of keeping large command-shape reminders in prompt context:
+
+- `nocobase data-modeling collections apply --help`
+- `nocobase data-modeling collections fields list --help`
+- `nocobase data-modeling fields apply --help`
+- `nocobase data-modeling collections destroy --help`
+
+Do not prefer older low-level collection or nested field commands when the final command surface can handle the task.
+
+# Core Rules
+
+1. Decide collection type first. Never infer `general`, `tree`, `file`, `calendar`, `sql`, `view`, or `inherit` from the name alone.
+2. Prefer the compact payloads supported by `collections apply` and `fields apply`. Let the server fill derived defaults.
+3. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
+4. Relations come after the base collection and scalar fields are correct.
+5. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
+6. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
+
+## Compact Payload Rules
+
+- When creating a collection with `collections apply`, do not send built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`, or template-owned structural fields unless the current command help explicitly says they are required.
+- For `general`, `tree`, `file`, and other built-in templates, assume the server will create the template defaults. Only send business fields that the user is actually adding.
+- For `file`, do not manually send built-in fields such as `title`, `filename`, `extname`, `size`, `mimetype`, `path`, `url`, `preview`, `storage`, or `meta` unless the task is explicitly customizing one of those existing fields on an already-created collection.
+- For `tree`, do not manually include `parentId`, `parent`, or `children` in the compact create payload unless you are intentionally overriding an existing schema with a fully expanded raw shape.
+- Every custom field supplied to `collections apply` or `fields apply` still needs an explicit `interface`. The compact API reduces derived options, but it does not infer business field interfaces from the field name alone.
+- Usually do not pass `type`. Let the server derive it from `interface`. Only pass `type` when the current command help or a reference explicitly requires it.
+- Unknown `interface` values now fail fast. If the correct interface is unclear, stop and inspect references or command help instead of guessing.
+- If you choose a plugin-backed interface such as `vditor`, `formula`, map geometry fields, or special relation fields, confirm the plugin-backed capability first.
+- If a reference file shows a fully expanded collection JSON, treat it as structure reference or read-back reference, not as the preferred compact apply payload.
+
+## Default Interface Bias
+
+- Prefer the common built-in interface first when the user does not request a plugin-specific editor or behavior.
+- For long-form plain text without markdown semantics, prefer `textarea`.
+- For markdown content, prefer `vditor` first when the plugin capability is available.
+- Only fall back from `vditor` to ordinary `markdown` when the plugin is unavailable or the user explicitly wants the simpler markdown field.
+- Do not add `tableoid` unless the user explicitly asks for that system-info field.
+- For map fields, use the exact interface requested by the spatial requirement, such as `point`, `lineString`, `circle`, or `polygon`. Do not collapse them into generic `json` or text.
+
+## Formula Rule
+
+- For `formula`, do not invent expressions from memory.
+- Read `references/fields/plugins/formula.md` first.
+- Choose the engine first, then write the expression in that engine's syntax.
+- In compact payloads, prefer only the parameters that are actually needed, usually `name`, `title`, `interface`, `expression`, and optional `engine` or `dataType`.
+- If the intended engine or syntax is unclear, stop and ask instead of guessing.
+
+## Relation Key Rule
+
+- For relation fields, read `references/relation-fields.md` before mutation.
+- If the relation should be stable and readable, pass explicit keys such as `foreignKey`, `through`, `otherKey`, `sourceKey`, and `targetKey` instead of relying on generated defaults.
+- Treat generated key names as fallback behavior, not as the preferred modeling result.
+
+# Working Process
+
+## 1. Inspect
+
+- Start with `collections list` or `collections get`.
+- When you need the current field set of one collection, use `collections fields list`.
+- When the request involves a view-backed model, inspect `db-views list|get` first.
+- In CLI flows, run the relevant command `--help` before first use in the current task.
+- For broad modeling tasks, load the matching references before writing.
+
+## 2. Decide the model
+
+Before writing, determine:
+
+- what the collection represents;
+- which collection type is correct;
+- which fields are required;
+- whether relations are needed;
+- whether any plugin capability is required;
+- what verification output will prove the result is correct.
+
+Summarize the intended model in natural language before destructive or broad changes.
+
+## 3. Apply
+
+- Use `collections apply` for collection-level creation or updates.
+- Use `fields apply` for targeted field creation or updates.
+- Use `collections destroy` only for explicit delete requests.
+
+Compact payloads are preferred. Supply only the fields the command contract requires, such as collection template/name/title and field name/title/interface, plus any necessary special options that cannot be derived safely.
+
+For collection creation, this usually means:
+
+- collection-level options such as `name`, `title`, `template`, and a small number of template-specific flags;
+- business fields only, not default system/template fields;
+- relation-specific options only when the field interface is relational.
+
+## 4. Verify
+
+After each mutation, usually read back with `collections get`. When normalized diagnostics are needed, rely on the verification result returned by `collections apply`.
+
+Confirm:
+
+1. the collection type is correct;
+2. the expected fields exist with the right interface/type/title;
+3. relation ownership and reverse behavior are correct when relations were changed;
+4. special collections still satisfy their source constraints.
+
+# Reference Loading
+
+Load only the references needed for the active task:
+
+- Collection type choice: `references/collection-types/index.md`
+- Field family and supported options: `references/field-capabilities.md`
+- Relations: `references/relation-fields.md`
+- Plugin-backed capabilities: `references/plugin-provided-capabilities.md`
+- Whole-schema examples after lower-level decisions: `references/model-packs/*.md`
+- Verification order and template-specific checks: `references/verification-playbook.md`
+
+After opening an index file, continue only into the matching subtype file that is actually in scope.
+
+# Collection Type Safeguards
+
+- `general`: ordinary business records.
+- `tree`: hierarchical data.
+- `file`: file-centric records where the file is first-class.
+- `calendar`: schedule-oriented objects.
+- `sql`, `view`, `inherit`: only after capability and prerequisites are confirmed.
+
+Do not emulate `tree` or `file` with weaker general-table substitutes unless the user explicitly asks for that tradeoff.
+
+# Field and Relation Safeguards
+
+- Use `references/field-capabilities.md` as the source of truth for interface support.
+- Do not guess plugin-backed interfaces such as region, special media, or custom relation capabilities.
+- Use `references/relation-fields.md` before creating or changing relations.
+- Verify both sides after relation changes, because reverse fields or keys may be created as side effects.
+
+# Error Handling
+
+- `400` or `422`: inspect the payload, then correct collection type, field interface, missing required options, enum shape, or relation keys before retrying.
+- Auth errors: stop and ask the user to restore access for the chosen transport.
+- Missing plugin or view prerequisite: stop and tell the user exactly what is missing.
+
+# Reference Index
+
+| Topic | File |
+| --- | --- |
+| Collection type selection | `references/collection-types/index.md` |
+| Field capability matrix | `references/field-capabilities.md` |
+| Relation overview | `references/relation-fields.md` |
+| Plugin-backed modeling capabilities | `references/plugin-provided-capabilities.md` |
+| Whole-schema examples | `references/model-packs/*.md` |
+| Verification order and checks | `references/verification-playbook.md` |
+| Decision helper | `references/decision-matrix.md` |

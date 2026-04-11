@@ -31,9 +31,6 @@ Custom data transformation, complex conditional calculations, string processing,
 - `console.log()` and `console.error()` output is captured in the workflow log.
 - When the workflow is synchronous, the script executes synchronously within the request; when asynchronous, the script executes in the background and resumes the workflow upon completion.
 
-## Node Output Variable
-- `$jobsMapByNodeKey.<nodeKey>`: The return value of the script (i.e., the value after `return`).
-
 ## Branch Description
 Does not support branches.
 
@@ -49,3 +46,11 @@ Does not support branches.
   "continue": false
 }
 ```
+
+## Output Variables
+This node exposes a single root result value, referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+- Exposed root: the value returned by `return` in the script.
+- No child field tree is provided.
+- If the script returns an object or array and you want named downstream variables, follow this node with `json-query` or `json-variable-mapping`.
+- Example reference: `{{$jobsMapByNodeKey.script_total}}`.

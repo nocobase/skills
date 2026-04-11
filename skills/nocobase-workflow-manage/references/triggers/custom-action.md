@@ -8,7 +8,6 @@ description: "Manually trigger flows via a 'Trigger Workflow' button, supporting
 ## Trigger Type
 
 `custom-action`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Manually triggering flows via a "Trigger Workflow" button in the UI, rather than by data changes or built-in action buttons.
@@ -25,7 +24,7 @@ Please use the `type` value above to create the trigger; do not use the document
 | --- | --- | --- | --- | --- |
 | type | number | 0 | Yes | Context type: `0` Global custom data, `1` Single record, `2` Multiple records. |
 | collection | string | - | Required when type is 1 or 2 | The data table where the trigger data resides, format is `"<dataSource>:<collection>"` (e.g., `"posts"` / `"mysql:orders"`; `dataSource` can be omitted when using the main data source). Not required when type is `0` (Global). |
-| appends | string[] | [] | No | Paths of associated fields to preload (only effective when a collection is bound). |
+| appends | string[] | [] | No | Paths of associated fields to preload (only effective when a collection is bound). See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Context Type Details
 
@@ -42,14 +41,6 @@ Please use the `type` value above to create the trigger; do not use the document
 ### Multiple Records (type = 2)
 - Must be bound to a data table; used in batch action buttons in table blocks.
 - Loads multiple records in bulk via `filterByTk` when triggered; the trigger data is an array.
-
-## Trigger Variables
-- `$context.data`: The trigger data.
-  - Global mode: Custom JSON data submitted by the user.
-  - Single record mode: Record data (including associated data preloaded via `appends`).
-  - Multiple records mode: An array of record data.
-- `$context.user`: The user who triggered the operation (sanitized user information).
-- `$context.roleName`: The role name of the user who triggered the operation.
 
 ## Synchronous Execution and Interception
 - When the workflow is set to synchronous execution, the flow completes synchronously within the request.
@@ -85,3 +76,12 @@ This event requires adding a "Trigger Workflow" button in a block that supports 
   "collection": "mysql:orders"
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
+
+- Exposed roots: `data`, `user`, `roleName`.
+- In global custom-data mode, `data` is exposed as a single raw object value with no predefined child field tree. Should use JSON variable mapping or JSON query node to extract specific fields.
+- In single-record or multiple-record mode with a bound collection, `data` expands to that collection's fields; configured `appends` become nested children under `data`.
+- `user` follows the `users` collection schema; `roleName` is a scalar string.
+- Example references: `{{$context.data}}`, `{{$context.data.title}}`, `{{$context.user.nickname}}`, `{{$context.roleName}}`.

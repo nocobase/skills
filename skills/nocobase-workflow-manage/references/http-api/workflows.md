@@ -58,6 +58,7 @@ Create a workflow. The `sync` field cannot be modified after creation and must b
 | `enabled` | boolean | No | Whether it's enabled; recommended to set to false first and enable after configuration is complete |
 | `description` | string | No | Description |
 | `options` | object | No | Engine options, e.g., `deleteExecutionOnStatus`, `stackLimit` |
+| `config` | object | Yes | Trigger configuration, structure depends on trigger type, some preset field should be provided when create (also based on trigger type, could check documentation of each trigger), can be updated later through the update API. For example, for a collection trigger, the `collection` field must be provided in config. |
 
 ```
 POST /api/workflows:create
@@ -66,7 +67,8 @@ Body: {
   "type": "collection",
   "sync": false,
   "enabled": false,
-  "options": { "deleteExecutionOnStatus": [], "stackLimit": 1 }
+  "options": { "deleteExecutionOnStatus": [], "stackLimit": 1 },
+  "config": { "collection": "users" }
 }
 ```
 
@@ -129,15 +131,19 @@ Create a new version based on an existing version (same `key`). The new version 
 | Parameter | Description |
 |---|---|
 | `filterByTk` | Source version workflow ID |
-| `filter[key]` | The key of the workflow, ensuring the new version belongs to the same key |
+| `filter` | **Required for revision**: JSON object containing the `key` of the workflow, e.g., `{"key":"abc123"}`. This ensures the new version belongs to the same workflow. |
 
+**Creating a new revision** (same workflow, new version):
 ```
-POST /api/workflows:revision?filterByTk=1&filter[key]=abc123
+POST /api/workflows:revision?filterByTk=1&filter={"key":"abc123"}
 ```
+The `key` value must match the workflow's `key` field. Returns the new version's workflow object, including the new `id`.
 
-Returns the new version's workflow object, including the new `id`.
-
-If `filter[key]` not provided, the API will create a new independent workflow (not a revision) with a new random `key`. Only use when you want to create a new workflow with the same configuration as an existing workflow but do not want it to be a revision of the existing workflow.
+**Copying as a new independent workflow** (omit `key`):
+```
+POST /api/workflows:revision?filterByTk=1
+```
+Without `filter[key]`, the API creates a new independent workflow with a new random `key` — it is **not** a revision of the original workflow. Only use this when you intentionally want to duplicate a workflow as a separate entity.
 
 ---
 

@@ -8,7 +8,6 @@ description: "Trigger flows based on time rules, supporting both custom time and
 ## Trigger Type
 
 `schedule`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Periodic tasks: scheduled cleanup, scheduled notifications, scheduled statistics.
@@ -41,17 +40,13 @@ Please use the `type` value above to create the trigger; do not use the document
 | startsOn.field | string | - | Yes | The name of the time field used as the trigger baseline. |
 | startsOn.offset | number | 0 | No | Offset (can be positive or negative), used in conjunction with `unit`. |
 | startsOn.unit | number | 86400000 | No | Offset unit (milliseconds): `1000` for seconds, `60000` for minutes, `3600000` for hours, `86400000` for days. |
-| repeat | string | number | null | null | No | Repeat rule: cron expression or millisecond interval. |
-| endsOn | string | object | null | No | End condition: fixed time (string) or time field configuration (object, structure same as `startsOn`). |
-| limit | number | null | No | Maximum trigger count. |
-| appends | string[] | [] | No | Path of preloaded associated fields, used for `data` in the trigger context. |
-
-## Trigger Variables
-- `$context.date`: Trigger timestamp (Date).
-- `$context.data`: Only exists in Data Table Time Field mode (mode=1), representing the triggered record data; includes associated fields preloaded via `appends`.
+| repeat | string \| number | null | null | No | Repeat rule: cron expression or millisecond interval. |
+| endsOn | string \| object | null | No | End condition: fixed time (string) or time field configuration (object, structure same as `startsOn`). |
+| limit | number \| null | No | Maximum trigger count. |
+| appends | string[] | [] | No | Paths of preloaded associated fields. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
 ## Example Configuration
-### Custom Time
+### Custom Time, repeat by cron expression
 ```json
 {
   "mode": 0,
@@ -62,11 +57,20 @@ Please use the `type` value above to create the trigger; do not use the document
 }
 ```
 
+### Custom Time, repeat by interval
+```json
+{
+  "mode": 0,
+  "startsOn": "2026-02-01T09:00:00.000Z",
+  "repeat": 1800000
+}
+```
+
 ### Data Table Time Field
 ```json
 {
   "mode": 1,
-  "collection": "main.orders",
+  "collection": "orders",
   "startsOn": {
     "field": "createdAt",
     "offset": 30,
@@ -74,6 +78,14 @@ Please use the `type` value above to create the trigger; do not use the document
   },
   "repeat": null,
   "endsOn": null,
-  "appends": ["customer"]
+  "appends": ["createdBy"]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
+
+- `date` is always exposed and represents the actual trigger time, so you can reference it as `{{$context.date}}`.
+- In custom-time mode, `date` is the only predefined variable root.
+- In data-table time-field mode, the selector also exposes `data`, whose child tree follows the configured collection schema; configured `appends` become nested children under `data`.
+- Example references: `{{$context.date}}`, `{{$context.data.id}}`, `{{$context.data.createdBy.nickname}}`.

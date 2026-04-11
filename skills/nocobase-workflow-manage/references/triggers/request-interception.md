@@ -8,7 +8,6 @@ description: "Intercepts before data operation requests are executed, suitable f
 ## Trigger Type
 
 `request-interception`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Performing validation or logic judgment before data create, update, or delete operations are executed.
@@ -45,14 +44,6 @@ Please use the `type` value above to create the trigger; do not use the document
 - Global mode workflows execute in ascending order of workflow ID.
 - Once any workflow intercepts the request, subsequent workflows are not executed.
 
-## Trigger Variables
-- `$context.params`: The request operation parameter object, containing the following properties:
-  - `$context.params.filterByTk`: The primary key value of the target record (has value during update and delete operations).
-  - `$context.params.filter`: The request's filter conditions.
-  - `$context.params.values`: The data submitted by the request (has value during create and update operations; not present for delete operations).
-- `$context.user`: The user who triggered the operation (sanitized user information).
-- `$context.roleName`: The role name of the user who triggered the operation.
-
 ## Interception Mechanism
 - Flow completes normally (status: resolved): The request is allowed through, and the original operation continues.
 - Flow is terminated by an "End Process" node with failure status: The request is intercepted, returning a 400 error with relevant error messages.
@@ -76,3 +67,13 @@ Please use the `type` value above to create the trigger; do not use the document
   "actions": ["create", "update"]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
+
+- Exposed roots: `user`, `roleName`, `params`.
+- `user` follows the `users` collection schema; `roleName` is a scalar string.
+- `params.filterByTk` is exposed as the target record primary key.
+- For create and update interception, `params.values` expands to the target collection's fields, so expressions such as `{{$context.params.values.status}}` are valid.
+- The runtime context may also contain other request properties such as `params.filter`, but the variable selector described here exposes only `filterByTk` and `values`.
+- Example references: `{{$context.user.nickname}}`, `{{$context.roleName}}`, `{{$context.params.filterByTk}}`, `{{$context.params.values.amount}}`.

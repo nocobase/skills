@@ -8,7 +8,6 @@ description: "Dedicated flow triggered by approval initiation, used for managing
 ## Trigger Type
 
 `approval`
-Please use the `type` value above to create the trigger; do not use the documentation filename as the type.
 
 ## Use Cases
 - Business scenarios requiring approval flows (reimbursement, procurement, leave, etc.).
@@ -29,7 +28,7 @@ Please use the `type` value above to create the trigger; do not use the document
 | approvalUid | string | - | No | Initiator interface (v2 configuration uid). |
 | taskCardUid | string | - | No | uid for "My Applications" list card configuration. |
 | recordShowMode | boolean | false | No | Record display mode in flow: `false` Snapshot, `true` Latest data. |
-| appends | string[] | [] | No | Paths of preloaded associated fields for reading relationship data in the flow. |
+| appends | string[] | [] | No | Paths of preloaded associated fields. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 | withdrawable | boolean | false | No | Whether to allow the initiator to withdraw (automatically generated from initiator interface configuration). |
 | useSameTaskTitle | boolean | false | No | Whether to unify task titles across all approval nodes. |
 | taskTitle | string | - | No | Unified task title (supports variable templates); effective only when `useSameTaskTitle=true`. |
@@ -37,12 +36,6 @@ Please use the `type` value above to create the trigger; do not use the document
 | notifications[].channel | string | - | Yes | Name of the notification channel (e.g., in-app message, email, etc.). |
 | notifications[].templateType | string | template | No | Template type (`template` or `custom`). |
 | notifications[].template | number | object | - | Yes | Template configuration: template ID or custom template structure (depending on the channel type). |
-
-## Trigger Variables
-- `$context.data`: The data record associated with the approval (inclusion of preloaded relationships depends on `appends` and `mode`).
-- `$context.approvalId`: Approval record ID.
-- `$context.applicant`: Initiator's user information.
-- `$context.applicantRoleName`: Initiator's role name.
 
 ## Example Configuration
 ```json
@@ -65,3 +58,12 @@ Please use the `type` value above to create the trigger; do not use the document
   ]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`, for example `{{$context.data.title}}`.
+
+- Exposed roots: `data`, `applicant`, `approvalId`.
+- `data` follows the approval collection schema; configured `appends` become nested children under `data`.
+- `applicant` follows the `users` collection schema.
+- `approvalId` is the scalar approval record ID.
+- Example references: `{{$context.data.amount}}`, `{{$context.data.department.name}}`, `{{$context.applicant.nickname}}`, `{{$context.approvalId}}`.
