@@ -1,4 +1,0 @@
-title: Tickets by Priority
-type: bar
-sql_file: ./charts/chart_priority.sql
-render_file: ./charts/chart_priority_render.js

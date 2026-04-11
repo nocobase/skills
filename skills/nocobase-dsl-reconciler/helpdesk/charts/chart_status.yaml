@@ -1,4 +1,0 @@
-title: Tickets by Status
-type: pie
-sql_file: ./charts/chart_status.sql
-render_file: ./charts/chart_status_render.js
