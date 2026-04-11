@@ -12,6 +12,7 @@ Usage:
     python deployer.py orders/               # deploy module
     python deployer.py orders/ --force       # force update
     python deployer.py orders/ --plan        # validate + preview only, no deploy
+    python deployer.py --verify-sql orders/  # test all SQL against live PostgreSQL
 """
 
 from __future__ import annotations
@@ -211,10 +212,45 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
                 f"(copy from templates/kpi_card.js)"
             )
         if not has_chart:
-            warnings.append(
-                f"Dashboard page has no charts. "
-                f"Add chart blocks with chart_config: ./charts/*.yaml"
+            errors.append(
+                f"Dashboard page has no chart blocks. "
+                f"FIX: add chart blocks with chart_config: ./charts/*.yaml "
+                f"(scaffold with --new auto-generates 5 charts)"
             )
+
+    # ── Layout validation (>2 items must have explicit layout) ──
+    for ps in structure.get("pages", []):
+        page_name = ps.get("page", "?")
+        # Page-level: >2 blocks need layout
+        blocks = ps.get("blocks", [])
+        if len(blocks) > 2 and not ps.get("layout"):
+            errors.append(
+                f"Page '{page_name}' has {len(blocks)} blocks but no layout. "
+                f"FIX: add layout: section (e.g., layout:\\n- - block1: 12\\n  - block2: 12)"
+            )
+        # Form/detail blocks: >2 fields need field_layout
+        for bs in blocks:
+            btype = bs.get("type", "")
+            bkey = bs.get("key", btype)
+            fields = bs.get("fields", [])
+            if btype in ("createForm", "editForm", "details") and len(fields) > 2 and not bs.get("field_layout"):
+                errors.append(
+                    f"Block '{bkey}' on page '{page_name}' has {len(fields)} fields but no field_layout. "
+                    f"FIX: add field_layout: section to arrange fields in rows/cols"
+                )
+
+    # Popup forms: >2 fields need field_layout
+    all_popups = enhance.get("popups", [])
+    for ps in all_popups:
+        target = ps.get("target", "?")
+        for bs in ps.get("blocks", []):
+            btype = bs.get("type", "")
+            fields = bs.get("fields", [])
+            if btype in ("createForm", "editForm", "details") and len(fields) > 2 and not bs.get("field_layout"):
+                errors.append(
+                    f"Popup '{target}' form has {len(fields)} fields but no field_layout. "
+                    f"FIX: add field_layout: section (e.g., field_layout:\\n- - field1\\n  - field2)"
+                )
 
     # ── SQL validation (charts + KPI) ──
     import re
@@ -228,11 +264,29 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
     except Exception:
         all_tables = set()
 
+    # Common SQL syntax issues (NocoBase flowSql runs on PostgreSQL with column name validation)
+    _SQL_PATTERNS = [
+        (r"DATE\s*\(\s*'now'", "DATE('now', ...) is SQLite. FIX: use NOW() - '7 days'::interval"),
+        (r"strftime\s*\(", "strftime() is SQLite. FIX: use TO_CHAR(col, 'YYYY-MM')"),
+        (r"datetime\s*\(\s*'now'", "datetime('now') is SQLite. FIX: use NOW()"),
+        (r"GROUP_CONCAT\s*\(", "GROUP_CONCAT() is MySQL/SQLite. FIX: use STRING_AGG(col, ',')"),
+        (r"IFNULL\s*\(", "IFNULL() is SQLite. FIX: use COALESCE()"),
+        # NocoBase flowSql requires camelCase column names (not snake_case)
+        (r'\bcreated_at\b', 'created_at is snake_case. FIX: use "createdAt" (NocoBase uses camelCase)'),
+        (r'\bupdated_at\b', 'updated_at is snake_case. FIX: use "updatedAt" (NocoBase uses camelCase)'),
+    ]
+
     def _validate_sql(sql: str, source: str):
-        """Check SQL for references to non-existent tables."""
-        if not sql or not all_tables:
+        """Check SQL for table refs and SQLite syntax incompatible with PostgreSQL."""
+        if not sql:
             return
-        # Extract table names from FROM and JOIN clauses
+        # Check for SQLite syntax and NocoBase naming rules
+        for pattern, msg in _SQL_PATTERNS:
+            if re.search(pattern, sql, re.IGNORECASE):
+                errors.append(f"SQL syntax error in {source}: {msg}")
+        # Check table references
+        if not all_tables:
+            return
         table_refs = re.findall(
             r'(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)',
             sql, re.IGNORECASE)
@@ -248,16 +302,45 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
     for ps in structure.get("pages", []):
         page_name = ps.get("page", "?")
         for bs in ps.get("blocks", []):
-            # Chart SQL
+            # Chart config validation
+            btype_c = bs.get("type", "")
+            bkey_c = bs.get("key", btype_c)
             chart_file = bs.get("chart_config", "")
+            if btype_c == "chart" and not chart_file:
+                errors.append(
+                    f"Chart block '{bkey_c}' on page '{page_name}' has no chart_config. "
+                    f"FIX: add chart_config: ./charts/{bkey_c}.yaml"
+                )
+            elif btype_c == "chart" and chart_file and not (mod / chart_file).exists():
+                errors.append(
+                    f"Chart config not found: {chart_file} (block '{bkey_c}' on '{page_name}')"
+                )
             if chart_file and (mod / chart_file).exists():
                 try:
                     if chart_file.endswith((".yaml", ".yml")):
                         chart_spec = yaml.safe_load((mod / chart_file).read_text()) or {}
+                        # Check render_file exists
+                        render_file = chart_spec.get("render_file", "")
+                        has_render = (render_file and (mod / render_file).exists()) or chart_spec.get("render")
+                        if not has_render:
+                            errors.append(
+                                f"Chart '{chart_file}' has no render_file. "
+                                f"FIX: add render_file: ./charts/{chart_file.split('/')[-1].replace('.yaml','')}_render.js "
+                                f"(copy from templates/chart_render.js)"
+                            )
+                        # Check sql_file exists
                         sql_file = chart_spec.get("sql_file", "")
+                        has_sql = (sql_file and (mod / sql_file).exists()) or chart_spec.get("sql")
+                        if not has_sql:
+                            errors.append(
+                                f"Chart '{chart_file}' has no sql_file or sql. "
+                                f"FIX: add sql_file: ./charts/{chart_file.split('/')[-1].replace('.yaml','')}.sql"
+                            )
                         if sql_file and (mod / sql_file).exists():
                             sql = (mod / sql_file).read_text()
                             _validate_sql(sql, f"chart {chart_file} → {sql_file}")
+                        elif chart_spec.get("sql"):
+                            _validate_sql(chart_spec["sql"], f"chart {chart_file} (inline)")
                     else:
                         config = json.loads((mod / chart_file).read_text())
                         sql = config.get("query", {}).get("sql", "")
@@ -569,12 +652,35 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
         _deploy_popup(nb, target_uid, target_ref, popup_spec, state, mod, force,
                       popup_path=pp)
 
+    # ── Final column reorder (after popups may have added ChildPage columns) ──
+    for ps in structure.get("pages", []):
+        page_key = slugify(ps.get("page", ""))
+        page_state = state.get("pages", {}).get(page_key, {})
+        for tab_spec in ps.get("tabs", [ps]):
+            for bs in tab_spec.get("blocks", []):
+                if bs.get("type") == "table":
+                    bk = bs.get("key", "")
+                    blocks_info = page_state.get("blocks", {})
+                    # Also check tab_states
+                    if bk not in blocks_info:
+                        for tk, tv in page_state.get("tab_states", {}).items():
+                            if bk in tv.get("blocks", {}):
+                                blocks_info = tv["blocks"]
+                                break
+                    block_uid = blocks_info.get(bk, {}).get("uid", "")
+                    spec_fields = [f if isinstance(f, str) else f.get("field", "")
+                                   for f in bs.get("fields", [])
+                                   if (f if isinstance(f, str) else f.get("field", ""))]
+                    if block_uid and spec_fields:
+                        _reorder_table_columns(nb, block_uid, spec_fields)
+
     # Save state
     state_file.write_text(dump_yaml(state))
     print(f"\n  State saved. Done.")
 
     # ── Post-deploy verification ──
     post_errors = []
+    post_warnings = []
     for ps in structure.get("pages", []):
         for tab_spec in ps.get("tabs", [ps]):
             for bs in tab_spec.get("blocks", []):
@@ -607,13 +713,122 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
                         code = d.get("tree", {}).get("stepParams", {}).get("jsSettings", {}).get("runJs", {}).get("code", "")
                         if len(code) < 100:
                             post_errors.append(f"JS block '{key}' has only {len(code)} chars — likely empty or stub")
+                        else:
+                            # Validate KPI SQL returns data
+                            import re as _re2
+                            sql_m = _re2.search(r'sql:\s*`([^`]+)`', code)
+                            uid_m = _re2.search(r"reportUid:\s*['\"]([^'\"]+)['\"]", code)
+                            if sql_m and uid_m:
+                                try:
+                                    resp = nb.s.post(f"{nb.base}/api/flowSql:run", json={
+                                        "type": "selectRows", "uid": uid_m.group(1),
+                                        "dataSourceKey": "main", "sql": sql_m.group(1).strip(), "bind": {},
+                                    }, timeout=15)
+                                    if resp.status_code >= 400:
+                                        err = resp.json().get("errors", [{}])[0].get("message", resp.text[:100])
+                                        post_errors.append(f"KPI '{key}' SQL error: {err}")
+                                    else:
+                                        rows = resp.json().get("data", [])
+                                        if not rows or not rows[0].get("value"):
+                                            post_warnings.append(
+                                                f"KPI '{key}' SQL returns empty/zero — insert test data to see results"
+                                            )
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
 
+    # ── Duplicate block warning (soft check, not blocking) ──
+    for ps in structure.get("pages", []):
+        page_key = slugify(ps.get("page", ""))
+        page_state = state.get("pages", {}).get(page_key, {})
+        tab_uid = page_state.get("tab_uid", "")
+        spec_count = len(ps.get("blocks", []))
+        if tab_uid and spec_count > 0:
+            try:
+                d = nb.get(uid=tab_uid)
+                grid = d.get("tree", {}).get("subModels", {}).get("grid", {})
+                actual_items = grid.get("subModels", {}).get("items", [])
+                actual_count = len(actual_items) if isinstance(actual_items, list) else 0
+                if actual_count > spec_count:
+                    post_warnings.append(
+                        f"Page '{ps.get('page')}' has {actual_count} blocks on page but spec defines {spec_count} — "
+                        f"possible duplicates"
+                    )
+            except Exception:
+                pass
+
+    # ── Popup verification (check auto-derived popups have content) ──
+    def _check_popup_content(uid: str) -> bool:
+        """Check if a popup target has actual content (ChildPage with blocks)."""
+        try:
+            data = nb.get(uid=uid)
+            tree = data.get("tree", {})
+            page = tree.get("subModels", {}).get("page", {})
+            if not page:
+                return False
+            tabs = page.get("subModels", {}).get("tabs", [])
+            if not isinstance(tabs, list):
+                tabs = [tabs] if tabs else []
+            for t in tabs:
+                g = t.get("subModels", {}).get("grid", {})
+                items = g.get("subModels", {}).get("items", [])
+                if isinstance(items, list) and items:
+                    return True
+            return False
+        except Exception:
+            return False
+
+    for popup_spec in popups:
+        target_ref = popup_spec.get("target", "")
+        blocks = popup_spec.get("blocks", [])
+
+        # Check all popups with blocks OR auto-derived popups (edit/detail should have content)
+        is_auto_edit = "record_actions.edit" in target_ref
+        is_auto_detail = False
+        # Detail popup = targets a field (fields.xxx)
+        if ".fields." in target_ref and blocks:
+            is_auto_detail = True
+
+        # Skip popups that are intentionally empty (no blocks, not auto)
+        if not blocks and not is_auto_edit:
+            continue
+
+        try:
+            target_uid = resolver.resolve_uid(target_ref)
+        except KeyError:
+            post_errors.append(
+                f"Popup {target_ref}: ref not found — popup NOT created. "
+                f"FIX: check enhance.yaml target path and ensure the table has this action/field"
+            )
+            continue
+
+        has_content = _check_popup_content(target_uid)
+        if not has_content:
+            if is_auto_edit:
+                post_errors.append(
+                    f"Popup {target_ref}: edit popup is EMPTY (no edit form inside). "
+                    f"FIX: redeploy with --force to populate the edit popup"
+                )
+            elif blocks:
+                popup_type = "detail" if is_auto_detail else "form"
+                post_errors.append(
+                    f"Popup {target_ref}: {popup_type} popup is EMPTY (no blocks inside). "
+                    f"FIX: redeploy with --force, or check enhance.yaml blocks"
+                )
+
     if post_errors:
-        print(f"\n  ── Post-deploy warnings ──")
+        print(f"\n  ── Post-deploy errors ──")
         for e in post_errors:
-            print(f"  ⚠ {e}")
+            print(f"  ✗ {e}")
+
+    if post_warnings:
+        print(f"\n  ── Hints ──")
+        for w in post_warnings:
+            print(f"  💡 {w}")
+
+    # ── Auto SQL verification (runs all chart/KPI SQL against live DB) ──
+    _auto_verify_sql(structure, mod, nb)
 
     # ── Next steps hint ──
     has_enhance = (mod / "enhance.yaml").exists()
@@ -632,6 +847,73 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
     print(f"\n  ── Next steps ──")
     for h in hints:
         print(f"  → {h}")
+
+
+def _auto_verify_sql(structure: dict, mod: Path, nb: NocoBase):
+    """Run all chart/KPI SQL against live DB after deploy. Reports failures."""
+    import re as _re
+    sql_sources = []
+    for ps in structure.get("pages", []):
+        page_name = ps.get("page", "?")
+        for bs in ps.get("blocks", []):
+            chart_file = bs.get("chart_config", "")
+            if chart_file and (mod / chart_file).exists():
+                try:
+                    if chart_file.endswith((".yaml", ".yml")):
+                        spec = yaml.safe_load((mod / chart_file).read_text()) or {}
+                        sf = spec.get("sql_file", "")
+                        if sf and (mod / sf).exists():
+                            sql_sources.append((f"{chart_file}", (mod / sf).read_text(), str(mod / sf)))
+                    else:
+                        cfg = json.loads((mod / chart_file).read_text())
+                        sq = cfg.get("query", {}).get("sql", "")
+                        if sq:
+                            sql_sources.append((chart_file, sq, str(mod / chart_file)))
+                except Exception:
+                    pass
+            js_file = bs.get("file", "")
+            if js_file and bs.get("type") == "jsBlock" and (mod / js_file).exists():
+                try:
+                    js_code = (mod / js_file).read_text()
+                    m = _re.search(r'sql:\s*`([^`]+)`', js_code)
+                    if m:
+                        sql_sources.append((js_file, m.group(1), str(mod / js_file)))
+                except Exception:
+                    pass
+
+    if not sql_sources:
+        return
+
+    ok, fail = 0, 0
+    failed_items = []
+    for label, sql, fpath in sql_sources:
+        clean = _re.sub(r"\{%\s*if\s+[^%]*%\}.*?\{%\s*endif\s*%\}", "", sql, flags=_re.DOTALL)
+        clean = "\n".join(l for l in clean.split("\n") if "{{" not in l and "{%" not in l)
+        try:
+            uid = f"_verify_{label.replace('/', '_').replace('.', '_')}"
+            resp = nb.s.post(f"{nb.base}/api/flowSql:run", json={
+                "type": "selectRows", "uid": uid,
+                "dataSourceKey": "main", "sql": clean.strip(), "bind": {},
+            }, timeout=15)
+            if resp.status_code >= 400:
+                fail += 1
+                try:
+                    msg = resp.json().get("errors", [{}])[0].get("message", resp.text[:200])
+                except Exception:
+                    msg = resp.text[:200]
+                failed_items.append((label, msg, fpath))
+            else:
+                ok += 1
+        except Exception as e:
+            fail += 1
+            failed_items.append((label, str(e), fpath))
+
+    print(f"\n  ── SQL Verification: {ok} passed, {fail} failed ──")
+    for label, msg, fpath in failed_items:
+        print(f"  ✗ {label}: {msg}")
+        print(f"    FIX: edit {fpath}")
+    if fail > 0:
+        print(f"  Run: python deployer.py --verify-sql {mod} to re-check after fixing")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1129,7 +1411,10 @@ def _to_compose_block(bs: dict, default_coll: str) -> dict | None:
     resource = bs.get("resource")
     block_coll = bs.get("coll", default_coll)
     if resource:
-        block["resource"] = resource
+        block["resource"] = dict(resource)  # copy to avoid mutating spec
+        # Ensure dataSourceKey is always present
+        if "collectionName" in block["resource"] and "dataSourceKey" not in block["resource"]:
+            block["resource"]["dataSourceKey"] = "main"
     elif res_binding.get("associationName"):
         block["resource"] = {
             "collectionName": block_coll,
@@ -1139,7 +1424,11 @@ def _to_compose_block(bs: dict, default_coll: str) -> dict | None:
         if res_binding.get("sourceId"):
             block["resource"]["sourceId"] = res_binding["sourceId"]
     elif res_binding.get("filterByTk"):
-        block["resource"] = {"binding": "currentRecord"}
+        # Popup context: compose needs collectionName + "currentRecord" binding
+        if block_coll:
+            block["resource"] = {"collectionName": block_coll, "dataSourceKey": "main", "binding": "currentRecord"}
+        else:
+            block["resource"] = {"binding": "currentRecord"}
     elif block_coll and btype not in ("filterForm", "jsBlock", "chart", "markdown"):
         block["resource"] = {"collectionName": block_coll, "dataSourceKey": "main"}
 
@@ -1178,10 +1467,9 @@ def _to_compose_block(bs: dict, default_coll: str) -> dict | None:
         compose_fields = [{"fieldPath": fp} for fp in all_fields]
         block["fields"] = compose_fields
 
-    # Include actions — compose handles standard action types
-    # Exclude edit/view — compose auto-creates empty popup stubs for these.
-    # Only pass compose-supported actions. Others created via save_model in _fill_block.
-    _COMPOSE_ACTIONS = {"filter", "refresh", "addNew", "delete", "bulkDelete", "submit", "reset"}
+    # Include actions — compose handles standard action types + edit/view (creates ChildPage stubs).
+    # Other action types (ai, workflow, duplicate, export, import) created via save_model in _fill_block.
+    _COMPOSE_ACTIONS = {"filter", "refresh", "addNew", "delete", "bulkDelete", "submit", "reset", "edit", "view"}
     actions = list(bs.get("actions", []))
     record_actions = list(bs.get("recordActions", []))
 
@@ -1596,18 +1884,29 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                         "type": "selectRows", "uid": block_uid,
                         "dataSourceKey": "main", "sql": sql, "bind": {},
                     }, timeout=30)
-                    # Try to run (best-effort, ignore errors for missing tables)
+                    # Try to run — report errors so AI can fix SQL
                     try:
-                        import re
-                        clean = re.sub(r"\{%\s*if\s+[^%]*%\}.*?\{%\s*endif\s*%\}", "", sql, flags=re.DOTALL)
+                        import re as _re
+                        clean = _re.sub(r"\{%\s*if\s+[^%]*%\}.*?\{%\s*endif\s*%\}", "", sql, flags=_re.DOTALL)
                         clean = "\n".join(l for l in clean.split("\n") if "{{" not in l and "{%" not in l)
-                        nb.s.post(f"{nb.base}/api/flowSql:run", json={
+                        resp = nb.s.post(f"{nb.base}/api/flowSql:run", json={
                             "type": "selectRows", "uid": block_uid,
                             "dataSourceKey": "main", "sql": clean, "bind": {},
                         }, timeout=15)
-                    except Exception:
-                        pass  # table may not exist yet
-                    print(f"      + chart: {config_file}")
+                        if resp.status_code >= 400:
+                            err_msg = ""
+                            try:
+                                err_data = resp.json()
+                                err_msg = err_data.get("errors", [{}])[0].get("message", resp.text[:200])
+                            except Exception:
+                                err_msg = resp.text[:200]
+                            print(f"    ✗ chart SQL error ({config_file}): {err_msg}")
+                            print(f"      FIX: edit {config_file} SQL — NocoBase uses PostgreSQL, not SQLite")
+                        else:
+                            print(f"      + chart: {config_file} (SQL verified ✓)")
+                    except Exception as e:
+                        print(f"    ! chart SQL run failed ({config_file}): {e}")
+                        print(f"      + chart: {config_file}")
 
     # ── Actions not created by compose ──
     # Compose only handles a whitelist. Others created here via save_model.
@@ -2816,7 +3115,20 @@ def _expand_popups(popups: list[dict]) -> list[dict]:
         if "edit" in auto:
             edit_target = f"{base_ref}.record_actions.edit"
             if edit_target not in existing_targets:
-                result.append({"target": edit_target, "coll": coll})
+                # Derive editForm from addNew's createForm (same fields/layout)
+                edit_block = copy.deepcopy(src_block)
+                edit_block["key"] = "form"
+                edit_block["type"] = "editForm"
+                edit_block.pop("resource", None)
+                edit_block["resource_binding"] = {
+                    "filterByTk": "{{ctx.view.inputArgs.filterByTk}}"
+                }
+                edit_block["coll"] = coll
+                result.append({
+                    "target": edit_target,
+                    "coll": coll,
+                    "blocks": [edit_block],
+                })
 
         if "detail" in auto:
             # Auto-generate detail popup from addNew form fields
@@ -2829,7 +3141,7 @@ def _expand_popups(popups: list[dict]) -> list[dict]:
             }
             detail_block["coll"] = coll
             detail_block.pop("actions", None)
-            detail_block["actions"] = ["edit"]
+            detail_block["recordActions"] = ["edit"]
             # Add createdAt to fields if not present
             detail_fields = detail_block.get("fields", [])
             if "createdAt" not in detail_fields:
@@ -2849,9 +3161,10 @@ def _expand_popups(popups: list[dict]) -> list[dict]:
         if "view" in auto and view_field:
             view_block = copy.deepcopy(src_block)
             view_block["type"] = "details"
-            view_block["resource"] = {"binding": "currentRecord"}
+            view_block["resource_binding"] = {"filterByTk": "{{ctx.view.inputArgs.filterByTk}}"}
+            view_block.pop("resource", None)
             view_block.pop("actions", None)
-            view_block["actions"] = ["edit"]
+            view_block["recordActions"] = ["edit"]
             result.append({
                 "target": f"{base_ref}.fields.{view_field}",
                 "mode": "drawer",
@@ -3172,6 +3485,144 @@ def scaffold(mod_dir: str, module_name: str, pages: list[str]):
     print(f"    4. Test in browser, then iterate with --force")
 
 
+def verify_sql(mod_dir: str):
+    """Verify all SQL in a module by running against live PostgreSQL.
+
+    Checks: chart SQL files, KPI JS embedded SQL.
+    Reports errors with fix suggestions.
+    Usage: python deployer.py --verify-sql <dir>
+    """
+    import re
+    mod = Path(mod_dir).resolve()
+    if not mod.exists():
+        print(f"Directory not found: {mod}")
+        sys.exit(1)
+
+    structure_file = mod / "structure.yaml"
+    if not structure_file.exists():
+        print(f"No structure.yaml in {mod}")
+        sys.exit(1)
+
+    structure = yaml.safe_load(structure_file.read_text()) or {}
+    nb = NocoBase()
+
+    # Collect all SQL sources
+    sql_sources = []  # (label, sql_text, file_path)
+
+    for ps in structure.get("pages", []):
+        page_name = ps.get("page", "?")
+        for bs in ps.get("blocks", []):
+            # Chart SQL
+            chart_file = bs.get("chart_config", "")
+            if chart_file and (mod / chart_file).exists():
+                try:
+                    if chart_file.endswith((".yaml", ".yml")):
+                        chart_spec = yaml.safe_load((mod / chart_file).read_text()) or {}
+                        sql_file = chart_spec.get("sql_file", "")
+                        if sql_file and (mod / sql_file).exists():
+                            sql_sources.append((
+                                f"{page_name}/{chart_file}",
+                                (mod / sql_file).read_text(),
+                                str(mod / sql_file)
+                            ))
+                    else:
+                        config = json.loads((mod / chart_file).read_text())
+                        sql = config.get("query", {}).get("sql", "")
+                        if sql:
+                            sql_sources.append((f"{page_name}/{chart_file}", sql, str(mod / chart_file)))
+                except Exception:
+                    pass
+
+            # KPI JS embedded SQL
+            js_file = bs.get("file", "")
+            if js_file and bs.get("type") == "jsBlock" and (mod / js_file).exists():
+                try:
+                    js_code = (mod / js_file).read_text()
+                    sql_match = re.search(r'sql:\s*`([^`]+)`', js_code)
+                    if sql_match:
+                        sql_sources.append((
+                            f"{page_name}/{js_file}",
+                            sql_match.group(1),
+                            str(mod / js_file)
+                        ))
+                except Exception:
+                    pass
+
+    if not sql_sources:
+        print("No SQL found to verify.")
+        return
+
+    # SQL syntax patterns (same as validate)
+    sql_patterns = [
+        (r"DATE\s*\(\s*'now'", "DATE('now',...) → NOW() - '7 days'::interval"),
+        (r"strftime\s*\(", "strftime() → TO_CHAR(col, 'YYYY-MM')"),
+        (r"datetime\s*\(\s*'now'", "datetime('now') → NOW()"),
+        (r"GROUP_CONCAT\s*\(", "GROUP_CONCAT() → STRING_AGG(col, ',')"),
+        (r"IFNULL\s*\(", "IFNULL() → COALESCE()"),
+        (r'\bcreated_at\b', 'created_at → "createdAt" (NocoBase uses camelCase)'),
+        (r'\bupdated_at\b', 'updated_at → "updatedAt" (NocoBase uses camelCase)'),
+    ]
+
+    print(f"── Verify SQL ({len(sql_sources)} queries) ──")
+    print(f"  Target: {nb.base} (PostgreSQL)\n")
+
+    ok_count = 0
+    err_count = 0
+
+    for label, sql, fpath in sql_sources:
+        # Static check first
+        static_issues = []
+        for pattern, fix in sql_patterns:
+            if re.search(pattern, sql, re.IGNORECASE):
+                static_issues.append(fix)
+
+        if static_issues:
+            err_count += 1
+            print(f"  ✗ {label}")
+            for issue in static_issues:
+                print(f"    SQLite syntax: {issue}")
+            print(f"    File: {fpath}")
+            continue
+
+        # Live execution test
+        # Clean liquid/jinja templates
+        clean = re.sub(r"\{%\s*if\s+[^%]*%\}.*?\{%\s*endif\s*%\}", "", sql, flags=re.DOTALL)
+        clean = "\n".join(l for l in clean.split("\n") if "{{" not in l and "{%" not in l)
+
+        try:
+            # Use a temp UID for testing
+            test_uid = f"_verify_{label.replace('/', '_').replace('.', '_')}"
+            resp = nb.s.post(f"{nb.base}/api/flowSql:run", json={
+                "type": "selectRows", "uid": test_uid,
+                "dataSourceKey": "main", "sql": clean.strip(), "bind": {},
+            }, timeout=15)
+
+            if resp.status_code >= 400:
+                err_count += 1
+                err_msg = ""
+                try:
+                    err_data = resp.json()
+                    err_msg = err_data.get("errors", [{}])[0].get("message", resp.text[:300])
+                except Exception:
+                    err_msg = resp.text[:300]
+                print(f"  ✗ {label}")
+                print(f"    Error: {err_msg}")
+                print(f"    File: {fpath}")
+            else:
+                ok_count += 1
+                rows = resp.json().get("data", [])
+                print(f"  ✓ {label} ({len(rows)} rows)")
+        except Exception as e:
+            err_count += 1
+            print(f"  ✗ {label}: {e}")
+            print(f"    File: {fpath}")
+
+    print(f"\n  Result: {ok_count} passed, {err_count} failed")
+    if err_count > 0:
+        print(f"  Fix the SQL files above and re-run: python deployer.py --verify-sql {mod_dir}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
@@ -3189,6 +3640,11 @@ if __name__ == "__main__":
             pages_str = sys.argv[pi + 1]
         pages = [p.strip() for p in pages_str.split(",")] if pages_str else ["Main"]
         scaffold(mod_dir, module_name, pages)
+    elif sys.argv[1] == "--verify-sql":
+        if len(sys.argv) < 3:
+            print("Usage: python deployer.py --verify-sql <dir>")
+            sys.exit(1)
+        verify_sql(sys.argv[2])
     else:
         mod_dir = sys.argv[1]
         force = "--force" in sys.argv

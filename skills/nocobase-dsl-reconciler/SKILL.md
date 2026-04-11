@@ -40,6 +40,7 @@ Shall I start building?
 | 1 | Write structure.yaml → `python deployer.py dir/` | Pages appear in sidebar |
 | 2 | Insert test data (5-8 records per table) | Tables show data |
 | 3 | Write enhance.yaml → `python deployer.py dir/ --force` | Popups work |
+| 4 | Verify SQL → `python deployer.py --verify-sql dir/` | All 9/9 passed |
 
 Report each round result. Ask before continuing.
 
@@ -49,6 +50,12 @@ Dashboard page auto-scaffolds 4 KPI cards + 5 charts. Edit:
 - `js/kpi_*.js` — change CONFIG.label and CONFIG.sql
 - `charts/chart_*.sql` — change SQL query
 - `charts/chart_*_render.js` — change ECharts option
+
+**SQL Rules** (NocoBase uses PostgreSQL, NOT SQLite):
+- Column names must be camelCase in double quotes: `"createdAt"` not `created_at`
+- Date math: `NOW() - '7 days'::interval` not `DATE('now', '-7 days')`
+- Format: `TO_CHAR("createdAt", 'YYYY-MM')` not `strftime('%Y-%m', created_at)`
+- Always run `--verify-sql` after editing SQL to catch errors before users see them
 
 See `templates/kpi_card.js` for KPI template. See `examples/crm/analytics/` for chart examples.
 
@@ -68,6 +75,9 @@ python deployer.py ../myapp/ --force
 
 # Preview only
 python deployer.py ../myapp/ --plan
+
+# Verify all SQL against live PostgreSQL (run after deploy)
+python deployer.py --verify-sql ../myapp/
 
 # Export existing page
 python exporter.py "Leads" ../export/leads/
@@ -155,6 +165,8 @@ popups:
 3. **auto: [edit, detail]** — auto-derives edit + detail popups from addNew form
 4. **Incremental** — always `--force` update, never destroy + recreate
 5. **Validate** — deployer checks fields, tables, SQL before any API calls
+6. **SQL rules** — NocoBase uses PostgreSQL. Column names must be camelCase in quotes: `"createdAt"` not `created_at`. After deploy, run `--verify-sql` to test all SQL against live DB
+7. **Layout required** — >2 blocks on a page must have `layout:`. >2 fields in a form must have `field_layout:`. Deployer will error if missing
 
 ## Examples
 
