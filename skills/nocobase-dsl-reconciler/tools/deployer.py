@@ -250,6 +250,17 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
             if js_file and bs.get("type") == "jsBlock" and (mod / js_file).exists():
                 try:
                     js_code = (mod / js_file).read_text()
+                    # Validate KPI JS has required rendering patterns
+                    if "ctx.render" not in js_code and "ctx.React.createElement" not in js_code:
+                        errors.append(
+                            f"JS block '{js_file}' missing ctx.render(). "
+                            f"FIX: cp templates/kpi_card.js {js_file} — then only edit CONFIG section"
+                        )
+                    if "ctx.sql" not in js_code and "ctx.request" not in js_code:
+                        errors.append(
+                            f"JS block '{js_file}' has no data fetch (ctx.sql/ctx.request). "
+                            f"FIX: cp templates/kpi_card.js {js_file} — then only edit CONFIG.sql"
+                        )
                     # Find SQL in CONFIG.sql = `...`
                     sql_match = re.search(r'sql:\s*`([^`]+)`', js_code)
                     if sql_match:
@@ -541,6 +552,48 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
     # Save state
     state_file.write_text(dump_yaml(state))
     print(f"\n  State saved. Done.")
+
+    # ── Post-deploy verification ──
+    post_errors = []
+    for ps in structure.get("pages", []):
+        for tab_spec in ps.get("tabs", [ps]):
+            for bs in tab_spec.get("blocks", []):
+                btype = bs.get("type", "")
+                key = bs.get("key", "")
+                page_key = slugify(ps.get("page", ""))
+                binfo = state.get("pages", {}).get(page_key, {})
+                # Check in blocks or tab_states
+                block_uid = binfo.get("blocks", {}).get(key, {}).get("uid", "")
+                if not block_uid:
+                    for tk, tv in binfo.get("tab_states", {}).items():
+                        block_uid = tv.get("blocks", {}).get(key, {}).get("uid", "")
+                        if block_uid:
+                            break
+                if not block_uid:
+                    continue
+
+                if btype == "chart":
+                    try:
+                        d = nb.get(uid=block_uid)
+                        chart_cfg = d.get("tree", {}).get("stepParams", {}).get("chartSettings", {}).get("configure", {})
+                        if not chart_cfg.get("query", {}).get("sql"):
+                            post_errors.append(f"Chart '{key}' deployed but has NO SQL config — redeploy with --force")
+                    except Exception:
+                        pass
+
+                if btype == "jsBlock":
+                    try:
+                        d = nb.get(uid=block_uid)
+                        code = d.get("tree", {}).get("stepParams", {}).get("jsSettings", {}).get("runJs", {}).get("code", "")
+                        if len(code) < 100:
+                            post_errors.append(f"JS block '{key}' has only {len(code)} chars — likely empty or stub")
+                    except Exception:
+                        pass
+
+    if post_errors:
+        print(f"\n  ── Post-deploy warnings ──")
+        for e in post_errors:
+            print(f"  ⚠ {e}")
 
     # ── Next steps hint ──
     has_enhance = (mod / "enhance.yaml").exists()
