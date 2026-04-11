@@ -1,0 +1,4 @@
+title: Top Categories
+type: donut
+sql_file: ./charts/chart_categories.sql
+render_file: ./charts/chart_categories_render.js

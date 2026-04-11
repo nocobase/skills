@@ -1,357 +1,275 @@
 module: Inventory Management
-icon: shopoutlined
-pages:
+icon: fundoutlined
 
-# ============================================
-# Dashboard - Overview with stats
-# ============================================
-- page: Dashboard
-  coll: nb_inv_products
-  icon: dashboardoutlined
-  blocks:
-  - key: kpi_products
-    type: kpi
-    title: Total Products
-    coll: nb_inv_products
-    color: blue
-  - key: kpi_low_stock
-    type: kpi
-    title: Low Stock Alert
-    coll: nb_inv_products
-    filter: stock_qty <= min_stock
-    color: red
-  - key: kpi_pending_po
-    type: kpi
-    title: Pending POs
-    coll: nb_inv_purchase_orders
-    filter: status = draft
-    color: orange
-  - key: kpi_pending_so
-    type: kpi
-    title: Pending SOs
-    coll: nb_inv_sales_orders
-    filter: status = draft
-    color: green
-  - key: recent_products
-    type: table
-    title: Recent Products
-    coll: nb_inv_products
-    pageSize: 5
-    fields:
-    - name
-    - sku
-    - category_id
-    - stock_qty
-    - status
-    actions:
-    - filter
-    - refresh
-    - link
-  - key: recent_pos
-    type: table
-    title: Recent Purchase Orders
-    coll: nb_inv_purchase_orders
-    pageSize: 5
-    fields:
-    - po_no
-    - supplier
-    - order_date
-    - status
-    - total_amount
-    actions:
-    - filter
-    - refresh
-    - link
-  - key: recent_sos
-    type: table
-    title: Recent Sales Orders
-    coll: nb_inv_sales_orders
-    pageSize: 5
-    fields:
-    - so_no
-    - customer
-    - order_date
-    - status
-    - total_amount
-    actions:
-    - filter
-    - refresh
-    - link
-  layout:
-  - - kpi_products: 6
-    - kpi_low_stock: 6
-    - kpi_pending_po: 6
-    - kpi_pending_so: 6
-  - - recent_products: 8
-    - recent_pos: 8
-    - recent_sos: 8
-
-# ============================================
-# Products Page
-# ============================================
-- page: Products
-  coll: nb_inv_products
-  icon: tagoutlined
-  blocks:
-  - key: filterForm
-    type: filterForm
-    coll: nb_inv_products
-    fields:
-    - field: name
-      label: Search
-      filterPaths: [name, sku, warehouse]
-    - category_id
-    - status
-  - key: table
-    type: table
-    coll: nb_inv_products
-    fields:
-    - name
-    - sku
-    - category_id
-    - unit_price
-    - stock_qty
-    - min_stock
-    - warehouse
-    - status
-    actions:
-    - filter
-    - refresh
-    - addNew
-    recordActions:
-    - edit
-    - delete
-  layout:
-  - - filterForm
-  - - table
-
-# ============================================
-# Categories Page
-# ============================================
-- page: Categories
-  coll: nb_inv_categories
-  icon: folderoutlined
-  blocks:
-  - key: filterForm
-    type: filterForm
-    coll: nb_inv_categories
-    fields:
-    - field: name
-      label: Search
-      filterPaths: [name, code]
-    - parent_id
-  - key: table
-    type: table
-    coll: nb_inv_categories
-    fields:
-    - name
-    - code
-    - parent_id
-    actions:
-    - filter
-    - refresh
-    - addNew
-    recordActions:
-    - edit
-    - delete
-  layout:
-  - - filterForm
-  - - table
-
-# ============================================
-# Purchase Orders Page
-# ============================================
-- page: Purchase Orders
-  coll: nb_inv_purchase_orders
-  icon: shoppingcartoutlined
-  blocks:
-  - key: filterForm
-    type: filterForm
-    coll: nb_inv_purchase_orders
-    fields:
-    - field: po_no
-      label: Search
-      filterPaths: [po_no, supplier]
-    - status
-  - key: table
-    type: table
-    coll: nb_inv_purchase_orders
-    fields:
-    - po_no
-    - supplier
-    - order_date
-    - status
-    - total_amount
-    actions:
-    - filter
-    - refresh
-    - addNew
-    recordActions:
-    - edit
-    - delete
-  layout:
-  - - filterForm
-  - - table
-
-# ============================================
-# Sales Orders Page
-# ============================================
-- page: Sales Orders
-  coll: nb_inv_sales_orders
-  icon: exportoutlined
-  blocks:
-  - key: filterForm
-    type: filterForm
-    coll: nb_inv_sales_orders
-    fields:
-    - field: so_no
-      label: Search
-      filterPaths: [so_no, customer]
-    - status
-  - key: table
-    type: table
-    coll: nb_inv_sales_orders
-    fields:
-    - so_no
-    - customer
-    - order_date
-    - status
-    - total_amount
-    actions:
-    - filter
-    - refresh
-    - addNew
-    recordActions:
-    - edit
-    - delete
-  layout:
-  - - filterForm
-  - - table
-
-# ============================================
-# Collections Schema
-# ============================================
 collections:
-
-  nb_inv_categories:
-    title: Categories
-    tree: adjacency-list
-    fields:
-    - name: name
-      interface: input
-      required: true
-    - name: code
-      interface: input
-      required: true
-    - name: parent_id
-      interface: m2o
-      target: nb_inv_categories
-      foreignKey: parent_id
-      title: Parent Category
-    titleField: name
-
   nb_inv_products:
     title: Products
     fields:
     - name: sku
       interface: input
+      title: SKU
       required: true
     - name: name
       interface: input
+      title: Product Name
       required: true
-    - name: category_id
-      interface: m2o
-      target: nb_inv_categories
-      foreignKey: category_id
+    - name: category
+      interface: select
       title: Category
-    - name: unit_price
+      options: [Electronics, Clothing, Food, Furniture, Tools, Other]
+    - name: unit
+      interface: select
+      title: Unit
+      options: [Piece, Box, kg, Liter, Meter, Pack]
+    - name: unitPrice
       interface: number
-      precision: 2
-    - name: cost_price
-      interface: number
-      precision: 2
-    - name: stock_qty
+      title: Unit Price
+    - name: stockQuantity
       interface: integer
       title: Stock Quantity
-    - name: min_stock
+    - name: reorderLevel
       interface: integer
-      title: Min Stock Level
-    - name: warehouse
-      interface: input
-    - name: status
-      interface: select
-      enum:
-      - value: active
-        label: Active
-        color: green
-      - value: discontinued
-        label: Discontinued
-        color: red
-      default: active
-    titleField: name
-
-  nb_inv_purchase_orders:
-    title: Purchase Orders
-    fields:
-    - name: po_no
-      interface: input
-      required: true
-      title: PO Number
+      title: Reorder Level
+    - name: description
+      interface: textarea
+      title: Description
     - name: supplier
-      interface: input
-      required: true
-    - name: order_date
-      interface: date
-    - name: status
-      interface: select
-      enum:
-      - value: draft
-        label: Draft
-        color: default
-      - value: ordered
-        label: Ordered
-        color: blue
-      - value: received
-        label: Received
-        color: green
-      - value: cancelled
-        label: Cancelled
-        color: red
-      default: draft
-    - name: total_amount
-      interface: number
-      precision: 2
-    titleField: po_no
+      interface: m2o
+      title: Supplier
+      target: nb_inv_suppliers
 
-  nb_inv_sales_orders:
-    title: Sales Orders
+  nb_inv_suppliers:
+    title: Suppliers
     fields:
-    - name: so_no
+    - name: code
       interface: input
+      title: Supplier Code
       required: true
-      title: SO Number
-    - name: customer
+    - name: name
       interface: input
+      title: Supplier Name
       required: true
-    - name: order_date
-      interface: date
+    - name: contactPerson
+      interface: input
+      title: Contact Person
+    - name: email
+      interface: email
+      title: Email
+    - name: phone
+      interface: phone
+      title: Phone
+    - name: address
+      interface: textarea
+      title: Address
     - name: status
       interface: select
-      enum:
-      - value: draft
-        label: Draft
-        color: default
-      - value: confirmed
-        label: Confirmed
-        color: blue
-      - value: shipped
-        label: Shipped
-        color: orange
-      - value: delivered
-        label: Delivered
-        color: green
-      default: draft
-    - name: total_amount
-      interface: number
-      precision: 2
-    titleField: so_no
+      title: Status
+      options: [Active, Inactive, Suspended]
+    - name: rating
+      interface: select
+      title: Rating
+      options: [A, B, C, D]
+
+  nb_inv_warehouses:
+    title: Warehouses
+    fields:
+    - name: code
+      interface: input
+      title: Warehouse Code
+      required: true
+    - name: name
+      interface: input
+      title: Warehouse Name
+      required: true
+    - name: location
+      interface: input
+      title: Location
+    - name: manager
+      interface: input
+      title: Manager
+    - name: capacity
+      interface: integer
+      title: Capacity
+    - name: status
+      interface: select
+      title: Status
+      options: [Active, Inactive, Maintenance]
+    - name: contactPhone
+      interface: phone
+      title: Contact Phone
+    - name: address
+      interface: textarea
+      title: Address
+
+  nb_inv_stock_movements:
+    title: Stock Movements
+    fields:
+    - name: movementType
+      interface: select
+      title: Movement Type
+      options: [Inbound, Outbound, Transfer]
+      required: true
+    - name: product
+      interface: m2o
+      title: Product
+      target: nb_inv_products
+      required: true
+    - name: warehouse
+      interface: m2o
+      title: Warehouse
+      target: nb_inv_warehouses
+      required: true
+    - name: quantity
+      interface: integer
+      title: Quantity
+      required: true
+    - name: referenceNo
+      interface: input
+      title: Reference No
+    - name: movementDate
+      interface: datetime
+      title: Movement Date
+    - name: notes
+      interface: textarea
+      title: Notes
+    - name: createdBy
+      interface: input
+      title: Created By
+
+pages:
+- page: Dashboard
+  icon: dashboardoutlined
+  blocks:
+  - key: kpi_1
+    type: jsBlock
+    desc: KPI Card 1
+    file: ./js/kpi_1.js
+  - key: kpi_2
+    type: jsBlock
+    desc: KPI Card 2
+    file: ./js/kpi_2.js
+  - key: kpi_3
+    type: jsBlock
+    desc: KPI Card 3
+    file: ./js/kpi_3.js
+  - key: kpi_4
+    type: jsBlock
+    desc: KPI Card 4
+    file: ./js/kpi_4.js
+  - key: chart_1
+    type: chart
+    chart_config: ./charts/chart_1.yaml
+  - key: chart_2
+    type: chart
+    chart_config: ./charts/chart_2.yaml
+  - key: chart_3
+    type: chart
+    chart_config: ./charts/chart_3.yaml
+  - key: chart_4
+    type: chart
+    chart_config: ./charts/chart_4.yaml
+  - key: chart_5
+    type: chart
+    chart_config: ./charts/chart_5.yaml
+  layout:
+  - - kpi_1: 6
+    - kpi_2: 6
+    - kpi_3: 6
+    - kpi_4: 6
+  - - chart_1: 15
+    - chart_2: 9
+  - - chart_3
+  - - chart_4: 14
+    - chart_5: 10
+
+- page: Products
+  coll: nb_inv_products
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_inv_products
+    fields:
+    - field: name
+      label: Search
+      filterPaths: [name, sku]
+    - field: category
+    - field: supplier
+  - key: table
+    type: table
+    coll: nb_inv_products
+    fields: [sku, name, category, unitPrice, stockQuantity, reorderLevel, supplier]
+    actions: [filter, refresh, addNew, export]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
+
+- page: Suppliers
+  coll: nb_inv_suppliers
+  icon: teamoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_inv_suppliers
+    fields:
+    - field: name
+      label: Search
+      filterPaths: [name, code]
+    - field: status
+    - field: rating
+  - key: table
+    type: table
+    coll: nb_inv_suppliers
+    fields: [code, name, contactPerson, email, phone, status, rating]
+    actions: [filter, refresh, addNew, export]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
+
+- page: Warehouses
+  coll: nb_inv_warehouses
+  icon: databaseoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_inv_warehouses
+    fields:
+    - field: name
+      label: Search
+      filterPaths: [name, code]
+    - field: status
+    - field: location
+  - key: table
+    type: table
+    coll: nb_inv_warehouses
+    fields: [code, name, location, manager, capacity, status]
+    actions: [filter, refresh, addNew, export]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
+
+- page: Stock Movements
+  coll: nb_inv_stock_movements
+  icon: swapoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_inv_stock_movements
+    fields:
+    - field: referenceNo
+      label: Search
+      filterPaths: [referenceNo, notes]
+    - field: movementType
+    - field: movementDate
+  - key: table
+    type: table
+    coll: nb_inv_stock_movements
+    fields: [movementType, product, warehouse, quantity, referenceNo, movementDate, createdBy]
+    actions: [filter, refresh, addNew, export]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table

@@ -1,13 +1,5 @@
-# ============================================
-# Inventory Management - Enhancements
-# AddNew popups with auto-derive edit + detail
-# ============================================
-
 popups:
-
-# --------------------------------------------
-# Products Page - AddNew Popup
-# --------------------------------------------
+# Products
 - target: $products.table.actions.addNew
   auto: [edit, detail]
   view_field: name
@@ -17,106 +9,92 @@ popups:
     type: createForm
     resource:
       binding: currentCollection
-    fields:
-    - sku
-    - name
-    - category_id
-    - unit_price
-    - cost_price
-    - stock_qty
-    - min_stock
-    - warehouse
-    - status
+    fields: [sku, name, category, unit, unitPrice, stockQuantity, reorderLevel, description, supplier]
     field_layout:
-    - '--- Basic Information ---'
+    - '--- Basic Info ---'
     - - sku
       - name
-    - - category_id
-      - status
-    - '--- Pricing ---'
-    - - unit_price
-      - cost_price
-    - '--- Inventory ---'
-    - - stock_qty
-      - min_stock
-    - - warehouse
+    - - category
+      - unit
+    - '--- Pricing & Stock ---'
+    - - unitPrice
+      - stockQuantity
+    - - reorderLevel
+    - '--- Additional Info ---'
+    - - supplier
+    - - description
     actions: [submit]
 
-# --------------------------------------------
-# Categories Page - AddNew Popup
-# --------------------------------------------
-- target: $categories.table.actions.addNew
+# Suppliers
+- target: $suppliers.table.actions.addNew
   auto: [edit, detail]
   view_field: name
-  coll: nb_inv_categories
+  coll: nb_inv_suppliers
   blocks:
   - key: form
     type: createForm
     resource:
       binding: currentCollection
-    fields:
-    - name
-    - code
-    - parent_id
+    fields: [code, name, contactPerson, email, phone, address, status, rating]
     field_layout:
-    - '--- Category Information ---'
-    - - name
-      - code
-    - - parent_id
+    - '--- Company Info ---'
+    - - code
+      - name
+    - '--- Contact ---'
+    - - contactPerson
+      - email
+    - - phone
+    - - address
+    - '--- Status ---'
+    - - status
+      - rating
     actions: [submit]
 
-# --------------------------------------------
-# Purchase Orders Page - AddNew Popup
-# --------------------------------------------
-- target: $purchase_orders.table.actions.addNew
+# Warehouses
+- target: $warehouses.table.actions.addNew
   auto: [edit, detail]
-  view_field: po_no
-  coll: nb_inv_purchase_orders
+  view_field: name
+  coll: nb_inv_warehouses
   blocks:
   - key: form
     type: createForm
     resource:
       binding: currentCollection
-    fields:
-    - po_no
-    - supplier
-    - order_date
-    - status
-    - total_amount
+    fields: [code, name, location, manager, capacity, status, contactPhone, address]
     field_layout:
-    - '--- Order Information ---'
-    - - po_no
-      - supplier
-    - - order_date
+    - '--- Warehouse Info ---'
+    - - code
+      - name
+    - - location
+      - manager
+    - '--- Capacity ---'
+    - - capacity
       - status
-    - '--- Financial ---'
-    - - total_amount
+    - '--- Contact ---'
+    - - contactPhone
+    - - address
     actions: [submit]
 
-# --------------------------------------------
-# Sales Orders Page - AddNew Popup
-# --------------------------------------------
-- target: $sales_orders.table.actions.addNew
+# Stock Movements
+- target: $stock_movements.table.actions.addNew
   auto: [edit, detail]
-  view_field: so_no
-  coll: nb_inv_sales_orders
+  view_field: referenceNo
+  coll: nb_inv_stock_movements
   blocks:
   - key: form
     type: createForm
     resource:
       binding: currentCollection
-    fields:
-    - so_no
-    - customer
-    - order_date
-    - status
-    - total_amount
+    fields: [movementType, product, warehouse, quantity, referenceNo, movementDate, notes, createdBy]
     field_layout:
-    - '--- Order Information ---'
-    - - so_no
-      - customer
-    - - order_date
-      - status
-    - '--- Financial ---'
-    - - total_amount
+    - '--- Movement Info ---'
+    - - movementType
+      - referenceNo
+    - - product
+      - warehouse
+    - '--- Details ---'
+    - - quantity
+      - movementDate
+    - - createdBy
+    - - notes
     actions: [submit]

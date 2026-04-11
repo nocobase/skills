@@ -1,142 +1,232 @@
 popups:
-  # Dashboard page - Tickets table
-  - target: $dashboard.table.actions.addNew
-    auto: [edit, detail]
-    view_field: title
+# Tickets popups
+- target: $tickets.table.actions.addNew
+  auto: [edit, detail]
+  view_field: ticketNo
+  coll: nb_helpdesk_tickets
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - ticketNo
+    - title
+    - description
+    - status
+    - priority
+    - category
+    - assignee
+    - requesterEmail
+    field_layout:
+    - '--- Ticket Info ---'
+    - - ticketNo
+      - title
+    - - status
+      - priority
+    - - category
+      - assignee
+    - - requesterEmail
+    - '--- Description ---'
+    - - description
+    actions: [submit]
+
+- target: $tickets.table.fields.ticketNo
+  coll: nb_helpdesk_tickets
+  blocks:
+  - key: details
+    type: details
     coll: nb_helpdesk_tickets
-    blocks:
-      - key: form
-        type: createForm
-        resource:
-          binding: currentCollection
-        fields:
-          - title
-          - description
-          - priority
-          - status
-          - category
-          - reporter
-          - assignee
-          - due_date
-          - resolution
-        field_layout:
-          - '--- Basic Info ---'
-          - - title
-            - category
-          - - priority
-            - status
-          - - reporter
-            - assignee
-          - '--- Details ---'
-          - - due_date
-          - - description
-          - '--- Resolution ---'
-          - - resolution
-        actions: [submit]
+    resource:
+      binding: currentRecord
+    fields:
+    - ticketNo
+    - title
+    - status
+    - priority
+    - category
+    - assignee
+    - requesterEmail
+    - description
+    - createdAt
+    field_layout:
+    - - ticketNo
+      - title
+    - - status
+      - priority
+    - - category
+      - assignee
+    - - requesterEmail
+      - createdAt
+    - - description
 
-  # Tickets page - Tickets table
-  - target: $tickets.table.actions.addNew
-    auto: [edit, detail]
-    view_field: title
-    coll: nb_helpdesk_tickets
-    blocks:
-      - key: form
-        type: createForm
-        resource:
-          binding: currentCollection
-        fields:
-          - title
-          - description
-          - priority
-          - status
-          - category
-          - reporter
-          - assignee
-          - due_date
-          - resolution
-        field_layout:
-          - '--- Basic Info ---'
-          - - title
-            - category
-          - - priority
-            - status
-          - - reporter
-            - assignee
-          - '--- Details ---'
-          - - due_date
-          - - description
-          - '--- Resolution ---'
-          - - resolution
-        actions: [submit]
+# Agents popups
+- target: $agents.table.actions.addNew
+  auto: [edit, detail]
+  view_field: name
+  coll: nb_helpdesk_agents
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - name
+    - email
+    - role
+    - department
+    - phone
+    - status
+    - workload
+    field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - email
+    - - role
+      - department
+    - - phone
+      - status
+    - '--- Workload ---'
+    - - workload
+    actions: [submit]
 
-  # Users page - Users table
-  - target: $users.table.actions.addNew
-    auto: [edit, detail]
-    view_field: name
-    coll: nb_helpdesk_users
-    blocks:
-      - key: form
-        type: createForm
-        resource:
-          binding: currentCollection
-        fields:
-          - name
-          - email
-          - role
-          - department
-        field_layout:
-          - '--- User Info ---'
-          - - name
-            - email
-          - - role
-            - department
-        actions: [submit]
+- target: $agents.table.fields.name
+  coll: nb_helpdesk_agents
+  blocks:
+  - key: details
+    type: details
+    coll: nb_helpdesk_agents
+    resource:
+      binding: currentRecord
+    fields:
+    - name
+    - email
+    - role
+    - department
+    - phone
+    - status
+    - workload
+    - createdAt
+    field_layout:
+    - - name
+      - email
+    - - role
+      - department
+    - - phone
+      - status
+    - - workload
+      - createdAt
 
-  # SLA Configs page - SLA Configs table
-  - target: $sla_configs.table.actions.addNew
-    auto: [edit, detail]
-    view_field: priority
+# SLA Configs popups
+- target: $sla_configs.table.actions.addNew
+  auto: [edit, detail]
+  view_field: name
+  coll: nb_helpdesk_sla_configs
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - name
+    - priority
+    - responseTimeMinutes
+    - resolveTimeMinutes
+    - businessHours
+    - isActive
+    - description
+    field_layout:
+    - '--- SLA Configuration ---'
+    - - name
+      - priority
+    - - businessHours
+      - isActive
+    - '--- Time Targets ---'
+    - - responseTimeMinutes
+      - resolveTimeMinutes
+    - '--- Description ---'
+    - - description
+    actions: [submit]
+
+- target: $sla_configs.table.fields.name
+  coll: nb_helpdesk_sla_configs
+  blocks:
+  - key: details
+    type: details
     coll: nb_helpdesk_sla_configs
-    blocks:
-      - key: form
-        type: createForm
-        resource:
-          binding: currentCollection
-        fields:
-          - priority
-          - response_time_minutes
-          - resolve_time_minutes
-          - is_active
-        field_layout:
-          - '--- SLA Settings ---'
-          - - priority
-            - is_active
-          - - response_time_minutes
-            - resolve_time_minutes
-        actions: [submit]
+    resource:
+      binding: currentRecord
+    fields:
+    - name
+    - priority
+    - responseTimeMinutes
+    - resolveTimeMinutes
+    - businessHours
+    - isActive
+    - description
+    field_layout:
+    - - name
+      - priority
+    - - businessHours
+      - isActive
+    - - responseTimeMinutes
+      - resolveTimeMinutes
+    - - description
 
-  # Knowledge Base page - Knowledge Base table
-  - target: $knowledge_base.table.actions.addNew
-    auto: [edit, detail]
-    view_field: title
-    coll: nb_helpdesk_knowledge_base
-    blocks:
-      - key: form
-        type: createForm
-        resource:
-          binding: currentCollection
-        fields:
-          - title
-          - content
-          - category
-          - author
-          - views
-        field_layout:
-          - '--- Article Info ---'
-          - - title
-            - category
-          - - author
-            - views
-          - '--- Content ---'
-          - - content
-        actions: [submit]
+# Knowledge Base popups
+- target: $knowledge_base.table.actions.addNew
+  auto: [edit, detail]
+  view_field: title
+  coll: nb_helpdesk_kb_articles
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - title
+    - content
+    - category
+    - author
+    - status
+    - views
+    - tags
+    field_layout:
+    - '--- Article Info ---'
+    - - title
+      - status
+    - - category
+      - author
+    - - tags
+    - '--- Content ---'
+    - - content
+    - '--- Stats ---'
+    - - views
+    actions: [submit]
+
+- target: $knowledge_base.table.fields.title
+  coll: nb_helpdesk_kb_articles
+  blocks:
+  - key: details
+    type: details
+    coll: nb_helpdesk_kb_articles
+    resource:
+      binding: currentRecord
+    fields:
+    - title
+    - category
+    - author
+    - status
+    - views
+    - tags
+    - content
+    - createdAt
+    field_layout:
+    - - title
+      - status
+    - - category
+      - author
+    - - views
+      - createdAt
+    - - tags
+    - - content

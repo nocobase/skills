@@ -1,268 +1,353 @@
 module: Helpdesk
-icon: customerserviceoutlined
-group: Helpdesk
+icon: customerServiceOutlined
 
 collections:
-  nb_helpdesk_users:
-    title: Users
+  nb_helpdesk_agents:
+    title: Agents
     fields:
-      - name: name
-        interface: input
-        title: Name
-      - name: email
-        interface: email
-        title: Email
-      - name: role
-        interface: select
-        title: Role
-        options:
-          - { value: admin, label: Admin }
-          - { value: agent, label: Agent }
-          - { value: user, label: User }
-      - name: department
-        interface: input
-        title: Department
-
-  nb_helpdesk_tickets:
-    title: Tickets
-    fields:
-      - name: title
-        interface: input
-        title: Title
-      - name: description
-        interface: textarea
-        title: Description
-      - name: priority
-        interface: select
-        title: Priority
-        options:
-          - { value: P0, label: P0 }
-          - { value: P1, label: P1 }
-          - { value: P2, label: P2 }
-          - { value: P3, label: P3 }
-      - name: status
-        interface: select
-        title: Status
-        options:
-          - { value: open, label: Open }
-          - { value: in_progress, label: In Progress }
-          - { value: resolved, label: Resolved }
-          - { value: closed, label: Closed }
-      - name: category
-        interface: select
-        title: Category
-        options:
-          - { value: bug, label: Bug }
-          - { value: feature, label: Feature }
-          - { value: support, label: Support }
-          - { value: question, label: Question }
-      - name: reporter
-        interface: m2o
-        title: Reporter
-        target: nb_helpdesk_users
-        foreignKey: reporter_id
-      - name: assignee
-        interface: m2o
-        title: Assignee
-        target: nb_helpdesk_users
-        foreignKey: assignee_id
-      - name: due_date
-        interface: date
-        title: Due Date
-      - name: resolution
-        interface: textarea
-        title: Resolution
+    - name: name
+      interface: input
+      title: Name
+    - name: email
+      interface: email
+      title: Email
+    - name: role
+      interface: select
+      title: Role
+      options: [Admin, Supervisor, Agent]
+    - name: department
+      interface: select
+      title: Department
+      options: [Technical Support, Customer Success, Sales, Billing]
+    - name: phone
+      interface: phone
+      title: Phone
+    - name: status
+      interface: select
+      title: Status
+      options: [Active, Inactive, On Leave]
+    - name: workload
+      interface: integer
+      title: Workload
+    - name: createdAt
+      interface: datetime
+      title: Created At
 
   nb_helpdesk_sla_configs:
     title: SLA Configs
     fields:
-      - name: priority
-        interface: select
-        title: Priority
-        options:
-          - { value: P0, label: P0 }
-          - { value: P1, label: P1 }
-          - { value: P2, label: P2 }
-          - { value: P3, label: P3 }
-      - name: response_time_minutes
-        interface: integer
-        title: Response Time (Minutes)
-      - name: resolve_time_minutes
-        interface: integer
-        title: Resolve Time (Minutes)
-      - name: is_active
-        interface: checkbox
-        title: Is Active
+    - name: name
+      interface: input
+      title: Name
+    - name: priority
+      interface: select
+      title: Priority
+      options: [P0-Critical, P1-High, P2-Medium, P3-Low]
+    - name: responseTimeMinutes
+      interface: integer
+      title: Response Time (min)
+    - name: resolveTimeMinutes
+      interface: integer
+      title: Resolve Time (min)
+    - name: businessHours
+      interface: select
+      title: Business Hours
+      options: [24x7, Weekdays 9-5, Weekdays 9-9]
+    - name: isActive
+      interface: checkbox
+      title: Is Active
+    - name: description
+      interface: textarea
+      title: Description
 
-  nb_helpdesk_knowledge_base:
-    title: Knowledge Base
+  nb_helpdesk_kb_categories:
+    title: KB Categories
     fields:
-      - name: title
-        interface: input
-        title: Title
-      - name: content
-        interface: textarea
-        title: Content
-      - name: category
-        interface: select
-        title: Category
-        options:
-          - { value: guide, label: Guide }
-          - { value: faq, label: FAQ }
-          - { value: troubleshoot, label: Troubleshoot }
-      - name: author
-        interface: m2o
-        title: Author
-        target: nb_helpdesk_users
-        foreignKey: author_id
-      - name: views
-        interface: integer
-        title: Views
+    - name: name
+      interface: input
+      title: Name
+    - name: description
+      interface: textarea
+      title: Description
+    - name: parentCategory
+      interface: m2o
+      title: Parent Category
+      target: nb_helpdesk_kb_categories
+    - name: sortOrder
+      interface: integer
+      title: Sort Order
+    - name: isActive
+      interface: checkbox
+      title: Is Active
+
+  nb_helpdesk_kb_articles:
+    title: KB Articles
+    fields:
+    - name: title
+      interface: input
+      title: Title
+    - name: content
+      interface: richText
+      title: Content
+    - name: category
+      interface: m2o
+      title: Category
+      target: nb_helpdesk_kb_categories
+    - name: author
+      interface: m2o
+      title: Author
+      target: nb_helpdesk_agents
+    - name: status
+      interface: select
+      title: Status
+      options: [Draft, Published, Archived]
+    - name: views
+      interface: integer
+      title: Views
+    - name: tags
+      interface: multipleSelect
+      title: Tags
+      options: [FAQ, Troubleshooting, How-To, Guide, API]
+    - name: createdAt
+      interface: datetime
+      title: Created At
+
+  nb_helpdesk_tickets:
+    title: Tickets
+    fields:
+    - name: ticketNo
+      interface: input
+      title: Ticket No
+    - name: title
+      interface: input
+      title: Title
+    - name: description
+      interface: textarea
+      title: Description
+    - name: status
+      interface: select
+      title: Status
+      options: [New, Open, In Progress, Resolved, Closed, Escalated]
+    - name: priority
+      interface: select
+      title: Priority
+      options: [P0-Critical, P1-High, P2-Medium, P3-Low]
+    - name: category
+      interface: select
+      title: Category
+      options: [Technical, Billing, General, Feature Request, Bug]
+    - name: assignee
+      interface: m2o
+      title: Assignee
+      target: nb_helpdesk_agents
+    - name: requesterEmail
+      interface: email
+      title: Requester Email
+    - name: createdAt
+      interface: datetime
+      title: Created At
 
 pages:
-  # Dashboard Page
-  - page: Dashboard
+- page: Dashboard
+  icon: dashboardoutlined
+  blocks:
+  - key: kpi_open_tickets
+    type: jsBlock
+    desc: Open Tickets KPI
+    file: ./js/kpi_open_tickets.js
+  - key: kpi_avg_resolution
+    type: jsBlock
+    desc: Avg Resolution Time KPI
+    file: ./js/kpi_avg_resolution.js
+  - key: kpi_sla_compliance
+    type: jsBlock
+    desc: SLA Compliance KPI
+    file: ./js/kpi_sla_compliance.js
+  - key: kpi_active_agents
+    type: jsBlock
+    desc: Active Agents KPI
+    file: ./js/kpi_active_agents.js
+  - key: chart_status
+    type: chart
+    chart_config: ./charts/chart_status.yaml
+  - key: chart_priority
+    type: chart
+    chart_config: ./charts/chart_priority.yaml
+  - key: chart_trend
+    type: chart
+    chart_config: ./charts/chart_trend.yaml
+  - key: chart_workload
+    type: chart
+    chart_config: ./charts/chart_workload.yaml
+  - key: chart_categories
+    type: chart
+    chart_config: ./charts/chart_categories.yaml
+  layout:
+  - - kpi_open_tickets: 6
+    - kpi_avg_resolution: 6
+    - kpi_sla_compliance: 6
+    - kpi_active_agents: 6
+  - - chart_status: 12
+    - chart_priority: 12
+  - - chart_trend
+  - - chart_workload: 14
+    - chart_categories: 10
+
+- page: Tickets
+  icon: fileoutlined
+  coll: nb_helpdesk_tickets
+  blocks:
+  - key: filterForm
+    type: filterForm
     coll: nb_helpdesk_tickets
-    icon: dashboardoutlined
-    blocks:
-      - key: filterForm
-        type: filterForm
-        coll: nb_helpdesk_tickets
-        fields:
-          - field: title
-            label: Search
-            filterPaths: [title, description]
-          - status
-          - priority
-      - key: table
-        type: table
-        coll: nb_helpdesk_tickets
-        fields:
-          - title
-          - priority
-          - status
-          - category
-          - reporter
-          - assignee
-          - due_date
-          - createdAt
-        actions: [filter, refresh, addNew]
-        recordActions: [edit, delete]
-    layout:
-      - - filterForm
-      - - table
-
-  # Tickets Page
-  - page: Tickets
+    fields:
+    - field: title
+      filterPaths: [title, ticketNo]
+      label: Search
+    - field: status
+    - field: priority
+  - key: table
+    type: table
     coll: nb_helpdesk_tickets
-    icon: filetextoutlined
-    blocks:
-      - key: filterForm
-        type: filterForm
-        coll: nb_helpdesk_tickets
-        fields:
-          - field: title
-            label: Search
-            filterPaths: [title, description]
-          - status
-          - priority
-      - key: table
-        type: table
-        coll: nb_helpdesk_tickets
-        fields:
-          - title
-          - priority
-          - status
-          - category
-          - reporter
-          - assignee
-          - due_date
-          - createdAt
-        actions: [filter, refresh, addNew, export, import]
-        recordActions: [edit, delete]
-    layout:
-      - - filterForm
-      - - table
+    fields:
+    - ticketNo
+    - title
+    - status
+    - priority
+    - category
+    - assignee
+    - requesterEmail
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - type: popup
+      title: View
+      ref: $tickets.table.fields.ticketNo
+    - type: popup
+      title: Edit
+      ref: $tickets.table.actions.addNew
+    - delete
+  layout:
+  - - filterForm
+  - - table
 
-  # Users Page
-  - page: Users
-    coll: nb_helpdesk_users
-    icon: useroutlined
-    blocks:
-      - key: filterForm
-        type: filterForm
-        coll: nb_helpdesk_users
-        fields:
-          - field: name
-            label: Search
-            filterPaths: [name, email, department]
-          - role
-      - key: table
-        type: table
-        coll: nb_helpdesk_users
-        fields:
-          - name
-          - email
-          - role
-          - department
-          - createdAt
-        actions: [filter, refresh, addNew, export, import]
-        recordActions: [edit, delete]
-    layout:
-      - - filterForm
-      - - table
+- page: Agents
+  icon: teamoutlined
+  coll: nb_helpdesk_agents
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_helpdesk_agents
+    fields:
+    - field: name
+      filterPaths: [name, email]
+      label: Search
+    - field: status
+    - field: role
+  - key: table
+    type: table
+    coll: nb_helpdesk_agents
+    fields:
+    - name
+    - email
+    - role
+    - department
+    - phone
+    - status
+    - workload
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - type: popup
+      title: View
+      ref: $agents.table.fields.name
+    - type: popup
+      title: Edit
+      ref: $agents.table.actions.addNew
+    - delete
+  layout:
+  - - filterForm
+  - - table
 
-  # SLA Configs Page
-  - page: SLA Configs
+- page: SLA Configs
+  icon: clockCircleoutlined
+  coll: nb_helpdesk_sla_configs
+  blocks:
+  - key: filterForm
+    type: filterForm
     coll: nb_helpdesk_sla_configs
-    icon: clockcircleoutlined
-    blocks:
-      - key: filterForm
-        type: filterForm
-        coll: nb_helpdesk_sla_configs
-        fields:
-          - priority
-          - is_active
-      - key: table
-        type: table
-        coll: nb_helpdesk_sla_configs
-        fields:
-          - priority
-          - response_time_minutes
-          - resolve_time_minutes
-          - is_active
-          - createdAt
-        actions: [filter, refresh, addNew, export, import]
-        recordActions: [edit, delete]
-    layout:
-      - - filterForm
-      - - table
+    fields:
+    - field: name
+      filterPaths: [name]
+      label: Search
+    - field: priority
+    - field: isActive
+  - key: table
+    type: table
+    coll: nb_helpdesk_sla_configs
+    fields:
+    - name
+    - priority
+    - responseTimeMinutes
+    - resolveTimeMinutes
+    - businessHours
+    - isActive
+    - description
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - type: popup
+      title: View
+      ref: $sla_configs.table.fields.name
+    - type: popup
+      title: Edit
+      ref: $sla_configs.table.actions.addNew
+    - delete
+  layout:
+  - - filterForm
+  - - table
 
-  # Knowledge Base Page
-  - page: Knowledge Base
-    coll: nb_helpdesk_knowledge_base
-    icon: bookoutlined
-    blocks:
-      - key: filterForm
-        type: filterForm
-        coll: nb_helpdesk_knowledge_base
-        fields:
-          - field: title
-            label: Search
-            filterPaths: [title, content]
-          - category
-          - author
-      - key: table
-        type: table
-        coll: nb_helpdesk_knowledge_base
-        fields:
-          - title
-          - category
-          - author
-          - views
-          - createdAt
-        actions: [filter, refresh, addNew, export, import]
-        recordActions: [edit, delete]
-    layout:
-      - - filterForm
-      - - table
+- page: Knowledge Base
+  icon: bookoutlined
+  coll: nb_helpdesk_kb_articles
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_helpdesk_kb_articles
+    fields:
+    - field: title
+      filterPaths: [title, content]
+      label: Search
+    - field: status
+    - field: category
+  - key: table
+    type: table
+    coll: nb_helpdesk_kb_articles
+    fields:
+    - title
+    - category
+    - author
+    - status
+    - views
+    - tags
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - type: popup
+      title: View
+      ref: $knowledge_base.table.fields.title
+    - type: popup
+      title: Edit
+      ref: $knowledge_base.table.actions.addNew
+    - delete
+  layout:
+  - - filterForm
+  - - table

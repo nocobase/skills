@@ -1,0 +1,4 @@
+title: Tickets by Category
+type: bar
+sql_file: ./charts/chart_workload.sql
+render_file: ./charts/chart_workload_render.js

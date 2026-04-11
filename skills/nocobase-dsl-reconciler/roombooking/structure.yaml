@@ -1,0 +1,277 @@
+module: Room Booking
+icon: calendaroutlined
+
+collections:
+  nb_booking_departments:
+    title: Departments
+    fields:
+    - name: name
+      interface: input
+      title: Department Name
+      required: true
+    - name: code
+      interface: input
+      title: Dept Code
+      required: true
+    - name: manager
+      interface: input
+      title: Manager Name
+    - name: email
+      interface: email
+      title: Contact Email
+    - name: phone
+      interface: phone
+      title: Contact Phone
+    - name: description
+      interface: textarea
+      title: Description
+    - name: status
+      interface: select
+      title: Status
+      options: [Active, Inactive]
+      default: Active
+
+  nb_booking_rooms:
+    title: Rooms
+    fields:
+    - name: name
+      interface: input
+      title: Room Name
+      required: true
+    - name: code
+      interface: input
+      title: Room Code
+      required: true
+    - name: capacity
+      interface: integer
+      title: Capacity
+      required: true
+    - name: location
+      interface: input
+      title: Location
+    - name: roomType
+      interface: select
+      title: Room Type
+      options: [Meeting, Conference, Training, Interview]
+    - name: department
+      interface: m2o
+      title: Managing Department
+      target: nb_booking_departments
+      targetField: name
+    - name: hasProjector
+      interface: checkbox
+      title: Has Projector
+    - name: hasVideoConf
+      interface: checkbox
+      title: Has Video Conference
+    - name: status
+      interface: select
+      title: Status
+      options: [Available, Maintenance, Unavailable]
+      default: Available
+
+  nb_booking_equipment:
+    title: Equipment
+    fields:
+    - name: name
+      interface: input
+      title: Equipment Name
+      required: true
+    - name: code
+      interface: input
+      title: Asset Code
+      required: true
+    - name: type
+      interface: select
+      title: Equipment Type
+      options: [Projector, TV, Whiteboard, VideoConf, Audio, Others]
+    - name: room
+      interface: m2o
+      title: Assigned Room
+      target: nb_booking_rooms
+      targetField: name
+    - name: serialNumber
+      interface: input
+      title: Serial Number
+    - name: purchaseDate
+      interface: datetime
+      title: Purchase Date
+    - name: status
+      interface: select
+      title: Status
+      options: [Available, In Use, Maintenance, Retired]
+      default: Available
+    - name: notes
+      interface: textarea
+      title: Notes
+
+  nb_booking_bookings:
+    title: Bookings
+    fields:
+    - name: title
+      interface: input
+      title: Meeting Title
+      required: true
+    - name: room
+      interface: m2o
+      title: Room
+      target: nb_booking_rooms
+      targetField: name
+      required: true
+    - name: requester
+      interface: input
+      title: Requester Name
+      required: true
+    - name: department
+      interface: m2o
+      title: Requesting Department
+      target: nb_booking_departments
+      targetField: name
+    - name: startTime
+      interface: datetime
+      title: Start Time
+      required: true
+    - name: endTime
+      interface: datetime
+      title: End Time
+      required: true
+    - name: purpose
+      interface: textarea
+      title: Meeting Purpose
+    - name: attendees
+      interface: integer
+      title: Number of Attendees
+    - name: status
+      interface: select
+      title: Status
+      options: [Pending, Approved, Rejected, Cancelled, Completed]
+      default: Pending
+
+pages:
+- page: Dashboard
+  icon: dashboardoutlined
+  blocks:
+  - key: kpi_total
+    type: jsBlock
+    file: ./js/kpi_total_bookings.js
+  - key: kpi_rooms
+    type: jsBlock
+    file: ./js/kpi_active_rooms.js
+  - key: kpi_today
+    type: jsBlock
+    file: ./js/kpi_today_bookings.js
+  - key: kpi_pending
+    type: jsBlock
+    file: ./js/kpi_pending_approvals.js
+  - key: chart_1
+    type: chart
+    chart_config: ./charts/chart_1.yaml
+  - key: chart_2
+    type: chart
+    chart_config: ./charts/chart_2.yaml
+  - key: chart_3
+    type: chart
+    chart_config: ./charts/chart_3.yaml
+  - key: chart_4
+    type: chart
+    chart_config: ./charts/chart_4.yaml
+  - key: chart_5
+    type: chart
+    chart_config: ./charts/chart_5.yaml
+  layout:
+  - - kpi_total
+    - kpi_rooms
+    - kpi_today
+    - kpi_pending
+  - - chart_1
+    - chart_2
+  - - chart_3
+    - chart_4
+    - chart_5
+
+- page: Departments
+  icon: teamoutlined
+  coll: nb_booking_departments
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_booking_departments
+    fields:
+    - field: name
+      filterPaths: [name]
+    - status
+  - key: table
+    type: table
+    coll: nb_booking_departments
+    fields: [name, code, manager, email, status, createdAt]
+    actions: [filter, refresh, addNew]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
+
+- page: Rooms
+  icon: homeoutlined
+  coll: nb_booking_rooms
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_booking_rooms
+    fields:
+    - field: name
+      filterPaths: [name]
+    - roomType
+    - status
+  - key: table
+    type: table
+    coll: nb_booking_rooms
+    fields: [name, code, capacity, location, roomType, department, status, createdAt]
+    actions: [filter, refresh, addNew]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
+
+- page: Equipment
+  icon: tooloutlined
+  coll: nb_booking_equipment
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_booking_equipment
+    fields:
+    - field: name
+      filterPaths: [name]
+    - type
+    - status
+  - key: table
+    type: table
+    coll: nb_booking_equipment
+    fields: [name, code, type, room, serialNumber, status, createdAt]
+    actions: [filter, refresh, addNew]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
+
+- page: Bookings
+  icon: calendaroutlined
+  coll: nb_booking_bookings
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_booking_bookings
+    fields:
+    - field: title
+      filterPaths: [title]
+    - status
+    - startTime
+  - key: table
+    type: table
+    coll: nb_booking_bookings
+    fields: [title, room, requester, department, startTime, endTime, attendees, status]
+    actions: [filter, refresh, addNew]
+    recordActions: [edit, delete]
+  layout:
+  - - filterForm
+  - - table
