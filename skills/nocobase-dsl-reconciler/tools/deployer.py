@@ -817,6 +817,35 @@ def deploy(mod_dir: str, force: bool = False, plan_only: bool = False):
                     f"FIX: redeploy with --force, or check enhance.yaml blocks"
                 )
 
+    # ── Filter-stats hint (pages with select fields but no jsBlock filter) ──
+    for ps in structure.get("pages", []):
+        page_name = ps.get("page", "")
+        if "dashboard" in page_name.lower():
+            continue
+        blocks = ps.get("blocks", [])
+        has_table = any(b.get("type") == "table" for b in blocks)
+        has_filter_js = any(b.get("type") == "jsBlock" and "filter" in (b.get("key", "") + b.get("desc", "")).lower() for b in blocks)
+        if not has_table or has_filter_js:
+            continue
+        # Check if collection has select fields
+        page_coll = ps.get("coll", "")
+        select_fields = []
+        coll_def = structure.get("collections", {}).get(page_coll, {})
+        for fd in coll_def.get("fields", []):
+            if isinstance(fd, dict) and fd.get("interface") == "select":
+                select_fields.append(fd.get("name", ""))
+        if not select_fields and page_coll:
+            try:
+                meta = nb.field_meta(page_coll)
+                select_fields = [k for k, v in meta.items() if v.get("interface") == "select"]
+            except Exception:
+                pass
+        if select_fields:
+            post_warnings.append(
+                f"Page '{page_name}' has select fields ({', '.join(select_fields[:3])}) but no filter-stats jsBlock. "
+                f"TIP: cp templates/filter-stats.js js/filter_{slugify(page_name)}.js — edit CONFIG then add jsBlock to structure.yaml"
+            )
+
     if post_errors:
         print(f"\n  ── Post-deploy errors ──")
         for e in post_errors:
