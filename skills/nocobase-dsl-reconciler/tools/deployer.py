@@ -1457,17 +1457,22 @@ def _fill_block(nb: NocoBase, block_uid: str, grid_uid: str,
                 nb.update_model(block_uid, {"chartSettings": {"configure": config}})
                 sql = config.get("query", {}).get("sql", "")
                 if sql:
-                    import re
+                    # Save SQL template (don't run — table may not exist yet)
                     nb.s.post(f"{nb.base}/api/flowSql:save", json={
                         "type": "selectRows", "uid": block_uid,
                         "dataSourceKey": "main", "sql": sql, "bind": {},
                     }, timeout=30)
-                    clean = re.sub(r"\{%\s*if\s+[^%]*%\}.*?\{%\s*endif\s*%\}", "", sql, flags=re.DOTALL)
-                    clean = "\n".join(l for l in clean.split("\n") if "{{" not in l and "{%" not in l)
-                    nb.s.post(f"{nb.base}/api/flowSql:run", json={
-                        "type": "selectRows", "uid": block_uid,
-                        "dataSourceKey": "main", "sql": clean, "bind": {},
-                    }, timeout=30)
+                    # Try to run (best-effort, ignore errors for missing tables)
+                    try:
+                        import re
+                        clean = re.sub(r"\{%\s*if\s+[^%]*%\}.*?\{%\s*endif\s*%\}", "", sql, flags=re.DOTALL)
+                        clean = "\n".join(l for l in clean.split("\n") if "{{" not in l and "{%" not in l)
+                        nb.s.post(f"{nb.base}/api/flowSql:run", json={
+                            "type": "selectRows", "uid": block_uid,
+                            "dataSourceKey": "main", "sql": clean, "bind": {},
+                        }, timeout=15)
+                    except Exception:
+                        pass  # table may not exist yet
                     print(f"      + chart: {config_file}")
 
     # ── Actions not created by compose ──
