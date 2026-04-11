@@ -196,6 +196,67 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
     for ps in structure.get("pages", []):
         _check_js_refs(ps.get("blocks", []), ps.get("page", "?"))
 
+    # ── SQL validation (charts + KPI) ──
+    import re
+    # Get all existing table names
+    try:
+        all_tables = {c["name"] for c in
+                      nb.s.get(f"{nb.base}/api/collections:list",
+                               params={"paginate": "false"}, timeout=30).json().get("data", [])}
+        # Also include tables being created in this deploy
+        all_tables.update(coll_defs.keys())
+    except Exception:
+        all_tables = set()
+
+    def _validate_sql(sql: str, source: str):
+        """Check SQL for references to non-existent tables."""
+        if not sql or not all_tables:
+            return
+        # Extract table names from FROM and JOIN clauses
+        table_refs = re.findall(
+            r'(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)',
+            sql, re.IGNORECASE)
+        for tbl in table_refs:
+            if tbl.lower() in ('select', 'where', 'group', 'order', 'having',
+                               'limit', 'union', 'as', 'on', 'and', 'or', 'not',
+                               'case', 'when', 'then', 'else', 'end', 'with',
+                               'sla_check', 'true', 'false', 'null'):
+                continue  # SQL keywords / CTE names
+            if tbl not in all_tables:
+                errors.append(f"SQL references non-existent table '{tbl}' ({source})")
+
+    for ps in structure.get("pages", []):
+        page_name = ps.get("page", "?")
+        for bs in ps.get("blocks", []):
+            # Chart SQL
+            chart_file = bs.get("chart_config", "")
+            if chart_file and (mod / chart_file).exists():
+                try:
+                    if chart_file.endswith((".yaml", ".yml")):
+                        chart_spec = yaml.safe_load((mod / chart_file).read_text()) or {}
+                        sql_file = chart_spec.get("sql_file", "")
+                        if sql_file and (mod / sql_file).exists():
+                            sql = (mod / sql_file).read_text()
+                            _validate_sql(sql, f"chart {chart_file} → {sql_file}")
+                    else:
+                        config = json.loads((mod / chart_file).read_text())
+                        sql = config.get("query", {}).get("sql", "")
+                        _validate_sql(sql, f"chart {chart_file}")
+                except Exception:
+                    pass
+
+            # KPI JS — extract SQL from CONFIG.sql in JS file
+            js_file = bs.get("file", "")
+            if js_file and bs.get("type") == "jsBlock" and (mod / js_file).exists():
+                try:
+                    js_code = (mod / js_file).read_text()
+                    # Find SQL in CONFIG.sql = `...`
+                    sql_match = re.search(r'sql:\s*`([^`]+)`', js_code)
+                    if sql_match:
+                        _validate_sql(sql_match.group(1), f"KPI {js_file}")
+                except Exception:
+                    pass
+
     # ── Build plan summary ──
     pages = structure.get("pages", [])
     for ps in pages:
