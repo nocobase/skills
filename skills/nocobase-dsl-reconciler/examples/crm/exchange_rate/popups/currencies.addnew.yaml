@@ -1,0 +1,31 @@
+target: $exchange_rate_copy.currencies.actions.addNew
+field: addnew
+field_uid: 58b21bd1c7d
+block_key: currencies
+blocks:
+- key: reference
+  type: reference
+  template_uid: fggawimkpeo
+  template_name: 'Form (Add new): Currencies'
+  reference_mode: reference
+  template_content:
+    key: createForm
+    type: createForm
+    coll: nb_cbo_currencies
+    fields:
+    - name
+    - code
+    - current_rate
+    - symbol
+    field_layout:
+    - - name
+    - - col:
+        - code
+        - symbol
+        size: 24
+    - - current_rate
+    actions:
+    - submit
+layout:
+- - reference
+mode: drawer

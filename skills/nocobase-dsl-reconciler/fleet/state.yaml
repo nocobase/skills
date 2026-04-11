@@ -1,0 +1,294 @@
+group_id: 358303582650373
+pages:
+  dashboard:
+    route_id: 358303582650374
+    page_uid: xbjmom2wtts
+    tab_uid: 6bcfo7mj7x7
+    grid_uid: 6ibx30dbh89
+    blocks:
+      recent_maintenance:
+        uid: 2bagg7ux31q
+        type: table
+        grid_uid: ''
+        fields:
+          vehicle:
+            wrapper: hg2b38de0a5
+            field: i9ahp3lyua9
+          type:
+            wrapper: i6e1ehfjt4c
+            field: j4rspatwwhi
+          date:
+            wrapper: x2c2vk9ya97
+            field: fij8ajf54bb
+          status:
+            wrapper: unqievhmhu1
+            field: 5iu6ovvpg8f
+          cost:
+            wrapper: 68o1uvp69oi
+            field: prmdlthqna3
+        actions:
+          filter:
+            uid: 445abbo675m
+          refresh:
+            uid: 6wnr8or4o9x
+          link:
+            uid: ovizptypbe6
+      upcoming_trips:
+        uid: vap4iq6onty
+        type: table
+        grid_uid: ''
+        fields:
+          vehicle:
+            wrapper: nu5lft20net
+            field: 0mxkfufxv3c
+          driver:
+            wrapper: kqewdvp9coj
+            field: 310pb2or13w
+          start_date:
+            wrapper: ti32c5th3k0
+            field: guzrc5zmt0d
+          status:
+            wrapper: 6m5p30we3w0
+            field: psjbz1mfemn
+          purpose:
+            wrapper: e1rmfxnihgn
+            field: 0dbjgzwpbto
+        actions:
+          filter:
+            uid: 4a2ywbw83bp
+          refresh:
+            uid: nzcb4n7gp7l
+          link:
+            uid: ggbm710tyde
+  vehicles:
+    route_id: 358303586844672
+    page_uid: 1gf16k68a4c
+    tab_uid: tspzqhcbdfj
+    grid_uid: luh34r4ozu2
+    blocks:
+      filterForm:
+        uid: rl6355xf8rw
+        type: filterForm
+        grid_uid: 8x8dvcqfes2
+        fields:
+          type:
+            wrapper: l5glsdy41rf
+            field: 4m34eq76lri
+          plate_no:
+            wrapper: sq38wn32y6v
+            field: z9fdooqilbj
+          status:
+            wrapper: xqwbjw68gt7
+            field: qr0fo1jtjyp
+      table:
+        uid: 34dwu86cqin
+        type: table
+        grid_uid: ''
+        fields:
+          type:
+            wrapper: ggcyhdgb701
+            field: eg8htcrafw1
+          mileage:
+            wrapper: 9hvlc6on6y2
+            field: q64z8nwcrk8
+          status:
+            wrapper: 8ucvd9jg85q
+            field: 9kaetugt6oi
+          model:
+            wrapper: by0jyb86lso
+            field: j2mkfpylt0n
+          plate_no:
+            wrapper: 3s57p0js4yv
+            field: 9lwme6l101q
+          brand:
+            wrapper: 233hp81d41m
+            field: wuuy8a8mkb6
+          year:
+            wrapper: eepk0iyk6ia
+            field: a6f112zc9dw
+          fuel_type:
+            wrapper: a0f6riliqvm
+            field: wpl96khx94m
+        actions:
+          filter:
+            uid: oavwa2nr04g
+          refresh:
+            uid: d75bov3ym1h
+          addNew:
+            uid: txm4bs6s6hw
+        record_actions:
+          delete:
+            uid: rhsab2360it
+          edit:
+            uid: 1kkqo7gwe6e
+  drivers:
+    route_id: 358303588941827
+    page_uid: y16ur12swif
+    tab_uid: emcvd4waxd8
+    grid_uid: llam6jqb2my
+    blocks:
+      filterForm:
+        uid: e0j3pm0969k
+        type: filterForm
+        grid_uid: 5hig0ng7wx7
+        fields:
+          name:
+            wrapper: ks01kontoad
+            field: nghu4d1igmz
+          status:
+            wrapper: fa70dadauxn
+            field: f7rn17ympmp
+      table:
+        uid: 73heu9tftr8
+        type: table
+        grid_uid: ''
+        fields:
+          email:
+            wrapper: udk7beipbcs
+            field: 7b2ec5djlaw
+          status:
+            wrapper: rud0idf572f
+            field: 33ao6n7z5sj
+          license_no:
+            wrapper: mrl4i4n26qw
+            field: 31aowel9pb9
+          assigned_vehicle:
+            wrapper: s7wf9uh0cu2
+            field: uz4qsljay5t
+          name:
+            wrapper: tjivtt8ie3u
+            field: hfhmpum8pv5
+          phone:
+            wrapper: hpw54n7f50z
+            field: tchviy0hqnx
+        actions:
+          filter:
+            uid: 8t9npznhewm
+          refresh:
+            uid: hx7mvrwxf3j
+          addNew:
+            uid: rvkojv52np1
+        record_actions:
+          delete:
+            uid: vsavbnhvwsv
+          edit:
+            uid: 4lazoxfrzfr
+  maintenance:
+    route_id: 358303591038978
+    page_uid: s32gu30jhua
+    tab_uid: llfuhn0mf5o
+    grid_uid: ykwpavb80qe
+    blocks:
+      filterForm:
+        uid: xkbqwcwgj8l
+        type: filterForm
+        grid_uid: 4tzoc68s2xw
+        fields:
+          type:
+            wrapper: w3s1w38k54g
+            field: we0ewxlmbx4
+          vehicle:
+            wrapper: reccurxd5vt
+            field: lu1hvwdfn5e
+          status:
+            wrapper: x8gic76jyhs
+            field: pw0md0zlagf
+      table:
+        uid: q58qh81d9ii
+        type: table
+        grid_uid: ''
+        fields:
+          cost:
+            wrapper: f1ecoyztdxp
+            field: ea0x6tjjpp0
+          date:
+            wrapper: ymod4xvbz1z
+            field: csokd8yvqgi
+          type:
+            wrapper: 3f09nppup8o
+            field: wmilvbsped0
+          status:
+            wrapper: 7uguzex3md0
+            field: mdjldwm46lc
+          vehicle:
+            wrapper: z6svxtsuv0u
+            field: uoctegdj6hu
+          mileage_at_service:
+            wrapper: xd2y98mprb5
+            field: qg8f62fbpzu
+          next_due_date:
+            wrapper: g0dvolu2rmj
+            field: fmfgvgp0wcq
+        actions:
+          filter:
+            uid: d3tybl7lo2r
+          refresh:
+            uid: y2ibbipc9mu
+          addNew:
+            uid: oqh95v7g037
+        record_actions:
+          delete:
+            uid: liso7zefde5
+          edit:
+            uid: 9slmeb92ueu
+  trips:
+    route_id: 358303593136130
+    page_uid: ez9v24prpev
+    tab_uid: h9piu9sy5vz
+    grid_uid: o0ufh8bsumv
+    blocks:
+      filterForm:
+        uid: jfdjhz3bgo5
+        type: filterForm
+        grid_uid: hgu1ws8y8de
+        fields:
+          driver:
+            wrapper: fww2b18nbb6
+            field: upfttepg7os
+          vehicle:
+            wrapper: m16eabnvl7r
+            field: whzc7s7crmd
+          status:
+            wrapper: tz3d3q971tr
+            field: 9qslua9scrm
+      table:
+        uid: ge8j4gkn6fr
+        type: table
+        grid_uid: ''
+        fields:
+          end_mileage:
+            wrapper: 3jnl21wk89o
+            field: xssezbias1v
+          driver:
+            wrapper: 0yfnwt3estv
+            field: l4hk3b6595v
+          start_date:
+            wrapper: cqcmdk2ssam
+            field: 4e0wmxeysi6
+          start_mileage:
+            wrapper: yxi5dshnsnf
+            field: f06sstyhtda
+          end_date:
+            wrapper: 23hecpbs3uq
+            field: aploqeraavp
+          status:
+            wrapper: 0igttj8pg45
+            field: 9fvhpbolab7
+          purpose:
+            wrapper: 9182b91cf2g
+            field: qrmegfbh8lq
+          vehicle:
+            wrapper: 7xuroqh4rnv
+            field: h26atd1enwh
+        actions:
+          filter:
+            uid: ylb49tt9bdl
+          refresh:
+            uid: j2lqjyuggyc
+          addNew:
+            uid: 4ivztjb3pkj
+        record_actions:
+          delete:
+            uid: 5y328c9fugg
+          edit:
+            uid: 5rhl4e4o2je

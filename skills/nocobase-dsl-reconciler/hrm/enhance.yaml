@@ -1,0 +1,152 @@
+popups:
+  # Employees - addNew popup with auto edit + detail
+  - target: $employees.employees_table.actions.addNew
+    auto: [edit, detail]
+    view_field: name
+    coll: nb_hrm_employees
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - employee_no
+          - department
+          - position
+          - email
+          - phone
+          - hire_date
+          - status
+          - salary
+        field_layout:
+          - '--- Basic Info ---'
+          - - name
+            - employee_no
+          - - department
+            - position
+          - '--- Contact Info ---'
+          - - email
+            - phone
+          - '--- Employment ---'
+          - - hire_date
+            - status
+          - - salary
+        actions: [submit]
+
+  # Departments - addNew popup with auto edit + detail
+  - target: $departments.departments_table.actions.addNew
+    auto: [edit, detail]
+    view_field: name
+    coll: nb_hrm_departments
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - code
+          - manager
+          - headcount
+          - description
+        field_layout:
+          - '--- Department Info ---'
+          - - name
+            - code
+          - - manager
+            - headcount
+          - '--- Description ---'
+          - - description
+        actions: [submit]
+
+  # Attendance - addNew popup with auto edit + detail
+  - target: $attendance.attendance_table.actions.addNew
+    auto: [edit, detail]
+    view_field: employee
+    coll: nb_hrm_attendance
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - employee
+          - date
+          - check_in
+          - check_out
+          - status
+          - remark
+        field_layout:
+          - '--- Attendance Record ---'
+          - - employee
+            - date
+          - - check_in
+            - check_out
+          - - status
+          - '--- Notes ---'
+          - - remark
+        actions: [submit]
+
+  # Leave Requests - addNew popup with auto edit + detail
+  - target: $leave_requests.leave_table.actions.addNew
+    auto: [edit, detail]
+    view_field: employee
+    coll: nb_hrm_leave_requests
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - employee
+          - leave_type
+          - start_date
+          - end_date
+          - days
+          - reason
+          - status
+          - approver
+        field_layout:
+          - '--- Leave Application ---'
+          - - employee
+            - leave_type
+          - - start_date
+            - end_date
+          - - days
+            - status
+          - '--- Details ---'
+          - - reason
+          - - approver
+        actions: [submit]
+
+  # Payroll - addNew popup with auto edit + detail
+  - target: $payroll.payroll_table.actions.addNew
+    auto: [edit, detail]
+    view_field: employee
+    coll: nb_hrm_payroll
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - employee
+          - period
+          - base_salary
+          - bonus
+          - deduction
+          - net_salary
+          - status
+        field_layout:
+          - '--- Payroll Period ---'
+          - - employee
+            - period
+          - '--- Salary Components ---'
+          - - base_salary
+            - bonus
+          - - deduction
+            - net_salary
+          - '--- Status ---'
+          - - status
+        actions: [submit]

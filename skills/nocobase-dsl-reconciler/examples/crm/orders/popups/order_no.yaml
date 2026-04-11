@@ -1,0 +1,62 @@
+target: $orders_copy.table.fields.order_no
+field: order_no
+field_uid: 86635af8b0c
+blocks:
+- key: details
+  type: details
+  coll: nb_crm_quotations
+  resource_binding:
+    associationName: nb_crm_orders.quotation
+    sourceId: '{{ctx.popup.record.id}}'
+  field_template:
+    templateUid: lvqgjptnoio
+    templateName: 'Details: Quotations'
+    targetUid: 6c640569c31
+    mode: reference
+- key: details_2
+  type: details
+  coll: nb_crm_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - order_no
+  - currency
+  - status
+  - paid_amount
+  - unpaid_amount
+  - order_amount
+  - exchange_rate
+  - shipping_address
+  - payment_status
+  field_layout:
+  - - order_no
+  - - currency
+    - exchange_rate
+    - status
+  - - order_amount
+    - unpaid_amount
+    - paid_amount
+  - - shipping_address
+  - - payment_status
+  actions:
+  - edit
+- key: details_3
+  type: details
+  coll: nb_crm_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  js_items:
+  - desc: Order Status Flow Block
+    file: ./js/popup_orders_order_no_details_3_order_status_flow_block.js
+layout:
+- - col:
+    - details_2
+    - details_3
+    size: 24
+- - details
+popups:
+- field: edit
+  field_uid: 615a60a2e2e
+  popup_page_uid: 58594b70479
+  block_key: details_2
+mode: drawer

@@ -1,0 +1,125 @@
+popups:
+  # Vehicles page - addNew popup with auto edit + detail
+  - target: $vehicles.table.actions.addNew
+    auto: [edit, detail]
+    view_field: plate_no
+    coll: nb_fleet_vehicles
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - plate_no
+          - model
+          - brand
+          - year
+          - type
+          - status
+          - mileage
+          - fuel_type
+        field_layout:
+          - '--- Basic Information ---'
+          - - plate_no
+            - model
+          - - brand
+            - year
+          - '--- Specifications ---'
+          - - type
+            - fuel_type
+          - - status
+            - mileage
+        actions: [submit]
+
+  # Drivers page - addNew popup with auto edit + detail
+  - target: $drivers.table.actions.addNew
+    auto: [edit, detail]
+    view_field: name
+    coll: nb_fleet_drivers
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - name
+          - license_no
+          - phone
+          - email
+          - status
+          - assigned_vehicle
+        field_layout:
+          - '--- Personal Information ---'
+          - - name
+            - license_no
+          - '--- Contact Details ---'
+          - - phone
+            - email
+          - '--- Assignment ---'
+          - - status
+            - assigned_vehicle
+        actions: [submit]
+
+  # Maintenance page - addNew popup with auto edit + detail
+  - target: $maintenance.table.actions.addNew
+    auto: [edit, detail]
+    view_field: vehicle
+    coll: nb_fleet_maintenance
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - vehicle
+          - type
+          - date
+          - cost
+          - mileage_at_service
+          - next_due_date
+          - status
+        field_layout:
+          - '--- Service Details ---'
+          - - vehicle
+            - type
+          - - date
+            - status
+          - '--- Cost & Mileage ---'
+          - - cost
+            - mileage_at_service
+          - - next_due_date
+        actions: [submit]
+
+  # Trips page - addNew popup with auto edit + detail
+  - target: $trips.table.actions.addNew
+    auto: [edit, detail]
+    view_field: vehicle
+    coll: nb_fleet_trips
+    blocks:
+      - key: form
+        type: createForm
+        resource:
+          binding: currentCollection
+        fields:
+          - vehicle
+          - driver
+          - start_date
+          - end_date
+          - start_mileage
+          - end_mileage
+          - purpose
+          - status
+        field_layout:
+          - '--- Trip Assignment ---'
+          - - vehicle
+            - driver
+          - '--- Schedule ---'
+          - - start_date
+            - end_date
+          - '--- Mileage ---'
+          - - start_mileage
+            - end_mileage
+          - '--- Details ---'
+          - - purpose
+            - status
+        actions: [submit]
