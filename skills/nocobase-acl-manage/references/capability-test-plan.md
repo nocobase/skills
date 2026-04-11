@@ -1,60 +1,80 @@
-﻿# ACL Capability Verification Matrix
+# ACL Capability Verification Matrix
 
-This document defines executable capability checks for `nocobase-acl-manage` by MCP calls only.
+This document defines executable capability checks for `nocobase-acl-manage` v2 using MCP calls only.
 
 ## Scope
 
-Included in this matrix:
+Included:
 
-- phase 1: smoke + base capabilities
-- phase 2: system/data-source/route configuration capabilities
+- protocol readiness
+- role domain
+- global role-mode domain
+- permission domain
+- user domain (strict and guarded path)
+- risk-domain data prerequisites
 
 Excluded:
 
-- deprecated AI-permission branch
+- deprecated AI permission branch
+- non-MCP direct mutation
 
 ## Capability IDs
 
-| ID | Layer | Capability | Validation Mode |
+| ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
 | ACL-SMOKE-001 | protocol | initialize + tools/list + tools/call | runtime |
-| ACL-BASE-001 | base | create role | runtime |
-| ACL-BASE-002 | base | bind user to role | contract + optional runtime |
-| ACL-BASE-003 | base | set default role | contract + optional runtime/high-impact |
-| ACL-BASE-004 | base | role mode `default` | contract + optional runtime/high-impact |
-| ACL-BASE-005 | base | role mode `allow-use-union` | contract + optional runtime/high-impact |
-| ACL-BASE-006 | base | role mode `only-use-union` | contract + optional runtime/high-impact |
-| ACL-SYS-001 | system snippets | interface configuration (`ui.*`) | runtime |
-| ACL-SYS-002 | system snippets | plugin lifecycle (`pm`) | runtime |
-| ACL-SYS-003 | system snippets | plugin configuration (`pm.*`) | runtime |
-| ACL-SYS-004 | system snippets | app lifecycle (`app`) | runtime |
-| ACL-SYS-005 | system snippets | per-plugin snippet example | runtime |
-| ACL-DS-001 | data source | global strategy actions (all tables) | runtime |
-| ACL-DS-002 | data source | per-resource strategy (single table) | runtime |
-| ACL-ROUTE-001 | route | route permission capability | contract + optional runtime |
+| ACL-ROLE-001 | role | create blank role | runtime |
+| ACL-ROLE-002 | role | audit roles read chain | runtime |
+| ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
+| ACL-GLOBAL-002 | global-role-mode | set global role mode = `default` | contract + optional runtime/high-impact |
+| ACL-GLOBAL-003 | global-role-mode | set global role mode = `allow-use-union` | contract + optional runtime/high-impact |
+| ACL-GLOBAL-004 | global-role-mode | set global role mode = `only-use-union` | contract + optional runtime/high-impact |
+| ACL-GLOBAL-005 | global-role-mode | rollback global role mode | optional runtime/high-impact |
+| ACL-PERM-001 | permission | system snippets write/readback | runtime |
+| ACL-PERM-002 | permission | data-source global strategy | runtime |
+| ACL-PERM-003 | permission | data-source resource independent strategy | runtime |
+| ACL-PERM-004 | permission | desktop route permission capability | contract + optional runtime |
+| ACL-PERM-005 | permission | role collections listing with `filter.dataSourceKey` | runtime |
+| ACL-USER-001 | user | strict mode blocks membership write without dedicated tool | contract/runtime |
+| ACL-USER-002 | user | guarded fallback membership write using `resource_update` | optional runtime |
+| ACL-USER-003 | user | membership readback via `users.roles` or `roles.users` | runtime |
+| ACL-RISK-001 | risk | risk assessment data prerequisites available | runtime |
 
 ## Status Semantics
 
 - `pass`: capability verified successfully
-- `warn`: capability tool contract exists, but runtime verification was skipped due missing optional input or safety switch
-- `fail`: capability not available or runtime verification failed
+- `warn`: contract exists but runtime verification skipped by safety switches or optional inputs
+- `fail`: capability missing or runtime verification failed
 
 ## Runtime Inputs
 
 Required:
 
 - MCP endpoint URL
-- bearer token (or env var)
+- bearer token (or token env var)
 
-Optional for deeper verification:
+Optional:
 
-- `TestUserId` for user-role binding runtime call
-- `DesktopRouteKey` for route mutation runtime call
-- `EnableHighImpactWrites` for default-role and role-mode runtime call
+- `TestUserId` for membership checks
+- `DesktopRouteKey` for route write path
+- `EnableHighImpactWrites` for global role-mode writes
 - `EnableRouteWrites` for route write path
+- `EnableGuardedUserWrites` for guarded membership fallback
 
-## Safety
+## Safety Rules For Tests
 
-- ACL calls are executed through JSON-RPC `tools/call` only.
-- No direct ACL REST fallback (`/api/*`) is used in this test workflow.
-- Temporary role is auto-cleaned when `roles_destroy` exists.
+- execute through MCP JSON-RPC `tools/call` only
+- no direct ACL REST fallback
+- keep high-impact writes behind explicit switches
+- restore global role mode when modified during tests
+- cleanup temporary test role when possible
+
+## Critical Assertions
+
+- For `ACL-PERM-003` with scope mode `all` or `own`, write payload must include explicit non-null `scopeId`.
+- For `ACL-PERM-003` default-all field policy, write payload must include explicit non-empty field-name arrays for selected field-configurable actions (`create`, `view`, `update` in default runtime check).
+- For `ACL-PERM-003`, when multiple field-configurable actions are selected, readback should verify full field-set parity for each selected action.
+- `ACL-PERM-003` readback must verify:
+  - action `scopeId` is non-null and equals the resolved scope id
+  - appended scope payload contains matching scope key (for example, `all` or `own`)
+  - action field list length matches resolved collection field count for default-all actions

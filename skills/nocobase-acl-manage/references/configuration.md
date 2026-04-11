@@ -35,7 +35,7 @@ General rule:
 - If a layer is intentionally empty, write down the reason.
 - Do not leave global strategy empty, field lists empty, or scope empty by accident.
 - "No scope" is only valid when the business truly wants full-row access for that action.
-- "No field restriction" is only valid when the business truly accepts full-field access for that action.
+- "No field restriction" must be implemented with explicit full field-name lists, not `fields: []`.
 
 ## 1. Create or update the role itself
 
@@ -168,7 +168,7 @@ Realistic-role guidance:
 
 - Independent permissions should usually include not only action names but also an explicit field strategy for important actions.
 - For business roles, `view`, `create`, `update`, and `export` often need different field lists.
-- If fields are omitted intentionally, confirm that full-field access is acceptable for that action.
+- If full-field access is intended, resolve collection fields and write explicit non-empty field arrays for that action.
 
 ## 8. Configure field permissions
 

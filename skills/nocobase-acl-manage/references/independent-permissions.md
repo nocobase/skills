@@ -30,6 +30,17 @@ Configuration rule:
 - Do not guess action names.
 - **For realistic business roles, do not stop at action names alone.**
 
+Collection targeting UX rule:
+
+- user may provide business-facing table names (for example, `orders`, `customers`, `invoice`)
+- do not force user to provide exact technical collection names
+- resolve actual collection names from the selected data source collection list
+- data source defaults to `main` unless user specifies another data source
+- if resolution is ambiguous or empty, ask for clarification before write
+- when scope is `all` or `own`, resolve built-in scope id and write explicit action scope binding
+- do not keep `scopeId=null` when user selected `all` or `own`
+- before write, confirm data source + resolved collections + actions + scope
+
 ## MANDATORY: Field Configuration
 
 **When configuring independent permissions, field configuration is MANDATORY, not optional.**
@@ -45,7 +56,8 @@ Configuration rule:
 
 ### Field configuration rules:
 
-- **Empty `fields: []` means "no field restrictions" (full access)**, not "unconfigured"
+- **Empty `fields: []` is not a full-field marker in this skill policy.**
+- default behavior: when user does not provide field-level restrictions, resolve and write explicit full-field lists for each selected action
 - For each action that supports field configuration (create, view, update, export), explicitly decide:
   - Which fields this role can access
   - Why these fields (document the decision)
@@ -93,11 +105,11 @@ From `availableActions:list`, these actions have `allowConfigureFields: true`:
   "actions": [
     {
       "name": "view",
-      "fields": []  // Intentional: full field access for analysis
+      "fields": ["id", "productId", "quantity", "customerName", "status", "createdAt", "updatedAt"]
     },
     {
       "name": "export",
-      "fields": []  // Intentional: full field access for reporting
+      "fields": ["id", "productId", "quantity", "customerName", "status", "createdAt", "updatedAt"]
     }
   ]
 }
@@ -131,9 +143,16 @@ Independent permissions should usually include:
 - **Field lists for each action** (after fetching collection fields)
 - Scope decision for actions that need row-level restrictions
 
+Operational default:
+
+- if user only provides collection + action + scope, do not block execution for missing field lists
+- apply full-field access as default and state this in the result
+- for `view`, default to full-field visibility unless user explicitly restricts fields
+- implement full-field default as explicit field-name arrays resolved from collection metadata
+
 **Decision documentation:**
-- If fields are omitted intentionally (empty array), document that full-field access is acceptable and why
-- If scope is omitted intentionally (null scopeId), document that full-row access is acceptable and why
+- If fields are intentionally empty (`fields: []`), document this as a deliberate no-field permission decision and why
+- If full-row access is intended, bind built-in `all` scope via non-null `scopeId` and document why
 
 ### Common mistakes to avoid:
 

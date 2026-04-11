@@ -151,7 +151,7 @@ Implications:
 
 - Treating a role as "configured" after only setting action names without deciding field lists, scopes, route access, and system snippets.
 - Leaving global strategy empty without confirming that independent permissions intentionally cover all required collections.
-- Leaving field lists empty by accident and thereby granting full-field access where the business expected tighter control.
+- Leaving field lists empty by accident and thereby removing field visibility/editability where the business expected normal access.
 - Leaving scopes empty by accident and thereby granting full-row access where the business expected organizational isolation.
 - Treating union-role behavior as a role-definition problem before checking system role mode.
 - Treating route visibility as a data-table ACL bug before checking route bindings.

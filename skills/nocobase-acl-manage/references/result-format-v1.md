@@ -1,104 +1,176 @@
 # ACL Task Result Format v1
 
-Use this template to keep skill output user-friendly and task-focused.
+Use this template for `nocobase-acl-manage` v2 outputs.
 
-Do not return raw MCP payloads as the primary message.
+Do not return raw MCP payloads as the primary user message.
 
 ## Output Blocks
 
 1. `Task Summary`
-2. `Applied Changes`
-3. `Readback Evidence`
-4. `Risk And Boundary`
-5. `Next Action`
+2. `Capability Path`
+3. `Applied Changes`
+4. `Readback Evidence`
+5. `Risk Card`
+6. `Boundary And Next Action`
 
 ## Block Details
 
-### 1) Task Summary
+## 1) Task Summary
 
-- task name
-- target role
+- canonical task name
+- target object (role, user, global)
 - data source
 - execution mode (`safe` or `fast`)
 - final status (`success`, `partial`, `blocked`)
+- for `permission.data-source.resource.set`, include `collection_hints` and `resolved_collection_names`
 
-### 2) Applied Changes
+## 2) Capability Path
 
-List only business changes, not low-level JSON:
+Required fields:
 
-- role created or reused
-- snippets changed
-- default role changed
-- global actions changed
+- write path used (`acl-specific` or `guarded-generic`)
+- resolved runtime tools
+- fallback reason when guarded path is used
 
-### 3) Readback Evidence
+Example:
 
-Return concise evidence points:
+- `path: acl-specific`
+- `tools: roles_update -> roles_get`
 
-- role exists
-- snippets equals expected list
+Or:
+
+- `path: guarded-generic`
+- `tools: resource_update(users) -> resource_list(users.roles)`
+- `reason: no dedicated role-user membership write tool`
+
+## 3) Applied Changes
+
+List business-facing changes only:
+
+- role created/updated/destroyed
+- global role mode switched
+- snippets adjusted
+- routes granted/removed
+- global strategy or resource strategy updated
+- membership assigned/unassigned
+- when task is `role.create-blank`, include explicit next-step permission assignment prompt (do not ask role-type selection)
+- when task is `permission.data-source.resource.set`, include the pre-write confirmation digest that was approved:
+  - data source
+  - resolved collections
+  - actions
+  - scope
+
+## 4) Readback Evidence
+
+Keep evidence concise and verifiable:
+
+- global mode string confirmed
+- role exists and expected fields changed
+- snippets equal expected set
 - strategy actions include expected actions
-- default role flag confirmed
+- membership appears in `users.roles` or `roles.users` readback
+- for resource permission writes, each resolved collection has matching action/scope readback
+- for scope=`all|own`, readback should show non-null `scopeId` and matching `scope.key`
+- for default-all field policy, readback should show explicit non-empty field arrays on field-configurable actions
+- include per-action field coverage summary for selected field-configurable actions (for example, `view: 19/19 fields`)
 
-### 4) Risk And Boundary
+## 5) Risk Card
 
-- high-impact change warnings
-- capability boundary message if blocked
+Always include, even if no write occurred.
 
-Preferred boundary message in Chinese:
+Fields:
 
-- `该场景当前暂不支持通过 MCP 完成。建议先在 NocoBase 管理页面中处理该权限配置。`
-- `如你愿意，我可以继续给你列出页面操作步骤（入口位置 + 字段填写建议）。`
+- risk level: `low`/`medium`/`high`
+- triggers: list of detected risk factors
+- impact scope: who may be affected
+- mitigation: 1-3 concrete actions
 
-### 5) Next Action
+Typical triggers:
 
-Offer one to three concrete options:
+- global role mode switched to union mode
+- broad snippets (`ui.*`, `pm`, `pm.*`, `app`)
+- broad destructive data actions (`destroy`, broad import/export)
+- large user-role assignment batch
 
-- continue with another task
-- provide UI click-path guidance
-- rerun in dry-run mode for review
+## 6) Boundary And Next Action
+
+If blocked:
+
+- explain capability or governance boundary in plain language
+- provide one fallback route (UI or guarded path if policy allows)
+- for `permission.data-source.resource.set`, if data source/actions/scope are missing, or collection hints cannot be resolved, mark status as `blocked` and ask for missing/clearer inputs before write
+- for `permission.data-source.resource.set`, if scope=`all|own` but resolved scope binding is missing, mark status as `blocked` before write
+- for `permission.data-source.resource.set`, if full-field default cannot be resolved to explicit field lists, mark status as `blocked` before write
+- for `permission.data-source.resource.set`, if user has not approved the pre-write confirmation summary, keep status as `blocked`
+
+If successful:
+
+- provide 1-3 concrete next actions
+- for `role.create-blank`, first next action should be permission assignment categories:
+  - `system snippets`
+  - `desktop routes`
+  - `data-source global strategy`
+  - `data-source resource strategy`
+
+Preferred boundary wording:
+
+- `This operation is blocked by current capability or governance policy in this skill.`
+- `You can complete it in NocoBase admin UI, or enable guarded fallback if the task supports it.`
+- `If you want, I can provide exact UI navigation steps and field suggestions.`
+
+Preferred Chinese wording:
+
+- `该操作受当前能力或治理策略限制，暂时无法直接执行。`
+- `你可以先在 NocoBase 管理后台完成，或在支持时启用受控兜底路径。`
+- `如果你愿意，我可以继续给出精确的页面操作步骤和字段建议。`
 
 ## Example Success Output
 
 ```text
 Task Summary
-- task: onboard-role
-- role: sales_manager
-- data source: main
+- task: global.role-mode.set
+- target: global
 - mode: safe
 - status: success
 
+Capability Path
+- path: acl-specific
+- tools: roles_set_system_role_mode -> roles_check
+
 Applied Changes
-- created role sales_manager
-- set snippets: ui.*
-- set global actions: view, create, update
+- switched global role mode to allow-use-union
 
 Readback Evidence
-- role readback succeeded
-- snippets match expected list
-- global strategy actions confirmed
+- roles_check.roleMode = allow-use-union
 
-Risk And Boundary
-- no capability boundary hit
+Risk Card
+- level: high
+- triggers: global union mode enabled
+- impact: multi-role users may gain broader effective permissions
+- mitigation:
+  1) run risk.assess-system
+  2) audit high-privilege role assignments
 
-Next Action
-1. 是否把该角色设为默认角色
-2. 是否继续补充路由权限
+Boundary And Next Action
+1. Compare current role differences with role.compare
+2. Run risk.assess-system for post-change governance review
 ```
 
-## Example Boundary Output
+## Example Blocked Output
 
 ```text
 Task Summary
-- task: bind-user-role
-- role: sales_manager
+- task: user.assign-role
+- target: role=sales_reader user=42
 - status: blocked
 
-Risk And Boundary
-- 该场景当前暂不支持通过 MCP 完成。建议先在 NocoBase 管理页面中处理该权限配置。
-- 如你愿意，我可以继续给你列出页面操作步骤（入口位置 + 字段填写建议）。
+Capability Path
+- path: acl-specific
+- tools: none for dedicated role-user write
 
-Next Action
-1. 我给你页面操作步骤
-2. 继续执行当前支持的 ACL 任务
+Boundary And Next Action
+- This operation is blocked by current capability or governance policy in this skill.
+- You can complete it in NocoBase admin UI, or enable guarded fallback if approved.
+1. Enable guarded fallback for this task
+2. Ask me for exact admin UI click-path
 ```
