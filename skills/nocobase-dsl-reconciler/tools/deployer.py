@@ -2856,52 +2856,144 @@ def scaffold(mod_dir: str, module_name: str, pages: list[str]):
 
     page_specs = []
     enhance_popups = []
+    mod_slug = slugify(module_name)
+
+    # Find KPI card template
+    template_dir = Path(__file__).parent / "templates"
+    if not template_dir.exists():
+        template_dir = mod.parent / "templates"  # fallback
+
     for page_name in pages:
         page_key = slugify(page_name)
-        coll = f"nb_{slugify(module_name)}_{page_key}"
-        page_spec = {
-            "page": page_name,
-            "icon": "fileoutlined",
-            "coll": coll,
-            "blocks": [
-                {
-                    "key": "filterForm",
-                    "type": "filterForm",
-                    "coll": coll,
-                    "fields": [
-                        {"field": "name", "filterPaths": ["name"]},
-                    ],
-                },
-                {
-                    "key": "table",
-                    "type": "table",
-                    "coll": coll,
-                    "fields": ["name", "status", "createdAt"],
-                    "actions": ["filter", "refresh", "addNew"],
-                    "recordActions": ["edit", "delete"],
-                },
-            ],
-            "layout": [["filterForm"], ["table"]],
-        }
-        page_specs.append(page_spec)
+        is_dashboard = "dashboard" in page_name.lower()
 
-        enhance_popups.append({
-            "target": f"${page_key}.table.actions.addNew",
-            "auto": ["edit", "detail"],
-            "view_field": "name",
-            "coll": coll,
-            "blocks": [{
-                "key": "form",
-                "type": "createForm",
-                "resource": {"binding": "currentCollection"},
-                "fields": ["name", "status"],
-                "field_layout": [
-                    "--- Basic Info ---",
-                    ["name", "status"],
+        if is_dashboard:
+            # ── Dashboard: KPI cards + charts ──
+            kpi_colors = [
+                ("kpi_1", "#3b82f6", "#eff6ff", "#bfdbfe"),
+                ("kpi_2", "#10b981", "#ecfdf5", "#6ee7b7"),
+                ("kpi_3", "#f59e0b", "#fffbeb", "#fcd34d"),
+                ("kpi_4", "#8b5cf6", "#f5f3ff", "#c4b5fd"),
+            ]
+            kpi_labels = ["Total Records", "Active Rate", "Pending Items", "Completed"]
+
+            # Generate KPI JS files from template
+            kpi_template = ""
+            if (template_dir / "kpi_card.js").exists():
+                kpi_template = (template_dir / "kpi_card.js").read_text()
+
+            for i, (key, color, bg, stroke) in enumerate(kpi_colors):
+                if kpi_template:
+                    # Replace CONFIG in template
+                    kpi_js = kpi_template.replace(
+                        "label: 'Total Employees'", f"label: '{kpi_labels[i]}'"
+                    ).replace(
+                        "'#3b82f6'", f"'{color}'"
+                    ).replace(
+                        "'#eff6ff'", f"'{bg}'"
+                    ).replace(
+                        "'#bfdbfe'", f"'{stroke}'"
+                    ).replace(
+                        f"reportUid: 'hrm_kpi_employees'",
+                        f"reportUid: '{mod_slug}_kpi_{i+1}'"
+                    ).replace(
+                        "FROM nb_hrm_employees",
+                        f"FROM nb_{mod_slug}_TODO  -- ← CHANGE THIS"
+                    )
+                else:
+                    kpi_js = f"// KPI Card {i+1}: {kpi_labels[i]}\n// TODO: copy from templates/kpi_card.js and edit CONFIG\nctx.render(ctx.React.createElement('div', null, '{kpi_labels[i]}'));"
+                (mod / "js" / f"{key}.js").write_text(kpi_js)
+
+            # Generate chart files
+            for ci in range(1, 3):
+                chart_key = f"chart_{ci}"
+                (mod / "charts" / f"{chart_key}.yaml").write_text(
+                    f"sql_file: ./charts/{chart_key}.sql\nrender_file: ./charts/{chart_key}_render.js\n"
+                )
+                (mod / "charts" / f"{chart_key}.sql").write_text(
+                    f"-- Chart {ci}: TODO edit this query\n"
+                    f"SELECT 'Category A' AS label, 10 AS value\n"
+                    f"UNION ALL SELECT 'Category B', 20\n"
+                    f"UNION ALL SELECT 'Category C', 15\n"
+                )
+                chart_render = ""
+                if (template_dir / "chart_render.js").exists():
+                    chart_render = (template_dir / "chart_render.js").read_text()
+                else:
+                    chart_render = (
+                        "var data = ctx.data.objects || [];\n"
+                        "return {\n"
+                        f"  title: {{ text: 'Chart {ci}', left: 'center' }},\n"
+                        "  xAxis: { type: 'category', data: data.map(function(d) { return d.label; }) },\n"
+                        "  yAxis: { type: 'value' },\n"
+                        "  series: [{ type: 'bar', data: data.map(function(d) { return d.value; }) }]\n"
+                        "};\n"
+                    )
+                (mod / "charts" / f"{chart_key}_render.js").write_text(chart_render)
+
+            page_spec = {
+                "page": page_name,
+                "icon": "dashboardoutlined",
+                "blocks": [
+                    {"key": k, "type": "jsBlock", "desc": f"KPI Card {i+1}", "file": f"./js/{k}.js"}
+                    for i, (k, _, _, _) in enumerate(kpi_colors)
+                ] + [
+                    {"key": f"chart_{ci}", "type": "chart", "chart_config": f"./charts/chart_{ci}.yaml"}
+                    for ci in range(1, 3)
                 ],
-                "actions": ["submit"],
-            }],
-        })
+                "layout": [
+                    [{"kpi_1": 6}, {"kpi_2": 6}, {"kpi_3": 6}, {"kpi_4": 6}],
+                    [{"chart_1": 12}, {"chart_2": 12}],
+                ],
+            }
+            page_specs.append(page_spec)
+            # No enhance popup for dashboard
+        else:
+            # ── Regular page: filterForm + table ──
+            coll = f"nb_{mod_slug}_{page_key}"
+            page_spec = {
+                "page": page_name,
+                "icon": "fileoutlined",
+                "coll": coll,
+                "blocks": [
+                    {
+                        "key": "filterForm",
+                        "type": "filterForm",
+                        "coll": coll,
+                        "fields": [
+                            {"field": "name", "filterPaths": ["name"]},
+                        ],
+                    },
+                    {
+                        "key": "table",
+                        "type": "table",
+                        "coll": coll,
+                        "fields": ["name", "status", "createdAt"],
+                        "actions": ["filter", "refresh", "addNew"],
+                        "recordActions": ["edit", "delete"],
+                    },
+                ],
+                "layout": [["filterForm"], ["table"]],
+            }
+            page_specs.append(page_spec)
+
+            enhance_popups.append({
+                "target": f"${page_key}.table.actions.addNew",
+                "auto": ["edit", "detail"],
+                "view_field": "name",
+                "coll": coll,
+                "blocks": [{
+                    "key": "form",
+                    "type": "createForm",
+                    "resource": {"binding": "currentCollection"},
+                    "fields": ["name", "status"],
+                    "field_layout": [
+                        "--- Basic Info ---",
+                        ["name", "status"],
+                    ],
+                    "actions": ["submit"],
+                }],
+            })
 
     structure = {
         "module": module_name,

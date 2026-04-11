@@ -1,0 +1,297 @@
+group_id: 343361410433024
+pages:
+  dashboard:
+    route_id: 358303708479493
+    page_uid: 7w6qiefbyrd
+    tab_uid: d33g6gmh811
+    grid_uid: o6gdwhex16g
+    blocks:
+      dashboard_block:
+        uid: x93eo7516z5
+        type: jsBlock
+        grid_uid: ''
+        fields: {}
+  employees:
+    route_id: 358303708479495
+    page_uid: xph70wjclzy
+    tab_uid: hhzdycabtrj
+    grid_uid: nrthnu7jznr
+    blocks:
+      employees_filter:
+        uid: qj2mjf4lf0b
+        type: filterForm
+        grid_uid: f83a9h4n7pa
+        fields:
+          status:
+            wrapper: u962xuw24y0
+            field: 4a1a2bxv37o
+          name:
+            wrapper: 48p50woq7rp
+            field: s1hqav9aiv8
+          department:
+            wrapper: nrrka6wwm7y
+            field: qnkn6lwvn18
+      employees_table:
+        uid: o0ldy11tt8t
+        type: table
+        grid_uid: ''
+        fields:
+          employee_no:
+            wrapper: hcmgq4gq9h8
+            field: 4ruidrd7tio
+          hire_date:
+            wrapper: x21g3hmh7dy
+            field: n0e7wy8jbfh
+          phone:
+            wrapper: ir8gig2436y
+            field: xua0c7g5lrx
+          department:
+            wrapper: 91ol3eh3ry4
+            field: 10d0tlq5wq8
+          status:
+            wrapper: 65khnfdgtci
+            field: l6x2bnbhiig
+          salary:
+            wrapper: 3gxkrms4tvi
+            field: 4prnqwbqscw
+          position:
+            wrapper: 79zyetx47em
+            field: nenqb8407p4
+          email:
+            wrapper: quh2exluezc
+            field: er60f7vv7de
+          name:
+            wrapper: 9399ipfsh4w
+            field: cic37dea9vr
+        actions:
+          filter:
+            uid: ys1m0vu2m49
+          refresh:
+            uid: ln8dvr7u6ca
+          addNew:
+            uid: wf1x61z19pv
+        record_actions:
+          delete:
+            uid: up6pyi71q39
+          edit:
+            uid: dqo5t1z88t3
+  departments:
+    route_id: 358303710576640
+    page_uid: g8m15xuopvq
+    tab_uid: 9i4r0ltuuvq
+    grid_uid: mq9mibuqrly
+    blocks:
+      departments_filter:
+        uid: wbyccri53bc
+        type: filterForm
+        grid_uid: tyqxrrx7xl9
+        fields:
+          name:
+            wrapper: zt2d3fyg9wy
+            field: dwx0hh31r4s
+      departments_table:
+        uid: psjh8bs4i4x
+        type: table
+        grid_uid: ''
+        fields:
+          code:
+            wrapper: 6s9i09chuio
+            field: savr9l9k36i
+          manager:
+            wrapper: qennzxyn8iq
+            field: on3dfuutyzd
+          headcount:
+            wrapper: w82e2n7o9kh
+            field: l091vh8ksc1
+          description:
+            wrapper: rvdui7uj3lf
+            field: jjztti069vj
+          name:
+            wrapper: izywt3omuid
+            field: qpo6cylbk6z
+        actions:
+          filter:
+            uid: rdopoyeq08e
+          refresh:
+            uid: sdy8ajza7h5
+          addNew:
+            uid: p9p8l30m4k6
+        record_actions:
+          delete:
+            uid: lcwiuvjv7h1
+          edit:
+            uid: 2okd46eph8o
+  attendance:
+    route_id: 358303712673792
+    page_uid: 12gc4g0892g
+    tab_uid: 1u987eigq9v
+    grid_uid: dtwqyrlw3wc
+    blocks:
+      attendance_filter:
+        uid: wwmb2gm4vs6
+        type: filterForm
+        grid_uid: gazi7ddpye3
+        fields:
+          status:
+            wrapper: mn02leg8bi9
+            field: 14b818pip0e
+          date:
+            wrapper: xtx371rpoax
+            field: h1k9hs9pwd8
+          employee:
+            wrapper: 79q16skhkxj
+            field: 55schuobf4g
+      attendance_table:
+        uid: 9jaovsl0n2w
+        type: table
+        grid_uid: ''
+        fields:
+          status:
+            wrapper: pyzp1kbhb2w
+            field: wuvdnbgfqs0
+          date:
+            wrapper: q0vcnl32ub3
+            field: j7tkk6ponr0
+          check_out:
+            wrapper: x9rzchg6zkb
+            field: hctta6dxpdp
+          employee:
+            wrapper: kdgxsuuaorc
+            field: wri2nesvetc
+          check_in:
+            wrapper: d422wkwr8ch
+            field: 2lp6olb6rvu
+          remark:
+            wrapper: ku4dff0ic9t
+            field: 72rz7ihiya4
+        actions:
+          filter:
+            uid: 3jp5bod47jj
+          refresh:
+            uid: djxjydh6h2b
+          addNew:
+            uid: q8wsdck3cme
+        record_actions:
+          delete:
+            uid: orisqhe7yon
+          edit:
+            uid: efq6yz4b72m
+  leave_requests:
+    route_id: 358303712673794
+    page_uid: zoya78egyzk
+    tab_uid: sgpblgrdlx2
+    grid_uid: ndbdzl5bcxu
+    blocks:
+      leave_filter:
+        uid: 41la90nwqdc
+        type: filterForm
+        grid_uid: ezk15wjfi46
+        fields:
+          status:
+            wrapper: sct2nypvh6g
+            field: tpi7juuc3rr
+          leave_type:
+            wrapper: vg1dfj0eel4
+            field: uf6hn26w6hj
+          employee:
+            wrapper: o9l2jfzp78k
+            field: 459w6l56qha
+      leave_table:
+        uid: 57u04dxlufn
+        type: table
+        grid_uid: ''
+        fields:
+          days:
+            wrapper: 017fiiq64g0
+            field: ah4fub9xoaa
+          approver:
+            wrapper: tel6kmrqypc
+            field: yp0n1v371yx
+          end_date:
+            wrapper: 9npsjhkbqa1
+            field: l1c51910704
+          start_date:
+            wrapper: 8y0zzdy2poe
+            field: so9kcmif3w8
+          status:
+            wrapper: esg7vfddtf2
+            field: e8kqc97b78u
+          employee:
+            wrapper: px007o6hjky
+            field: umdva7o70tc
+          reason:
+            wrapper: z11p5xgpv34
+            field: blss05b4v0m
+          leave_type:
+            wrapper: ndd5udv126v
+            field: bykxd23navq
+        actions:
+          filter:
+            uid: idvg8srk4e8
+          refresh:
+            uid: 5q9fluo5yhs
+          addNew:
+            uid: dbkoa2f9182
+        record_actions:
+          delete:
+            uid: efd1l56tudj
+          edit:
+            uid: ruv9ansg45w
+  payroll:
+    route_id: 358303714770944
+    page_uid: ylkdjmyktx5
+    tab_uid: rq3u26gu9jc
+    grid_uid: pohzcaa4ohu
+    blocks:
+      payroll_filter:
+        uid: r015f1ocqrr
+        type: filterForm
+        grid_uid: 6j09sxoze33
+        fields:
+          status:
+            wrapper: 2a8hobsr1xg
+            field: 5stqxd6g56n
+          period:
+            wrapper: 7xmkbkz09m3
+            field: ufbtfaehqiv
+          employee:
+            wrapper: mqxldkc59qw
+            field: pc63w5h5etv
+      payroll_table:
+        uid: f1x7q7jopdw
+        type: table
+        grid_uid: ''
+        fields:
+          net_salary:
+            wrapper: 6f0y2kq3r78
+            field: 35xfpyw0tvf
+          status:
+            wrapper: m0kk567cfkj
+            field: lqxy68v614l
+          period:
+            wrapper: lx0aq8iam5o
+            field: p2xvpawpgiz
+          deduction:
+            wrapper: 1zepb8gzb7n
+            field: wwp3zhmmw2g
+          employee:
+            wrapper: 1o6r0gixuox
+            field: i80pou4ihli
+          base_salary:
+            wrapper: y0ikkrl0itu
+            field: jfm709odwj8
+          bonus:
+            wrapper: xn5ajhrx2u5
+            field: pj9jfadw3pr
+        actions:
+          filter:
+            uid: v5htgu67gwm
+          refresh:
+            uid: xpgn72tjs1i
+          addNew:
+            uid: o8ouu3h4emu
+        record_actions:
+          delete:
+            uid: w452n0xl50v
+          edit:
+            uid: w75ce76pkn6
