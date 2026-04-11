@@ -1,9 +1,0 @@
-tasks:
-- title: Activities Analysis
-  user: Show me activity trends and productivity metrics.
-  autoSend: true
-  system_file: ./ai/d120202a_task0.md
-- title: Morning Briefing
-  user: What's on my plate today?
-  autoSend: true
-  system_file: ./ai/d120202a_task1.md
