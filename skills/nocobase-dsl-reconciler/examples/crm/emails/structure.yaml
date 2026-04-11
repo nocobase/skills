@@ -1,0 +1,15 @@
+module: Emails Copy
+icon: fundoutlined
+group: Other Copy
+pages:
+- page: Emails Copy
+  coll: ''
+  icon: fundoutlined
+  blocks:
+  - key: reference
+    type: reference
+    template_uid: vj6vwmysk9t
+    template_name: 'Email table: Mail messages'
+    reference_mode: reference
+  layout:
+  - - table

@@ -1,0 +1,59 @@
+module: Leads Copy
+icon: fundoutlined
+group: Main Copy
+pages:
+- page: Leads Copy
+  coll: nb_crm_leads
+  icon: fundoutlined
+  blocks:
+  - key: table
+    type: table
+    coll: nb_crm_leads
+    dataScope:
+      logic: $and
+      items:
+      - path: status
+        operator: $eq
+        value: '{{ ctx.urlSearchParams.status }}'
+        noValue: false
+    fields:
+    - name
+    - source
+    - status
+    - industry
+    - owner
+    js_columns:
+    - title: Lead Name/Company
+      desc: Lead Info Column (Multi-field)
+      file: ./js/leads_table_col_lead_name_company.js
+    - title: Contact
+      desc: Lead Contact Column (Multi-field)
+      file: ./js/leads_table_col_contact.js
+    - title: AI Score
+      desc: AI Score Column
+      file: ./js/leads_table_col_ai_score.js
+    - title: Created
+      desc: Created Ago Column - Leads Module
+      file: ./js/leads_table_col_created.js
+    actions:
+    - filter
+    - refresh
+    - export
+    - import
+    - addNew
+    - type: ai
+      employee: viz
+      tasks_file: ./ai/6e318381_tasks.yaml
+  - key: filterForm
+    type: filterForm
+    fields:
+    - field: name
+      label: Search
+    js_items:
+    - desc: Leads Stats Filter Block
+      file: ./js/leads_filterForm_leads_stats_filter_block.js
+  layout:
+  - - col:
+      - filterForm
+      - table
+      size: 24

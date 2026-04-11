@@ -1,0 +1,61 @@
+field: edit
+field_uid: 615a60a2e2e
+block_key: details_2
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_crm_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - quotation
+  - currency
+  - exchange_rate
+  - order_amount
+  - owner
+  - shipping_address
+  - description
+  - order_date
+  - delivery_date
+  - actual_delivery_date
+  field_layout:
+  - - quotation
+  - - currency
+    - exchange_rate
+    - order_amount
+  - - owner
+  - - shipping_address
+  - - description
+  - - order_date
+    - delivery_date
+    - actual_delivery_date
+  actions:
+  - submit
+  linkage_rules:
+    value:
+    - key: d3rxlfzox52
+      title: Linkage rule
+      enable: true
+      condition:
+        logic: $and
+        items: []
+      actions:
+      - key: r4mhxlsel8c
+        name: linkageAssignField
+        params:
+          value:
+            field: oblabcxgzum
+            assignValue: '{{ ctx.formValues.quotation.currencyInfo.name }}'
+      - key: shxshn7eqy4
+        name: linkageAssignField
+        params:
+          value:
+            field: io82j4qnu07
+            assignValue: '{{ ctx.formValues.quotation.exchange_rate }}'
+      - key: keo3lxs632y
+        name: linkageAssignField
+        params:
+          value:
+            field: 1nyneky2xds
+            assignValue: '{{ ctx.formValues.quotation.total_amount }}'
+mode: drawer

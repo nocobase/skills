@@ -1,0 +1,18 @@
+target: $overview_copy.today_s_tasks.actions.addNew
+field: addnew
+field_uid: b59985c215d
+block_key: today_s_tasks
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_crm_activities
+  field_template:
+    templateUid: fpq7iu2da59
+    templateName: 'Form (Add new): Activities'
+    targetUid: b9e42f19aab
+    mode: reference
+  actions:
+  - submit
+  - type: ai
+    employee: dex
+mode: drawer
