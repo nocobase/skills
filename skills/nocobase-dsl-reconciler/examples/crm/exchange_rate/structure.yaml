@@ -1,0 +1,38 @@
+module: Exchange Rate Copy
+icon: fundoutlined
+group: Other Copy
+pages:
+- page: Exchange Rate Copy
+  coll: nb_crm_exchange_rates
+  icon: fundoutlined
+  blocks:
+  - key: exchange_rates
+    type: table
+    title: Exchange Rates
+    coll: nb_crm_exchange_rates
+    fields:
+    - currency_code
+    - currency
+    - rate_to_usd
+    - source
+    actions:
+    - filter
+    - refresh
+    - addNew
+    - bulkDelete
+  - key: currencies
+    type: table
+    title: Currencies
+    coll: nb_cbo_currencies
+    fields:
+    - name
+    - code
+    - symbol
+    - current_rate
+    actions:
+    - filter
+    - refresh
+    - addNew
+  layout:
+  - - currencies: 11
+    - exchange_rates: 13

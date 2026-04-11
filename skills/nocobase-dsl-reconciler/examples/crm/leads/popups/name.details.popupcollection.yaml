@@ -1,0 +1,34 @@
+field: popupcollection
+field_uid: 054fc25289c
+block_key: details
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_crm_leads
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - lost_reason
+  - status
+  field_layout:
+  - - lost_reason
+  - - status
+  actions:
+  - submit
+  linkage_rules:
+    value:
+    - key: wok5wju10qp
+      title: Linkage rule
+      enable: true
+      condition:
+        logic: $and
+        items: []
+      actions:
+      - key: 9ebvmlamd2x
+        name: linkageSetFieldProps
+        params:
+          value:
+            fields:
+            - a1cf8b75929
+            state: hiddenReservedValue
+mode: dialog

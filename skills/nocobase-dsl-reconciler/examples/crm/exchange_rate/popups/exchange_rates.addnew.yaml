@@ -1,0 +1,28 @@
+target: $exchange_rate_copy.exchange_rates.actions.addNew
+field: addnew
+field_uid: a482b544ed7
+block_key: exchange_rates
+blocks:
+- key: reference
+  type: reference
+  template_uid: ls0z7rdsrs3
+  template_name: 'Form (Add new): Exchange Rates'
+  reference_mode: reference
+  template_content:
+    key: createForm
+    type: createForm
+    coll: nb_crm_exchange_rates
+    fields:
+    - rate_to_usd
+    - currency
+    - effective_date
+    - source
+    field_layout:
+    - - rate_to_usd
+    - - currency
+    - - effective_date
+    actions:
+    - submit
+layout:
+- - reference
+mode: drawer
