@@ -2904,33 +2904,40 @@ def scaffold(mod_dir: str, module_name: str, pages: list[str]):
                     kpi_js = f"// KPI Card {i+1}: {kpi_labels[i]}\n// TODO: copy from templates/kpi_card.js and edit CONFIG\nctx.render(ctx.React.createElement('div', null, '{kpi_labels[i]}'));"
                 (mod / "js" / f"{key}.js").write_text(kpi_js)
 
-            # Generate chart files
-            for ci in range(1, 3):
-                chart_key = f"chart_{ci}"
+            # Generate 5 chart files with varied types
+            chart_types = [
+                ("chart_1", "bar",   "Bar Chart — e.g. count by category"),
+                ("chart_2", "pie",   "Pie Chart — e.g. distribution by status"),
+                ("chart_3", "line",  "Line Chart — e.g. trend over time"),
+                ("chart_4", "bar",   "Stacked Bar — e.g. breakdown comparison"),
+                ("chart_5", "pie",   "Donut Chart — e.g. proportion overview"),
+            ]
+            chart_renders = {
+                "bar": "var data = ctx.data.objects || [];\nreturn {\n  title: { text: 'TITLE', left: 'center', textStyle: { fontSize: 14 } },\n  tooltip: { trigger: 'axis' },\n  xAxis: { type: 'category', data: data.map(function(d) { return d.label; }), axisLabel: { rotate: 30 } },\n  yAxis: { type: 'value' },\n  series: [{ type: 'bar', data: data.map(function(d) { return d.value; }), itemStyle: { color: '#1677ff' } }]\n};",
+                "pie": "var data = ctx.data.objects || [];\nreturn {\n  title: { text: 'TITLE', left: 'center', textStyle: { fontSize: 14 } },\n  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },\n  series: [{ type: 'pie', radius: ['40%', '70%'], data: data.map(function(d) { return { name: d.label, value: d.value }; }), label: { show: true, formatter: '{b}\\n{d}%' } }]\n};",
+                "line": "var data = ctx.data.objects || [];\nreturn {\n  title: { text: 'TITLE', left: 'center', textStyle: { fontSize: 14 } },\n  tooltip: { trigger: 'axis' },\n  xAxis: { type: 'category', data: data.map(function(d) { return d.label; }) },\n  yAxis: { type: 'value' },\n  series: [{ type: 'line', data: data.map(function(d) { return d.value; }), smooth: true, areaStyle: { opacity: 0.1 }, itemStyle: { color: '#1677ff' } }]\n};",
+            }
+
+            for chart_key, chart_type, chart_desc in chart_types:
                 (mod / "charts" / f"{chart_key}.yaml").write_text(
                     f"sql_file: ./charts/{chart_key}.sql\nrender_file: ./charts/{chart_key}_render.js\n"
                 )
                 (mod / "charts" / f"{chart_key}.sql").write_text(
-                    f"-- Chart {ci}: TODO edit this query\n"
+                    f"-- {chart_desc}\n-- TODO: edit this query for your data\n"
                     f"SELECT 'Category A' AS label, 10 AS value\n"
                     f"UNION ALL SELECT 'Category B', 20\n"
                     f"UNION ALL SELECT 'Category C', 15\n"
+                    f"UNION ALL SELECT 'Category D', 8\n"
                 )
-                chart_render = ""
-                if (template_dir / "chart_render.js").exists():
-                    chart_render = (template_dir / "chart_render.js").read_text()
-                else:
-                    chart_render = (
-                        "var data = ctx.data.objects || [];\n"
-                        "return {\n"
-                        f"  title: {{ text: 'Chart {ci}', left: 'center' }},\n"
-                        "  xAxis: { type: 'category', data: data.map(function(d) { return d.label; }) },\n"
-                        "  yAxis: { type: 'value' },\n"
-                        "  series: [{ type: 'bar', data: data.map(function(d) { return d.value; }) }]\n"
-                        "};\n"
-                    )
-                (mod / "charts" / f"{chart_key}_render.js").write_text(chart_render)
+                render_js = chart_renders.get(chart_type, chart_renders["bar"])
+                render_js = render_js.replace("TITLE", chart_desc.split(" — ")[0])
+                (mod / "charts" / f"{chart_key}_render.js").write_text(render_js)
 
+            # Dashboard layout: CRM Analytics style
+            # Row 1: 4 KPI cards
+            # Row 2: chart_1 (large) + chart_2 (small)
+            # Row 3: chart_3 (full width)
+            # Row 4: chart_4 (large) + chart_5 (small)
             page_spec = {
                 "page": page_name,
                 "icon": "dashboardoutlined",
@@ -2938,12 +2945,14 @@ def scaffold(mod_dir: str, module_name: str, pages: list[str]):
                     {"key": k, "type": "jsBlock", "desc": f"KPI Card {i+1}", "file": f"./js/{k}.js"}
                     for i, (k, _, _, _) in enumerate(kpi_colors)
                 ] + [
-                    {"key": f"chart_{ci}", "type": "chart", "chart_config": f"./charts/chart_{ci}.yaml"}
-                    for ci in range(1, 3)
+                    {"key": ck, "type": "chart", "chart_config": f"./charts/{ck}.yaml"}
+                    for ck, _, _ in chart_types
                 ],
                 "layout": [
                     [{"kpi_1": 6}, {"kpi_2": 6}, {"kpi_3": 6}, {"kpi_4": 6}],
-                    [{"chart_1": 12}, {"chart_2": 12}],
+                    [{"chart_1": 15}, {"chart_2": 9}],
+                    ["chart_3"],
+                    [{"chart_4": 14}, {"chart_5": 10}],
                 ],
             }
             page_specs.append(page_spec)
