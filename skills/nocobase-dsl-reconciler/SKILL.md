@@ -59,6 +59,20 @@ Dashboard page auto-scaffolds 4 KPI cards + 5 charts. Edit:
 
 See `templates/kpi_card.js` for KPI template. See `examples/crm/analytics/` for chart examples.
 
+### Optional — Filter Stats Button Group
+
+For pages with select/status fields, add a jsBlock above the table for quick filtering:
+- Copy `templates/filter-stats.js` → `js/filter_<page>.js`
+- Edit CONFIG: `COLLECTION`, `GROUPS` (button labels + filter conditions), `TARGET_BLOCK_UID`
+- Add to structure.yaml as a jsBlock before the table
+
+```yaml
+- key: filter_stats
+  type: jsBlock
+  desc: Quick filter buttons
+  file: ./js/filter_orders.js
+```
+
 ## Commands
 
 ```bash
