@@ -1,21 +1,66 @@
 ---
 name: nocobase-dsl-reconciler
 description: >-
-  Use when the user wants to export NocoBase pages to YAML/JS specs,
-  deploy pages from specs, sync live changes back, or replicate modules
-  across NocoBase instances using a declarative DSL approach.
-  Does NOT handle interactive MCP tool calls — that is nocobase-ui-builder.
+  Build NocoBase applications from YAML + JS specs. Handles new system builds,
+  page exports, deployments, and cross-instance replication.
+  Trigger: user wants to build/create a system, module, or application on NocoBase.
 ---
 
-# NocoBase DSL Reconciler
+# NocoBase Application Builder
 
-Build NocoBase applications from YAML + JS specs. Deploy to any instance.
+## How to Respond to User Requests
 
-## Quick Start
+Read the user's message and pick ONE mode:
+
+| User says | Mode | What to do |
+|-----------|------|------------|
+| "Build me a helpdesk system" / "搭一个工单系统" | **Build** | Design collections + pages, scaffold, deploy in rounds |
+| "Add a field to the Tickets table" / "给xx加个字段" | **Modify** | Edit structure.yaml, deploy --force |
+| "Export the CRM pages" / "把页面导出来" | **Export** | Run exporter.py |
+| "Copy this page to another instance" | **Replicate** | Export → deploy on target |
+
+### Build Mode (most common)
+
+When user describes a system (even vaguely), DO THIS:
+
+**Step 1 — Design** (ask user to confirm before building):
+```
+Based on your description, here's my plan:
+
+Module: Helpdesk
+Pages: Dashboard, Tickets, Users, SLA Configs, Knowledge Base
+
+Collections:
+  nb_helpdesk_tickets: title, description, priority(P0-P3), status(open/in_progress/resolved/closed), ...
+  nb_helpdesk_users: name, email, role(admin/agent/user), ...
+  ...
+
+Dashboard: 4 KPI cards + 5 charts
+Each page: search filter + table + addNew/edit/detail popups
+
+Shall I start building? (I'll deploy Round 1 skeleton first, then add data and details)
+```
+
+**Step 2 — Build in Rounds** (after user confirms):
+- Round 1: Write structure.yaml + deploy skeleton → verify pages appear
+- Round 2: Insert test data → verify tables show data
+- Round 3: Write enhance.yaml + deploy popups → verify forms work
+- Round 4+: Customize Dashboard KPI SQL, chart SQL, detail popups
+
+**Step 3 — Report** each round result to user, ask before continuing.
+
+### Key Rule: Design First, Build After Confirmation
+
+Never start writing YAML without showing the plan to the user first.
+For vague requests like "帮我搭个系统", ask what the system is about, then propose a design.
+
+## Quick Start (for agents)
 
 ```bash
-# 1. Generate module scaffold
+# All tools are in ./tools/ directory
 cd tools
+
+# 1. Generate module scaffold (auto-creates Dashboard with KPI + charts)
 python deployer.py --new ../myapp "My App" --pages "Dashboard,Orders,Products,Customers,Reports"
 
 # 2. Edit the generated files:
