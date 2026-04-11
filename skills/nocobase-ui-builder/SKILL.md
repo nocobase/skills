@@ -12,7 +12,11 @@ description: >-
 
 # Start Here
 
-- Treat the live MCP schema as the source of truth.
+- Hard rules before you write:
+  1. `flow_surfaces_execute_dsl.requestBody` must stay an **object**; never stringify it.
+  2. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object.
+  3. For page authoring, field truth comes from `collections:get(appends=["fields"])`, not `collections.fields:list`.
+- Treat live MCP behavior as authoritative, but do **not** let a stale `flow_surfaces_execute_dsl.requestBody: string` display override the documented JSON-object envelope in this skill.
 - Minimum read set:
   1. Read [normative-contract.md](./references/normative-contract.md) first.
   2. Read [execution-checklist.md](./references/execution-checklist.md) second.
@@ -22,18 +26,21 @@ description: >-
 
 ## Routing
 
-- Whole-page create or replace -> simplified `executeDsl` page DSL.
+- Whole-page create or replace -> simplified `executeDsl` page DSL; whole-page public write path in this skill is `executeDsl` only.
 - Localized edit on an existing page/tab/popup/node -> low-level flow-surfaces APIs.
-- For any `flow_surfaces_*` MCP tool whose schema uses `requestBody`, pass the final business payload under `requestBody` as an **object**. Do not stringify it, and do not add an outer `{ values: ... }` wrapper.
-- `flow_surfaces_get` is a special case: it uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`) rather than `requestBody`.
-- Before every write or requestBody-based read, do a self-check:
-  1. the MCP envelope shape matches the tool schema (`requestBody` vs top-level locator)
-  2. every `target.uid` / `locator.uid` is a real live uid from readback, never the invented literal `"root"`
-- If a tool returns `params/requestBody must be object`, `params/requestBody must match exactly one schema in oneOf`, or `flowSurfaces uid 'root' not found`, treat that as a **tool-call-shape error first**, not as evidence that the inner DSL/resource structure is wrong.
+- For requestBody-based `flow_surfaces_*` tools, send the business payload under `requestBody` as an **object**. Do not stringify it or wrap it in `{ values: ... }`. `flow_surfaces_get` is the main exception: it uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`).
+- Before every write or requestBody-based read, verify two things first: the MCP envelope matches the tool schema, and every `target.uid` / `locator.uid` comes from live readback rather than the invented literal `"root"`.
+- If a tool returns `params/requestBody must be object`, `params/requestBody must match exactly one schema in oneOf`, or `flowSurfaces uid 'root' not found`, fix the **tool-call shape first**.
 - For actual MCP writes, prefer copying the **tool-call envelope** from `tool-shapes.md`; do not copy raw JSON examples from `ui-dsl.md` directly into a tool call.
+- If the tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift; for `executeDsl` in this skill, still send the page DSL as an object under `requestBody`.
 - `inspect` and page-DSL drafting stay read-only until the user explicitly asks to write.
 - For page authoring / field selection, **never use `collections.fields:list`** as the field discovery tool. Use `collections:get(appends=["fields"])` as the only default field truth, and only use `collections.fields:get` for single-field follow-up when the field name is already known.
-- For `executeDsl(create)`, prefer `navigation.group.routeId` whenever an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.
+- For `executeDsl(create)`, prefer `navigation.group.routeId` when an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.
+- In the public page DSL, `layout` belongs only on `tabs[]` or inline `popup`; never put `layout` on a block object.
+- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For `edit` actions:
+  - standard single-form edit popup -> prefer backend default popup completion
+  - custom popup with sibling blocks / custom layout / deep nesting -> author explicit `popup.blocks` / `popup.layout`, and that custom popup must contain exactly one `editForm`
 - In testing / multi-agent runs, never do destructive cleanup (`destroyPage`, `remove*`, `resource_destroy`, etc.) unless the user explicitly asked for deletion.
 
 ## Scope & Handoff

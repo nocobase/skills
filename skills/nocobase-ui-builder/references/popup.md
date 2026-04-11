@@ -21,6 +21,9 @@ For `addNew`, `view`, and `edit`:
 - backend may auto-complete a standard CRUD popup when no explicit popup content/template is supplied
 - read back the popup subtree before assuming whether content is already complete
 - only add custom popup content when the default completion is insufficient for the confirmed intent
+- for `edit`, rely on the default popup only when a standard single-form edit popup is enough; if the user wants custom layout, extra sibling blocks, or nested popups, author explicit `popup.blocks` / `popup.layout`
+- if an `edit` popup uses explicit `popup.blocks`, that custom popup must contain exactly one `editForm` block
+- in executeDsl, generic `form` is unsupported; use `editForm` or `createForm`
 
 ## 4. Page-DSL Popup Guidance
 
@@ -35,7 +38,14 @@ The popup subtree in public `executeDsl` still follows the same public page-DSL 
 - on record-capable popup blocks, prefer `recordActions` for `view` / `edit` / `updateRecord` / `delete`
 - `field.target` is only a string block key in the same popup scope
 - popup `layout.rows` uses block keys / `{ key, span }`, never `uid`, `ref`, or `$ref`
+- `layout` belongs to the popup document itself, not to the popup's child blocks
 - keep popup intent inline with `popup`, not low-level `openView` authoring
+
+For low-level existing-field popup behavior:
+
+- when the user wants a display/association field to click and open a popup, use low-level `configure` / field settings semantics such as `clickToOpen` / `openView`
+- do not try to fake field-open behavior by editing unrelated popup descendants first
+- when the popup content must be custom, configure the opener first, then build/read back the popup subtree
 
 Typical shape:
 
@@ -54,6 +64,42 @@ Typical shape:
   }
 }
 ```
+
+Custom edit popup shape:
+
+```json
+{
+  "type": "edit",
+  "popup": {
+    "blocks": [
+      {
+        "key": "editForm",
+        "type": "editForm",
+        "fields": ["nickname"]
+      },
+      {
+        "key": "rolesTable",
+        "type": "table",
+        "resource": {
+          "binding": "associatedRecords",
+          "associationField": "roles",
+          "collectionName": "roles"
+        },
+        "fields": ["title", "name"]
+      }
+    ],
+    "layout": {
+      "rows": [[{ "key": "editForm", "span": 12 }, { "key": "rolesTable", "span": 12 }]]
+    }
+  }
+}
+```
+
+Notes:
+
+- the custom popup contains exactly one `editForm`
+- that `editForm` may omit `resource`; executeDsl will inherit the opener's current-record context
+- sibling blocks such as relation tables are allowed next to the `editForm`
 
 ## 5. Low-level Popup Guidance
 

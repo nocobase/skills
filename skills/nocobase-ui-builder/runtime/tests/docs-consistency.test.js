@@ -57,7 +57,12 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(skill, /only default field truth/i);
   assert.match(skill, /collections\.fields:get.*single-field follow-up/i);
   assert.match(skill, /prefer `navigation\.group\.routeId`/);
+  assert.match(skill, /`layout` belongs only on `tabs\[\]` or inline `popup`/i);
+  assert.match(skill, /stale `flow_surfaces_execute_dsl\.requestBody: string` display/i);
+  assert.match(skill, /do \*\*not\*\* support generic `form`/i);
+  assert.match(skill, /exactly one `editForm`/i);
   assert.match(skill, /never do destructive cleanup/i);
+  assert.doesNotMatch(skill, /validateDsl/);
   assert.doesNotMatch(skill, /dsl-execution\.md/);
 
   assertRelativeMarkdownLinksExist('references/normative-contract.md');
@@ -78,10 +83,16 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(checklist, /Localized Existing-surface Edit Path/);
   assert.match(checklist, /show the DSL draft first/);
   assert.match(checklist, /target\.pageSchemaUid/);
+  assert.match(checklist, /stale schema drift and still send the DSL object under `requestBody`/i);
   assert.match(checklist, /route-backed tab slots by index/i);
   assert.match(checklist, /auto-generates a simple top-to-bottom layout/);
   assert.match(checklist, /`field\.target` is only a string block key/i);
   assert.match(checklist, /At block root use `collection`; inside nested `resource` use `collectionName`/);
+  assert.match(checklist, /Put `layout` only on `tabs\[\]` or inline `popup`/i);
+  assert.match(checklist, /standard `edit` popup, backend default completion is acceptable/i);
+  assert.match(checklist, /`clickToOpen` semantics/i);
+  assert.match(checklist, /do \*\*not\*\* support generic `form`/i);
+  assert.match(checklist, /exactly one `editForm`/i);
   assert.match(checklist, /do not use `uid`, `ref`, or `\$ref`/);
   assert.match(checklist, /prefer `navigation\.group\.routeId`/);
   assert.match(checklist, /title-only unique same-title reuse/i);
@@ -109,6 +120,9 @@ test('skill docs keep the simplified routing structure', () => {
 
   const uiDsl = read('references/ui-dsl.md');
   assert.match(uiDsl, /canonical names/i);
+  assert.match(uiDsl, /stale schema drift and still send this document as an object under `requestBody`/i);
+  assert.match(uiDsl, /do \*\*not\*\* support generic `form`/i);
+  assert.match(uiDsl, /`editForm`/);
   assert.doesNotMatch(uiDsl, /expectedFingerprint/);
   assert.doesNotMatch(uiDsl, /bindRefs/);
   assert.doesNotMatch(uiDsl, /bindKeys/);
@@ -129,6 +143,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(uiDsl, /record-capable blocks/i);
   assert.match(uiDsl, /auto-promote/i);
   assert.match(uiDsl, /`field\.target` is only a .*string block key/i);
+  assert.match(uiDsl, /`layout` is only allowed on `tabs\[\]` and inline `popup` documents/i);
   assert.match(uiDsl, /layout cells do \*\*not\*\* use `uid`, `ref`, or `\$ref`/i);
   assert.match(uiDsl, /do not use `ref` or `\$ref`/i);
 
@@ -139,6 +154,10 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(normative, /exact targeting only/i);
   assert.match(normative, /same-title group/i);
   assert.match(normative, /same-title reuse is title-only/i);
+  assert.match(normative, /`layout` itself is only allowed on `tabs\[\]` and inline `popup` documents/i);
+  assert.match(normative, /stale schema drift in the surrounding tool presentation/i);
+  assert.match(normative, /generic `form` is not a public executeDsl block type/i);
+  assert.match(normative, /exactly one `editForm` block/i);
   assert.match(normative, /low-level `updateMenu`/i);
   assert.match(normative, /associatedRecords.*associationField/i);
   assert.match(normative, /single relation field name/i);
@@ -156,12 +175,21 @@ test('skill docs keep the simplified routing structure', () => {
   assert.doesNotMatch(normative, /bindKeys/);
   assert.doesNotMatch(normative, /verificationMode/);
   assert.doesNotMatch(normative, /bindRefs/);
+  assert.doesNotMatch(normative, /executePlan/);
+  assert.doesNotMatch(normative, /validatePlan/);
+  assert.doesNotMatch(normative, /validateDsl/);
 
   const toolShapes = read('references/tool-shapes.md');
   assert.doesNotMatch(toolShapes, /expectedFingerprint/);
   assert.doesNotMatch(toolShapes, /bindKeys/);
   assert.doesNotMatch(toolShapes, /verificationMode/);
+  assert.doesNotMatch(toolShapes, /executePlan/);
+  assert.doesNotMatch(toolShapes, /validatePlan/);
+  assert.doesNotMatch(toolShapes, /validateDsl/);
   assert.match(toolShapes, /route-backed tab slots by array index/i);
+  assert.match(toolShapes, /stale schema drift/i);
+  assert.match(toolShapes, /do \*\*not\*\* support generic `form`/i);
+  assert.match(toolShapes, /exactly one `editForm` block/i);
   assert.match(toolShapes, /"routeId": 12/);
   assert.match(toolShapes, /unique same-title group/i);
   assert.match(toolShapes, /Same-title reuse is title-only/i);
@@ -174,6 +202,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(toolShapes, /associationField/);
   assert.match(toolShapes, /single relation field name/i);
   assert.match(toolShapes, /recordActions/);
+  assert.match(toolShapes, /`layout` is allowed on `tabs\[\]` and inline `popup` documents only/i);
   assert.match(toolShapes, /public `executeDsl` never uses `ref` \/ `\$ref` \/ `uid` selectors/i);
   assert.match(toolShapes, /"resource": \{ "collection": "employees" \}/);
   assert.match(toolShapes, /"resource": \{ "resourceBinding": "currentRecord" \}/);
@@ -188,6 +217,13 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(popup, /record-capable popup blocks, prefer `recordActions`/i);
   assert.match(popup, /`field\.target` is only a string block key/i);
   assert.match(popup, /never `uid`, `ref`, or `\$ref`/i);
+  assert.match(popup, /`layout` belongs to the popup document itself/i);
+  assert.match(popup, /clickToOpen/i);
+  assert.match(popup, /standard single-form edit popup/i);
+  assert.match(popup, /exactly one `editForm` block/i);
+  assert.match(popup, /generic `form` is unsupported/i);
+  assert.match(popup, /"type": "editForm"/i);
+  assert.doesNotMatch(popup, /"type": "form"/i);
   assert.match(popup, /`popup`, not low-level `openView` authoring/i);
 
   const verification = read('references/verification.md');
@@ -239,6 +275,11 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(openaiYaml, /associatedRecords \+ associationField/i);
   assert.match(openaiYaml, /recordActions/);
   assert.match(openaiYaml, /field\.target as a string block key only/i);
+  assert.match(openaiYaml, /Put layout only on tabs\[\] or inline popup documents/i);
+  assert.match(openaiYaml, /stale schema drift/i);
+  assert.match(openaiYaml, /clickToOpen semantics/i);
+  assert.match(openaiYaml, /do not support generic form/i);
+  assert.match(openaiYaml, /exactly one editForm block/i);
   assert.match(openaiYaml, /do not author ref\/\$ref or uid-style selectors/i);
   assert.match(openaiYaml, /never do destructive cleanup/i);
   assert.doesNotMatch(openaiYaml, /validateDsl/);

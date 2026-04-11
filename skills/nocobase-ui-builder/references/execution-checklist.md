@@ -12,7 +12,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
   - `flow_surfaces_get` -> top-level locator fields
   - most other `flow_surfaces_*` actions in this skill path -> `requestBody: { ... }`
-- Never invent `"root"` as `target.uid` / `locator.uid`; only use live uids obtained from `get` / `describeSurface` / create responses.
+- Never invent `"root"` as `target.uid` / `locator.uid`; only use live uids from `get` / `describeSurface` / create responses.
 
 ## 2. Choose Intent
 
@@ -51,33 +51,33 @@ Use this path when the user is describing one page as a whole.
 5. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first.
 6. Otherwise call `executeDsl`.
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
-   - Pass the DSL as `requestBody: { ... }`.
-   - Never send `requestBody` as a JSON string.
-   - Never add an outer `{ values: ... }` wrapper.
+   - Pass the DSL as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
+   - If the tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift and still send the DSL object under `requestBody`.
    - Never copy a raw JSON example from `ui-dsl.md` straight into the MCP call without wrapping it under `requestBody`.
    - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner DSL fields.
 7. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
 
-- `create` mode does not take `target`.
-- `replace` mode requires `target.pageSchemaUid`.
+- `create` mode does not take `target`; `replace` mode requires `target.pageSchemaUid`.
 - When an existing menu group is already known, prefer `navigation.group.routeId`; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse.
-- `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`).
-- If an existing group's metadata must change, do not rely on `executeDsl(create)`; use low-level `updateMenu` separately.
+- `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`). If an existing group's metadata must change, use low-level `updateMenu` separately.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
 - At block root use `collection`; inside nested `resource` use `collectionName`.
+- Put `layout` only on `tabs[]` or inline `popup`; do not put `layout` on a block object.
 - For popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
 - The convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; for anything more complex, author the canonical shape directly.
 - On record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` under `recordActions`, not `actions`.
-- Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`.
-- If layout is omitted, the server auto-generates a simple top-to-bottom layout.
+- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For a standard `edit` popup, backend default completion is acceptable; when the user wants custom popup structure or sibling blocks, author explicit `popup.blocks` / `popup.layout`.
+- A custom `edit` popup must contain exactly one `editForm` block. If that `editForm` omits `resource`, executeDsl will inherit the opener's current-record context.
+- For existing display/association fields that should open popups on click, use low-level `configure` / `clickToOpen` semantics rather than guessing popup structure first.
+- Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`. If layout is omitted, the server auto-generates a simple top-to-bottom layout.
 - If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
-- `replace` mode is for rebuilding one page, not for a tiny local edit.
-- Nested popups still stay inside the same page DSL as inline popup definitions.
+- `replace` mode is for rebuilding one page, not for a tiny local edit. Nested popups still stay inside the same page DSL as inline popup definitions.
 - Keep non-DSL control fields out of the payload; follow [normative-contract.md](./normative-contract.md).
 - If a tool returns `params/requestBody must be object`, stop and fix the MCP call envelope first; do not keep mutating the inner DSL blindly.
 - In testing / multi-agent runs, do not perform destructive cleanup unless the user explicitly asked for deletion.

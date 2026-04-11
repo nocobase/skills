@@ -7,10 +7,14 @@ This file summarizes the minimal request shapes most often needed by this skill.
 - `flow_surfaces_get` is the common exception in this skill: it uses top-level locator fields directly.
 - Most other `flow_surfaces_*` tools used here expect the business payload under `requestBody`.
 - Unless a section explicitly says **Inner payload only**, prefer copying the **Tool-call envelope** examples, not the inner object by itself.
-- For `executeDsl`, `validateDsl`, `executePlan`, and `validatePlan`, always start from the tool-call envelope in this file. Do **not** start from example JSON in `ui-dsl.md`.
+- For `executeDsl`, always start from the tool-call envelope in this file. Do **not** start from example JSON in `ui-dsl.md`.
 - Never stringify `requestBody`.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
+- For `executeDsl`, `requestBody` is the page DSL object itself; do not wrap it again and do not flatten it to top-level fields.
+- If some tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift; in this skill the canonical `executeDsl` call still sends the page DSL object under `requestBody`.
+- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 
 Safe mental model:
 
@@ -163,6 +167,40 @@ Inner DSL only — **NEVER send this block alone to MCP**:
 
 When the target group is not already known, `navigation.group.title` is also valid; executeDsl will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `updateMenu` instead.
 
+For custom edit popups, use `editForm`, not `form`:
+
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          {
+            "type": "table",
+            "collection": "employees",
+            "recordActions": [
+              {
+                "type": "edit",
+                "popup": {
+                  "blocks": [
+                    { "key": "editForm", "type": "editForm", "fields": ["nickname"], "actions": ["submit"] }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+In a custom `edit` popup, the single `editForm` may omit `resource`; executeDsl will inherit the opener's current-record context.
+
 ## 3. `executeDsl` Replace
 
 `replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
@@ -303,36 +341,6 @@ Tool-call envelope:
 }
 ```
 
-### `validatePlan`
-
-`validatePlan` is **not** the page DSL itself. Its `requestBody` must be the plan request object, not a JSON string.
-
-Correct tool-call envelope:
-
-```json
-{
-  "requestBody": {
-    "plan": {
-      "steps": [
-        {
-          "action": "configure",
-          "target": { "uid": "table-block-uid" },
-          "changes": { "pageSize": 20 }
-        }
-      ]
-    }
-  }
-}
-```
-
-Wrong:
-
-```json
-{
-  "requestBody": "{\"plan\":{\"steps\":[{\"action\":\"configure\"}]}}"
-}
-```
-
 ## 5. Canonical Public `executeDsl` Details
 
 ### Nested `resource` object
@@ -386,6 +394,7 @@ Notes:
 
 - prefer `navigation.group.routeId` whenever an existing destination group is already known.
 - `navigation.group.routeId` is exact targeting only; do not mix it with group metadata.
+- `layout` is allowed on `tabs[]` and inline `popup` documents only; block objects do **not** accept `layout`.
 - for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
 - the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name.
 - on record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
@@ -453,6 +462,10 @@ These are invalid for the new public `executeDsl` path:
 
 ```json
 { "version": "1", "mode": "create", "tabs": [{ "layout": { "rows": [[{ "uid": "employeesTable" }]] }, "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees", "layout": { "rows": [["employeesTable"]] } }] }] }
 ```
 
 ```json

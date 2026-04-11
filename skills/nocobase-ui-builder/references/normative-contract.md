@@ -6,12 +6,17 @@ This page is the single source of truth for `nocobase-ui-builder`. Other referen
 
 Rule precedence is always:
 
-1. live MCP schema / live `executeDsl` / `get` / `describeSurface` / `catalog` / `context` / low-level `flow_surfaces_*` write contracts
+1. live MCP behavior / live `executeDsl` / `get` / `describeSurface` / `catalog` / `context` / low-level `flow_surfaces_*` write contracts
 2. this `Normative Contract`
 3. topic references (`popup`, `verification`, `runtime-playbook`, etc.)
 4. examples and heuristics
 
-If a lower-priority local document conflicts with a live tool/schema fact, follow the live contract.
+If a lower-priority local document conflicts with a live contract fact, follow the live contract.
+
+Exception for this skill:
+
+- if a tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string` while the documented/public contract here says JSON object, treat that as stale schema drift in the surrounding tool presentation
+- for `executeDsl`, follow the documented JSON-object envelope in this skill and [tool-shapes.md](./tool-shapes.md); do **not** stringify blindly just because that stale UI hint says `string`
 
 ## 2. Public Structural Write Contract
 
@@ -31,6 +36,9 @@ The public `executeDsl` payload is:
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
+- `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
+- generic `form` is not a public executeDsl block type; use `editForm` or `createForm`
+- custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
 
 ### MCP tool-call envelope rule
 
@@ -46,6 +54,7 @@ Important exception:
 - `flow_surfaces_get` uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`)
 - most other `flow_surfaces_*` actions in this skill path use `requestBody`
 - for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `ui-dsl.md` focuses on the inner page document, not the full MCP envelope
+- if a tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift; the documented/public contract here remains `requestBody: { <page DSL object> }`
 
 Correct:
 
@@ -92,7 +101,7 @@ Also wrong:
 }
 ```
 
-For requestBody-based tools such as `describeSurface`, `catalog`, `context`, `executeDsl`, `validateDsl`, `executePlan`, `validatePlan`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
+For requestBody-based tools such as `describeSurface`, `catalog`, `context`, `executeDsl`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
 
 ## 2.1 Error-first recovery rules
 
@@ -101,7 +110,7 @@ If a tool returns one of these patterns, fix the tool call shape first:
 - `params/requestBody must be object`
   - usually means `requestBody` was omitted, stringified, or otherwise not sent as an object
 - `params/requestBody must match exactly one schema in oneOf`
-  - when it appears together with the previous error on `executeDsl` / `validateDsl` / `executePlan` / `validatePlan`, first suspect the outer `requestBody` envelope, not the inner DSL/plan
+  - when it appears together with the previous error on `executeDsl`, first suspect the outer `requestBody` envelope, not the inner DSL
 - `flowSurfaces uid 'root' not found`
   - usually means the skill invented `"root"` as `target.uid` / `locator.uid`
   - do not use the literal `"root"` as a flow-surfaces uid
@@ -137,6 +146,7 @@ For `replace` runs:
 - if the current page has `enableTabs = false` and the new DSL contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
+- `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 - in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, executeDsl reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`

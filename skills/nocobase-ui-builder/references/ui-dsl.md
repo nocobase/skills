@@ -15,6 +15,8 @@ This file is for authoring the **inner page DSL document**. It is **not** the pr
 - In `replace`, omitted page-level fields are left unchanged.
 - Tabs are interpreted in array order. In `replace`, DSL tabs map to existing route-backed tab slots by index.
 - Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
+- `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
+- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - The DSL is structure-only; it does not expose planning or execution internals.
 
 Important:
@@ -22,6 +24,7 @@ Important:
 - This file describes the **inner page DSL document** only.
 - When you call `flow_surfaces_execute_dsl`, put this document under `requestBody` as an **object**.
 - Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
+- If a surrounding tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift and still send this document as an object under `requestBody`.
 - If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page DSL blindly.
 - Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner DSL only.
 
@@ -193,6 +196,23 @@ Each tab contains `blocks[]`. A block can carry:
 - `recordActions[]`
 - `script` / `chart` asset references
 
+Supported block `type` values are:
+
+- `table`
+- `createForm`
+- `editForm`
+- `details`
+- `filterForm`
+- `list`
+- `gridCard`
+- `markdown`
+- `iframe`
+- `chart`
+- `actionPanel`
+- `jsBlock`
+
+`form` is not a public executeDsl block type.
+
 ### Canonical resource shapes
 
 Use **one** of these two styles per block:
@@ -284,6 +304,8 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 
 - author `view`, `edit`, `updateRecord`, and `delete` under `recordActions`
 - executeDsl may auto-promote these common record actions from `actions`, but that is a convenience fallback, not the preferred authoring style
+- for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
+- in a custom `edit` popup, that `editForm` may omit `resource`; executeDsl will inherit the opener's current-record context
 
 ### Popup
 
@@ -300,6 +322,8 @@ Inline popup is supported beneath a field/action/record action through:
   }
 }
 ```
+
+`popup.layout` is valid because popup is a popup document. By contrast, block objects themselves do **not** accept `layout`; use `tab.layout` or `popup.layout`.
 
 ### Layout cell shape
 
@@ -333,6 +357,7 @@ When this skill authors `executeDsl`, always emit the canonical public names abo
 - use `popup`, not `openView`
 - use string `target`, not object-style target selectors
 - use layout cell `key`, not `uid`
+- place `layout` only on `tabs[]` or `popup`, never on a block object
 - do not use `ref` or `$ref`
 
 ## 7. Unsupported / Forbidden Public Fields
@@ -341,7 +366,7 @@ Use this file as the **shape reference**, not as a second full contract document
 
 - Send only the structure fields described here.
 - Use the canonical names from Section 6.
-- Keep `ref`, `$ref`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
+- Keep `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
 - Keep non-DSL control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
 
 ## 8. Response Shape
