@@ -1,203 +1,131 @@
 # Normative Contract
 
-This page is the single source of truth for `nocobase-ui-builder`. Rules involving DSL-first drafting/execution, confirmation threshold, `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
+This page is the single source of truth for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page.
 
 ## 1. Precedence
 
 Rule precedence is always:
 
-1. live MCP schema / live `validateDsl` / `executeDsl` / `describeSurface` / `get` / `catalog` / `context` / `readback`
+1. live MCP schema / live `executeDsl` / `get` / `describeSurface` / `catalog` / `context` / low-level `flow_surfaces_*` write contracts
 2. this `Normative Contract`
-3. topic references (`popup` / `settings` / `verification` / `runtime-playbook`, etc.)
-4. example payloads / heuristic explanations
+3. topic references (`popup`, `verification`, `runtime-playbook`, etc.)
+4. examples and heuristics
 
-If a lower-priority document conflicts with a higher-priority live fact, follow the higher-priority source.
+If a lower-priority local document conflicts with a live tool/schema fact, follow the live contract.
 
-## 2. DSL-First Contract
+## 2. Public Structural Write Contract
 
-### Default principles
+### Default split
 
-- High-level page-building requests must first become `blueprint DSL`, even when the page uses nested popups, popup-scoped bindings such as `currentRecord` / `associatedRecords`, same-row layouts, or field `clickToOpen/openView`.
-- Existing-surface structural edits must first become `patch DSL` when the required change is covered.
-- Complexity, missing local examples, or low subjective confidence are not valid reasons to skip DSL. Let `validateDsl` decide current coverage.
-- DSL drafting is read-only. Do not call any `flow_surfaces_*` write API before the task is ready to execute.
+- **Whole-page create** -> simplified **page DSL** -> `executeDsl(mode="create")` -> readback.
+- **Whole-page replace** -> simplified **page DSL** -> `executeDsl(mode="replace")` -> readback.
+- **Localized edit on an existing surface** -> low-level APIs directly (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
 
-### Allowed read surface during DSL authoring
+### What the public page DSL is
 
-During DSL authoring, the skill may use:
+The public `executeDsl` payload is:
 
-- `desktop_routes_list_accessible(tree=true)` for menu discovery
-- `flow_surfaces_describe_surface` when an existing surface needs public-tree / refs / fingerprint facts
-- `flow_surfaces_get`, `flow_surfaces_catalog`, `flow_surfaces_context` for live UI capability and target-state inspection
-- read-only collection/schema discovery such as `collections:list` and `collections:get`
+- JSON only
+- one page at a time
+- structure-only
+- centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
+- written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 
-Do not use collection reads to mutate schema, and do not use schema reads as a substitute for UI writes.
+It is **not** a plan API and must not expose:
 
-### Collection discovery priority during DSL authoring
+- `kind`, `target.mode`, or patch-style change lists
+- plan preview / compiled steps / execution internals
+- workflow-ish control fields
+- deprecated executeDsl aliases such as block `collectionName` / `association` / `resourceBinding` and field `fieldPath` / `openView` / `targetBlock`
 
-- Use `collections:list` only to narrow candidate collections.
-- Use `collections:get(appends=["fields"])` as the default field-schema truth whenever field coverage, `interface`, or relation metadata matters. Treat this as the primary source for both scalar fields and relation fields.
-- When the question is "can this target/container add this field now?", the source of truth is `flow_surfaces_catalog({ target, sections: ["fields"] })`, not collection schema alone.
+For `replace` runs:
 
-### Data-bound vs non-data blocks
+- `target.pageSchemaUid` is required
+- omitted page-level fields are left unchanged
+- DSL tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
+- if the current page has `enableTabs = false` and the new DSL contains multiple tabs, `page.enableTabs: true` must be set explicitly
+- tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
+- if layout is omitted, the server auto-generates a simple top-to-bottom layout
 
-- Every `data-bound block` in DSL must be backed by a real collection / association path / live binding fact.
-- `non-data block`s may omit a data source entirely.
-- Do not overstate this as "every block must bind a collection". Static or tool-like blocks such as `markdown`, `iframe`, `actionPanel`, or `jsBlock` may stay unbound.
-- If a requested field or binding does not exist in live schema facts, stop guessing. Surface the gap in DSL or hand off to `nocobase-data-modeling`.
+The public response returns only the resolved page `target` and final `surface` readback.
 
-### DSL correctness gates
+### Scope boundary
 
-- Always emit explicit `dsl.kind` and `dsl.version = "1"`. Do not rely on backend inference.
-- Keep `assumptions` visible. If a decision still needs user confirmation, put it in `unresolvedQuestions` instead of pretending certainty.
-- `executeDsl` is only allowed when `unresolvedQuestions` is empty.
-- `blueprint DSL` must keep `target.mode`, popup `completion`, and full page `layout` explicit.
-- `patch DSL` must keep `target.locator` explicit, and each change must use either a stable DSL id or a live locator.
+Use `executeDsl` only when the user is really describing one page as a whole. Do not use it for:
 
-### Confirmation threshold
+- add one block to an existing page
+- rename one tab
+- move one node
+- delete one popup tab
+- tweak one field/action setting
 
-Show a DSL draft and stop for confirmation when any of the following is true:
+Those are low-level edit paths.
 
-- the request is ambiguous, high-impact, destructive, or spans multiple plausible structures
-- the DSL still has non-empty `unresolvedQuestions`
-- the page depends on guessed business semantics rather than proven live facts
+## 3. Read Facts Contract
+
+### Allowed read sources
+
+The skill may use:
+
+- `desktop_routes_list_accessible(tree=true)` for visible menu discovery
+- `flow_surfaces_get` for normal structural inspection and post-write readback
+- `flow_surfaces_describe_surface` when a richer public tree snapshot helps analyze an existing surface
+- `flow_surfaces_catalog` when current-target capability is the question
+- `flow_surfaces_context` when popup/context variables are the question
+- `collections:list` to narrow candidate collections
+- `collections:get(appends=["fields"])` as the default field truth
+
+### Field/schema fact priority
+
+When field truth matters:
+
+1. `collections:list` narrows candidates only
+2. `collections:get(appends=["fields"])` is the default truth for scalar fields, relation fields, interface, and association metadata
+3. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
+
+Do not use UI-builder skill docs to invent missing schema. If the requested fields/relations do not exist, hand off to `nocobase-data-modeling`.
+
+## 4. Confirmation Threshold
+
+Show a draft first and stop for confirmation when any of the following is true:
+
+- the request is ambiguous
+- the request is destructive or high-impact
+- `replace` would rebuild a page whose blast radius needs review
+- data source / popup / tab structure still depends on assumptions
 - the user explicitly asks to review the structure first
 
-Direct execution is allowed only when all of the following are true:
+Direct execution is allowed only when all are true:
 
-- the request is clear and bounded
 - the target is unique
-- `unresolvedQuestions` is empty
-- the skill is not inventing fields, bindings, popup content, or destructive scope
+- the structure is clear enough to serialize into one page DSL or one localized low-level write plan
+- required collections/fields/bindings are backed by live facts
+- the write will not guess hidden semantics
 
-## 3. Execution Entry Contract
+## 5. Low-level Fallback Contract
 
-### Default principles
+Low-level APIs are **not** a fallback from `executeDsl` because of complexity. They are the **default** for localized edits.
 
-- Structural create/update should first attempt `validateDsl -> executeDsl -> readback`, not hand-written primitive chaining.
-- For new pages, prefer `blueprint DSL -> validateDsl -> executeDsl -> readback`.
-- For existing-surface writes, prefer `describeSurface -> patch DSL -> validateDsl -> executeDsl -> readback` so the DSL run is anchored to a live fingerprint.
-- Use `verificationMode = "strict"` by default on `executeDsl`.
-- The low-level path `get -> [catalog] -> createPage/compose/add*/configure -> readback` is a fallback, not the default, and it does not become allowed merely because the page is complex.
+Use low-level APIs when:
 
-### When DSL execution is the default
+- the user asks for a localized edit on an existing page/tab/popup/node
+- the write is lifecycle-specific (`createMenu`, `updateMenu`, `moveTab`, `removeTab`, etc.)
+- the public page DSL cannot express the task because the task is not a whole-page create/replace request
 
-Use DSL execution by default when any of the following is true:
+Do **not** emulate a plan-style patch workflow in user-facing authoring.
 
-- you are creating a new page from high-level intent
-- you are updating an existing page through whole-surface structure semantics
-- you are making an existing-surface edit covered by patch ops such as block / field / action / recordAction / layout / node / tab / settings changes
-- you want backend selector resolution, fingerprint validation, or strict verification around the same structural request
+## 6. Popup / Catalog / JS Global Rules
 
-### Existing-surface anchoring rules
+- Nested popups are allowed in page DSL, but only as inline popup content beneath actions or fields.
+- When popup resource bindings, target-specific field addability, or JS/chart capability matters, read `catalog` before writing.
+- Any JS write must pass the local validator gate first.
 
-- For existing-surface DSL execution, read `describeSurface` first when the next step is structural execution.
-- Pass `expectedFingerprint` from `describeSurface` into `validateDsl` / `executeDsl` for existing-surface runs.
-- Use `bindRefs` only when you need stable names for already existing nodes. Do not surface declared-ref persistence details as user-facing workflow steps.
+## 7. Recovery / Stop Conditions
 
-### When low-level fallback is allowed
+Stop instead of guessing when:
 
-Use direct lifecycle / low-level APIs only when any of the following is true:
-
-- the work is a lifecycle-only exception outside current DSL coverage, such as isolated menu-group creation, menu moves, or template-record management
-- a prior `validateDsl` attempt has returned concrete unsupported / schema / contract evidence showing that the current change is outside DSL coverage or cannot preserve the required semantics
-
-Allowed fallback families include `createMenu`, `updateMenu`, `createPage`, `compose`, `addBlock`, `addField`, `addAction`, `addRecordAction`, `configure`, `updateSettings`, `setLayout`, and other flow-surfaces public writes that preserve the intended semantics.
-
-### Required fallback evidence
-
-- Do not fall back to low-level writes merely because the page is complex, popup-heavy, relation-heavy, or under-documented locally.
-- When fallback happens after a DSL attempt, the commentary must identify the failing `validateDsl` attempt, the concrete error, and why that error proves the current change is outside DSL coverage.
-
-## 4. Catalog Contract
-
-In this section, `catalog(...)` is shorthand for `flow_surfaces_catalog(...)`.
-
-### Default principles
-
-- `catalog` is smart by default.
-- `catalog` is not globally mandatory.
-- For an existing surface, default to `get` first. Only append `catalog` when a specific contract requires it.
-- For lifecycle APIs, fixed payload shapes, and simple writes that do not depend on live capability, do not mechanically add `catalog` out of habit.
-
-### When you must read `catalog`
-
-You must read `catalog({ target })` first when any of the following is true:
-
-- You need to decide whether the current target truly supports creating a certain block / field / action type.
-- You need live `configureOptions` / `settingsContract`.
-- You need to inspect popup `resourceBindings`, for example whether `currentRecord` is exposed.
-- You need to narrow live capability for JS / chart / association-popup / filterForm multi-target scenarios.
-- `get` alone cannot determine the container's public capability, configuration entry, or semantic guard.
-
-### When you can skip `catalog`
-
-You can usually skip `catalog` in the following cases:
-
-- pure `inspect`, where `get` / menu-tree data is already enough to answer the user
-- lifecycle APIs such as `createMenu`, `updateMenu`, `createPage`, `moveTab`, or `removeTab`, when the payload does not depend on live capability
-- the target is already explicit, and this write is only a small lifecycle change with a fixed shape
-
-### Output and phrasing requirements
-
-- Do not describe "did not read `catalog`" as "capability confirmed".
-- If skipping `catalog` means you can only confirm structure, keep the result phrased at the structural level. Do not escalate it to semantic confirmation.
-
-## 5. Popup Shell Fallback Contract
-
-### Terms
-
-- `shell-only popup`: a popup entry whose DSL `completion = "shell-only"`. Only create the opener / popup subtree. Do not add `details`, `editForm`, `submit`, or similar content in this run.
-- `completed popup`: a popup entry whose DSL `completion = "completed"`. This run creates the opener and also completes the popup content semantics requested by the user, either through explicit popup blocks or through backend-supported default CRUD popup completion.
-
-### Allowed conditions
-
-`shell-only popup` is only allowed when the user intent is explicitly "create the entry / button / shell / popup shell first", and not "complete the content".
-
-### Forbidden conditions
-
-You must not degrade to `shell-only popup` in the following cases:
-
-- The user asks to "view the current record / edit the current record / this record / this row".
-- The user explicitly asks for `details`, `editForm`, `submit`, or record-popup content.
-- The scenario semantics are already "complete a usable popup", but the live guard / binding is not satisfied.
-
-In these cases, either complete the popup content the user asked for, or stop and report the guard / capability gap. Do not silently degrade to an empty shell.
-
-### Output and acceptance requirements
-
-- A `shell-only popup` may only be described as "entry / popup shell created". It must not be described as "popup completed".
-- The maximum success level for `shell-only popup` is `structural-confirmed`, not `semantic-confirmed`.
-
-## 6. Schema Drift / Recovery Contract
-
-### Trigger signals
-
-Treat the following as schema drift / recovery situations:
-
-- MCP is unreachable or unauthenticated.
-- A critical tool is missing.
-- The schema is stale.
-- The live capability / contract / guard disagrees with local docs.
-- A server validation error suggests that the current payload shape drifted away from the live schema.
-
-### Unified handling
-
-- When any of the signals above appears, stop guessing writes.
-- This skill does not define an abstract automatic `refresh -> retry` chain.
-- This skill does not allow the agent to perform an ad hoc schema refresh without a standardized tool.
-
-### Allowed recovery actions
-
-Only the following recovery suggestions are allowed:
-
-- refresh the current MCP connection
-- re-authenticate the current NocoBase MCP
-- use `nocobase-mcp-setup`
-
-After the user completes the external recovery, restart from the relevant read path for the current task. If field truth or relation metadata matters, restart from `collections:get(appends=["fields"])`. If the question is current-target field addability, then read `flow_surfaces_catalog({ target, sections: ["fields"] })`. For other structural questions, return to the normal read path for the current task and append `catalog` only when required.
-
-### Explicitly forbidden
-
-- Do not keep writing `refresh/get/catalog/context -> recompute payload -> retry` into the docs.
-- Do not describe "abstract refresh" as an executable capability that the current agent already has.
+- MCP is unreachable or unauthenticated
+- the live schema/tool surface is missing a required action
+- the target is not unique
+- schema facts are missing for required fields/relations/bindings
+- the requested change crosses out of Modern page (v2) scope

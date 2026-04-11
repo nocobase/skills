@@ -1,234 +1,243 @@
 # UI DSL
 
-This file defines the stable skill-side DSL contract used between intent discovery and execution. Always emit explicit `version = "1"` and explicit `kind`, even though the backend can infer some cases.
+This file defines the simplified public **page-structure JSON DSL** used by `executeDsl`.
 
 ## 1. Core Rules
 
-- Use `kind = "blueprint"` for whole-page creation or whole-page update requests.
-- Use `kind = "patch"` for precise existing-surface structural edits.
-- Always keep `assumptions` and `unresolvedQuestions` arrays.
-- `executeDsl` is allowed only when `unresolvedQuestions` is empty.
-- `dataBound = true` means the block must reference a real `dataSourceKey`.
-- Popup intent must be explicit through `popups[*].completion`.
-- `shell-only` popup is only valid when the user explicitly wants the shell first.
-- Per [normative-contract.md](./normative-contract.md), nested popups, popup-scoped bindings such as `currentRecord` / `associatedRecords`, same-row layouts, and field `clickToOpen/openView` still belong to DSL scope.
+- The wire format is **JSON**.
+- One document describes **one page**.
+- `version` stays `"1"`.
+- `mode` is either `"create"` or `"replace"`.
+- `create` creates a new menu item + page.
+- `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
+- In `replace`, omitted page-level fields are left unchanged.
+- Tabs are interpreted in array order. In `replace`, DSL tabs map to existing route-backed tab slots by index.
+- Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
+- The DSL is structure-only; it does not expose planning or execution internals.
 
-## 2. Blueprint DSL
-
-Use blueprint DSL for:
-
-- new page creation
-- whole-page redesign from high-level intent
-- update-page structural rewrites that are easier to express as one page structure than as isolated patch ops
-
-Canonical shape:
+## 2. Top-level Shape
 
 ```json
 {
   "version": "1",
-  "kind": "blueprint",
-  "intent": "management",
-  "title": "Employees",
-  "target": {
-    "mode": "create-page"
-  },
+  "mode": "create",
   "navigation": {
-    "parent": {
-      "createGroup": {
-        "title": "Workspace"
+    "group": { "title": "Workspace" },
+    "item": { "title": "Employees" }
+  },
+  "page": {
+    "title": "Employees",
+    "documentTitle": "Employees workspace",
+    "enableHeader": true,
+    "displayTitle": true
+  },
+  "assets": {
+    "scripts": {},
+    "charts": {}
+  },
+  "tabs": []
+}
+```
+
+### Top-level fields
+
+- `version`: currently only `"1"`
+- `mode`: `"create" | "replace"`
+- `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
+- `navigation`: only for `create`; controls menu group/item metadata
+- `page`: page-level metadata
+- `assets`: reusable script/chart blobs referenced by blocks/fields/actions
+- `tabs`: non-empty ordered array of route-backed tabs
+
+## 3. Create Example
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "navigation": {
+    "group": { "title": "Workspace" },
+    "item": { "title": "Employees" }
+  },
+  "page": {
+    "title": "Employees",
+    "documentTitle": "Employees workspace",
+    "enableHeader": true,
+    "displayTitle": true
+  },
+  "assets": {
+    "scripts": {
+      "overviewBanner": {
+        "version": "1.0.0",
+        "code": "ctx.render('<div>Employees overview</div>');"
       }
-    },
-    "item": {
-      "title": "Employees"
-    },
-    "page": {
-      "title": "Employees",
-      "enableHeader": true,
-      "enableTabs": true,
-      "displayTitle": true
-    },
-    "initialTab": {
-      "title": "Overview"
     }
   },
-  "dataSources": [
+  "tabs": [
     {
-      "key": "employees",
-      "kind": "collection",
-      "dataSourceKey": "main",
-      "collectionName": "employees"
-    },
-    {
-      "key": "employeeRecord",
-      "kind": "binding",
-      "scope": "popup",
-      "popupId": "employeeViewPopup",
-      "binding": "currentRecord",
-      "collectionName": "employees"
-    }
-  ],
-  "layout": {
-    "kind": "rows-columns",
-    "rows": [
-      {
-        "key": "main",
-        "columns": [
-          {
-            "key": "left",
-            "width": 3,
-            "items": ["employeesFilter"]
-          },
-          {
-            "key": "right",
-            "width": 9,
-            "items": ["employeesTable"]
-          }
-        ]
-      }
-    ]
-  },
-  "blocks": [
-    {
-      "id": "employeesFilter",
-      "type": "filterForm",
-      "title": "Employee filter",
-      "dataBound": true,
-      "dataSourceKey": "employees",
-      "fields": [{ "fieldPath": "nickname" }],
-      "actions": [{ "id": "search", "type": "submit", "title": "Search" }]
-    },
-    {
-      "id": "employeesTable",
-      "type": "table",
-      "title": "Employees",
-      "dataBound": true,
-      "dataSourceKey": "employees",
-      "fields": [{ "fieldPath": "nickname" }],
-      "recordActions": [
-        {
-          "id": "viewEmployee",
-          "type": "view",
-          "title": "View",
-          "popupId": "employeeViewPopup"
-        }
-      ]
-    }
-  ],
-  "interactions": [
-    {
-      "type": "filter-target",
-      "sourceBlockId": "employeesFilter",
-      "fieldPath": "nickname",
-      "targetBlockId": "employeesTable"
-    }
-  ],
-  "popups": [
-    {
-      "id": "employeeViewPopup",
-      "title": "View employee",
-      "completion": "completed",
+      "title": "Overview",
       "blocks": [
         {
-          "id": "employeeDetails",
-          "type": "details",
-          "title": "Employee details",
-          "dataBound": true,
-          "dataSourceKey": "employeeRecord",
-          "fields": [{ "fieldPath": "nickname" }]
+          "type": "table",
+          "collection": "employees",
+          "fields": ["nickname"],
+          "recordActions": [
+            {
+              "type": "view",
+              "title": "View",
+              "popup": {
+                "title": "Employee details",
+                "blocks": [
+                  {
+                    "type": "details",
+                    "resource": {
+                      "binding": "currentRecord",
+                      "collectionName": "employees"
+                    },
+                    "fields": ["nickname"]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Summary",
+      "blocks": [
+        {
+          "type": "jsBlock",
+          "title": "Overview banner",
+          "script": "overviewBanner"
         }
       ]
     }
-  ],
-  "assumptions": [],
-  "unresolvedQuestions": []
+  ]
 }
 ```
 
-Blueprint notes:
-
-- `target.mode = "create-page"` creates a new page. `target.mode = "update-page"` requires `target.locator`.
-- `navigation` is meaningful for `create-page`. For `update-page`, keep navigation changes out unless the live contract explicitly supports them through the chosen path.
-- `dataSources[*].key` is DSL-local. Blocks reference it through `dataSourceKey`.
-- `binding` data sources are currently popup-scoped.
-- If popup blocks need `currentRecord`, `associatedRecords`, same-row layout, or field-driven open-view semantics, keep those semantics explicit in DSL. Do not treat them as an automatic reason to leave the DSL path.
-- Every block referenced in `layout.rows[*].columns[*].items` must exist in `blocks[]`.
-- Every popup referenced by `popupId` must exist in `popups[]`.
-
-## 3. Patch DSL
-
-Use patch DSL for concrete existing-surface deltas.
-
-Canonical shape:
+## 4. Replace Example
 
 ```json
 {
   "version": "1",
-  "kind": "patch",
+  "mode": "replace",
   "target": {
-    "locator": {
-      "pageSchemaUid": "employees-page-schema"
-    }
+    "pageSchemaUid": "employees-page-schema"
   },
-  "changes": [
+  "page": {
+    "title": "Employees workspace",
+    "documentTitle": "Employees replace flow",
+    "displayTitle": false,
+    "enableTabs": false
+  },
+  "tabs": [
     {
-      "id": "addTable",
-      "op": "block.add",
-      "values": {
-        "ref": "employeesTable",
-        "type": "table",
-        "resourceInit": {
-          "dataSourceKey": "main",
-          "collectionName": "employees"
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "table",
+          "collection": "employees",
+          "fields": ["nickname"]
         }
-      }
-    },
-    {
-      "id": "addNickname",
-      "op": "field.add",
-      "target": {
-        "id": "employeesTable"
-      },
-      "values": {
-        "fieldPath": "nickname"
-      }
+      ]
     }
-  ],
-  "assumptions": [],
-  "unresolvedQuestions": []
+  ]
 }
 ```
 
-Patch notes:
+### Replace semantics
 
-- `target.locator` anchors the editable surface.
-- Each change may target/source either by DSL id or by live locator.
-- `{ "id": "employeesTable" }` means `ref = employeesTable` when that ref was introduced by an earlier change or provided through `bindRefs`.
-- `{ "id": "employeesTable", "anchor": "popupGrid" }` means the derived ref `employeesTable.popupGrid` when that anchor exists.
-- If you cannot name a stable existing node, use `locator` instead of inventing an id.
+- `replace` targets one existing page through `target.pageSchemaUid`.
+- DSL tabs map to existing route-backed tab slots by index, rewrite each slot in order, remove trailing old tabs, and append extra new tabs when needed.
+- If `replace` expands a page from one hidden-tab state to multiple tabs, set `page.enableTabs: true` explicitly. When the current page has `enableTabs = false`, omitting it is rejected.
+- If you need a tiny localized edit on one existing tab/node, do not use `replace`; use low-level APIs instead.
 
-Supported patch ops:
+## 5. Supported Semantics
 
-- `page.destroy`
-- `tab.add`, `tab.update`, `tab.move`, `tab.remove`
-- `block.add`, `field.add`, `action.add`, `recordAction.add`
-- `settings.update`, `layout.replace`
-- `node.move`, `node.remove`
-- `template.detach`
+### Block-level
 
-## 4. Authoring Heuristics
+Each tab contains `blocks[]`. A block can carry:
 
-- Prefer blueprint DSL when the user is describing a page in business terms.
-- Prefer patch DSL when the user is describing a concrete delta on an existing known surface.
-- Keep ids readable and stable; for example `employeesTable`, `viewEmployee`, `employeeViewPopup`.
-- Put uncertainty in `assumptions` or `unresolvedQuestions`, not in silent guesswork.
-- If the request is destructive or ambiguous, draft first and confirm before execution.
+- optional local `key` when custom `layout` or cross-block references need a stable local identifier
+- `type`
+- `title`
+- collection/binding info through `collection`, `associationPathName`, `resource`, `binding`
+- `template`
+- `settings`
+- `fields[]`
+- `actions[]`
+- `recordActions[]`
+- `script` / `chart` asset references
 
-## 5. What Makes DSL `Ready To Execute`
+### Field shorthand
 
-A DSL document is ready to execute only when all of the following are true:
+A field entry may be:
 
-- explicit `version` and `kind`
-- all required locators, data sources, blocks, popups, and layout references resolve locally within the document or from live facts
-- `assumptions` are acceptable for the user-facing intent
-- `unresolvedQuestions` is empty
-- `validateDsl` succeeds
+- a string, for example `"nickname"`
+- an object with optional `key`, `field`, `renderer`, `type`, optional `target`, `settings`, and optional inline `popup`
+
+### Action shorthand
+
+An action / record action entry may be:
+
+- a string action type
+- an object with optional `key`, `type`, `title`, `settings`, and optional inline `popup`
+
+### Popup
+
+Inline popup is supported beneath a field/action/record action through:
+
+```json
+{
+  "popup": {
+    "title": "...",
+    "mode": "replace",
+    "template": { "uid": "...", "mode": "reference" },
+    "blocks": [],
+    "layout": { "rows": [["..."]] }
+  }
+}
+```
+
+### Assets
+
+`assets.scripts` and `assets.charts` are reusable object maps. A block/field/action may refer to them by `script` or `chart`.
+
+## 6. Canonical Naming Rule
+
+When this skill authors `executeDsl`, always emit the canonical public names above.
+
+- use `collection`, not block-level `collectionName`
+- use `associationPathName`, not `association`
+- use `field`, not `fieldPath`
+- use `binding`, not `resourceBinding`
+- use `popup`, not `openView`
+- use string `target`, not object-style target selectors
+
+## 7. Unsupported / Forbidden Public Fields
+
+Use this file as the **shape reference**, not as a second full contract document.
+
+- Send only the structure fields described here.
+- Use the canonical names from Section 6.
+- Keep non-DSL control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
+
+## 8. Response Shape
+
+`executeDsl` returns:
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "target": {
+    "pageSchemaUid": "employees-page-schema",
+    "pageUid": "employees-page-uid"
+  },
+  "surface": {}
+}
+```
+
+The public response returns the resolved page target plus final `surface` readback.

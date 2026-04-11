@@ -1,13 +1,13 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "Build Modern pages with DSL-first flow-surfaces APIs"
-  default_prompt: "Use $nocobase-ui-builder to inspect, draft, or edit NocoBase Modern page (v2) UI. For every structural page write, first attempt blueprint / patch DSL with validateDsl -> executeDsl -> readback. Do not treat complexity, nested popups, relation bindings, same-row layouts, or missing local examples as reasons to skip DSL; let validateDsl decide current coverage. Execute directly only when the request is clear and unresolvedQuestions can be empty. Use live MCP schema as the source of truth, and fall back to low-level flow-surfaces APIs only for lifecycle-only exceptions or after validateDsl returns concrete evidence that the current change is outside DSL coverage. When template reuse is needed, search templates first, then apply them in reference/copy mode."
+  short_description: "Build Modern pages with simplified executeDsl or low-level flow-surfaces APIs"
+  default_prompt: "Use $nocobase-ui-builder for NocoBase Modern page (v2) UI. Route whole-page creation or replacement to executeDsl with the simplified page-structure JSON DSL. In replace mode, treat tabs as ordered page-structure input that rewrites existing route-backed tab slots by index; only use key when local layout or in-document targeting needs it. Route localized edits on existing pages/tabs/popups/nodes to low-level flow-surfaces APIs (read with get/describeSurface as needed, then write with compose/configure/add*/move*/remove*/updateMenu). Treat the live MCP schema as the source of truth and confirm real collections/fields/bindings before UI writes."
 
 dependencies:
   tools:
     - type: "mcp"
       value: "nocobase"
-      description: "NocoBase MCP server for UI surface operations plus read-only schema discovery for DSL authoring and field pre-write verification"
+      description: "NocoBase MCP server for Modern-page UI operations plus read-only schema discovery"
 
 policy:
   allow_implicit_invocation: true
