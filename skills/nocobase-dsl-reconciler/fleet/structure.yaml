@@ -1,0 +1,385 @@
+module: Fleet Management
+icon: caroutlined
+group: Fleet
+collections:
+  nb_fleet_vehicles:
+    titleField: plate_no
+    fields:
+    - name: plate_no
+      interface: input
+      required: true
+    - name: model
+      interface: input
+    - name: brand
+      interface: input
+    - name: year
+      interface: integer
+    - name: type
+      interface: select
+      options:
+      - value: car
+        label: Car
+        color: blue
+      - value: van
+        label: Van
+        color: orange
+      - value: truck
+        label: Truck
+        color: red
+    - name: status
+      interface: select
+      options:
+      - value: in_service
+        label: In Service
+        color: green
+      - value: maintenance
+        label: Maintenance
+        color: orange
+      - value: retired
+        label: Retired
+        color: red
+    - name: mileage
+      interface: integer
+    - name: fuel_type
+      interface: select
+      options:
+      - value: gasoline
+        label: Gasoline
+        color: blue
+      - value: diesel
+        label: Diesel
+        color: orange
+      - value: electric
+        label: Electric
+        color: green
+  nb_fleet_drivers:
+    titleField: name
+    fields:
+    - name: name
+      interface: input
+      required: true
+    - name: license_no
+      interface: input
+    - name: phone
+      interface: phone
+    - name: email
+      interface: email
+    - name: status
+      interface: select
+      options:
+      - value: active
+        label: Active
+        color: green
+      - value: on_leave
+        label: On Leave
+        color: orange
+      - value: suspended
+        label: Suspended
+        color: red
+    - name: assigned_vehicle
+      interface: m2o
+      target: nb_fleet_vehicles
+      foreignKey: assigned_vehicle_id
+  nb_fleet_maintenance:
+    titleField: id
+    fields:
+    - name: vehicle
+      interface: m2o
+      target: nb_fleet_vehicles
+      foreignKey: vehicle_id
+      required: true
+    - name: type
+      interface: select
+      options:
+      - value: routine
+        label: Routine
+        color: blue
+      - value: repair
+        label: Repair
+        color: red
+      - value: inspection
+        label: Inspection
+        color: green
+    - name: date
+      interface: date
+    - name: cost
+      interface: number
+      precision: 2
+    - name: mileage_at_service
+      interface: integer
+    - name: next_due_date
+      interface: date
+    - name: status
+      interface: select
+      options:
+      - value: scheduled
+        label: Scheduled
+        color: orange
+      - value: completed
+        label: Completed
+        color: green
+  nb_fleet_trips:
+    titleField: id
+    fields:
+    - name: vehicle
+      interface: m2o
+      target: nb_fleet_vehicles
+      foreignKey: vehicle_id
+      required: true
+    - name: driver
+      interface: m2o
+      target: nb_fleet_drivers
+      foreignKey: driver_id
+      required: true
+    - name: start_date
+      interface: date
+    - name: end_date
+      interface: date
+    - name: start_mileage
+      interface: integer
+    - name: end_mileage
+      interface: integer
+    - name: purpose
+      interface: textarea
+    - name: status
+      interface: select
+      options:
+      - value: planned
+        label: Planned
+        color: blue
+      - value: in_progress
+        label: In Progress
+        color: orange
+      - value: completed
+        label: Completed
+        color: green
+
+pages:
+# ─────────────────────────────────────────────────────────────────
+# Page 1: Dashboard
+# ─────────────────────────────────────────────────────────────────
+- page: Dashboard
+  icon: dashboardoutlined
+  coll: nb_fleet_vehicles
+  blocks:
+  - key: kpi_vehicles
+    type: kpi
+    title: Total Vehicles
+    coll: nb_fleet_vehicles
+    color: blue
+  - key: kpi_in_service
+    type: kpi
+    title: In Service
+    coll: nb_fleet_vehicles
+    filter:
+      status: in_service
+    color: green
+  - key: kpi_maintenance
+    type: kpi
+    title: In Maintenance
+    coll: nb_fleet_vehicles
+    filter:
+      status: maintenance
+    color: orange
+  - key: kpi_drivers
+    type: kpi
+    title: Active Drivers
+    coll: nb_fleet_drivers
+    filter:
+      status: active
+    color: blue
+  - key: recent_maintenance
+    type: table
+    title: Recent Maintenance
+    coll: nb_fleet_maintenance
+    pageSize: 5
+    fields:
+    - vehicle
+    - type
+    - date
+    - cost
+    - status
+    actions:
+    - filter
+    - refresh
+    - link
+  - key: upcoming_trips
+    type: table
+    title: Upcoming Trips
+    coll: nb_fleet_trips
+    pageSize: 5
+    dataScope:
+      logic: $and
+      items:
+      - path: status
+        operator: $in
+        value:
+        - planned
+        - in_progress
+    fields:
+    - vehicle
+    - driver
+    - start_date
+    - purpose
+    - status
+    actions:
+    - filter
+    - refresh
+    - link
+  layout:
+  - - kpi_vehicles: 6
+    - kpi_in_service: 6
+    - kpi_maintenance: 6
+    - kpi_drivers: 6
+  - - recent_maintenance: 12
+    - upcoming_trips: 12
+
+# ─────────────────────────────────────────────────────────────────
+# Page 2: Vehicles
+# ─────────────────────────────────────────────────────────────────
+- page: Vehicles
+  icon: caroutlined
+  coll: nb_fleet_vehicles
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - field: plate_no
+      label: Search
+      filterPaths:
+      - plate_no
+      - model
+      - brand
+    - status
+    - type
+  - key: table
+    type: table
+    coll: nb_fleet_vehicles
+    fields:
+    - plate_no
+    - model
+    - brand
+    - year
+    - type
+    - status
+    - mileage
+    - fuel_type
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+# ─────────────────────────────────────────────────────────────────
+# Page 3: Drivers
+# ─────────────────────────────────────────────────────────────────
+- page: Drivers
+  icon: useroutlined
+  coll: nb_fleet_drivers
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - field: name
+      label: Search
+      filterPaths:
+      - name
+      - license_no
+      - phone
+    - status
+  - key: table
+    type: table
+    coll: nb_fleet_drivers
+    fields:
+    - name
+    - license_no
+    - phone
+    - email
+    - status
+    - assigned_vehicle
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+# ─────────────────────────────────────────────────────────────────
+# Page 4: Maintenance
+# ─────────────────────────────────────────────────────────────────
+- page: Maintenance
+  icon: tooloutlined
+  coll: nb_fleet_maintenance
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - vehicle
+    - type
+    - status
+  - key: table
+    type: table
+    coll: nb_fleet_maintenance
+    fields:
+    - vehicle
+    - type
+    - date
+    - cost
+    - mileage_at_service
+    - next_due_date
+    - status
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+# ─────────────────────────────────────────────────────────────────
+# Page 5: Trips
+# ─────────────────────────────────────────────────────────────────
+- page: Trips
+  icon: globaloutlined
+  coll: nb_fleet_trips
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - vehicle
+    - driver
+    - status
+  - key: table
+    type: table
+    coll: nb_fleet_trips
+    fields:
+    - vehicle
+    - driver
+    - start_date
+    - end_date
+    - start_mileage
+    - end_mileage
+    - purpose
+    - status
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
