@@ -1,5 +1,0 @@
-tasks:
-- title: Orders Analysis
-  user: Analyze my order performance and revenue.
-  autoSend: true
-  system_file: ./ai/6c50faf8_task0.md
