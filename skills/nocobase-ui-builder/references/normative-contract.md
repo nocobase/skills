@@ -32,11 +32,91 @@ The public `executeDsl` payload is:
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
 
+### MCP tool-call envelope rule
+
+When calling any `flow_surfaces_*` MCP tool:
+
+- first distinguish whether the tool uses top-level locator fields directly or a `requestBody`
+- if the schema says `requestBody`, then `requestBody` must be the final business **object**
+- do **not** stringify the JSON document
+- do **not** wrap it again as `{ values: payload }`
+
+Important exception:
+
+- `flow_surfaces_get` uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`)
+- most other `flow_surfaces_*` actions in this skill path use `requestBody`
+- for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `ui-dsl.md` focuses on the inner page document, not the full MCP envelope
+
+Correct:
+
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "navigation": {
+      "group": { "routeId": 12 },
+      "item": { "title": "Employees" }
+    },
+    "page": { "title": "Employees" },
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          { "type": "table", "collection": "employees", "fields": ["nickname"] }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Wrong:
+
+```json
+{
+  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
+}
+```
+
+Also wrong:
+
+```json
+{
+  "requestBody": {
+    "values": {
+      "version": "1",
+      "mode": "create"
+    }
+  }
+}
+```
+
+For requestBody-based tools such as `describeSurface`, `catalog`, `context`, `executeDsl`, `validateDsl`, `executePlan`, `validatePlan`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
+
+## 2.1 Error-first recovery rules
+
+If a tool returns one of these patterns, fix the tool call shape first:
+
+- `params/requestBody must be object`
+  - usually means `requestBody` was omitted, stringified, or otherwise not sent as an object
+- `params/requestBody must match exactly one schema in oneOf`
+  - when it appears together with the previous error on `executeDsl` / `validateDsl` / `executePlan` / `validatePlan`, first suspect the outer `requestBody` envelope, not the inner DSL/plan
+- `flowSurfaces uid 'root' not found`
+  - usually means the skill invented `"root"` as `target.uid` / `locator.uid`
+  - do not use the literal `"root"` as a flow-surfaces uid
+  - first read live structure with `get` / `describeSurface` and reuse a real uid, or pick a page-level API that does not require such a uid
+
+Do not start by changing the inner DSL shape until the MCP envelope / targeting shape is confirmed correct.
+
 Canonical resource rule:
 
 - block-level shorthand uses `collection`, `binding`, and `associationPathName`
 - nested `block.resource` uses `collectionName`, `binding`, and `associationPathName`
 - block-level shorthand and nested `resource` are mutually exclusive on the same block
+- for popup relation tables that show records from the current record's relation, prefer the canonical semantic shape `resource.binding = "associatedRecords"` + `resource.associationField = "<relationField>"` (for example `roles`)
+- `executeDsl` may normalize `currentRecord | associatedRecords + associationPathName` into that canonical associated-records shape for convenience, but only when `associationPathName` is a single relation field name; the skill should author the canonical shape directly
+- on record-capable blocks (`table`, `details`, `list`, `gridCard`), author `view` / `edit` / `updateRecord` / `delete` under `recordActions`; `executeDsl` may auto-promote common record actions written under `actions`, but the skill should still use `recordActions` canonically
 
 It is **not** a plan API and must not expose:
 
@@ -58,6 +138,9 @@ For `replace` runs:
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
+- in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, executeDsl reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
+- `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
+- same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of executeDsl create
 
 The public response returns only the resolved page `target` and final `surface` readback.
 
@@ -86,14 +169,19 @@ The skill may use:
 - `flow_surfaces_context` when popup/context variables are the question
 - `collections:list` to narrow candidate collections
 - `collections:get(appends=["fields"])` as the default field truth
+- `collections.fields:get` only for known single-field follow-up when extra detail is still needed
 
 ### Field/schema fact priority
 
 When field truth matters:
 
 1. `collections:list` narrows candidates only
-2. `collections:get(appends=["fields"])` is the default truth for scalar fields, relation fields, interface, and association metadata
-3. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
+2. `collections:get(appends=["fields"])` is the default truth for scalar fields, relation fields, interface, and association metadata; it is the only default field truth for UI authoring
+3. Do **not** use `collections.fields:list` for page authoring; treat it as a compact browse view, not as authoring truth
+4. `collections.fields:get` is optional follow-up only when the field name is already known and one field still needs confirmation
+5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
+
+If a field exists but `interface` is empty / null in `collections:get(appends=["fields"])`, do not author it into page-DSL `fields[]` unless another live read proves a supported UI path.
 
 Do not use UI-builder skill docs to invent missing schema. If the requested fields/relations do not exist, hand off to `nocobase-data-modeling`.
 
@@ -141,3 +229,8 @@ Stop instead of guessing when:
 - the target is not unique
 - schema facts are missing for required fields/relations/bindings
 - the requested change crosses out of Modern page (v2) scope
+
+## 8. Safety Rule for Testing / Multi-agent Runs
+
+- Never delete or clean unrelated pages, menus, routes, or records as part of a UI-building task unless the user explicitly asked for destructive cleanup.
+- In multi-agent or repeated test runs, prefer isolated target groups / pages instead of "clean slate" deletion.

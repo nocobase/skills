@@ -40,6 +40,7 @@ This file provides the family / locator / write-target mental model for the skil
 - `executeDsl(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `executeDsl` is structure-only: layout and in-document targeting use local `key`; do not author `uid`, `ref`, or `$ref` selectors there.
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
+- Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describeSurface`, or a previous create response.
 
 ## 5. Practical Rules
 

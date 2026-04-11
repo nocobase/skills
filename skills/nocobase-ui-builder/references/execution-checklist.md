@@ -9,6 +9,10 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - Decide whether the request is **whole-page create/replace** or **localized edit**.
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
+- Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
+  - `flow_surfaces_get` -> top-level locator fields
+  - most other `flow_surfaces_*` actions in this skill path -> `requestBody: { ... }`
+- Never invent `"root"` as `target.uid` / `locator.uid`; only use live uids obtained from `get` / `describeSurface` / create responses.
 
 ## 2. Choose Intent
 
@@ -46,23 +50,37 @@ Use this path when the user is describing one page as a whole.
 4. Draft or assemble one **page DSL** document.
 5. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first.
 6. Otherwise call `executeDsl`.
+   - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
+   - Pass the DSL as `requestBody: { ... }`.
+   - Never send `requestBody` as a JSON string.
+   - Never add an outer `{ values: ... }` wrapper.
+   - Never copy a raw JSON example from `ui-dsl.md` straight into the MCP call without wrapping it under `requestBody`.
+   - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner DSL fields.
 7. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
 
 - `create` mode does not take `target`.
 - `replace` mode requires `target.pageSchemaUid`.
+- When an existing menu group is already known, prefer `navigation.group.routeId`; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse.
+- `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`).
+- If an existing group's metadata must change, do not rely on `executeDsl(create)`; use low-level `updateMenu` separately.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
 - At block root use `collection`; inside nested `resource` use `collectionName`.
+- For popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
+- The convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; for anything more complex, author the canonical shape directly.
+- On record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` under `recordActions`, not `actions`.
 - Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`.
 - If layout is omitted, the server auto-generates a simple top-to-bottom layout.
 - If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
 - `replace` mode is for rebuilding one page, not for a tiny local edit.
 - Nested popups still stay inside the same page DSL as inline popup definitions.
 - Keep non-DSL control fields out of the payload; follow [normative-contract.md](./normative-contract.md).
+- If a tool returns `params/requestBody must be object`, stop and fix the MCP call envelope first; do not keep mutating the inner DSL blindly.
+- In testing / multi-agent runs, do not perform destructive cleanup unless the user explicitly asked for deletion.
 
 ## 4. Localized Existing-surface Edit Path
 
@@ -79,12 +97,17 @@ Use this path when the user asks to add/move/remove/update only part of an exist
    - `addPopupTab` / `updatePopupTab` / `movePopupTab` / `removePopupTab`
    - `moveNode` / `removeNode`
    - `updateMenu` / `createMenu` / `createPage`
+   - if the chosen tool uses `requestBody`, wrap the business payload under `requestBody` instead of sending the inner object directly
+   - if the chosen tool needs `target.uid` / `locator.uid`, source that uid from live readback rather than inventing `"root"`
 5. Read back only the affected target/parent, unless hierarchy changed.
 
 ## 5. Schema / Capability Reads
 
 - Use `collections:list` only to narrow candidates.
 - Use `collections:get(appends=["fields"])` as the default field truth.
+- Do **not** use `collections.fields:list` for page authoring / field discovery; it is compact browse only, not authoring truth.
+- Use `collections.fields:get` only for known single-field follow-up if one field still needs confirmation.
+- If a field shows `interface: null` / empty in `collections:get(appends=["fields"])`, do not place it into DSL `fields[]`.
 - Use `catalog({ target, sections: ["fields"] })` when current-target addability matters.
 - If required schema is missing, stop and hand off to `nocobase-data-modeling`.
 

@@ -30,6 +30,9 @@ The popup subtree in public `executeDsl` still follows the same public page-DSL 
 
 - nested popup blocks use the same canonical block grammar as top-level tab blocks
 - nested `resource` objects use `collectionName`, not `collection`
+- for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`
+- the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; author the canonical shape directly whenever possible
+- on record-capable popup blocks, prefer `recordActions` for `view` / `edit` / `updateRecord` / `delete`
 - `field.target` is only a string block key in the same popup scope
 - popup `layout.rows` uses block keys / `{ key, span }`, never `uid`, `ref`, or `$ref`
 - keep popup intent inline with `popup`, not low-level `openView` authoring

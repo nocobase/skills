@@ -33,7 +33,10 @@ Read this file when you already know you need to add something into a content ar
 ## 4. Field Rules
 
 - Use `collections:get(appends=["fields"])` as the default field truth.
+- Do **not** use `collections.fields:list` for page authoring / field discovery; it is a compact browse view only.
+- Use `collections.fields:get` only for known single-field follow-up.
 - A field existing in collection schema does not automatically mean it is addable on the current UI target.
+- If `collections:get(appends=["fields"])` shows `interface: null` / empty, do not author that field into page-DSL `fields[]`.
 - When current-target addability matters, read `catalog({ target, sections: ["fields"] })`.
 - Prefer display-ready field paths such as `department.title` over raw relation ids when the user is describing display semantics.
 

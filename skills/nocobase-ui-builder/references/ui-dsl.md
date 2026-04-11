@@ -2,6 +2,8 @@
 
 This file defines the simplified public **page-structure JSON DSL** used by `executeDsl`.
 
+This file is for authoring the **inner page DSL document**. It is **not** the primary tool-call cookbook. For the actual MCP invocation shape, always read [tool-shapes.md](./tool-shapes.md) and start from its **Tool-call envelope** examples.
+
 ## 1. Core Rules
 
 - The wire format is **JSON**.
@@ -14,6 +16,14 @@ This file defines the simplified public **page-structure JSON DSL** used by `exe
 - Tabs are interpreted in array order. In `replace`, DSL tabs map to existing route-backed tab slots by index.
 - Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
 - The DSL is structure-only; it does not expose planning or execution internals.
+
+Important:
+
+- This file describes the **inner page DSL document** only.
+- When you call `flow_surfaces_execute_dsl`, put this document under `requestBody` as an **object**.
+- Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
+- If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page DSL blindly.
+- Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner DSL only.
 
 ## 2. Top-level Shape
 
@@ -48,6 +58,18 @@ This file defines the simplified public **page-structure JSON DSL** used by `exe
 - `page`: page-level metadata
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `tabs`: non-empty ordered array of route-backed tabs
+
+### `navigation.group` semantics
+
+- Prefer `navigation.group.routeId` when the destination menu group is already known.
+- `navigation.group.routeId` is exact targeting only; do not mix it with `icon`, `tooltip`, or `hideInMenu`.
+- `navigation.group.title` is for new-group creation or title-only unique same-title reuse.
+- When `routeId` is omitted and `title` matches:
+  - zero existing groups -> create a new group
+  - one existing group -> reuse that group
+  - multiple existing groups -> reject and require `routeId`
+- If same-title reuse hits an existing group, keep it title-only.
+- If an existing group's metadata must change, do not rely on executeDsl create; use low-level `updateMenu` instead.
 
 ## 3. Create Example
 
@@ -214,6 +236,28 @@ Rules:
 - do not mix block-level shorthand and nested `resource` on the same block
 - when `resource.binding` is present, treat the object as binding-centered; do not mix it with raw locator-only forms such as `sourceId`
 
+#### C. Canonical popup relation table
+
+For a relation table inside a current-record popup, prefer:
+
+```json
+{
+  "type": "table",
+  "resource": {
+    "binding": "associatedRecords",
+    "associationField": "roles",
+    "collectionName": "roles"
+  },
+  "fields": ["title", "name"]
+}
+```
+
+Notes:
+
+- this is the canonical form for "show the current record's related roles"
+- executeDsl may normalize `currentRecord | associatedRecords + associationPathName` into this shape for convenience when `associationPathName` is a single relation field name
+- the skill should still author this canonical `associatedRecords + associationField` shape directly
+
 ### Field shorthand
 
 A field entry may be:
@@ -235,6 +279,11 @@ An action / record action entry may be:
 
 - a string action type
 - an object with optional `key`, `type`, `title`, `settings`, and optional inline `popup`
+
+For record-capable blocks (`table`, `details`, `list`, `gridCard`):
+
+- author `view`, `edit`, `updateRecord`, and `delete` under `recordActions`
+- executeDsl may auto-promote these common record actions from `actions`, but that is a convenience fallback, not the preferred authoring style
 
 ### Popup
 

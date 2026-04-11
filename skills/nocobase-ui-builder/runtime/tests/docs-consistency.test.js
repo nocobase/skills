@@ -53,6 +53,11 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(skill, /### Always/);
   assert.match(skill, /### Whole-page `executeDsl` path/);
   assert.match(skill, /### Localized low-level path/);
+  assert.match(skill, /never use `collections\.fields:list`/i);
+  assert.match(skill, /only default field truth/i);
+  assert.match(skill, /collections\.fields:get.*single-field follow-up/i);
+  assert.match(skill, /prefer `navigation\.group\.routeId`/);
+  assert.match(skill, /never do destructive cleanup/i);
   assert.doesNotMatch(skill, /dsl-execution\.md/);
 
   assertRelativeMarkdownLinksExist('references/normative-contract.md');
@@ -78,12 +83,27 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(checklist, /`field\.target` is only a string block key/i);
   assert.match(checklist, /At block root use `collection`; inside nested `resource` use `collectionName`/);
   assert.match(checklist, /do not use `uid`, `ref`, or `\$ref`/);
+  assert.match(checklist, /prefer `navigation\.group\.routeId`/);
+  assert.match(checklist, /title-only unique same-title reuse/i);
+  assert.match(checklist, /routeId` is exact targeting only/i);
+  assert.match(checklist, /use low-level `updateMenu` separately/i);
+  assert.match(checklist, /associatedRecords/);
+  assert.match(checklist, /single relation field name/i);
+  assert.match(checklist, /recordActions/);
+  assert.match(checklist, /Do \*\*not\*\* use `collections\.fields:list`/i);
+  assert.match(checklist, /collections\.fields:get.*single-field follow-up/i);
+  assert.match(checklist, /interface: null/i);
+  assert.match(checklist, /do not perform destructive cleanup/i);
 
   const pageIntent = read('references/page-intent.md');
   assert.match(pageIntent, /Authoring Heuristics/);
   assert.match(pageIntent, /See Also/);
   assert.match(pageIntent, /canonical public names/i);
   assert.match(pageIntent, /do not leak `uid`, `ref`, `\$ref`/i);
+  assert.match(pageIntent, /navigation\.group\.routeId/);
+  assert.match(pageIntent, /title-only/i);
+  assert.match(pageIntent, /low-level `updateMenu` path/i);
+  assert.match(pageIntent, /associatedRecords \+ associationField/i);
   assert.doesNotMatch(pageIntent, /Execution Pattern/);
   assert.doesNotMatch(pageIntent, /collections:get\(appends=\["fields"\]\)/);
 
@@ -96,8 +116,18 @@ test('skill docs keep the simplified routing structure', () => {
   assert.doesNotMatch(uiDsl, /object-style target refs/);
   assert.match(uiDsl, /Tabs are interpreted in array order/);
   assert.match(uiDsl, /route-backed tab slots by index/i);
+  assert.match(uiDsl, /navigation\.group\.routeId/);
+  assert.match(uiDsl, /exact targeting only/i);
+  assert.match(uiDsl, /zero existing groups -> create a new group/i);
+  assert.match(uiDsl, /title-only unique same-title reuse/i);
+  assert.match(uiDsl, /low-level `updateMenu`/i);
   assert.match(uiDsl, /optional local `key`/i);
   assert.match(uiDsl, /nested `resource\.collectionName`, not `resource\.collection`/i);
+  assert.match(uiDsl, /associatedRecords/);
+  assert.match(uiDsl, /associationField/);
+  assert.match(uiDsl, /single relation field name/i);
+  assert.match(uiDsl, /record-capable blocks/i);
+  assert.match(uiDsl, /auto-promote/i);
   assert.match(uiDsl, /`field\.target` is only a .*string block key/i);
   assert.match(uiDsl, /layout cells do \*\*not\*\* use `uid`, `ref`, or `\$ref`/i);
   assert.match(uiDsl, /do not use `ref` or `\$ref`/i);
@@ -105,10 +135,23 @@ test('skill docs keep the simplified routing structure', () => {
   const normative = read('references/normative-contract.md');
   assert.match(normative, /route-backed tab slots by index/i);
   assert.match(normative, /tab \/ block keys are optional/i);
+  assert.match(normative, /navigation\.group\.routeId/);
+  assert.match(normative, /exact targeting only/i);
+  assert.match(normative, /same-title group/i);
+  assert.match(normative, /same-title reuse is title-only/i);
+  assert.match(normative, /low-level `updateMenu`/i);
+  assert.match(normative, /associatedRecords.*associationField/i);
+  assert.match(normative, /single relation field name/i);
+  assert.match(normative, /recordActions/);
   assert.match(normative, /`ref` \/ `\$ref`/);
   assert.match(normative, /layout-cell `uid`/);
   assert.match(normative, /nested `block\.resource` uses `collectionName`/i);
   assert.match(normative, /layout cells are only block key strings or `\{ key, span \}`/i);
+  assert.match(normative, /Never delete or clean unrelated pages/i);
+  assert.match(normative, /only default field truth for UI authoring/i);
+  assert.match(normative, /Do \*\*not\*\* use `collections\.fields:list`/i);
+  assert.match(normative, /collections\.fields:get` is optional follow-up/i);
+  assert.match(normative, /interface` is empty \/ null/i);
   assert.doesNotMatch(normative, /expectedFingerprint/);
   assert.doesNotMatch(normative, /bindKeys/);
   assert.doesNotMatch(normative, /verificationMode/);
@@ -119,9 +162,18 @@ test('skill docs keep the simplified routing structure', () => {
   assert.doesNotMatch(toolShapes, /bindKeys/);
   assert.doesNotMatch(toolShapes, /verificationMode/);
   assert.match(toolShapes, /route-backed tab slots by array index/i);
+  assert.match(toolShapes, /"routeId": 12/);
+  assert.match(toolShapes, /unique same-title group/i);
+  assert.match(toolShapes, /Same-title reuse is title-only/i);
+  assert.match(toolShapes, /exact targeting only/i);
+  assert.match(toolShapes, /low-level `updateMenu`/i);
   assert.match(toolShapes, /collectionName/);
   assert.match(toolShapes, /fieldPath/);
   assert.match(toolShapes, /resource\.collectionName/);
+  assert.match(toolShapes, /associatedRecords/);
+  assert.match(toolShapes, /associationField/);
+  assert.match(toolShapes, /single relation field name/i);
+  assert.match(toolShapes, /recordActions/);
   assert.match(toolShapes, /public `executeDsl` never uses `ref` \/ `\$ref` \/ `uid` selectors/i);
   assert.match(toolShapes, /"resource": \{ "collection": "employees" \}/);
   assert.match(toolShapes, /"resource": \{ "resourceBinding": "currentRecord" \}/);
@@ -131,6 +183,9 @@ test('skill docs keep the simplified routing structure', () => {
 
   const popup = read('references/popup.md');
   assert.match(popup, /nested `resource` objects use `collectionName`, not `collection`/i);
+  assert.match(popup, /associatedRecords/i);
+  assert.match(popup, /single relation field name/i);
+  assert.match(popup, /record-capable popup blocks, prefer `recordActions`/i);
   assert.match(popup, /`field\.target` is only a string block key/i);
   assert.match(popup, /never `uid`, `ref`, or `\$ref`/i);
   assert.match(popup, /`popup`, not low-level `openView` authoring/i);
@@ -155,6 +210,9 @@ test('skill docs keep the simplified routing structure', () => {
 
   const capabilities = read('references/capabilities.md');
   assert.match(capabilities, /public page DSL \/ `executeDsl` path/i);
+  assert.match(capabilities, /Do \*\*not\*\* use `collections\.fields:list`/i);
+  assert.match(capabilities, /collections\.fields:get.*single-field follow-up/i);
+  assert.match(capabilities, /interface: null/i);
 
   const aliases = read('references/aliases.md');
   assert.match(aliases, /public page-DSL \/ executeDsl authoring/i);
@@ -170,9 +228,19 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(openaiYaml, /low-level flow-surfaces APIs/);
   assert.match(openaiYaml, /route-backed tab slots by index/i);
   assert.match(openaiYaml, /only use key when local layout or in-document targeting needs it/i);
+  assert.match(openaiYaml, /navigation\.group\.routeId/);
+  assert.match(openaiYaml, /exact targeting only/i);
+  assert.match(openaiYaml, /low-level updateMenu/i);
+  assert.match(openaiYaml, /never use collections\.fields:list/i);
+  assert.match(openaiYaml, /collections:get\(appends=.*fields.*\) as the default field truth/i);
+  assert.match(openaiYaml, /collections\.fields:get only for known single-field follow-up/i);
+  assert.match(openaiYaml, /interface is empty\/null/i);
   assert.match(openaiYaml, /nested resource\.collectionName/i);
+  assert.match(openaiYaml, /associatedRecords \+ associationField/i);
+  assert.match(openaiYaml, /recordActions/);
   assert.match(openaiYaml, /field\.target as a string block key only/i);
   assert.match(openaiYaml, /do not author ref\/\$ref or uid-style selectors/i);
+  assert.match(openaiYaml, /never do destructive cleanup/i);
   assert.doesNotMatch(openaiYaml, /validateDsl/);
   assert.doesNotMatch(openaiYaml, /fingerprint flow/);
   assert.doesNotMatch(openaiYaml, /removed public patch DSL/);

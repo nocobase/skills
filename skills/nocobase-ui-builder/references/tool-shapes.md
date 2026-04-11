@@ -2,6 +2,49 @@
 
 This file summarizes the minimal request shapes most often needed by this skill.
 
+## 0. Global Envelope Rule
+
+- `flow_surfaces_get` is the common exception in this skill: it uses top-level locator fields directly.
+- Most other `flow_surfaces_*` tools used here expect the business payload under `requestBody`.
+- Unless a section explicitly says **Inner payload only**, prefer copying the **Tool-call envelope** examples, not the inner object by itself.
+- For `executeDsl`, `validateDsl`, `executePlan`, and `validatePlan`, always start from the tool-call envelope in this file. Do **not** start from example JSON in `ui-dsl.md`.
+- Never stringify `requestBody`.
+- Never add an outer `{ values: ... }` wrapper.
+- Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
+
+Safe mental model:
+
+1. author the inner business object
+2. keep it as an object in memory
+3. call MCP with `{ "requestBody": <that same object> }`
+4. never transform it with `JSON.stringify(...)`
+
+Common wrong shapes:
+
+```json
+{
+  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
+}
+```
+
+```json
+{
+  "target": { "uid": "table-block-uid" },
+  "changes": { "pageSize": 20 }
+}
+```
+
+The second example is wrong because `configure` expects:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "table-block-uid" },
+    "changes": { "pageSize": 20 }
+  }
+}
+```
+
 ## 1. Inspect Reads
 
 ### `get`
@@ -16,10 +59,14 @@ Use `get` for normal structural inspection and post-write readback.
 
 Use `describeSurface` only when its richer public tree helps analyze an existing surface.
 
+Tool-call envelope:
+
 ```json
 {
-  "locator": {
-    "pageSchemaUid": "employees-page-schema"
+  "requestBody": {
+    "locator": {
+      "pageSchemaUid": "employees-page-schema"
+    }
   }
 }
 ```
@@ -28,21 +75,71 @@ Use `describeSurface` only when its richer public tree helps analyze an existing
 
 Use `catalog` when current-target capability is the question.
 
+Tool-call envelope:
+
 ```json
 {
-  "target": { "uid": "table-block-uid" },
-  "sections": ["fields"]
+  "requestBody": {
+    "target": { "uid": "table-block-uid" },
+    "sections": ["fields"]
+  }
 }
 ```
 
+Wrong:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "root" },
+    "sections": ["fields"]
+  }
+}
+```
+
+If you do not yet have a real target uid, read structure first; do not guess `"root"`.
+
 ## 2. `executeDsl` Create
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "navigation": {
+      "group": { "routeId": 12 },
+      "item": { "title": "Employees" }
+    },
+    "page": {
+      "title": "Employees",
+      "documentTitle": "Employees workspace"
+    },
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          {
+            "type": "table",
+            "collection": "employees",
+            "fields": ["nickname"]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Inner DSL only — **NEVER send this block alone to MCP**:
 
 ```json
 {
   "version": "1",
   "mode": "create",
   "navigation": {
-    "group": { "title": "Workspace" },
+    "group": { "routeId": 12 },
     "item": { "title": "Employees" }
   },
   "page": {
@@ -64,9 +161,42 @@ Use `catalog` when current-target capability is the question.
 }
 ```
 
+When the target group is not already known, `navigation.group.title` is also valid; executeDsl will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `updateMenu` instead.
+
 ## 3. `executeDsl` Replace
 
 `replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "replace",
+    "target": {
+      "pageSchemaUid": "employees-page-schema"
+    },
+    "page": {
+      "title": "Employees workspace"
+    },
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          {
+            "type": "table",
+            "collection": "employees",
+            "fields": ["nickname"]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Inner DSL only — **NEVER send this block alone to MCP**:
 
 ```json
 {
@@ -97,59 +227,109 @@ Use `catalog` when current-target capability is the question.
 
 ### `compose`
 
+Tool-call envelope:
+
 ```json
 {
-  "target": { "uid": "tab-schema-uid" },
-  "mode": "append",
-  "blocks": [
-    {
-      "key": "employeesTable",
-      "type": "table",
-      "resource": {
-        "dataSourceKey": "main",
-        "collectionName": "employees"
-      },
-      "fields": ["nickname"]
-    }
-  ]
+  "requestBody": {
+    "target": { "uid": "tab-schema-uid" },
+    "mode": "append",
+    "blocks": [
+      {
+        "key": "employeesTable",
+        "type": "table",
+        "resource": {
+          "dataSourceKey": "main",
+          "collectionName": "employees"
+        },
+        "fields": ["nickname"]
+      }
+    ]
+  }
 }
 ```
 
 ### `configure`
 
+Tool-call envelope:
+
 ```json
 {
-  "target": { "uid": "table-block-uid" },
-  "changes": {
-    "pageSize": 20
+  "requestBody": {
+    "target": { "uid": "table-block-uid" },
+    "changes": {
+      "pageSize": 20
+    }
   }
 }
 ```
 
 ### `addTab`
 
+Tool-call envelope:
+
 ```json
 {
-  "target": { "uid": "page-uid" },
-  "title": "Summary"
+  "requestBody": {
+    "target": { "uid": "page-uid" },
+    "title": "Summary"
+  }
 }
 ```
 
 ### `moveTab`
 
+Tool-call envelope:
+
 ```json
 {
-  "sourceUid": "summary-tab-uid",
-  "targetUid": "overview-tab-uid",
-  "position": "before"
+  "requestBody": {
+    "sourceUid": "summary-tab-uid",
+    "targetUid": "overview-tab-uid",
+    "position": "before"
+  }
 }
 ```
 
 ### `removeNode`
 
+Tool-call envelope:
+
 ```json
 {
-  "target": { "uid": "banner-block-uid" }
+  "requestBody": {
+    "target": { "uid": "banner-block-uid" }
+  }
+}
+```
+
+### `validatePlan`
+
+`validatePlan` is **not** the page DSL itself. Its `requestBody` must be the plan request object, not a JSON string.
+
+Correct tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "plan": {
+      "steps": [
+        {
+          "action": "configure",
+          "target": { "uid": "table-block-uid" },
+          "changes": { "pageSize": 20 }
+        }
+      ]
+    }
+  }
+}
+```
+
+Wrong:
+
+```json
+{
+  "requestBody": "{\"plan\":{\"steps\":[{\"action\":\"configure\"}]}}"
 }
 ```
 
@@ -204,9 +384,28 @@ At block root, use `collection`. Inside nested `resource`, use `resource.collect
 
 Notes:
 
+- prefer `navigation.group.routeId` whenever an existing destination group is already known.
+- `navigation.group.routeId` is exact targeting only; do not mix it with group metadata.
+- for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
+- the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name.
+- on record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
 - `field.target` is only a string block key.
 - layout cells are only `"blockKey"` or `{ "key": "blockKey", "span": 12 }`.
 - public `executeDsl` never uses `ref` / `$ref` / `uid` selectors.
+
+Canonical popup relation-table example:
+
+```json
+{
+  "type": "table",
+  "resource": {
+    "binding": "associatedRecords",
+    "associationField": "roles",
+    "collectionName": "roles"
+  },
+  "fields": ["title", "name"]
+}
+```
 
 ## 6. Common Invalid Public `executeDsl` Shapes
 
@@ -214,6 +413,10 @@ These are invalid for the new public `executeDsl` path:
 
 ```json
 { "dsl": { "version": "1" } }
+```
+
+```json
+{ "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}" }
 ```
 
 ```json
@@ -238,6 +441,14 @@ These are invalid for the new public `executeDsl` path:
 
 ```json
 { "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "recordActions": [{ "type": "view", "popup": { "$ref": "#/popup" } }] }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "navigation": { "group": { "routeId": 12, "icon": "UserOutlined" }, "item": { "title": "Employees" } }, "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "collection": "employees", "fields": ["nickname"] }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "resource": { "binding": "currentRecord", "associationPathName": "manager.roles", "collectionName": "roles" }, "fields": ["title"] }] }] }
 ```
 
 ```json
