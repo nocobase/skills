@@ -77,6 +77,10 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 - Only when postcheck outputs `action_required: provide_api_token`, ask user to create/regenerate API key and send token value in chat
 - Do not ask for token while endpoint blocker (`404/503`) is unresolved
 - Token acquisition must be user-manual; do not auto-create or auto-retrieve token in this flow
+- After postcheck passes, generate client config from fixed templates:
+- Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client opencode -BaseUrl http://127.0.0.1:13000 -McpAuthMode api-key -TokenEnv NOCOBASE_API_TOKEN`
+- Linux/macOS: `bash scripts/render-mcp-client-template.sh opencode http://127.0.0.1:13000 api-key main '' NOCOBASE_API_TOKEN ''`
+- For `opencode`, token placeholder must use `{env:NOCOBASE_API_TOKEN}` and include `Accept: application/json, text/event-stream` in remote headers.
 
 Manual pages:
 

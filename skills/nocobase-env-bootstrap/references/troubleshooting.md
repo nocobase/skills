@@ -237,3 +237,32 @@ Actions:
 1. Re-run OAuth login with required scopes.
 2. Fix OAuth provider/config and retry login.
 3. Validate endpoint access after fresh token acquisition.
+
+---
+
+## NB-ENV-011: MCP `406 Not Acceptable` after token is provided
+
+Symptoms:
+
+- API token is already configured, but MCP connection still fails.
+- Server log contains: `Client must accept both application/json and text/event-stream`.
+- Request log may show mixed `401` and `406` during repeated retries.
+
+Checks:
+
+1. Confirm MCP client sends `Accept: application/json, text/event-stream`.
+2. Confirm MCP client sends `Content-Type: application/json` for JSON-RPC POST.
+3. Confirm token placeholder syntax matches client type:
+- `opencode`: `{env:NOCOBASE_API_TOKEN}`
+- `claude`/`cline`: `${NOCOBASE_API_TOKEN}`
+- `windsurf`: `{{NOCOBASE_API_TOKEN}}`
+4. Confirm endpoint path is correct for app scope (`/api/mcp` vs `/api/__app/<app_name>/mcp`).
+
+Actions:
+
+1. Generate fresh client template via fixed script:
+- Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client <client> ...`
+- Linux/macOS: `bash scripts/render-mcp-client-template.sh <client> ...`
+2. Reapply template without manual edits first.
+3. Rerun `mcp-postcheck` and then client connect.
+4. If still failing, capture one full initialize request/response pair including request headers.

@@ -15,9 +15,10 @@ Bootstrap and verify NocoBase MCP connectivity so downstream development workflo
 7. API Key Path
 8. OAuth Path
 9. Package Scope Control
-10. Verification Checklist
-11. Failure Handling
-12. Reference Files
+10. Client Templates and Fixed Scripts
+11. Verification Checklist
+12. Failure Handling
+13. Reference Files
 
 ## Prerequisites
 
@@ -173,6 +174,12 @@ $env:NOCOBASE_API_TOKEN="<your_api_key>"
 codex mcp add nocobase --url http://<host>:<port>/api/mcp --bearer-token-env-var NOCOBASE_API_TOKEN
 ```
 
+For non-codex clients, generate fixed templates from the helper script in this skill:
+
+```powershell
+powershell -File scripts/render-mcp-client-template.ps1 -Client opencode -BaseUrl http://127.0.0.1:13000 -McpAuthMode api-key -TokenEnv NOCOBASE_API_TOKEN
+```
+
 ## OAuth Path
 
 1. Add MCP server in client.
@@ -193,6 +200,29 @@ Use `x-mcp-packages` to limit exposed package capabilities.
 1. Default: empty (server default exposure).
 2. Restricted mode: provide comma-separated package list.
 3. Always echo effective package scope in final output evidence.
+
+## Client Templates and Fixed Scripts
+
+Use these scripts to avoid client-specific config mistakes.
+
+1. Windows template generator:
+
+```powershell
+powershell -File scripts/render-mcp-client-template.ps1 -Client <codex|claude|opencode|vscode|windsurf|cline> -BaseUrl <app_base_url> -McpAuthMode <api-key|oauth|none> -McpScope <main|non-main> -McpAppName <app_name_if_non_main> -TokenEnv NOCOBASE_API_TOKEN -McpPackages "<pkg1,pkg2>"
+```
+
+2. Linux/macOS template generator:
+
+```bash
+bash scripts/render-mcp-client-template.sh <codex|claude|opencode|vscode|windsurf|cline> <app_base_url> <api-key|oauth|none> <main|non-main> <app_name_if_non_main> NOCOBASE_API_TOKEN "<pkg1,pkg2>"
+```
+
+3. Template reference:
+- [MCP Client Templates](mcp-client-templates.md)
+
+4. `opencode` note:
+- Use remote MCP config with explicit `Accept: application/json, text/event-stream`.
+- API token placeholder format is `{env:NOCOBASE_API_TOKEN}` (different from `${NOCOBASE_API_TOKEN}` used by some other clients).
 
 ## Verification Checklist
 
@@ -236,5 +266,6 @@ Use `x-mcp-packages` to limit exposed package capabilities.
 
 - [MCP Call Examples](mcp-call-examples.md)
 - [MCP Tool Shapes](mcp-tool-shapes.md)
+- [MCP Client Templates](mcp-client-templates.md)
 - [MCP Troubleshooting](mcp-troubleshooting.md)
 - [MCP PowerShell Helpers](mcp-powershell-helpers.md)

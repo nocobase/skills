@@ -50,7 +50,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `mcp_url` | no | inferred from scope/app/port | valid HTTP or HTTPS URL | "Do you want to override the default MCP endpoint URL?" |
 | `mcp_token_env` | when `mcp_auth_mode=api-key` | `NOCOBASE_API_TOKEN` | valid env variable name | "Which env var stores the API key token?" |
 | `mcp_packages` | no | empty | comma-separated package names | "Should exposed MCP packages be limited via x-mcp-packages?" |
-| `mcp_client` | no | `codex` | one of `codex/claude` | "Which client should be configured for MCP connection commands?" |
+| `mcp_client` | no | `codex` | one of `codex/claude/opencode/vscode/windsurf/cline` | "Which client should be configured for MCP connection commands?" |
 
 Default behavior when user says "you decide":
 
@@ -143,6 +143,10 @@ Default behavior when user says "you decide":
 - After `mcp-postcheck` passes (or MCP verification passes in install/deploy flow), do one lightweight live capability probe (`tools/list`; if required, initialize then list once) and use the returned tool names to generate next-step guidance.
 - Keep this step minimal: no extra large scripts, no heavy diagnostics, no static capability template.
 - Do not claim unsupported capabilities; when live probe fails, explicitly say capability fetch failed and provide conservative generic examples.
+- If `mcp_client` is provided, generate client bootstrap output from fixed templates:
+- Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client <mcp_client> -BaseUrl <app_base_url> -McpAuthMode <mcp_auth_mode> -McpScope <mcp_scope> -McpAppName <mcp_app_name> -TokenEnv <mcp_token_env> -McpPackages <mcp_packages>`
+- Linux/macOS: `bash scripts/render-mcp-client-template.sh <mcp_client> <app_base_url> <mcp_auth_mode> <mcp_scope> <mcp_app_name> <mcp_token_env> <mcp_packages>`
+- For `opencode`, always emit remote config with explicit `Accept: application/json, text/event-stream` and token placeholder format `{env:<TOKEN_ENV>}`.
 - Onboarding guidance must include:
 - 1) one short starter sentence.
 - 2) up to 5 concrete next-step examples (model/table, permissions, page/view, workflow/notification, statistics/report), prioritized by discovered tools.
@@ -172,6 +176,7 @@ Default behavior when user says "you decide":
 | [references/mcp-runbook.md](references/mcp-runbook.md) | mcp-connect and post-install MCP bootstrap | endpoint, auth, package scope, and client command guide |
 | [references/mcp-call-examples.md](references/mcp-call-examples.md) | MCP JSON-RPC call formatting | `tools/call` wrapper and request examples |
 | [references/mcp-tool-shapes.md](references/mcp-tool-shapes.md) | MCP tool argument examples | nested `requestBody` and common ACL/data-source calls |
+| [references/mcp-client-templates.md](references/mcp-client-templates.md) | MCP client bootstrap output | fixed templates for codex/claude/opencode/vscode/windsurf/cline |
 | [references/mcp-troubleshooting.md](references/mcp-troubleshooting.md) | MCP error diagnosis | `-32601`, header mismatch, and status triage |
 | [references/mcp-powershell-helpers.md](references/mcp-powershell-helpers.md) | Windows MCP helper snippets | reusable JSON/SSE parsing and call helpers |
 | [references/upgrade-runbook.md](references/upgrade-runbook.md) | single-instance upgrade | pre-check, execution, post-check, rollback guidance |
@@ -245,6 +250,7 @@ Final response must include:
 - verification result
 - MCP verification (`endpoint`, `auth mode`, `status`, `packages`, `activation blockers`)
 - sampled live MCP tool names (if probe succeeds)
+- generated MCP client template command/snippet (when `mcp_client` is provided)
 - manual action URLs (`plugin manager`, `api-keys page`) when user intervention is required
 - unresolved risks
 - recommended next action
@@ -264,6 +270,7 @@ For `install/deploy` tasks, `recommended next action` must include:
 - [MCP Runbook](references/mcp-runbook.md): use for MCP endpoint and client connection bootstrap.
 - [MCP Call Examples](references/mcp-call-examples.md): canonical JSON-RPC request envelopes and wrong-vs-right patterns.
 - [MCP Tool Shapes](references/mcp-tool-shapes.md): commonly used MCP tool argument examples.
+- [MCP Client Templates](references/mcp-client-templates.md): fixed client bootstrap templates and script usage for codex/claude/opencode/vscode/windsurf/cline.
 - [MCP Troubleshooting](references/mcp-troubleshooting.md): error-code based MCP diagnosis and fixes.
 - [MCP PowerShell Helpers](references/mcp-powershell-helpers.md): reusable Windows helper functions for JSON/SSE parsing.
 - [Upgrade Runbook](references/upgrade-runbook.md): use for safe single-instance upgrades.
