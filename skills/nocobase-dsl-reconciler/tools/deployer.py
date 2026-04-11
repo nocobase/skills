@@ -196,6 +196,26 @@ def validate(mod_dir: str, nb: NocoBase = None) -> dict:
     for ps in structure.get("pages", []):
         _check_js_refs(ps.get("blocks", []), ps.get("page", "?"))
 
+    # ── Dashboard validation ──
+    for ps in structure.get("pages", []):
+        if "dashboard" not in ps.get("page", "").lower():
+            continue
+        blocks = ps.get("blocks", [])
+        types = [b.get("type", "") for b in blocks]
+        has_kpi = "jsBlock" in types
+        has_chart = "chart" in types
+        if not has_kpi:
+            errors.append(
+                f"Dashboard page has no KPI cards (jsBlock). "
+                f"FIX: run 'python deployer.py --new' to scaffold, or add jsBlock with file: ./js/kpi_*.js "
+                f"(copy from templates/kpi_card.js)"
+            )
+        if not has_chart:
+            warnings.append(
+                f"Dashboard page has no charts. "
+                f"Add chart blocks with chart_config: ./charts/*.yaml"
+            )
+
     # ── SQL validation (charts + KPI) ──
     import re
     # Get all existing table names
