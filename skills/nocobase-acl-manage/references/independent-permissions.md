@@ -47,12 +47,20 @@ Collection targeting UX rule:
 
 ### Before configuring independent permissions:
 
-1. **Fetch collection fields first** using `collections.fields:list` or `collections:listMeta`
+1. **Fetch collection fields first**:
+   - prefer `roles_data_sources_collections_list` with `filter.dataSourceKey`
+   - fallback to `collections_fields_list` when needed
 2. Identify which fields are:
    - Sensitive (financial, identity, approval status)
    - System fields (id, createdAt, updatedAt, createdBy, updatedBy)
    - Relation fields (associations that control data relationships)
    - Business fields (normal data fields)
+
+Runtime guard for metadata/read tools:
+
+- `roles_data_sources_collections_list` requires `filter.dataSourceKey`
+- `roles_data_source_resources_get` requires `filter.dataSourceKey` + `filter.name`
+- if server returns errors like `Cannot destructure property 'dataSourceKey'` or `Cannot read properties of undefined (reading 'dataSourceKey')`, fix argument shape and retry once
 
 ### Field configuration rules:
 

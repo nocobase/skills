@@ -13,6 +13,8 @@ General rule:
 - If the user does not provide field-level restrictions, default to all fields for the selected action.
 - When user asks to grant `view` without field details, apply `view` to all fields by default.
 - For full-field defaults, resolve concrete field names from collection metadata and write explicit non-empty field arrays.
+- Full-field defaults include system fields returned by metadata (for example `sort`, `createdBy`, `createdById`, `updatedBy`, `updatedById`) unless user explicitly asks to exclude them.
+- Use technical field names (`field.name`) in write payloads, not display titles.
 - Do not use `fields: []` as a synonym for full-field access.
 
 Strong signals that field permissions should be explicit:

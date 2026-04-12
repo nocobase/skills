@@ -108,6 +108,10 @@ Resource permission interaction policy:
 - resolve real collection names from the selected data source collection list
 - if matching is ambiguous, present candidates and ask user to choose
 - if no match is found, ask user for a clearer business keyword
+- when reading collection metadata, always pass required filter shape:
+- `roles_data_sources_collections_list` must include `filter.dataSourceKey`
+- `roles_data_source_resources_get` must include `filter.dataSourceKey` and `filter.name`
+- if a read call returns errors like `Cannot destructure property 'dataSourceKey'` or `Cannot read properties of undefined (reading 'dataSourceKey')`, treat it as argument-shape mismatch, repair arguments, and retry once
 - resolve scope binding before write:
 - `all` -> built-in scope `key=all` id in target data source
 - `own` -> built-in scope `key=own` id in target data source
@@ -120,6 +124,9 @@ Resource permission interaction policy:
 - do not use `fields=[]` as a full-field default marker
 - if user did not provide field-level restrictions, apply full-field permission for each selected action
 - apply full-field default to every selected action that supports field configuration (`create`, `view`, `update`, `export`, `importXlsx`)
+- full-field default must include system fields returned by metadata (for example `sort`, `createdBy`, `createdById`, `updatedBy`, `updatedById`) unless user explicitly asks to exclude them
+- use technical field names (`field.name`) for writes, never display titles
+- do not auto-drop fields only because they are system/context/relation/hidden; only exclude when user intent explicitly restricts them
 - `view` action must default to all fields for that collection
 - if user explicitly asks for `all permissions` on a collection, resolve runtime available actions and confirm expanded action set before write
 
@@ -245,8 +252,11 @@ Preferred Chinese wording:
 - runtime tool names resolved
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
+- for `roles_data_sources_collections_list`, calls always include `filter.dataSourceKey`
+- for `roles_data_source_resources_get`, calls always include `filter.dataSourceKey` + `filter.name`
 - for `permission.data-source.resource.set`, when scope is `all` or `own`, readback must show non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
+- when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
 - global role-mode tasks do not require `role_name`
 - boundary messages are clear and actionable
 
@@ -264,6 +274,8 @@ Preferred Chinese wording:
 10. `user.assign-role` in strict mode should block when no dedicated membership tool exists.
 11. `user.assign-role` with guarded fallback enabled should succeed with readback.
 12. `risk.assess-role` should return score + evidence + recommendations.
+13. `roles_data_sources_collections_list` and `roles_data_source_resources_get` should not be called without required `filter` keys.
+14. Full-field default should preserve system fields in readback when metadata includes them.
 
 # Reference Loading Map
 
