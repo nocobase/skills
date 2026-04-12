@@ -3,8 +3,10 @@ name: nocobase-ui-builder
 description: >-
   Use when the user wants to inspect, draft, create, modify, reorder, or
   delete NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and
-  block / field / action configuration. Whole-page creation or replacement uses
-  the simplified page-structure JSON blueprint through applyBlueprint; localized edits use
+  block / field / action configuration. Also covers reaction-based interaction
+  authoring such as default values, computed linkage, block visibility, and
+  action enable/disable. Whole-page creation or replacement uses the simplified
+  page-structure JSON blueprint through applyBlueprint; localized edits use
   low-level flow-surfaces APIs. Does not handle ACL, data modeling, workflow
   orchestration, browser reproduction, page error postmortems, or
   non-Modern-page navigation.
@@ -24,17 +26,23 @@ description: >-
   9. If a destination menu group title already exists, never create another same-title group just to avoid ambiguity. Prefer an explicit `navigation.group.routeId`; otherwise reuse one existing visible same-title group deterministically from the live menu tree and disclose the chosen routeId in the prewrite preview.
   10. Before the first `applyBlueprint`, finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a field object that is actually needed for `popup` / `target` / `renderer` / field-specific `type`, and every custom `edit` popup contains exactly one `editForm`. If any item fails, rewrite the blueprint before writing.
   11. For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise **ASCII-first** prewrite preview rendered from the same blueprint: short intent summary + one ASCII wireframe, popup depth exactly one level deep, and full JSON hidden unless the user asks for it. This preview is mandatory even when you will execute immediately afterward. Only stop for confirmation when the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first; otherwise show the preview and continue in the same run.
+  12. If the user asks for default values, linkage, computed values, show/hide, required/disabled, or action visibility/state, treat it as a reaction task first. Whole-page authoring goes through top-level `reaction.items[]`; localized edits go through `getReactionMeta` -> `set*Rules`. Do not start by guessing raw configure keys.
 - Minimum read set:
   1. Read [normative-contract.md](./references/normative-contract.md) first.
   2. Read [execution-checklist.md](./references/execution-checklist.md) second.
   3. Then choose **one** path:
      - whole-page `applyBlueprint` authoring -> [page-blueprint.md](./references/page-blueprint.md) + [tool-shapes.md](./references/tool-shapes.md) + [ascii-preview.md](./references/ascii-preview.md)；若从业务意图出发，再加读 [page-intent.md](./references/page-intent.md)
+     - whole-page `applyBlueprint` + interaction/reaction -> 再加读 [reaction.md](./references/reaction.md)
      - localized existing-surface edit -> [runtime-playbook.md](./references/runtime-playbook.md) + [tool-shapes.md](./references/tool-shapes.md)，然后只读所需低层主题文档
+     - localized interaction/reaction edit -> 再加读 [reaction.md](./references/reaction.md)，并先做 `getReactionMeta`
 
 ## Routing
 
 - Whole-page create or replace -> simplified `applyBlueprint` page blueprint; whole-page public write path in this skill is `applyBlueprint` only, and the default prewrite surface is one ASCII wireframe rendered from that same blueprint.
 - Localized edit on an existing page/tab/popup/node -> low-level flow-surfaces APIs.
+- Whole-page interaction / reaction authoring -> top-level `applyBlueprint.reaction.items[]`.
+- Localized interaction / reaction edit -> `getReactionMeta` first, then `setFieldValueRules` / `setFieldLinkageRules` / `setBlockLinkageRules` / `setActionLinkageRules`.
+- `flow_surfaces_context` is only the lower-level supplement for reaction authoring. Do not use it as the first discovery step when `getReactionMeta` already covers the target.
 - For requestBody-based `flow_surfaces_*` tools, send the business payload under `requestBody` as an **object**. Do not stringify it or wrap it in `{ values: ... }`. `flow_surfaces_get` is the main exception: it uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`).
 - Before every write or requestBody-based read, verify two things first: the MCP envelope matches the tool schema, and every `target.uid` / `locator.uid` comes from live readback rather than the invented literal `"root"`.
 - If a tool returns `params/requestBody must be object`, `params/requestBody must match exactly one schema in oneOf`, or `flowSurfaces uid 'root' not found`, fix the **tool-call shape first**.
@@ -80,11 +88,13 @@ description: >-
 - [page-intent.md](./references/page-intent.md): high-level page intent -> page blueprint authoring heuristics.
 - [page-archetypes.md](./references/page-archetypes.md): first-pass page patterns.
 - [ascii-preview.md](./references/ascii-preview.md): ASCII-first prewrite preview rules.
+- [reaction.md](./references/reaction.md): whole-page reaction/items authoring, recipes, and guardrails.
 - [tool-shapes.md](./references/tool-shapes.md): minimal request envelopes and common invalid payloads.
 
 ### Localized low-level path
 
 - [runtime-playbook.md](./references/runtime-playbook.md): family/locator/write-target mental model.
+- [reaction.md](./references/reaction.md): localized reaction discovery/write route and common recipes.
 - [capabilities.md](./references/capabilities.md): block / field / action capability selection.
 - [settings.md](./references/settings.md): `configure` / `updateSettings` semantics.
 - [templates.md](./references/templates.md): template search / apply / save / detach rules.

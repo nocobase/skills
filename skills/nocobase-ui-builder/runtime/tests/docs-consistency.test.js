@@ -277,11 +277,13 @@ test('skill docs keep the simplified routing structure', () => {
   assert.doesNotMatch(normative, /validatePlan/);
 
   const toolShapes = read('references/tool-shapes.md');
-  assert.doesNotMatch(toolShapes, /expectedFingerprint/);
   assert.doesNotMatch(toolShapes, /bindKeys/);
   assert.doesNotMatch(toolShapes, /verificationMode/);
   assert.doesNotMatch(toolShapes, /executePlan/);
   assert.doesNotMatch(toolShapes, /validatePlan/);
+  assert.match(toolShapes, /getReactionMeta/);
+  assert.match(toolShapes, /expectedFingerprint/);
+  assert.match(toolShapes, /setFieldValueRules/);
   assert.match(toolShapes, /route-backed tab slots by array index/i);
   assert.match(toolShapes, /For `applyBlueprint`, `requestBody` is the page blueprint object itself/i);
   assert.match(toolShapes, /do \*\*not\*\* support generic `form`/i);
@@ -356,8 +358,8 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(asciiPreview, /nb-page-preview\.mjs/);
 
   const runtimePlaybook = read('references/runtime-playbook.md');
-  assert.match(runtimePlaybook, /public `applyBlueprint` is structure-only/i);
-  assert.match(runtimePlaybook, /do not author `uid`, `ref`, or `\$ref` selectors there/i);
+  assert.match(runtimePlaybook, /public `applyBlueprint` is key-oriented and structure-first/i);
+  assert.match(runtimePlaybook, /author `uid`, `ref`, or `\$ref` selectors there/i);
 
   const templates = read('references/templates.md');
   assert.match(templates, /public `applyBlueprint`/i);

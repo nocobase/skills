@@ -10,6 +10,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
 - If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
+- If the request mentions default values, linkage, computed values, show/hide, required/disabled, or action state, decide explicitly whether this is a whole-page reaction task or a localized reaction task before choosing structural APIs.
 - If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
 - Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
   - `flow_surfaces_get` -> top-level locator fields
@@ -23,7 +24,9 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 | `inspect` | menu tree for menu questions; otherwise `get`; use `describeSurface` only when its richer tree helps analysis | read-only answer |
 | `draft-page-blueprint` | gather facts -> author simplified page blueprint -> ASCII prewrite preview and stop without writing | no write |
 | `apply-page-blueprint` | simplified page blueprint -> `applyBlueprint` -> `get` readback | `get({ pageSchemaUid })` |
+| `apply-page-blueprint` + reaction | simplified page blueprint + top-level `reaction.items[]` -> `applyBlueprint` -> `get` readback | `get({ pageSchemaUid })` + target reaction slot checks |
 | `edit-existing-surface` | `get` / `describeSurface` / `catalog` as needed -> low-level APIs -> readback | parent/target readback |
+| `edit-existing-surface` + reaction | `get` if target unknown -> `getReactionMeta` -> matching `set*Rules` -> readback | target readback + write result `resolvedScene` / `fingerprint` |
 | `create-menu-group` | direct `createMenu(type="group")` | return value or menu tree |
 | `move-menu` | menu tree if needed -> `updateMenu(parentMenuRouteId=...)` | menu tree |
 | `reorder` | `moveTab` / `movePopupTab` / `moveNode` | parent/page/popup readback |
@@ -50,9 +53,10 @@ Use this path when the user is describing one page as a whole.
 2. Discover real collections/fields/relations if the page is data-bound.
 3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
 4. Draft or assemble one **page blueprint** document.
-5. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
-6. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-7. Before the **first** `applyBlueprint`, run the authoring self-check:
+5. If the same page also needs interaction logic, add top-level `reaction.items[]` in the same blueprint instead of splitting structure and reactions into separate whole-page writes.
+6. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
+7. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+8. Before the **first** `applyBlueprint`, run the authoring self-check:
    - tabs count matches the request
    - if this is a normal single-page request, `tabs.length` is exactly `1`
    - every `tab.blocks` is a non-empty array
@@ -64,15 +68,16 @@ Use this path when the user is describing one page as a whole.
    - every field named in any blueprint `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
    - every field entry in blueprint `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
    - every custom `edit` popup contains exactly one `editForm`
+   - if `reaction.items[]` exists, each reaction target is a same-run local key / bind key, not a live uid
    - if any item fails, rewrite the blueprint before the first write; do not use backend errors as the first validator
-8. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
-9. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
-10. When you call `applyBlueprint`:
+9. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
+10. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
+11. When you call `applyBlueprint`:
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
    - Pass the blueprint as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
    - Never copy a raw JSON example from `page-blueprint.md` straight into the MCP call without wrapping it under `requestBody`.
    - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner blueprint fields.
-11. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
+12. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
 
@@ -115,17 +120,19 @@ Use this path when the user asks to add/move/remove/update only part of an exist
 1. Use `get` to locate the current page/tab/popup/node.
 2. Use `describeSurface` only when the richer public tree helps analysis.
 3. Use `catalog` only when target capability is uncertain.
-4. Use the smallest low-level write that preserves semantics:
+4. If the request is reaction-related, call `getReactionMeta` before any write and do not guess raw configure keys or valid action/state names.
+5. Use the smallest low-level write that preserves semantics:
    - `compose` for structured block/field/action insertion under a container
    - `configure` for simple semantic changes
    - `updateSettings` for settings-domain writes
+   - `setFieldValueRules` / `setFieldLinkageRules` / `setBlockLinkageRules` / `setActionLinkageRules` for reaction writes
    - `addTab` / `updateTab` / `moveTab` / `removeTab`
    - `addPopupTab` / `updatePopupTab` / `movePopupTab` / `removePopupTab`
    - `moveNode` / `removeNode`
    - `updateMenu` / `createMenu` / `createPage`
    - if the chosen tool uses `requestBody`, wrap the business payload under `requestBody` instead of sending the inner object directly
    - if the chosen tool needs `target.uid` / `locator.uid`, source that uid from live readback rather than inventing `"root"`
-5. Read back only the affected target/parent, unless hierarchy changed.
+6. Read back only the affected target/parent, unless hierarchy changed.
 
 ## 5. Schema / Capability Reads
 

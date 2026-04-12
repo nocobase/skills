@@ -54,6 +54,7 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 - If layout is not essential or not fully decided, omit it rather than inventing a string or block-level `layout`.
 - For whole-page authoring, default to **ASCII-first** prewrite output rendered from the same blueprint, even when you will execute immediately after it. The preview must still appear before the first write. Keep popup expansion depth at exactly one level, and do not dump JSON unless the user asks for it or a technical review still needs it.
 - Before first write, self-check tabs count, non-empty `tab.blocks`, no empty tabs, no placeholder `markdown` / note / banner block, no block-level `layout`, unique block `key` values, simple-string `fields[]` by default, and exactly one `editForm` in every custom `edit` popup. If any item fails, rewrite the blueprint before the first write.
+- If the page request also includes interaction logic, add it as top-level `reaction.items[]` in the same blueprint instead of inventing a second whole-page write.
 - In test runs, do not add destructive cleanup steps unless the user explicitly asked for deletion.
 - Do not stringify the final page blueprint when calling MCP. The correct mental model is:
   - first author `const blueprint = { ... }`
@@ -71,13 +72,32 @@ Before the first whole-page `applyBlueprint`, present:
 5. if the request needs review, stop after the preview; otherwise continue immediately to execution
 6. when executing, the actual MCP envelope must still come from `tool-shapes.md`, not by sending the draft JSON directly
 
-## 5. Do Not Do These
+## 5. Interaction / Reaction Intent
+
+Map common user language like this:
+
+- "default value", "initially fill", "预填" -> `setFieldValueRules`
+- "when A changes, compute B/C", "联动赋值", "自动计算" -> `setFieldLinkageRules`
+- "hide/show this table/block", "根据条件显示区块" -> `setBlockLinkageRules`
+- "disable/hide this button", "按钮不可点" -> `setActionLinkageRules`
+
+Whole-page rule:
+
+- if the structure is being built now, keep the interaction logic inside blueprint `reaction.items[]`
+
+Localized rule:
+
+- if the page already exists, do `getReactionMeta` first, then the matching `set*Rules` write
+
+See [reaction.md](./reaction.md) for the detailed recipes.
+
+## 6. Do Not Do These
 
 - do not invent missing schema
 - do not use `applyBlueprint` for a tiny local edit on an existing page
 - do not add assumptions into the wire payload
 
-## 6. See Also
+## 7. See Also
 
 - For live schema facts and stop conditions, see [normative-contract.md](./normative-contract.md).
 - For execution order and readback, see [execution-checklist.md](./execution-checklist.md).

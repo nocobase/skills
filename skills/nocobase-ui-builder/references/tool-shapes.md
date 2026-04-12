@@ -106,6 +106,26 @@ Wrong:
 
 If you do not yet have a real target uid, read structure first; do not guess `"root"`.
 
+### `getReactionMeta`
+
+Use `getReactionMeta` as the first discovery read for default values, linkage, computed fields, block visibility, or action state.
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-form-uid" }
+  }
+}
+```
+
+Notes:
+
+- For form `fieldValue` / `fieldLinkage`, keep targeting the outer form block uid.
+- Reuse the returned capability `fingerprint` in the matching `set*Rules` write.
+- Use `flow_surfaces_context` only when you still need lower-level ctx paths beyond the returned metadata.
+
 ## 2. `applyBlueprint` Create
 
 Tool-call envelope:
@@ -246,6 +266,50 @@ For custom edit popups, use `editForm`, not `form`:
 
 In a custom `edit` popup, the single `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context.
 
+Whole-page reaction example:
+
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "tabs": [
+      {
+        "key": "main",
+        "title": "Overview",
+        "blocks": [
+          {
+            "key": "employeeForm",
+            "type": "createForm",
+            "collection": "employees",
+            "fields": ["status"],
+            "actions": ["submit"]
+          }
+        ]
+      }
+    ],
+    "reaction": {
+      "items": [
+        {
+          "type": "setFieldValueRules",
+          "target": "main.employeeForm",
+          "rules": [
+            {
+              "targetPath": "status",
+              "mode": "default",
+              "value": {
+                "source": "literal",
+                "value": "draft"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
 ## 3. `applyBlueprint` Replace
 
 `replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
@@ -343,6 +407,136 @@ Tool-call envelope:
     "changes": {
       "pageSize": 20
     }
+  }
+}
+```
+
+### `setFieldValueRules`
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-form-uid" },
+    "expectedFingerprint": "<from getReactionMeta>",
+    "rules": [
+      {
+        "targetPath": "status",
+        "mode": "default",
+        "value": {
+          "source": "literal",
+          "value": "draft"
+        }
+      }
+    ]
+  }
+}
+```
+
+### `setFieldLinkageRules`
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-form-uid" },
+    "expectedFingerprint": "<from getReactionMeta>",
+    "rules": [
+      {
+        "key": "recomputeTotals",
+        "then": [
+          {
+            "type": "assignField",
+            "items": [
+              {
+                "targetPath": "subtotal",
+                "value": {
+                  "source": "runjs",
+                  "version": "v2",
+                  "code": "const amount = Number(ctx.formValues?.amount || 0); return amount;"
+                }
+              },
+              {
+                "targetPath": "total",
+                "value": {
+                  "source": "runjs",
+                  "version": "v2",
+                  "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### `setBlockLinkageRules`
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employees-table-uid" },
+    "expectedFingerprint": "<from getReactionMeta>",
+    "rules": [
+      {
+        "key": "hideTable",
+        "when": {
+          "logic": "$and",
+          "items": [
+            {
+              "path": "params.query.hideTable",
+              "operator": "$isTruly"
+            }
+          ]
+        },
+        "then": [
+          {
+            "type": "setBlockState",
+            "state": "hidden"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### `setActionLinkageRules`
+
+Tool-call envelope:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "refresh-action-uid" },
+    "expectedFingerprint": "<from getReactionMeta>",
+    "rules": [
+      {
+        "key": "disableRefresh",
+        "when": {
+          "logic": "$and",
+          "items": [
+            {
+              "path": "params.query.readonly",
+              "operator": "$isTruly"
+            }
+          ]
+        },
+        "then": [
+          {
+            "type": "setActionState",
+            "state": "disabled"
+          }
+        ]
+      }
+    ]
   }
 }
 ```

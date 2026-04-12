@@ -24,7 +24,7 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
-- The blueprint is structure-only; it does not expose planning or execution internals.
+- The blueprint stays public and declarative; it does not expose planning or execution internals.
 
 Important:
 
@@ -55,6 +55,9 @@ Important:
     "scripts": {},
     "charts": {}
   },
+  "reaction": {
+    "items": []
+  },
   "tabs": [
     {
       "title": "Overview",
@@ -77,7 +80,17 @@ Important:
 - `navigation`: only for `create`; controls menu group/item metadata
 - `page`: page-level metadata
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
+- `reaction`: optional whole-page interaction authoring section
 - `tabs`: non-empty ordered array of route-backed tabs
+
+### `reaction.items[]`
+
+- Use top-level `reaction.items[]` only when interaction logic belongs to the same whole-page blueprint run.
+- Valid item types are `setFieldValueRules`, `setFieldLinkageRules`, `setBlockLinkageRules`, and `setActionLinkageRules`.
+- `target` is a same-run local key / bind key, not a live uid.
+- For form default values and form field linkage, target the form block key/path, not the inner grid.
+- Localized edits on an existing live surface should not use blueprint `reaction` as a patch format; use `getReactionMeta` + `set*Rules` instead.
+- See [reaction.md](./reaction.md) for recipes and localized write flow.
 
 ### `navigation.group` semantics
 
@@ -107,10 +120,36 @@ Important:
     "enableHeader": true,
     "displayTitle": true
   },
+  "reaction": {
+    "items": [
+      {
+        "type": "setFieldValueRules",
+        "target": "main.employeeForm",
+        "rules": [
+          {
+            "targetPath": "status",
+            "mode": "default",
+            "value": {
+              "source": "literal",
+              "value": "draft"
+            }
+          }
+        ]
+      }
+    ]
+  },
   "tabs": [
     {
+      "key": "main",
       "title": "Overview",
       "blocks": [
+        {
+          "key": "employeeForm",
+          "type": "createForm",
+          "collection": "employees",
+          "fields": ["nickname", "status"],
+          "actions": ["submit"]
+        },
         {
           "type": "table",
           "collection": "employees",

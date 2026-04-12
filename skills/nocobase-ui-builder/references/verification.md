@@ -33,6 +33,7 @@ A page-blueprint draft is good when:
 - Verify only the surfaces affected by the write, unless hierarchy changed.
 - A successful write response is not enough; confirm via readback.
 - Popup-specific claims require popup-specific readback.
+- Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 
 ## 3. Minimum Readback Targets
 
@@ -40,13 +41,25 @@ A page-blueprint draft is good when:
 | --- | --- |
 | `applyBlueprint` create | menu tree if menu placement matters + `get({ pageSchemaUid })` |
 | `applyBlueprint` replace | `get({ pageSchemaUid })` and affected tab/content checks |
+| `applyBlueprint` with `reaction.items[]` | `get({ pageSchemaUid })` plus the affected reaction slot in readback |
 | `createPage` | `get({ pageSchemaUid })` |
 | `addTab/updateTab/moveTab/removeTab` | page or tab readback |
 | `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | popup page/tab readback |
 | `compose/addBlock/addField/addAction/addRecordAction` | direct parent/target readback |
 | `configure/updateSettings` | modified target readback |
+| `getReactionMeta` + `set*Rules` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
 | `moveNode/removeNode` | parent/target readback |
 | `updateMenu` / `createMenu` | menu tree when placement matters |
+
+### Reaction-specific readback
+
+After a reaction write, confirm at least:
+
+- the returned `resolvedScene` matches the intended scene family
+- the returned `fingerprint` changed when the slot content changed
+- the persisted rule slot exists where expected
+- for form `fieldValue` / `fieldLinkage`, rules land on the form-grid slot rather than the outer form step root
+- for clear operations, `rules: []` really leaves the persisted slot empty
 
 ## 4. Popup-specific Checks
 

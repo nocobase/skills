@@ -9,7 +9,7 @@ For payload envelopes, see [tool-shapes.md](./tool-shapes.md). For popup-specifi
 - If the user is authoring one whole page through public `applyBlueprint`, keep template usage inline inside the public page blueprint:
   - block template -> block `template`
   - popup template -> action/field `popup.template`
-- Public `applyBlueprint` still stays structure-only. Do not translate low-level `openView` config shapes into the page blueprint.
+- Public `applyBlueprint` stays public and declarative. Keep template usage inline there, and do not translate low-level `openView` config shapes into the page blueprint.
 - This file is mainly about template lifecycle and low-level template entry points after the routing decision is already clear.
 
 ## What a Template Means

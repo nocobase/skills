@@ -6,7 +6,7 @@ This page is the single source of truth for `nocobase-ui-builder`. Other referen
 
 Rule precedence is always:
 
-1. live MCP behavior / live `applyBlueprint` / `get` / `describeSurface` / `catalog` / `context` / low-level `flow_surfaces_*` write contracts
+1. live MCP behavior / live `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level `flow_surfaces_*` write contracts
 2. this `Normative Contract`
 3. topic references (`popup`, `verification`, `runtime-playbook`, etc.)
 4. examples and heuristics
@@ -19,7 +19,9 @@ If a lower-priority local document conflicts with a live contract fact, follow t
 
 - **Whole-page create** -> simplified **page blueprint** -> `applyBlueprint(mode="create")` -> readback.
 - **Whole-page replace** -> simplified **page blueprint** -> `applyBlueprint(mode="replace")` -> readback.
+- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `applyBlueprint(...)` -> readback.
 - **Localized edit on an existing surface** -> low-level APIs directly (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
+- **Localized interaction / reaction edit** -> `getReactionMeta` -> matching `set*Rules` -> readback.
 
 ### What the public page blueprint is
 
@@ -27,10 +29,14 @@ The public `applyBlueprint` payload is:
 
 - JSON only
 - one page at a time
-- structure-only
+- structure-first, with optional top-level `reaction.items[]` for whole-page interaction logic
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
+- if `reaction.items[]` is present, every reaction target must be a same-run local key / bind key, not a live uid
+- for form `fieldValue` / form-scene `fieldLinkage`, target the outer form block key/path, not the inner grid uid
+- only explicitly listed reaction items are written; omitted reaction slots stay unchanged
+- `rules: []` clears the targeted reaction slot
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
 - if `layout` is present, it must be an object; when layout is still uncertain, omit it instead of guessing
 - generic `form` is not a public applyBlueprint block type; use `editForm` or `createForm`
