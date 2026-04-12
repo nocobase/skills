@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { renderPageDslAsciiPreview } from './page-dsl-preview.js';
+import { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -54,7 +54,7 @@ async function loadJsonFromFile(cwd, filePath) {
 function usage() {
   return {
     command:
-      'Render one page DSL ASCII preview. Required: --stdin-json or --input <path>. Optional: --max-popup-depth <n>.',
+      'Render one page blueprint ASCII preview. Required: --stdin-json or --input <path>. Optional: --max-popup-depth <n>.',
   };
 }
 
@@ -90,7 +90,7 @@ export async function runPagePreviewCli(argv, io = {}) {
             throw new Error('Missing required --stdin-json or --input.');
           })();
 
-    const result = renderPageDslAsciiPreview(payload, {
+    const result = renderPageBlueprintAsciiPreview(payload, {
       maxPopupDepth: parseOptionalNumber(args['max-popup-depth'], '--max-popup-depth'),
     });
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { renderPageDslAsciiPreview } from '../src/page-dsl-preview.js';
+import { renderPageBlueprintAsciiPreview } from '../src/page-blueprint-preview.js';
 import { runPagePreviewCli } from '../src/page-preview-cli.js';
 
 function createMemoryStream() {
@@ -24,8 +24,8 @@ function createInputStream(text) {
   return stream;
 }
 
-test('renderPageDslAsciiPreview renders row grouping, block summaries, and one popup layer', () => {
-  const result = renderPageDslAsciiPreview({
+test('renderPageBlueprintAsciiPreview renders row grouping, block summaries, and one popup layer', () => {
+  const result = renderPageBlueprintAsciiPreview({
     version: '1',
     mode: 'create',
     navigation: {
@@ -96,8 +96,8 @@ test('renderPageDslAsciiPreview renders row grouping, block summaries, and one p
   assert.deepEqual(result.warnings, ['Popup from field "manager" was omitted because preview expands popups only 1 level(s).']);
 });
 
-test('renderPageDslAsciiPreview falls back for unknown block types and wrapper inputs', () => {
-  const result = renderPageDslAsciiPreview({
+test('renderPageBlueprintAsciiPreview falls back for unknown block types and wrapper inputs', () => {
+  const result = renderPageBlueprintAsciiPreview({
     requestBody: {
       version: '1',
       mode: 'replace',
@@ -121,17 +121,17 @@ test('renderPageDslAsciiPreview falls back for unknown block types and wrapper i
   assert.match(result.ascii, /^PAGE: employees-page-schema \(replace\)/m);
   assert.match(result.ascii, /TARGET: employees-page-schema/);
   assert.match(result.ascii, /customThing "Mystery block" \[mystery\]/);
-  assert.deepEqual(result.warnings, ['Received outer requestBody wrapper; preview unwrapped the inner page DSL.']);
+  assert.deepEqual(result.warnings, ['Received outer requestBody wrapper; preview unwrapped the inner page blueprint.']);
 });
 
-test('renderPageDslAsciiPreview rejects invalid inputs', () => {
-  const result = renderPageDslAsciiPreview({
+test('renderPageBlueprintAsciiPreview rejects invalid inputs', () => {
+  const result = renderPageBlueprintAsciiPreview({
     mode: 'create',
     page: { title: 'Broken' },
   });
 
   assert.equal(result.ok, false);
-  assert.match(result.error, /recognizable inner page DSL object/i);
+  assert.match(result.error, /recognizable inner page blueprint object/i);
   assert.equal(result.ascii, '');
 });
 
@@ -174,7 +174,7 @@ test('page preview cli reads stdin json and returns ascii output', async () => {
   assert.match(payload.ascii, /Actions: \[create\]/);
 });
 
-test('page preview cli returns ok=false for invalid dsl payload', async () => {
+test('page preview cli returns ok=false for invalid blueprint payload', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -196,5 +196,5 @@ test('page preview cli returns ok=false for invalid dsl payload', async () => {
   assert.equal(stderr.read(), '');
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
-  assert.match(payload.error, /recognizable inner page DSL object/i);
+  assert.match(payload.error, /recognizable inner page blueprint object/i);
 });

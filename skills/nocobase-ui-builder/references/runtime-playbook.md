@@ -26,8 +26,8 @@ This file provides the family / locator / write-target mental model for the skil
 
 | user intent | default write path |
 | --- | --- |
-| create one whole page | `executeDsl(mode="create")` |
-| replace/rebuild one whole page | `executeDsl(mode="replace")` |
+| create one whole page | `applyBlueprint(mode="create")` |
+| replace/rebuild one whole page | `applyBlueprint(mode="replace")` |
 | create/move menu only | `createMenu` / `updateMenu` |
 | add/update content under an existing surface | `compose` / `add*` / `configure` / `updateSettings` |
 | reorder/remove tab or popup tab | `moveTab` / `removeTab` / `movePopupTab` / `removePopupTab` |
@@ -37,13 +37,13 @@ This file provides the family / locator / write-target mental model for the skil
 ## 4. Targeting Notes
 
 - `createMenu(type="item")` returns pre-init ids. The item is not a write-ready page until `createPage(menuRouteId=...)` finishes.
-- `executeDsl(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
-- public `executeDsl` is structure-only: layout and in-document targeting use local `key`; do not author `uid`, `ref`, or `$ref` selectors there.
+- `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
+- public `applyBlueprint` is structure-only: layout and in-document targeting use local `key`; do not author `uid`, `ref`, or `$ref` selectors there.
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
 - Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describeSurface`, or a previous create response.
 
 ## 5. Practical Rules
 
-- If the request sounds like a **whole page**, route to page DSL authoring first.
+- If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
 - If the request crosses families or the target is not unique, narrow the target before writing.

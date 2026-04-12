@@ -9,7 +9,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - Decide whether the request is **whole-page create/replace** or **localized edit**.
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
-- If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring DSL.
+- If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
 - If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
 - Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
   - `flow_surfaces_get` -> top-level locator fields
@@ -21,8 +21,8 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 | intent | default path | minimum readback |
 | --- | --- | --- |
 | `inspect` | menu tree for menu questions; otherwise `get`; use `describeSurface` only when its richer tree helps analysis | read-only answer |
-| `draft-page-dsl` | gather facts -> author simplified page DSL -> ASCII prewrite preview and stop without writing | no write |
-| `execute-page-dsl` | simplified page DSL -> `executeDsl` -> `get` readback | `get({ pageSchemaUid })` |
+| `draft-page-blueprint` | gather facts -> author simplified page blueprint -> ASCII prewrite preview and stop without writing | no write |
+| `apply-page-blueprint` | simplified page blueprint -> `applyBlueprint` -> `get` readback | `get({ pageSchemaUid })` |
 | `edit-existing-surface` | `get` / `describeSurface` / `catalog` as needed -> low-level APIs -> readback | parent/target readback |
 | `create-menu-group` | direct `createMenu(type="group")` | return value or menu tree |
 | `move-menu` | menu tree if needed -> `updateMenu(parentMenuRouteId=...)` | menu tree |
@@ -38,7 +38,7 @@ Use this path when the user is describing one page as a whole.
 - create one new Modern page from business intent
 - replace / rebuild one existing page as a whole
 
-### Do not use `executeDsl` for
+### Do not use `applyBlueprint` for
 
 - add one block / field / action
 - move one node
@@ -46,13 +46,13 @@ Use this path when the user is describing one page as a whole.
 - change one popup / tab setting
 - remove one node / tab / popup tab
 
-1. Read [page-intent.md](./page-intent.md), [ui-dsl.md](./ui-dsl.md), and [ascii-preview.md](./ascii-preview.md).
+1. Read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), and [ascii-preview.md](./ascii-preview.md).
 2. Discover real collections/fields/relations if the page is data-bound.
 3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
-4. Draft or assemble one **page DSL** document.
+4. Draft or assemble one **page blueprint** document.
 5. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
 6. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-7. Before the **first** `executeDsl`, run the authoring self-check:
+7. Before the **first** `applyBlueprint`, run the authoring self-check:
    - tabs count matches the request
    - if this is a normal single-page request, `tabs.length` is exactly `1`
    - every `tab.blocks` is a non-empty array
@@ -61,17 +61,17 @@ Use this path when the user is describing one page as a whole.
    - no block object contains `layout`
    - every `tab.layout` / `popup.layout` is an object; if you are unsure, omit `layout`
    - block `key` values are unique within the document
-   - every field named in any DSL `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
-   - every field entry in DSL `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
+   - every field named in any blueprint `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
+   - every field entry in blueprint `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
    - every custom `edit` popup contains exactly one `editForm`
-   - if any item fails, rewrite the DSL before the first write; do not use backend errors as the first validator
-8. Before the **first** `executeDsl` on any whole-page task, show one ASCII wireframe rendered from that same DSL. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
-9. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `executeDsl`.
-10. When you call `executeDsl`:
+   - if any item fails, rewrite the blueprint before the first write; do not use backend errors as the first validator
+8. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
+9. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
+10. When you call `applyBlueprint`:
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
-   - Pass the DSL as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
-   - Never copy a raw JSON example from `ui-dsl.md` straight into the MCP call without wrapping it under `requestBody`.
-   - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner DSL fields.
+   - Pass the blueprint as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
+   - Never copy a raw JSON example from `page-blueprint.md` straight into the MCP call without wrapping it under `requestBody`.
+   - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner blueprint fields.
 11. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
@@ -81,12 +81,12 @@ Use this path when the user is describing one page as a whole.
 - If visible same-title groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`, otherwise choose one deterministically from the live menu tree and state that chosen routeId in the prewrite preview.
 - `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`). If an existing group's metadata must change, use low-level `updateMenu` separately.
 - `replace` updates only the explicit page-level fields present in `page`.
-- Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
+- Current server behavior maps blueprint tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
 - For a normal single-page request, keep `tabs.length = 1` unless the user explicitly asked for multiple route-backed tabs.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks just to explain future work or organize your thinking.
-- Default DSL `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
-- For whole-page `executeDsl` authoring, default to **ASCII-first** prewrite output: short intent summary, one ASCII wireframe, and assumptions only when needed.
-- The ASCII preview is the default prewrite review surface; the DSL remains the execution truth, and the preview must still appear before the first write even when execution continues immediately afterward.
+- Default blueprint `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
+- For whole-page `applyBlueprint` authoring, default to **ASCII-first** prewrite output: short intent summary, one ASCII wireframe, and assumptions only when needed.
+- The ASCII preview is the default prewrite review surface; the blueprint remains the execution truth, and the preview must still appear before the first write even when execution continues immediately afterward.
 - Default popup expansion depth in the prewrite preview is exactly **1**; deeper popup chains should stay visible only as `nested popup omitted`.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
@@ -96,16 +96,16 @@ Use this path when the user is describing one page as a whole.
 - The convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; for anything more complex, author the canonical shape directly.
 - On record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` under `recordActions`, not `actions`.
 - When the user says clicking a shown record / relation record should open details, prefer a field-level popup / clickable-field path instead of inventing a new button; only use an action / recordAction button when the request explicitly asks for one.
-- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For a standard `edit` popup, backend default completion is acceptable; when the user wants custom popup structure or sibling blocks, author explicit `popup.blocks` / `popup.layout`.
-- A custom `edit` popup must contain exactly one `editForm` block. If that `editForm` omits `resource`, executeDsl will inherit the opener's current-record context.
+- A custom `edit` popup must contain exactly one `editForm` block. If that `editForm` omits `resource`, applyBlueprint will inherit the opener's current-record context.
 - If the requirement only says "click to open" and you are not fully sure about layout, omit `layout` rather than guessing a string or block-level `layout`.
 - For existing display/association fields that should open popups on click, use low-level `configure` / `clickToOpen` semantics rather than guessing popup structure first.
 - Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`. If layout is omitted, the server auto-generates a simple top-to-bottom layout.
 - If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
-- `replace` mode is for rebuilding one page, not for a tiny local edit. Nested popups still stay inside the same page DSL as inline popup definitions.
-- Keep non-DSL control fields out of the payload; follow [normative-contract.md](./normative-contract.md).
-- If a tool returns `params/requestBody must be object`, stop and fix the MCP call envelope first; do not keep mutating the inner DSL blindly.
+- `replace` mode is for rebuilding one page, not for a tiny local edit. Nested popups still stay inside the same page blueprint as inline popup definitions.
+- Keep non-blueprint control fields out of the payload; follow [normative-contract.md](./normative-contract.md).
+- If a tool returns `params/requestBody must be object`, stop and fix the MCP call envelope first; do not keep mutating the inner blueprint blindly.
 - In testing / multi-agent runs, do not perform destructive cleanup unless the user explicitly asked for deletion.
 
 ## 4. Localized Existing-surface Edit Path
@@ -133,7 +133,7 @@ Use this path when the user asks to add/move/remove/update only part of an exist
 - Use `collections:get(appends=["fields"])` as the default field truth.
 - Do **not** use `collections.fields:list` for page authoring / field discovery; it is compact browse only, not authoring truth.
 - Use `collections.fields:get` only for known single-field follow-up if one field still needs confirmation.
-- If a field shows `interface: null` / empty in `collections:get(appends=["fields"])`, do not place it into DSL `fields[]`.
+- If a field shows `interface: null` / empty in `collections:get(appends=["fields"])`, do not place it into blueprint `fields[]`.
 - Treat this as a hard addability rule, not a soft heuristic: schema existence alone is insufficient for UI authoring.
 - This applies to `details` / `table` / `editForm` / `createForm` fields and to nested popup blocks as well.
 - Use `catalog({ target, sections: ["fields"] })` when current-target addability matters.
@@ -145,5 +145,5 @@ Stop instead of guessing when:
 
 - target is ambiguous
 - the task is really ACL / workflow / data-modeling / browser validation
-- the public page DSL cannot express the request and the low-level target is still unclear
+- the public page blueprint cannot express the request and the low-level target is still unclear
 - the live environment lacks a required capability

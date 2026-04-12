@@ -4,7 +4,7 @@ Read this file when the request involves popup, `openView`, record popups, `curr
 
 ## 1. Core Split
 
-- In **page DSL**, popup appears inline under the field/action/record action that opens it.
+- In **page blueprint**, popup appears inline under the field/action/record action that opens it.
 - In **localized low-level edits**, popup is handled through the corresponding action/field write plus popup follow-up APIs as needed.
 
 ## 2. Core Rules
@@ -23,13 +23,13 @@ For `addNew`, `view`, and `edit`:
 - only add custom popup content when the default completion is insufficient for the confirmed intent
 - for `edit`, rely on the default popup only when a standard single-form edit popup is enough; if the user wants custom layout, extra sibling blocks, or nested popups, author explicit `popup.blocks` / `popup.layout`
 - if an `edit` popup uses explicit `popup.blocks`, that custom popup must contain exactly one `editForm` block
-- in executeDsl, generic `form` is unsupported; use `editForm` or `createForm`
+- in applyBlueprint, generic `form` is unsupported; use `editForm` or `createForm`
 
-## 4. Page-DSL Popup Guidance
+## 4. Page-Blueprint Popup Guidance
 
 Use inline popup when the page as a whole is being created/replaced and the popup is part of that page structure.
 
-The popup subtree in public `executeDsl` still follows the same public page-DSL rules:
+The popup subtree in public `applyBlueprint` still follows the same public page-blueprint rules:
 
 - nested popup blocks use the same canonical block grammar as top-level tab blocks
 - nested `resource` objects use `collectionName`, not `collection`
@@ -100,7 +100,7 @@ Custom edit popup shape:
 Notes:
 
 - the custom popup contains exactly one `editForm`
-- that `editForm` may omit `resource`; executeDsl will inherit the opener's current-record context
+- that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 - sibling blocks such as relation tables are allowed next to the `editForm`
 
 ## 5. Low-level Popup Guidance

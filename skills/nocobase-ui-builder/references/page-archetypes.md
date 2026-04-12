@@ -1,6 +1,6 @@
 # Page Archetypes
 
-Use these archetypes as first-pass patterns when converting business intent into the simplified public page DSL.
+Use these archetypes as first-pass patterns when converting business intent into the simplified public page blueprint.
 
 ## 1. Management Page
 

@@ -6,8 +6,8 @@ Use this file to verify inspect/prewrite output and post-write persistence.
 
 ### Core Rules
 
-- `inspect` and page-DSL drafting are read-only.
-- whole-page `executeDsl` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete DSL draft, whether execution pauses for review or continues immediately.
+- `inspect` and page-blueprint drafting are read-only.
+- whole-page `applyBlueprint` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete blueprint draft, whether execution pauses for review or continues immediately.
 - For menu questions, default to the visible menu tree first.
 - For initialized pages/popup trees, default to `get` first.
 - Use `describeSurface` only when its richer public tree is actually needed.
@@ -15,13 +15,13 @@ Use this file to verify inspect/prewrite output and post-write persistence.
 
 ### Draft Acceptance
 
-A page-DSL draft is good when:
+A page-blueprint draft is good when:
 
 - create vs replace is clear
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
-- any ASCII wireframe shown to the user matches the same tabs / blocks / popup structure as the DSL draft
-- if execution proceeded immediately, the ASCII wireframe still appeared before the first `executeDsl`
+- any ASCII wireframe shown to the user matches the same tabs / blocks / popup structure as the blueprint draft
+- if execution proceeded immediately, the ASCII wireframe still appeared before the first `applyBlueprint`
 - if duplicate same-title menu groups existed, the preview/readback states which routeId was chosen and no extra same-title group was created unless the user explicitly asked for one
 - canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
 - low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
@@ -38,8 +38,8 @@ A page-DSL draft is good when:
 
 | operation | minimum readback |
 | --- | --- |
-| `executeDsl` create | menu tree if menu placement matters + `get({ pageSchemaUid })` |
-| `executeDsl` replace | `get({ pageSchemaUid })` and affected tab/content checks |
+| `applyBlueprint` create | menu tree if menu placement matters + `get({ pageSchemaUid })` |
+| `applyBlueprint` replace | `get({ pageSchemaUid })` and affected tab/content checks |
 | `createPage` | `get({ pageSchemaUid })` |
 | `addTab/updateTab/moveTab/removeTab` | page or tab readback |
 | `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | popup page/tab readback |

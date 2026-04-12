@@ -1,8 +1,8 @@
-# UI DSL
+# Page Blueprint
 
-This file defines the simplified public **page-structure JSON DSL** used by `executeDsl`.
+This file defines the simplified public **page-structure JSON blueprint** used by `applyBlueprint`.
 
-This file is for authoring the **inner page DSL document**. It is **not** the primary tool-call cookbook. For the actual MCP invocation shape, always read [tool-shapes.md](./tool-shapes.md) and start from its **Tool-call envelope** examples.
+This file is for authoring the **inner page blueprint document**. It is **not** the primary tool-call cookbook. For the actual MCP invocation shape, always read [tool-shapes.md](./tool-shapes.md) and start from its **Tool-call envelope** examples.
 
 ## 1. Core Rules
 
@@ -13,7 +13,7 @@ This file is for authoring the **inner page DSL document**. It is **not** the pr
 - `create` creates a new menu item + page.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
-- Tabs are interpreted in array order. In `replace`, DSL tabs map to existing route-backed tab slots by index.
+- Tabs are interpreted in array order. In `replace`, blueprint tabs map to existing route-backed tab slots by index.
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
@@ -22,18 +22,18 @@ This file is for authoring the **inner page DSL document**. It is **not** the pr
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
-- Every field placed into any DSL `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
-- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
-- The DSL is structure-only; it does not expose planning or execution internals.
+- Every field placed into any blueprint `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
+- Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- The blueprint is structure-only; it does not expose planning or execution internals.
 
 Important:
 
-- This file describes the **inner page DSL document** only.
-- When you call `flow_surfaces_execute_dsl`, put this document under `requestBody` as an **object**.
+- This file describes the **inner page blueprint document** only.
+- When you call `flow_surfaces_apply_blueprint`, put this document under `requestBody` as an **object**.
 - Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
-- Keep `requestBody` out of the inner DSL itself; `requestBody` exists only in the outer MCP tool-call envelope.
-- If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page DSL blindly.
-- Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner DSL only.
+- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the outer MCP tool-call envelope.
+- If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page blueprint blindly.
+- Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner blueprint only.
 
 ## 2. Top-level Shape
 
@@ -89,7 +89,7 @@ Important:
   - one existing group -> reuse that group
   - multiple existing groups -> reject and require `routeId`
 - If same-title reuse hits an existing group, keep it title-only.
-- If an existing group's metadata must change, do not rely on executeDsl create; use low-level `updateMenu` instead.
+- If an existing group's metadata must change, do not rely on applyBlueprint create; use low-level `updateMenu` instead.
 
 ## 3. Create Example
 
@@ -174,7 +174,7 @@ Important:
 ### Replace semantics
 
 - `replace` targets one existing page through `target.pageSchemaUid`.
-- DSL tabs map to existing route-backed tab slots by index, rewrite each slot in order, remove trailing old tabs, and append extra new tabs when needed.
+- blueprint tabs map to existing route-backed tab slots by index, rewrite each slot in order, remove trailing old tabs, and append extra new tabs when needed.
 - If `replace` expands a page from one hidden-tab state to multiple tabs, set `page.enableTabs: true` explicitly. When the current page has `enableTabs = false`, omitting it is rejected.
 - If you need a tiny localized edit on one existing tab/node, do not use `replace`; use low-level APIs instead.
 
@@ -449,7 +449,7 @@ Supported block `type` values are:
 - `actionPanel`
 - `jsBlock`
 
-`form` is not a public executeDsl block type.
+`form` is not a public applyBlueprint block type.
 
 ### Canonical resource shapes
 
@@ -513,7 +513,7 @@ For a relation table inside a current-record popup, prefer:
 Notes:
 
 - this is the canonical form for "show the current record's related roles"
-- executeDsl may normalize `currentRecord | associatedRecords + associationPathName` into this shape for convenience when `associationPathName` is a single relation field name
+- applyBlueprint may normalize `currentRecord | associatedRecords + associationPathName` into this shape for convenience when `associationPathName` is a single relation field name
 - the skill should still author this canonical `associatedRecords + associationField` shape directly
 
 ### Field shorthand
@@ -566,9 +566,9 @@ An action / record action entry may be:
 For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 
 - author `view`, `edit`, `updateRecord`, and `delete` under `recordActions`
-- executeDsl may auto-promote these common record actions from `actions`, but that is a convenience fallback, not the preferred authoring style
+- applyBlueprint may auto-promote these common record actions from `actions`, but that is a convenience fallback, not the preferred authoring style
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
-- in a custom `edit` popup, that `editForm` may omit `resource`; executeDsl will inherit the opener's current-record context
+- in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 
 ### Popup
 
@@ -602,7 +602,7 @@ or
 [{ "key": "employeesTable", "span": 12 }]
 ```
 
-Public `executeDsl` layout cells do **not** use `uid`, `ref`, or `$ref`.
+Public `applyBlueprint` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
 ### Assets
 
@@ -610,7 +610,7 @@ Public `executeDsl` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
 ## 8. Canonical Naming Rule
 
-When this skill authors `executeDsl`, always emit the canonical public names above.
+When this skill authors `applyBlueprint`, always emit the canonical public names above.
 
 - use block-level `collection`, not block-level `collectionName`
 - use nested `resource.collectionName`, not `resource.collection`
@@ -630,11 +630,11 @@ Use this file as the **shape reference**, not as a second full contract document
 - Send only the structure fields described here.
 - Use the canonical names from Section 8.
 - Keep `requestBody`, `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
-- Keep non-DSL control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
+- Keep non-blueprint control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
 
 ## 10. Response Shape
 
-`executeDsl` returns:
+`applyBlueprint` returns:
 
 ```json
 {

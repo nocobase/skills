@@ -4,12 +4,12 @@ Read this file when the task involves saving a reusable UI template, searching/s
 
 For payload envelopes, see [tool-shapes.md](./tool-shapes.md). For popup-specific rules, see [popup.md](./popup.md). For general execution order, see [execution-checklist.md](./execution-checklist.md).
 
-## Public page DSL vs low-level template APIs
+## Public page blueprint vs low-level template APIs
 
-- If the user is authoring one whole page through public `executeDsl`, keep template usage inline inside the public page DSL:
+- If the user is authoring one whole page through public `applyBlueprint`, keep template usage inline inside the public page blueprint:
   - block template -> block `template`
   - popup template -> action/field `popup.template`
-- Public `executeDsl` still stays structure-only. Do not translate low-level `openView` config shapes into the page DSL.
+- Public `applyBlueprint` still stays structure-only. Do not translate low-level `openView` config shapes into the page blueprint.
 - This file is mainly about template lifecycle and low-level template entry points after the routing decision is already clear.
 
 ## What a Template Means
@@ -236,7 +236,7 @@ Use popup templates through the popup-capable creation entry points:
 
 Use inline `popup.blocks/layout` only when the user wants local popup content rather than template reuse.
 
-For public `executeDsl`, keep the same rule: use inline `popup` / `popup.template` only, never low-level popup-retarget config shapes.
+For public `applyBlueprint`, keep the same rule: use inline `popup` / `popup.template` only, never low-level popup-retarget config shapes.
 
 ## Update an Existing Popup Template Reference
 

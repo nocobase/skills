@@ -4,7 +4,7 @@ Read this file when you already know you need to add something into a content ar
 
 ## 1. First Routing Rule
 
-- If the request is still a **whole-page** request, go back to [page-intent.md](./page-intent.md) first and stay in the public page DSL / `executeDsl` path.
+- If the request is still a **whole-page** request, go back to [page-intent.md](./page-intent.md) first and stay in the public page blueprint / `applyBlueprint` path.
 - If the request is a **localized edit**, stay in low-level APIs and use this file.
 
 ## 2. Block vs Field vs Action
@@ -36,7 +36,7 @@ Read this file when you already know you need to add something into a content ar
 - Do **not** use `collections.fields:list` for page authoring / field discovery; it is a compact browse view only.
 - Use `collections.fields:get` only for known single-field follow-up.
 - A field existing in collection schema does not automatically mean it is addable on the current UI target.
-- If `collections:get(appends=["fields"])` shows `interface: null` / empty, do not author that field into page-DSL `fields[]`.
+- If `collections:get(appends=["fields"])` shows `interface: null` / empty, do not author that field into page-blueprint `fields[]`.
 - When current-target addability matters, read `catalog({ target, sections: ["fields"] })`.
 - Prefer display-ready field paths such as `department.title` over raw relation ids when the user is describing display semantics.
 

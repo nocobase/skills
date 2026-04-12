@@ -54,10 +54,10 @@ function summarizeList(labels, { maxItems = DEFAULT_MAX_SUMMARY_ITEMS, formatter
   return hiddenCount > 0 ? `${visible.join(', ')}, +${hiddenCount} more` : visible.join(', ');
 }
 
-function getMenuPath(dsl) {
-  const groupTitle = normalizeText(dsl?.navigation?.group?.title);
-  const groupRouteId = dsl?.navigation?.group?.routeId;
-  const itemTitle = normalizeText(dsl?.navigation?.item?.title);
+function getMenuPath(blueprint) {
+  const groupTitle = normalizeText(blueprint?.navigation?.group?.title);
+  const groupRouteId = blueprint?.navigation?.group?.routeId;
+  const itemTitle = normalizeText(blueprint?.navigation?.item?.title);
   const parts = [];
 
   if (groupTitle) parts.push(groupTitle);
@@ -67,11 +67,11 @@ function getMenuPath(dsl) {
   return parts.join(' / ');
 }
 
-function getPageTitle(dsl) {
+function getPageTitle(blueprint) {
   return (
-    normalizeText(dsl?.page?.title) ||
-    normalizeText(dsl?.navigation?.item?.title) ||
-    normalizeText(dsl?.target?.pageSchemaUid) ||
+    normalizeText(blueprint?.page?.title) ||
+    normalizeText(blueprint?.navigation?.item?.title) ||
+    normalizeText(blueprint?.target?.pageSchemaUid) ||
     'Untitled page'
   );
 }
@@ -355,7 +355,7 @@ function renderTab(tab, index, context) {
   return makeBox(`Tab: ${tabTitle}`, body);
 }
 
-function normalizeDslInput(input, warnings) {
+function normalizeBlueprintInput(input, warnings) {
   if (!isPlainObject(input)) return null;
 
   if (
@@ -364,27 +364,27 @@ function normalizeDslInput(input, warnings) {
     !normalizeText(input.version) &&
     isPlainObject(input.requestBody)
   ) {
-    warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page DSL.');
+    warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
     return input.requestBody;
   }
 
   return input;
 }
 
-function isRecognizablePageDsl(dsl) {
-  return isPlainObject(dsl) && Array.isArray(dsl.tabs) && !!normalizeText(dsl.mode);
+function isRecognizablePageBlueprint(blueprint) {
+  return isPlainObject(blueprint) && Array.isArray(blueprint.tabs) && !!normalizeText(blueprint.mode);
 }
 
-export function renderPageDslAsciiPreview(input, options = {}) {
+export function renderPageBlueprintAsciiPreview(input, options = {}) {
   const warnings = [];
-  const dsl = normalizeDslInput(input, warnings);
+  const blueprint = normalizeBlueprintInput(input, warnings);
 
-  if (!isRecognizablePageDsl(dsl)) {
+  if (!isRecognizablePageBlueprint(blueprint)) {
     return {
       ok: false,
       ascii: '',
       warnings,
-      error: 'Input must be one recognizable inner page DSL object with mode and tabs.',
+      error: 'Input must be one recognizable inner page blueprint object with mode and tabs.',
     };
   }
 
@@ -394,16 +394,16 @@ export function renderPageDslAsciiPreview(input, options = {}) {
       : DEFAULT_MAX_POPUP_DEPTH;
 
   const lines = [];
-  const pageTitle = trimLabel(getPageTitle(dsl), MAX_HEADER_TEXT);
-  lines.push(`PAGE: ${pageTitle} (${normalizeText(dsl.mode, 'draft')})`);
+  const pageTitle = trimLabel(getPageTitle(blueprint), MAX_HEADER_TEXT);
+  lines.push(`PAGE: ${pageTitle} (${normalizeText(blueprint.mode, 'draft')})`);
 
-  const menuPath = getMenuPath(dsl);
+  const menuPath = getMenuPath(blueprint);
   if (menuPath) lines.push(`MENU: ${trimToLength(menuPath, 120)}`);
 
-  const targetPage = normalizeText(dsl?.target?.pageSchemaUid);
+  const targetPage = normalizeText(blueprint?.target?.pageSchemaUid);
   if (targetPage) lines.push(`TARGET: ${targetPage}`);
 
-  lines.push(`TABS: ${dsl.tabs.length}`);
+  lines.push(`TABS: ${blueprint.tabs.length}`);
   lines.push('');
 
   const tabContext = {
@@ -413,9 +413,9 @@ export function renderPageDslAsciiPreview(input, options = {}) {
     maxSummaryItems: DEFAULT_MAX_SUMMARY_ITEMS,
   };
 
-  for (const [index, tab] of dsl.tabs.entries()) {
+  for (const [index, tab] of blueprint.tabs.entries()) {
     lines.push(...renderTab(tab, index, tabContext));
-    if (index !== dsl.tabs.length - 1) lines.push('');
+    if (index !== blueprint.tabs.length - 1) lines.push('');
   }
 
   return {

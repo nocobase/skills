@@ -1,8 +1,8 @@
 # ASCII Preview for Whole-page Prewrite Authoring
 
-Use this file for **whole-page `executeDsl` authoring before the first write**.
+Use this file for **whole-page `applyBlueprint` authoring before the first write**.
 
-This is a **prewrite review surface**, not the write payload. The write truth is still the inner page DSL from [ui-dsl.md](./ui-dsl.md).
+This is a **prewrite review surface**, not the write payload. The write truth is still the inner page blueprint from [page-blueprint.md](./page-blueprint.md).
 
 ## 1. Scope
 
@@ -12,22 +12,22 @@ This is a **prewrite review surface**, not the write payload. The write truth is
 
 ## 2. Default prewrite output
 
-Before the first whole-page `executeDsl`, default to:
+Before the first whole-page `applyBlueprint`, default to:
 
 1. one short summary of the page intent
-2. one ASCII wireframe rendered from the same DSL
+2. one ASCII wireframe rendered from the same blueprint
 3. assumptions / open questions outside the payload only when they matter
 4. if duplicate menu-group titles are in play, name the chosen destination routeId outside the wireframe
 5. if review is required, one confirmation question; otherwise one short execution notice and continue
 
-Default to **ASCII-first** prewrite output. Do **not** dump the full JSON DSL unless:
+Default to **ASCII-first** prewrite output. Do **not** dump the full JSON blueprint unless:
 
-- the user explicitly asks to see the DSL, or
-- you are about to write and a technical DSL review is still needed
+- the user explicitly asks to see the blueprint, or
+- you are about to write and a technical blueprint review is still needed
 
 ## 3. Rendering rules
 
-- render from the same inner page DSL that would be written later
+- render from the same inner page blueprint that would be written later
 - page header should show page title plus `mode`
 - show `MENU` for create runs when it is known
 - when duplicate same-title menu groups exist, show the chosen routeId next to `MENU`
@@ -50,18 +50,18 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON DSL un
 
 Use the zero-dependency preview helper for deterministic output:
 
-- module: `renderPageDslAsciiPreview(dsl)`
+- module: `renderPageBlueprintAsciiPreview(blueprint)`
 - CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json`
 
-The CLI/helper should prefer the inner page DSL object. If it receives an outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
+The CLI/helper should prefer the inner page blueprint object. If it receives an outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
 
-If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same DSL rather than skipping the preview.
+If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same blueprint rather than skipping the preview.
 
 Do **not** skip the preview just because execution is going to continue immediately afterward.
 
 ## 6. See also
 
 - [page-intent.md](./page-intent.md)
-- [ui-dsl.md](./ui-dsl.md)
+- [page-blueprint.md](./page-blueprint.md)
 - [execution-checklist.md](./execution-checklist.md)
 - [verification.md](./verification.md)

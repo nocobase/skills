@@ -7,16 +7,16 @@ This file summarizes the minimal request shapes most often needed by this skill.
 - `flow_surfaces_get` is the common exception in this skill: it uses top-level locator fields directly.
 - Most other `flow_surfaces_*` tools used here expect the business payload under `requestBody`.
 - Unless a section explicitly says **Inner payload only**, prefer copying the **Tool-call envelope** examples, not the inner object by itself.
-- For `executeDsl`, always start from the tool-call envelope in this file. Do **not** start from example JSON in `ui-dsl.md`.
+- For `applyBlueprint`, always start from the tool-call envelope in this file. Do **not** start from example JSON in `page-blueprint.md`.
 - Never stringify `requestBody`.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
-- For `executeDsl`, `requestBody` is the page DSL object itself; do not wrap it again and do not flatten it to top-level fields.
-- Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For `applyBlueprint`, `requestBody` is the page blueprint object itself; do not wrap it again and do not flatten it to top-level fields.
+- Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
-- For normal single-page requests, keep exactly one real tab in the DSL; do not send empty / placeholder tabs.
+- For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Default DSL `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
+- Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
 
 Safe mental model:
@@ -106,7 +106,7 @@ Wrong:
 
 If you do not yet have a real target uid, read structure first; do not guess `"root"`.
 
-## 2. `executeDsl` Create
+## 2. `applyBlueprint` Create
 
 Tool-call envelope:
 
@@ -139,7 +139,7 @@ Tool-call envelope:
 }
 ```
 
-Inner DSL only — **NEVER send this block alone to MCP**:
+Inner Blueprint only — **NEVER send this block alone to MCP**:
 
 ```json
 {
@@ -168,7 +168,7 @@ Inner DSL only — **NEVER send this block alone to MCP**:
 }
 ```
 
-When the target group is not already known, `navigation.group.title` is also valid; executeDsl will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `updateMenu` instead.
+When the target group is not already known, `navigation.group.title` is also valid; applyBlueprint will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `updateMenu` instead.
 
 When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
 
@@ -244,9 +244,9 @@ For custom edit popups, use `editForm`, not `form`:
 }
 ```
 
-In a custom `edit` popup, the single `editForm` may omit `resource`; executeDsl will inherit the opener's current-record context.
+In a custom `edit` popup, the single `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context.
 
-## 3. `executeDsl` Replace
+## 3. `applyBlueprint` Replace
 
 `replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
 
@@ -279,7 +279,7 @@ Tool-call envelope:
 }
 ```
 
-Inner DSL only — **NEVER send this block alone to MCP**:
+Inner Blueprint only — **NEVER send this block alone to MCP**:
 
 ```json
 {
@@ -386,7 +386,7 @@ Tool-call envelope:
 }
 ```
 
-## 5. Canonical Public `executeDsl` Details
+## 5. Canonical Public `applyBlueprint` Details
 
 ### Nested `resource` object
 
@@ -446,7 +446,7 @@ Notes:
 - in `fields[]`, prefer simple string field names; only upgrade a field to an object when the extra behavior is actually needed.
 - `field.target` is only a string block key.
 - layout cells are only `"blockKey"` or `{ "key": "blockKey", "span": 12 }`.
-- public `executeDsl` never uses `ref` / `$ref` / `uid` selectors.
+- public `applyBlueprint` never uses `ref` / `$ref` / `uid` selectors.
 
 Canonical popup relation-table example:
 
@@ -462,12 +462,12 @@ Canonical popup relation-table example:
 }
 ```
 
-## 6. Common Invalid Public `executeDsl` Shapes
+## 6. Common Invalid Public `applyBlueprint` Shapes
 
-These are invalid for the new public `executeDsl` path:
+These are invalid for the new public `applyBlueprint` path:
 
 ```json
-{ "dsl": { "version": "1" } }
+{ "unexpectedEnvelope": { "version": "1" } }
 ```
 
 ```json
