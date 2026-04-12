@@ -58,7 +58,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(skill, /collections\.fields:get.*single-field follow-up/i);
   assert.match(skill, /prefer `navigation\.group\.routeId`/);
   assert.match(skill, /`layout` belongs only on `tabs\[\]` or inline `popup`/i);
-  assert.match(skill, /stale `flow_surfaces_execute_dsl\.requestBody: string` display/i);
+  assert.match(skill, /requestBody` must stay an \*\*object\*\*/i);
   assert.match(skill, /do \*\*not\*\* support generic `form`/i);
   assert.match(skill, /exactly one `editForm`/i);
   assert.match(skill, /never do destructive cleanup/i);
@@ -83,7 +83,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(checklist, /Localized Existing-surface Edit Path/);
   assert.match(checklist, /show the DSL draft first/);
   assert.match(checklist, /target\.pageSchemaUid/);
-  assert.match(checklist, /stale schema drift and still send the DSL object under `requestBody`/i);
+  assert.match(checklist, /never send `requestBody` as a JSON string/i);
   assert.match(checklist, /route-backed tab slots by index/i);
   assert.match(checklist, /auto-generates a simple top-to-bottom layout/);
   assert.match(checklist, /`field\.target` is only a string block key/i);
@@ -120,7 +120,7 @@ test('skill docs keep the simplified routing structure', () => {
 
   const uiDsl = read('references/ui-dsl.md');
   assert.match(uiDsl, /canonical names/i);
-  assert.match(uiDsl, /stale schema drift and still send this document as an object under `requestBody`/i);
+  assert.match(uiDsl, /put this document under `requestBody` as an \*\*object\*\*/i);
   assert.match(uiDsl, /do \*\*not\*\* support generic `form`/i);
   assert.match(uiDsl, /`editForm`/);
   assert.doesNotMatch(uiDsl, /expectedFingerprint/);
@@ -155,7 +155,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(normative, /same-title group/i);
   assert.match(normative, /same-title reuse is title-only/i);
   assert.match(normative, /`layout` itself is only allowed on `tabs\[\]` and inline `popup` documents/i);
-  assert.match(normative, /stale schema drift in the surrounding tool presentation/i);
+  assert.match(normative, /`requestBody` must be the final business \*\*object\*\*/i);
   assert.match(normative, /generic `form` is not a public executeDsl block type/i);
   assert.match(normative, /exactly one `editForm` block/i);
   assert.match(normative, /low-level `updateMenu`/i);
@@ -187,7 +187,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.doesNotMatch(toolShapes, /validatePlan/);
   assert.doesNotMatch(toolShapes, /validateDsl/);
   assert.match(toolShapes, /route-backed tab slots by array index/i);
-  assert.match(toolShapes, /stale schema drift/i);
+  assert.match(toolShapes, /For `executeDsl`, `requestBody` is the page DSL object itself/i);
   assert.match(toolShapes, /do \*\*not\*\* support generic `form`/i);
   assert.match(toolShapes, /exactly one `editForm` block/i);
   assert.match(toolShapes, /"routeId": 12/);
@@ -276,7 +276,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(openaiYaml, /recordActions/);
   assert.match(openaiYaml, /field\.target as a string block key only/i);
   assert.match(openaiYaml, /Put layout only on tabs\[\] or inline popup documents/i);
-  assert.match(openaiYaml, /stale schema drift/i);
+  assert.match(openaiYaml, /send the page DSL object under requestBody and never stringify it/i);
   assert.match(openaiYaml, /clickToOpen semantics/i);
   assert.match(openaiYaml, /do not support generic form/i);
   assert.match(openaiYaml, /exactly one editForm block/i);

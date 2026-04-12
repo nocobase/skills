@@ -24,7 +24,6 @@ Important:
 - This file describes the **inner page DSL document** only.
 - When you call `flow_surfaces_execute_dsl`, put this document under `requestBody` as an **object**.
 - Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
-- If a surrounding tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift and still send this document as an object under `requestBody`.
 - If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page DSL blindly.
 - Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner DSL only.
 

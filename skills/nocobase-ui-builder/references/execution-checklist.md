@@ -52,7 +52,6 @@ Use this path when the user is describing one page as a whole.
 6. Otherwise call `executeDsl`.
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
    - Pass the DSL as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
-   - If the tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift and still send the DSL object under `requestBody`.
    - Never copy a raw JSON example from `ui-dsl.md` straight into the MCP call without wrapping it under `requestBody`.
    - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner DSL fields.
 7. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).

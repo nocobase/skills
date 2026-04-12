@@ -16,7 +16,6 @@ description: >-
   1. `flow_surfaces_execute_dsl.requestBody` must stay an **object**; never stringify it.
   2. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object.
   3. For page authoring, field truth comes from `collections:get(appends=["fields"])`, not `collections.fields:list`.
-- Treat live MCP behavior as authoritative, but do **not** let a stale `flow_surfaces_execute_dsl.requestBody: string` display override the documented JSON-object envelope in this skill.
 - Minimum read set:
   1. Read [normative-contract.md](./references/normative-contract.md) first.
   2. Read [execution-checklist.md](./references/execution-checklist.md) second.
@@ -32,7 +31,6 @@ description: >-
 - Before every write or requestBody-based read, verify two things first: the MCP envelope matches the tool schema, and every `target.uid` / `locator.uid` comes from live readback rather than the invented literal `"root"`.
 - If a tool returns `params/requestBody must be object`, `params/requestBody must match exactly one schema in oneOf`, or `flowSurfaces uid 'root' not found`, fix the **tool-call shape first**.
 - For actual MCP writes, prefer copying the **tool-call envelope** from `tool-shapes.md`; do not copy raw JSON examples from `ui-dsl.md` directly into a tool call.
-- If the tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift; for `executeDsl` in this skill, still send the page DSL as an object under `requestBody`.
 - `inspect` and page-DSL drafting stay read-only until the user explicitly asks to write.
 - For page authoring / field selection, **never use `collections.fields:list`** as the field discovery tool. Use `collections:get(appends=["fields"])` as the only default field truth, and only use `collections.fields:get` for single-field follow-up when the field name is already known.
 - For `executeDsl(create)`, prefer `navigation.group.routeId` when an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.

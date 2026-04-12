@@ -13,11 +13,6 @@ Rule precedence is always:
 
 If a lower-priority local document conflicts with a live contract fact, follow the live contract.
 
-Exception for this skill:
-
-- if a tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string` while the documented/public contract here says JSON object, treat that as stale schema drift in the surrounding tool presentation
-- for `executeDsl`, follow the documented JSON-object envelope in this skill and [tool-shapes.md](./tool-shapes.md); do **not** stringify blindly just because that stale UI hint says `string`
-
 ## 2. Public Structural Write Contract
 
 ### Default split
@@ -54,7 +49,6 @@ Important exception:
 - `flow_surfaces_get` uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`)
 - most other `flow_surfaces_*` actions in this skill path use `requestBody`
 - for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `ui-dsl.md` focuses on the inner page document, not the full MCP envelope
-- if a tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift; the documented/public contract here remains `requestBody: { <page DSL object> }`
 
 Correct:
 

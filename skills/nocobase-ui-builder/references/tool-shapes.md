@@ -12,7 +12,6 @@ This file summarizes the minimal request shapes most often needed by this skill.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
 - For `executeDsl`, `requestBody` is the page DSL object itself; do not wrap it again and do not flatten it to top-level fields.
-- If some tool UI still renders `flow_surfaces_execute_dsl.requestBody` as `string`, treat that as stale schema drift; in this skill the canonical `executeDsl` call still sends the page DSL object under `requestBody`.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 
