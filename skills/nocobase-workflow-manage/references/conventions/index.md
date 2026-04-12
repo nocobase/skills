@@ -13,11 +13,12 @@ Some trigger and node configuration items use the `collection` field to represen
 
 Some triggers and nodes use a `filter` (or `condition`) field to specify filtering conditions. This field is a JSON object that follows the NocoBase filter condition format.
 
-**Full reference**: [nocobase-utils / Filter Condition Format](../../../../../../skills/skills/nocobase-utils/references/filter/index.md)
+**Full reference**: [nocobase-utils / Filter Condition Format](../../../nocobase-utils/references/filter/index.md)
 
 Key points for workflow context:
 - Root must be `{ "$and": [...] }` or `{ "$or": [...] }` — never place field conditions directly at the root.
 - Values can be constants or workflow variable expressions (e.g., `"{{$context.data.id}}"`). See [Variable Expressions](#variable-expressions) below for available variable paths.
+- Variables are NOT supported in trigger configuration items. In trigger configuration, only static values are allowed.
 - Both dot-string notation (`"category.name"`) and nested object notation (`{ "category": { "name": {...} } }`) are valid for association fields.
 
 ## The `appends` Field in Trigger and Node Configuration
