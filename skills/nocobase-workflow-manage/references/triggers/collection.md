@@ -26,6 +26,8 @@ description: "Monitor additions/updates/deletions of specified data tables and t
 | condition | object | null | No | Filter conditions, effective only for add/update. The trigger occurs only when conditions are met. See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | appends | string[] | [] | No | Paths of associated fields to be preloaded. Associations are not loaded for delete events. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
+Variables are NOT supported in trigger configuration items.
+
 ## Example Configuration
 
 ### When add a post in main data source
