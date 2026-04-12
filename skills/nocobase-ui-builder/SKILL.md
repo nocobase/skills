@@ -20,11 +20,12 @@ description: >-
   5. A field is authorable into any block/form DSL `fields[]` only when `collections:get(appends=["fields"])` shows a **non-empty `interface`** for that field. If `interface` is `null` / empty, the field exists in schema but is **not addable** in UI Builder authoring; omit it instead of guessing. This rule also applies to relation popups and nested popup blocks.
   6. If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field; only switch to a button or action column when the requirement explicitly asks for one.
   7. Before the first `executeDsl`, finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no block object contains `layout`, block `key` values are unique, every chosen field in DSL `fields[]` has a non-empty live `interface`, and every custom `edit` popup contains exactly one `editForm`. If any item fails, rewrite the DSL before writing.
+  8. When a whole-page draft stops for confirmation, default to **ASCII-first** review: render an ASCII wireframe from the same DSL, expand popup content only one level deep, and keep the full JSON hidden unless the user asks for it.
 - Minimum read set:
   1. Read [normative-contract.md](./references/normative-contract.md) first.
   2. Read [execution-checklist.md](./references/execution-checklist.md) second.
   3. Then choose **one** path:
-     - whole-page `executeDsl` authoring -> [ui-dsl.md](./references/ui-dsl.md) + [tool-shapes.md](./references/tool-shapes.md)；若从业务意图出发，再加读 [page-intent.md](./references/page-intent.md)
+     - whole-page `executeDsl` authoring -> [ui-dsl.md](./references/ui-dsl.md) + [tool-shapes.md](./references/tool-shapes.md) + [ascii-preview.md](./references/ascii-preview.md)；若从业务意图出发，再加读 [page-intent.md](./references/page-intent.md)
      - localized existing-surface edit -> [runtime-playbook.md](./references/runtime-playbook.md) + [tool-shapes.md](./references/tool-shapes.md)，然后只读所需低层主题文档
 
 ## Routing
@@ -41,6 +42,7 @@ description: >-
 - For `executeDsl(create)`, prefer `navigation.group.routeId` when an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.
 - For a normal single-page request, default to `tabs.length = 1`; side-by-side blocks and deep popup chains stay inside that tab unless the user explicitly asked for multiple route-backed tabs. Do not carry empty / placeholder tabs in that draft.
 - Before the first `executeDsl`, complete the authoring self-check: tabs count matches the request, each `tab.blocks` is non-empty, there is no empty tab, no block object contains `layout`, block `key` values are unique, every chosen field in DSL `fields[]` has a non-empty live `interface`, and every custom `edit` popup has exactly one `editForm`. If any item fails, rewrite the DSL before the first write instead of trial-and-error against the backend.
+- When the user wants to review a whole-page draft first, show the DSL draft first via an ASCII wireframe rendered from that same DSL. Keep the confirmation reply ASCII-first, expand popup content only one level deep, and reveal the JSON DSL only when the user explicitly asks or when a technical review is still needed before writing.
 - In the public page DSL, `layout` belongs only on `tabs[]` or inline `popup`; never put `layout` on a block object. If you are not sure the layout is correct, omit it.
 - If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field path; use a button or action column only when the user explicitly asks for one.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
@@ -71,6 +73,7 @@ description: >-
 - [ui-dsl.md](./references/ui-dsl.md): public page DSL contract.
 - [page-intent.md](./references/page-intent.md): high-level page intent -> page DSL authoring heuristics.
 - [page-archetypes.md](./references/page-archetypes.md): first-pass page patterns.
+- [ascii-preview.md](./references/ascii-preview.md): ASCII-first draft confirmation rules.
 - [tool-shapes.md](./references/tool-shapes.md): minimal request envelopes and common invalid payloads.
 
 ### Localized low-level path

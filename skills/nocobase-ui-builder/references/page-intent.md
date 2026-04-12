@@ -28,7 +28,7 @@ This file focuses on the **inner page DSL document**. For the actual MCP call sh
 6. Assemble the final JSON page DSL from [ui-dsl.md](./ui-dsl.md), using only canonical public names.
 7. Before the real `executeDsl` call, run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, and every custom `edit` popup contains exactly one `editForm`.
 8. Then open [tool-shapes.md](./tool-shapes.md) and wrap the DSL under `requestBody` as an object.
-9. If the request is ambiguous, high-impact, or destructive, show the DSL draft first.
+9. If the request is ambiguous, high-impact, or destructive, show the DSL draft first via the ASCII-first confirmation flow from [ascii-preview.md](./ascii-preview.md).
 
 ## 3. Authoring Heuristics
 
@@ -48,6 +48,7 @@ This file focuses on the **inner page DSL document**. For the actual MCP call sh
 - Add `key` only when layout or `field.target` truly needs a stable local identifier.
 - Keep low-level selectors and internals out of the draft JSON; do not leak `uid`, `ref`, `$ref`, or other non-public write shapes.
 - If layout is not essential or not fully decided, omit it rather than inventing a string or block-level `layout`.
+- For whole-page confirmation, default to **ASCII-first** output rendered from the same DSL. Keep popup expansion depth at exactly one level, and do not dump JSON unless the user asks for it or a technical review still needs it.
 - Before first write, self-check tabs count, non-empty `tab.blocks`, no empty tabs, no block-level `layout`, unique block `key` values, and exactly one `editForm` in every custom `edit` popup. If any item fails, rewrite the DSL before the first write.
 - In test runs, do not add destructive cleanup steps unless the user explicitly asked for deletion.
 - Do not stringify the final page DSL when calling MCP. The correct mental model is:
@@ -60,9 +61,10 @@ This file focuses on the **inner page DSL document**. For the actual MCP call sh
 When drafting first, present:
 
 1. a short explanation of the intended page
-2. the executable JSON page DSL
-3. if you are about to execute immediately, the actual MCP envelope must still come from `tool-shapes.md`, not by sending the draft JSON directly
-4. the assumptions outside the JSON payload
+2. one ASCII wireframe rendered from the same DSL
+3. the assumptions outside the JSON payload
+4. the executable JSON page DSL only when the user explicitly asks for it, or when you are about to execute and a technical review is still needed
+5. if you are about to execute immediately, the actual MCP envelope must still come from `tool-shapes.md`, not by sending the draft JSON directly
 
 ## 5. Do Not Do These
 
@@ -74,3 +76,4 @@ When drafting first, present:
 
 - For live schema facts and stop conditions, see [normative-contract.md](./normative-contract.md).
 - For execution order and readback, see [execution-checklist.md](./execution-checklist.md).
+- For ASCII-first confirmation output, see [ascii-preview.md](./ascii-preview.md).

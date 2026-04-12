@@ -45,7 +45,7 @@ Use this path when the user is describing one page as a whole.
 - change one popup / tab setting
 - remove one node / tab / popup tab
 
-1. Read [page-intent.md](./page-intent.md) and [ui-dsl.md](./ui-dsl.md).
+1. Read [page-intent.md](./page-intent.md), [ui-dsl.md](./ui-dsl.md), and [ascii-preview.md](./ascii-preview.md).
 2. Discover real collections/fields/relations if the page is data-bound.
 3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
 4. Draft or assemble one **page DSL** document.
@@ -61,7 +61,7 @@ Use this path when the user is describing one page as a whole.
    - every field named in any DSL `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
    - every custom `edit` popup contains exactly one `editForm`
    - if any item fails, rewrite the DSL before the first write; do not use backend errors as the first validator
-7. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first.
+7. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first via an ASCII wireframe rendered from that same DSL. Keep the confirmation reply ASCII-first, and only include the JSON DSL when the user explicitly asks for it or when a technical review is still needed before writing.
 8. Otherwise call `executeDsl`.
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
    - Pass the DSL as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
@@ -77,6 +77,9 @@ Use this path when the user is describing one page as a whole.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
 - For a normal single-page request, keep `tabs.length = 1` unless the user explicitly asked for multiple route-backed tabs.
+- For whole-page draft confirmation, default to **ASCII-first** output: short intent summary, one ASCII wireframe, assumptions, and one confirmation question.
+- The ASCII preview is a review surface only; the DSL remains the execution truth.
+- Default popup expansion depth in the confirmation preview is exactly **1**; deeper popup chains should stay visible only as `nested popup omitted`.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
 - At block root use `collection`; inside nested `resource` use `collectionName`.
