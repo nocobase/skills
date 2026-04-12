@@ -36,6 +36,8 @@ The public `executeDsl` payload is:
 - generic `form` is not a public executeDsl block type; use `editForm` or `createForm`
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
 - for normal single-page requests, default to exactly one real tab; do not carry empty / placeholder tabs in the draft
+- do not add placeholder content such as `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them
+- field entries default to simple string field names; use a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required
 - when the intent is "click the shown record / relation record to open details", the canonical page-DSL authoring is a field-level inline `popup`; backend / readback may normalize this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the request explicitly asks for a button or action column.
 
 ### MCP tool-call envelope rule
@@ -141,13 +143,14 @@ For `replace` runs:
 - `target.pageSchemaUid` is required
 - omitted page-level fields are left unchanged
 - DSL tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
-- before the first `executeDsl`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every chosen field in DSL `fields[]` has a non-empty live `interface`, and every custom `edit` popup contains exactly one `editForm`
+- before the first `executeDsl`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, there is no placeholder `markdown` / note / banner block, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every chosen field in DSL `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`
 - if the current page has `enableTabs = false` and the new DSL contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
 - `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 - in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, executeDsl reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
+- at the skill-authoring layer, if one or more visible same-title menu groups already exist, do **not** create another same-title group for disambiguation; prefer the exact known `routeId`, otherwise reuse one existing group deterministically from the live menu tree and disclose that chosen routeId in the prewrite preview
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
 - same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of executeDsl create
 
@@ -194,14 +197,17 @@ Field addability rule:
 
 - A field is authorable into page-DSL `fields[]` only if `collections:get(appends=["fields"])` shows a non-empty `interface` for that field.
 - If a field exists but `interface` is empty / null there, do **not** author it into any `details` / `table` / `editForm` / `createForm` / nested-popup block `fields[]`.
+- If a field only needs normal display/edit behavior, keep it as a simple string entry in DSL `fields[]`; only upgrade it to an object when a documented public field behavior is needed.
 - Schema existence alone is not enough for UI authoring. Example: a field like `roles.description` may exist in collection metadata, but if its `interface` is `null`, the skill must omit it instead of attempting `addField` / `executeDsl` authoring.
 - Only override this rule when another live read proves a supported UI path for that exact field and target.
 
 Do not use UI-builder skill docs to invent missing schema. If the requested fields/relations do not exist, hand off to `nocobase-data-modeling`.
 
-## 4. Confirmation Threshold
+## 4. Prewrite Preview + Confirmation Threshold
 
-Show a draft first and stop for confirmation when any of the following is true:
+For any whole-page `executeDsl` authoring run, show one ASCII-first preview from the same DSL before the first write. This preview is mandatory even when execution continues immediately afterward.
+
+Stop after that preview for confirmation when any of the following is true:
 
 - the request is ambiguous
 - the request is destructive or high-impact
@@ -209,7 +215,7 @@ Show a draft first and stop for confirmation when any of the following is true:
 - data source / popup / tab structure still depends on assumptions
 - the user explicitly asks to review the structure first
 
-Direct execution is allowed only when all are true:
+Direct execution after the preview is allowed only when all are true:
 
 - the target is unique
 - the structure is clear enough to serialize into one page DSL or one localized low-level write plan

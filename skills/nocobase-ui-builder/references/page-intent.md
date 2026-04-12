@@ -23,12 +23,13 @@ This file focuses on the **inner page DSL document**. For the actual MCP call sh
 1. Identify whether the task is **create** or **replace**.
 2. Choose the simplest starting archetype from [page-archetypes.md](./page-archetypes.md).
 3. Decide the minimal tab structure. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs.
-4. For each tab, decide major blocks first, then fields/actions/record actions.
-5. Keep popup behavior inline under the relevant field/action/record action.
-6. Assemble the final JSON page DSL from [ui-dsl.md](./ui-dsl.md), using only canonical public names.
-7. Before the real `executeDsl` call, run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, and every custom `edit` popup contains exactly one `editForm`.
-8. Then open [tool-shapes.md](./tool-shapes.md) and wrap the DSL under `requestBody` as an object.
-9. If the request is ambiguous, high-impact, or destructive, show the DSL draft first via the ASCII-first confirmation flow from [ascii-preview.md](./ascii-preview.md).
+4. Remove any placeholder `Summary` / `Later` / `备用` tab or explanatory `markdown` / note / banner block unless the user explicitly asked for it.
+5. For each tab, decide major blocks first, then fields/actions/record actions.
+6. Keep popup behavior inline under the relevant field/action/record action.
+7. Assemble the final JSON page DSL from [ui-dsl.md](./ui-dsl.md), using only canonical public names.
+8. Before the real `executeDsl` call, run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in DSL `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`.
+9. Then open [tool-shapes.md](./tool-shapes.md) and wrap the DSL under `requestBody` as an object.
+10. Before the first `executeDsl` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
 
 ## 3. Authoring Heuristics
 
@@ -36,35 +37,39 @@ This file focuses on the **inner page DSL document**. For the actual MCP call sh
 - A normal single-page request defaults to one tab unless the user explicitly asks for multiple route-backed tabs.
 - Side-by-side blocks, relation tables, and deep popup chains are layout inside one tab, not a reason to create extra tabs.
 - Do not carry empty / placeholder tabs in a single-page draft just to "leave room" for later edits.
+- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks just to explain future work.
 - Prefer one dominant archetype before mixing patterns.
 - Choose major content areas first; fill in fields/actions only after the structure is stable.
 - If the destination menu group already exists and is known, prefer `navigation.group.routeId` over `navigation.group.title`.
 - If you intentionally rely on unique same-title reuse, keep `navigation.group` title-only.
+- If one or more visible same-title menu groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`, otherwise choose one deterministically from the live menu tree and mention that chosen routeId in the prewrite preview.
 - `navigation.group.routeId` is exact targeting only; if existing-group metadata must change, switch to the low-level `updateMenu` path instead of executeDsl.
 - Do not over-specify popup content when a simple opener is enough for the request.
+- Default DSL `fields[]` entries to simple strings. Only upgrade a field entry to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 - If the user says clicking a shown record / relation record opens details, prefer a field object with inline `popup` so the field itself is the opener. Only switch to an action / recordAction when the requirement explicitly says button / action column.
 - For popup relation tables, prefer the canonical `associatedRecords + associationField` shape.
 - On record-capable blocks, put `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
 - Add `key` only when layout or `field.target` truly needs a stable local identifier.
 - Keep low-level selectors and internals out of the draft JSON; do not leak `uid`, `ref`, `$ref`, or other non-public write shapes.
 - If layout is not essential or not fully decided, omit it rather than inventing a string or block-level `layout`.
-- For whole-page confirmation, default to **ASCII-first** output rendered from the same DSL. Keep popup expansion depth at exactly one level, and do not dump JSON unless the user asks for it or a technical review still needs it.
-- Before first write, self-check tabs count, non-empty `tab.blocks`, no empty tabs, no block-level `layout`, unique block `key` values, and exactly one `editForm` in every custom `edit` popup. If any item fails, rewrite the DSL before the first write.
+- For whole-page authoring, default to **ASCII-first** prewrite output rendered from the same DSL, even when you will execute immediately after it. The preview must still appear before the first write. Keep popup expansion depth at exactly one level, and do not dump JSON unless the user asks for it or a technical review still needs it.
+- Before first write, self-check tabs count, non-empty `tab.blocks`, no empty tabs, no placeholder `markdown` / note / banner block, no block-level `layout`, unique block `key` values, simple-string `fields[]` by default, and exactly one `editForm` in every custom `edit` popup. If any item fails, rewrite the DSL before the first write.
 - In test runs, do not add destructive cleanup steps unless the user explicitly asked for deletion.
 - Do not stringify the final page DSL when calling MCP. The correct mental model is:
   - first author `const dsl = { ... }`
   - then call the tool with `{ requestBody: dsl }`
   - never with `{ requestBody: JSON.stringify(dsl) }`
 
-## 4. Draft Output Pattern
+## 4. Prewrite Output Pattern
 
-When drafting first, present:
+Before the first whole-page `executeDsl`, present:
 
 1. a short explanation of the intended page
 2. one ASCII wireframe rendered from the same DSL
-3. the assumptions outside the JSON payload
-4. the executable JSON page DSL only when the user explicitly asks for it, or when you are about to execute and a technical review is still needed
-5. if you are about to execute immediately, the actual MCP envelope must still come from `tool-shapes.md`, not by sending the draft JSON directly
+3. the assumptions outside the JSON payload only when they matter
+4. the executable JSON page DSL only when the user explicitly asks for it, or when a technical review is still needed
+5. if the request needs review, stop after the preview; otherwise continue immediately to execution
+6. when executing, the actual MCP envelope must still come from `tool-shapes.md`, not by sending the draft JSON directly
 
 ## 5. Do Not Do These
 
@@ -76,4 +81,4 @@ When drafting first, present:
 
 - For live schema facts and stop conditions, see [normative-contract.md](./normative-contract.md).
 - For execution order and readback, see [execution-checklist.md](./execution-checklist.md).
-- For ASCII-first confirmation output, see [ascii-preview.md](./ascii-preview.md).
+- For ASCII-first prewrite output, see [ascii-preview.md](./ascii-preview.md).

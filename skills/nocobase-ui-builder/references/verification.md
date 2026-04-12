@@ -1,12 +1,13 @@
 # Verification
 
-Use this file to verify inspect/draft output and post-write persistence.
+Use this file to verify inspect/prewrite output and post-write persistence.
 
-## 1. Inspect / Draft Verification
+## 1. Inspect / Prewrite Verification
 
 ### Core Rules
 
 - `inspect` and page-DSL drafting are read-only.
+- whole-page `executeDsl` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete DSL draft, whether execution pauses for review or continues immediately.
 - For menu questions, default to the visible menu tree first.
 - For initialized pages/popup trees, default to `get` first.
 - Use `describeSurface` only when its richer public tree is actually needed.
@@ -19,6 +20,9 @@ A page-DSL draft is good when:
 - create vs replace is clear
 - required collections/fields/bindings are backed by live facts
 - tabs/blocks/popups are structurally explicit
+- any ASCII wireframe shown to the user matches the same tabs / blocks / popup structure as the DSL draft
+- if execution proceeded immediately, the ASCII wireframe still appeared before the first `executeDsl`
+- if duplicate same-title menu groups existed, the preview/readback states which routeId was chosen and no extra same-title group was created unless the user explicitly asked for one
 - canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
 - low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
 - destructive blast radius is explicit for replace/delete scenarios

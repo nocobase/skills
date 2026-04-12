@@ -34,6 +34,7 @@ test('skill docs keep the simplified routing structure', () => {
     'agents/openai.yaml',
     'references/normative-contract.md',
     'references/execution-checklist.md',
+    'references/ascii-preview.md',
     'references/ui-dsl.md',
     'references/page-intent.md',
   ];
@@ -52,6 +53,7 @@ test('skill docs keep the simplified routing structure', () => {
   assertRelativeMarkdownLinksExist('SKILL.md');
   assert.match(skill, /normative-contract\.md/);
   assert.match(skill, /execution-checklist\.md/);
+  assert.match(skill, /ascii-preview\.md/);
   assert.match(skill, /ui-dsl\.md/);
   assert.match(skill, /page-intent\.md/);
   assert.match(skill, /Minimum read set/);
@@ -66,13 +68,25 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(skill, /`layout` belongs only on `tabs\[\]` or inline `popup`/i);
   assert.match(skill, /requestBody` must stay an \*\*object\*\*/i);
   assert.match(skill, /default to exactly \*\*one tab\*\*/i);
-  assert.match(skill, /empty or placeholder second tab/i);
+  assert.match(skill, /any second tab is wrong/i);
+  assert.match(skill, /Summary.*Later.*备用.*tabs/i);
+  assert.match(skill, /markdown` \/ note \/ banner blocks/i);
+  assert.match(skill, /Field entries default to simple strings/i);
+  assert.match(skill, /field object only when .*popup.*target.*renderer.*type/i);
   assert.match(skill, /Before the first `executeDsl`, finish .* authoring self-check/i);
   assert.match(skill, /every `tab\.blocks` is non-empty/i);
   assert.match(skill, /no empty tab exists/i);
+  assert.match(skill, /no placeholder `markdown` \/ note \/ banner block exists/i);
   assert.match(skill, /no block object contains `layout`/i);
   assert.match(skill, /block `key` values are unique/i);
   assert.match(skill, /rewrite the DSL before writing/i);
+  assert.match(skill, /For any whole-page `executeDsl` task, before the first `executeDsl`, output one concise .*ASCII-first.* prewrite preview/i);
+  assert.match(skill, /ASCII-first/i);
+  assert.match(skill, /ASCII wireframe/i);
+  assert.match(skill, /one level deep/i);
+  assert.match(skill, /show the preview and continue/i);
+  assert.match(skill, /never create another same-title group/i);
+  assert.match(skill, /chosen routeId in the prewrite preview/i);
   assert.match(skill, /prefer a field popup \/ clickable field/i);
   assert.match(skill, /do \*\*not\*\* support generic `form`/i);
   assert.match(skill, /exactly one `editForm`/i);
@@ -82,6 +96,7 @@ test('skill docs keep the simplified routing structure', () => {
 
   assertRelativeMarkdownLinksExist('references/normative-contract.md');
   assertRelativeMarkdownLinksExist('references/execution-checklist.md');
+  assertRelativeMarkdownLinksExist('references/ascii-preview.md');
   assertRelativeMarkdownLinksExist('references/ui-dsl.md');
   assertRelativeMarkdownLinksExist('references/page-intent.md');
   assertRelativeMarkdownLinksExist('references/popup.md');
@@ -96,19 +111,32 @@ test('skill docs keep the simplified routing structure', () => {
   const checklist = read('references/execution-checklist.md');
   assert.match(checklist, /Whole-page Create \/ Replace Path/);
   assert.match(checklist, /Localized Existing-surface Edit Path/);
-  assert.match(checklist, /show the DSL draft first/);
+  assert.match(checklist, /show one ASCII wireframe/i);
+  assert.match(checklist, /ASCII prewrite preview and stop without writing/i);
+  assert.match(checklist, /ASCII-first/i);
+  assert.match(checklist, /ASCII wireframe/i);
   assert.match(checklist, /target\.pageSchemaUid/);
   assert.match(checklist, /never send `requestBody` as a JSON string/i);
   assert.match(checklist, /default to exactly \*\*one tab\*\*/i);
+  assert.match(checklist, /Summary.*Later.*备用.*tabs/i);
+  assert.match(checklist, /markdown` \/ note \/ banner blocks/i);
   assert.match(checklist, /Before the \*\*first\*\* `executeDsl`, run the authoring self-check/i);
   assert.match(checklist, /every `tab\.blocks` is a non-empty array/i);
   assert.match(checklist, /no empty \/ placeholder tab/i);
+  assert.match(checklist, /no placeholder `markdown` \/ note \/ banner block/i);
   assert.match(checklist, /no block object contains `layout`/i);
   assert.match(checklist, /`tab\.layout` \/ `popup\.layout` is an object/i);
   assert.match(checklist, /rewrite the DSL before the first write/i);
+  assert.match(checklist, /Before the \*\*first\*\* `executeDsl` on any whole-page task, show one ASCII wireframe/i);
+  assert.match(checklist, /Otherwise continue immediately to `executeDsl`/i);
+  assert.match(checklist, /mandatory even when execution will continue immediately afterward/i);
+  assert.match(checklist, /do \*\*not\*\* create another same-title group/i);
+  assert.match(checklist, /state that chosen routeId in the prewrite preview/i);
   assert.match(checklist, /block `key` values are unique within the document/i);
+  assert.match(checklist, /field entry .* simple string unless .*popup.*target.*renderer.*type/i);
   assert.match(checklist, /route-backed tab slots by index/i);
   assert.match(checklist, /auto-generates a simple top-to-bottom layout/);
+  assert.match(checklist, /popup expansion depth .* exactly \*\*1\*\*/i);
   assert.match(checklist, /`field\.target` is only a string block key/i);
   assert.match(checklist, /At block root use `collection`; inside nested `resource` use `collectionName`/);
   assert.match(checklist, /Put `layout` only on `tabs\[\]` or inline `popup`/i);
@@ -129,16 +157,27 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(checklist, /collections\.fields:get.*single-field follow-up/i);
   assert.match(checklist, /interface: null/i);
   assert.match(checklist, /do not perform destructive cleanup/i);
+  assert.doesNotMatch(checklist, /`draft-page-dsl`.*stop for confirmation/i);
 
   const pageIntent = read('references/page-intent.md');
   assert.match(pageIntent, /Authoring Heuristics/);
+  assert.match(pageIntent, /Prewrite Output Pattern/);
   assert.match(pageIntent, /See Also/);
   assert.match(pageIntent, /canonical public names/i);
   assert.match(pageIntent, /default to exactly \*\*one tab\*\*/i);
   assert.match(pageIntent, /deep popup chains are layout inside one tab/i);
+  assert.match(pageIntent, /Summary.*Later.*备用.*tabs/i);
+  assert.match(pageIntent, /markdown` \/ note \/ banner blocks/i);
   assert.match(pageIntent, /run the authoring self-check/i);
+  assert.match(pageIntent, /ASCII-first/i);
+  assert.match(pageIntent, /ASCII wireframe/i);
+  assert.match(pageIntent, /Before the first `executeDsl` on any whole-page task, show one ASCII-first prewrite preview/i);
+  assert.match(pageIntent, /continue immediately/i);
+  assert.match(pageIntent, /do \*\*not\*\* create another same-title group/i);
+  assert.match(pageIntent, /chosen routeId in the prewrite preview/i);
   assert.match(pageIntent, /block `key` values are unique/i);
   assert.match(pageIntent, /empty \/ placeholder tabs/i);
+  assert.match(pageIntent, /Default DSL `fields\[\]` entries to simple strings/i);
   assert.match(pageIntent, /field object with inline `popup`/i);
   assert.match(pageIntent, /omit it rather than inventing a string or block-level `layout`/i);
   assert.match(pageIntent, /rewrite the DSL before the first write/i);
@@ -148,6 +187,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(pageIntent, /low-level `updateMenu` path/i);
   assert.match(pageIntent, /associatedRecords \+ associationField/i);
   assert.doesNotMatch(pageIntent, /Execution Pattern/);
+  assert.doesNotMatch(pageIntent, /Draft Output Pattern/);
   assert.doesNotMatch(pageIntent, /collections:get\(appends=\["fields"\]\)/);
 
   const uiDsl = read('references/ui-dsl.md');
@@ -156,11 +196,14 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(uiDsl, /Keep `requestBody` out of the inner DSL itself/i);
   assert.match(uiDsl, /default to exactly \*\*one tab\*\*/i);
   assert.match(uiDsl, /Do not add empty \/ placeholder tabs/i);
+  assert.match(uiDsl, /Summary.*Later.*备用.*tabs/i);
+  assert.match(uiDsl, /markdown` \/ note \/ banner blocks/i);
   assert.match(uiDsl, /nested popups normally stay inside that one tab/i);
   assert.match(uiDsl, /Single-tab Deep-popup Skeleton/i);
   assert.match(uiDsl, /High-frequency Wrong vs Right/i);
   assert.match(uiDsl, /`tab\.layout` must be an object/i);
   assert.match(uiDsl, /Do not keep an empty second tab/i);
+  assert.match(uiDsl, /Default `fields\[\]` entries to simple strings/i);
   assert.match(uiDsl, /do \*\*not\*\* support generic `form`/i);
   assert.match(uiDsl, /`editForm`/);
   assert.doesNotMatch(uiDsl, /expectedFingerprint/);
@@ -189,6 +232,10 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(uiDsl, /layout cells do \*\*not\*\* use `uid`, `ref`, or `\$ref`/i);
   assert.match(uiDsl, /do not use `ref` or `\$ref`/i);
   assert.match(uiDsl, /Keep `requestBody`, `ref`, `\$ref`, block-level `layout`/i);
+  const createExample = uiDsl.match(/## 3\. Create Example[\s\S]*?```json\n([\s\S]*?)\n```/);
+  assert.ok(createExample, 'ui-dsl create example should exist');
+  assert.doesNotMatch(createExample[1], /"title": "Summary"/);
+  assert.doesNotMatch(createExample[1], /overviewBanner/);
 
   const normative = read('references/normative-contract.md');
   assert.match(normative, /route-backed tab slots by index/i);
@@ -197,9 +244,14 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(normative, /exact targeting only/i);
   assert.match(normative, /same-title group/i);
   assert.match(normative, /same-title reuse is title-only/i);
+  assert.match(normative, /do \*\*not\*\* create another same-title group for disambiguation/i);
+  assert.match(normative, /disclose that chosen routeId in the prewrite preview/i);
   assert.match(normative, /`layout` itself is only allowed on `tabs\[\]` and inline `popup` documents/i);
   assert.match(normative, /`layout` is present, it must be an object/i);
   assert.match(normative, /exactly one real tab/i);
+  assert.match(normative, /Summary.*Later.*备用.*tabs/i);
+  assert.match(normative, /markdown` \/ note \/ banner blocks/i);
+  assert.match(normative, /field entries default to simple string field names/i);
   assert.match(normative, /field-level inline `popup`/i);
   assert.match(normative, /`requestBody` must be the final business \*\*object\*\*/i);
   assert.match(normative, /do \*\*not\*\* leak tool-envelope fields such as `requestBody`/i);
@@ -209,17 +261,21 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(normative, /associatedRecords.*associationField/i);
   assert.match(normative, /single relation field name/i);
   assert.match(normative, /recordActions/);
+  assert.match(normative, /preview is mandatory even when execution continues immediately afterward/i);
   assert.match(normative, /`ref` \/ `\$ref`/);
   assert.match(normative, /layout-cell `uid`/);
   assert.match(normative, /nested `block\.resource` uses `collectionName`/i);
   assert.match(normative, /layout cells are only block key strings or `\{ key, span \}`/i);
   assert.match(normative, /no empty \/ placeholder tab/i);
+  assert.match(normative, /no placeholder `markdown` \/ note \/ banner block/i);
   assert.match(normative, /no block object contains `layout`/i);
   assert.match(normative, /Never delete or clean unrelated pages/i);
   assert.match(normative, /only default field truth for UI authoring/i);
   assert.match(normative, /Do \*\*not\*\* use `collections\.fields:list`/i);
   assert.match(normative, /collections\.fields:get` is optional follow-up/i);
   assert.match(normative, /interface` is empty \/ null/i);
+  assert.match(normative, /show one ASCII-first preview from the same DSL before the first write/i);
+  assert.match(normative, /Direct execution after the preview is allowed/i);
   assert.doesNotMatch(normative, /expectedFingerprint/);
   assert.doesNotMatch(normative, /bindKeys/);
   assert.doesNotMatch(normative, /verificationMode/);
@@ -240,6 +296,9 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(toolShapes, /do \*\*not\*\* support generic `form`/i);
   assert.match(toolShapes, /exactly one `editForm` block/i);
   assert.match(toolShapes, /keep exactly one real tab/i);
+  assert.match(toolShapes, /Summary.*Later.*备用.*tabs/i);
+  assert.match(toolShapes, /markdown` \/ note \/ banner blocks/i);
+  assert.match(toolShapes, /simple string field names/i);
   assert.match(toolShapes, /`layout` belongs only on `tabs\[\]` or inline `popup`/i);
   assert.match(toolShapes, /prefer a field popup rather than inventing a new action button/i);
   assert.match(toolShapes, /clickable-field \/ `clickToOpen` semantics/i);
@@ -283,8 +342,27 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(popup, /`popup`, not low-level `openView` authoring/i);
 
   const verification = read('references/verification.md');
+  assert.match(verification, /ASCII-first/i);
+  assert.match(verification, /ASCII wireframe/i);
+  assert.match(verification, /before the first write/i);
+  assert.match(verification, /execution proceeded immediately/i);
+  assert.match(verification, /Inspect \/ Prewrite Verification/i);
+  assert.doesNotMatch(verification, /Inspect \/ Draft Verification/i);
   assert.match(verification, /canonical public names are used/i);
   assert.match(verification, /`uid`, `ref`, `\$ref`, or alias fields do not appear/i);
+
+  const asciiPreview = read('references/ascii-preview.md');
+  assert.match(asciiPreview, /whole-page `executeDsl` authoring before the first write/i);
+  assert.match(asciiPreview, /create runs/i);
+  assert.match(asciiPreview, /replace runs/i);
+  assert.match(asciiPreview, /ASCII-first/i);
+  assert.match(asciiPreview, /JSON DSL unless/i);
+  assert.match(asciiPreview, /continue/i);
+  assert.match(asciiPreview, /rather than skipping the preview/i);
+  assert.doesNotMatch(asciiPreview, /Whole-page Draft Confirmation/i);
+  assert.match(asciiPreview, /popup expansion depth is exactly \*\*1\*\*/i);
+  assert.match(asciiPreview, /renderPageDslAsciiPreview/);
+  assert.match(asciiPreview, /nb-page-preview\.mjs/);
 
   const runtimePlaybook = read('references/runtime-playbook.md');
   assert.match(runtimePlaybook, /public `executeDsl` is structure-only/i);
@@ -316,20 +394,30 @@ test('skill docs keep the simplified routing structure', () => {
 
   const openaiYaml = read('agents/openai.yaml');
   assert.match(openaiYaml, /executeDsl/);
-  assert.match(openaiYaml, /Choose one write path/i);
-  assert.match(openaiYaml, /low-level flow-surfaces APIs/);
-  assert.match(openaiYaml, /never .*collections\.fields:list/i);
-  assert.match(openaiYaml, /Field truth: collections:get\(appends=.*fields.*\)/i);
-  assert.match(openaiYaml, /skip empty\/null interfaces/i);
+  assert.match(openaiYaml, /Write path/i);
+  assert.match(openaiYaml, /low-level .*APIs/);
+  assert.match(openaiYaml, /collections:get\(appends=.*fields.*\)/i);
+  assert.match(openaiYaml, /non-empty interface/i);
   assert.match(openaiYaml, /associatedRecords \+ associationField/i);
   assert.match(openaiYaml, /string field\.target/i);
-  assert.match(openaiYaml, /requestBody must be an object; never stringify/i);
+  assert.match(openaiYaml, /requestBody must be an object/i);
   assert.match(openaiYaml, /no generic form/i);
-  assert.match(openaiYaml, /every edit popup has exactly 1 editForm/i);
-  assert.match(openaiYaml, /Single-page tasks use 1 tab; never add empty tabs/i);
-  assert.match(openaiYaml, /layout is allowed only on tabs or inline popup/i);
-  assert.match(openaiYaml, /If the user says clicking a record \/ relation record opens details, prefer a field popup/i);
-  assert.match(openaiYaml, /Before first executeDsl, self-check: tab count matches intent, every tab\.blocks is non-empty, no block has layout/i);
+  assert.match(openaiYaml, /one editForm per custom edit popup/i);
+  assert.match(openaiYaml, /Single-page.*1 real tab/i);
+  assert.match(openaiYaml, /placeholder tabs/i);
+  assert.match(openaiYaml, /markdown\/note\/banner blocks/i);
+  assert.match(openaiYaml, /fields\[\] default to string/i);
+  assert.match(openaiYaml, /layout only on tabs.*inline popup/i);
+  assert.match(openaiYaml, /Before first executeDsl, self-check/i);
+  assert.match(openaiYaml, /Whole-page executeDsl must show one ASCII wireframe before .*write/i);
+  assert.match(openaiYaml, /one .*wireframe/i);
+  assert.match(openaiYaml, /popup depth 1/i);
+  assert.match(openaiYaml, /JSON on request/i);
+  assert.match(openaiYaml, /unless review is needed, continue in the same run/i);
+  assert.match(openaiYaml, /never create another same-title group/i);
+  assert.match(openaiYaml, /mention routeId in preview/i);
+  assert.match(openaiYaml, /Prefer field popup for click-to-open/i);
+  assert.match(openaiYaml, /Before first executeDsl, self-check: .*tab\.blocks non-empty.*no block layout/i);
   assert.match(openaiYaml, /no destructive cleanup unless asked/i);
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.ok(defaultPrompt.length < 950, 'openai default_prompt should stay below 950 chars to leave loader headroom');

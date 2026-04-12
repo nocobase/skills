@@ -15,6 +15,8 @@ This file summarizes the minimal request shapes most often needed by this skill.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 - For normal single-page requests, keep exactly one real tab in the DSL; do not send empty / placeholder tabs.
+- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+- Default DSL `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
 
 Safe mental model:
@@ -441,6 +443,7 @@ Notes:
 - for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
 - the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name.
 - on record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
+- in `fields[]`, prefer simple string field names; only upgrade a field to an object when the extra behavior is actually needed.
 - `field.target` is only a string block key.
 - layout cells are only `"blockKey"` or `{ "key": "blockKey", "span": 12 }`.
 - public `executeDsl` never uses `ref` / `$ref` / `uid` selectors.
@@ -513,4 +516,16 @@ These are invalid for the new public `executeDsl` path:
 
 ```json
 { "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees", "fields": [{ "field": "nickname", "type": "filter", "target": { "key": "employeesTable" } }] }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "collection": "employees" }] }, { "title": "Later", "blocks": [] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "collection": "employees" }, { "type": "markdown", "title": "Later notes" }] }] }
+```
+
+```json
+{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "fields": [{ "field": "nickname", "name": "Nickname" }] }] }] }
 ```

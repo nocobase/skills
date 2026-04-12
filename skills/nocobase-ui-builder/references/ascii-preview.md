@@ -1,25 +1,26 @@
-# ASCII Preview for Whole-page Draft Confirmation
+# ASCII Preview for Whole-page Prewrite Authoring
 
-Use this file only for **whole-page `executeDsl` drafts** that need user confirmation before writing.
+Use this file for **whole-page `executeDsl` authoring before the first write**.
 
-This is a **confirmation view**, not the write payload. The write truth is still the inner page DSL from [ui-dsl.md](./ui-dsl.md).
+This is a **prewrite review surface**, not the write payload. The write truth is still the inner page DSL from [ui-dsl.md](./ui-dsl.md).
 
 ## 1. Scope
 
-- default scope: whole-page `create` / `replace` drafts only
+- default scope: whole-page `create` / `replace` runs before the first write
 - do **not** use this file as the default answer shape for localized low-level edits
 - do **not** treat the ASCII preview as readback or persistence proof
 
-## 2. Default confirmation output
+## 2. Default prewrite output
 
-When the user wants to review a whole page before writing, default to:
+Before the first whole-page `executeDsl`, default to:
 
 1. one short summary of the page intent
 2. one ASCII wireframe rendered from the same DSL
-3. assumptions / open questions outside the payload
-4. one confirmation question
+3. assumptions / open questions outside the payload only when they matter
+4. if duplicate menu-group titles are in play, name the chosen destination routeId outside the wireframe
+5. if review is required, one confirmation question; otherwise one short execution notice and continue
 
-Default to **ASCII-first** confirmation. Do **not** dump the full JSON DSL unless:
+Default to **ASCII-first** prewrite output. Do **not** dump the full JSON DSL unless:
 
 - the user explicitly asks to see the DSL, or
 - you are about to write and a technical DSL review is still needed
@@ -28,8 +29,9 @@ Default to **ASCII-first** confirmation. Do **not** dump the full JSON DSL unles
 
 - render from the same inner page DSL that would be written later
 - page header should show page title plus `mode`
-- show `MENU` for create drafts when it is known
-- show `TARGET` for replace drafts when `target.pageSchemaUid` is known
+- show `MENU` for create runs when it is known
+- when duplicate same-title menu groups exist, show the chosen routeId next to `MENU`
+- show `TARGET` for replace runs when `target.pageSchemaUid` is known
 - every tab should render as its own ASCII box
 - every block should render as its own ASCII box with `type`, optional title, collection, key, and optional `span`
 - summarize fields / actions / recordActions instead of dumping every property
@@ -52,6 +54,10 @@ Use the zero-dependency preview helper for deterministic output:
 - CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json`
 
 The CLI/helper should prefer the inner page DSL object. If it receives an outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
+
+If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same DSL rather than skipping the preview.
+
+Do **not** skip the preview just because execution is going to continue immediately afterward.
 
 ## 6. See also
 

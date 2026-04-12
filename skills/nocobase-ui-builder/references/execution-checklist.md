@@ -10,6 +10,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
 - If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring DSL.
+- If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
 - Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
   - `flow_surfaces_get` -> top-level locator fields
   - most other `flow_surfaces_*` actions in this skill path -> `requestBody: { ... }`
@@ -20,7 +21,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 | intent | default path | minimum readback |
 | --- | --- | --- |
 | `inspect` | menu tree for menu questions; otherwise `get`; use `describeSurface` only when its richer tree helps analysis | read-only answer |
-| `draft-page-dsl` | gather facts -> author simplified page DSL -> stop for confirmation | no write |
+| `draft-page-dsl` | gather facts -> author simplified page DSL -> ASCII prewrite preview and stop without writing | no write |
 | `execute-page-dsl` | simplified page DSL -> `executeDsl` -> `get` readback | `get({ pageSchemaUid })` |
 | `edit-existing-surface` | `get` / `describeSurface` / `catalog` as needed -> low-level APIs -> readback | parent/target readback |
 | `create-menu-group` | direct `createMenu(type="group")` | return value or menu tree |
@@ -50,36 +51,43 @@ Use this path when the user is describing one page as a whole.
 3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
 4. Draft or assemble one **page DSL** document.
 5. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
-6. Before the **first** `executeDsl`, run the authoring self-check:
+6. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+7. Before the **first** `executeDsl`, run the authoring self-check:
    - tabs count matches the request
    - if this is a normal single-page request, `tabs.length` is exactly `1`
    - every `tab.blocks` is a non-empty array
    - there is no empty / placeholder tab
+   - there is no placeholder `markdown` / note / banner block
    - no block object contains `layout`
    - every `tab.layout` / `popup.layout` is an object; if you are unsure, omit `layout`
    - block `key` values are unique within the document
    - every field named in any DSL `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
+   - every field entry in DSL `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
    - every custom `edit` popup contains exactly one `editForm`
    - if any item fails, rewrite the DSL before the first write; do not use backend errors as the first validator
-7. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first via an ASCII wireframe rendered from that same DSL. Keep the confirmation reply ASCII-first, and only include the JSON DSL when the user explicitly asks for it or when a technical review is still needed before writing.
-8. Otherwise call `executeDsl`.
+8. Before the **first** `executeDsl` on any whole-page task, show one ASCII wireframe rendered from that same DSL. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
+9. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `executeDsl`.
+10. When you call `executeDsl`:
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
    - Pass the DSL as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
    - Never copy a raw JSON example from `ui-dsl.md` straight into the MCP call without wrapping it under `requestBody`.
    - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner DSL fields.
-9. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
+11. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
 
 - `create` mode does not take `target`; `replace` mode requires `target.pageSchemaUid`.
 - When an existing menu group is already known, prefer `navigation.group.routeId`; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse.
+- If visible same-title groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`, otherwise choose one deterministically from the live menu tree and state that chosen routeId in the prewrite preview.
 - `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`). If an existing group's metadata must change, use low-level `updateMenu` separately.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
 - For a normal single-page request, keep `tabs.length = 1` unless the user explicitly asked for multiple route-backed tabs.
-- For whole-page draft confirmation, default to **ASCII-first** output: short intent summary, one ASCII wireframe, assumptions, and one confirmation question.
-- The ASCII preview is a review surface only; the DSL remains the execution truth.
-- Default popup expansion depth in the confirmation preview is exactly **1**; deeper popup chains should stay visible only as `nested popup omitted`.
+- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks just to explain future work or organize your thinking.
+- Default DSL `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
+- For whole-page `executeDsl` authoring, default to **ASCII-first** prewrite output: short intent summary, one ASCII wireframe, and assumptions only when needed.
+- The ASCII preview is the default prewrite review surface; the DSL remains the execution truth, and the preview must still appear before the first write even when execution continues immediately afterward.
+- Default popup expansion depth in the prewrite preview is exactly **1**; deeper popup chains should stay visible only as `nested popup omitted`.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
 - At block root use `collection`; inside nested `resource` use `collectionName`.

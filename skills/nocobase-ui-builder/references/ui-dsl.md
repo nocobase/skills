@@ -16,10 +16,12 @@ This file is for authoring the **inner page DSL document**. It is **not** the pr
 - Tabs are interpreted in array order. In `replace`, DSL tabs map to existing route-backed tab slots by index.
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
+- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Side-by-side blocks, relation tables, and nested popups normally stay inside that one tab.
 - Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
+- Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any DSL `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - The DSL is structure-only; it does not expose planning or execution internals.
@@ -105,14 +107,6 @@ Important:
     "enableHeader": true,
     "displayTitle": true
   },
-  "assets": {
-    "scripts": {
-      "overviewBanner": {
-        "version": "1.0.0",
-        "code": "ctx.render('<div>Employees overview</div>');"
-      }
-    }
-  },
   "tabs": [
     {
       "title": "Overview",
@@ -140,16 +134,6 @@ Important:
               }
             }
           ]
-        }
-      ]
-    },
-    {
-      "title": "Summary",
-      "blocks": [
-        {
-          "type": "jsBlock",
-          "title": "Overview banner",
-          "script": "overviewBanner"
         }
       ]
     }
@@ -380,6 +364,59 @@ Right:
 }
 ```
 
+### D. Do not add placeholder `markdown` / note / banner blocks in a single-page draft
+
+Wrong:
+
+```json
+{
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        { "type": "table", "collection": "employees" },
+        { "type": "markdown", "title": "Later notes" }
+      ]
+    }
+  ]
+}
+```
+
+Right:
+
+```json
+{
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [{ "type": "table", "collection": "employees" }]
+    }
+  ]
+}
+```
+
+### E. Default `fields[]` entries to simple strings unless extra behavior is required
+
+Wrong:
+
+```json
+{
+  "type": "table",
+  "collection": "employees",
+  "fields": [{ "field": "nickname", "name": "Nickname" }]
+}
+```
+
+Right:
+
+```json
+{
+  "type": "table",
+  "collection": "employees",
+  "fields": ["nickname"]
+}
+```
+
 ## 7. Supported Semantics
 
 ### Block-level
@@ -485,6 +522,8 @@ A field entry may be:
 
 - a string, for example `"nickname"`
 - an object with optional `key`, `field`, `renderer`, `type`, optional `target`, `settings`, and optional inline `popup`
+
+Default to a simple string whenever the field only needs normal display/edit behavior. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is actually required. Do not invent ad-hoc extra keys in field objects.
 
 When the user says clicking a shown record / relation record should open details, prefer a field object with inline `popup` so the field itself is the opener. Readback commonly normalizes this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the requirement explicitly says button / action column.
 
