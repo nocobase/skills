@@ -20,6 +20,7 @@ This file is for authoring the **inner page DSL document**. It is **not** the pr
 - Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
+- Every field placed into any DSL `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - The DSL is structure-only; it does not expose planning or execution internals.
 

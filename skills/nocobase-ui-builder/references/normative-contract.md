@@ -141,7 +141,7 @@ For `replace` runs:
 - `target.pageSchemaUid` is required
 - omitted page-level fields are left unchanged
 - DSL tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
-- before the first `executeDsl`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, and every custom `edit` popup contains exactly one `editForm`
+- before the first `executeDsl`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every chosen field in DSL `fields[]` has a non-empty live `interface`, and every custom `edit` popup contains exactly one `editForm`
 - if the current page has `enableTabs = false` and the new DSL contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
@@ -190,7 +190,12 @@ When field truth matters:
 4. `collections.fields:get` is optional follow-up only when the field name is already known and one field still needs confirmation
 5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
 
-If a field exists but `interface` is empty / null in `collections:get(appends=["fields"])`, do not author it into page-DSL `fields[]` unless another live read proves a supported UI path.
+Field addability rule:
+
+- A field is authorable into page-DSL `fields[]` only if `collections:get(appends=["fields"])` shows a non-empty `interface` for that field.
+- If a field exists but `interface` is empty / null there, do **not** author it into any `details` / `table` / `editForm` / `createForm` / nested-popup block `fields[]`.
+- Schema existence alone is not enough for UI authoring. Example: a field like `roles.description` may exist in collection metadata, but if its `interface` is `null`, the skill must omit it instead of attempting `addField` / `executeDsl` authoring.
+- Only override this rule when another live read proves a supported UI path for that exact field and target.
 
 Do not use UI-builder skill docs to invent missing schema. If the requested fields/relations do not exist, hand off to `nocobase-data-modeling`.
 

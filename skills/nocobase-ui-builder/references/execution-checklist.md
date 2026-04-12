@@ -9,6 +9,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - Decide whether the request is **whole-page create/replace** or **localized edit**.
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
+- If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring DSL.
 - Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
   - `flow_surfaces_get` -> top-level locator fields
   - most other `flow_surfaces_*` actions in this skill path -> `requestBody: { ... }`
@@ -57,6 +58,7 @@ Use this path when the user is describing one page as a whole.
    - no block object contains `layout`
    - every `tab.layout` / `popup.layout` is an object; if you are unsure, omit `layout`
    - block `key` values are unique within the document
+   - every field named in any DSL `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
    - every custom `edit` popup contains exactly one `editForm`
    - if any item fails, rewrite the DSL before the first write; do not use backend errors as the first validator
 7. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first.
@@ -121,6 +123,8 @@ Use this path when the user asks to add/move/remove/update only part of an exist
 - Do **not** use `collections.fields:list` for page authoring / field discovery; it is compact browse only, not authoring truth.
 - Use `collections.fields:get` only for known single-field follow-up if one field still needs confirmation.
 - If a field shows `interface: null` / empty in `collections:get(appends=["fields"])`, do not place it into DSL `fields[]`.
+- Treat this as a hard addability rule, not a soft heuristic: schema existence alone is insufficient for UI authoring.
+- This applies to `details` / `table` / `editForm` / `createForm` fields and to nested popup blocks as well.
 - Use `catalog({ target, sections: ["fields"] })` when current-target addability matters.
 - If required schema is missing, stop and hand off to `nocobase-data-modeling`.
 
