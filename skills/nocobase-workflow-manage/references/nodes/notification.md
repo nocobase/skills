@@ -36,3 +36,6 @@ Does not support branches.
   "ignoreFail": false
 }
 ```
+
+## Output Variables
+This node does not output variables.

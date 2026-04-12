@@ -1,0 +1,31 @@
+target: $stage_settings_copy.table.actions.addNew
+field: addnew
+field_uid: 75cf98c4e3f
+block_key: table
+blocks:
+- key: reference
+  type: reference
+  template_uid: afkt6evyern
+  template_name: 'Form (Add new): nb_crm_opportunity_stages'
+  reference_mode: reference
+  template_content:
+    key: createForm
+    type: createForm
+    coll: nb_crm_opportunity_stages
+    fields:
+    - name
+    - win_probability
+    - color
+    - description
+    - code
+    field_layout:
+    - - name
+      - code
+    - - win_probability
+    - - color
+    - - description
+    actions:
+    - submit
+layout:
+- - reference
+mode: drawer

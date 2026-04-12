@@ -58,6 +58,7 @@ Create a workflow. The `sync` field cannot be modified after creation and must b
 | `enabled` | boolean | No | Whether it's enabled; recommended to set to false first and enable after configuration is complete |
 | `description` | string | No | Description |
 | `options` | object | No | Engine options, e.g., `deleteExecutionOnStatus`, `stackLimit` |
+| `config` | object | Yes | Trigger configuration, structure depends on trigger type, some preset field should be provided when create (also based on trigger type, could check documentation of each trigger), can be updated later through the update API. For example, for a collection trigger, the `collection` field must be provided in config. |
 
 ```
 POST /api/workflows:create
@@ -66,7 +67,8 @@ Body: {
   "type": "collection",
   "sync": false,
   "enabled": false,
-  "options": { "deleteExecutionOnStatus": [], "stackLimit": 1 }
+  "options": { "deleteExecutionOnStatus": [], "stackLimit": 1 },
+  "config": { "collection": "users" }
 }
 ```
 

@@ -42,14 +42,6 @@ description: "Manually trigger flows via a 'Trigger Workflow' button, supporting
 - Must be bound to a data table; used in batch action buttons in table blocks.
 - Loads multiple records in bulk via `filterByTk` when triggered; the trigger data is an array.
 
-## Trigger Variables
-- `$context.data`: The trigger data.
-  - Global mode: Custom JSON data submitted by the user. Deep properties in JSON can be parsed by JSON query node or mapped by JSON variable mapping node, and then they can be used in subsequent nodes.
-  - Single record mode: Record data (including associated data preloaded via `appends`).
-  - Multiple records mode: An array of record data.
-- `$context.user`: The user who triggered the operation (sanitized user information).
-- `$context.roleName`: The role name of the user who triggered the operation.
-
 ## Synchronous Execution and Interception
 - When the workflow is set to synchronous execution, the flow completes synchronously within the request.
 - If a synchronous flow fails or is terminated by an "End Process" node (with failure status), the request is intercepted and an error message is returned.
@@ -84,3 +76,12 @@ This event requires adding a "Trigger Workflow" button in a block that supports 
   "collection": "mysql:orders"
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
+
+- Exposed roots: `data`, `user`, `roleName`.
+- In global custom-data mode, `data` is exposed as a single raw object value with no predefined child field tree. Should use JSON variable mapping or JSON query node to extract specific fields.
+- In single-record or multiple-record mode with a bound collection, `data` expands to that collection's fields; configured `appends` become nested children under `data`.
+- `user` follows the `users` collection schema; `roleName` is a scalar string.
+- Example references: `{{$context.data}}`, `{{$context.data.title}}`, `{{$context.user.nickname}}`, `{{$context.roleName}}`.

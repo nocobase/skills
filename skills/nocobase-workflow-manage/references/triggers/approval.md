@@ -37,12 +37,6 @@ description: "Dedicated flow triggered by approval initiation, used for managing
 | notifications[].templateType | string | template | No | Template type (`template` or `custom`). |
 | notifications[].template | number | object | - | Yes | Template configuration: template ID or custom template structure (depending on the channel type). |
 
-## Trigger Variables
-- `$context.data`: The data record associated with the approval (inclusion of preloaded relationships depends on `appends` and `mode`).
-- `$context.approvalId`: Approval record ID.
-- `$context.applicant`: Initiator's user information.
-- `$context.applicantRoleName`: Initiator's role name.
-
 ## Example Configuration
 ```json
 {
@@ -64,3 +58,12 @@ description: "Dedicated flow triggered by approval initiation, used for managing
   ]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`, for example `{{$context.data.title}}`.
+
+- Exposed roots: `data`, `applicant`, `approvalId`.
+- `data` follows the approval collection schema; configured `appends` become nested children under `data`.
+- `applicant` follows the `users` collection schema.
+- `approvalId` is the scalar approval record ID.
+- Example references: `{{$context.data.amount}}`, `{{$context.data.department.name}}`, `{{$context.applicant.nickname}}`, `{{$context.approvalId}}`.

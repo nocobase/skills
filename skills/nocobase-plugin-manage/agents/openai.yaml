@@ -1,0 +1,4 @@
+interface:
+  display_name: "NocoBase Plugin Manage"
+  short_description: "Safe plugin management for NocoBase apps"
+  default_prompt: "Use $nocobase-plugin-manage <action> [plugin] to inspect plugin status and run safe install, enable, or disable operations with auto local/remote and backend resolution. For local inspect/readback, prefer `yarn nocobase pm list` (or docker compose equivalent) and parse JSON between `--- BEGIN_PLUGIN_LIST_JSON ---` and `--- END_PLUGIN_LIST_JSON ---`; for local Docker writes, prefer docker compose CLI."

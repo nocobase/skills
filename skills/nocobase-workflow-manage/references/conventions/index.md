@@ -13,11 +13,12 @@ Some trigger and node configuration items use the `collection` field to represen
 
 Some triggers and nodes use a `filter` (or `condition`) field to specify filtering conditions. This field is a JSON object that follows the NocoBase filter condition format.
 
-**Full reference**: [nocobase-utils / Filter Condition Format](../../../../../../skills/skills/nocobase-utils/references/filter/index.md)
+**Full reference**: [nocobase-utils / Filter Condition Format](../../../nocobase-utils/references/filter/index.md)
 
 Key points for workflow context:
 - Root must be `{ "$and": [...] }` or `{ "$or": [...] }` — never place field conditions directly at the root.
 - Values can be constants or workflow variable expressions (e.g., `"{{$context.data.id}}"`). See [Variable Expressions](#variable-expressions) below for available variable paths.
+- Variables are NOT supported in trigger configuration items. In trigger configuration, only static values are allowed.
 - Both dot-string notation (`"category.name"`) and nested object notation (`{ "category": { "name": {...} } }`) are valid for association fields.
 
 ## The `appends` Field in Trigger and Node Configuration
@@ -70,6 +71,69 @@ A query node preloading `author` and the author's nested `department`:
 ```
 
 After execution, the node result will include `author` with its `department` data, accessible as `{{$jobsMapByNodeKey.<nodeKey>.author.department.name}}`.
+
+## Variable Data Shape and Path Rules
+
+Workflow variables are internally JSON values. In the variable picker UI they are usually exposed as a tree of `{ label, value, children? }`, but the actual runtime expression always uses the `value` path, not `label`.
+
+### Core Rules
+
+1. Most variables are JSON objects or arrays, and you usually reference only the needed sub-path.
+2. Object properties are accessed with dot notation, such as `{{$context.data.title}}` or `{{$jobsMapByNodeKey.query1.author.department.name}}`.
+3. A selected relation field may itself be an object, and nested relations continue to form deeper object paths.
+4. Some variables are scalar values directly, such as `{{$context.date}}` or `{{$jobsMapByNodeKey.calc_total}}`.
+5. When a path segment is an array, selecting a child field under that array produces a mapped array of that child field's values.
+
+### Arrays
+
+Array behavior is the most common source of mistakes when writing workflow expressions.
+
+- If the variable itself is an array, use the whole array only in nodes that accept arrays, such as `loop`, or in engines/functions that can process arrays.
+- If you continue selecting a child field under an array item, the result becomes an array of that field from every item.
+- If the source is a nested array structure, the mapped result is flattened into a one-dimensional array.
+- The variable picker may still show the child fields of an array item, but that does not mean every downstream node can consume the mapped array result directly.
+
+### Array Mapping Example
+
+Suppose an upstream query node returns multiple records:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Title 1",
+    "tags": [
+      { "name": "A" },
+      { "name": "B" }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Title 2",
+    "tags": [
+      { "name": "C" }
+    ]
+  }
+]
+```
+
+Then the following expressions behave differently:
+
+- `{{$jobsMapByNodeKey.query_posts}}`
+  - The whole result array.
+- `{{$jobsMapByNodeKey.query_posts.title}}`
+  - Mapped field array: `["Title 1", "Title 2"]`.
+- `{{$jobsMapByNodeKey.query_posts.tags}}`
+  - Array of tag arrays.
+- `{{$jobsMapByNodeKey.query_posts.tags.name}}`
+  - Flattened mapped array: `["A", "B", "C"]`.
+
+### Practical Guidance for Arrays
+
+- Use the whole array when passing data into a `loop` node, for example `{{$jobsMapByNodeKey.query_posts}}`.
+- Use a mapped child-field array only when the downstream node or expression engine explicitly supports arrays.
+- Do not assume a mapped array can be written directly into any scalar field assignment.
+- If you need a precise array/object shape for downstream use, add a `json-query` or `json-variable-mapping` node first.
 
 ## Variable Expressions
 
@@ -155,6 +219,8 @@ Available only inside nodes that are children of a branch/loop node. The ancesto
 | `$system.dateRange.thisMonth` | This month's date range |
 | `$system.dateRange.thisYear` | This year's date range |
 
+Only use `dateRange` variables in filter conditions for date fields when needed, since they will be calculated by the system when the workflow executes.
+
 ### Environment Variables (`$env`)
 
 Application-level environment variables configured in NocoBase settings.
@@ -172,7 +238,7 @@ Application-level environment variables configured in NocoBase settings.
       "status": "published",
       "updatedAt": "{{$system.now}}",
       "reviewerId": "{{$context.user.id}}",
-      "totalPrice": "{{$jobsMapByNodeKey.6qww6wh1wb8.result}}"
+      "totalPrice": "{{$jobsMapByNodeKey.6qww6wh1wb8}}"
     }
   }
 }

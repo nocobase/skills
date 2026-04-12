@@ -45,10 +45,6 @@ description: "Trigger flows based on time rules, supporting both custom time and
 | limit | number \| null | No | Maximum trigger count. |
 | appends | string[] | [] | No | Paths of preloaded associated fields. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
-## Trigger Variables
-- `$context.date`: Trigger timestamp (Date).
-- `$context.data`: Only exists in Data Table Time Field mode (mode=1), representing the triggered record data; includes associated fields preloaded via `appends`.
-
 ## Example Configuration
 ### Custom Time, repeat by cron expression
 ```json
@@ -85,3 +81,11 @@ description: "Trigger flows based on time rules, supporting both custom time and
   "appends": ["createdBy"]
 }
 ```
+
+## Output Variables
+The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`.
+
+- `date` is always exposed and represents the actual trigger time, so you can reference it as `{{$context.date}}`.
+- In custom-time mode, `date` is the only predefined variable root.
+- In data-table time-field mode, the selector also exposes `data`, whose child tree follows the configured collection schema; configured `appends` become nested children under `data`.
+- Example references: `{{$context.date}}`, `{{$context.data.id}}`, `{{$context.data.createdBy.nickname}}`.

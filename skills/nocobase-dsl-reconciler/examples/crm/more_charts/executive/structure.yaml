@@ -1,0 +1,29 @@
+module: Executive Copy
+icon: fundoutlined
+group: Main Copy/More Charts Copy
+pages:
+- page: Executive Copy
+  coll: ''
+  icon: fundoutlined
+  blocks:
+  - key: jsBlock
+    type: jsBlock
+    file: ./js/executive_jsBlock.js
+  - key: chart
+    type: chart
+    chart_config: ./charts/executive_chart.json
+  - key: chart_2
+    type: chart
+    chart_config: ./charts/executive_chart_2.json
+  - key: chart_3
+    type: chart
+    chart_config: ./charts/executive_chart_3.json
+  - key: chart_4
+    type: chart
+    chart_config: ./charts/executive_chart_4.json
+  layout:
+  - - jsBlock
+  - - chart
+    - chart_3
+    - chart_4
+  - - chart_2

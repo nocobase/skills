@@ -49,3 +49,12 @@ No branches are generated when `branchMode=false`.
   "title": "{{ $context.data.title }} - Approval"
 }
 ```
+
+## Output Variables
+The variable selector for this node is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`.
+
+- Exposed roots under the node: `nodeTitle`, `title`, `status`, `data`, `records`.
+- `data` follows the workflow trigger collection schema; any trigger-level `appends` become nested children under `data`.
+- `records` is the approval-record array, with per-item fields `id`, `userId`, `status`, `comment`, and `updatedAt`.
+- Example references: `{{$jobsMapByNodeKey.approval_step.status}}`, `{{$jobsMapByNodeKey.approval_step.title}}`, `{{$jobsMapByNodeKey.approval_step.data.amount}}`.
+- If you need to process individual items in `records`, usually pass `{{$jobsMapByNodeKey.<nodeKey>.records}}` into a `loop` or JSON-processing node.

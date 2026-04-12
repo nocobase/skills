@@ -4,7 +4,7 @@ Use for ordinary business master data or transactional records.
 
 Key rules:
 
-- For the compact `nocobase-api data-modeling collections apply` flow, do not manually include built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, or `updatedBy`.
+- For the compact `collections apply` flow, do not manually include built-in system fields such as `id`, `createdAt`, `createdBy`, `updatedAt`, or `updatedBy`.
 - Treat those fields as template defaults that the server creates for ordinary `general` collections unless the active command help explicitly requires a fully expanded raw payload.
 - Append business fields only. Each business field still needs an explicit `interface`.
 - Default business-table pattern:

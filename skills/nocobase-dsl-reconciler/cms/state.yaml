@@ -1,0 +1,203 @@
+group_id: 358303588941829
+pages:
+  dashboard:
+    route_id: 358303588941830
+    page_uid: k42kw2wq47a
+    tab_uid: etnr6se1e3q
+    grid_uid: m65vmmm8112
+    blocks:
+      dashboard_block:
+        uid: mjdh8arrpt1
+        type: jsBlock
+        grid_uid: ''
+        fields: {}
+  articles:
+    route_id: 358303591038976
+    page_uid: t15r524g8ke
+    tab_uid: my0em8qxais
+    grid_uid: slpa92lenn0
+    blocks:
+      filterForm:
+        uid: nhn93sq96sw
+        type: filterForm
+        grid_uid: dage81dn4q2
+        fields:
+          status:
+            wrapper: rh04ftmg7xg
+            field: yb0njst1662
+          title:
+            wrapper: m3g7zy813yx
+            field: a2e2e3fs9oh
+          featured:
+            wrapper: 8phme3fclrg
+            field: a8xvk6piakr
+      table:
+        uid: hd24shj8087
+        type: table
+        grid_uid: ''
+        fields:
+          publish_date:
+            wrapper: 11bt3f27na0
+            field: 1zkyf6bnbh9
+          views:
+            wrapper: hka3jchdbpa
+            field: hu6izocosrj
+          author:
+            wrapper: ao2vlb6io9v
+            field: 9gb37dv0yoe
+          slug:
+            wrapper: 46dmvbwaqpm
+            field: q8tl01ybp5b
+          title:
+            wrapper: zqvisgrt21r
+            field: 5h3e1e3l7cv
+          category:
+            wrapper: 1icf0dy46ue
+            field: n1tgw0e0rx4
+          status:
+            wrapper: exs4lu5yhqc
+            field: a0lpqt91pif
+          featured:
+            wrapper: 9wdpcpydcqt
+            field: wab7lvonmr8
+          createdAt:
+            wrapper: eqema6trshf
+            field: dk0q1vs03or
+        actions:
+          filter:
+            uid: 6vc1b284geh
+          refresh:
+            uid: we6odb037jk
+          addNew:
+            uid: 33mk7fs4prw
+        record_actions:
+          delete:
+            uid: lrcks4231pm
+          edit:
+            uid: mr82f6xx4ay
+  authors:
+    route_id: 358303593136128
+    page_uid: wc6slqr42oa
+    tab_uid: sipkenggwxc
+    grid_uid: 53gb7cwxmmz
+    blocks:
+      filterForm:
+        uid: rn3ugtwwltr
+        type: filterForm
+        grid_uid: m6qgg0xor8d
+        fields:
+          name:
+            wrapper: 6on7kvah8gu
+            field: n43dmptczly
+      table:
+        uid: 3fjbrjptjb8
+        type: table
+        grid_uid: ''
+        fields:
+          name:
+            wrapper: kp5wjbqrxab
+            field: tmeaczkvd4u
+          bio:
+            wrapper: myuor868unv
+            field: 7plyb2k4uxn
+          email:
+            wrapper: zmgrbucncvx
+            field: pse2xjrswf6
+          createdAt:
+            wrapper: cv7g757sp6z
+            field: teokinnfzet
+        actions:
+          filter:
+            uid: wrma5sgji6g
+          refresh:
+            uid: 2agd2vw9221
+          addNew:
+            uid: 9scj8yfrjwj
+        record_actions:
+          delete:
+            uid: 30swd3btai3
+          edit:
+            uid: hb27io30g6t
+  categories:
+    route_id: 358303595233281
+    page_uid: vins8a0jdno
+    tab_uid: druvszrwzuc
+    grid_uid: 5v3i06bwhrf
+    blocks:
+      filterForm:
+        uid: oiadq16xz94
+        type: filterForm
+        grid_uid: zca08p6a17c
+        fields:
+          name:
+            wrapper: vg9quiw6xp1
+            field: kndjopov66q
+      table:
+        uid: w2qcbfzy363
+        type: table
+        grid_uid: ''
+        fields:
+          name:
+            wrapper: sh6ealg94b0
+            field: 6xlxuirosd3
+          slug:
+            wrapper: 4tzvemscabt
+            field: kzalvfjcz6a
+          parent:
+            wrapper: 1l3y7kk1vn4
+            field: jsujkb3whlm
+          description:
+            wrapper: lergxpbb202
+            field: sr2eea37y3g
+        actions:
+          filter:
+            uid: trzfpoikz7u
+          refresh:
+            uid: mufbk6wvbdp
+          addNew:
+            uid: 8gs68wjmhk4
+        record_actions:
+          delete:
+            uid: ui36notsvqq
+          edit:
+            uid: igqkhreaath
+  tags:
+    route_id: 358303597330441
+    page_uid: awa6pxks78f
+    tab_uid: 13i7on181ah
+    grid_uid: ohfv4z1wmmf
+    blocks:
+      filterForm:
+        uid: 7u4h68w8ncx
+        type: filterForm
+        grid_uid: x5p8xw2swmi
+        fields:
+          name:
+            wrapper: wvktx7ktc2r
+            field: zrcuoz3g82y
+      table:
+        uid: 7t0e2rzltq4
+        type: table
+        grid_uid: ''
+        fields:
+          name:
+            wrapper: 8xvr7a9nj9n
+            field: jxo0ha6we18
+          slug:
+            wrapper: l1vyep5oss6
+            field: m5wu9207ep1
+          color:
+            wrapper: zj5i2gvzdhr
+            field: 0zqqikx3wia
+        actions:
+          filter:
+            uid: xd0b7lhlopq
+          refresh:
+            uid: f8lwlds2a4j
+          addNew:
+            uid: wap62072fom
+        record_actions:
+          delete:
+            uid: 8k8ijd5f1t3
+          edit:
+            uid: 5m4t2f5atel
