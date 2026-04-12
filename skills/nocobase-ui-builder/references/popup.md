@@ -35,6 +35,8 @@ The popup subtree in public `executeDsl` still follows the same public page-DSL 
 - nested `resource` objects use `collectionName`, not `collection`
 - for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`
 - the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; author the canonical shape directly whenever possible
+- when the requirement is "click the shown record / relation record to open details", prefer a field object with inline `popup` so the field itself is the opener; backend readback commonly normalizes this to clickable-field / `clickToOpen` semantics
+- keep action / recordAction buttons for cases where the requirement explicitly says button / action column
 - on record-capable popup blocks, prefer `recordActions` for `view` / `edit` / `updateRecord` / `delete`
 - `field.target` is only a string block key in the same popup scope
 - popup `layout.rows` uses block keys / `{ key, span }`, never `uid`, `ref`, or `$ref`

@@ -14,6 +14,8 @@ This file summarizes the minimal request shapes most often needed by this skill.
 - For `executeDsl`, `requestBody` is the page DSL object itself; do not wrap it again and do not flatten it to top-level fields.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
+- For normal single-page requests, keep exactly one real tab in the DSL; do not send empty / placeholder tabs.
+- `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
 
 Safe mental model:
 
@@ -165,6 +167,48 @@ Inner DSL only — **NEVER send this block alone to MCP**:
 ```
 
 When the target group is not already known, `navigation.group.title` is also valid; executeDsl will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `updateMenu` instead.
+
+When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
+
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          {
+            "type": "table",
+            "collection": "employees",
+            "fields": [
+              {
+                "field": "department.title",
+                "popup": {
+                  "title": "Department details",
+                  "blocks": [
+                    {
+                      "type": "details",
+                      "resource": {
+                        "binding": "currentRecord",
+                        "collectionName": "departments"
+                      },
+                      "fields": ["title"]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Readback commonly normalizes this to clickable-field / `clickToOpen` semantics. If the requirement explicitly says "details button" or "action column", use an action / recordAction instead.
 
 For custom edit popups, use `editForm`, not `form`:
 

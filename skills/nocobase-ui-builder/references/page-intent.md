@@ -22,26 +22,33 @@ This file focuses on the **inner page DSL document**. For the actual MCP call sh
 
 1. Identify whether the task is **create** or **replace**.
 2. Choose the simplest starting archetype from [page-archetypes.md](./page-archetypes.md).
-3. Decide the minimal tab structure.
+3. Decide the minimal tab structure. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs.
 4. For each tab, decide major blocks first, then fields/actions/record actions.
 5. Keep popup behavior inline under the relevant field/action/record action.
 6. Assemble the final JSON page DSL from [ui-dsl.md](./ui-dsl.md), using only canonical public names.
-7. Before the real `executeDsl` call, open [tool-shapes.md](./tool-shapes.md) and wrap the DSL under `requestBody` as an object.
-8. If the request is ambiguous, high-impact, or destructive, show the DSL draft first.
+7. Before the real `executeDsl` call, run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, and every custom `edit` popup contains exactly one `editForm`.
+8. Then open [tool-shapes.md](./tool-shapes.md) and wrap the DSL under `requestBody` as an object.
+9. If the request is ambiguous, high-impact, or destructive, show the DSL draft first.
 
 ## 3. Authoring Heuristics
 
 - Prefer the smallest number of tabs that explains the user intent.
+- A normal single-page request defaults to one tab unless the user explicitly asks for multiple route-backed tabs.
+- Side-by-side blocks, relation tables, and deep popup chains are layout inside one tab, not a reason to create extra tabs.
+- Do not carry empty / placeholder tabs in a single-page draft just to "leave room" for later edits.
 - Prefer one dominant archetype before mixing patterns.
 - Choose major content areas first; fill in fields/actions only after the structure is stable.
 - If the destination menu group already exists and is known, prefer `navigation.group.routeId` over `navigation.group.title`.
 - If you intentionally rely on unique same-title reuse, keep `navigation.group` title-only.
 - `navigation.group.routeId` is exact targeting only; if existing-group metadata must change, switch to the low-level `updateMenu` path instead of executeDsl.
 - Do not over-specify popup content when a simple opener is enough for the request.
+- If the user says clicking a shown record / relation record opens details, prefer a field object with inline `popup` so the field itself is the opener. Only switch to an action / recordAction when the requirement explicitly says button / action column.
 - For popup relation tables, prefer the canonical `associatedRecords + associationField` shape.
 - On record-capable blocks, put `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
 - Add `key` only when layout or `field.target` truly needs a stable local identifier.
 - Keep low-level selectors and internals out of the draft JSON; do not leak `uid`, `ref`, `$ref`, or other non-public write shapes.
+- If layout is not essential or not fully decided, omit it rather than inventing a string or block-level `layout`.
+- Before first write, self-check tabs count, non-empty `tab.blocks`, no empty tabs, no block-level `layout`, unique block `key` values, and exactly one `editForm` in every custom `edit` popup. If any item fails, rewrite the DSL before the first write.
 - In test runs, do not add destructive cleanup steps unless the user explicitly asked for deletion.
 - Do not stringify the final page DSL when calling MCP. The correct mental model is:
   - first author `const dsl = { ... }`

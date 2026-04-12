@@ -14,8 +14,11 @@ description: >-
 
 - Hard rules before you write:
   1. `flow_surfaces_execute_dsl.requestBody` must stay an **object**; never stringify it.
-  2. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object.
-  3. For page authoring, field truth comes from `collections:get(appends=["fields"])`, not `collections.fields:list`.
+  2. For a normal single-page request, default to exactly **one tab**; never add an empty or placeholder second tab.
+  3. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object; if you keep `layout`, it must stay an object, and when unsure you should omit it.
+  4. For page authoring, field truth comes from `collections:get(appends=["fields"])`, not `collections.fields:list`.
+  5. If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field; only switch to a button or action column when the requirement explicitly asks for one.
+  6. Before the first `executeDsl`, finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no block object contains `layout`, block `key` values are unique, and every custom `edit` popup contains exactly one `editForm`. If any item fails, rewrite the DSL before writing.
 - Minimum read set:
   1. Read [normative-contract.md](./references/normative-contract.md) first.
   2. Read [execution-checklist.md](./references/execution-checklist.md) second.
@@ -34,7 +37,10 @@ description: >-
 - `inspect` and page-DSL drafting stay read-only until the user explicitly asks to write.
 - For page authoring / field selection, **never use `collections.fields:list`** as the field discovery tool. Use `collections:get(appends=["fields"])` as the only default field truth, and only use `collections.fields:get` for single-field follow-up when the field name is already known.
 - For `executeDsl(create)`, prefer `navigation.group.routeId` when an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.
-- In the public page DSL, `layout` belongs only on `tabs[]` or inline `popup`; never put `layout` on a block object.
+- For a normal single-page request, default to `tabs.length = 1`; side-by-side blocks and deep popup chains stay inside that tab unless the user explicitly asked for multiple route-backed tabs. Do not carry empty / placeholder tabs in that draft.
+- Before the first `executeDsl`, complete the authoring self-check: tabs count matches the request, each `tab.blocks` is non-empty, there is no empty tab, no block object contains `layout`, block `key` values are unique, and every custom `edit` popup has exactly one `editForm`. If any item fails, rewrite the DSL before the first write instead of trial-and-error against the backend.
+- In the public page DSL, `layout` belongs only on `tabs[]` or inline `popup`; never put `layout` on a block object. If you are not sure the layout is correct, omit it.
+- If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field path; use a button or action column only when the user explicitly asks for one.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For `edit` actions:
   - standard single-form edit popup -> prefer backend default popup completion

@@ -14,8 +14,12 @@ This file is for authoring the **inner page DSL document**. It is **not** the pr
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
 - Tabs are interpreted in array order. In `replace`, DSL tabs map to existing route-backed tab slots by index.
+- For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
+- Do not add empty / placeholder tabs to a normal single-page draft.
+- Side-by-side blocks, relation tables, and nested popups normally stay inside that one tab.
 - Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
+- If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - The DSL is structure-only; it does not expose planning or execution internals.
 
@@ -24,6 +28,7 @@ Important:
 - This file describes the **inner page DSL document** only.
 - When you call `flow_surfaces_execute_dsl`, put this document under `requestBody` as an **object**.
 - Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
+- Keep `requestBody` out of the inner DSL itself; `requestBody` exists only in the outer MCP tool-call envelope.
 - If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page DSL blindly.
 - Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner DSL only.
 
@@ -47,7 +52,17 @@ Important:
     "scripts": {},
     "charts": {}
   },
-  "tabs": []
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "table",
+          "collection": "employees"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -178,7 +193,193 @@ Important:
 - If `replace` expands a page from one hidden-tab state to multiple tabs, set `page.enableTabs: true` explicitly. When the current page has `enableTabs = false`, omitting it is rejected.
 - If you need a tiny localized edit on one existing tab/node, do not use `replace`; use low-level APIs instead.
 
-## 5. Supported Semantics
+## 5. Single-tab Deep-popup Skeleton
+
+Use this as a **generic structure pattern**, not as a copy-paste answer. It shows that a deep popup chain with sibling popup blocks still belongs to **one page / one tab**:
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "navigation": {
+    "group": { "title": "Workspace" },
+    "item": { "title": "Records" }
+  },
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "key": "mainTable",
+          "type": "table",
+          "collection": "<mainCollection>",
+          "fields": ["<summaryField>"],
+          "recordActions": [
+            {
+              "type": "view",
+              "title": "Details",
+              "popup": {
+                "blocks": [
+                  {
+                    "key": "mainDetails",
+                    "type": "details",
+                    "resource": {
+                      "binding": "currentRecord",
+                      "collectionName": "<mainCollection>"
+                    },
+                    "fields": ["<summaryField>"],
+                    "recordActions": [
+                      {
+                        "type": "edit",
+                        "popup": {
+                          "blocks": [
+                            {
+                              "key": "editForm",
+                              "type": "editForm",
+                              "fields": ["<editableField>"]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "key": "relatedTable",
+                    "type": "table",
+                    "resource": {
+                      "binding": "associatedRecords",
+                      "associationField": "<relationField>",
+                      "collectionName": "<relatedCollection>"
+                    },
+                    "fields": [
+                      {
+                        "field": "<relatedLabelField>",
+                        "popup": {
+                          "title": "Related details",
+                          "blocks": [
+                            {
+                              "type": "details",
+                              "resource": {
+                                "binding": "currentRecord",
+                                "collectionName": "<relatedCollection>"
+                              },
+                              "fields": ["<relatedLabelField>"],
+                              "recordActions": [
+                                {
+                                  "type": "edit",
+                                  "popup": {
+                                    "blocks": [
+                                      {
+                                        "key": "relatedEditForm",
+                                        "type": "editForm",
+                                        "fields": ["<relatedEditableField>"]
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "layout": {
+                  "rows": [[{ "key": "mainDetails", "span": 12 }, { "key": "relatedTable", "span": 12 }]]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Notes:
+
+- Even with sibling popup blocks and nested edit popups, the outer page still has only **one tab**.
+- When the intent is "click the shown related record to open details", the field object itself can carry the inline `popup`.
+- If the requirement explicitly says "details button" or "action column", use an action / recordAction instead.
+
+## 6. High-frequency Wrong vs Right
+
+### A. `tab.layout` must be an object
+
+Wrong:
+
+```json
+{
+  "title": "Overview",
+  "layout": "two-column",
+  "blocks": [{ "type": "table", "collection": "employees" }]
+}
+```
+
+Right:
+
+```json
+{
+  "title": "Overview",
+  "layout": {
+    "rows": [["employeesTable"]]
+  },
+  "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }]
+}
+```
+
+### B. `layout` does not belong on a block
+
+Wrong:
+
+```json
+{
+  "type": "table",
+  "collection": "employees",
+  "layout": {
+    "rows": [["employeesTable"]]
+  }
+}
+```
+
+Right:
+
+```json
+{
+  "title": "Overview",
+  "layout": {
+    "rows": [["employeesTable"]]
+  },
+  "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }]
+}
+```
+
+### C. Do not keep an empty second tab in a single-page draft
+
+Wrong:
+
+```json
+{
+  "tabs": [
+    { "title": "Overview", "blocks": [{ "type": "table", "collection": "employees" }] },
+    { "title": "Later", "blocks": [] }
+  ]
+}
+```
+
+Right:
+
+```json
+{
+  "tabs": [
+    { "title": "Overview", "blocks": [{ "type": "table", "collection": "employees" }] }
+  ]
+}
+```
+
+## 7. Supported Semantics
 
 ### Block-level
 
@@ -284,6 +485,8 @@ A field entry may be:
 - a string, for example `"nickname"`
 - an object with optional `key`, `field`, `renderer`, `type`, optional `target`, `settings`, and optional inline `popup`
 
+When the user says clicking a shown record / relation record should open details, prefer a field object with inline `popup` so the field itself is the opener. Readback commonly normalizes this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the requirement explicitly says button / action column.
+
 `field.target` is only a **string block key** in the same tab or popup scope:
 
 ```json
@@ -291,6 +494,27 @@ A field entry may be:
 ```
 
 Do not send object selectors there.
+
+Clickable field example:
+
+```json
+{
+  "field": "department.title",
+  "popup": {
+    "title": "Department details",
+    "blocks": [
+      {
+        "type": "details",
+        "resource": {
+          "binding": "currentRecord",
+          "collectionName": "departments"
+        },
+        "fields": ["title"]
+      }
+    ]
+  }
+}
+```
 
 ### Action shorthand
 
@@ -344,7 +568,7 @@ Public `executeDsl` layout cells do **not** use `uid`, `ref`, or `$ref`.
 
 `assets.scripts` and `assets.charts` are reusable object maps. A block/field/action may refer to them by `script` or `chart`.
 
-## 6. Canonical Naming Rule
+## 8. Canonical Naming Rule
 
 When this skill authors `executeDsl`, always emit the canonical public names above.
 
@@ -359,16 +583,16 @@ When this skill authors `executeDsl`, always emit the canonical public names abo
 - place `layout` only on `tabs[]` or `popup`, never on a block object
 - do not use `ref` or `$ref`
 
-## 7. Unsupported / Forbidden Public Fields
+## 9. Unsupported / Forbidden Public Fields
 
 Use this file as the **shape reference**, not as a second full contract document.
 
 - Send only the structure fields described here.
-- Use the canonical names from Section 6.
-- Keep `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
+- Use the canonical names from Section 8.
+- Keep `requestBody`, `ref`, `$ref`, block-level `layout`, layout-cell `uid`, object-style `field.target`, and deprecated aliases out of the payload.
 - Keep non-DSL control fields and alias fields out of the payload; the authoritative contract lives in [normative-contract.md](./normative-contract.md).
 
-## 8. Response Shape
+## 10. Response Shape
 
 `executeDsl` returns:
 

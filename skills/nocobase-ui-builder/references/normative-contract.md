@@ -32,8 +32,11 @@ The public `executeDsl` payload is:
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
+- if `layout` is present, it must be an object; when layout is still uncertain, omit it instead of guessing
 - generic `form` is not a public executeDsl block type; use `editForm` or `createForm`
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
+- for normal single-page requests, default to exactly one real tab; do not carry empty / placeholder tabs in the draft
+- when the intent is "click the shown record / relation record to open details", the canonical page-DSL authoring is a field-level inline `popup`; backend / readback may normalize this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the request explicitly asks for a button or action column.
 
 ### MCP tool-call envelope rule
 
@@ -43,6 +46,7 @@ When calling any `flow_surfaces_*` MCP tool:
 - if the schema says `requestBody`, then `requestBody` must be the final business **object**
 - do **not** stringify the JSON document
 - do **not** wrap it again as `{ values: payload }`
+- do **not** leak tool-envelope fields such as `requestBody` into the inner page DSL
 
 Important exception:
 
@@ -137,6 +141,7 @@ For `replace` runs:
 - `target.pageSchemaUid` is required
 - omitted page-level fields are left unchanged
 - DSL tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
+- before the first `executeDsl`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, and every custom `edit` popup contains exactly one `editForm`
 - if the current page has `enableTabs = false` and the new DSL contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`

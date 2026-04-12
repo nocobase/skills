@@ -48,13 +48,24 @@ Use this path when the user is describing one page as a whole.
 2. Discover real collections/fields/relations if the page is data-bound.
 3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
 4. Draft or assemble one **page DSL** document.
-5. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first.
-6. Otherwise call `executeDsl`.
+5. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
+6. Before the **first** `executeDsl`, run the authoring self-check:
+   - tabs count matches the request
+   - if this is a normal single-page request, `tabs.length` is exactly `1`
+   - every `tab.blocks` is a non-empty array
+   - there is no empty / placeholder tab
+   - no block object contains `layout`
+   - every `tab.layout` / `popup.layout` is an object; if you are unsure, omit `layout`
+   - block `key` values are unique within the document
+   - every custom `edit` popup contains exactly one `editForm`
+   - if any item fails, rewrite the DSL before the first write; do not use backend errors as the first validator
+7. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, show the DSL draft first.
+8. Otherwise call `executeDsl`.
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
    - Pass the DSL as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
    - Never copy a raw JSON example from `ui-dsl.md` straight into the MCP call without wrapping it under `requestBody`.
    - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner DSL fields.
-7. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
+9. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
 
@@ -63,6 +74,7 @@ Use this path when the user is describing one page as a whole.
 - `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`). If an existing group's metadata must change, use low-level `updateMenu` separately.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps DSL tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
+- For a normal single-page request, keep `tabs.length = 1` unless the user explicitly asked for multiple route-backed tabs.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
 - At block root use `collection`; inside nested `resource` use `collectionName`.
@@ -70,9 +82,11 @@ Use this path when the user is describing one page as a whole.
 - For popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
 - The convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; for anything more complex, author the canonical shape directly.
 - On record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` under `recordActions`, not `actions`.
+- When the user says clicking a shown record / relation record should open details, prefer a field-level popup / clickable-field path instead of inventing a new button; only use an action / recordAction button when the request explicitly asks for one.
 - Public executeDsl blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For a standard `edit` popup, backend default completion is acceptable; when the user wants custom popup structure or sibling blocks, author explicit `popup.blocks` / `popup.layout`.
 - A custom `edit` popup must contain exactly one `editForm` block. If that `editForm` omits `resource`, executeDsl will inherit the opener's current-record context.
+- If the requirement only says "click to open" and you are not fully sure about layout, omit `layout` rather than guessing a string or block-level `layout`.
 - For existing display/association fields that should open popups on click, use low-level `configure` / `clickToOpen` semantics rather than guessing popup structure first.
 - Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`. If layout is omitted, the server auto-generates a simple top-to-bottom layout.
 - If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
