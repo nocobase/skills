@@ -8,6 +8,13 @@ MCP_URL="${MCP_URL:-}"
 MCP_APP_NAME="${MCP_APP_NAME:-}"
 MCP_TOKEN_ENV="${MCP_TOKEN_ENV:-NOCOBASE_API_TOKEN}"
 MCP_PACKAGES="${MCP_PACKAGES:-}"
+MCP_AUTO_API_KEY="${MCP_AUTO_API_KEY:-1}"
+MCP_AUTO_API_KEY_NAME="${MCP_AUTO_API_KEY_NAME:-mcp_auto_token}"
+MCP_AUTO_API_KEY_USERNAME="${MCP_AUTO_API_KEY_USERNAME:-nocobase}"
+MCP_AUTO_API_KEY_ROLE="${MCP_AUTO_API_KEY_ROLE:-root}"
+MCP_AUTO_API_KEY_EXPIRES_IN="${MCP_AUTO_API_KEY_EXPIRES_IN:-30d}"
+MCP_AUTO_API_KEY_APP_SERVICE="${MCP_AUTO_API_KEY_APP_SERVICE:-app}"
+MCP_AUTO_API_KEY_COMPOSE_FILE="${MCP_AUTO_API_KEY_COMPOSE_FILE:-}"
 FAIL=0
 WARN=0
 PASS=0
@@ -88,6 +95,88 @@ emit_activate_plugin_action() {
   IFS="$old_ifs"
   printf 'required_step: restart_app\n'
   printf 'required_step: rerun_mcp_postcheck\n'
+}
+
+resolve_compose_file() {
+  if [[ -n "$MCP_AUTO_API_KEY_COMPOSE_FILE" ]]; then
+    if [[ -f "$MCP_AUTO_API_KEY_COMPOSE_FILE" ]]; then
+      printf '%s' "$MCP_AUTO_API_KEY_COMPOSE_FILE"
+      return
+    fi
+    printf ''
+    return
+  fi
+
+  local candidate
+  for candidate in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return
+    fi
+  done
+  printf ''
+}
+
+extract_api_key_token() {
+  local text="$1"
+  local token
+
+  token="$(printf '%s\n' "$text" | awk '/-----BEGIN API KEY-----/{flag=1;next}/-----END API KEY-----/{flag=0}flag' | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
+  if [[ -n "$token" ]]; then
+    printf '%s' "$token"
+    return
+  fi
+
+  token="$(printf '%s' "$text" | grep -oE 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' | head -n 1)"
+  printf '%s' "$token"
+}
+
+token_preview() {
+  local token="$1"
+  local len="${#token}"
+  if [[ "$len" -le 12 ]]; then
+    printf '%*s' "$len" '' | tr ' ' '*'
+    return
+  fi
+  printf '%s...%s' "${token:0:6}" "${token: -4}"
+}
+
+auto_generate_api_key() {
+  AUTO_TOKEN_VALUE=""
+  AUTO_TOKEN_SOURCE=""
+  AUTO_TOKEN_ERROR="Auto API key generation failed from local CLI and docker compose paths."
+
+  local output token compose_file
+
+  if has_cmd yarn; then
+    output="$(yarn nocobase generate-api-key -n "$MCP_AUTO_API_KEY_NAME" -r "$MCP_AUTO_API_KEY_ROLE" -u "$MCP_AUTO_API_KEY_USERNAME" -e "$MCP_AUTO_API_KEY_EXPIRES_IN" --silent 2>&1 || true)"
+    token="$(extract_api_key_token "$output")"
+    if [[ -n "$token" ]]; then
+      AUTO_TOKEN_VALUE="$token"
+      AUTO_TOKEN_SOURCE="local-cli"
+      return 0
+    fi
+  fi
+
+  if has_cmd docker; then
+    compose_file="$(resolve_compose_file)"
+    local -a cmd
+    cmd=(docker compose)
+    if [[ -n "$compose_file" ]]; then
+      cmd+=(-f "$compose_file")
+    fi
+    cmd+=(exec -T "$MCP_AUTO_API_KEY_APP_SERVICE" yarn nocobase generate-api-key -n "$MCP_AUTO_API_KEY_NAME" -r "$MCP_AUTO_API_KEY_ROLE" -u "$MCP_AUTO_API_KEY_USERNAME" -e "$MCP_AUTO_API_KEY_EXPIRES_IN" --silent)
+
+    output="$("${cmd[@]}" 2>&1 || true)"
+    token="$(extract_api_key_token "$output")"
+    if [[ -n "$token" ]]; then
+      AUTO_TOKEN_VALUE="$token"
+      AUTO_TOKEN_SOURCE="docker-compose-exec"
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
 http_status() {
@@ -210,13 +299,15 @@ TARGET_MCP_URL="$(resolve_mcp_url)"
 ACTIVATION_PLUGINS_CSV="$(activation_plugins_csv)"
 PLUGIN_ENABLE_HINT="$(plugin_enable_hint "$ACTIVATION_PLUGINS_CSV")"
 APP_RESTART_HINT="App may still be reloading. Restart app, wait for startup complete, then rerun postcheck."
-API_KEY_CREATE_HINT="Manual only after plugin bundle is active: open ${API_KEYS_CONFIG_URL}, click Add API Key, copy token, set ${MCP_TOKEN_ENV}, then rerun postcheck. Do not auto-create or auto-retrieve token via CLI/API/DB/UI automation."
+API_KEY_CREATE_HINT="Auto token refresh failed. Fallback manual only: open ${API_KEYS_CONFIG_URL}, click Add API Key, copy token, set ${MCP_TOKEN_ENV}, then rerun postcheck."
+API_KEY_AUTO_HINT="Auto token generation uses CLI: generate-api-key -n ${MCP_AUTO_API_KEY_NAME} -u ${MCP_AUTO_API_KEY_USERNAME} -r ${MCP_AUTO_API_KEY_ROLE} -e ${MCP_AUTO_API_KEY_EXPIRES_IN}."
 
 printf 'phase: mcp-postcheck\n'
 printf 'timestamp: %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 printf 'mcp_target: %s\n' "$TARGET_MCP_URL"
 printf 'mcp_auth_mode: %s\n' "$MCP_AUTH_MODE"
 printf 'mcp_activation_plugins: %s\n' "$ACTIVATION_PLUGINS_CSV"
+printf 'mcp_auto_api_key: %s\n' "$([[ "$MCP_AUTO_API_KEY" == "1" ]] && printf enabled || printf disabled)"
 printf 'mcp_manual_plugin_manager_url: %s\n' "$PLUGIN_MANAGER_URL"
 printf 'mcp_manual_api_keys_url: %s\n' "$API_KEYS_CONFIG_URL"
 
@@ -250,14 +341,29 @@ if [[ "$MCP_AUTH_MODE" == "api-key" ]]; then
     record warn MCP-AUTH-POST-APIKEY-000 "Skip token gate because MCP endpoint is not ready yet." "Resolve endpoint blocker first, then rerun postcheck."
   else
     TOKEN_VALUE="${!MCP_TOKEN_ENV:-}"
-    if [[ -z "$TOKEN_VALUE" ]]; then
-      record fail MCP-AUTH-POST-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing." "$API_KEY_CREATE_HINT"
+    if [[ -z "$TOKEN_VALUE" && "$MCP_AUTO_API_KEY" == "1" ]]; then
+      record warn MCP-AUTH-POST-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing. Trying automatic token generation." "$API_KEY_AUTO_HINT"
+      if auto_generate_api_key; then
+        TOKEN_VALUE="$AUTO_TOKEN_VALUE"
+        export "$MCP_TOKEN_ENV=$TOKEN_VALUE"
+        record pass MCP-AUTH-POST-APIKEY-001 "Automatically generated API token from $AUTO_TOKEN_SOURCE and loaded into '$MCP_TOKEN_ENV' ($(token_preview "$TOKEN_VALUE"))."
+      else
+        record fail MCP-AUTH-POST-APIKEY-001 "Automatic API token generation failed for '$MCP_TOKEN_ENV'." "$API_KEY_CREATE_HINT"
+        printf 'action_required: provide_api_token\n'
+        printf 'required_step: auto_generate_api_token_failed\n'
+        printf 'required_step: manual_user_create_token\n'
+        printf 'required_step: manual_user_send_token_in_chat\n'
+      fi
+    elif [[ -z "$TOKEN_VALUE" ]]; then
+      record fail MCP-AUTH-POST-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing and auto generation is disabled." "$API_KEY_CREATE_HINT"
       printf 'action_required: provide_api_token\n'
       printf 'required_step: manual_user_create_token\n'
       printf 'required_step: manual_user_send_token_in_chat\n'
-      printf 'required_step: no_agent_token_automation\n'
     else
       record pass MCP-AUTH-POST-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is present."
+    fi
+
+    if [[ -n "$TOKEN_VALUE" ]]; then
       record pass MCP-AUTH-POST-APIKEY-002 "Token validity will be verified by MCP protocol probe (initialize/tools/list/tools/call)."
       MCP_AUTH_READY=1
       MCP_PROTOCOL_TOKEN="$TOKEN_VALUE"
@@ -273,17 +379,30 @@ if [[ "$MCP_AUTH_READY" == "1" ]]; then
   INIT_PAYLOAD='{"jsonrpc":"2.0","id":9001,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"nocobase-env-bootstrap-postcheck","version":"1.2.0"}}}'
   if ! post_mcp "$INIT_PAYLOAD" "$MCP_PROTOCOL_TOKEN" "$MCP_SESSION_ID"; then
     record fail MCP-PROTO-001 "Initialize transport failed." "Verify headers include Accept: application/json, text/event-stream, then retry."
-  elif [[ ! "$MCP_LAST_STATUS" =~ ^2 ]]; then
-    if [[ "$MCP_LAST_STATUS" == "401" || "$MCP_LAST_STATUS" == "403" ]]; then
-      record fail MCP-PROTO-001 "Initialize returned HTTP $MCP_LAST_STATUS." "Open $API_KEYS_CONFIG_URL, regenerate API key, update $MCP_TOKEN_ENV, then rerun postcheck."
-      printf 'action_required: provide_api_token\n'
-      printf 'required_step: manual_user_create_token\n'
-      printf 'required_step: manual_user_send_token_in_chat\n'
-      printf 'required_step: no_agent_token_automation\n'
-    else
-      record fail MCP-PROTO-001 "Initialize returned HTTP $MCP_LAST_STATUS." "Verify auth and streamable HTTP headers."
-    fi
   else
+    if [[ ! "$MCP_LAST_STATUS" =~ ^2 ]] && [[ "$MCP_LAST_STATUS" == "401" || "$MCP_LAST_STATUS" == "403" ]] && [[ "$MCP_AUTO_API_KEY" == "1" ]]; then
+      record warn MCP-AUTH-POST-APIKEY-003 "Initialize returned HTTP $MCP_LAST_STATUS; token may be expired. Trying automatic refresh." "$API_KEY_AUTO_HINT"
+      if auto_generate_api_key; then
+        MCP_PROTOCOL_TOKEN="$AUTO_TOKEN_VALUE"
+        export "$MCP_TOKEN_ENV=$MCP_PROTOCOL_TOKEN"
+        record pass MCP-AUTH-POST-APIKEY-003 "Automatic token refresh succeeded from $AUTO_TOKEN_SOURCE ($(token_preview "$MCP_PROTOCOL_TOKEN")). Retrying initialize."
+        post_mcp "$INIT_PAYLOAD" "$MCP_PROTOCOL_TOKEN" "$MCP_SESSION_ID" || true
+      else
+        record fail MCP-AUTH-POST-APIKEY-003 "Automatic token refresh failed after initialize auth error." "$API_KEY_CREATE_HINT"
+      fi
+    fi
+
+    if [[ ! "$MCP_LAST_STATUS" =~ ^2 ]]; then
+      if [[ "$MCP_LAST_STATUS" == "401" || "$MCP_LAST_STATUS" == "403" ]]; then
+        record fail MCP-PROTO-001 "Initialize returned HTTP $MCP_LAST_STATUS." "$API_KEY_CREATE_HINT"
+        printf 'action_required: provide_api_token\n'
+        printf 'required_step: auto_generate_api_token_failed\n'
+        printf 'required_step: manual_user_create_token\n'
+        printf 'required_step: manual_user_send_token_in_chat\n'
+      else
+        record fail MCP-PROTO-001 "Initialize returned HTTP $MCP_LAST_STATUS." "Verify auth and streamable HTTP headers."
+      fi
+    else
     INIT_JSON="$(extract_json_payload "$MCP_LAST_BODY")"
     if mcp_has_error "$INIT_JSON"; then
       record fail MCP-PROTO-001 "Initialize returned JSON-RPC error." "Use standard initialize payload and retry."
@@ -334,6 +453,7 @@ if [[ "$MCP_AUTH_READY" == "1" ]]; then
         fi
       fi
     fi
+  fi
   fi
 else
   record warn MCP-PROTO-000 "Skip protocol probe because API-key auth is not ready." "Resolve auth blockers, then rerun mcp-postcheck."

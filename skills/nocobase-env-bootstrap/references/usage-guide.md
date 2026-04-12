@@ -21,6 +21,8 @@ If users do not specify details, default behavior is:
 - `db_dialect=postgres`
 - `release_channel=latest`
 - `port=13000`
+- `mcp_required=true`
+- `mcp_auth_mode=api-key`
 
 ## Docker Local-First Rule
 
@@ -39,6 +41,7 @@ Only use WebFetch to official docs when a required local template is missing.
 3. Set required variables (`APP_KEY` required and random, optional `APP_PORT`, optional `NOCOBASE_APP_IMAGE`).
 4. Run `docker compose pull` and `docker compose up -d`.
 5. Verify logs and login URL.
+6. Run MCP final stage (`mcp-postcheck`) by default; skip only when `mcp_required=false`.
 
 APP_KEY examples:
 
@@ -50,9 +53,12 @@ $env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
 export APP_KEY="$(openssl rand -hex 32)"
 ```
 
-## MCP Gate
+## Final MCP Stage (Default On)
 
-When `mcp_required=true`, run MCP post-start gate after app startup.
+For install/deploy flows, MCP is executed as the final stage after app startup by default.
+Only skip this stage when user explicitly sets `mcp_required=false`.
+
+When MCP stage is enabled (`mcp_required=true`), run MCP post-start gate after app startup.
 
 Windows:
 
@@ -74,13 +80,16 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 - If postcheck outputs `action_required: restart_app`, restart app and rerun postcheck
 - Do not bypass `nocobase-plugin-manage` with ad-hoc container shell plugin commands before fixed sequence is completed
 - `nocobase-plugin-manage` may auto-select docker CLI internally for local Docker apps
-- Only when postcheck outputs `action_required: provide_api_token`, ask user to create/regenerate API key and send token value in chat
+- In `api-key` mode, postcheck auto-generates token when missing and auto-refreshes token when expired (`401/403`)
+- Only when postcheck outputs `action_required: provide_api_token`, automatic token generation/refresh has failed; then ask user to create/regenerate API key and send token value in chat
 - Do not ask for token while endpoint blocker (`404/503`) is unresolved
-- Token acquisition must be user-manual; do not auto-create or auto-retrieve token in this flow
+- Manual token acquisition is fallback-only in this flow
 - After postcheck passes, generate client config from fixed templates:
 - Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client opencode -BaseUrl http://127.0.0.1:13000 -McpAuthMode api-key -TokenEnv NOCOBASE_API_TOKEN`
 - Linux/macOS: `bash scripts/render-mcp-client-template.sh opencode http://127.0.0.1:13000 api-key main '' NOCOBASE_API_TOKEN ''`
 - For `opencode`, token placeholder must use `{env:NOCOBASE_API_TOKEN}` and include `Accept: application/json, text/event-stream` in remote headers.
+- If template-based connect still fails after one full retry (`initialize -> tools/list` with valid endpoint/auth), switch to web lookup for that client and prioritize official docs/repo pages.
+- Report the final working config together with source links used by web lookup.
 
 Manual pages:
 

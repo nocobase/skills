@@ -4,8 +4,8 @@ description: "Use when users need to prepare a NocoBase environment, install and
 argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|deploy|mcp-connect|upgrade|diagnose] [target-dir]"
 allowed-tools: Bash, Read, Write, Grep, Glob, WebFetch
 owner: platform-tools
-version: 1.2.0
-last-reviewed: 2026-04-10
+version: 1.3.0
+last-reviewed: 2026-04-12
 risk-level: medium
 ---
 
@@ -43,7 +43,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `db_dialect` | docker install/deploy | `postgres` | one of `postgres/mysql/mariadb` | "Use PostgreSQL, MySQL, or MariaDB template?" |
 | `port` | no | `13000` | integer 1..65535 | "Which app port should be used?" |
 | `network_profile` | no | `online` | one of `online/restricted/offline` | "Can this host access external internet directly?" |
-| `mcp_required` | no | `false` | boolean (`true/false`) | "Should MCP connectivity be validated as a required gate?" |
+| `mcp_required` | no | `true` | boolean (`true/false`) | "Should MCP connectivity be validated as a required gate?" |
 | `mcp_auth_mode` | when `mcp_required=true` | `api-key` | one of `api-key/oauth/none` | "Use API key auth, OAuth auth, or no auth probe?" |
 | `mcp_scope` | when `mcp_required=true` | `main` | one of `main/non-main` | "Is MCP served from main app or a non-main app?" |
 | `mcp_app_name` | when `mcp_scope=non-main` | none | non-empty slug | "What is the non-main app name used in MCP endpoint path?" |
@@ -62,7 +62,7 @@ Default behavior when user says "you decide":
 - `db_dialect=postgres`
 - `port=13000`
 - `network_profile=online`
-- `mcp_required=false`
+- `mcp_required=true`
 - `mcp_auth_mode=api-key`
 - `mcp_scope=main`
 - `mcp_token_env=NOCOBASE_API_TOKEN`
@@ -74,7 +74,8 @@ Default behavior when user says "you decide":
 - Max questions per round: `3`
 - Never run mutable actions (`install/deploy/upgrade`) until all required inputs for the selected `task` are resolved.
 - Never run `mcp-connect` until MCP endpoint scope and auth mode are resolved.
-- For API-key mode, token value collection is deferred; request token only when gate emits `action_required: provide_api_token` after endpoint blocker is cleared.
+- For API-key mode, token acquisition is automatic by default in `mcp-postcheck` (`nocobase generate-api-key`).
+- Only ask user for manual token when automatic generation/refresh fails and gate emits `action_required: provide_api_token`.
 - If required inputs are missing or ambiguous, stop and ask one short clarification question.
 - If any required path is invalid or not writable, stop and request a valid writable path before continuing.
 
@@ -84,11 +85,12 @@ Default behavior when user says "you decide":
 - If intent is unclear, ask only one short question to select `task`.
 - Keep first round to at most five questions.
 
-2. Run preflight gate before install/deploy/upgrade and before `mcp-connect` when `mcp_required=true`.
-- Windows: execute `powershell -File scripts/preflight.ps1` and pass MCP flags when needed.
-- Linux/macOS: execute `bash scripts/preflight.sh` and pass MCP env flags when needed.
+2. Run preflight gate before install/deploy/upgrade and before `mcp-connect`.
+- For install/deploy/upgrade preflight, run core checks first and defer MCP endpoint/auth probing to post-start stage (`mcp-postcheck`).
+- Windows: execute `powershell -File scripts/preflight.ps1` (core checks), pass MCP flags only for explicit MCP preflight scenarios.
+- Linux/macOS: execute `bash scripts/preflight.sh` (core checks), pass MCP env flags only for explicit MCP preflight scenarios.
 - Classify findings into `fail`, `warn`, and `pass`.
-- Block execution if any `fail` exists, with one MCP bootstrap exception.
+- For install/deploy/upgrade, treat non-MCP findings as preflight blockers; MCP endpoint/auth verification is deferred to startup-complete postcheck as the final stage.
 - For `task=mcp-connect`, if failures are only MCP activation/auth blockers (`MCP-ENDPOINT-*`, `MCP-AUTH-APIKEY-*`), continue to MCP post-start state machine and auto-run fixed sequence first.
 - For the MCP exception path, do not force manual plugin activation before `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck` is attempted.
 - If any non-MCP blocker exists (dependency/runtime/path/network), stop immediately.
@@ -110,9 +112,11 @@ Default behavior when user says "you decide":
 
 5. Run post-check gate.
 - Verify service availability, login path, basic plugin/runtime health, and error logs.
-- If `mcp_required=true`, run startup-complete MCP gate:
+- For install/deploy, app startup and login readiness complete the core install flow.
+- If `mcp_required=true` (default), automatically continue with startup-complete MCP gate as the final stage after app startup:
 - Windows: execute `powershell -File scripts/mcp-postcheck.ps1` and pass MCP flags.
 - Linux/macOS: execute `bash scripts/mcp-postcheck.sh` and pass MCP env flags.
+- If user explicitly sets `mcp_required=false`, skip MCP stage and mark MCP as intentionally deferred in final report.
 - MCP postcheck must verify protocol chain with correct headers: `initialize -> tools/list -> tools/call`.
 - MCP requests must include `Accept: application/json, text/event-stream`.
 - If MCP gate fails with `action_required: activate_plugin`, do not ask user to manually activate first; run fixed auto sequence first.
@@ -132,21 +136,27 @@ Default behavior when user says "you decide":
 - include plugin manager URL and API keys URL
 - include concrete manual activation steps and rerun command
 - After MCP plugin activation, if endpoint still returns `404` or `503`, keep restart + postcheck loop until gate is no longer blocked.
-- When gate output contains `action_required: provide_api_token`, stop automation immediately and require user manual action.
-- For token step, do not attempt automatic API key creation or token retrieval via CLI/API/DB/UI automation.
-- Required token flow: user opens API keys page, clicks `Add API Key`, copies token, and sends token value in chat.
+- Token handling policy for `api-key` mode:
+- 1) auto-generate token when env var is missing.
+- 2) auto-refresh token when protocol probe returns `401/403` (expired/invalid token).
+- 3) fallback manual only when automatic generation/refresh fails.
 - Manual plugin activation is fallback-only and allowed only when `nocobase-plugin-manage` runtime action path is unavailable or failed after at least one explicit attempt.
 - Fallback plugin URL: `{{app_url}}/admin/settings/plugin-manager` (enable auth-mode bundle: MCP + API Keys for `api-key`, MCP + IdP: OAuth for `oauth`)
-- Token URL is required only for `action_required: provide_api_token`: `{{app_url}}/admin/settings/api-keys` (click `Add API Key` and create token)
-- If API key is missing/invalid, ask user to copy token from admin and send token value back, then set `mcp_token_env` and rerun `mcp-postcheck`.
+- Token URL for manual fallback (`action_required: provide_api_token`): `{{app_url}}/admin/settings/api-keys` (click `Add API Key` and create token)
+- Manual fallback flow: ask user to copy token from admin and send token value back, then set `mcp_token_env` and rerun `mcp-postcheck`.
 - Do not continue any MCP-dependent development step until `mcp-postcheck` passes.
-- After `mcp-postcheck` passes (or MCP verification passes in install/deploy flow), do one lightweight live capability probe (`tools/list`; if required, initialize then list once) and use the returned tool names to generate next-step guidance.
+- After `mcp-postcheck` passes, do one lightweight live capability probe (`tools/list`; if required, initialize then list once) and use the returned tool names to generate next-step guidance.
 - Keep this step minimal: no extra large scripts, no heavy diagnostics, no static capability template.
 - Do not claim unsupported capabilities; when live probe fails, explicitly say capability fetch failed and provide conservative generic examples.
 - If `mcp_client` is provided, generate client bootstrap output from fixed templates:
 - Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client <mcp_client> -BaseUrl <app_base_url> -McpAuthMode <mcp_auth_mode> -McpScope <mcp_scope> -McpAppName <mcp_app_name> -TokenEnv <mcp_token_env> -McpPackages <mcp_packages>`
 - Linux/macOS: `bash scripts/render-mcp-client-template.sh <mcp_client> <app_base_url> <mcp_auth_mode> <mcp_scope> <mcp_app_name> <mcp_token_env> <mcp_packages>`
 - For `opencode`, always emit remote config with explicit `Accept: application/json, text/event-stream` and token placeholder format `{env:<TOKEN_ENV>}`.
+- Template-first fallback rule:
+- Try fixed templates first.
+- If client is not covered by fixed templates, or template-based connect still fails after one full retry (`initialize -> tools/list` with valid endpoint/auth), switch to WebFetch lookup.
+- WebFetch lookup must prioritize official sources for that client (official docs site, official GitHub org/repo, release notes) and MCP spec pages; avoid community-only sources unless official docs are unavailable.
+- After web-fallback succeeds, output the validated config and record source links in the final report.
 - Onboarding guidance must include:
 - 1) one short starter sentence.
 - 2) up to 5 concrete next-step examples (model/table, permissions, page/view, workflow/notification, statistics/report), prioritized by discovered tools.
@@ -208,13 +218,16 @@ Confirmation template:
 - Preflight fails when `APP_KEY` is missing, placeholder-like, too short, or whitespace-containing.
 - Method and release channel are explicitly confirmed or defaulted.
 - Install/deploy commands are recorded and reproducible.
+- Install/deploy core success is determined by app startup and login readiness before entering MCP final stage.
 - MCP checks include endpoint probe and auth probe when `mcp_required=true`.
 - MCP protocol chain is verified with `initialize`, `tools/list`, and at least one `tools/call` probe when possible.
 - Missing MCP/auth companion activation is handled by fixed auto sequence first (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`); manual plugin activation is fallback only.
-- Missing/invalid API key remains a manual blocker and requires user-provided token.
+- Missing/invalid API key in API-key mode must go through `mcp-postcheck` auto token flow first (auto-generate when missing, auto-refresh on `401/403`); manual token input is fallback only when automation fails.
 - MCP `activate_plugin` blocker follows fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
 - MCP post-start gate (`mcp-postcheck`) is executed for MCP-required flows and passes before downstream MCP-dependent actions.
 - A lightweight live `tools/list` probe is executed after MCP pass, and onboarding examples are derived from live tools when available.
+- If user sets `mcp_required=false`, final output explicitly marks MCP stage as skipped by user choice.
+- When template-first MCP client bootstrap fails and web-fallback is used, final output includes web-fallback evidence and selected official source links.
 - Upgrade path includes backup confirmation.
 - Post-check verifies app reachability and login page.
 - Troubleshooting output includes root-cause hypothesis and concrete fix steps.
@@ -223,21 +236,22 @@ Confirmation template:
 
 # Minimal Test Scenarios
 
-1. Quick install on a clean host with Docker available.
+1. Quick install on a clean host with Docker available, then automatic MCP final stage runs by default.
 2. Preflight with missing Docker and missing Node.
 3. Preflight fails on missing or placeholder-like `APP_KEY`, and passes after random key is set.
-4. MCP preflight detects missing MCP/auth companion activation and outputs auto fixed sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`), without asking manual activation first.
-5. MCP preflight/postcheck in API-key mode only asks manual action after endpoint is ready and token is missing/invalid.
+4. Install preflight blocks only on non-MCP critical issues, while MCP endpoint/auth verification is deferred to post-start `mcp-postcheck`.
+5. MCP post-start gate auto-generates/auto-refreshes token in API-key mode (missing token and `401/403`).
 6. Upgrade with backup confirmed and successful post-check.
 7. Diagnose `Environment mismatch` and produce actionable steps.
 8. Diagnose startup failure caused by port conflict and provide fix command.
 9. Diagnose startup failure caused by file permission denied (`EACCES`) and provide concrete permission/access fix steps.
 10. Docker install in offline mode succeeds using local compose template without WebFetch.
 11. MCP post-start gate fails with `404`, triggers fixed auto sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`) before any manual fallback.
-12. MCP post-start gate fails with `401/403`, requests token refresh, then passes after user provides new token.
+12. MCP post-start gate fails with `401/403`, auto-refreshes token and retries; manual token fallback is requested only when auto-refresh fails.
 13. MCP post-start gate passes, live `tools/list` probe returns tools, and onboarding examples are generated from live tool list (not static template).
 14. MCP post-start gate passes but live probe cannot fetch tools; onboarding falls back with explicit warning.
 15. MCP post-start gate fails when request headers miss `application/json, text/event-stream`, then passes after header fix.
+16. Install/deploy with explicit `mcp_required=false` skips MCP final stage and reports `mcp_stage_status=skipped_by_user`.
 
 # Output Contract
 
@@ -248,9 +262,10 @@ Final response must include:
 - preflight summary (`fail/warn/pass`)
 - actions executed
 - verification result
-- MCP verification (`endpoint`, `auth mode`, `status`, `packages`, `activation blockers`)
+- MCP verification (`endpoint`, `auth mode`, `status`, `packages`, `activation blockers`) when `mcp_required=true`
 - sampled live MCP tool names (if probe succeeds)
-- generated MCP client template command/snippet (when `mcp_client` is provided)
+- generated MCP client template command/snippet (when `mcp_client` is provided and MCP stage is executed)
+- explicit `mcp_stage_status` (`executed` or `skipped_by_user`)
 - manual action URLs (`plugin manager`, `api-keys page`) when user intervention is required
 - unresolved risks
 - recommended next action

@@ -118,10 +118,10 @@ Admin URL templates (replace `<base_url>` with actual app base URL):
 - If endpoint still returns `404` or `503`, restart app, wait for startup complete, then retry probe.
 
 2. API key token gate (API key mode only):
-- If API token is missing or probe returns `401/403`, stop workflow.
+- If API token is missing or probe returns `401/403`, run automatic token generation/refresh first.
 - `@nocobase/plugin-api-keys` should already be included in activation bundle for `api-key` mode.
-- Ask user to create/recreate API token and retry.
-- Do not attempt automatic API key creation or token retrieval via CLI/API/DB/UI automation.
+- Automatic path uses CLI `nocobase generate-api-key` (local CLI first, docker compose exec fallback).
+- Manual fallback is allowed only when automatic generation/refresh fails.
 - User steps:
 - Open API keys page URL.
 - Add an API key with required role permissions.
@@ -150,15 +150,16 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 - Do not run alternative diagnostics before the fixed sequence above is completed.
 - If output contains `action_required: restart_app`, restart app and rerun postcheck.
 - Do not request token/manual API-key step while endpoint blocker (`activate_plugin` or `restart_app`) is unresolved.
-- If output contains `action_required: provide_api_token`, stop automation and ask user to create/regenerate API key manually and send token value.
+- If output contains `action_required: provide_api_token`, it means automatic token generation/refresh failed; then ask user to create/regenerate API key manually and send token value.
 - If output contains protocol failure (`MCP-PROTO-*`), fix request shape/headers first.
 - After user confirms activation or provides token, rerun postcheck until pass.
 
 ## API Key Path
 
-1. Export API token env var (default: `NOCOBASE_API_TOKEN`).
-2. Add MCP server in client with bearer token env var.
-3. Probe MCP endpoint with token and confirm it no longer fails for auth reasons.
+1. Preferred: let `mcp-postcheck` auto-generate/auto-refresh token.
+2. Fallback: export API token env var manually (default: `NOCOBASE_API_TOKEN`).
+3. Add MCP server in client with bearer token env var.
+4. Probe MCP endpoint with token and confirm it no longer fails for auth reasons.
 
 Codex command pattern:
 
@@ -172,6 +173,12 @@ PowerShell variant:
 ```powershell
 $env:NOCOBASE_API_TOKEN="<your_api_key>"
 codex mcp add nocobase --url http://<host>:<port>/api/mcp --bearer-token-env-var NOCOBASE_API_TOKEN
+```
+
+Auto-token flags (optional):
+
+```powershell
+powershell -File scripts/mcp-postcheck.ps1 -Port 13000 -McpAuthMode api-key -McpTokenEnv NOCOBASE_API_TOKEN -AutoApiKeyName mcp_auto_token -AutoApiKeyUsername nocobase -AutoApiKeyRole root -AutoApiKeyExpiresIn 30d
 ```
 
 For non-codex clients, generate fixed templates from the helper script in this skill:
@@ -224,6 +231,17 @@ bash scripts/render-mcp-client-template.sh <codex|claude|opencode|vscode|windsur
 - Use remote MCP config with explicit `Accept: application/json, text/event-stream`.
 - API token placeholder format is `{env:NOCOBASE_API_TOKEN}` (different from `${NOCOBASE_API_TOKEN}` used by some other clients).
 
+5. Web fallback rule (explicit):
+- Always try fixed template output first.
+- If target client is not covered by fixed templates, or template output still fails after one complete retry (`initialize -> tools/list` with confirmed endpoint/auth), switch to WebFetch lookup.
+- WebFetch lookup must prioritize official sources only:
+- client official docs
+- client official GitHub repository/README
+- client release notes/changelog
+- MCP official spec pages
+- Use community sources only when official docs are unavailable, and mark them as fallback in report.
+- After web-fallback succeeds, record exact source links and the final validated config snippet.
+
 ## Verification Checklist
 
 1. Endpoint returns non-404 status.
@@ -244,7 +262,7 @@ bash scripts/render-mcp-client-template.sh <codex|claude|opencode|vscode|windsur
 
 2. `401/403` in API key mode:
 - Root-cause hypothesis: activation bundle incomplete or token invalid.
-- Action: ensure activation bundle includes `@nocobase/plugin-api-keys` (plugin-manage first, manual fallback only if backend unavailable), regenerate token manually, retry.
+- Action: ensure activation bundle includes `@nocobase/plugin-api-keys` (plugin-manage first, manual fallback only if backend unavailable), then rerun `mcp-postcheck` to trigger auto-refresh via CLI `generate-api-key`; only if gate emits `action_required: provide_api_token`, switch to manual token regeneration and retry.
 
 3. `503` on endpoint:
 - Root-cause hypothesis: app is still preparing or reload not completed.

@@ -85,7 +85,9 @@ Task:
 Expected:
 
 - `channel=local`
-- query path uses `pm:list` and optionally `pm:get`
+- local command path uses `yarn nocobase pm list` (or `docker compose exec -T <service> yarn nocobase pm list`)
+- output parsing uses JSON between `--- BEGIN_PLUGIN_LIST_JSON ---` and `--- END_PLUGIN_LIST_JSON ---`
+- API (`pm:list`/`pm:get`) is only fallback when marker extraction fails
 - `verification=passed`
 - output includes plugin entries with state fields (`enabled`/`installed`) when available
 
@@ -451,7 +453,7 @@ Expected:
 - `execution_backend=docker_cli`
 - `commands_or_actions` includes `docker compose exec -T app yarn nocobase pm enable`
 - verification behavior remains readback-based (`passed` or `pending_verification`)
-- readback may include API actions such as `pm:get`; this is expected for local safe-mode verification
+- readback should include local `pm list` marker JSON parsing; API actions such as `pm:get` are fallback only
 
 ### TC14 All Backends Unavailable (Rich Guidance)
 

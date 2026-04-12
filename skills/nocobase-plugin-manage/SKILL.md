@@ -1,11 +1,11 @@
 ---
 name: nocobase-plugin-manage
-description: Inspect NocoBase plugin inventory and plugin state from runtime-backed sources, and safely install, enable, or disable plugins for local or remote applications. For local Docker apps, writes should prefer docker-compose CLI, while inspect/readback remains API-based.
+description: Inspect NocoBase plugin inventory and plugin state from runtime-backed sources, and safely install, enable, or disable plugins for local or remote applications. For local apps, inspect/readback should prefer CLI `pm list` JSON output, while writes should prefer docker-compose CLI or host CLI.
 allowed-tools: Bash, Read, Grep, Write
 metadata:
   owner: platform-tools
-  version: 1.1.1
-  last-reviewed: 2026-04-10
+  version: 1.2.0
+  last-reviewed: 2026-04-12
   risk-level: medium
 ---
 
@@ -16,6 +16,7 @@ Provide a deterministic V1 workflow for plugin operations that works for both lo
 # Scope
 
 - Inspect plugin catalog and plugin state (`enabled`, `installed`, version, package metadata) from runtime-backed sources.
+- For local inspect/readback, prefer CLI `yarn nocobase pm list` output and parse JSON between `--- BEGIN_PLUGIN_LIST_JSON ---` and `--- END_PLUGIN_LIST_JSON ---`.
 - Install plugins using the existing `pm add` capability.
 - Enable plugins using the existing `pm enable` capability.
 - Disable plugins using the existing `pm disable` capability.
@@ -121,17 +122,22 @@ Invocation payload template:
 - Apply `target.mode=auto` resolution rules.
 - Apply `execution_backend=auto` resolution rules.
 - `remote_api`: inspect and mutate through runtime API actions.
-- `docker_cli`: mutate through `docker compose exec -T <service> yarn nocobase pm ...`; inspect/readback through app API endpoint when reachable.
-- `host_cli`: mutate through host `yarn nocobase pm ...`; inspect/readback through local API endpoint when reachable.
-- In local channel, API-based inspect/readback is expected behavior and is not a backend drift from CLI mutation path.
+- `docker_cli`: inspect and mutate through `docker compose exec -T <service> yarn nocobase pm ...` (including `pm list`).
+- `host_cli`: inspect and mutate through host `yarn nocobase pm ...` (including `pm list`).
+- In local channel, `pm list` is the preferred inspect/readback source; API readback is fallback when CLI JSON extraction is unavailable.
 
 2. Resolve runtime evidence source (never docs as source of truth).
-- For full catalog/status, use `pm:list` and `pm:get`.
-- For enabled plugin lanes, use `pm:listEnabled` and `pm:listEnabledV2`.
+- For local catalog/status, use `yarn nocobase pm list` (or docker compose equivalent) and parse JSON marker block.
+- For remote catalog/status, use `pm:list` and `pm:get`.
+- For remote enabled plugin lanes, use `pm:listEnabled` and `pm:listEnabledV2`.
+- If local CLI output marker block is unavailable, fallback to API (`pm:list`/`pm:get`) and record fallback reason in output.
 - Record pre-state snapshot before mutation when in `safe` mode.
 
 3. Execute action.
-- `inspect`: query state only.
+- `inspect`:
+- local `docker_cli`: run `docker compose exec -T <service> yarn nocobase pm list` in `target.app_path`, parse JSON marker block.
+- local `host_cli`: run `yarn nocobase pm list` in `target.app_path`, parse JSON marker block.
+- remote: query `pm:list` and optionally `pm:listEnabled` lanes.
 - `install`:
 - local `docker_cli`: run `docker compose exec -T <service> yarn nocobase pm add <plugin> [--registry=...] [--version=...] [--auth-token=...]` in `target.app_path`.
 - local `host_cli`: run `yarn nocobase pm add <plugin> [--registry=...] [--version=...] [--auth-token=...]` in `target.app_path`.
@@ -147,9 +153,9 @@ Invocation payload template:
 
 4. Verify by readback polling.
 - Poll every 2 seconds until timeout.
-- For `install`, verify plugin is discoverable in `pm:list` or `pm:get`.
-- For `enable`, verify `enabled=true` in `pm:get`.
-- For `disable`, verify `enabled=false` in `pm:get`.
+- For `install`, verify plugin is discoverable in local `pm list` snapshot (or remote `pm:list`/`pm:get`).
+- For `enable`, verify `enabled=true` in local `pm list` snapshot (or remote `pm:get`).
+- For `disable`, verify `enabled=false` in local `pm list` snapshot (or remote `pm:get`).
 - If timeout hits, return `pending_verification` with last observed state.
 
 5. Return a structured result.
@@ -161,23 +167,24 @@ Execution channel matrix:
 
 | Mode | Inspect | Install | Enable | Disable |
 |---|---|---|---|---|
-| `local` | local API (`pm:list`/`pm:get`) | local CLI (`pm add`) | local CLI (`pm enable`) | local CLI (`pm disable`) |
+| `local` | local CLI (`pm list`, parse marker JSON; fallback API if marker parse fails) | local CLI (`pm add`) | local CLI (`pm enable`) | local CLI (`pm disable`) |
 | `remote` | remote API (`pm:list`/`pm:get`) | remote API (`pm:add`) | remote API (`pm:enable`) | remote API (`pm:disable`) |
 
 Execution backend matrix (local):
 
-| Backend | Install | Enable | Disable | When to prefer |
-|---|---|---|---|---|
-| `docker_cli` | `docker compose exec -T <service> yarn nocobase pm add ...` | `docker compose exec -T <service> yarn nocobase pm enable ...` | `docker compose exec -T <service> yarn nocobase pm disable ...` | local Docker app detected |
-| `host_cli` | `yarn nocobase pm add ...` | `yarn nocobase pm enable ...` | `yarn nocobase pm disable ...` | host runtime app without container CLI |
+| Backend | Inspect | Install | Enable | Disable | When to prefer |
+|---|---|---|---|---|---|
+| `docker_cli` | `docker compose exec -T <service> yarn nocobase pm list` | `docker compose exec -T <service> yarn nocobase pm add ...` | `docker compose exec -T <service> yarn nocobase pm enable ...` | `docker compose exec -T <service> yarn nocobase pm disable ...` | local Docker app detected |
+| `host_cli` | `yarn nocobase pm list` | `yarn nocobase pm add ...` | `yarn nocobase pm enable ...` | `yarn nocobase pm disable ...` | host runtime app without container CLI |
 
 Operational notes:
 
+- `pm list` CLI output is wrapped by marker lines (`--- BEGIN_PLUGIN_LIST_JSON ---` / `--- END_PLUGIN_LIST_JSON ---`); only the JSON block between markers is considered canonical plugin payload.
 - `pm:add` does not imply `enabled=true`. It adds package availability; enabling is separate.
 - `pm:add`, `pm:enable`, and `pm:disable` in resource actions are asynchronous (`runAsCLI`), so readback polling is mandatory.
-- Prefer API-client style URLs (`pm:list`, `pm:get`, `pm:add`, `pm:enable`, `pm:disable`) when a NocoBase API client is available.
+- Remote actions should prefer API-client style URLs (`pm:list`, `pm:get`, `pm:add`, `pm:enable`, `pm:disable`) when available.
 - For local Docker environments, prefer `docker_cli` as primary backend.
-- For local Docker flows in `safe` mode, the expected split is CLI mutate + API readback; this is intentional.
+- For local Docker flows in `safe` mode, the expected split is CLI mutate + CLI readback via `pm list`; API readback is fallback.
 - If deterministic local command path is required, set `target.mode=local` and `execution_backend=docker_cli`.
 
 # Reference Loading Map
@@ -186,7 +193,7 @@ Operational notes:
 |---|---|---|
 | [references/v1-runtime-contract.md](references/v1-runtime-contract.md) | any action | endpoint and command templates for local/remote flows |
 | [references/test-playbook.md](references/test-playbook.md) | running acceptance tests | prompt-driven test cases with expected outcomes |
-| [pm.ts](../../nocobase/packages/core/server/src/commands/pm.ts) | implementing install/enable/disable via CLI | confirms `pm add/enable/disable` command signatures |
+| [pm.ts](../../nocobase/packages/core/server/src/commands/pm.ts) | implementing local CLI inspect/install/enable/disable | confirms `pm list/add/enable/disable` command signatures |
 | [resource.ts](../../nocobase/packages/core/server/src/plugin-manager/options/resource.ts) | implementing inspect or remote mutation | confirms `pm:list/get/listEnabled/add/enable/disable` actions |
 | [preset index.ts](../../nocobase/packages/presets/nocobase/src/server/index.ts) | proving plugin info source is runtime-backed | shows `getAllPlugins` and DB merge behavior |
 | [client PluginManager.tsx](../../nocobase/packages/core/client/src/pm/PluginManager.tsx) | confirming front-end action routes | uses `pm:list` and `pm:enable` |
@@ -227,6 +234,7 @@ Operational notes:
 - Mutation call(s) succeeded without shell/API errors.
 - Post-state was fetched by readback polling.
 - Expected condition is met (`discoverable` for install, `enabled=true` for enable, `enabled=false` for disable).
+- Local inspect/readback parsing extracts JSON from marker block (`BEGIN_PLUGIN_LIST_JSON` ... `END_PLUGIN_LIST_JSON`) or explicitly records API fallback reason.
 - Timeouts are reported as `pending_verification`, not hidden as success.
 - CLI/API commands used are included in output for reproducibility.
 - Token values are redacted; only env var names are shown.
@@ -235,7 +243,7 @@ Operational notes:
 
 # Minimal Test Scenarios
 
-1. Local inspect: reachable local API returns `pm:list` with plugin states.
+1. Local inspect: `yarn nocobase pm list` (or docker compose equivalent) succeeds and marker JSON is parsed into plugin states.
 2. Remote inspect: authenticated call returns plugin states and enabled lanes.
 3. Compact invocation happy path: `Use $nocobase-plugin-manage enable <plugin>` auto-resolves target and succeeds.
 4. Local Docker enable happy path: backend resolves to `docker_cli` and command uses `docker compose exec -T app ...`.

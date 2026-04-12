@@ -176,3 +176,12 @@ Expected:
 - HTTP status is `200`.
 - No `Not Acceptable` message.
 - No `Authentication required` message.
+
+## When Template Fails
+
+If template output still fails after one full retry (`initialize -> tools/list`) and endpoint/auth are already confirmed:
+
+1. Switch to web lookup for the target client.
+2. Prioritize official client docs, official repository docs, and release notes.
+3. Keep MCP spec pages as protocol baseline reference.
+4. Record source links together with final validated config.

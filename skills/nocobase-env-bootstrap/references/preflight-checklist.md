@@ -6,6 +6,8 @@ Run this checklist before install, deploy, or upgrade. Block execution on `fail`
 Preflight checks do not replace startup-complete MCP verification; use
 `scripts/mcp-postcheck.ps1` or `scripts/mcp-postcheck.sh` after app startup when
 `mcp_required=true`.
+For install/deploy flows, MCP endpoint/auth blocking checks belong to the final
+post-start MCP stage; preflight should primarily block on non-MCP critical items.
 
 ## Blocking Checks
 
@@ -40,6 +42,8 @@ Preflight checks do not replace startup-complete MCP verification; use
 - Reference: <https://docs.nocobase.com/cn/get-started/installation/env>
 
 6. MCP endpoint activation (`mcp_required=true`)
+- For install/deploy preflight, keep this check advisory and defer hard blocking to startup-complete `mcp-postcheck`.
+- For `task=mcp-connect`, treat this check as immediate blocker.
 - Verify MCP endpoint route exists (`/api/mcp` or `/api/__app/<app_name>/mcp`).
 - If endpoint returns `404`, treat as blocker; run fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
 - Activation bundle by `mcp_auth_mode`:
@@ -52,7 +56,9 @@ Preflight checks do not replace startup-complete MCP verification; use
 7. API key activation (`mcp_required=true` and `mcp_auth_mode=api-key`)
 - Verify token env var exists (default `NOCOBASE_API_TOKEN`).
 - Probe endpoint with bearer token.
-- If token probe returns `401/403`, treat as blocker and require user manual token refresh from API keys page.
+- If token probe returns `401/403`, warn and continue to `mcp-postcheck` auto-refresh stage.
+- Missing token and expired token are handled automatically in `mcp-postcheck` using CLI `generate-api-key`.
+- Require user manual token step only when postcheck emits `action_required: provide_api_token`.
 
 ## Warning Checks
 
@@ -85,6 +91,7 @@ Preflight output should always include:
 ## Execution Rule
 
 - If any non-MCP `fail` exists, stop and ask user to fix blockers first.
+- For install/deploy/upgrade with `mcp_required=true` (default), run MCP as final post-start stage after app startup; do not treat deferred MCP checks as pre-start install blockers.
 - For `task=mcp-connect`, if fails are only MCP activation/auth blockers, continue into MCP post-start state machine and auto-run fixed sequence first.
-- Only when MCP gate emits `action_required: provide_api_token`, stop and require user to manually create/regenerate token and send it in chat.
+- Only when MCP gate emits `action_required: provide_api_token`, stop and require user to manually create/regenerate token and send it in chat (automatic path failed).
 - If only `warn` exists, continue after showing warnings and confirmation.

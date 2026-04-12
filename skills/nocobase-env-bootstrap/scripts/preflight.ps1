@@ -422,11 +422,7 @@ if ($McpRequired) {
     } else {
       $token = [System.Environment]::GetEnvironmentVariable($McpTokenEnv)
       if ([string]::IsNullOrWhiteSpace($token)) {
-        Record-Check fail 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is missing." "Open $apiKeysConfigUrl, click Add API Key, copy token, set $McpTokenEnv, then retry."
-        Write-Host 'action_required: provide_api_token'
-        Write-Host 'required_step: manual_user_create_token'
-        Write-Host 'required_step: manual_user_send_token_in_chat'
-        Write-Host 'required_step: no_agent_token_automation'
+        Record-Check warn 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is missing." "Token will be auto-generated in mcp-postcheck using CLI; if auto generation fails, fallback to manual API keys page."
       } else {
         Record-Check pass 'MCP-AUTH-APIKEY-001' "API key token env '$McpTokenEnv' is present."
         $authStatus = Get-HttpStatus -Url $targetMcpUrl -Headers @{ Authorization = "Bearer $token" }
@@ -443,11 +439,7 @@ if ($McpRequired) {
             Write-Host 'required_step: restart_app'
             Write-Host 'required_step: rerun_mcp_postcheck'
           } elseif ($authStatus -in 401, 403) {
-            Record-Check fail 'MCP-AUTH-APIKEY-002' "MCP API key auth probe returned $authStatus." "Open $apiKeysConfigUrl, regenerate API key, update $McpTokenEnv, then retry."
-            Write-Host 'action_required: provide_api_token'
-            Write-Host 'required_step: manual_user_create_token'
-            Write-Host 'required_step: manual_user_send_token_in_chat'
-            Write-Host 'required_step: no_agent_token_automation'
+            Record-Check warn 'MCP-AUTH-APIKEY-002' "MCP API key auth probe returned $authStatus." "Token may be expired; mcp-postcheck will auto-refresh token via CLI, with manual fallback only if automation fails."
           } else {
             Record-Check pass 'MCP-AUTH-APIKEY-002' "MCP API key auth probe responded with status $authStatus."
           }

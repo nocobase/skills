@@ -335,11 +335,7 @@ if [[ "$MCP_REQUIRED" == "1" || "$MCP_REQUIRED" == "true" || "$MCP_REQUIRED" == 
     else
       TOKEN_VALUE="${!MCP_TOKEN_ENV:-}"
       if [[ -z "$TOKEN_VALUE" ]]; then
-        record fail MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing." "Open $API_KEYS_CONFIG_URL, click Add API Key, copy token, set $MCP_TOKEN_ENV, then retry."
-        printf 'action_required: provide_api_token\n'
-        printf 'required_step: manual_user_create_token\n'
-        printf 'required_step: manual_user_send_token_in_chat\n'
-        printf 'required_step: no_agent_token_automation\n'
+        record warn MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is missing." "Token will be auto-generated in mcp-postcheck using CLI; if auto generation fails, fallback to manual API keys page."
       else
         record pass MCP-AUTH-APIKEY-001 "API key token env '$MCP_TOKEN_ENV' is present."
         AUTH_STATUS="$(http_status "$TARGET_MCP_URL" "$TOKEN_VALUE")"
@@ -354,11 +350,7 @@ if [[ "$MCP_REQUIRED" == "1" || "$MCP_REQUIRED" == "true" || "$MCP_REQUIRED" == 
           printf 'required_step: restart_app\n'
           printf 'required_step: rerun_mcp_postcheck\n'
         elif [[ "$AUTH_STATUS" == "401" || "$AUTH_STATUS" == "403" ]]; then
-          record fail MCP-AUTH-APIKEY-002 "MCP API key auth probe returned $AUTH_STATUS." "Open $API_KEYS_CONFIG_URL, regenerate API key, update $MCP_TOKEN_ENV, then retry."
-          printf 'action_required: provide_api_token\n'
-          printf 'required_step: manual_user_create_token\n'
-          printf 'required_step: manual_user_send_token_in_chat\n'
-          printf 'required_step: no_agent_token_automation\n'
+          record warn MCP-AUTH-APIKEY-002 "MCP API key auth probe returned $AUTH_STATUS." "Token may be expired; mcp-postcheck will auto-refresh token via CLI, with manual fallback only if automation fails."
         else
           record pass MCP-AUTH-APIKEY-002 "MCP API key auth probe responded with status $AUTH_STATUS."
         fi

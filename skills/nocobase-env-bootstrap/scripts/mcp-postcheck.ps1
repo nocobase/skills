@@ -5,7 +5,14 @@ param(
   [string]$McpUrl = '',
   [string]$McpAppName = '',
   [string]$McpTokenEnv = 'NOCOBASE_API_TOKEN',
-  [string]$McpPackages = ''
+  [string]$McpPackages = '',
+  [switch]$DisableAutoApiKey = $false,
+  [string]$AutoApiKeyName = 'mcp_auto_token',
+  [string]$AutoApiKeyUsername = 'nocobase',
+  [string]$AutoApiKeyRole = 'root',
+  [string]$AutoApiKeyExpiresIn = '30d',
+  [string]$AutoApiKeyAppService = 'app',
+  [string]$AutoApiKeyComposeFile = ''
 )
 
 $Fail = 0
@@ -354,6 +361,131 @@ function Select-ProbeTool {
   return ''
 }
 
+function Get-ComposeFilePath {
+  param([string]$InputComposeFile)
+
+  if (-not [string]::IsNullOrWhiteSpace($InputComposeFile)) {
+    if (Test-Path -LiteralPath $InputComposeFile) {
+      return $InputComposeFile
+    }
+    return ''
+  }
+
+  $candidates = @('docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml')
+  foreach ($candidate in $candidates) {
+    if (Test-Path -LiteralPath $candidate) {
+      return $candidate
+    }
+  }
+
+  return ''
+}
+
+function Get-TokenPreview {
+  param([string]$Token)
+
+  if ([string]::IsNullOrWhiteSpace($Token)) {
+    return ''
+  }
+
+  if ($Token.Length -le 12) {
+    return ('*' * $Token.Length)
+  }
+
+  return "{0}...{1}" -f $Token.Substring(0, 6), $Token.Substring($Token.Length - 4)
+}
+
+function Extract-ApiKeyFromOutput {
+  param([string]$Text)
+
+  if ([string]::IsNullOrWhiteSpace($Text)) {
+    return ''
+  }
+
+  $blockPattern = '-----BEGIN API KEY-----\s*(?<token>[A-Za-z0-9\-_\.]+)\s*-----END API KEY-----'
+  $blockMatch = [regex]::Match($Text, $blockPattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+  if ($blockMatch.Success) {
+    return [string]$blockMatch.Groups['token'].Value
+  }
+
+  $jwtPattern = '(?<token>eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+)'
+  $jwtMatch = [regex]::Match($Text, $jwtPattern)
+  if ($jwtMatch.Success) {
+    return [string]$jwtMatch.Groups['token'].Value
+  }
+
+  return ''
+}
+
+function Invoke-AutoApiKeyGenerate {
+  param(
+    [string]$TokenEnvName,
+    [string]$KeyName,
+    [string]$Username,
+    [string]$RoleName,
+    [string]$ExpiresIn,
+    [string]$ComposeFilePath,
+    [string]$AppServiceName
+  )
+
+  $commandsTried = @()
+
+  if (Get-Command yarn -ErrorAction SilentlyContinue) {
+    $commandsTried += 'yarn nocobase generate-api-key'
+    try {
+      $localOutput = (& yarn nocobase generate-api-key -n $KeyName -r $RoleName -u $Username -e $ExpiresIn --silent 2>&1 | Out-String)
+      $localToken = Extract-ApiKeyFromOutput -Text $localOutput
+      if (-not [string]::IsNullOrWhiteSpace($localToken)) {
+        Set-Item -Path ("Env:{0}" -f $TokenEnvName) -Value $localToken
+        [System.Environment]::SetEnvironmentVariable($TokenEnvName, $localToken, 'Process')
+        return [pscustomobject]@{
+          Success       = $true
+          Token         = $localToken
+          Source        = 'local-cli'
+          ErrorMessage  = ''
+          CommandsTried = $commandsTried
+        }
+      }
+    } catch {
+    }
+  }
+
+  if (Get-Command docker -ErrorAction SilentlyContinue) {
+    $commandsTried += 'docker compose exec'
+
+    $dockerArgs = @('compose')
+    if (-not [string]::IsNullOrWhiteSpace($ComposeFilePath)) {
+      $dockerArgs += @('-f', $ComposeFilePath)
+    }
+    $dockerArgs += @('exec', '-T', $AppServiceName, 'yarn', 'nocobase', 'generate-api-key', '-n', $KeyName, '-r', $RoleName, '-u', $Username, '-e', $ExpiresIn, '--silent')
+
+    try {
+      $dockerOutput = (& docker @dockerArgs 2>&1 | Out-String)
+      $dockerToken = Extract-ApiKeyFromOutput -Text $dockerOutput
+      if (-not [string]::IsNullOrWhiteSpace($dockerToken)) {
+        Set-Item -Path ("Env:{0}" -f $TokenEnvName) -Value $dockerToken
+        [System.Environment]::SetEnvironmentVariable($TokenEnvName, $dockerToken, 'Process')
+        return [pscustomobject]@{
+          Success       = $true
+          Token         = $dockerToken
+          Source        = 'docker-compose-exec'
+          ErrorMessage  = ''
+          CommandsTried = $commandsTried
+        }
+      }
+    } catch {
+    }
+  }
+
+  return [pscustomobject]@{
+    Success       = $false
+    Token         = ''
+    Source        = ''
+    ErrorMessage  = 'Auto API key generation failed from local CLI and docker compose paths.'
+    CommandsTried = $commandsTried
+  }
+}
+
 $appBaseUrl = "http://127.0.0.1:$Port"
 $pluginManagerUrl = "$appBaseUrl/admin/settings/plugin-manager"
 $apiKeysConfigUrl = "$appBaseUrl/admin/settings/api-keys"
@@ -361,7 +493,10 @@ $targetMcpUrl = Get-McpUrl -TargetPort $Port -InputUrl $McpUrl -InputAppName $Mc
 $activationPlugins = Get-ActivationPlugins -AuthMode $McpAuthMode
 $pluginEnableHint = Get-PluginEnableHint -Plugins $activationPlugins
 $appRestartHint = 'App may still be reloading. Restart app, wait for startup complete, then rerun postcheck.'
-$apiKeyCreateHint = "Manual only after plugin bundle is active: open $apiKeysConfigUrl, click Add API Key, copy token, set $McpTokenEnv, then rerun postcheck. Do not auto-create or auto-retrieve token via CLI/API/DB/UI automation."
+$autoApiKeyEnabled = -not $DisableAutoApiKey
+$resolvedComposeFile = Get-ComposeFilePath -InputComposeFile $AutoApiKeyComposeFile
+$apiKeyCreateHint = "Auto token refresh failed. Fallback manual only: open $apiKeysConfigUrl, click Add API Key, copy token, set $McpTokenEnv, then rerun postcheck."
+$apiKeyAutoHint = "Auto token generation uses CLI: generate-api-key -n $AutoApiKeyName -u $AutoApiKeyUsername -r $AutoApiKeyRole -e $AutoApiKeyExpiresIn."
 $protocolCheckEligible = $false
 $protocolToken = ''
 
@@ -370,6 +505,7 @@ Write-Host "timestamp: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm
 Write-Host "mcp_target: $targetMcpUrl"
 Write-Host "mcp_auth_mode: $McpAuthMode"
 Write-Host "mcp_activation_plugins: $($activationPlugins -join ',')"
+Write-Host "mcp_auto_api_key: $(if($autoApiKeyEnabled){'enabled'}else{'disabled'})"
 Write-Host "mcp_manual_plugin_manager_url: $pluginManagerUrl"
 Write-Host "mcp_manual_api_keys_url: $apiKeysConfigUrl"
 
@@ -416,19 +552,34 @@ if ($McpAuthMode -eq 'api-key') {
   if ($routeBlocked) {
     Record-Check warn 'MCP-AUTH-POST-APIKEY-000' 'Skip token gate because MCP endpoint is not ready yet.' 'Resolve endpoint blocker first, then rerun postcheck.'
   } else {
-  $token = [System.Environment]::GetEnvironmentVariable($McpTokenEnv)
-  if ([string]::IsNullOrWhiteSpace($token)) {
-    Record-Check fail 'MCP-AUTH-POST-APIKEY-001' "API key token env '$McpTokenEnv' is missing." $apiKeyCreateHint
-    Write-Host "action_required: provide_api_token"
-    Write-Host 'required_step: manual_user_create_token'
-    Write-Host 'required_step: manual_user_send_token_in_chat'
-    Write-Host 'required_step: no_agent_token_automation'
-  } else {
-    Record-Check pass 'MCP-AUTH-POST-APIKEY-001' "API key token env '$McpTokenEnv' is present."
-    Record-Check pass 'MCP-AUTH-POST-APIKEY-002' 'Token validity will be verified by MCP protocol probe (initialize/tools/list/tools/call).'
-    $protocolCheckEligible = $true
-    $protocolToken = $token
-  }
+    $token = [System.Environment]::GetEnvironmentVariable($McpTokenEnv)
+    if ([string]::IsNullOrWhiteSpace($token) -and $autoApiKeyEnabled) {
+      Record-Check warn 'MCP-AUTH-POST-APIKEY-001' "API key token env '$McpTokenEnv' is missing. Trying automatic token generation." $apiKeyAutoHint
+      $autoToken = Invoke-AutoApiKeyGenerate -TokenEnvName $McpTokenEnv -KeyName $AutoApiKeyName -Username $AutoApiKeyUsername -RoleName $AutoApiKeyRole -ExpiresIn $AutoApiKeyExpiresIn -ComposeFilePath $resolvedComposeFile -AppServiceName $AutoApiKeyAppService
+      if ($autoToken.Success) {
+        $token = $autoToken.Token
+        Record-Check pass 'MCP-AUTH-POST-APIKEY-001' "Automatically generated API token from $($autoToken.Source) and loaded into '$McpTokenEnv' ($(Get-TokenPreview -Token $token))."
+      } else {
+        Record-Check fail 'MCP-AUTH-POST-APIKEY-001' "Automatic API token generation failed for '$McpTokenEnv'." $apiKeyCreateHint
+        Write-Host "action_required: provide_api_token"
+        Write-Host 'required_step: auto_generate_api_token_failed'
+        Write-Host 'required_step: manual_user_create_token'
+        Write-Host 'required_step: manual_user_send_token_in_chat'
+      }
+    } elseif ([string]::IsNullOrWhiteSpace($token)) {
+      Record-Check fail 'MCP-AUTH-POST-APIKEY-001' "API key token env '$McpTokenEnv' is missing and auto generation is disabled." $apiKeyCreateHint
+      Write-Host "action_required: provide_api_token"
+      Write-Host 'required_step: manual_user_create_token'
+      Write-Host 'required_step: manual_user_send_token_in_chat'
+    } else {
+      Record-Check pass 'MCP-AUTH-POST-APIKEY-001' "API key token env '$McpTokenEnv' is present."
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($token)) {
+      Record-Check pass 'MCP-AUTH-POST-APIKEY-002' 'Token validity will be verified by MCP protocol probe (initialize/tools/list/tools/call).'
+      $protocolCheckEligible = $true
+      $protocolToken = $token
+    }
   }
 } elseif ($McpAuthMode -eq 'oauth') {
   Record-Check warn 'MCP-AUTH-POST-OAUTH-001' 'OAuth postcheck requires interactive client login.' 'Run client login with scopes mcp,offline_access.'
@@ -460,54 +611,71 @@ if ($protocolCheckEligible) {
   $initResp = Invoke-McpRpc -Url $targetMcpUrl -PayloadJson $initPayload -Headers $baseHeaders
   if ($null -eq $initResp.StatusCode) {
     Record-Check fail 'MCP-PROTO-001' "Initialize transport failed ($($initResp.TransportError))." 'Verify request headers include Accept: application/json, text/event-stream and retry.'
-  } elseif ($initResp.StatusCode -lt 200 -or $initResp.StatusCode -ge 300) {
-    if ($initResp.StatusCode -in 401, 403) {
-      Record-Check fail 'MCP-PROTO-001' "Initialize returned HTTP $($initResp.StatusCode)." "Open $apiKeysConfigUrl, regenerate API key, update $McpTokenEnv, then rerun postcheck."
-      Write-Host 'action_required: provide_api_token'
-      Write-Host 'required_step: manual_user_create_token'
-      Write-Host 'required_step: manual_user_send_token_in_chat'
-      Write-Host 'required_step: no_agent_token_automation'
-    } else {
-      Record-Check fail 'MCP-PROTO-001' "Initialize returned HTTP $($initResp.StatusCode)." 'Verify MCP auth and streamable HTTP headers.'
-    }
   } else {
-    $initEnvelope = ConvertFrom-McpEnvelope -Body $initResp.Body
-    $initError = Get-McpErrorText -Envelope $initEnvelope
-    if ($initError) {
-      Record-Check fail 'MCP-PROTO-001' "Initialize returned JSON-RPC error ($initError)." 'Use standard initialize payload and retry.'
-    } else {
-      $sessionId = Get-HeaderValue -Headers $initResp.ResponseHeaders -Name 'Mcp-Session-Id'
-      if (-not [string]::IsNullOrWhiteSpace($sessionId)) {
-        $baseHeaders['Mcp-Session-Id'] = $sessionId
-        Write-Host "mcp_session_id: $sessionId"
-      }
-      Record-Check pass 'MCP-PROTO-001' 'Initialize probe succeeded.'
-
-      $toolsListPayload = @{
-        jsonrpc = '2.0'
-        id = 9002
-        method = 'tools/list'
-        params = @{}
-      } | ConvertTo-Json -Depth 20 -Compress
-
-      $toolsResp = Invoke-McpRpc -Url $targetMcpUrl -PayloadJson $toolsListPayload -Headers $baseHeaders
-      if ($null -eq $toolsResp.StatusCode) {
-        Record-Check fail 'MCP-PROTO-002' "tools/list transport failed ($($toolsResp.TransportError))." 'Retry with initialize + session header and valid auth.'
-      } elseif ($toolsResp.StatusCode -lt 200 -or $toolsResp.StatusCode -ge 300) {
-        Record-Check fail 'MCP-PROTO-002' "tools/list returned HTTP $($toolsResp.StatusCode)." 'Verify MCP auth/session state and retry.'
-      } else {
-        $toolsEnvelope = ConvertFrom-McpEnvelope -Body $toolsResp.Body
-        $toolsError = Get-McpErrorText -Envelope $toolsEnvelope
-        if ($toolsError) {
-          Record-Check fail 'MCP-PROTO-002' "tools/list returned JSON-RPC error ($toolsError)." 'Use initialize first, then tools/list with same auth/session context.'
+    if ($initResp.StatusCode -lt 200 -or $initResp.StatusCode -ge 300) {
+      if ($initResp.StatusCode -in 401, 403 -and $autoApiKeyEnabled) {
+        Record-Check warn 'MCP-AUTH-POST-APIKEY-003' "Initialize returned HTTP $($initResp.StatusCode); token may be expired. Trying automatic refresh." $apiKeyAutoHint
+        $refreshedToken = Invoke-AutoApiKeyGenerate -TokenEnvName $McpTokenEnv -KeyName $AutoApiKeyName -Username $AutoApiKeyUsername -RoleName $AutoApiKeyRole -ExpiresIn $AutoApiKeyExpiresIn -ComposeFilePath $resolvedComposeFile -AppServiceName $AutoApiKeyAppService
+        if ($refreshedToken.Success) {
+          $protocolToken = $refreshedToken.Token
+          $baseHeaders['Authorization'] = "Bearer $protocolToken"
+          Record-Check pass 'MCP-AUTH-POST-APIKEY-003' "Automatic token refresh succeeded from $($refreshedToken.Source) ($(Get-TokenPreview -Token $protocolToken)). Retrying initialize."
+          $initResp = Invoke-McpRpc -Url $targetMcpUrl -PayloadJson $initPayload -Headers $baseHeaders
         } else {
-          $toolNames = Get-ToolNames -ToolsEnvelope $toolsEnvelope
-          if ($toolNames.Count -eq 0) {
-            Record-Check fail 'MCP-PROTO-002' 'tools/list succeeded but returned no tools.' 'Verify MCP package scope and plugin activation.'
+          Record-Check fail 'MCP-AUTH-POST-APIKEY-003' 'Automatic token refresh failed after initialize auth error.' $apiKeyCreateHint
+        }
+      }
+
+      if ($initResp.StatusCode -lt 200 -or $initResp.StatusCode -ge 300) {
+        if ($initResp.StatusCode -in 401, 403) {
+          Record-Check fail 'MCP-PROTO-001' "Initialize returned HTTP $($initResp.StatusCode)." $apiKeyCreateHint
+          Write-Host 'action_required: provide_api_token'
+          Write-Host 'required_step: auto_generate_api_token_failed'
+          Write-Host 'required_step: manual_user_create_token'
+          Write-Host 'required_step: manual_user_send_token_in_chat'
+        } else {
+          Record-Check fail 'MCP-PROTO-001' "Initialize returned HTTP $($initResp.StatusCode)." 'Verify MCP auth and streamable HTTP headers.'
+        }
+      }
+    }
+    if ($initResp.StatusCode -ge 200 -and $initResp.StatusCode -lt 300) {
+      $initEnvelope = ConvertFrom-McpEnvelope -Body $initResp.Body
+      $initError = Get-McpErrorText -Envelope $initEnvelope
+      if ($initError) {
+        Record-Check fail 'MCP-PROTO-001' "Initialize returned JSON-RPC error ($initError)." 'Use standard initialize payload and retry.'
+      } else {
+        $sessionId = Get-HeaderValue -Headers $initResp.ResponseHeaders -Name 'Mcp-Session-Id'
+        if (-not [string]::IsNullOrWhiteSpace($sessionId)) {
+          $baseHeaders['Mcp-Session-Id'] = $sessionId
+          Write-Host "mcp_session_id: $sessionId"
+        }
+        Record-Check pass 'MCP-PROTO-001' 'Initialize probe succeeded.'
+
+        $toolsListPayload = @{
+          jsonrpc = '2.0'
+          id = 9002
+          method = 'tools/list'
+          params = @{}
+        } | ConvertTo-Json -Depth 20 -Compress
+
+        $toolsResp = Invoke-McpRpc -Url $targetMcpUrl -PayloadJson $toolsListPayload -Headers $baseHeaders
+        if ($null -eq $toolsResp.StatusCode) {
+          Record-Check fail 'MCP-PROTO-002' "tools/list transport failed ($($toolsResp.TransportError))." 'Retry with initialize + session header and valid auth.'
+        } elseif ($toolsResp.StatusCode -lt 200 -or $toolsResp.StatusCode -ge 300) {
+          Record-Check fail 'MCP-PROTO-002' "tools/list returned HTTP $($toolsResp.StatusCode)." 'Verify MCP auth/session state and retry.'
+        } else {
+          $toolsEnvelope = ConvertFrom-McpEnvelope -Body $toolsResp.Body
+          $toolsError = Get-McpErrorText -Envelope $toolsEnvelope
+          if ($toolsError) {
+            Record-Check fail 'MCP-PROTO-002' "tools/list returned JSON-RPC error ($toolsError)." 'Use initialize first, then tools/list with same auth/session context.'
           } else {
-            $sample = ($toolNames | Select-Object -First 8) -join ', '
-            Write-Host "mcp_tools_sample: $sample"
-            Record-Check pass 'MCP-PROTO-002' "tools/list probe succeeded ($($toolNames.Count) tools)."
+            $toolNames = Get-ToolNames -ToolsEnvelope $toolsEnvelope
+            if ($toolNames.Count -eq 0) {
+              Record-Check fail 'MCP-PROTO-002' 'tools/list succeeded but returned no tools.' 'Verify MCP package scope and plugin activation.'
+            } else {
+              $sample = ($toolNames | Select-Object -First 8) -join ', '
+              Write-Host "mcp_tools_sample: $sample"
+              Record-Check pass 'MCP-PROTO-002' "tools/list probe succeeded ($($toolNames.Count) tools)."
 
             $probeTool = Select-ProbeTool -ToolNames $toolNames
             if ([string]::IsNullOrWhiteSpace($probeTool)) {
@@ -542,6 +710,7 @@ if ($protocolCheckEligible) {
         }
       }
     }
+  }
   }
 } else {
   Record-Check warn 'MCP-PROTO-000' 'Skip protocol probe because API-key auth is not ready.' 'Resolve auth blockers, then rerun mcp-postcheck.'

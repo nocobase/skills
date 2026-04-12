@@ -193,8 +193,9 @@ Checks:
 Actions:
 
 1. Ensure activation bundle includes `@nocobase/plugin-api-keys` (run plugin-manage bundle first; use manual plugin page only when backend unavailable).
-2. Regenerate API key and update env var.
+2. Run `mcp-postcheck` automatic refresh path (CLI `generate-api-key`) to regenerate token and update env var.
 3. Retry MCP probe and client connect command.
+4. If automatic refresh fails, fallback to manual API keys page regeneration and rerun postcheck.
 
 ---
 
@@ -266,3 +267,6 @@ Actions:
 2. Reapply template without manual edits first.
 3. Rerun `mcp-postcheck` and then client connect.
 4. If still failing, capture one full initialize request/response pair including request headers.
+5. If failure remains after one complete retry and endpoint/auth are confirmed, switch to web lookup for that client:
+- prioritize official docs, official GitHub repo docs, and release notes
+- then apply validated config and keep source links in diagnosis output

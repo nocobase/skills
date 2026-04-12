@@ -7,10 +7,11 @@
 3. [Runtime Endpoint Map](#runtime-endpoint-map)
 4. [Local CLI Map](#local-cli-map)
 5. [Local Docker CLI Map](#local-docker-cli-map)
-6. [Invocation Patterns](#invocation-patterns)
-7. [Target Auto-Resolution](#target-auto-resolution)
-8. [Verification Rules](#verification-rules)
-9. [Failure Handling](#failure-handling)
+6. [Local CLI Output Framing](#local-cli-output-framing)
+7. [Invocation Patterns](#invocation-patterns)
+8. [Target Auto-Resolution](#target-auto-resolution)
+9. [Verification Rules](#verification-rules)
+10. [Failure Handling](#failure-handling)
 
 ## Purpose
 
@@ -18,7 +19,8 @@ Define the V1 operation contract used by `nocobase-plugin-manage` without changi
 
 ## Source Evidence
 
-- CLI mutation commands are registered in `packages/core/server/src/commands/pm.ts`:
+- CLI inspect/mutation commands are registered in `packages/core/server/src/commands/pm.ts`:
+- `pm list`
 - `pm add`
 - `pm enable`
 - `pm disable`
@@ -58,6 +60,7 @@ Notes:
 
 | Action | Command |
 |---|---|
+| list all plugin info | `yarn nocobase pm list` |
 | add plugin | `yarn nocobase pm add <plugin> [--registry=<url>] [--version=<v>] [--auth-token=<token>]` |
 | enable plugin | `yarn nocobase pm enable <plugin>` |
 | disable plugin | `yarn nocobase pm disable <plugin>` |
@@ -70,11 +73,23 @@ Default compose service is `app` unless explicitly overridden.
 
 | Action | Command |
 |---|---|
+| list all plugin info | `docker compose exec -T <service> yarn nocobase pm list` |
 | add plugin | `docker compose exec -T <service> yarn nocobase pm add <plugin> [--registry=<url>] [--version=<v>] [--auth-token=<token>]` |
 | enable plugin | `docker compose exec -T <service> yarn nocobase pm enable <plugin>` |
 | disable plugin | `docker compose exec -T <service> yarn nocobase pm disable <plugin>` |
 
 Run commands in local app directory (`target.app_path`) where compose files are present.
+
+## Local CLI Output Framing
+
+For local inspect/readback using `pm list`, parse plugin payload strictly from the marker block:
+
+- begin marker: `--- BEGIN_PLUGIN_LIST_JSON ---`
+- end marker: `--- END_PLUGIN_LIST_JSON ---`
+- canonical payload: JSON text between the two markers
+
+Ignore surrounding build/status lines such as TypeScript compiling logs and elapsed time.
+If marker block is missing or JSON parse fails, fallback to API inspect (`pm:list`/`pm:get`) and record fallback reason.
 
 ## Invocation Patterns
 
@@ -150,15 +165,15 @@ When channel resolves to `local`, resolve execution backend with this priority:
 Local channel semantics note:
 
 - local writes should use local CLI backend (`docker_cli` or `host_cli`)
-- local inspect/readback should use runtime API (`pm:list`, `pm:get`) when reachable
-- this CLI mutate + API readback split is expected and should not be treated as backend drift
+- local inspect/readback should prefer local CLI `pm list` marker JSON
+- local API inspect (`pm:list`, `pm:get`) is fallback only when local CLI marker extraction is unavailable
 
 ## Verification Rules
 
 - Always capture pre-state in `safe` mode.
-- For `install`, treat success as plugin becoming discoverable in `pm:list` or `pm:get`.
-- For `enable`, treat success as `enabled=true` in `pm:get`.
-- For `disable`, treat success as `enabled=false` in `pm:get`.
+- For `install`, treat success as plugin becoming discoverable in local `pm list` snapshot (or remote `pm:list`/`pm:get`).
+- For `enable`, treat success as `enabled=true` in local `pm list` snapshot (or remote `pm:get`).
+- For `disable`, treat success as `enabled=false` in local `pm list` snapshot (or remote `pm:get`).
 - Poll interval: 2 seconds.
 - Default timeout: 90 seconds.
 - If timeout occurs, return `pending_verification` with last known state.
@@ -170,6 +185,7 @@ Local channel semantics note:
 - Missing auth token for remote writes: block and return missing env var name.
 - 401/403 from remote API: treat as authentication/authorization issue; refresh login or API key token before retry.
 - Plugin not found during disable: stop and return explicit not-found state.
+- Local `pm list` marker block missing or invalid JSON: fallback to API inspect/readback and report parse issue in output.
 - API unavailable in safe mode: stop mutation; ask for reachable `base_url` or explicit switch to `fast` mode.
 - Async mutation uncertainty: never mark success without readback confirmation.
 - Backend unavailable (`docker_cli`/`host_cli` unavailable for local channel, or `remote_api` unavailable for remote channel): return `verification=failed` and rich fallback hints:

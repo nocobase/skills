@@ -11,7 +11,7 @@ Install and start NocoBase in one environment with minimal friction.
 3. Quick Mode (Recommended)
 4. Standard Mode
 5. Post-Install Verification
-6. Post-Install MCP Bootstrap
+6. Final MCP Auto-Connect Stage
 7. Known Pitfalls
 
 ## Method Selection
@@ -46,6 +46,7 @@ Flow:
 3. Prepare `.env` with a random `APP_KEY` (required), optional `APP_PORT`, and optional `NOCOBASE_APP_IMAGE`.
 4. Start app stack.
 5. Verify app is reachable and login page loads.
+6. Run Final MCP Auto-Connect Stage by default (`mcp_required=true`), unless user explicitly disables it.
 
 APP_KEY generation examples:
 
@@ -145,9 +146,10 @@ Example next-step text:
 首次登录后请立即修改默认密码。
 ```
 
-## Post-Install MCP Bootstrap
+## Final MCP Auto-Connect Stage
 
-Run this section when downstream work depends on MCP.
+For install/deploy tasks, run this section as the default final stage after app startup.
+Skip only when user explicitly sets `mcp_required=false`.
 
 1. Build endpoint URL (`/api/mcp` for main app, `/api/__app/<app_name>/mcp` for non-main app).
 2. Run post-start MCP gate (`mcp-postcheck`) before client config.
@@ -176,12 +178,15 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 - Enable all plugins in auth-mode bundle
 - If endpoint still returns `404` or `503`, restart app and rerun `mcp-postcheck`.
 
-6. If gate output contains `action_required: provide_api_token`, stop and ask user to create/regenerate token:
+6. Token gate policy (`api-key` mode):
+- Preferred: automatic token generation/refresh in `mcp-postcheck` via CLI `generate-api-key`.
+- Missing token and expired token (`401/403`) both use automatic path first.
+- Manual fallback only when gate emits `action_required: provide_api_token`.
+- If gate output contains `action_required: provide_api_token`, stop and ask user to create/regenerate token:
 - This step is only valid after endpoint blocker is cleared (`activate_plugin`/`restart_app` resolved).
 - API keys page: `{{app_url}}/admin/settings/api-keys`
 - Click `Add API Key`.
 - Ask user to copy token value and send it back in chat.
-- Do not auto-create or auto-retrieve token via CLI/API/DB/UI automation in this step.
 - Set token to env var (default `NOCOBASE_API_TOKEN`) and rerun `mcp-postcheck`.
 
 7. Only after `mcp-postcheck` passes, run client connection commands from [MCP Runbook](mcp-runbook.md).
