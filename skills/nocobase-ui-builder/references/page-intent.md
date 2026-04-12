@@ -27,9 +27,9 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 5. For each tab, decide major blocks first, then fields/actions/record actions.
 6. Keep popup behavior inline under the relevant field/action/record action.
 7. Assemble the final JSON page blueprint from [page-blueprint.md](./page-blueprint.md), using only canonical public names.
-8. Before the real `applyBlueprint` call, run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`.
+8. Before the real `applyBlueprint` call, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`. If the gate catches extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, or broken custom `edit` popups, rewrite locally before the real write.
 9. Then open [tool-shapes.md](./tool-shapes.md) and wrap the blueprint under `requestBody` as an object.
-10. Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
+10. Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). Prefer the same local prepare-write gate because it emits that preview and the normalized write envelope together. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
 
 ## 3. Authoring Heuristics
 
@@ -53,7 +53,7 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 - Keep low-level selectors and internals out of the draft JSON; do not leak `uid`, `ref`, `$ref`, or other non-public write shapes.
 - If layout is not essential or not fully decided, omit it rather than inventing a string or block-level `layout`.
 - For whole-page authoring, default to **ASCII-first** prewrite output rendered from the same blueprint, even when you will execute immediately after it. The preview must still appear before the first write. Keep popup expansion depth at exactly one level, and do not dump JSON unless the user asks for it or a technical review still needs it.
-- Before first write, self-check tabs count, non-empty `tab.blocks`, no empty tabs, no placeholder `markdown` / note / banner block, no block-level `layout`, unique block `key` values, simple-string `fields[]` by default, and exactly one `editForm` in every custom `edit` popup. If any item fails, rewrite the blueprint before the first write.
+- Before first write, run the local prepare-write gate, then self-check tabs count, non-empty `tab.blocks`, no empty tabs, no placeholder `markdown` / note / banner block, no block-level `layout`, unique block `key` values, simple-string `fields[]` by default, and exactly one `editForm` in every custom `edit` popup. If the gate or self-check fails, rewrite the blueprint before the first write.
 - If the page request also includes interaction logic, add it as top-level `reaction.items[]` in the same blueprint instead of inventing a second whole-page write.
 - In test runs, do not add destructive cleanup steps unless the user explicitly asked for deletion.
 - Do not stringify the final page blueprint when calling MCP. The correct mental model is:
@@ -89,7 +89,7 @@ Localized rule:
 
 - if the page already exists, do `getReactionMeta` first, then the matching `set*Rules` write
 
-See [reaction.md](./reaction.md) for the detailed recipes.
+Keep detailed reaction payload shapes, host-target rules, and guardrails in [reaction.md](./reaction.md) instead of duplicating them here.
 
 ## 6. Do Not Do These
 

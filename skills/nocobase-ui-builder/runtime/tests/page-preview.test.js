@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { renderPageBlueprintAsciiPreview } from '../src/page-blueprint-preview.js';
+import { prepareApplyBlueprintRequest, renderPageBlueprintAsciiPreview } from '../src/page-blueprint-preview.js';
 import { runPagePreviewCli } from '../src/page-preview-cli.js';
 
 function createMemoryStream() {
@@ -197,4 +197,259 @@ test('page preview cli returns ok=false for invalid blueprint payload', async ()
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
   assert.match(payload.error, /recognizable inner page blueprint object/i);
+});
+
+test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normalized tool call', () => {
+  const result = prepareApplyBlueprintRequest({
+    requestBody: {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace' },
+        item: { title: 'Employees' },
+      },
+      page: { title: 'Employees' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /^PAGE: Employees \(create\)/m);
+  assert.deepEqual(result.warnings, ['Received outer requestBody wrapper; preview unwrapped the inner page blueprint.']);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.facts, {
+    mode: 'create',
+    pageTitle: 'Employees',
+    menuPath: 'Workspace / Employees',
+    outerTabCount: 1,
+    expectedOuterTabs: 1,
+    targetPageSchemaUid: '',
+  });
+  assert.deepEqual(result.toolCall, {
+    requestBody: {
+      version: '1',
+      mode: 'create',
+      navigation: {
+        group: { title: 'Workspace' },
+        item: { title: 'Employees' },
+      },
+      page: { title: 'Employees' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+            },
+          ],
+        },
+      ],
+    },
+  });
+});
+
+test('prepareApplyBlueprintRequest rejects high-risk first-write blueprint mistakes', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Broken users page' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            layout: { rows: [['usersTable']] },
+            fields: ['nickname', 'email'],
+          },
+        ],
+      },
+      {
+        title: 'Summary',
+        pageSchemaUid: 'should-not-be-here',
+        blocks: [
+          {
+            type: 'markdown',
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.toolCall, undefined);
+  assert.match(result.ascii, /^PAGE: Broken users page \(create\)/m);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'unexpected-outer-tab-count'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'block-layout-not-allowed'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'illegal-tab-key' && issue.path === 'tabs[1].pageSchemaUid'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'placeholder-tab'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'placeholder-block'));
+});
+
+test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', () => {
+  const result = prepareApplyBlueprintRequest({
+    requestBody: JSON.stringify({
+      version: '1',
+      mode: 'create',
+      tabs: [],
+    }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.ascii, '');
+  assert.deepEqual(result.errors, [
+    {
+      path: 'requestBody',
+      ruleId: 'stringified-request-body',
+      message: 'Outer requestBody must stay an object page blueprint, not a JSON string.',
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest validates custom edit popups and popup layout objects', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'email'],
+            recordActions: [
+              {
+                type: 'edit',
+                title: 'Edit',
+                popup: {
+                  title: 'Edit user',
+                  layout: 'side-by-side',
+                  blocks: [
+                    {
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
+});
+
+test('page preview cli prepare-write returns normalized tool call json', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'replace',
+      target: { pageSchemaUid: 'users-page-schema' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.facts.expectedOuterTabs, 1);
+  assert.equal(payload.toolCall.requestBody.target.pageSchemaUid, 'users-page-schema');
+});
+
+test('page preview cli prepare-write accepts explicit expected outer tab count', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'List',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+            },
+          ],
+        },
+        {
+          title: 'Detail',
+          blocks: [
+            {
+              key: 'usersDetail',
+              type: 'details',
+              collection: 'users',
+              fields: ['nickname'],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write', '--expected-outer-tabs', '2'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.facts.expectedOuterTabs, 2);
+  assert.equal(payload.facts.outerTabCount, 2);
 });

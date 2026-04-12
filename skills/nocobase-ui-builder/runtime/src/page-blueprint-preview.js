@@ -1,14 +1,24 @@
-import { ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
+import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
+const DEFAULT_EXPECTED_OUTER_TABS = 1;
 const MAX_LABEL_LENGTH = 24;
 const MAX_HEADER_TEXT = 48;
+const PLACEHOLDER_TEXT_PATTERN = /^(summary|later|placeholder|todo)$/i;
+const PLACEHOLDER_TEXT_CN_PATTERN = /^(备用|待定|稍后)$/;
+const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
+const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
+const EDIT_ACTION_TYPES = new Set(['edit']);
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   const normalized = source.replace(/\s+/g, ' ').trim();
   return normalized || fallback;
+}
+
+function normalizeLowerText(value) {
+  return normalizeText(value).toLowerCase();
 }
 
 function trimLabel(value, maxLength = MAX_LABEL_LENGTH) {
@@ -76,6 +86,15 @@ function getPageTitle(blueprint) {
   );
 }
 
+function getFactsPageTitle(blueprint) {
+  if (!isPlainObject(blueprint)) return '';
+  return (
+    normalizeText(blueprint?.page?.title) ||
+    normalizeText(blueprint?.navigation?.item?.title) ||
+    normalizeText(blueprint?.target?.pageSchemaUid)
+  );
+}
+
 function getCollectionLabel(node) {
   return normalizeText(node?.collection) || normalizeText(node?.resource?.collectionName) || normalizeText(node?.resource?.collection);
 }
@@ -90,6 +109,62 @@ function describeResource(node) {
   if (associationField) parts.push(`assoc=${associationField}`);
   if (collectionName) parts.push(`<${collectionName}>`);
   return parts.length ? `Resource: ${parts.join(' ')}` : '';
+}
+
+function hasOwn(target, key) {
+  return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
+}
+
+function createValidationError(path, ruleId, message) {
+  return {
+    path,
+    ruleId,
+    message,
+  };
+}
+
+function pushValidationError(errors, seen, path, ruleId, message) {
+  const key = `${path}::${ruleId}::${message}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  errors.push(createValidationError(path, ruleId, message));
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function getExpectedOuterTabs(options = {}) {
+  return isPositiveInteger(options.expectedOuterTabs) ? options.expectedOuterTabs : DEFAULT_EXPECTED_OUTER_TABS;
+}
+
+function hasPlaceholderText(value) {
+  const text = normalizeText(value);
+  if (!text) return false;
+  return PLACEHOLDER_TEXT_PATTERN.test(text) || PLACEHOLDER_TEXT_CN_PATTERN.test(text);
+}
+
+function isPlaceholderBlock(block) {
+  if (!isPlainObject(block)) return false;
+  const type = normalizeLowerText(block.type);
+  if (!PLACEHOLDER_BLOCK_TYPES.has(type)) return false;
+
+  const combined = [block.title, block.content, block.text, block.markdown].map((item) => normalizeText(item)).filter(Boolean).join(' ');
+  return !combined || hasPlaceholderText(combined);
+}
+
+function isPlaceholderTab(tab) {
+  if (!isPlainObject(tab)) return false;
+  if (hasPlaceholderText(tab.title)) return true;
+  const blocks = ensureArray(tab.blocks);
+  return blocks.length > 0 && blocks.every((block) => isPlaceholderBlock(block));
+}
+
+function countBlocksOfType(blocks, type) {
+  const normalizedType = normalizeLowerText(type);
+  return ensureArray(blocks).filter(
+    (block) => isPlainObject(block) && normalizeLowerText(block.type) === normalizedType,
+  ).length;
 }
 
 function describeField(field) {
@@ -355,17 +430,34 @@ function renderTab(tab, index, context) {
   return makeBox(`Tab: ${tabTitle}`, body);
 }
 
-function normalizeBlueprintInput(input, warnings) {
+function normalizeBlueprintInput(input, warnings, errors = []) {
   if (!isPlainObject(input)) return null;
 
-  if (
-    !Array.isArray(input.tabs) &&
-    !normalizeText(input.mode) &&
-    !normalizeText(input.version) &&
-    isPlainObject(input.requestBody)
-  ) {
-    warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
-    return input.requestBody;
+  if (!Array.isArray(input.tabs) && !normalizeText(input.mode) && !normalizeText(input.version) && hasOwn(input, 'requestBody')) {
+    if (isPlainObject(input.requestBody)) {
+      warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
+      return input.requestBody;
+    }
+
+    if (typeof input.requestBody === 'string') {
+      errors.push(
+        createValidationError(
+          'requestBody',
+          'stringified-request-body',
+          'Outer requestBody must stay an object page blueprint, not a JSON string.',
+        ),
+      );
+      return null;
+    }
+
+    errors.push(
+      createValidationError(
+        'requestBody',
+        'invalid-request-body',
+        'Outer requestBody must contain one object page blueprint.',
+      ),
+    );
+    return null;
   }
 
   return input;
@@ -375,19 +467,7 @@ function isRecognizablePageBlueprint(blueprint) {
   return isPlainObject(blueprint) && Array.isArray(blueprint.tabs) && !!normalizeText(blueprint.mode);
 }
 
-export function renderPageBlueprintAsciiPreview(input, options = {}) {
-  const warnings = [];
-  const blueprint = normalizeBlueprintInput(input, warnings);
-
-  if (!isRecognizablePageBlueprint(blueprint)) {
-    return {
-      ok: false,
-      ascii: '',
-      warnings,
-      error: 'Input must be one recognizable inner page blueprint object with mode and tabs.',
-    };
-  }
-
+function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
   const maxPopupDepth =
     typeof options.maxPopupDepth === 'number' && Number.isFinite(options.maxPopupDepth)
       ? Math.max(0, options.maxPopupDepth)
@@ -418,9 +498,293 @@ export function renderPageBlueprintAsciiPreview(input, options = {}) {
     if (index !== blueprint.tabs.length - 1) lines.push('');
   }
 
+  return lines.join('\n').trimEnd();
+}
+
+function validatePopupDocument(popup, path, state) {
+  if (!isPlainObject(popup)) {
+    pushValidationError(state.errors, state.seenErrors, path, 'invalid-popup', 'Popup must be one object.');
+    return;
+  }
+
+  if (hasOwn(popup, 'layout') && !isPlainObject(popup.layout)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.layout`,
+      'invalid-layout-object',
+      'layout must stay one object when present on a popup document.',
+    );
+  }
+
+  if (hasOwn(popup, 'blocks') && !Array.isArray(popup.blocks)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.blocks`,
+      'invalid-popup-blocks',
+      'Popup blocks must stay one array when present.',
+    );
+  }
+
+  for (const [index, block] of ensureArray(popup.blocks).entries()) {
+    validateBlock(block, `${path}.blocks[${index}]`, state);
+  }
+}
+
+function validateCustomEditPopup(popup, path, state) {
+  if (!isPlainObject(popup)) return;
+  if (popup.template && !Array.isArray(popup.blocks)) return;
+
+  const editFormCount = countBlocksOfType(popup.blocks, 'editForm');
+  if (editFormCount !== 1) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'custom-edit-popup-edit-form-count',
+      `Custom edit popup must contain exactly one editForm block; found ${editFormCount}.`,
+    );
+  }
+}
+
+function validateFieldPopups(items, path, state) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    validatePopupDocument(item.popup, `${path}[${index}].popup`, state);
+  }
+}
+
+function validateActions(items, path, state) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    const popupPath = `${path}[${index}].popup`;
+    validatePopupDocument(item.popup, popupPath, state);
+    if (EDIT_ACTION_TYPES.has(normalizeLowerText(item.type))) {
+      validateCustomEditPopup(item.popup, popupPath, state);
+    }
+  }
+}
+
+function validateBlock(block, path, state) {
+  if (!isPlainObject(block)) {
+    pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
+    return;
+  }
+
+  if (hasOwn(block, 'layout')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.layout`,
+      'block-layout-not-allowed',
+      'Block-level layout is not allowed; move layout to tab.layout or popup.layout.',
+    );
+  }
+
+  if (isPlaceholderBlock(block)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'placeholder-block',
+      'Placeholder markdown/note/banner blocks must be removed before first write.',
+    );
+  }
+
+  const key = normalizeText(block.key);
+  if (key) {
+    if (state.blockKeyPaths.has(key)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.key`,
+        'duplicate-block-key',
+        `Block key "${key}" must be unique within the blueprint; first used at ${state.blockKeyPaths.get(key)}.`,
+      );
+    } else {
+      state.blockKeyPaths.set(key, path);
+    }
+  }
+
+  validateFieldPopups(block.fields, `${path}.fields`, state);
+  validateActions(block.actions, `${path}.actions`, state);
+  validateActions(block.recordActions, `${path}.recordActions`, state);
+}
+
+function validateTab(tab, index, state) {
+  const path = `tabs[${index}]`;
+
+  if (!isPlainObject(tab)) {
+    pushValidationError(state.errors, state.seenErrors, path, 'invalid-tab', 'Every tab must be one object.');
+    return;
+  }
+
+  for (const key of TAB_ILLEGAL_KEYS) {
+    if (!hasOwn(tab, key)) continue;
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.${key}`,
+      'illegal-tab-key',
+      `Tab objects must not include "${key}". Keep page-level targeting and request envelopes outside tabs.`,
+    );
+  }
+
+  if (hasOwn(tab, 'layout') && !isPlainObject(tab.layout)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.layout`,
+      'invalid-layout-object',
+      'layout must stay one object when present on a tab.',
+    );
+  }
+
+  if (!Array.isArray(tab.blocks) || tab.blocks.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.blocks`,
+      'empty-tab-blocks',
+      'Each tab must contain one non-empty blocks array.',
+    );
+  }
+
+  if (isPlaceholderTab(tab)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'placeholder-tab',
+      'Placeholder tabs such as Summary/Later/备用 must be removed before first write.',
+    );
+  }
+
+  for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
+    validateBlock(block, `${path}.blocks[${blockIndex}]`, state);
+  }
+}
+
+function validateBlueprint(blueprint, options = {}) {
+  const state = {
+    errors: [],
+    seenErrors: new Set(),
+    blockKeyPaths: new Map(),
+  };
+
+  const mode = normalizeLowerText(blueprint.mode);
+  if (!['create', 'replace'].includes(mode)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'mode',
+      'invalid-mode',
+      'Page blueprint mode must be either "create" or "replace".',
+    );
+  }
+
+  if (mode === 'replace' && !normalizeText(blueprint?.target?.pageSchemaUid)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'target.pageSchemaUid',
+      'missing-replace-target',
+      'Replace mode requires target.pageSchemaUid.',
+    );
+  }
+
+  const expectedOuterTabs = getExpectedOuterTabs(options);
+  if (!Array.isArray(blueprint.tabs) || blueprint.tabs.length !== expectedOuterTabs) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'tabs',
+      'unexpected-outer-tab-count',
+      `Whole-page authoring expected exactly ${expectedOuterTabs} outer tab(s); found ${Array.isArray(blueprint.tabs) ? blueprint.tabs.length : 0}.`,
+    );
+  }
+
+  for (const [index, tab] of ensureArray(blueprint.tabs).entries()) {
+    validateTab(tab, index, state);
+  }
+
+  return state.errors;
+}
+
+function buildPrepareFacts(blueprint, expectedOuterTabs) {
+  return {
+    mode: normalizeLowerText(blueprint?.mode),
+    pageTitle: getFactsPageTitle(blueprint),
+    menuPath: getMenuPath(blueprint),
+    outerTabCount: Array.isArray(blueprint?.tabs) ? blueprint.tabs.length : 0,
+    expectedOuterTabs,
+    targetPageSchemaUid: normalizeText(blueprint?.target?.pageSchemaUid),
+  };
+}
+
+export function renderPageBlueprintAsciiPreview(input, options = {}) {
+  const warnings = [];
+  const blueprint = normalizeBlueprintInput(input, warnings);
+
+  if (!isRecognizablePageBlueprint(blueprint)) {
+    return {
+      ok: false,
+      ascii: '',
+      warnings,
+      error: 'Input must be one recognizable inner page blueprint object with mode and tabs.',
+    };
+  }
+
   return {
     ok: true,
-    ascii: lines.join('\n').trimEnd(),
+    ascii: renderRecognizableBlueprintAscii(blueprint, warnings, options),
     warnings: unique(warnings),
   };
+}
+
+export function prepareApplyBlueprintRequest(input, options = {}) {
+  const warnings = [];
+  const normalizeErrors = [];
+  const expectedOuterTabs = getExpectedOuterTabs(options);
+  const blueprint = normalizeBlueprintInput(input, warnings, normalizeErrors);
+  const facts = buildPrepareFacts(blueprint, expectedOuterTabs);
+  const ascii = isRecognizablePageBlueprint(blueprint) ? renderRecognizableBlueprintAscii(blueprint, warnings, options) : '';
+
+  let errors = normalizeErrors;
+  if (!isRecognizablePageBlueprint(blueprint)) {
+    if (!errors.length) {
+      errors = [
+        createValidationError(
+          '',
+          'invalid-blueprint',
+          'Input must be one recognizable inner page blueprint object with mode and tabs.',
+        ),
+      ];
+    }
+    return {
+      ok: false,
+      ascii,
+      warnings: unique(warnings),
+      errors,
+      facts,
+    };
+  }
+
+  errors = [...errors, ...validateBlueprint(blueprint, { expectedOuterTabs })];
+  const result = {
+    ok: errors.length === 0,
+    ascii,
+    warnings: unique(warnings),
+    errors,
+    facts,
+  };
+
+  if (result.ok) {
+    result.toolCall = {
+      requestBody: cloneSerializable(blueprint),
+    };
+  }
+
+  return result;
 }

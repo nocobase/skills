@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
+import { prepareApplyBlueprintRequest, renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -54,7 +54,7 @@ async function loadJsonFromFile(cwd, filePath) {
 function usage() {
   return {
     command:
-      'Render one page blueprint ASCII preview. Required: --stdin-json or --input <path>. Optional: --max-popup-depth <n>.',
+      'Render one page blueprint ASCII preview or prepare one applyBlueprint write. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
   };
 }
 
@@ -66,6 +66,13 @@ function parseOptionalNumber(value, label) {
   if (typeof value === 'undefined') return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) throw new Error(`Invalid ${label} "${value}".`);
+  return parsed;
+}
+
+function parseOptionalInteger(value, label) {
+  if (typeof value === 'undefined') return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`Invalid ${label} "${value}".`);
   return parsed;
 }
 
@@ -90,9 +97,16 @@ export async function runPagePreviewCli(argv, io = {}) {
             throw new Error('Missing required --stdin-json or --input.');
           })();
 
-    const result = renderPageBlueprintAsciiPreview(payload, {
-      maxPopupDepth: parseOptionalNumber(args['max-popup-depth'], '--max-popup-depth'),
-    });
+    const maxPopupDepth = parseOptionalNumber(args['max-popup-depth'], '--max-popup-depth');
+    const expectedOuterTabs = parseOptionalInteger(args['expected-outer-tabs'], '--expected-outer-tabs');
+    const result = args['prepare-write']
+      ? prepareApplyBlueprintRequest(payload, {
+          maxPopupDepth,
+          expectedOuterTabs,
+        })
+      : renderPageBlueprintAsciiPreview(payload, {
+          maxPopupDepth,
+        });
 
     writeJson(stdout, result);
     return result.ok ? 0 : 1;

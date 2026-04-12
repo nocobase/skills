@@ -56,7 +56,7 @@ Use this path when the user is describing one page as a whole.
 5. If the same page also needs interaction logic, add top-level `reaction.items[]` in the same blueprint instead of splitting structure and reactions into separate whole-page writes.
 6. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
 7. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-8. Before the **first** `applyBlueprint`, run the authoring self-check:
+8. Before the **first** `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check:
    - tabs count matches the request
    - if this is a normal single-page request, `tabs.length` is exactly `1`
    - every `tab.blocks` is a non-empty array
@@ -69,8 +69,9 @@ Use this path when the user is describing one page as a whole.
    - every field entry in blueprint `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
    - every custom `edit` popup contains exactly one `editForm`
    - if `reaction.items[]` exists, each reaction target is a same-run local key / bind key, not a live uid
+   - the gate must catch envelope / structure mistakes such as extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, invalid `tab.layout` / `popup.layout`, and broken custom `edit` popups before the first write
    - if any item fails, rewrite the blueprint before the first write; do not use backend errors as the first validator
-9. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
+9. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. Prefer the same local prepare-write gate because it emits that preview and the normalized tool-call envelope together. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
 10. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
 11. When you call `applyBlueprint`:
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
@@ -92,6 +93,7 @@ Use this path when the user is describing one page as a whole.
 - Default blueprint `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 - For whole-page `applyBlueprint` authoring, default to **ASCII-first** prewrite output: short intent summary, one ASCII wireframe, and assumptions only when needed.
 - The ASCII preview is the default prewrite review surface; the blueprint remains the execution truth, and the preview must still appear before the first write even when execution continues immediately afterward.
+- When the local prepare-write gate fails, fix the blueprint locally first instead of using backend `applyBlueprint` errors as the primary validator.
 - Default popup expansion depth in the prewrite preview is exactly **1**; deeper popup chains should stay visible only as `nested popup omitted`.
 - Tab / block keys are optional unless custom layout or `field.target` needs them.
 - `field.target` is only a string block key; do not send object selectors.
@@ -133,6 +135,8 @@ Use this path when the user asks to add/move/remove/update only part of an exist
    - if the chosen tool uses `requestBody`, wrap the business payload under `requestBody` instead of sending the inner object directly
    - if the chosen tool needs `target.uid` / `locator.uid`, source that uid from live readback rather than inventing `"root"`
 6. Read back only the affected target/parent, unless hierarchy changed.
+
+For detailed reaction payload shapes and host-target caveats, defer to [reaction.md](./reaction.md).
 
 ## 5. Schema / Capability Reads
 

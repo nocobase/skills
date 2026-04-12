@@ -52,8 +52,21 @@ Use the zero-dependency preview helper for deterministic output:
 
 - module: `renderPageBlueprintAsciiPreview(blueprint)`
 - CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json`
+- prepare-write helper: `prepareApplyBlueprintRequest(blueprint)`
+- prepare-write CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
 
 The CLI/helper should prefer the inner page blueprint object. If it receives an outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
+
+For the **first real write**, prefer the prepare-write helper/CLI rather than preview-only mode. It should use the same inner blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return the normalized `{ requestBody: <blueprint> }` tool-call envelope only when the gate passes.
+
+The local prepare-write gate should reject at least:
+
+- stringified outer `requestBody`
+- extra outer tabs for a normal single-page request
+- illegal tab keys such as `pageSchemaUid` / `requestBody` / `target`
+- block-level `layout`
+- non-object `tab.layout` / `popup.layout`
+- custom `edit` popups that do not contain exactly one `editForm`
 
 If the helper is unavailable in the current execution environment, hand-write a small ASCII wireframe from the same blueprint rather than skipping the preview.
 

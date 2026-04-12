@@ -10,6 +10,8 @@ Use this file when the user asks for interaction logic such as:
 
 This file is intentionally progressive: start from the quick route, then open only the recipe you need.
 
+Use this file as the detailed reaction reference. Other skill references should mainly route here rather than restating all payload rules.
+
 ## 1. Quick Route
 
 ### Whole-page authoring
@@ -294,6 +296,59 @@ Use `actionLinkage` for button state:
   }
 }
 ```
+
+### 4.5 Localized field linkage on details / subForm hosts
+
+`fieldLinkage` is not form-only. For localized edits on `details` or `subForm`, still start with `getReactionMeta`, then target the **host block uid**, not one inner field uid.
+
+Typical localized flow:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-details-uid" }
+  }
+}
+```
+
+then:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "employee-details-uid" },
+    "expectedFingerprint": "<from getReactionMeta>",
+    "rules": [
+      {
+        "key": "hideArchivedReason",
+        "when": {
+          "logic": "$and",
+          "items": [
+            {
+              "path": "record.status",
+              "operator": "$eq",
+              "value": "archived"
+            }
+          ]
+        },
+        "then": [
+          {
+            "type": "setFieldState",
+            "fieldPaths": ["archivedReason"],
+            "state": "hidden"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Use the same host-oriented pattern for `subForm`:
+
+- target the subForm host uid
+- read `supportedActions`, `targetFields`, and `conditionMeta` from `getReactionMeta`
+- do not guess one inner field uid as the write target
 
 ## 5. Guardrails
 

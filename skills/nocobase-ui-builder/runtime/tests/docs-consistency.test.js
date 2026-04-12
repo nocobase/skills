@@ -37,6 +37,7 @@ test('skill docs keep the simplified routing structure', () => {
     'references/ascii-preview.md',
     'references/page-blueprint.md',
     'references/page-intent.md',
+    'references/reaction.md',
   ];
 
   for (const relativePath of requiredFiles) {
@@ -51,6 +52,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(skill, /ascii-preview\.md/);
   assert.match(skill, /page-blueprint\.md/);
   assert.match(skill, /page-intent\.md/);
+  assert.match(skill, /reaction\.md/);
   assert.match(skill, /Minimum read set/);
   assert.match(skill, /Then choose \*\*one\*\* path/);
   assert.match(skill, /### Always/);
@@ -68,13 +70,14 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(skill, /markdown` \/ note \/ banner blocks/i);
   assert.match(skill, /Field entries default to simple strings/i);
   assert.match(skill, /field object only when .*popup.*target.*renderer.*type/i);
-  assert.match(skill, /Before the first `applyBlueprint`, finish .* authoring self-check/i);
+  assert.match(skill, /Before the first `applyBlueprint`, run the local prepare-write gate[\s\S]*authoring self-check/i);
+  assert.match(skill, /prepare-write gate/i);
   assert.match(skill, /every `tab\.blocks` is non-empty/i);
   assert.match(skill, /no empty tab exists/i);
   assert.match(skill, /no placeholder `markdown` \/ note \/ banner block exists/i);
   assert.match(skill, /no block object contains `layout`/i);
   assert.match(skill, /block `key` values are unique/i);
-  assert.match(skill, /rewrite the blueprint before writing/i);
+  assert.match(skill, /rewrite .* before writing/i);
   assert.match(skill, /For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise .*ASCII-first.* prewrite preview/i);
   assert.match(skill, /ASCII-first/i);
   assert.match(skill, /ASCII wireframe/i);
@@ -92,6 +95,7 @@ test('skill docs keep the simplified routing structure', () => {
   assertRelativeMarkdownLinksExist('references/ascii-preview.md');
   assertRelativeMarkdownLinksExist('references/page-blueprint.md');
   assertRelativeMarkdownLinksExist('references/page-intent.md');
+  assertRelativeMarkdownLinksExist('references/reaction.md');
   assertRelativeMarkdownLinksExist('references/popup.md');
   assertRelativeMarkdownLinksExist('references/verification.md');
   assertRelativeMarkdownLinksExist('references/runtime-playbook.md');
@@ -113,7 +117,8 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(checklist, /default to exactly \*\*one tab\*\*/i);
   assert.match(checklist, /Summary.*Later.*备用.*tabs/i);
   assert.match(checklist, /markdown` \/ note \/ banner blocks/i);
-  assert.match(checklist, /Before the \*\*first\*\* `applyBlueprint`, run the authoring self-check/i);
+  assert.match(checklist, /Before the \*\*first\*\* `applyBlueprint`, run the local prepare-write gate[\s\S]*authoring self-check/i);
+  assert.match(checklist, /prepare-write gate/i);
   assert.match(checklist, /every `tab\.blocks` is a non-empty array/i);
   assert.match(checklist, /no empty \/ placeholder tab/i);
   assert.match(checklist, /no placeholder `markdown` \/ note \/ banner block/i);
@@ -162,6 +167,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(pageIntent, /Summary.*Later.*备用.*tabs/i);
   assert.match(pageIntent, /markdown` \/ note \/ banner blocks/i);
   assert.match(pageIntent, /run the authoring self-check/i);
+  assert.match(pageIntent, /prepare-write gate/i);
   assert.match(pageIntent, /ASCII-first/i);
   assert.match(pageIntent, /ASCII wireframe/i);
   assert.match(pageIntent, /Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview/i);
@@ -269,6 +275,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(normative, /interface` is empty \/ null/i);
   assert.match(normative, /show one ASCII-first preview from the same blueprint before the first write/i);
   assert.match(normative, /Direct execution after the preview is allowed/i);
+  assert.match(normative, /flow_surfaces_get_reaction_meta/i);
   assert.doesNotMatch(normative, /expectedFingerprint/);
   assert.doesNotMatch(normative, /bindKeys/);
   assert.doesNotMatch(normative, /verificationMode/);
@@ -284,6 +291,9 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(toolShapes, /getReactionMeta/);
   assert.match(toolShapes, /expectedFingerprint/);
   assert.match(toolShapes, /setFieldValueRules/);
+  assert.match(toolShapes, /setFieldLinkageRules/);
+  assert.match(toolShapes, /setBlockLinkageRules/);
+  assert.match(toolShapes, /setActionLinkageRules/);
   assert.match(toolShapes, /route-backed tab slots by array index/i);
   assert.match(toolShapes, /For `applyBlueprint`, `requestBody` is the page blueprint object itself/i);
   assert.match(toolShapes, /do \*\*not\*\* support generic `form`/i);
@@ -313,6 +323,17 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(toolShapes, /"resource": \{ "resourceBinding": "currentRecord" \}/);
   assert.match(toolShapes, /"popup": \{ "\$ref": "#\/popup" \}/);
   assert.match(toolShapes, /\{ "uid": "employeesTable" \}/);
+
+  const reaction = read('references/reaction.md');
+  assert.match(reaction, /Whole-page authoring/i);
+  assert.match(reaction, /Localized edit on an existing live page/i);
+  assert.match(reaction, /getReactionMeta/);
+  assert.match(reaction, /setFieldValueRules/);
+  assert.match(reaction, /setFieldLinkageRules/);
+  assert.match(reaction, /setBlockLinkageRules/);
+  assert.match(reaction, /setActionLinkageRules/);
+  assert.match(reaction, /details \/ subForm/i);
+  assert.match(reaction, /rules: \[\]/i);
   assert.match(toolShapes, /"target": \{ "key": "employeesTable" \}/);
 
   const popup = read('references/popup.md');
@@ -355,7 +376,9 @@ test('skill docs keep the simplified routing structure', () => {
   assert.doesNotMatch(asciiPreview, /Whole-page Draft Confirmation/i);
   assert.match(asciiPreview, /popup expansion depth is exactly \*\*1\*\*/i);
   assert.match(asciiPreview, /renderPageBlueprintAsciiPreview/);
+  assert.match(asciiPreview, /prepareApplyBlueprintRequest/);
   assert.match(asciiPreview, /nb-page-preview\.mjs/);
+  assert.match(asciiPreview, /--prepare-write/);
 
   const runtimePlaybook = read('references/runtime-playbook.md');
   assert.match(runtimePlaybook, /public `applyBlueprint` is key-oriented and structure-first/i);
@@ -402,6 +425,7 @@ test('skill docs keep the simplified routing structure', () => {
   assert.match(openaiYaml, /fields\[\] default to string/i);
   assert.match(openaiYaml, /layout only on tabs.*inline popup/i);
   assert.match(openaiYaml, /Before first applyBlueprint, self-check/i);
+  assert.match(openaiYaml, /prepare-write gate\/self-check/i);
   assert.match(openaiYaml, /Whole-page applyBlueprint must show one ASCII wireframe before .*write/i);
   assert.match(openaiYaml, /one .*wireframe/i);
   assert.match(openaiYaml, /popup depth 1/i);

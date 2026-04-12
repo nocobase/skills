@@ -35,7 +35,7 @@ The public `applyBlueprint` payload is:
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
 - if `reaction.items[]` is present, every reaction target must be a same-run local key / bind key, not a live uid
 - for form `fieldValue` / form-scene `fieldLinkage`, target the outer form block key/path, not the inner grid uid
-- only explicitly listed reaction items are written; omitted reaction slots stay unchanged
+- only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission
 - `rules: []` clears the targeted reaction slot
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
 - if `layout` is present, it must be an object; when layout is still uncertain, omit it instead of guessing
@@ -184,7 +184,8 @@ The skill may use:
 - `flow_surfaces_get` for normal structural inspection and post-write readback
 - `flow_surfaces_describe_surface` when a richer public tree snapshot helps analyze an existing surface
 - `flow_surfaces_catalog` when current-target capability is the question
-- `flow_surfaces_context` when popup/context variables are the question
+- `flow_surfaces_get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
+- `flow_surfaces_context` when popup/context variables or lower-level raw variable paths are the question
 - `collections:list` to narrow candidate collections
 - `collections:get(appends=["fields"])` as the default field truth
 - `collections.fields:get` only for known single-field follow-up when extra detail is still needed
