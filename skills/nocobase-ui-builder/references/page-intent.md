@@ -14,9 +14,10 @@ Use this file when the user says things like:
 Turn business intent into:
 
 1. one executable **inner page blueprint document**
-2. and, at actual MCP write time, one **tool-call envelope** of the form `{ "requestBody": <that object> }`
+2. and, at actual CLI write time, one raw JSON request body for `nocobase-ctl flow-surfaces apply-blueprint`
+3. and, only in MCP fallback, one **tool-call envelope** of the form `{ "requestBody": <that same object> }`
 
-This file focuses on the **inner page blueprint document**. For the actual MCP call shape, always pair it with [tool-shapes.md](./tool-shapes.md).
+This file focuses on the **inner page blueprint document**. For the actual CLI/API payload shape, always pair it with [tool-shapes.md](./tool-shapes.md).
 
 ## 2. Authoring Steps
 
@@ -27,9 +28,9 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 5. For each tab, decide major blocks first, then fields/actions/record actions.
 6. Keep popup behavior inline under the relevant field/action/record action.
 7. Assemble the final JSON page blueprint from [page-blueprint.md](./page-blueprint.md), using only canonical public names.
-8. Before the real `applyBlueprint` call, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`. If the gate catches extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, or broken custom `edit` popups, rewrite locally before the real write.
-9. Then open [tool-shapes.md](./tool-shapes.md) and wrap the blueprint under `requestBody` as an object.
-10. Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). Prefer the same local prepare-write gate because it emits that preview and the normalized write envelope together. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
+8. Before the real `applyBlueprint` call, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`. If the gate catches extra outer tabs, stringified body content, illegal tab keys, block-level `layout`, or broken custom `edit` popups, rewrite locally before the real write.
+9. Then open [tool-shapes.md](./tool-shapes.md) and prepare the blueprint as the raw CLI JSON body. Only in MCP fallback should that same object be wrapped under `requestBody`.
+10. Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). Prefer the same local prepare-write gate because it emits that preview and the normalized CLI body together. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
 
 ## 3. Authoring Heuristics
 
@@ -57,9 +58,10 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 - Before first write, run the local prepare-write gate, then self-check tabs count, non-empty `tab.blocks`, no empty tabs, no placeholder `markdown` / note / banner block, no block-level `layout`, unique block `key` values, simple-string `fields[]` by default, and exactly one `editForm` in every custom `edit` popup. If the gate or self-check fails, rewrite the blueprint before the first write.
 - If the page request also includes interaction logic, add it as top-level `reaction.items[]` in the same blueprint instead of inventing a second whole-page write.
 - In test runs, do not add destructive cleanup steps unless the user explicitly asked for deletion.
-- Do not stringify the final page blueprint when calling MCP. The correct mental model is:
+- Do not stringify the final page blueprint. The correct mental model is:
   - first author `const blueprint = { ... }`
-  - then call the tool with `{ requestBody: blueprint }`
+  - then pass that object as raw JSON through CLI `--body` / `--body-file`
+  - only in MCP fallback call the tool with `{ requestBody: blueprint }`
   - never with `{ requestBody: JSON.stringify(blueprint) }`
 
 ## 4. Prewrite Output Pattern
@@ -71,7 +73,7 @@ Before the first whole-page `applyBlueprint`, present:
 3. the assumptions outside the JSON payload only when they matter
 4. the executable JSON page blueprint only when the user explicitly asks for it, or when a technical review is still needed
 5. if the request needs review, stop after the preview; otherwise continue immediately to execution
-6. when executing, the actual MCP envelope must still come from `tool-shapes.md`, not by sending the draft JSON directly
+6. when executing, the actual CLI request body must still come from `tool-shapes.md`; only MCP fallback uses the extra `{ requestBody: ... }` envelope
 
 ## 5. Interaction / Reaction Intent
 

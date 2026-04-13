@@ -8,6 +8,10 @@ Use this file when the user asks for interaction logic such as:
 - block show / hide
 - action visible / enabled / disabled
 
+Canonical front door is `nocobase-ctl flow-surfaces`. This file keeps the backend reaction families and payload rules. Use CLI `--help` to discover the exact generated subcommand/flag surface, then come back here for the rule details.
+
+For localized CLI discovery/writes, send the raw business object through `--body` / `--body-file`. Only in MCP fallback should that same object be wrapped under `requestBody`.
+
 This file is intentionally progressive: start from the quick route, then open only the recipe you need.
 
 Use this file as the detailed reaction reference. Other skill references should mainly route here rather than restating all payload rules.
@@ -18,7 +22,7 @@ Use this file as the detailed reaction reference. Other skill references should 
 
 If the interaction logic belongs to the same page you are building now:
 
-- use top-level `applyBlueprint.requestBody.reaction.items[]`
+- use `nocobase-ctl flow-surfaces apply-blueprint` with top-level `reaction.items[]`
 - each reaction item only accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
 - target the block/action by the same-run local key / bind key
 - give every referenced tab / block / action an explicit stable `key` path in the same blueprint
@@ -30,10 +34,10 @@ If the interaction logic belongs to the same page you are building now:
 
 If you need to add or change interaction logic on an existing surface:
 
-1. `getReactionMeta`
+1. `nocobase-ctl flow-surfaces get-reaction-meta`
 2. choose the capability by `kind`
 3. reuse its `fingerprint`
-4. call the matching `set*Rules`
+4. call the matching `nocobase-ctl flow-surfaces set-*`
 
 ### Discovery priority
 
@@ -58,15 +62,15 @@ Notes:
 
 ## 3. Discovery Flow
 
-Localized reaction edits should follow this shape:
+Localized reaction edits should follow this CLI request body:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-form-uid" }
-  }
+  "target": { "uid": "employee-form-uid" }
 }
 ```
+
+Only in MCP fallback should that same business object be wrapped under `requestBody`.
 
 Read `capabilities[]`:
 
@@ -123,9 +127,7 @@ Localized write:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-form-uid" }
-  }
+  "target": { "uid": "employee-form-uid" }
 }
 ```
 
@@ -133,21 +135,19 @@ then:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-form-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "key": "defaultStatus",
-        "targetPath": "status",
-        "mode": "default",
-        "value": {
-          "source": "literal",
-          "value": "draft"
-        }
+  "target": { "uid": "employee-form-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "defaultStatus",
+      "targetPath": "status",
+      "mode": "default",
+      "value": {
+        "source": "literal",
+        "value": "draft"
       }
-    ]
-  }
+    }
+  ]
 }
 ```
 
@@ -281,30 +281,28 @@ Use `actionLinkage` for button state:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "refresh-action-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "key": "disableRefresh",
-        "when": {
-          "logic": "$and",
-          "items": [
-            {
-              "path": "params.query.readonly",
-              "operator": "$isTruly"
-            }
-          ]
-        },
-        "then": [
+  "target": { "uid": "refresh-action-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "disableRefresh",
+      "when": {
+        "logic": "$and",
+        "items": [
           {
-            "type": "setActionState",
-            "state": "disabled"
+            "path": "params.query.readonly",
+            "operator": "$isTruly"
           }
         ]
-      }
-    ]
-  }
+      },
+      "then": [
+        {
+          "type": "setActionState",
+          "state": "disabled"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -316,9 +314,7 @@ Typical localized flow:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-details-uid" }
-  }
+  "target": { "uid": "employee-details-uid" }
 }
 ```
 
@@ -326,32 +322,30 @@ then:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-details-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "key": "hideArchivedReason",
-        "when": {
-          "logic": "$and",
-          "items": [
-            {
-              "path": "record.status",
-              "operator": "$eq",
-              "value": "archived"
-            }
-          ]
-        },
-        "then": [
+  "target": { "uid": "employee-details-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "hideArchivedReason",
+      "when": {
+        "logic": "$and",
+        "items": [
           {
-            "type": "setFieldState",
-            "fieldPaths": ["archivedReason"],
-            "state": "hidden"
+            "path": "record.status",
+            "operator": "$eq",
+            "value": "archived"
           }
         ]
-      }
-    ]
-  }
+      },
+      "then": [
+        {
+          "type": "setFieldState",
+          "fieldPaths": ["archivedReason"],
+          "state": "hidden"
+        }
+      ]
+    }
+  ]
 }
 ```
 

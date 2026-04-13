@@ -2,6 +2,8 @@
 
 Use this file to verify inspect/prewrite output and post-write persistence.
 
+Canonical front door is `nocobase-ctl flow-surfaces`. Treat the readback routes below as CLI-first families; use MCP only as fallback after the CLI path is unavailable.
+
 ## 1. Inspect / Prewrite Verification
 
 ### Core Rules
@@ -9,8 +11,8 @@ Use this file to verify inspect/prewrite output and post-write persistence.
 - `inspect` and page-blueprint drafting are read-only.
 - whole-page `applyBlueprint` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete blueprint draft, whether execution pauses for review or continues immediately.
 - For menu questions, default to the visible menu tree first.
-- For initialized pages/popup trees, default to `get` first.
-- Use `describeSurface` only when its richer public tree is actually needed.
+- For initialized pages/popup trees, default to `nocobase-ctl flow-surfaces get` first.
+- Use `nocobase-ctl flow-surfaces describe-surface` only when its richer public tree is actually needed.
 - Do not describe a draft as if a write already succeeded.
 
 ### Draft Acceptance
@@ -39,17 +41,17 @@ A page-blueprint draft is good when:
 
 | operation | minimum readback |
 | --- | --- |
-| `applyBlueprint` create | menu tree if menu placement matters + `get({ pageSchemaUid })` |
-| `applyBlueprint` replace | `get({ pageSchemaUid })` and affected tab/content checks |
-| `applyBlueprint` with `reaction.items[]` | `get({ pageSchemaUid })` plus the affected reaction slot in readback |
-| `createPage` | `get({ pageSchemaUid })` |
-| `addTab/updateTab/moveTab/removeTab` | page or tab readback |
-| `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | popup page/tab readback |
-| `compose/addBlock/addField/addAction/addRecordAction` | direct parent/target readback |
-| `configure/updateSettings` | modified target readback |
-| `getReactionMeta` + `set*Rules` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
-| `moveNode/removeNode` | parent/target readback |
-| `updateMenu` / `createMenu` | menu tree when placement matters |
+| `apply-blueprint` create | menu tree if menu placement matters + `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` replace | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` and affected tab/content checks |
+| `apply-blueprint` with `reaction.items[]` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` plus the affected reaction slot in readback |
+| `create-page` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `add-tab` / `update-tab` / `move-tab` / `remove-tab` | page or tab readback |
+| `add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | popup page/tab readback |
+| `compose` / `add-block` / `add-field` / `add-action` / `add-record-action` | direct parent/target readback |
+| `configure` / `update-settings` | modified target readback |
+| `get-reaction-meta` + `set-*` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
+| `move-node` / `remove-node` | parent/target readback |
+| `update-menu` / `create-menu` | menu tree when placement matters |
 
 ### Reaction-specific readback
 

@@ -2,7 +2,9 @@
 
 This file defines the simplified public **page-structure JSON blueprint** used by `applyBlueprint`.
 
-This file is for authoring the **inner page blueprint document**. It is **not** the primary tool-call cookbook. For the actual MCP invocation shape, always read [tool-shapes.md](./tool-shapes.md) and start from its **Tool-call envelope** examples.
+Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file defines the inner page document that the CLI eventually sends to the backend action.
+
+This file is for authoring the **inner page blueprint document**. It is **not** the primary CLI cookbook. For the actual CLI request-body shape, and for the MCP fallback envelope when needed, always read [tool-shapes.md](./tool-shapes.md).
 
 ## 1. Core Rules
 
@@ -29,11 +31,12 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 Important:
 
 - This file describes the **inner page blueprint document** only.
-- When you call `flow_surfaces_apply_blueprint`, put this document under `requestBody` as an **object**.
-- Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
-- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the outer MCP tool-call envelope.
-- If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page blueprint blindly.
-- Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner blueprint only.
+- In CLI-first execution, pass this document itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
+- Only in MCP fallback should that same object be wrapped under `requestBody` as an **object**.
+- Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
+- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the MCP fallback tool-call envelope.
+- If the CLI returns request-body validation errors, first fix the raw body shape and chosen command. If MCP fallback returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer fallback envelope.
+- Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint and also as the CLI raw body.
 
 ## 2. Top-level Shape
 

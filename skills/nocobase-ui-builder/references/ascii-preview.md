@@ -57,7 +57,7 @@ Use the zero-dependency preview helper for deterministic output:
 
 The CLI/helper should prefer the inner page blueprint object. If it receives an outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
 
-For the **first real write**, prefer the prepare-write helper/CLI rather than preview-only mode. It should use the same inner blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return the normalized `{ requestBody: <blueprint> }` tool-call envelope only when the gate passes.
+For the **first real write**, prefer the prepare-write helper/CLI rather than preview-only mode. It should use the same inner blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return the normalized CLI raw body only when the gate passes. If MCP fallback is later required, wrap that same object under `requestBody` according to [tool-shapes.md](./tool-shapes.md).
 
 The local prepare-write gate should reject at least:
 

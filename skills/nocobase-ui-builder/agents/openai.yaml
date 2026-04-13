@@ -1,13 +1,13 @@
 interface:
   display_name: "NocoBase UI Builder"
-  short_description: "Build Modern pages with simplified applyBlueprint or low-level flow-surfaces APIs"
-  default_prompt: "Write path: create/replace -> applyBlueprint; local -> low-level APIs. Whole-page applyBlueprint must show one ASCII wireframe before write (popup depth 1, JSON on request); unless review is needed, continue in the same run. Before first applyBlueprint, run local prepare-write gate/self-check first. requestBody must be an object. Single-page=1 real tab; no placeholder tabs or markdown/note/banner blocks. Never create another same-title group; prefer routeId, mention routeId in preview. fields[] default to string; use popup/target/renderer/type objects only when collections:get(appends=[\"fields\"]) shows non-empty interface. layout only on tabs/inline popup. Before first applyBlueprint, self-check: tab.blocks non-empty, no block layout, one editForm per custom edit popup. Prefer field popup for click-to-open. associatedRecords + associationField, string field.target, no generic form, no destructive cleanup unless asked."
+  short_description: "Build Modern pages with CLI-first flow-surfaces while keeping API payload docs as reference and fallback"
+  default_prompt: "Canonical front door: `nocobase-ctl flow-surfaces`. Local prerequisite: `nocobase-ctl` on PATH; verify `nocobase-ctl --help` and `nocobase-ctl env --help` before runtime work. If CLI exists but env/auth/runtime is not ready, repair the CLI path instead of switching to MCP. Whole-page write -> `apply-blueprint` after local prepare-write gate + ASCII wireframe. Localized edit -> matching `flow-surfaces` command. Reaction -> `get-reaction-meta` then matching `set-*` rules. Keep single-page=1 real tab, no placeholder tabs or markdown/note/banner blocks, fields[] default to string, layout only on tabs/inline popup, prefer routeId for existing groups, prefer field popup for click-to-open, use associatedRecords+associationField, no generic form, one editForm per custom edit popup, no destructive cleanup unless asked. API/MCP docs remain payload mapping and fallback only."
 
 dependencies:
   tools:
     - type: "mcp"
       value: "nocobase"
-      description: "NocoBase MCP server for Modern-page UI operations plus read-only schema discovery"
+      description: "NocoBase MCP server remains the backend contract source and fallback path for Modern-page UI operations"
 
 policy:
   allow_implicit_invocation: true

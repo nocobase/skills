@@ -1,17 +1,27 @@
 # Tool Shapes
 
-This file summarizes the minimal request shapes most often needed by this skill.
+This file summarizes the request shapes most often needed by this skill.
 
-## 0. Global Envelope Rule
+Use it together with:
 
-- `flow_surfaces_get` is the common exception in this skill: it uses top-level locator fields directly.
-- Most other `flow_surfaces_*` tools used here expect the business payload under `requestBody`.
-- Unless a section explicitly says **Inner payload only**, prefer copying the **Tool-call envelope** examples, not the inner object by itself.
-- For `applyBlueprint`, always start from the tool-call envelope in this file. Do **not** start from example JSON in `page-blueprint.md`.
-- Never stringify `requestBody`.
+- [cli-command-surface.md](./cli-command-surface.md) for the canonical CLI command families
+- [transport-crosswalk.md](./transport-crosswalk.md) when you need the matching MCP fallback tool family
+- [page-blueprint.md](./page-blueprint.md) and [reaction.md](./reaction.md) for the inner business object rules
+
+Canonical front door is `nocobase-ctl`. Use this file in two layers:
+
+1. the **CLI request body / locator shape** you actually send through `nocobase-ctl flow-surfaces`
+2. the **MCP fallback mapping** you only use when the CLI path is unavailable or cannot expose the required runtime command family after repair
+
+## 0. Global Rule
+
+- `nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body.
+- Most other body-based `flow-surfaces` commands take the raw business object through CLI `--body` / `--body-file`.
+- Only in MCP fallback should that same business object be wrapped under `requestBody`.
+- Never stringify the business object.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
-- For `applyBlueprint`, `requestBody` is the page blueprint object itself; do not wrap it again and do not flatten it to top-level fields.
+- For `applyBlueprint`, the page blueprint object itself is the CLI request body. Do not wrap it again.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs.
@@ -22,26 +32,13 @@ This file summarizes the minimal request shapes most often needed by this skill.
 Safe mental model:
 
 1. author the inner business object
-2. keep it as an object in memory
-3. call MCP with `{ "requestBody": <that same object> }`
-4. never transform it with `JSON.stringify(...)`
+2. send that same object as raw JSON through CLI `--body` / `--body-file`, or use locator flags when the command is bodyless
+3. only in MCP fallback wrap that same object under `requestBody`
+4. never transform the business object into a stringified nested `requestBody`
 
 Common wrong shapes:
 
-```json
-{
-  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
-}
-```
-
-```json
-{
-  "target": { "uid": "table-block-uid" },
-  "changes": { "pageSize": 20 }
-}
-```
-
-The second example is wrong because `configure` expects:
+Wrong CLI body:
 
 ```json
 {
@@ -52,28 +49,48 @@ The second example is wrong because `configure` expects:
 }
 ```
 
-## 1. Inspect Reads
+Correct CLI body for `configure`:
+
+```json
+{
+  "target": { "uid": "table-block-uid" },
+  "changes": { "pageSize": 20 }
+}
+```
+
+Wrong fallback envelope:
+
+```json
+{
+  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
+}
+```
+
+## 1. CLI Shapes
 
 ### `get`
 
 Use `get` for normal structural inspection and post-write readback.
 
+- no JSON body
+- pass locator fields as CLI flags such as `--page-schema-uid`, `--route-id`, `--tab-schema-uid`, or `--uid`
+
+Locator shape:
+
 ```json
 { "pageSchemaUid": "employees-page-schema" }
 ```
 
-### `describeSurface`
+### `describe-surface`
 
-Use `describeSurface` only when its richer public tree helps analyze an existing surface.
+Use `describe-surface` only when its richer public tree helps analyze an existing surface.
 
-Tool-call envelope:
+CLI request body:
 
 ```json
 {
-  "requestBody": {
-    "locator": {
-      "pageSchemaUid": "employees-page-schema"
-    }
+  "locator": {
+    "pageSchemaUid": "employees-page-schema"
   }
 }
 ```
@@ -82,14 +99,12 @@ Tool-call envelope:
 
 Use `catalog` when current-target capability is the question.
 
-Tool-call envelope:
+CLI request body:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "table-block-uid" },
-    "sections": ["fields"]
-  }
+  "target": { "uid": "table-block-uid" },
+  "sections": ["fields"]
 }
 ```
 
@@ -97,69 +112,36 @@ Wrong:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "root" },
-    "sections": ["fields"]
-  }
+  "target": { "uid": "root" },
+  "sections": ["fields"]
 }
 ```
 
 If you do not yet have a real target uid, read structure first; do not guess `"root"`.
 
-### `getReactionMeta`
+### `get-reaction-meta`
 
-Use `getReactionMeta` as the first discovery read for default values, linkage, computed fields, block visibility, or action state.
+Use `get-reaction-meta` as the first discovery read for default values, linkage, computed fields, block visibility, or action state.
 
-Tool-call envelope:
+CLI request body:
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-form-uid" }
-  }
+  "target": { "uid": "employee-form-uid" }
 }
 ```
 
 Notes:
 
 - For form `fieldValue` / `fieldLinkage`, keep targeting the outer form block uid.
-- Reuse the returned capability `fingerprint` in the matching `set*Rules` write.
+- Reuse the returned capability `fingerprint` in the matching `set-*` write.
 - Use `flow_surfaces_context` only when you still need lower-level ctx paths beyond the returned metadata.
 
-## 2. `applyBlueprint` Create
+## 2. `applyBlueprint`
 
-Tool-call envelope:
+### Create
 
-```json
-{
-  "requestBody": {
-    "version": "1",
-    "mode": "create",
-    "navigation": {
-      "group": { "routeId": 12 },
-      "item": { "title": "Employees" }
-    },
-    "page": {
-      "title": "Employees",
-      "documentTitle": "Employees workspace"
-    },
-    "tabs": [
-      {
-        "title": "Overview",
-        "blocks": [
-          {
-            "type": "table",
-            "collection": "employees",
-            "fields": ["nickname"]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Inner Blueprint only — **NEVER send this block alone to MCP**:
+CLI request body:
 
 ```json
 {
@@ -188,79 +170,113 @@ Inner Blueprint only — **NEVER send this block alone to MCP**:
 }
 ```
 
-When the target group is not already known, `navigation.group.title` is also valid; applyBlueprint will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `updateMenu` instead.
+When the target group is not already known, `navigation.group.title` is also valid; applyBlueprint will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `update-menu` instead.
 
 When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
 
 ```json
 {
-  "requestBody": {
-    "version": "1",
-    "mode": "create",
-    "tabs": [
-      {
-        "title": "Overview",
-        "blocks": [
-          {
-            "type": "table",
-            "collection": "employees",
-            "fields": [
-              {
-                "field": "department.title",
-                "popup": {
-                  "title": "Department details",
-                  "blocks": [
-                    {
-                      "type": "details",
-                      "resource": {
-                        "binding": "currentRecord",
-                        "collectionName": "departments"
-                      },
-                      "fields": ["title"]
-                    }
-                  ]
-                }
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "table",
+          "collection": "employees",
+          "fields": [
+            {
+              "field": "department.title",
+              "popup": {
+                "title": "Department details",
+                "blocks": [
+                  {
+                    "type": "details",
+                    "resource": {
+                      "binding": "currentRecord",
+                      "collectionName": "departments"
+                    },
+                    "fields": ["title"]
+                  }
+                ]
               }
-            ]
-          }
-        ]
-      }
-    ]
-  }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
 ```
 
 Readback commonly normalizes this to clickable-field / `clickToOpen` semantics. If the requirement explicitly says "details button" or "action column", use an action / recordAction instead.
 
+For popup relation tables, prefer the canonical `resource.binding = "associatedRecords"` + `resource.associationField = "<relationField>"` shape:
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "details",
+          "collection": "users",
+          "fields": [
+            {
+              "field": "roles",
+              "popup": {
+                "blocks": [
+                  {
+                    "type": "table",
+                    "resource": {
+                      "binding": "associatedRecords",
+                      "collectionName": "roles",
+                      "associationField": "roles"
+                    },
+                    "fields": ["name"]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
 For custom edit popups, use `editForm`, not `form`:
 
 ```json
 {
-  "requestBody": {
-    "version": "1",
-    "mode": "create",
-    "tabs": [
-      {
-        "title": "Overview",
-        "blocks": [
-          {
-            "type": "table",
-            "collection": "employees",
-            "recordActions": [
-              {
-                "type": "edit",
-                "popup": {
-                  "blocks": [
-                    { "key": "editForm", "type": "editForm", "fields": ["nickname"], "actions": ["submit"] }
-                  ]
-                }
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        {
+          "type": "table",
+          "collection": "employees",
+          "recordActions": [
+            {
+              "type": "edit",
+              "popup": {
+                "blocks": [
+                  { "key": "editForm", "type": "editForm", "fields": ["nickname"], "actions": ["submit"] }
+                ]
               }
-            ]
-          }
-        ]
-      }
-    ]
-  }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -270,71 +286,36 @@ Whole-page reaction example:
 
 ```json
 {
-  "requestBody": {
-    "version": "1",
-    "mode": "create",
-    "tabs": [
-      {
-        "key": "main",
-        "title": "Overview",
-        "blocks": [
-          {
-            "key": "employeeForm",
-            "type": "createForm",
-            "collection": "employees",
-            "fields": ["status"],
-            "actions": ["submit"]
-          }
-        ]
-      }
-    ],
-    "reaction": {
-      "items": [
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "key": "main",
+      "title": "Overview",
+      "blocks": [
         {
-          "type": "setFieldValueRules",
-          "target": "main.employeeForm",
-          "rules": [
-            {
-              "targetPath": "status",
-              "mode": "default",
-              "value": {
-                "source": "literal",
-                "value": "draft"
-              }
-            }
-          ]
+          "key": "employeeForm",
+          "type": "createForm",
+          "collection": "employees",
+          "fields": ["status"],
+          "actions": ["submit"]
         }
       ]
     }
-  }
-}
-```
-
-## 3. `applyBlueprint` Replace
-
-`replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
-
-Tool-call envelope:
-
-```json
-{
-  "requestBody": {
-    "version": "1",
-    "mode": "replace",
-    "target": {
-      "pageSchemaUid": "employees-page-schema"
-    },
-    "page": {
-      "title": "Employees workspace"
-    },
-    "tabs": [
+  ],
+  "reaction": {
+    "items": [
       {
-        "title": "Overview",
-        "blocks": [
+        "type": "setFieldValueRules",
+        "target": "main.employeeForm",
+        "rules": [
           {
-            "type": "table",
-            "collection": "employees",
-            "fields": ["nickname"]
+            "targetPath": "status",
+            "mode": "default",
+            "value": {
+              "source": "literal",
+              "value": "draft"
+            }
           }
         ]
       }
@@ -343,7 +324,11 @@ Tool-call envelope:
 }
 ```
 
-Inner Blueprint only — **NEVER send this block alone to MCP**:
+### Replace
+
+`replace` rebuilds existing route-backed tab slots by array index. It does not use tab `key` to match old tabs.
+
+CLI request body:
 
 ```json
 {
@@ -370,221 +355,280 @@ Inner Blueprint only — **NEVER send this block alone to MCP**:
 }
 ```
 
-## 4. Localized Edit Examples
+## 3. Localized Edit CLI Bodies
 
 ### `compose`
 
-Tool-call envelope:
-
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "tab-schema-uid" },
-    "mode": "append",
-    "blocks": [
-      {
-        "key": "employeesTable",
-        "type": "table",
-        "resource": {
-          "dataSourceKey": "main",
-          "collectionName": "employees"
-        },
-        "fields": ["nickname"]
-      }
-    ]
-  }
+  "target": { "uid": "tab-schema-uid" },
+  "mode": "append",
+  "blocks": [
+    {
+      "key": "employeesTable",
+      "type": "table",
+      "resource": {
+        "dataSourceKey": "main",
+        "collectionName": "employees"
+      },
+      "fields": ["nickname"]
+    }
+  ]
 }
 ```
 
 ### `configure`
 
-Tool-call envelope:
+```json
+{
+  "target": { "uid": "table-block-uid" },
+  "changes": {
+    "pageSize": 20
+  }
+}
+```
+
+### `set-field-value-rules`
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "table-block-uid" },
-    "changes": {
-      "pageSize": 20
+  "target": { "uid": "employee-form-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "targetPath": "status",
+      "mode": "default",
+      "value": {
+        "source": "literal",
+        "value": "draft"
+      }
     }
-  }
+  ]
 }
 ```
 
-### `setFieldValueRules`
-
-Tool-call envelope:
+### `set-field-linkage-rules`
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "employee-form-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "targetPath": "status",
-        "mode": "default",
-        "value": {
-          "source": "literal",
-          "value": "draft"
-        }
-      }
-    ]
-  }
-}
-```
-
-### `setFieldLinkageRules`
-
-Tool-call envelope:
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "employee-form-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "key": "recomputeTotals",
-        "then": [
-          {
-            "type": "assignField",
-            "items": [
-              {
-                "targetPath": "subtotal",
-                "value": {
-                  "source": "runjs",
-                  "version": "v2",
-                  "code": "const amount = Number(ctx.formValues?.amount || 0); return amount;"
-                }
-              },
-              {
-                "targetPath": "total",
-                "value": {
-                  "source": "runjs",
-                  "version": "v2",
-                  "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
-                }
+  "target": { "uid": "employee-form-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "recomputeTotals",
+      "then": [
+        {
+          "type": "assignField",
+          "items": [
+            {
+              "targetPath": "subtotal",
+              "value": {
+                "source": "runjs",
+                "version": "v2",
+                "code": "const amount = Number(ctx.formValues?.amount || 0); return amount;"
               }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### `setBlockLinkageRules`
-
-Tool-call envelope:
-
-```json
-{
-  "requestBody": {
-    "target": { "uid": "employees-table-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "key": "hideTable",
-        "when": {
-          "logic": "$and",
-          "items": [
+            },
             {
-              "path": "params.query.hideTable",
-              "operator": "$isTruly"
+              "targetPath": "total",
+              "value": {
+                "source": "runjs",
+                "version": "v2",
+                "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
+              }
             }
           ]
-        },
-        "then": [
+        }
+      ]
+    }
+  ]
+}
+```
+
+### `set-block-linkage-rules`
+
+```json
+{
+  "target": { "uid": "employees-table-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "hideTable",
+      "when": {
+        "logic": "$and",
+        "items": [
           {
-            "type": "setBlockState",
-            "state": "hidden"
+            "path": "params.query.hideTable",
+            "operator": "$isTruly"
           }
         ]
-      }
-    ]
-  }
+      },
+      "then": [
+        {
+          "type": "setBlockState",
+          "state": "hidden"
+        }
+      ]
+    }
+  ]
 }
 ```
 
-### `setActionLinkageRules`
-
-Tool-call envelope:
+### `set-action-linkage-rules`
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "refresh-action-uid" },
-    "expectedFingerprint": "<from getReactionMeta>",
-    "rules": [
-      {
-        "key": "disableRefresh",
-        "when": {
-          "logic": "$and",
-          "items": [
-            {
-              "path": "params.query.readonly",
-              "operator": "$isTruly"
-            }
-          ]
-        },
-        "then": [
+  "target": { "uid": "refresh-action-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "disableRefresh",
+      "when": {
+        "logic": "$and",
+        "items": [
           {
-            "type": "setActionState",
-            "state": "disabled"
+            "path": "params.query.readonly",
+            "operator": "$isTruly"
           }
         ]
-      }
-    ]
-  }
+      },
+      "then": [
+        {
+          "type": "setActionState",
+          "state": "disabled"
+        }
+      ]
+    }
+  ]
 }
 ```
 
-### `addTab`
+### `add-tab`
 
-Tool-call envelope:
+Use when the task is to add one new route-backed tab under an existing page.
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "page-uid" },
-    "title": "Summary"
-  }
+  "target": { "uid": "page-root-uid" },
+  "title": "Analytics"
 }
 ```
 
-### `moveTab`
+### `move-tab`
 
-Tool-call envelope:
+Use when the task is to reorder sibling outer tabs on the same page.
 
 ```json
 {
-  "requestBody": {
-    "sourceUid": "summary-tab-uid",
-    "targetUid": "overview-tab-uid",
-    "position": "before"
-  }
+  "sourceUid": "analytics-tab-uid",
+  "targetUid": "overview-tab-uid",
+  "position": "before"
 }
 ```
 
-### `removeNode`
+Both `sourceUid` and `targetUid` must come from live readback; do not infer them from tab titles alone.
 
-Tool-call envelope:
+### `remove-node`
+
+Use when the task is to remove one existing block / field / action subtree from a live surface.
 
 ```json
 {
-  "requestBody": {
-    "target": { "uid": "banner-block-uid" }
-  }
+  "target": { "uid": "banner-block-uid" }
 }
 ```
 
-## 5. Canonical Public `applyBlueprint` Details
+### `update-menu`
 
-### Nested `resource` object
+Use when an existing group/item metadata must change, especially when `applyBlueprint` exact group targeting through `navigation.group.routeId` is insufficient.
 
-At block root, use `collection`. Inside nested `resource`, use `resource.collectionName`.
+```json
+{
+  "menuRouteId": "workspace-route-id",
+  "title": "Workspace",
+  "icon": "TableOutlined"
+}
+```
+
+## 4. Common Invalid Public Shapes
+
+These are common invalid shapes that should be caught locally before the real write.
+
+Wrong: block-level `layout`
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "blocks": [
+        {
+          "key": "employeesTable",
+          "type": "table",
+          "collection": "employees",
+          "layout": { "rows": [["employeesTable"]] }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Wrong: layout-cell `uid` / `ref` / `$ref`
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "layout": { "rows": [[{ "uid": "employeesTable" }]] },
+      "blocks": [
+        { "key": "employeesTable", "type": "table", "collection": "employees" }
+      ]
+    }
+  ]
+}
+```
+
+Wrong: deprecated aliases such as block `collectionName`, field `fieldPath`, or nested `resourceBinding`
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "blocks": [
+        {
+          "type": "table",
+          "collectionName": "employees",
+          "fields": [{ "fieldPath": "nickname" }]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Wrong: placeholder tab or placeholder `markdown` / note / banner content in a normal single-page request
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [{ "type": "table", "collection": "employees" }]
+    },
+    {
+      "title": "Later",
+      "blocks": []
+    }
+  ]
+}
+```
 
 ```json
 {
@@ -594,132 +638,98 @@ At block root, use `collection`. Inside nested `resource`, use `resource.collect
     {
       "title": "Overview",
       "blocks": [
-        {
-          "key": "employeesTable",
-          "type": "table",
-          "collection": "employees",
-          "recordActions": [
-            {
-              "type": "view",
-              "popup": {
-                "blocks": [
-                  {
-                    "key": "employeeDetails",
-                    "type": "details",
-                    "resource": {
-                      "binding": "currentRecord",
-                      "collectionName": "employees"
-                    },
-                    "fields": ["nickname"]
-                  }
-                ],
-                "layout": {
-                  "rows": [["employeeDetails"]]
-                }
-              }
-            }
-          ]
-        }
-      ],
-      "layout": {
-        "rows": [[{ "key": "employeesTable", "span": 24 }]]
-      }
+        { "type": "table", "collection": "employees" },
+        { "type": "markdown", "title": "Later notes" }
+      ]
     }
   ]
 }
 ```
 
-Notes:
-
-- prefer `navigation.group.routeId` whenever an existing destination group is already known.
-- `navigation.group.routeId` is exact targeting only; do not mix it with group metadata.
-- `layout` is allowed on `tabs[]` and inline `popup` documents only; block objects do **not** accept `layout`.
-- for popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
-- the convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name.
-- on record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
-- in `fields[]`, prefer simple string field names; only upgrade a field to an object when the extra behavior is actually needed.
-- `field.target` is only a string block key.
-- layout cells are only `"blockKey"` or `{ "key": "blockKey", "span": 12 }`.
-- public `applyBlueprint` never uses `ref` / `$ref` / `uid` selectors.
-
-Canonical popup relation-table example:
+Wrong: object-style `field.target`
 
 ```json
 {
-  "type": "table",
-  "resource": {
-    "binding": "associatedRecords",
-    "associationField": "roles",
-    "collectionName": "roles"
-  },
-  "fields": ["title", "name"]
+  "version": "1",
+  "mode": "create",
+  "tabs": [
+    {
+      "blocks": [
+        {
+          "key": "employeesTable",
+          "type": "table",
+          "collection": "employees",
+          "fields": [
+            {
+              "field": "nickname",
+              "target": { "key": "employeesTable" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
 ```
 
-## 6. Common Invalid Public `applyBlueprint` Shapes
+## 5. MCP Fallback Mapping
 
-These are invalid for the new public `applyBlueprint` path:
+Only when the CLI path is unavailable, or after repair still cannot expose the required runtime command family, switch to the MCP/tool-call envelopes below.
+
+### `get`
+
+`flow_surfaces_get` uses top-level locator fields directly:
 
 ```json
-{ "unexpectedEnvelope": { "version": "1" } }
+{ "pageSchemaUid": "employees-page-schema" }
 ```
 
-```json
-{ "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}" }
-```
+### Most other `flow_surfaces_*` backend actions
+
+Wrap the same business object under `requestBody`.
+
+`describeSurface` fallback:
 
 ```json
-{ "version": "1", "mode": "replace", "target": { "mode": "update-page" } }
+{
+  "requestBody": {
+    "locator": {
+      "pageSchemaUid": "employees-page-schema"
+    }
+  }
+}
 ```
 
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collectionName": "employees" }] }] }
-```
+`applyBlueprint` fallback:
 
 ```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "fields": [{ "fieldPath": "nickname" }] }] }] }
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          {
+            "type": "table",
+            "collection": "employees",
+            "fields": ["nickname"]
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "details", "resource": { "collection": "employees" } }] }] }
-```
+`configure` fallback:
 
 ```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "details", "resource": { "resourceBinding": "currentRecord" } }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "recordActions": [{ "type": "view", "popup": { "$ref": "#/popup" } }] }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "navigation": { "group": { "routeId": 12, "icon": "UserOutlined" }, "item": { "title": "Employees" } }, "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "collection": "employees", "fields": ["nickname"] }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "resource": { "binding": "currentRecord", "associationPathName": "manager.roles", "collectionName": "roles" }, "fields": ["title"] }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "layout": { "rows": [[{ "uid": "employeesTable" }]] }, "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees" }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees", "layout": { "rows": [["employeesTable"]] } }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "key": "employeesTable", "type": "table", "collection": "employees", "fields": [{ "field": "nickname", "type": "filter", "target": { "key": "employeesTable" } }] }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "collection": "employees" }] }, { "title": "Later", "blocks": [] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "title": "Overview", "blocks": [{ "type": "table", "collection": "employees" }, { "type": "markdown", "title": "Later notes" }] }] }
-```
-
-```json
-{ "version": "1", "mode": "create", "tabs": [{ "blocks": [{ "type": "table", "collection": "employees", "fields": [{ "field": "nickname", "name": "Nickname" }] }] }] }
+{
+  "requestBody": {
+    "target": { "uid": "table-block-uid" },
+    "changes": { "pageSize": 20 }
+  }
+}
 ```
