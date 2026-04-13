@@ -1,8 +1,8 @@
-# Install Runbook
+﻿# Install Runbook
 
 ## Goal
 
-Install and start NocoBase in one environment with minimal friction.
+Install and start NocoBase in one environment with minimal friction, then bootstrap local `nocobase-ctl` environment for downstream CLI-first skills.
 
 ## Contents
 
@@ -11,8 +11,9 @@ Install and start NocoBase in one environment with minimal friction.
 3. Quick Mode (Recommended)
 4. Standard Mode
 5. Post-Install Verification
-6. Final MCP Auto-Connect Stage
-7. Known Pitfalls
+6. Final CLI Bootstrap Stage (Default)
+7. Optional MCP Stage (Explicit Only)
+8. Known Pitfalls
 
 ## Method Selection
 
@@ -46,7 +47,7 @@ Flow:
 3. Prepare `.env` with a random `APP_KEY` (required), optional `APP_PORT`, and optional `NOCOBASE_APP_IMAGE`.
 4. Start app stack.
 5. Verify app is reachable and login page loads.
-6. Run Final MCP Auto-Connect Stage by default (`mcp_required=true`), unless user explicitly disables it.
+6. Run Final CLI Bootstrap Stage.
 
 APP_KEY generation examples:
 
@@ -137,60 +138,57 @@ Next-step instruction rule:
 2. If root credentials are customized by env/flags, output configured account and password source.
 3. Always add password rotation reminder after first successful login.
 
-Example next-step text:
-
-```text
-浏览器打开 http://127.0.0.1:13000 完成首次登录。
-默认账号：admin@nocobase.com
-默认密码：admin123
-首次登录后请立即修改默认密码。
-```
-
-## Final MCP Auto-Connect Stage
+## Final CLI Bootstrap Stage (Default)
 
 For install/deploy tasks, run this section as the default final stage after app startup.
-Skip only when user explicitly sets `mcp_required=false`.
 
-1. Build endpoint URL (`/api/mcp` for main app, `/api/__app/<app_name>/mcp` for non-main app).
-2. Run post-start MCP gate (`mcp-postcheck`) before client config.
-3. Windows command pattern:
+1. Resolve local API URL:
+- `http://localhost:<port>/api`
 
-```powershell
-powershell -File scripts/mcp-postcheck.ps1 -Port 13000 -McpAuthMode api-key -McpTokenEnv NOCOBASE_API_TOKEN
-```
+2. Ensure CLI dependency plugin bundle is active before runtime refresh:
+- `@nocobase/plugin-api-doc`
+- `@nocobase/plugin-api-keys`
+- Preferred activation command:
+- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- If plugin state changed, restart app before running CLI bootstrap chain.
 
-4. Linux/macOS command pattern:
+3. Ensure token env exists (default `NOCOBASE_API_TOKEN`).
+- If missing, `cli-postcheck` will try automatic API key generation first (local `yarn nocobase generate-api-key`, then `docker compose exec` fallback).
+- Only if automatic path fails, fallback to manual token creation/export.
+
+4. Run CLI bootstrap command chain:
 
 ```bash
-MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postcheck.sh 13000
+node skills/run-ctl.mjs -- env add --name local --base-url http://localhost:13000/api --token $NOCOBASE_API_TOKEN -s project
+node skills/run-ctl.mjs -- env update -e local -s project
+node skills/run-ctl.mjs -- env -s project
 ```
 
-5. If gate output contains `action_required: activate_plugin`, run automation first and use manual page only as fallback:
-- Required automation: run `Use $nocobase-plugin-manage enable <activation_plugin_bundle>`.
-- Activation bundle by `mcp_auth_mode`:
-- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
-- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
-- `none`: `@nocobase/plugin-mcp-server`
-- Do not bypass `nocobase-plugin-manage` with ad-hoc container shell plugin commands before this path is attempted.
-- `nocobase-plugin-manage` may auto-select docker CLI internally for local Docker apps.
-- Fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
-- Plugin manager: `{{app_url}}/admin/settings/plugin-manager`
-- Enable all plugins in auth-mode bundle
-- If endpoint still returns `404` or `503`, restart app and rerun `mcp-postcheck`.
+5. Scripted command pattern:
 
-6. Token gate policy (`api-key` mode):
-- Preferred: automatic token generation/refresh in `mcp-postcheck` via CLI `generate-api-key`.
-- Missing token and expired token (`401/403`) both use automatic path first.
-- Manual fallback only when gate emits `action_required: provide_api_token`.
-- If gate output contains `action_required: provide_api_token`, stop and ask user to create/regenerate token:
-- This step is only valid after endpoint blocker is cleared (`activate_plugin`/`restart_app` resolved).
-- API keys page: `{{app_url}}/admin/settings/api-keys`
-- Click `Add API Key`.
-- Ask user to copy token value and send it back in chat.
-- Set token to env var (default `NOCOBASE_API_TOKEN`) and rerun `mcp-postcheck`.
+Windows:
 
-7. Only after `mcp-postcheck` passes, run client connection commands from [MCP Runbook](mcp-runbook.md).
-8. Record endpoint, auth mode, package scope, gate status, and final connection evidence.
+```powershell
+powershell -File scripts/cli-postcheck.ps1 -Port 13000 -EnvName local -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir .
+```
+
+Linux/macOS:
+
+```bash
+bash scripts/cli-postcheck.sh 13000 local NOCOBASE_API_TOKEN project .
+```
+
+## Optional MCP Stage (Explicit Only)
+
+MCP is no longer an automatic final stage.
+
+Only run MCP stage when user explicitly requests `task=mcp-connect`.
+
+When explicit MCP task is requested:
+
+1. Run MCP runbook + postcheck.
+2. Apply fixed activation sequence for endpoint blockers.
+3. Generate client template only within explicit MCP task scope.
 
 ## Known Pitfalls
 
@@ -198,5 +196,8 @@ MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postchec
 2. Missing or weak `APP_KEY` (for example `please-change-me` / `*-secret-key-change-me`).
 3. Node/Yarn version mismatch on non-Docker paths.
 4. Missing internet access for dependency/plugin download.
-5. MCP endpoint `404` because `MCP Server` plugin is not activated.
-6. API key auth fails because `API Keys` plugin is not activated or token is stale.
+5. CLI bootstrap fails because token env is missing or `@nocobase/plugin-api-keys` is not active.
+6. `env update` fails because `swagger:get` is unavailable when `@nocobase/plugin-api-doc` is not active.
+7. CLI bootstrap succeeds but runtime commands are stale because `env update` was skipped.
+8. MCP endpoint `404` because `MCP Server` plugin is not activated (explicit MCP task only).
+9. API key auth fails because `API Keys` plugin is not activated or token is stale (explicit MCP task only).

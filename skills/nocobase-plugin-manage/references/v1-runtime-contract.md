@@ -137,7 +137,7 @@ If marker block is missing or JSON parse fails, fallback to API inspect (`pm:lis
 
 ```text
 Use $nocobase-plugin-manage inspect
-Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server
+Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc
 Use $nocobase-plugin-manage disable file-manager
 ```
 
@@ -193,4 +193,4 @@ Local channel semantics note:
 - `API keys URL`: `<base_url>/admin/settings/api-keys`
 - when `base_url` is unknown, use default `http://127.0.0.1:13000`
 - `Manual activation`: enable target plugin in plugin manager UI, restart app, rerun inspect/postcheck
-- `MCP special case`: enable `@nocobase/plugin-mcp-server`, restart app, rerun MCP postcheck
+- `CLI runtime dependency special case`: enable `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys`, restart app, then hand off runtime refresh to `nocobase-env-bootstrap` / `nocobase-acl-manage`

@@ -1,4 +1,4 @@
-# ACL Configuration
+﻿# ACL Configuration
 
 ## Table of Contents
 
@@ -12,9 +12,9 @@
 - [7. Configure table independent permissions](#7-configure-table-independent-permissions)
 - [8. Configure field permissions](#8-configure-field-permissions)
 - [9. Configure row scopes](#9-configure-row-scopes)
-- [Recommended MCP Workflow](#recommended-mcp-workflow)
+- [Recommended CLI Workflow](#recommended-cli-workflow)
 - [CRM Example](#crm-example)
-- [Verification MCP Pattern](#verification-mcp-pattern)
+- [Verification CLI Pattern](#verification-cli-pattern)
 
 ## Configuration standard
 
@@ -285,7 +285,7 @@ Association mutation guidance:
 - If the ACL params use a scope filter, the source record must satisfy that scope.
 - Do not assume having update permission on a target collection is enough to mutate an association from the source side.
 
-## Recommended MCP Workflow
+## Recommended CLI Workflow
 
 1. Inspect role mode and current role context.
 2. Inspect or create the role.
@@ -363,9 +363,9 @@ Field guidance for this CRM:
 - For view and export actions, include relation labels only if the action supports field configuration and the UI actually needs them.
 - When create and update actions carry association values, make sure the association fields are not accidentally excluded from the allowed field list.
 
-## Verification MCP Pattern
+## Verification CLI Pattern
 
-Use MCP tool contracts when auditing results. Do not fallback to direct HTTP `/api/*` calls.
+Use CLI command contracts when auditing results. Do not fallback to direct HTTP `/api/*` calls.
 
 1. `roles_list`
 2. `data_sources_roles_get`
@@ -373,9 +373,11 @@ Use MCP tool contracts when auditing results. Do not fallback to direct HTTP `/a
 4. `roles_data_source_resources_get`
 5. `data_sources_roles_resources_scopes_get` or `data_sources_roles_resources_scopes_list`
 
-All checks above should be executed through `tools/call` with runtime tool names from `tools/list`.
+All checks above should be executed through resolved CLI runtime commands via shared wrapper (`node skills/run-ctl.mjs -- <nocobase-ctl-args>`) and command help discovery.
 
 For scoped actions, do not rely only on appended `actions.scope` payloads. Prefer:
 
 - read the resource action and record its `scopeId`
 - read the target scope record separately by id
+
+

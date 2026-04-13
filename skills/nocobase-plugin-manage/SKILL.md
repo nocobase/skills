@@ -4,8 +4,8 @@ description: Inspect NocoBase plugin inventory and plugin state from runtime-bac
 allowed-tools: Bash, Read, Grep, Write
 metadata:
   owner: platform-tools
-  version: 1.2.0
-  last-reviewed: 2026-04-12
+  version: 1.2.1
+  last-reviewed: 2026-04-13
   risk-level: medium
 ---
 
@@ -30,6 +30,7 @@ Provide a deterministic V1 workflow for plugin operations that works for both lo
 - Do not perform destructive removal (`pm remove`) by default.
 - Do not scaffold or develop plugin code.
 - Do not persist secrets in any skill file.
+- Do not use `nocobase-ctl` as execution path for plugin `inspect/install/enable/disable` actions.
 
 # Input Contract
 
@@ -118,7 +119,7 @@ Invocation payload template:
 # Workflow
 
 1. Parse input, support compact action form, and resolve execution channel/backend.
-- If input is compact (`Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server`), normalize into structured payload.
+- If input is compact (`Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc`), normalize into structured payload.
 - Apply `target.mode=auto` resolution rules.
 - Apply `execution_backend=auto` resolution rules.
 - `remote_api`: inspect and mutate through runtime API actions.
@@ -219,7 +220,7 @@ Operational notes:
 - Backend unavailable rich guidance template:
 - `Local Docker path`: verify `docker compose ps`, verify service name (default `app`), then retry.
 - `UI fallback`: open `{{base_url}}/admin/settings/plugin-manager`, enable target plugin manually.
-- `MCP plugin special case`: enable `@nocobase/plugin-mcp-server` in plugin manager, restart app, rerun MCP postcheck.
+- `CLI runtime dependency special case`: enable `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys`, restart app, then hand off runtime refresh to `nocobase-env-bootstrap` / `nocobase-acl-manage`.
 - `Auth fallback`: if endpoint returns `401/403`, open `{{base_url}}/admin/settings/api-keys`, create/regenerate token, set env var, retry.
 - If `base_url` is unknown, use default `http://127.0.0.1:13000` when generating fallback URLs.
 

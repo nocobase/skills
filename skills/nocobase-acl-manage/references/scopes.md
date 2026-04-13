@@ -1,11 +1,11 @@
-# Scopes
+﻿# Scopes
 
 ## Table of Contents
 
 - [Critical Scope Format Rule](#critical-scope-format-rule)
 - [Always Check Built-in Scopes First](#always-check-built-in-scopes-first)
 - [Custom Scope Creation Rules](#custom-scope-creation-rules)
-- [MCP Tool Rules](#mcp-tool-rules)
+- [CLI Tool Rules](#cli-tool-rules)
 - [Scope Variables](#scope-variables)
 - [Boundary Notes](#boundary-notes)
 
@@ -102,7 +102,7 @@ Correct examples:
 
 ## Always Check Built-in Scopes First
 
-Before creating any custom scope, list existing scopes first through MCP tool calls.
+Before creating any custom scope, list existing scopes first through CLI read commands.
 
 Built-in scopes:
 
@@ -128,11 +128,11 @@ Typical custom cases:
 - published-content-only filters
 - custom ownership fields (not `createdBy`)
 
-## MCP Tool Rules
+## CLI Tool Rules
 
-This skill is MCP-first. Do not call REST endpoints such as `/api/*` directly.
+This skill is CLI-first. Do not call REST endpoints such as `/api/*` directly.
 
-Common scope-related MCP tools:
+Common scope-related CLI commands:
 
 - `data_sources_roles_resources_scopes_list`
 - `data_sources_roles_resources_scopes_get`
@@ -140,7 +140,7 @@ Common scope-related MCP tools:
 - `data_sources_roles_resources_scopes_update`
 - `data_sources_roles_resources_scopes_destroy`
 
-All calls should use JSON-RPC `tools/call` with runtime names from `tools/list`.
+All calls should use resolved `nocobase-ctl` runtime commands through shared wrapper (`node skills/run-ctl.mjs -- <nocobase-ctl-args>`) discovered from CLI help.
 
 Business rules:
 
@@ -173,3 +173,5 @@ Recommended usage:
 
 - `own` does not mean owner, assignee, approver, manager, or department member
 - for those semantics, create a custom scope and reference `$user` against real business relation paths
+
+

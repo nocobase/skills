@@ -1,12 +1,12 @@
-# ACL Capability Verification Matrix
+﻿# ACL Capability Verification Matrix (CLI)
 
-This document defines executable capability checks for `nocobase-acl-manage` v2 using MCP calls only.
+This document defines executable capability checks for `nocobase-acl-manage` v2 using CLI calls.
 
 ## Scope
 
 Included:
 
-- protocol readiness
+- CLI readiness
 - role domain
 - global role-mode domain
 - permission domain
@@ -15,14 +15,14 @@ Included:
 
 Excluded:
 
-- deprecated AI permission branch
-- non-MCP direct mutation
+- deprecated MCP-first transport checks
+- direct REST mutation
 
 ## Capability IDs
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| ACL-SMOKE-001 | protocol | initialize + tools/list + tools/call | runtime |
+| ACL-SMOKE-001 | cli | `node skills/run-ctl.mjs -- --help` + env availability | runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -34,9 +34,9 @@ Excluded:
 | ACL-PERM-002 | permission | data-source global strategy | runtime |
 | ACL-PERM-003 | permission | data-source resource independent strategy | runtime |
 | ACL-PERM-004 | permission | desktop route permission capability | contract + optional runtime |
-| ACL-PERM-005 | permission | role collections listing with `filter.dataSourceKey` | runtime |
-| ACL-USER-001 | user | strict mode blocks membership write without dedicated tool | contract/runtime |
-| ACL-USER-002 | user | guarded fallback membership write using `resource_update` | optional runtime |
+| ACL-PERM-005 | permission | role collections listing with `dataSourceKey` | runtime |
+| ACL-USER-001 | user | strict mode blocks membership write without dedicated command | contract/runtime |
+| ACL-USER-002 | user | guarded fallback membership write using `resource update` | optional runtime |
 | ACL-USER-003 | user | membership readback via `users.roles` or `roles.users` | runtime |
 | ACL-RISK-001 | risk | risk assessment data prerequisites available | runtime |
 
@@ -50,20 +50,22 @@ Excluded:
 
 Required:
 
-- MCP endpoint URL
-- bearer token (or token env var)
+- shared wrapper available (`skills/run-ctl.mjs`) and `node` available
+- configured env and token
+- `@nocobase/plugin-api-doc` active (`swagger:get` available for runtime command discovery)
+- `@nocobase/plugin-api-keys` active (token generation/refresh recovery path)
 
 Optional:
 
-- `TestUserId` for membership checks
-- `DesktopRouteKey` for route write path
-- `EnableHighImpactWrites` for global role-mode writes
-- `EnableRouteWrites` for route write path
-- `EnableGuardedUserWrites` for guarded membership fallback
+- `test_user_id` for membership checks
+- `desktop_route_key` for route write path
+- `enable_high_impact_writes` for global role-mode writes
+- `enable_route_writes` for route write path
+- `enable_guarded_user_writes` for guarded membership fallback
 
 ## Safety Rules For Tests
 
-- execute through MCP JSON-RPC `tools/call` only
+- execute through CLI only
 - no direct ACL REST fallback
 - keep high-impact writes behind explicit switches
 - restore global role mode when modified during tests
@@ -72,9 +74,9 @@ Optional:
 ## Critical Assertions
 
 - For `ACL-PERM-003` with scope mode `all` or `own`, write payload must include explicit non-null `scopeId`.
-- For `ACL-PERM-003` default-all field policy, write payload must include explicit non-empty field-name arrays for selected field-configurable actions (`create`, `view`, `update` in default runtime check).
+- For `ACL-PERM-003` default-all field policy, write payload must include explicit non-empty field-name arrays for selected field-configurable actions.
 - For `ACL-PERM-003`, when multiple field-configurable actions are selected, readback should verify full field-set parity for each selected action.
 - `ACL-PERM-003` readback must verify:
   - action `scopeId` is non-null and equals the resolved scope id
-  - appended scope payload contains matching scope key (for example, `all` or `own`)
+  - scope key matches expected built-in/custom scope
   - action field list length matches resolved collection field count for default-all actions

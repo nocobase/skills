@@ -460,7 +460,7 @@ Expected:
 Prompt:
 
 ```text
-Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server
+Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc
 Assume current workspace resolves to a local target.
 Assume docker/host CLI are unavailable, while remote API is reachable.
 ```

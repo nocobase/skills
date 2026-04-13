@@ -1,11 +1,11 @@
----
+﻿---
 name: nocobase-acl-manage
-description: Task-driven ACL governance through MCP for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw tool arguments.
+description: Task-driven ACL governance through nocobase-ctl CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
-allowed-tools: NocoBase MCP ACL tools (`roles:*`, `available_actions_list`, `data_sources_roles:*`, `roles_data_source_resources:*`, `roles_desktop_routes:*`, `roles_resources_scopes:*`, `data_sources_roles_resources_scopes:*`) and guarded generic tools (`resource_*` only for user-role membership when enabled)
+allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.0.3
-last-reviewed: 2026-04-11
+version: 2.1.1
+last-reviewed: 2026-04-13
 risk-level: high
 ---
 
@@ -13,16 +13,17 @@ risk-level: high
 
 Turn ACL and permission governance into a task-driven workflow so users can ask for business outcomes while the skill handles:
 
-- MCP tool selection and argument shaping
+- CLI command selection and argument shaping
 - capability checks and safety guards
 - write confirmation and readback evidence
 - risk-oriented explanation for high-impact changes
 
 # Scope
 
-- This skill is MCP-first for reads and writes.
-- Tasks are grouped into four domains:
+- This skill is CLI-first for reads and writes.
+- Tasks are grouped into five domains:
 - role
+- global role mode
 - permission
 - user
 - risk assessment
@@ -31,7 +32,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 
 # Non-Goals
 
-- Do not bypass MCP by calling REST endpoints directly.
+- Do not bypass CLI by calling direct REST endpoints.
 - Do not mutate ACL through ad-hoc database operations.
 - Do not hide high-impact blast radius (global mode, broad snippets, broad strategy actions).
 - Do not claim one-click coverage for workflows that require governance review.
@@ -108,10 +109,6 @@ Resource permission interaction policy:
 - resolve real collection names from the selected data source collection list
 - if matching is ambiguous, present candidates and ask user to choose
 - if no match is found, ask user for a clearer business keyword
-- when reading collection metadata, always pass required filter shape:
-- `roles_data_sources_collections_list` must include `filter.dataSourceKey`
-- `roles_data_source_resources_get` must include `filter.dataSourceKey` and `filter.name`
-- if a read call returns errors like `Cannot destructure property 'dataSourceKey'` or `Cannot read properties of undefined (reading 'dataSourceKey')`, treat it as argument-shape mismatch, repair arguments, and retry once
 - resolve scope binding before write:
 - `all` -> built-in scope `key=all` id in target data source
 - `own` -> built-in scope `key=own` id in target data source
@@ -168,18 +165,24 @@ Default behavior when user says `you decide`:
 - for `permission.data-source.resource.set`, if user has not confirmed the final write plan, do not write
 - if user asks to set role mode for a specific role, clarify and normalize to global mode change
 - if task implies writes and target identity is missing, stop and ask first
-- if MCP returns auth errors (`401`, `permission denied`), stop and request recovery
+- if CLI returns auth errors (`401`, `403`, `Auth required`), stop and request recovery (`@nocobase/plugin-api-keys` activation + token refresh)
 
 # Workflow
 
 1. Resolve intent and normalize task.
 - map aliases to canonical tasks
 - map natural-language role mode wording to `default/allow-use-union/only-use-union`
-- normalize any create-role wording to `role.create-blank` baseline first, then permission assignment
+- normalize create-role wording to `role.create-blank` baseline first, then permission assignment
 
-2. Capability gate.
-- confirm `initialize`, `tools/list`, and `tools/call`
-- resolve runtime tool names via `intent-to-tool-map-v1`
+2. Capability gate (CLI).
+- confirm shared wrapper is available (`node skills/run-ctl.mjs -- ...`)
+- confirm target env is available (`node skills/run-ctl.mjs -- env`)
+- if runtime command cache is missing/stale, run `node skills/run-ctl.mjs -- env update -e <env>`
+- if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
+- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- restart app before retrying runtime refresh
+- if token is missing/invalid, ensure `@nocobase/plugin-api-keys` is active and refresh token env first
+- resolve runtime command names via [intent-to-tool-map-v1](references/intent-to-tool-map-v1.md) and command help discovery
 
 3. Plan before writes.
 - list proposed change set, readback checkpoints, and blast radius
@@ -195,7 +198,7 @@ Default behavior when user says `you decide`:
 
 4. Execute one task at a time.
 - keep writes minimal and scoped
-- prefer ACL-specific tools
+- prefer ACL-specific runtime commands generated from swagger
 
 5. Readback verification.
 - verify target data changed as requested
@@ -209,52 +212,53 @@ Default behavior when user says `you decide`:
 
 Primary write path:
 
-- ACL-specific MCP tools only
+- ACL-specific CLI runtime commands (swagger-generated)
 
 Guarded fallback path (user-role membership only):
 
 - allowed only when `allow_generic_association_write=true`
-- use generic `resource_*` tools only for `users.roles` association operations
+- use generic `node skills/run-ctl.mjs -- resource update/list` only for `users.roles` association operations
 - mandatory readback after write
 
 Hard restrictions:
 
 - never use direct HTTP fallback
 - never use direct database mutation
-- never use generic tools for ACL policy writes when ACL tools exist
+- never use generic resource commands for ACL policy writes when ACL-specific runtime commands exist
 
-# High-Impact Actions
+# Safety Gate
+
+High-impact ACL actions:
 
 - changing global role mode
 - broad system snippets (`ui.*`, `pm`, `pm.*`, `app`)
 - broad data-source actions (`destroy`, broad export/import grants)
 - role assignment to many users
 
+Safety rules:
+
+- keep high-impact writes behind explicit confirmation
+- include blast-radius summary before apply
+- always perform readback verification after write
+
 # Capability Boundary Messaging
 
-When a scenario is not supported by current MCP/tool policy:
+When a scenario is not supported by current CLI/runtime/tool policy:
 
 - `This scenario is currently blocked by capability or governance policy in this skill.`
 - `Please complete the operation in NocoBase admin UI, or enable the guarded fallback option if available.`
 - `If you want, I can provide exact UI navigation steps and field suggestions.`
 
-Preferred Chinese wording:
-
-- `当前场景受 MCP 能力或本技能治理策略限制，暂不支持直接执行。`
-- `你可以先在 NocoBase 管理后台完成该操作；如支持，我也可以切换到受控兜底路径。`
-- `如果你愿意，我可以继续给你提供精确的页面入口和字段填写建议。`
-
 # Verification Checklist
 
 - task normalized to canonical task
 - required inputs complete before writes
-- MCP capability gate passes
-- runtime tool names resolved
+- CLI capability gate passes (`env` available, runtime commands resolvable)
+- CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
+- runtime command names resolved from command map/help
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
-- for `roles_data_sources_collections_list`, calls always include `filter.dataSourceKey`
-- for `roles_data_source_resources_get`, calls always include `filter.dataSourceKey` + `filter.name`
-- for `permission.data-source.resource.set`, when scope is `all` or `own`, readback must show non-null `scopeId` and matching scope key
+- for scope=`all|own`, readback shows non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
 - global role-mode tasks do not require `role_name`
@@ -271,22 +275,21 @@ Preferred Chinese wording:
 7. `permission.data-source.resource.set` with `view` and no field restrictions should apply full-field permission by default via explicit non-empty field lists.
 8. `permission.data-source.resource.set` with scope=`all` should write explicit built-in scope binding (non-null `scopeId` for key=`all`).
 9. `permission.data-source.resource.set` should require pre-write confirmation including data source + resolved collections + actions + scope.
-10. `user.assign-role` in strict mode should block when no dedicated membership tool exists.
+10. `user.assign-role` in strict mode should block when no dedicated membership command exists.
 11. `user.assign-role` with guarded fallback enabled should succeed with readback.
 12. `risk.assess-role` should return score + evidence + recommendations.
-13. `roles_data_sources_collections_list` and `roles_data_source_resources_get` should not be called without required `filter` keys.
-14. Full-field default should preserve system fields in readback when metadata includes them.
+13. Full-field default should preserve system fields in readback when metadata includes them.
 
 # Reference Loading Map
 
 | Reference | Use When | Notes |
 |---|---|---|
 | [references/intent-presets-v1.md](references/intent-presets-v1.md) | intent normalization and defaults | includes global role-mode wording |
-| [references/intent-to-tool-map-v1.md](references/intent-to-tool-map-v1.md) | runtime tool resolution | includes guarded fallback for user membership |
+| [references/intent-to-tool-map-v1.md](references/intent-to-tool-map-v1.md) | runtime command resolution | maps logical tasks to CLI command patterns |
 | [references/result-format-v1.md](references/result-format-v1.md) | output rendering | includes risk cards and capability path |
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
 | [references/capability-test-plan.md](references/capability-test-plan.md) | capability matrix | aligned with v2 domains |
-| [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes MCP/runtime/source-based gap analysis |
+| [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
 | [tests/README.md](tests/README.md) | runtime verification | runner and report usage |
 
 # References
@@ -297,6 +300,5 @@ Preferred Chinese wording:
 - [ACL Configuration Details](references/configuration.md)
 - [ACL Capability Test Plan](references/capability-test-plan.md)
 - [ACL Refactor Plan v2](references/refactor-plan-v2.md)
-- [ACL MCP Capability Runner](tests/README.md)
+- [ACL Capability Tests](tests/README.md)
 - [NocoBase ACL Handbook](https://docs.nocobase.com/handbook/acl) [verified: 2026-04-11]
-

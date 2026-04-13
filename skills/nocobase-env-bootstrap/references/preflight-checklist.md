@@ -1,13 +1,11 @@
-# Preflight Checklist
+﻿# Preflight Checklist
 
 ## Purpose
 
 Run this checklist before install, deploy, or upgrade. Block execution on `fail` items.
-Preflight checks do not replace startup-complete MCP verification; use
-`scripts/mcp-postcheck.ps1` or `scripts/mcp-postcheck.sh` after app startup when
-`mcp_required=true`.
-For install/deploy flows, MCP endpoint/auth blocking checks belong to the final
-post-start MCP stage; preflight should primarily block on non-MCP critical items.
+
+By default, preflight focuses on core environment readiness and does not require MCP checks.
+MCP checks are executed only for explicit `task=mcp-connect`.
 
 ## Blocking Checks
 
@@ -41,24 +39,27 @@ post-start MCP stage; preflight should primarily block on non-MCP critical items
 - Recommended minimum keys: `APP_KEY`, `APP_PORT`, `DB_DIALECT`.
 - Reference: <https://docs.nocobase.com/cn/get-started/installation/env>
 
-6. MCP endpoint activation (`mcp_required=true`)
-- For install/deploy preflight, keep this check advisory and defer hard blocking to startup-complete `mcp-postcheck`.
-- For `task=mcp-connect`, treat this check as immediate blocker.
-- Verify MCP endpoint route exists (`/api/mcp` or `/api/__app/<app_name>/mcp`).
-- If endpoint returns `404`, treat as blocker; run fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
-- Activation bundle by `mcp_auth_mode`:
-- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
-- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
-- `none`: `@nocobase/plugin-mcp-server`
-- Plugin manager page is fallback only when runtime plugin-manage enable path is unavailable or failed.
-- If endpoint returns `503` or other `5xx`, treat as blocker; restart app and retry after startup completes.
+6. CLI bootstrap prerequisites
+- Verify shared wrapper `skills/run-ctl.mjs` exists and `node` is available.
+- Wrapper will resolve global `nocobase-ctl`/`nbctl` first, then local `run.js` candidates.
+- Verify token env exists or can be generated later for CLI env bootstrap (default `NOCOBASE_API_TOKEN`).
+- For running targets (deploy/upgrade/diagnose), verify CLI dependency plugins:
+- `@nocobase/plugin-api-doc` (`swagger:get` source for `env update`)
+- `@nocobase/plugin-api-keys` (token generation/refresh path)
+- If dependency plugins are missing, apply activation sequence:
+- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys -> restart app -> rerun cli-postcheck`
 
-7. API key activation (`mcp_required=true` and `mcp_auth_mode=api-key`)
+## MCP Blocking Checks (explicit `task=mcp-connect` only)
+
+1. MCP endpoint activation
+- Verify endpoint route exists (`/api/mcp` or `/api/__app/<app_name>/mcp`).
+- If endpoint returns `404`, run fixed activation sequence:
+- `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`
+
+2. API key activation (API-key mode)
 - Verify token env var exists (default `NOCOBASE_API_TOKEN`).
 - Probe endpoint with bearer token.
-- If token probe returns `401/403`, warn and continue to `mcp-postcheck` auto-refresh stage.
-- Missing token and expired token are handled automatically in `mcp-postcheck` using CLI `generate-api-key`.
-- Require user manual token step only when postcheck emits `action_required: provide_api_token`.
+- For `401/403`, use `mcp-postcheck` auto-refresh path first.
 
 ## Warning Checks
 
@@ -74,7 +75,7 @@ post-start MCP stage; preflight should primarily block on non-MCP critical items
 - Warn if using floating image tags in production-like environments.
 - Warn if plugin versions are inconsistent with app version.
 
-4. OAuth deferred verification (`mcp_required=true` and `mcp_auth_mode=oauth`)
+4. OAuth deferred verification (`task=mcp-connect` and `mcp_auth_mode=oauth`)
 - Warn that full OAuth verification is interactive and must be completed with client login command.
 
 ## Output Shape
@@ -86,12 +87,11 @@ Preflight output should always include:
 - message
 - fix suggestion (if not pass)
 - evidence (optional command output snippet)
-- activation blocker hint when MCP/API key plugin activation is required
 
 ## Execution Rule
 
 - If any non-MCP `fail` exists, stop and ask user to fix blockers first.
-- For install/deploy/upgrade with `mcp_required=true` (default), run MCP as final post-start stage after app startup; do not treat deferred MCP checks as pre-start install blockers.
-- For `task=mcp-connect`, if fails are only MCP activation/auth blockers, continue into MCP post-start state machine and auto-run fixed sequence first.
-- Only when MCP gate emits `action_required: provide_api_token`, stop and require user to manually create/regenerate token and send it in chat (automatic path failed).
+- For install/deploy/upgrade, preflight does not block on MCP readiness.
+- For install/deploy/upgrade, plugin activation checks may be deferred until app startup, but CLI final stage must enforce the dependency bundle before `env update`.
+- For explicit `task=mcp-connect`, enforce MCP blockers and activation guidance.
 - If only `warn` exists, continue after showing warnings and confirmation.
