@@ -135,7 +135,7 @@ These defaults apply unless the user explicitly requests otherwise. Do NOT ask a
 | Settings page registration | `pluginSettingsRouter.add` with `componentLoader` | Never |
 | ACL | `acl.allow('*', '*', 'loggedIn')` | User mentions fine-grained permissions |
 | Locale files | `zh-CN.json` + `en-US.json` | User mentions other languages |
-| `addCollection` (client-side) | Use `eventBus` pattern (NOT direct call in `load()`) | Only when the collection must appear in block picker |
+| `addCollection` (client-side) | Do NOT add — recommend UI "Data Source Management" instead | Only as a demo; if needed, use `eventBus` pattern (NOT direct call in `load()`) |
 | `install()` seed data | Do NOT add | User mentions preset/demo data |
 | `tExpr` import | From plugin's `locale.ts`, NOT from `@nocobase/flow-engine` directly | Never |
 
@@ -146,7 +146,7 @@ When the plugin doesn't work as expected:
 ## FAQ Checklist
 
 1. **Plugin not appearing in plugin manager** → Check `package.json` has correct NocoBase metadata. Run `yarn pm enable <name>`.
-2. **Collection not showing in block picker** → Need client-side `addCollection` with `filterTargetKey: 'id'`. Must use `eventBus` pattern — direct `addCollection` in `load()` is wiped by `ensureLoaded()`. See `client/plugin.md`.
+2. **Collection not showing in block picker** → Recommend user to add the table via NocoBase UI "Data Source Management". If code-level registration is needed (demo only), use `addCollection` with `filterTargetKey: 'id'` and `eventBus` pattern. See `client/plugin.md`.
 3. **Settings page shows blank** → Verify using `componentLoader` (not `Component`) for client-v2.
 4. **Model not appearing in menus** → Check `define({ label: tExpr('...') })` and `registerModelLoaders` in plugin `load()`.
 5. **`load()` database query fails** → `load()` runs before DB sync. Move DB operations to `install()` or request handlers.
