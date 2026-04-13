@@ -199,7 +199,7 @@ test('page preview cli returns ok=false for invalid blueprint payload', async ()
   assert.match(payload.error, /recognizable inner page blueprint object/i);
 });
 
-test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normalized tool call', () => {
+test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normalized cli body', () => {
   const result = prepareApplyBlueprintRequest({
     requestBody: {
       version: '1',
@@ -237,29 +237,27 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
     expectedOuterTabs: 1,
     targetPageSchemaUid: '',
   });
-  assert.deepEqual(result.toolCall, {
-    requestBody: {
-      version: '1',
-      mode: 'create',
-      navigation: {
-        group: { title: 'Workspace' },
-        item: { title: 'Employees' },
-      },
-      page: { title: 'Employees' },
-      tabs: [
-        {
-          title: 'Overview',
-          blocks: [
-            {
-              key: 'usersTable',
-              type: 'table',
-              collection: 'users',
-              fields: ['nickname', 'email'],
-            },
-          ],
-        },
-      ],
+  assert.deepEqual(result.cliBody, {
+    version: '1',
+    mode: 'create',
+    navigation: {
+      group: { title: 'Workspace' },
+      item: { title: 'Employees' },
     },
+    page: { title: 'Employees' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname', 'email'],
+          },
+        ],
+      },
+    ],
   });
 });
 
@@ -499,7 +497,7 @@ test('prepareApplyBlueprintRequest rejects high-risk first-write blueprint mista
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.toolCall, undefined);
+  assert.equal(result.cliBody, undefined);
   assert.match(result.ascii, /^PAGE: Broken users page \(create\)/m);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'unexpected-outer-tab-count'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'block-layout-not-allowed'));
@@ -570,7 +568,7 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
 });
 
-test('page preview cli prepare-write returns normalized tool call json', async () => {
+test('page preview cli prepare-write returns normalized cli body json', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
   const stdin = createInputStream(
@@ -606,7 +604,7 @@ test('page preview cli prepare-write returns normalized tool call json', async (
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, true);
   assert.equal(payload.facts.expectedOuterTabs, 1);
-  assert.equal(payload.toolCall.requestBody.target.pageSchemaUid, 'users-page-schema');
+  assert.equal(payload.cliBody.target.pageSchemaUid, 'users-page-schema');
 });
 
 test('page preview cli prepare-write accepts explicit expected outer tab count', async () => {

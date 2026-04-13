@@ -2,6 +2,8 @@
 
 This file provides the family / locator / write-target mental model for the skill.
 
+Canonical front door is `nocobase-ctl`. The operation names below are the stable runtime families; discover the exact generated command shape through `nocobase-ctl flow-surfaces --help`.
+
 ## 1. Common Families
 
 - `menu-group`: a menu group in the left navigation
@@ -16,40 +18,40 @@ This file provides the family / locator / write-target mental model for the skil
 
 ## 2. Default Read Routing
 
-- menu question -> `desktop_routes_list_accessible(tree=true)`
-- normal page/popup inspection -> `get`
-- richer public surface snapshot -> `describeSurface`
-- capability uncertainty -> `catalog`
-- reaction-capability uncertainty -> `getReactionMeta`
-- context-variable uncertainty -> `context` as lower-level supplement
+- menu question -> `nocobase-ctl desktop-routes list-accessible`
+- normal page/popup inspection -> `nocobase-ctl flow-surfaces get`
+- richer public surface snapshot -> `nocobase-ctl flow-surfaces describe-surface`
+- capability uncertainty -> `nocobase-ctl flow-surfaces catalog`
+- reaction-capability uncertainty -> `nocobase-ctl flow-surfaces get-reaction-meta`
+- context-variable uncertainty -> `nocobase-ctl flow-surfaces context` as lower-level supplement
 
 ## 3. Default Write Routing
 
 | user intent | default write path |
 | --- | --- |
-| create one whole page | `applyBlueprint(mode="create")` |
-| replace/rebuild one whole page | `applyBlueprint(mode="replace")` |
-| whole-page interaction / reaction authoring | `applyBlueprint(..., reaction.items[])` |
-| create/move menu only | `createMenu` / `updateMenu` |
-| add/update content under an existing surface | `compose` / `add*` / `configure` / `updateSettings` |
-| localized reaction edit | `getReactionMeta` -> `setFieldValueRules` / `setFieldLinkageRules` / `setBlockLinkageRules` / `setActionLinkageRules` |
-| reorder/remove tab or popup tab | `moveTab` / `removeTab` / `movePopupTab` / `removePopupTab` |
-| reorder/remove node | `moveNode` / `removeNode` |
-| initialize a menu item into a page | `createPage(menuRouteId=...)` |
+| create one whole page | `nocobase-ctl flow-surfaces apply-blueprint` |
+| replace/rebuild one whole page | `nocobase-ctl flow-surfaces apply-blueprint` |
+| whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
+| create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
+| add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
+| reorder/remove tab or popup tab | `nocobase-ctl flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
+| reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
+| initialize a menu item into a page | `nocobase-ctl flow-surfaces create-page` |
 
 ## 4. Targeting Notes
 
-- `createMenu(type="item")` returns pre-init ids. The item is not a write-ready page until `createPage(menuRouteId=...)` finishes.
+- `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `applyBlueprint` is key-oriented and structure-first: layout and in-document targeting use local `key`, whole-page interaction logic may live only in top-level `reaction.items[]`, and you must not author `uid`, `ref`, or `$ref` selectors there.
 - public `applyBlueprint.reaction.items[]` also uses same-run local keys / bind keys, not live uids.
 - After low-level writes return uids for new tabs/popups/nodes, reuse those uids directly for downstream steps.
-- Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describeSurface`, or a previous create response.
+- Do not invent `"root"` as a flow-surfaces uid. If a low-level tool needs `target.uid` / `locator.uid`, first obtain a real uid from `get`, `describe-surface`, or a previous create response.
 
 ## 5. Practical Rules
 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
 - If the request is about default values, linkage, computed fields, show/hide, required/disabled, or action state, route to reaction authoring before considering raw configure keys.
-- For localized reaction work, do not start from `context`; start from `getReactionMeta` and use `context` only when raw variable paths are still missing.
+- For localized reaction work, do not start from `context`; start from `get-reaction-meta` and use `context` only when raw variable paths are still missing.
 - If the request crosses families or the target is not unique, narrow the target before writing.

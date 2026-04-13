@@ -1077,9 +1077,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   };
 
   if (result.ok) {
-    result.toolCall = {
-      requestBody: cloneSerializable(blueprint),
-    };
+    result.cliBody = cloneSerializable(blueprint);
   }
 
   return result;
