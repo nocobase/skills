@@ -12,6 +12,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
 - If the request mentions default values, linkage, computed values, show/hide, required/disabled, or action state, decide explicitly whether this is a whole-page reaction task or a localized reaction task before choosing structural APIs.
 - If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
+- The deterministic same-title group tie-break is: first prefer a same-title group already containing the target page title; otherwise choose the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
 - Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
   - `flow_surfaces_get` -> top-level locator fields
   - most other `flow_surfaces_*` actions in this skill path -> `requestBody: { ... }`
@@ -69,6 +70,10 @@ Use this path when the user is describing one page as a whole.
    - every field entry in blueprint `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
    - every custom `edit` popup contains exactly one `editForm`
    - if `reaction.items[]` exists, each reaction target is a same-run local key / bind key, not a live uid
+   - each reaction item object only uses `type`, `target`, `rules`, and optional `expectedFingerprint`; do not carry an item-level `key`
+   - any tab / block / action referenced by `reaction.items[]` has an explicit stable key path in the authoring JSON; do not rely on generated fallback keys such as `submit_1`
+   - in `replace`, those explicit keys only need to be stable within the current write; prefer role-suffixed or page-scoped names such as `mainTab`, `usersTableBlock`, `createFormBlock`, `submitAction`, and `maintainAction` over bare generic keys like `main`, `usersTable`, or `submit`
+   - `reaction.items[]` must keep one object payload, supported item `type`, array `rules`, unique `(type, target)` slots, and targets that resolve to keyed same-run tab / block / action nodes in the same blueprint
    - the gate must catch envelope / structure mistakes such as extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, invalid `tab.layout` / `popup.layout`, and broken custom `edit` popups before the first write
    - if any item fails, rewrite the blueprint before the first write; do not use backend errors as the first validator
 9. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. Prefer the same local prepare-write gate because it emits that preview and the normalized tool-call envelope together. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
@@ -84,7 +89,7 @@ Use this path when the user is describing one page as a whole.
 
 - `create` mode does not take `target`; `replace` mode requires `target.pageSchemaUid`.
 - When an existing menu group is already known, prefer `navigation.group.routeId`; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse.
-- If visible same-title groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`, otherwise choose one deterministically from the live menu tree and state that chosen routeId in the prewrite preview.
+- If visible same-title groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`; otherwise use this deterministic rule and state that chosen routeId in the prewrite preview: first prefer a same-title group already containing the target page title, then fall back to the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
 - `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`). If an existing group's metadata must change, use low-level `updateMenu` separately.
 - `replace` updates only the explicit page-level fields present in `page`.
 - Current server behavior maps blueprint tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
@@ -128,6 +133,7 @@ Use this path when the user asks to add/move/remove/update only part of an exist
    - `configure` for simple semantic changes
    - `updateSettings` for settings-domain writes
    - `setFieldValueRules` / `setFieldLinkageRules` / `setBlockLinkageRules` / `setActionLinkageRules` for reaction writes
+   - use `$notEmpty`, not `$isNotEmpty`
    - `addTab` / `updateTab` / `moveTab` / `removeTab`
    - `addPopupTab` / `updatePopupTab` / `movePopupTab` / `removePopupTab`
    - `moveNode` / `removeNode`

@@ -19,7 +19,11 @@ Use this file as the detailed reaction reference. Other skill references should 
 If the interaction logic belongs to the same page you are building now:
 
 - use top-level `applyBlueprint.requestBody.reaction.items[]`
+- each reaction item only accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
 - target the block/action by the same-run local key / bind key
+- give every referenced tab / block / action an explicit stable `key` path in the same blueprint
+- in whole-page `replace`, those explicit keys only need to be stable within the current write; prefer role-suffixed or page-scoped names such as `mainTab`, `usersTableBlock`, `createFormBlock`, `submitAction`, and `maintainAction` over bare generic keys like `main`, `usersTable`, or `submit`
+- for `setActionLinkageRules`, prefer a keyed action object instead of a generated fallback key such as `submit_1`
 - keep structure and reaction in one blueprint when possible
 
 ### Localized edit on an existing live page
@@ -178,7 +182,7 @@ Whole-page blueprint fragment:
               "items": [
                 {
                   "path": "formValues.amount",
-                  "operator": "$isNotEmpty"
+                  "operator": "$notEmpty"
                 }
               ]
             },
@@ -263,6 +267,13 @@ Typical condition sources:
 - `params.query.*`
 - `record.*`
 - scene-specific form values exposed by the resolved capability
+
+When a whole-page block/action linkage needs sibling form values:
+
+- do not assume the target block/action `when.items[].path` can always use `formValues.*`
+- for cross-block form-driven visibility/state, prefer `then: [{ type: \"runjs\" ... }]` or the backend-normalized `linkageRunjs` path that reads `ctx.formValues` directly inside the action payload
+- keep `when` empty if the live condition context does not expose that form path
+- use `$notEmpty`, not `$isNotEmpty`
 
 ### 4.4 Disable or hide an action
 
@@ -356,6 +367,8 @@ Use the same host-oriented pattern for `subForm`:
 - Reuse `expectedFingerprint` from the exact capability you are updating.
 - Do not guess `resolvedScene`, `resolvedSlot`, `supportedActions`, or valid condition operators.
 - For whole-page `applyBlueprint`, reaction targets must be same-run local keys / bind keys, not live uids.
+- For whole-page `applyBlueprint`, each reaction item only accepts `type`, `target`, `rules`, and optional `expectedFingerprint`; do not add extra keys such as item-level `key`.
+- For whole-page `applyBlueprint`, the local prepare-write gate should reject unsupported item types, non-array `rules`, duplicate `(type, target)` slots, missing / unknown targets, and targets that rely on generated fallback keys instead of explicit stable keys.
 - For localized edits, reaction targets must be real live uids.
 - For form `fieldValue` / `fieldLinkage`, do not target the inner grid uid manually.
 - `rules: []` is a full clear, not a partial patch.

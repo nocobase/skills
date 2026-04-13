@@ -10,6 +10,22 @@ const PLACEHOLDER_TEXT_CN_PATTERN = /^(备用|待定|稍后)$/;
 const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
 const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
 const EDIT_ACTION_TYPES = new Set(['edit']);
+const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
+  'setFieldValueRules',
+  'setFieldLinkageRules',
+  'setBlockLinkageRules',
+  'setActionLinkageRules',
+]);
+const APPLY_BLUEPRINT_REACTION_ITEM_KEYS = new Set(['type', 'target', 'rules', 'expectedFingerprint']);
+const BLOCK_REACTION_TYPES = new Set([
+  'setFieldValueRules',
+  'setFieldLinkageRules',
+  'setBlockLinkageRules',
+]);
+const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
+  'setBlockLinkageRules',
+  'setActionLinkageRules',
+]);
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -19,6 +35,124 @@ function normalizeText(value, fallback = '') {
 
 function normalizeLowerText(value) {
   return normalizeText(value).toLowerCase();
+}
+
+function normalizeApplyBlueprintToken(value, fallback = 'item') {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/[.[\](){}]+/g, '_')
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || fallback;
+}
+
+function buildScopedKey(scopePrefix, localKey) {
+  return scopePrefix ? `${scopePrefix}.${localKey}` : localKey;
+}
+
+function resolveBlueprintLocalKey(rawValue, fallback) {
+  const explicit = normalizeText(rawValue);
+  return {
+    key: explicit || normalizeApplyBlueprintToken(fallback, fallback),
+    explicit: !!explicit,
+  };
+}
+
+function resolveTabLocalKey(tab, index, usedKeys) {
+  const fallback = normalizeText(tab?.title) || `tab_${index + 1}`;
+  const resolved = resolveBlueprintLocalKey(tab?.key, fallback);
+  if (!usedKeys.has(resolved.key)) {
+    usedKeys.add(resolved.key);
+    return resolved;
+  }
+  if (resolved.explicit) {
+    return resolved;
+  }
+
+  let suffix = 2;
+  let candidate = `${resolved.key}_${suffix}`;
+  while (usedKeys.has(candidate)) {
+    suffix += 1;
+    candidate = `${resolved.key}_${suffix}`;
+  }
+  usedKeys.add(candidate);
+  return {
+    key: candidate,
+    explicit: false,
+  };
+}
+
+function resolveBlockLocalKey(block, index) {
+  return resolveBlueprintLocalKey(block?.key, normalizeText(block?.type) || `block_${index + 1}`);
+}
+
+function resolveActionLocalKey(action, index) {
+  if (typeof action === 'string') {
+    const type = normalizeText(action);
+    if (!type) return null;
+    return resolveBlueprintLocalKey('', `${type}_${index + 1}`);
+  }
+  if (!isPlainObject(action)) return null;
+  const type = normalizeText(action.type) || 'action';
+  return resolveBlueprintLocalKey(action.key, `${type}_${index + 1}`);
+}
+
+function buildReactionTargetRegistry(blueprint) {
+  const blockTargets = new Map();
+  const actionTargets = new Map();
+  const usedTabKeys = new Set();
+
+  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
+    if (!isPlainObject(tab)) continue;
+    const tabInfo = resolveTabLocalKey(tab, tabIndex, usedTabKeys);
+
+    for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
+      if (!isPlainObject(block)) continue;
+      const blockInfo = resolveBlockLocalKey(block, blockIndex);
+      const blockTarget = buildScopedKey(tabInfo.key, blockInfo.key);
+      blockTargets.set(blockTarget, {
+        path: `tabs[${tabIndex}].blocks[${blockIndex}]`,
+        requiresExplicitKey: !tabInfo.explicit || !blockInfo.explicit,
+      });
+
+      for (const [actionIndex, action] of ensureArray(block.actions).entries()) {
+        const actionInfo = resolveActionLocalKey(action, actionIndex);
+        if (!actionInfo) continue;
+        const actionTarget = buildScopedKey(blockTarget, actionInfo.key);
+        actionTargets.set(actionTarget, {
+          path: `tabs[${tabIndex}].blocks[${blockIndex}].actions[${actionIndex}]`,
+          requiresExplicitKey: !tabInfo.explicit || !blockInfo.explicit || !actionInfo.explicit,
+        });
+      }
+
+      for (const [actionIndex, action] of ensureArray(block.recordActions).entries()) {
+        const actionInfo = resolveActionLocalKey(action, actionIndex);
+        if (!actionInfo) continue;
+        const actionTarget = buildScopedKey(blockTarget, actionInfo.key);
+        actionTargets.set(actionTarget, {
+          path: `tabs[${tabIndex}].blocks[${blockIndex}].recordActions[${actionIndex}]`,
+          requiresExplicitKey: !tabInfo.explicit || !blockInfo.explicit || !actionInfo.explicit,
+        });
+      }
+    }
+  }
+
+  return {
+    blockTargets,
+    actionTargets,
+  };
+}
+
+function visitConditionItems(condition, basePath, visitor) {
+  if (!isPlainObject(condition) || !Array.isArray(condition.items)) return;
+
+  for (const [index, item] of condition.items.entries()) {
+    const itemPath = `${basePath}.items[${index}]`;
+    if (!isPlainObject(item)) continue;
+    visitor(item, itemPath);
+    if (Array.isArray(item.items)) visitConditionItems(item, itemPath, visitor);
+  }
 }
 
 function trimLabel(value, maxLength = MAX_LABEL_LENGTH) {
@@ -666,11 +800,171 @@ function validateTab(tab, index, state) {
   }
 }
 
+function validateReaction(blueprint, state) {
+  if (!hasOwn(blueprint, 'reaction')) return;
+
+  const reaction = blueprint.reaction;
+  if (!isPlainObject(reaction)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'reaction',
+      'invalid-reaction',
+      'reaction must stay one object when present.',
+    );
+    return;
+  }
+
+  if (!Array.isArray(reaction.items)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'reaction.items',
+      'invalid-reaction-items',
+      'reaction.items must be an array when reaction is present.',
+    );
+    return;
+  }
+
+  for (const [index, item] of reaction.items.entries()) {
+    const path = `reaction.items[${index}]`;
+    if (!isPlainObject(item)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        path,
+        'invalid-reaction-item',
+        'Each reaction item must be one object.',
+      );
+      continue;
+    }
+
+    for (const key of Object.keys(item)) {
+      if (APPLY_BLUEPRINT_REACTION_ITEM_KEYS.has(key)) continue;
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.${key}`,
+        'invalid-reaction-item-key',
+        `reaction item only accepts keys: ${Array.from(APPLY_BLUEPRINT_REACTION_ITEM_KEYS).join(', ')}; unsupported key "${key}".`,
+      );
+    }
+
+    const type = normalizeText(item.type);
+    if (!type) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.type`,
+        'missing-reaction-type',
+        'Each reaction item must include one non-empty type.',
+      );
+    } else if (!APPLY_BLUEPRINT_REACTION_TYPES.has(type)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.type`,
+        'unsupported-reaction-type',
+        `reaction item type "${type}" is unsupported; use one of: ${Array.from(APPLY_BLUEPRINT_REACTION_TYPES).join(', ')}.`,
+      );
+    }
+
+    const target = normalizeText(item.target);
+    if (!target) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.target`,
+        'missing-reaction-target',
+        'Each reaction item target must be one same-run local key / bind key string.',
+      );
+    }
+
+    if (!Array.isArray(item.rules)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.rules`,
+        'invalid-reaction-rules',
+        'Each reaction item rules value must be an array.',
+      );
+    }
+
+    for (const [ruleIndex, rule] of ensureArray(item.rules).entries()) {
+      if (!isPlainObject(rule)) continue;
+      visitConditionItems(rule.when, `${path}.rules[${ruleIndex}].when`, (conditionItem, conditionPath) => {
+        const operator = normalizeText(conditionItem.operator);
+        const conditionSourcePath = normalizeText(conditionItem.path);
+
+        if (operator === '$isNotEmpty') {
+          pushValidationError(
+            state.errors,
+            state.seenErrors,
+            `${conditionPath}.operator`,
+            'unsupported-reaction-operator',
+            'Use "$notEmpty" instead of "$isNotEmpty" in reaction conditions.',
+          );
+        }
+
+        if (
+          BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES.has(type)
+          && conditionSourcePath.startsWith('formValues.')
+        ) {
+          pushValidationError(
+            state.errors,
+            state.seenErrors,
+            `${conditionPath}.path`,
+            'invalid-block-action-condition-path',
+            `Whole-page ${type} should not rely on when.items[].path="${conditionSourcePath}" for sibling form values; prefer then.runjs/linkageRunjs reading ctx.formValues instead.`,
+          );
+        }
+      });
+    }
+
+    if (type && target) {
+      const slotKey = `${type}::${target}`;
+      if (state.reactionSlotKeys.has(slotKey)) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          path,
+          'duplicate-reaction-slot',
+          `reaction.items must not repeat the same slot; duplicated (${type}, ${target}).`,
+        );
+      } else {
+        state.reactionSlotKeys.add(slotKey);
+      }
+
+      const registry = BLOCK_REACTION_TYPES.has(type) ? state.reactionTargetRegistry.blockTargets : state.reactionTargetRegistry.actionTargets;
+      const targetMeta = registry.get(target);
+      if (!targetMeta) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${path}.target`,
+          'unknown-reaction-target',
+          `reaction target "${target}" does not resolve to a keyed same-run ${BLOCK_REACTION_TYPES.has(type) ? 'tab/block' : 'action'} node in this blueprint.`,
+        );
+      } else if (targetMeta.requiresExplicitKey) {
+        pushValidationError(
+          state.errors,
+          state.seenErrors,
+          `${path}.target`,
+          'reaction-target-requires-explicit-key',
+          `reaction target "${target}" relies on generated fallback keys from ${targetMeta.path}; add explicit key values for the referenced tab/block/action and target that stable key instead.`,
+        );
+      }
+    }
+  }
+}
+
 function validateBlueprint(blueprint, options = {}) {
   const state = {
     errors: [],
     seenErrors: new Set(),
     blockKeyPaths: new Map(),
+    reactionSlotKeys: new Set(),
+    reactionTargetRegistry: buildReactionTargetRegistry(blueprint),
   };
 
   const mode = normalizeLowerText(blueprint.mode);
@@ -708,6 +1002,8 @@ function validateBlueprint(blueprint, options = {}) {
   for (const [index, tab] of ensureArray(blueprint.tabs).entries()) {
     validateTab(tab, index, state);
   }
+
+  validateReaction(blueprint, state);
 
   return state.errors;
 }

@@ -42,7 +42,7 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 - Choose major content areas first; fill in fields/actions only after the structure is stable.
 - If the destination menu group already exists and is known, prefer `navigation.group.routeId` over `navigation.group.title`.
 - If you intentionally rely on unique same-title reuse, keep `navigation.group` title-only.
-- If one or more visible same-title menu groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`, otherwise choose one deterministically from the live menu tree and mention that chosen routeId in the prewrite preview.
+- If one or more visible same-title menu groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`; otherwise use this deterministic rule and mention that chosen routeId in the prewrite preview: first prefer a same-title group already containing the target page title, then fall back to the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
 - `navigation.group.routeId` is exact targeting only; if existing-group metadata must change, switch to the low-level `updateMenu` path instead of applyBlueprint.
 - Do not over-specify popup content when a simple opener is enough for the request.
 - Default blueprint `fields[]` entries to simple strings. Only upgrade a field entry to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
@@ -50,6 +50,7 @@ This file focuses on the **inner page blueprint document**. For the actual MCP c
 - For popup relation tables, prefer the canonical `associatedRecords + associationField` shape.
 - On record-capable blocks, put `view` / `edit` / `updateRecord` / `delete` in `recordActions`.
 - Add `key` only when layout or `field.target` truly needs a stable local identifier.
+- In whole-page `replace`, those explicit keys only need same-run stability. Prefer role-suffixed or page-scoped names such as `mainTab`, `usersTableBlock`, `createFormBlock`, `submitAction`, and `maintainAction` over bare generic names like `main`, `usersTable`, or `submit`, because existing pages may otherwise fail first write with duplicate-key backend errors.
 - Keep low-level selectors and internals out of the draft JSON; do not leak `uid`, `ref`, `$ref`, or other non-public write shapes.
 - If layout is not essential or not fully decided, omit it rather than inventing a string or block-level `layout`.
 - For whole-page authoring, default to **ASCII-first** prewrite output rendered from the same blueprint, even when you will execute immediately after it. The preview must still appear before the first write. Keep popup expansion depth at exactly one level, and do not dump JSON unless the user asks for it or a technical review still needs it.

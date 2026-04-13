@@ -263,6 +263,211 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
+test('prepareApplyBlueprintRequest rejects invalid reaction items before first write', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Employees' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.employeeForm.submit',
+          rules: [],
+          key: 'shouldNotBeHere',
+        },
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.employeeForm.submit',
+          rules: [],
+        },
+        {
+          type: 'unsupportedReaction',
+          target: 'main.employeeForm',
+          rules: {},
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'employeeForm',
+            type: 'createForm',
+            collection: 'employees',
+            fields: ['nickname'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(
+    JSON.stringify(result.errors),
+    /invalid-reaction-item-key|duplicate-reaction-slot|unsupported-reaction-type|invalid-reaction-rules|unknown-reaction-target/,
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects high-risk reaction condition operators and sibling formValues paths', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Employees' },
+    reaction: {
+      items: [
+        {
+          type: 'setBlockLinkageRules',
+          target: 'main.rolesReferenceTable',
+          rules: [
+            {
+              key: 'toggleRolesReference',
+              when: {
+                logic: '$and',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$isNotEmpty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setBlockState',
+                  state: 'visible',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.employeeForm.submitAction',
+          rules: [
+            {
+              key: 'toggleSubmitState',
+              when: {
+                logic: '$and',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$notEmpty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'employeeForm',
+            type: 'createForm',
+            collection: 'employees',
+            fields: ['nickname'],
+            actions: [
+              {
+                type: 'submit',
+                key: 'submitAction',
+              },
+            ],
+          },
+          {
+            key: 'rolesReferenceTable',
+            type: 'table',
+            collection: 'roles',
+            fields: ['name'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'unsupported-reaction-operator'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-block-action-condition-path'));
+});
+
+test('prepareApplyBlueprintRequest requires explicit stable keys for whole-page reaction targets', () => {
+  const blockTargetResult = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Employees' },
+    reaction: {
+      items: [
+        {
+          type: 'setFieldValueRules',
+          target: 'Overview.employeeForm',
+          rules: [],
+        },
+      ],
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'employeeForm',
+            type: 'createForm',
+            collection: 'employees',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(blockTargetResult.ok, false);
+  assert.ok(blockTargetResult.errors.some((issue) => issue.ruleId === 'reaction-target-requires-explicit-key'));
+
+  const actionTargetResult = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Employees' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.employeeForm.submit_1',
+          rules: [],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'employeeForm',
+            type: 'createForm',
+            collection: 'employees',
+            fields: ['nickname'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(actionTargetResult.ok, false);
+  assert.ok(actionTargetResult.errors.some((issue) => issue.ruleId === 'reaction-target-requires-explicit-key'));
+});
+
 test('prepareApplyBlueprintRequest rejects high-risk first-write blueprint mistakes', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
