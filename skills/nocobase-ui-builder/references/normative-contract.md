@@ -1,110 +1,263 @@
 # Normative Contract
 
-This page is the single source of truth for `nocobase-ui-builder`. Rules involving `catalog`, popup shell fallback, and schema drift / recovery are defined here exactly once. Other documents only reference them and must not redefine them.
+This page is the single source of truth for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page.
 
 ## 1. Precedence
 
 Rule precedence is always:
 
-1. live MCP schema / live `get` / `catalog` / `context` / `readback`
+1. live MCP behavior / live `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level `flow_surfaces_*` write contracts
 2. this `Normative Contract`
-3. topic references (`popup` / `settings` / `verification` / `runtime-playbook`, etc.)
-4. example payloads / heuristic explanations
+3. topic references (`popup`, `verification`, `runtime-playbook`, etc.)
+4. examples and heuristics
 
-If a lower-priority document conflicts with a higher-priority live fact, follow the higher-priority source.
+If a lower-priority local document conflicts with a live contract fact, follow the live contract.
 
-## 2. Catalog Contract
+## 2. Public Structural Write Contract
 
-### Default Principles
+### Default split
 
-- `catalog` is not globally mandatory.
-- For an existing surface, default to `get` first. Only append `catalog` when a specific contract requires it.
-- For lifecycle APIs, fixed payload shapes, and simple writes that do not depend on live capability, do not mechanically add `catalog` out of habit.
+- **Whole-page create** -> simplified **page blueprint** -> `applyBlueprint(mode="create")` -> readback.
+- **Whole-page replace** -> simplified **page blueprint** -> `applyBlueprint(mode="replace")` -> readback.
+- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `applyBlueprint(...)` -> readback.
+- **Localized edit on an existing surface** -> low-level APIs directly (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
+- **Localized interaction / reaction edit** -> `getReactionMeta` -> matching `set*Rules` -> readback.
 
-### When You Must Read `catalog`
+### What the public page blueprint is
 
-You must read `catalog(target)` first when any of the following is true:
+The public `applyBlueprint` payload is:
 
-- You need to decide whether the current target truly supports creating a certain block / field / action type.
-- You need live `configureOptions` / `settingsContract`.
-- You need to inspect popup `resourceBindings`, for example whether `currentRecord` is exposed.
-- You need to narrow live capability for JS / chart / association-popup / filterForm multi-target scenarios.
-- `get` alone cannot determine the container's public capability, configuration entry, or semantic guard.
+- JSON only
+- one page at a time
+- structure-first, with optional top-level `reaction.items[]` for whole-page interaction logic
+- centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
+- written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
+- key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
+- if `reaction.items[]` is present, every reaction target must be a same-run local key / bind key, not a live uid
+- for form `fieldValue` / form-scene `fieldLinkage`, target the outer form block key/path, not the inner grid uid
+- only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission
+- `rules: []` clears the targeted reaction slot
+- `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
+- if `layout` is present, it must be an object; when layout is still uncertain, omit it instead of guessing
+- generic `form` is not a public applyBlueprint block type; use `editForm` or `createForm`
+- custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
+- for normal single-page requests, default to exactly one real tab; do not carry empty / placeholder tabs in the draft
+- do not add placeholder content such as `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them
+- field entries default to simple string field names; use a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required
+- when the intent is "click the shown record / relation record to open details", the canonical page-blueprint authoring is a field-level inline `popup`; backend / readback may normalize this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the request explicitly asks for a button or action column.
 
-### When You Can Skip `catalog`
+### MCP tool-call envelope rule
 
-You can usually skip `catalog` in the following cases:
+When calling any `flow_surfaces_*` MCP tool:
 
-- Pure `inspect`, where `get` / menu-tree data is already enough to answer the user.
-- Lifecycle APIs such as `createMenu`, `updateMenu`, `createPage`, `moveTab`, or `removeTab`, when the payload does not depend on live capability.
-- The target is already explicit, and this write is only a small lifecycle change with a fixed shape.
+- first distinguish whether the tool uses top-level locator fields directly or a `requestBody`
+- if the schema says `requestBody`, then `requestBody` must be the final business **object**
+- do **not** stringify the JSON document
+- do **not** wrap it again as `{ values: payload }`
+- do **not** leak tool-envelope fields such as `requestBody` into the inner page blueprint
 
-### Output and Phrasing Requirements
+Important exception:
 
-- Do not describe "did not read `catalog`" as "capability confirmed".
-- If skipping `catalog` means you can only confirm structure, keep the result phrased at the structural level. Do not escalate it to semantic confirmation.
+- `flow_surfaces_get` uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`)
+- most other `flow_surfaces_*` actions in this skill path use `requestBody`
+- for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `page-blueprint.md` focuses on the inner page document, not the full MCP envelope
 
-## 3. Popup Shell Fallback Contract
+Correct:
 
-### Terms
+```json
+{
+  "requestBody": {
+    "version": "1",
+    "mode": "create",
+    "navigation": {
+      "group": { "routeId": 12 },
+      "item": { "title": "Employees" }
+    },
+    "page": { "title": "Employees" },
+    "tabs": [
+      {
+        "title": "Overview",
+        "blocks": [
+          { "type": "table", "collection": "employees", "fields": ["nickname"] }
+        ]
+      }
+    ]
+  }
+}
+```
 
-- `shell-only popup`: only create the opener / popup subtree. Do not add `details`, `editForm`, `submit`, or similar content in this run.
-- `completed popup`: this run creates the opener and also completes the popup content semantics requested by the user.
+Wrong:
 
-### Allowed Conditions
+```json
+{
+  "requestBody": "{\"version\":\"1\",\"mode\":\"create\"}"
+}
+```
 
-`shell-only popup` is only allowed when the user intent is explicitly "create the entry / button / shell / popup shell first", and not "complete the content".
+Also wrong:
 
-Typical allowed phrasings:
+```json
+{
+  "requestBody": {
+    "values": {
+      "version": "1",
+      "mode": "create"
+    }
+  }
+}
+```
 
-- "Add a popup button first"
-- "Create the popup entry first"
-- "Build only the shell first; content will be configured later"
+For requestBody-based tools such as `describeSurface`, `catalog`, `context`, `applyBlueprint`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
 
-### Forbidden Conditions
+## 2.1 Error-first recovery rules
 
-You must not degrade to `shell-only popup` in the following cases:
+If a tool returns one of these patterns, fix the tool call shape first:
 
-- The user asks to "view the current record / edit the current record / this record / this row".
-- The user explicitly asks for `details`, `editForm`, `submit`, or record-popup content.
-- The scenario semantics are already "complete a usable popup", but the live guard / binding is not satisfied.
+- `params/requestBody must be object`
+  - usually means `requestBody` was omitted, stringified, or otherwise not sent as an object
+- `params/requestBody must match exactly one schema in oneOf`
+  - when it appears together with the previous error on `applyBlueprint`, first suspect the outer `requestBody` envelope, not the inner blueprint
+- `flowSurfaces uid 'root' not found`
+  - usually means the skill invented `"root"` as `target.uid` / `locator.uid`
+  - do not use the literal `"root"` as a flow-surfaces uid
+  - first read live structure with `get` / `describeSurface` and reuse a real uid, or pick a page-level API that does not require such a uid
 
-In these cases, either complete the popup content the user asked for, or stop and report the guard / capability gap. Do not silently degrade to an empty shell.
+Do not start by changing the inner blueprint shape until the MCP envelope / targeting shape is confirmed correct.
 
-### Output and Acceptance Requirements
+Canonical resource rule:
 
-- A `shell-only popup` may only be described as "entry / popup shell created". It must not be described as "popup completed".
-- The maximum success level for `shell-only popup` is `structural-confirmed`, not `semantic-confirmed`.
+- block-level shorthand uses `collection`, `binding`, and `associationPathName`
+- nested `block.resource` uses `collectionName`, `binding`, and `associationPathName`
+- block-level shorthand and nested `resource` are mutually exclusive on the same block
+- for popup relation tables that show records from the current record's relation, prefer the canonical semantic shape `resource.binding = "associatedRecords"` + `resource.associationField = "<relationField>"` (for example `roles`)
+- `applyBlueprint` may normalize `currentRecord | associatedRecords + associationPathName` into that canonical associated-records shape for convenience, but only when `associationPathName` is a single relation field name; the skill should author the canonical shape directly
+- on record-capable blocks (`table`, `details`, `list`, `gridCard`), author `view` / `edit` / `updateRecord` / `delete` under `recordActions`; `applyBlueprint` may auto-promote common record actions written under `actions`, but the skill should still use `recordActions` canonically
 
-## 4. Schema Drift / Recovery Contract
+It is **not** a plan API and must not expose:
 
-### Trigger Signals
+- `kind`, `target.mode`, or patch-style change lists
+- plan preview / compiled steps / execution internals
+- workflow-ish control fields
+- `ref` / `$ref`
+- object-style `field.target` selectors
+- layout-cell `uid`
+- deprecated applyBlueprint aliases such as block `collectionName` / `association` / `resourceBinding` and field `fieldPath` / `openView` / `targetBlock`
+- deprecated nested-resource aliases such as `resource.collection` / `resource.association` / `resource.resourceBinding`
 
-Treat the following as schema drift / recovery situations:
+For `replace` runs:
 
-- MCP is unreachable or unauthenticated.
-- A critical tool is missing.
-- The schema is stale.
-- The live capability / contract / guard disagrees with local docs.
-- A server validation error suggests that the current payload shape drifted away from the live schema.
+- `target.pageSchemaUid` is required
+- omitted page-level fields are left unchanged
+- blueprint tabs map to existing route-backed tab slots by index; each slot is rewritten in order, trailing old tabs are removed, and extra new tabs are appended
+- before the first `applyBlueprint`, the skill-side authoring gate is: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, there is no placeholder `markdown` / note / banner block, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`
+- if the current page has `enableTabs = false` and the new blueprint contains multiple tabs, `page.enableTabs: true` must be set explicitly
+- tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
+- layout cells are only block key strings or `{ key, span }`
+- `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
+- if layout is omitted, the server auto-generates a simple top-to-bottom layout
+- in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, applyBlueprint reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
+- at the skill-authoring layer, if one or more visible same-title menu groups already exist, do **not** create another same-title group for disambiguation; prefer the exact known `routeId`, otherwise reuse one existing group deterministically from the live menu tree and disclose that chosen routeId in the prewrite preview
+- `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
+- same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
 
-### Unified Handling
+The public response returns only the resolved page `target` and final `surface` readback.
 
-- When any of the signals above appears, stop guessing writes.
-- This skill does not define an abstract automatic `refresh -> retry` chain.
-- This skill does not allow the agent to perform an ad hoc schema refresh without a standardized tool.
+### Scope boundary
 
-### Allowed Recovery Actions
+Use `applyBlueprint` only when the user is really describing one page as a whole. Do not use it for:
 
-Only the following recovery suggestions are allowed:
+- add one block to an existing page
+- rename one tab
+- move one node
+- delete one popup tab
+- tweak one field/action setting
 
-- refresh the current MCP connection
-- re-authenticate the current NocoBase MCP
-- use `nocobase-mcp-setup`
+Those are low-level edit paths.
 
-After the user completes the external recovery, restart from the read path again, usually from `get`, and append `catalog` only if required.
+## 3. Read Facts Contract
 
-### Explicitly Forbidden
+### Allowed read sources
 
-- Do not keep writing `refresh/get/catalog/context -> recompute payload -> retry` into the docs.
-- Do not describe "abstract refresh" as an executable capability that the current agent already has.
+The skill may use:
+
+- `desktop_routes_list_accessible(tree=true)` for visible menu discovery
+- `flow_surfaces_get` for normal structural inspection and post-write readback
+- `flow_surfaces_describe_surface` when a richer public tree snapshot helps analyze an existing surface
+- `flow_surfaces_catalog` when current-target capability is the question
+- `flow_surfaces_get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
+- `flow_surfaces_context` when popup/context variables or lower-level raw variable paths are the question
+- `collections:list` to narrow candidate collections
+- `collections:get(appends=["fields"])` as the default field truth
+- `collections.fields:get` only for known single-field follow-up when extra detail is still needed
+
+### Field/schema fact priority
+
+When field truth matters:
+
+1. `collections:list` narrows candidates only
+2. `collections:get(appends=["fields"])` is the default truth for scalar fields, relation fields, interface, and association metadata; it is the only default field truth for UI authoring
+3. Do **not** use `collections.fields:list` for page authoring; treat it as a compact browse view, not as authoring truth
+4. `collections.fields:get` is optional follow-up only when the field name is already known and one field still needs confirmation
+5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
+
+Field addability rule:
+
+- A field is authorable into page-blueprint `fields[]` only if `collections:get(appends=["fields"])` shows a non-empty `interface` for that field.
+- If a field exists but `interface` is empty / null there, do **not** author it into any `details` / `table` / `editForm` / `createForm` / nested-popup block `fields[]`.
+- If a field only needs normal display/edit behavior, keep it as a simple string entry in blueprint `fields[]`; only upgrade it to an object when a documented public field behavior is needed.
+- Schema existence alone is not enough for UI authoring. Example: a field like `roles.description` may exist in collection metadata, but if its `interface` is `null`, the skill must omit it instead of attempting `addField` / `applyBlueprint` authoring.
+- Only override this rule when another live read proves a supported UI path for that exact field and target.
+
+Do not use UI-builder skill docs to invent missing schema. If the requested fields/relations do not exist, hand off to `nocobase-data-modeling`.
+
+## 4. Prewrite Preview + Confirmation Threshold
+
+For any whole-page `applyBlueprint` authoring run, show one ASCII-first preview from the same blueprint before the first write. This preview is mandatory even when execution continues immediately afterward.
+
+Stop after that preview for confirmation when any of the following is true:
+
+- the request is ambiguous
+- the request is destructive or high-impact
+- `replace` would rebuild a page whose blast radius needs review
+- data source / popup / tab structure still depends on assumptions
+- the user explicitly asks to review the structure first
+
+Direct execution after the preview is allowed only when all are true:
+
+- the target is unique
+- the structure is clear enough to serialize into one page blueprint or one localized low-level write plan
+- required collections/fields/bindings are backed by live facts
+- the write will not guess hidden semantics
+
+## 5. Low-level Fallback Contract
+
+Low-level APIs are **not** a fallback from `applyBlueprint` because of complexity. They are the **default** for localized edits.
+
+Use low-level APIs when:
+
+- the user asks for a localized edit on an existing page/tab/popup/node
+- the write is lifecycle-specific (`createMenu`, `updateMenu`, `moveTab`, `removeTab`, etc.)
+- the public page blueprint cannot express the task because the task is not a whole-page create/replace request
+
+Do **not** emulate a plan-style patch workflow in user-facing authoring.
+
+## 6. Popup / Catalog / JS Global Rules
+
+- Nested popups are allowed in page blueprint, but only as inline popup content beneath actions or fields.
+- When popup resource bindings, target-specific field addability, or JS/chart capability matters, read `catalog` before writing.
+- Any JS write must pass the local validator gate first.
+
+## 7. Recovery / Stop Conditions
+
+Stop instead of guessing when:
+
+- MCP is unreachable or unauthenticated
+- the live schema/tool surface is missing a required action
+- the target is not unique
+- schema facts are missing for required fields/relations/bindings
+- the requested change crosses out of Modern page (v2) scope
+
+## 8. Safety Rule for Testing / Multi-agent Runs
+
+- Never delete or clean unrelated pages, menus, routes, or records as part of a UI-building task unless the user explicitly asked for destructive cleanup.
+- In multi-agent or repeated test runs, prefer isolated target groups / pages instead of "clean slate" deletion.

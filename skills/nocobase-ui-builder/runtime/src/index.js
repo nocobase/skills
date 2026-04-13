@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { runTask } from './runner.js';
+export { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
+export { prepareApplyBlueprintRequest } from './page-blueprint-preview.js';
 
 async function loadMaybeFile(cwd, filePath, reader) {
   if (!filePath) return undefined;

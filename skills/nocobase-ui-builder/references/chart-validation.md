@@ -1,6 +1,6 @@
 # Chart validation
 
-Read [chart.md](./chart.md) first for chart tasks. Read this file only after you are already inside the chart topic and need to maintain the chart skill contract, design a validation matrix, or add negative-case regressions. For runtime DSL, `query / visual / events`, and readback rules, see [chart-core.md](./chart-core.md).
+Read [chart.md](./chart.md) first for chart tasks. Read this file only after you are already inside the chart topic and need to maintain the chart skill contract, design a validation matrix, or add negative-case regressions. For runtime blueprint, `query / visual / events`, and readback rules, see [chart-core.md](./chart-core.md).
 
 ## Contents
 

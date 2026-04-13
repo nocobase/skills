@@ -1,96 +1,166 @@
 # Execution Checklist
 
-Use this checklist by default during execution. Only open a topic reference when a specific contract is actually hit. For cross-topic rules around `catalog`, popup shell fallback, and schema drift / recovery, see [normative-contract.md](./normative-contract.md).
+Use this checklist by default. For global rules, see [normative-contract.md](./normative-contract.md).
 
 ## 1. Preflight
 
-- Before any write, confirm that the NocoBase MCP is reachable, authenticated, and the schema is usable.
-- `inspect` is read-only by default. Only enter a write flow when the user explicitly asks to create, modify, reorder, delete, or fix something.
-- If the live environment already shows an auth error, a missing critical tool, a stale schema, or a capability gap, stop writing first. For recovery, see [normative-contract.md](./normative-contract.md).
+- Confirm MCP is reachable and authenticated.
+- Confirm the task is really about Modern page (v2) UI.
+- Decide whether the request is **whole-page create/replace** or **localized edit**.
+- If the request needs real fields/relations/bindings, gather live schema facts before writing.
+- If JS is involved, validate JS first.
+- If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
+- If the request mentions default values, linkage, computed values, show/hide, required/disabled, or action state, decide explicitly whether this is a whole-page reaction task or a localized reaction task before choosing structural APIs.
+- If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
+- The deterministic same-title group tie-break is: first prefer a same-title group already containing the target page title; otherwise choose the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
+- Before any flow-surfaces write or requestBody-based read, confirm the tool-call envelope:
+  - `flow_surfaces_get` -> top-level locator fields
+  - most other `flow_surfaces_*` actions in this skill path -> `requestBody: { ... }`
+- Never invent `"root"` as `target.uid` / `locator.uid`; only use live uids from `get` / `describeSurface` / create responses.
 
 ## 2. Choose Intent
 
-- First decide the primary intent: `inspect`, `create-menu-group`, `create-page`, `update-ui`, `move-menu`, `reorder`, or `delete-ui`.
-- Only add a topic gate when the task truly hits `popup`, `chart`, or `js`.
-- If the request involves `title` / `icon`, first identify whether it means the menu entry, the page header title, the page header icon, or a tab / popup tab. Do not jump straight to a lifecycle API just because you already have a page/tab locator.
-
-Default path quick reference:
-
-| intent | Default primary path | Minimum readback |
+| intent | default path | minimum readback |
 | --- | --- | --- |
-| `inspect` | For menu titles, read the menu tree first. For initialized surfaces, start with `get`. Decide whether to append `catalog` via [normative-contract.md](./normative-contract.md). | `Inspect` in [verification.md](./verification.md) |
-| `create-menu-group` | `createMenu(type="group")`; add `parentMenuRouteId` when it must attach under a specific parent | return value; menu tree if needed |
-| `create-page` | `createMenu(type="item") -> createPage(menuRouteId=...)` | `get({ pageSchemaUid })` |
-| `update-ui` | First resolve the visible title/icon slot. Then use `get -> [append catalog if required by normative contract] ->`. Prefer `updateMenu` for menu entries, `updateTab` / `updatePopupTab` only for tab / popup-tab semantics, page `configure` only for page-header title, and inspect the render chain first for page-header icon. For everything else, prefer `compose/add*`, then consider `configure/updateSettings`. | direct parent, direct target, or the corresponding lifecycle target |
-| `move-menu` | If `menuRouteId` is already known, call `updateMenu(parentMenuRouteId=...)` directly. If you only have a menu title, read the menu tree first. | menu tree |
-| `reorder` | Narrow sibling / target via `get`, then use `moveTab`, `movePopupTab`, or `moveNode` | parent, page, or route/tree |
-| `delete-ui` | After `get` / menu tree makes the target and blast radius explicit, use `destroyPage`, `removeTab`, `removePopupTab`, or `removeNode` | destructive / high-impact readback |
+| `inspect` | menu tree for menu questions; otherwise `get`; use `describeSurface` only when its richer tree helps analysis | read-only answer |
+| `draft-page-blueprint` | gather facts -> author simplified page blueprint -> ASCII prewrite preview and stop without writing | no write |
+| `apply-page-blueprint` | simplified page blueprint -> `applyBlueprint` -> `get` readback | `get({ pageSchemaUid })` |
+| `apply-page-blueprint` + reaction | simplified page blueprint + top-level `reaction.items[]` -> `applyBlueprint` -> `get` readback | `get({ pageSchemaUid })` + target reaction slot checks |
+| `edit-existing-surface` | `get` / `describeSurface` / `catalog` as needed -> low-level APIs -> readback | parent/target readback |
+| `edit-existing-surface` + reaction | `get` if target unknown -> `getReactionMeta` -> matching `set*Rules` -> readback | target readback + write result `resolvedScene` / `fingerprint` |
+| `create-menu-group` | direct `createMenu(type="group")` | return value or menu tree |
+| `move-menu` | menu tree if needed -> `updateMenu(parentMenuRouteId=...)` | menu tree |
+| `reorder` | `moveTab` / `movePopupTab` / `moveNode` | parent/page/popup readback |
+| `delete-ui` | `destroyPage` / `removeTab` / `removePopupTab` / `removeNode` after blast-radius read | destructive readback |
 
-## 3. Resolve Visible Slot (`title` / `icon` only)
+## 3. Whole-page Create / Replace Path
 
-- When the natural language uses frequent terms like `page title`, `menu title`, `tab title`, `icon`, or `small icon`, first resolve which visible slot the user actually means: the left menu, the page content header, the outer tab, or the popup tab.
-- Use the default guess order from [aliases.md](./aliases.md): look for position clues first, then object name, and only then fall back to the default entry semantics of a route-backed page.
-- If the user only says `page title` / `page icon` with no position clue, default to the menu entry. Do not default directly to `updateTab`.
-- If the final target is a default guess rather than an explicit user designation, state it in commentary before writing: "this will modify the left menu item / page header / outer tab / popup tab".
-- If the semantics land on the page-header title, continue with page `configure`.
-- If the semantics land on the page-header icon, first confirm that the current header actually consumes the relevant property. If there is no rendering path, do not market it as a menu icon or tab icon, and do not treat it as the default visible path.
+Use this path when the user is describing one page as a whole.
 
-## 4. Resolve Family / Locator
+### Default use
 
-- For menu-title discovery, always start with `desktop_routes_list_accessible(tree=true)`. It only represents the menu tree visible to the current role, not the full system truth. Only accept a uniquely matched `group`.
-- For initialized surfaces, default to `flow_surfaces_get` first. Choose `uid`, `pageSchemaUid`, `tabSchemaUid`, or `routeId` based on the live locator fields.
-- For mappings between family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md).
-- If the target is still not unique, stop. Do not guess based on sibling-relative position.
+- create one new Modern page from business intent
+- replace / rebuild one existing page as a whole
 
-## 5. Choose Capability / Config Path
+### Do not use `applyBlueprint` for
 
-- If you are unsure whether to choose a block, action, or field, see [capabilities.md](./capabilities.md).
-- If you need to choose between `settings`, `configure(changes)`, and `updateSettings`, see [settings.md](./settings.md).
-- If the natural language is highly ambiguous, use [aliases.md](./aliases.md) to narrow the object semantics first.
+- add one block / field / action
+- move one node
+- rename one tab
+- change one popup / tab setting
+- remove one node / tab / popup tab
 
-## 6. Read Path
+1. Read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), and [ascii-preview.md](./ascii-preview.md).
+2. Discover real collections/fields/relations if the page is data-bound.
+3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
+4. Draft or assemble one **page blueprint** document.
+5. If the same page also needs interaction logic, add top-level `reaction.items[]` in the same blueprint instead of splitting structure and reactions into separate whole-page writes.
+6. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
+7. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+8. Before the **first** `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check:
+   - tabs count matches the request
+   - if this is a normal single-page request, `tabs.length` is exactly `1`
+   - every `tab.blocks` is a non-empty array
+   - there is no empty / placeholder tab
+   - there is no placeholder `markdown` / note / banner block
+   - no block object contains `layout`
+   - every `tab.layout` / `popup.layout` is an object; if you are unsure, omit `layout`
+   - block `key` values are unique within the document
+   - every field named in any blueprint `fields[]` is backed by live `collections:get(appends=["fields"])` truth with a non-empty `interface`
+   - every field entry in blueprint `fields[]` stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required
+   - every custom `edit` popup contains exactly one `editForm`
+   - if `reaction.items[]` exists, each reaction target is a same-run local key / bind key, not a live uid
+   - each reaction item object only uses `type`, `target`, `rules`, and optional `expectedFingerprint`; do not carry an item-level `key`
+   - any tab / block / action referenced by `reaction.items[]` has an explicit stable key path in the authoring JSON; do not rely on generated fallback keys such as `submit_1`
+   - in `replace`, those explicit keys only need to be stable within the current write; prefer role-suffixed or page-scoped names such as `mainTab`, `usersTableBlock`, `createFormBlock`, `submitAction`, and `maintainAction` over bare generic keys like `main`, `usersTable`, or `submit`
+   - `reaction.items[]` must keep one object payload, supported item `type`, array `rules`, unique `(type, target)` slots, and targets that resolve to keyed same-run tab / block / action nodes in the same blueprint
+   - the gate must catch envelope / structure mistakes such as extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, invalid `tab.layout` / `popup.layout`, and broken custom `edit` popups before the first write
+   - if any item fails, rewrite the blueprint before the first write; do not use backend errors as the first validator
+9. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. Prefer the same local prepare-write gate because it emits that preview and the normalized tool-call envelope together. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
+10. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
+11. When you call `applyBlueprint`:
+   - Open [tool-shapes.md](./tool-shapes.md) and copy the **Tool-call envelope** shape first.
+   - Pass the blueprint as `requestBody: { ... }`; never send `requestBody` as a JSON string and never add an outer `{ values: ... }` wrapper.
+   - Never copy a raw JSON example from `page-blueprint.md` straight into the MCP call without wrapping it under `requestBody`.
+   - If you see `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the MCP envelope before changing inner blueprint fields.
+12. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
-- For an existing surface, default to `get` first. Whether to append `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
-- For popup guard-sensitive scenarios, follow the `guard-first popup flow` in [popup.md](./popup.md). For the `addField/addFields` gate, see [capabilities.md](./capabilities.md).
-- `inspect` is read-only. For request shapes of `get` / `catalog` / `context`, see [tool-shapes.md](./tool-shapes.md).
+### Notes
 
-## 7. Write Path
+- `create` mode does not take `target`; `replace` mode requires `target.pageSchemaUid`.
+- When an existing menu group is already known, prefer `navigation.group.routeId`; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse.
+- If visible same-title groups already exist, do **not** create another same-title group just to avoid ambiguity; reuse one existing group instead. Prefer an exact known `routeId`; otherwise use this deterministic rule and state that chosen routeId in the prewrite preview: first prefer a same-title group already containing the target page title, then fall back to the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
+- `navigation.group.routeId` is exact targeting only; do not mix it with group metadata (`icon`, `tooltip`, `hideInMenu`). If an existing group's metadata must change, use low-level `updateMenu` separately.
+- `replace` updates only the explicit page-level fields present in `page`.
+- Current server behavior maps blueprint tabs to existing route-backed tab slots by index, rewrites each slot in order, removes trailing old tabs, and appends extra new tabs when needed.
+- For a normal single-page request, keep `tabs.length = 1` unless the user explicitly asked for multiple route-backed tabs.
+- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks just to explain future work or organize your thinking.
+- Default blueprint `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
+- For whole-page `applyBlueprint` authoring, default to **ASCII-first** prewrite output: short intent summary, one ASCII wireframe, and assumptions only when needed.
+- The ASCII preview is the default prewrite review surface; the blueprint remains the execution truth, and the preview must still appear before the first write even when execution continues immediately afterward.
+- When the local prepare-write gate fails, fix the blueprint locally first instead of using backend `applyBlueprint` errors as the primary validator.
+- Default popup expansion depth in the prewrite preview is exactly **1**; deeper popup chains should stay visible only as `nested popup omitted`.
+- Tab / block keys are optional unless custom layout or `field.target` needs them.
+- `field.target` is only a string block key; do not send object selectors.
+- At block root use `collection`; inside nested `resource` use `collectionName`.
+- Put `layout` only on `tabs[]` or inline `popup`; do not put `layout` on a block object.
+- For popup relation tables, prefer `resource.binding = "associatedRecords"` with `resource.associationField = "<relationField>"`.
+- The convenience shorthand `currentRecord | associatedRecords + associationPathName` only works for a single relation field name; for anything more complex, author the canonical shape directly.
+- On record-capable blocks, author `view` / `edit` / `updateRecord` / `delete` under `recordActions`, not `actions`.
+- When the user says clicking a shown record / relation record should open details, prefer a field-level popup / clickable-field path instead of inventing a new button; only use an action / recordAction button when the request explicitly asks for one.
+- Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For a standard `edit` popup, backend default completion is acceptable; when the user wants custom popup structure or sibling blocks, author explicit `popup.blocks` / `popup.layout`.
+- A custom `edit` popup must contain exactly one `editForm` block. If that `editForm` omits `resource`, applyBlueprint will inherit the opener's current-record context.
+- If the requirement only says "click to open" and you are not fully sure about layout, omit `layout` rather than guessing a string or block-level `layout`.
+- For existing display/association fields that should open popups on click, use low-level `configure` / `clickToOpen` semantics rather than guessing popup structure first.
+- Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`. If layout is omitted, the server auto-generates a simple top-to-bottom layout.
+- If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
+- `replace` mode is for rebuilding one page, not for a tiny local edit. Nested popups still stay inside the same page blueprint as inline popup definitions.
+- Keep non-blueprint control fields out of the payload; follow [normative-contract.md](./normative-contract.md).
+- If a tool returns `params/requestBody must be object`, stop and fix the MCP call envelope first; do not keep mutating the inner blueprint blindly.
+- In testing / multi-agent runs, do not perform destructive cleanup unless the user explicitly asked for deletion.
 
-- Default write chain: `get -> [append catalog if required by normative contract] -> write -> readback`.
-- If you are only creating a menu group, call `createMenu(type="group")` directly.
-- For creating a new page, prefer the menu-first path by default: `createMenu(type="item") -> createPage(menuRouteId=...)`.
-- For `title/icon` metadata changes: prefer `updateMenu` for the left menu entry; only use `updateTab` / `updatePopupTab` for explicit tab semantics; only use page `configure` for the page-header title; inspect the render chain first for the page-header icon and do not promise visible effect by default.
-- For an existing target, prefer `compose/add*`, then consider `configure/updateSettings`. Only the immediate next target uid that was just returned by a write API may skip one leading `get`.
-- For popup payload shapes and `popup.mode`, see [tool-shapes.md](./tool-shapes.md).
-- For guard-sensitive popups, always follow the `guard-first popup flow` in [popup.md](./popup.md).
-- When the operation hits `setLayout`, first translate the natural language into the three-level semantics `row -> columns -> items` before writing the payload:
-  - "same row / side by side / left-right split" = multiple column cells under the same `rowKey`, for example `[[left], [right]]`
-  - "stacked vertically in the same column" = multiple items inside the same column cell, for example `[[top, bottom]]`
-  - "two rows vertically" = different `rowKey` values, for example `row1=[[top]]`, `row2=[[bottom]]`
-  - `sizes[rowKey]` must be a one-dimensional `number[]`, and its length must equal the number of columns in that row. Do not write `[[8,16]]`
-- For the minimum readback target per operation, use `Operation -> Minimum readback target` in [verification.md](./verification.md).
+## 4. Localized Existing-surface Edit Path
 
-## 8. Risk Gate
+Use this path when the user asks to add/move/remove/update only part of an existing surface.
 
-- `add*` and `compose(mode != "replace")` are append-like. `configure/updateSettings` are merge-like.
-- `setLayout/setEventFlows` are high-impact full-replace operations.
-- `destroyPage/remove*`, `apply(mode="replace")`, `compose(mode="replace")`, and replace-style `mutate` are destructive.
-- For high-impact or destructive paths, explain the blast radius first. Do not default to these paths unless the user is explicitly asking for a full replacement.
+1. Use `get` to locate the current page/tab/popup/node.
+2. Use `describeSurface` only when the richer public tree helps analysis.
+3. Use `catalog` only when target capability is uncertain.
+4. If the request is reaction-related, call `getReactionMeta` before any write and do not guess raw configure keys or valid action/state names.
+5. Use the smallest low-level write that preserves semantics:
+   - `compose` for structured block/field/action insertion under a container
+   - `configure` for simple semantic changes
+   - `updateSettings` for settings-domain writes
+   - `setFieldValueRules` / `setFieldLinkageRules` / `setBlockLinkageRules` / `setActionLinkageRules` for reaction writes
+   - use `$notEmpty`, not `$isNotEmpty`
+   - `addTab` / `updateTab` / `moveTab` / `removeTab`
+   - `addPopupTab` / `updatePopupTab` / `movePopupTab` / `removePopupTab`
+   - `moveNode` / `removeNode`
+   - `updateMenu` / `createMenu` / `createPage`
+   - if the chosen tool uses `requestBody`, wrap the business payload under `requestBody` instead of sending the inner object directly
+   - if the chosen tool needs `target.uid` / `locator.uid`, source that uid from live readback rather than inventing `"root"`
+6. Read back only the affected target/parent, unless hierarchy changed.
 
-## 9. Topic Gate
+For detailed reaction payload shapes and host-target caveats, defer to [reaction.md](./reaction.md).
 
-- `popup`: read [popup.md](./popup.md) first. For exact payloads, then read [tool-shapes.md](./tool-shapes.md).
-- `chart`: read [chart.md](./chart.md) first, then enter `chart-core` / `chart-validation` as needed.
-- `js`: read [js.md](./js.md). Any JS write must pass the local validator gate first. For the CLI entry, see [runjs-runtime.md](./runjs-runtime.md).
+## 5. Schema / Capability Reads
 
-## 10. Retry / Batch Failure
+- Use `collections:list` only to narrow candidates.
+- Use `collections:get(appends=["fields"])` as the default field truth.
+- Do **not** use `collections.fields:list` for page authoring / field discovery; it is compact browse only, not authoring truth.
+- Use `collections.fields:get` only for known single-field follow-up if one field still needs confirmation.
+- If a field shows `interface: null` / empty in `collections:get(appends=["fields"])`, do not place it into blueprint `fields[]`.
+- Treat this as a hard addability rule, not a soft heuristic: schema existence alone is insufficient for UI authoring.
+- This applies to `details` / `table` / `editForm` / `createForm` fields and to nested popup blocks as well.
+- Use `catalog({ target, sections: ["fields"] })` when current-target addability matters.
+- If required schema is missing, stop and hand off to `nocobase-data-modeling`.
 
-- If a server contract / validation error points to schema drift or a capability gap, close the loop through [normative-contract.md](./normative-contract.md). This skill does not define an abstract `refresh -> retry` chain.
-- If any child item in a batch write fails, stop immediately. Report successes and failures separately, do not auto-rollback, and do not continue with downstream writes that depend on "all succeeded". For post-write acceptance, see [verification.md](./verification.md).
+## 6. Stop / Handoff Conditions
 
-## 11. Stop / Handoff
+Stop instead of guessing when:
 
-- If you hit insufficient auth, a stale schema, a missing capability / contract / guard, a non-unique target, or an undecidable validator result, stop guessing writes. For recovery, see [normative-contract.md](./normative-contract.md).
-- ACL / route permissions / role permissions -> `nocobase-acl-manage`
-- collection / association / field schema authoring -> `nocobase-data-modeling`
-- workflow create / update / revision / execution path -> `nocobase-workflow-manage`
+- target is ambiguous
+- the task is really ACL / workflow / data-modeling / browser validation
+- the public page blueprint cannot express the request and the low-level target is still unclear
+- the live environment lacks a required capability

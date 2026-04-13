@@ -2,6 +2,8 @@
 
 Read this file first when you already know you are creating a block / field / action / record action, and the user also requires frequent public attributes such as title, label, required, or button style. The goal is to inline public semantic `settings` directly into `add*`, rather than creating an empty node first and then mechanically adding a separate `configure`. Whether `catalog` is mandatory is governed by [normative-contract.md](./normative-contract.md).
 
+This file is for **low-level write APIs** such as `add*`, `configure`, and `updateSettings`. It is not the authoring guide for the public whole-page `applyBlueprint` JSON blueprint.
+
 ## Contents
 
 1. Core rules
@@ -14,12 +16,13 @@ Read this file first when you already know you are creating a block / field / ac
 
 ## Core Rules
 
-1. If the current change needs live `configureOptions` / `settingsContract` to determine which public fields exist, read `catalog(target)` first via [normative-contract.md](./normative-contract.md). The decision should consider both target-level `configureOptions` and item-level `configureOptions`.
+1. If the current change needs live `configureOptions` / `settingsContract` to determine which public fields exist, read `catalog({ target })` first via [normative-contract.md](./normative-contract.md). The decision should consider both target-level `configureOptions` and item-level `configureOptions`.
 2. `requestBody.settings` must only contain public semantic keys. Do not write raw `props / decoratorProps / stepParams / flowRegistry / wrapperProps / fieldProps`.
-3. If the user's requirement can be fully expressed through `settings`, do `add* + settings` directly. Do not add an extra `configure`.
-4. If only part of the fields can be inlined, do `add* + settings` first, then use `configure(changes)` to fill the remaining public fields.
-5. Only fall back to `updateSettings` for path-level contracts. Layout and event flows still use dedicated APIs.
-6. If live `catalog.configureOptions` has clearly exposed a key but this file does not list it, do not automatically degrade to `updateSettings`. Prefer `add* + settings` or `configure(changes)` first.
+3. Do not copy low-level `requestBody/settings/configure` envelopes back into the public page blueprint. Public `applyBlueprint` uses its own structure-first JSON contract.
+4. If the user's requirement can be fully expressed through `settings`, do `add* + settings` directly. Do not add an extra `configure`.
+5. If only part of the fields can be inlined, do `add* + settings` first, then use `configure(changes)` to fill the remaining public fields.
+6. Only fall back to `updateSettings` for path-level contracts. Layout and event flows still use dedicated APIs.
+7. If live `catalog.configureOptions` has clearly exposed a key but this file does not list it, do not automatically degrade to `updateSettings`. Prefer `add* + settings` or `configure(changes)` first.
 
 ## Decision Matrix
 
