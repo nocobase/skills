@@ -107,11 +107,12 @@ ManyRecordBlockModel.define({
 ```tsx
 // models/TodoBlockModel.tsx
 import { TableBlockModel } from '@nocobase/client-v2';
+import type { Collection } from '@nocobase/flow-engine';
 import { tExpr } from '../locale';
 
 export class TodoBlockModel extends TableBlockModel {
   // Restrict to a specific collection
-  static filterCollection(collection) {
+  static filterCollection(collection: Collection) {
     return collection.name === 'todoItems';
   }
 }
@@ -191,9 +192,22 @@ this.flowEngine.registerModelLoaders({
 
 - `renderComponent()` is the render method (like React's render). Access data via `this.props` (BlockModel) or `this.resource.getData()` (CollectionBlockModel).
 - `createResource()` is required in CollectionBlockModel -- return `this.context.makeResource(MultiRecordResource)` or `SingleRecordResource`.
-- `static scene` on CollectionBlockModel: `BlockSceneEnum.many` for lists, `BlockSceneEnum.one` for detail/form.
-- `static filterCollection(collection)` limits which data tables the block appears for.
+- `static scene` on CollectionBlockModel: `BlockSceneEnum.many` for lists, `BlockSceneEnum.one` for detail/form. Full enum: `{ new, one, many, select, filter, oam, subForm, bulkEditForm }`.
+- `static filterCollection(collection: Collection)` limits which data tables the block appears for. Import `Collection` type from `@nocobase/flow-engine`.
 - Import `tExpr` from `../locale` (not from `@nocobase/flow-engine` directly).
+
+## Built-in Block Models (from @nocobase/client-v2)
+
+Beyond the base classes, client-v2 exports many concrete block models that can be extended:
+
+| Model | Extends | Purpose |
+|---|---|---|
+| `TableBlockModel` | `CollectionBlockModel` | Full table with columns, pagination, actions |
+| `FormBlockModel` | `CollectionBlockModel` | Form block (create/edit) |
+| `DetailsBlockModel` | `CollectionBlockModel` | Read-only detail view |
+| `FilterFormBlockModel` | `FilterBlockModel` | Filter form for filtering other blocks |
+
+Related sub-models: `TableColumnModel`, `FormItemModel`, `DetailsItemModel`, `FormGridModel`, `DetailsGridModel`, etc.
 
 ## Deep Reference
 

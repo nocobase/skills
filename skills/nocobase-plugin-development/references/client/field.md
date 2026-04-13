@@ -116,6 +116,18 @@ After binding, users can switch to this custom field component via the column co
 |---|---|---|
 | `label` | `string` | Display name in field component dropdown. Use `tExpr()` |
 
+## Built-in Field Models (from @nocobase/client-v2)
+
+client-v2 exports many built-in field models for common field types:
+
+**Editable fields**: `InputFieldModel`, `TextareaFieldModel`, `NumberFieldModel`, `SelectFieldModel`, `CheckboxFieldModel`, `CheckboxGroupFieldModel`, `RadioGroupFieldModel`, `DateTimeFieldModel`, `TimeFieldModel`, `ColorFieldModel`, `IconFieldModel`, `JsonFieldModel`, `PasswordFieldModel`, `PercentFieldModel`, `RichTextFieldModel`, `AssociationFieldModel`, `CollectionSelectorFieldModel`
+
+**Display-only fields**: `DisplayTextFieldModel`, `DisplayNumberFieldModel`, `DisplayDateTimeFieldModel`, `DisplayEnumFieldModel`, `DisplayCheckboxFieldModel`, `DisplayColorFieldModel`, `DisplayIconFieldModel`, `DisplayJSONFieldModel`, `DisplayPasswordFieldModel`, `DisplayPercentFieldModel`, `DisplayURLFieldModel`, `DisplayHtmlFieldModel`, `DisplayAssociationField`, `DisplayTimeFieldModel`
+
+**Special items**: `ClickableFieldModel`, `DividerItemModel`, `MarkdownItemModel`, `DisplayTitleFieldModel`
+
+These can be extended for custom rendering. For simple custom display, extend `ClickableFieldModel` (as shown in the templates above).
+
 ## Deep Reference
 
 - https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/flow-engine/field.md

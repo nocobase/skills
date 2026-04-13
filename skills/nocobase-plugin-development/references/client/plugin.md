@@ -37,9 +37,12 @@ export class PluginMyFeatureClient extends Plugin {
     });
 
     // 4. (Optional) Register collection on client for block picker
-    // Only needed when collection must appear in "Add Block" data table list
-    const mainDS = this.flowEngine.dataSourceManager.getDataSource('main');
-    mainDS?.addCollection({
+    // Only needed when collection must appear in "Add Block" data table list.
+    // IMPORTANT: In client-v2, you cannot call addCollection directly in load(),
+    // because DataSourceManager calls clearCollections during ensureLoaded(),
+    // which wipes out any collection added during the load() phase.
+    // Use the eventBus 'dataSource:loaded' event to re-register after reload.
+    const myCollection = {
       name: 'myCollection',
       title: 'My Collection',
       filterTargetKey: 'id',
@@ -48,9 +51,19 @@ export class PluginMyFeatureClient extends Plugin {
         { type: 'string', name: 'title', interface: 'input',
           uiSchema: { type: 'string', title: 'Title', 'x-component': 'Input' } },
       ],
-    });
-    mainDS?.addReloadCallback(() => {
-      mainDS?.addCollection(/* same collection object */);
+    };
+
+    const addMyCollection = () => {
+      const mainDS = this.flowEngine.dataSourceManager.getDataSource('main');
+      if (mainDS && !mainDS.getCollection('myCollection')) {
+        mainDS.addCollection(myCollection);
+      }
+    };
+
+    this.app.eventBus.addEventListener('dataSource:loaded', (event: Event) => {
+      if ((event as CustomEvent).detail?.dataSourceKey === 'main') {
+        addMyCollection();
+      }
     });
   }
 }
@@ -75,12 +88,15 @@ export { default } from './plugin';
 - `this.pluginSettingsRouter` registers settings pages under `/v2/admin/settings/`.
 - `this.flowEngine` gives access to the FlowEngine instance for model registration.
 - `this.context` is the same object as `useFlowContext()` in components.
+- `this.app.eventBus` is a standard `EventTarget` for app lifecycle events (e.g., `'dataSource:loaded'`).
+- For client-side `addCollection`, always use the `eventBus` pattern shown above — calling `addCollection` directly in `load()` will be wiped by `ensureLoaded()`.
 
 ## Plugin Shortcuts
 
 | Property | Type | Purpose |
 |---|---|---|
 | `this.flowEngine` | FlowEngine | Register models |
+| `this.engine` | FlowEngine | Alias for `this.flowEngine` |
 | `this.router` | RouterManager | Register page routes |
 | `this.pluginSettingsRouter` | PluginSettingsManager | Register settings pages |
 | `this.t(key)` | Function | i18n with auto namespace |
@@ -88,6 +104,8 @@ export { default } from './plugin';
 | `this.context.api` | APIClient | HTTP requests |
 | `this.context.viewer` | ViewerManager | Open dialogs/drawers |
 | `this.context.logger` | Logger | Structured logging |
+| `this.app.eventBus` | EventTarget | App-level event bus for lifecycle events |
+| `this.ai` | AIManager | AI integration manager |
 
 ## Deep Reference
 

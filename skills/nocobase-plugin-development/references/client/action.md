@@ -9,6 +9,7 @@
 | collection | `ActionSceneEnum.collection` | Operates on the data table (e.g., "New" button). Appears in block toolbar |
 | record | `ActionSceneEnum.record` | Operates on a single row (e.g., "Edit", "Delete"). Appears in table row actions |
 | both | `ActionSceneEnum.both` | Available in both scenes |
+| all | `ActionSceneEnum.all` | Available in all scenes (similar to `both`, includes special contexts) |
 
 ## Template: Collection-Level Action
 
@@ -239,6 +240,22 @@ this.flowEngine.registerModelLoaders({
 - Two approaches for action forms: (a) `ctx.viewer.dialog()` with a React form component, or (b) `uiSchema` in the step for a config-panel-based form.
 - Import `tExpr` from `../locale` for button labels and define().
 - Use `observable` + `observer` from `@nocobase/flow-engine` for reactive state in dialog form components.
+
+## Built-in Action Models (from @nocobase/client-v2)
+
+These concrete action models are available for extension or reference:
+
+| Model | Scene | Purpose |
+|---|---|---|
+| `AddNewActionModel` | collection | "New" button, opens popup form |
+| `EditActionModel` | record | "Edit" button, opens popup form |
+| `ViewActionModel` | record | "View" button, opens popup detail |
+| `DeleteActionModel` | record | "Delete" button for single record |
+| `BulkDeleteActionModel` | collection | "Delete" button for selected records |
+| `RefreshActionModel` | collection | "Refresh" button |
+| `FilterActionModel` | collection | "Filter" button |
+| `LinkActionModel` | all | Navigate to URL |
+| `UpdateRecordActionModel` | — | Update record with preset values |
 
 ## Deep Reference
 
