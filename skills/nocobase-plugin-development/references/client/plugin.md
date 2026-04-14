@@ -78,6 +78,18 @@ export default PluginMyFeatureClient;
 export { default } from './plugin';
 ```
 
+## IMPORTANT: Do NOT Use `this.app.use()` Providers
+
+`this.app.use()` is an internal API. Plugins must NOT use it to wrap the app with React providers. Don't think in terms of providers — there's always a better alternative.
+
+Providers add unnecessary React rendering layers, hurt performance, and make the plugin harder to maintain and debug. When you find yourself reaching for a Provider, step back and use one of these approaches instead:
+
+- **FlowEngine mechanisms** (recommended) — `registerModelLoaders`, `registerFlow`, `registerModels` cover the vast majority of plugin UI needs. This is the standard extension point.
+- **FlowEngine context** — `this.context` (`FlowEngineContext`) holds global data. Note: not all properties are available at every stage. In `load()`, only `this.context.api`, `this.context.dataSourceManager`, `this.context.logger` etc. are ready. Properties like `user`, `viewer`, `message`, `themeToken` are set later after React renders and authentication completes — access them in flow handlers or React components, not in `load()`.
+- **API requests** — if the plugin needs data, use `this.app.apiClient.request()` to fetch it directly. Axios interceptors are allowed but should not be the first choice — prefer direct requests or reading from context when possible.
+- **Pure DOM manipulation** — for global visual effects (watermarks, overlays, injected elements), operate on the DOM directly in `load()`. No React needed.
+- **EventBus** — `this.app.eventBus` for reacting to app lifecycle events like `'dataSource:loaded'`.
+
 ## Key Points
 
 - Import `Plugin` from `@nocobase/client-v2` (not `@nocobase/client`).
@@ -85,6 +97,7 @@ export { default } from './plugin';
 - Use `componentLoader` (lazy) not `Component` (eager) for routes.
 - `this.t()` auto-injects plugin namespace -- use in `load()` for runtime strings.
 - `this.router` is RouterManager (for registering routes). `ctx.router` in components is React Router (for navigation).
+- **WARNING:** In `load()`, do NOT rely on runtime router state (e.g., `this.app.router.router.state`, `location`, `pathname`). The React RouterProvider may not be mounted yet at load time. Use `this.router.add()` for route registration only; read route state in components or flow handlers, not in `load()`.
 - `this.pluginSettingsRouter` registers settings pages under `/v2/admin/settings/`.
 - `this.flowEngine` gives access to the FlowEngine instance for model registration.
 - `this.context` is the same object as `useFlowContext()` in components.
@@ -100,10 +113,10 @@ export { default } from './plugin';
 | `this.router` | RouterManager | Register page routes |
 | `this.pluginSettingsRouter` | PluginSettingsManager | Register settings pages |
 | `this.t(key)` | Function | i18n with auto namespace |
-| `this.context` | FlowEngineContext | Same as useFlowContext() |
-| `this.context.api` | APIClient | HTTP requests |
-| `this.context.viewer` | ViewerManager | Open dialogs/drawers |
-| `this.context.logger` | Logger | Structured logging |
+| `this.context` | FlowEngineContext | Same as useFlowContext(). See availability note below |
+| `this.context.api` | APIClient | HTTP requests. Available in `load()` |
+| `this.context.dataSourceManager` | DataSourceManager | Data source access. Available in `load()` |
+| `this.context.logger` | Logger | Structured logging. Available in `load()` |
 | `this.app.eventBus` | EventTarget | App-level event bus for lifecycle events |
 | `this.ai` | AIManager | AI integration manager |
 

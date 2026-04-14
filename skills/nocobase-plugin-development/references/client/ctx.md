@@ -1,6 +1,6 @@
 # FlowContext (ctx)
 
-> Read when using ctx properties in registerFlow handlers or React components.
+> Read when accessing any context data — in plugin `load()` (via `this.context`), in registerFlow handlers (via `ctx`), or in React components (via `useFlowContext()`). This includes user info, API client, router, theme tokens, and all other global state.
 
 ## Accessing ctx
 

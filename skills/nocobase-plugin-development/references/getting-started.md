@@ -12,6 +12,8 @@ This creates the plugin at `packages/plugins/@my-project/plugin-hello/`.
 
 ## Project Structure
 
+The scaffold creates both `src/client-v2/` and `src/client/` directories. **Only use `src/client-v2/`** — the `src/client/` directory is legacy v1 code and must be ignored.
+
 ```
 packages/plugins/@my-project/plugin-hello/
 ├── package.json
@@ -21,12 +23,13 @@ packages/plugins/@my-project/plugin-hello/
 ├── server.js
 └── src/
     ├── index.ts                  # Default export: server plugin
-    ├── client-v2/                # Client code (v2, recommended)
+    ├── client-v2/                # Client code — ALL client code goes here
     │   ├── index.tsx             # Default export: client plugin class
     │   ├── plugin.tsx            # Plugin entry (extends @nocobase/client-v2 Plugin)
     │   ├── locale.ts             # Auto-generated: tExpr() and useT() with plugin namespace
     │   └── models/               # FlowModel classes (blocks, fields, actions)
     │       └── index.ts
+    ├── client/                   # LEGACY v1 — do NOT write code here
     ├── server/                   # Server code
     │   ├── index.ts              # Default export: server plugin class
     │   ├── plugin.ts             # Plugin entry (extends @nocobase/server Plugin)
