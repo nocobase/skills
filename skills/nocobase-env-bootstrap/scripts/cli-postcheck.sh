@@ -24,7 +24,7 @@ CLI_DEPENDENCY_PLUGINS='@nocobase/plugin-api-doc,@nocobase/plugin-api-keys'
 CLI_DEPENDENCY_ENABLE_CMD='Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys'
 INSTALL_GUIDE='https://github.com/nocobase/nocobase-ctl'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CTL_WRAPPER="${SCRIPT_DIR}/../../run-ctl.mjs"
+CTL_WRAPPER="${SCRIPT_DIR}/../run-ctl.mjs"
 BASE_DIR=""
 
 record() {
@@ -176,7 +176,7 @@ if ! has_cmd node; then
 fi
 
 if [[ ! -f "$CTL_WRAPPER" ]]; then
-  record fail CLI-001 "Cannot find shared ctl wrapper: ${CTL_WRAPPER}" 'Ensure skills/run-ctl.mjs exists, then rerun postcheck.'
+  record fail CLI-001 "Cannot find skill-local ctl wrapper: ${CTL_WRAPPER}" 'Ensure nocobase-env-bootstrap/run-ctl.mjs exists, then rerun postcheck.'
   printf 'summary: fail=%d warn=%d pass=%d\n' "$FAIL" "$WARN" "$PASS"
   exit 1
 fi
@@ -188,7 +188,7 @@ fi
 API_KEY_CREATE_HINT="Auto token generation failed. Fallback manual only: enable @nocobase/plugin-api-keys, generate API key, set ${TOKEN_ENV}, then rerun postcheck."
 API_KEY_AUTO_HINT="Auto token generation uses CLI: generate-api-key -n ${CLI_AUTO_API_KEY_NAME} -u ${CLI_AUTO_API_KEY_USERNAME} -r ${CLI_AUTO_API_KEY_ROLE} -e ${CLI_AUTO_API_KEY_EXPIRES_IN}."
 
-record pass CLI-001 "Detected shared ctl wrapper: ${CTL_WRAPPER}"
+record pass CLI-001 "Detected skill-local ctl wrapper: ${CTL_WRAPPER}"
 printf 'cli_base_dir: %s\n' "$BASE_DIR"
 printf 'cli_auto_api_key: %s\n' "$([[ "$AUTO_API_KEY_ENABLED" == "1" ]] && printf enabled || printf disabled)"
 
@@ -318,11 +318,11 @@ if [[ "$FAIL" -eq 0 ]]; then
     if printf '%s' "$READBACK" | grep -F "$ENV_NAME" >/dev/null 2>&1 && printf '%s' "$READBACK" | grep -F "$BASE_URL" >/dev/null 2>&1; then
       record pass CLI-005 'Readback confirms expected env and base URL.'
     else
-      record warn CLI-005 'Readback completed but expected env/base URL was not clearly found in output.' 'Inspect `node skills/run-ctl.mjs -- env -s <scope>` output manually.'
+      record warn CLI-005 'Readback completed but expected env/base URL was not clearly found in output.' 'Inspect `node ./run-ctl.mjs -- env -s <scope>` output manually.'
     fi
   else
     printf '%s\n' "$READBACK"
-    record fail CLI-005 'Readback failed.' 'Run `node skills/run-ctl.mjs -- env -s <scope>` manually and verify.'
+    record fail CLI-005 'Readback failed.' 'Run `node ./run-ctl.mjs -- env -s <scope>` manually and verify.'
   fi
 fi
 

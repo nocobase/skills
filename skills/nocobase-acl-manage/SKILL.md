@@ -1,11 +1,11 @@
-﻿---
+---
 name: nocobase-acl-manage
 description: Task-driven ACL governance through nocobase-ctl CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.1.1
-last-reviewed: 2026-04-13
+version: 2.3.0
+last-reviewed: 2026-04-14
 risk-level: high
 ---
 
@@ -175,9 +175,10 @@ Default behavior when user says `you decide`:
 - normalize create-role wording to `role.create-blank` baseline first, then permission assignment
 
 2. Capability gate (CLI).
-- confirm shared wrapper is available (`node skills/run-ctl.mjs -- ...`)
-- confirm target env is available (`node skills/run-ctl.mjs -- env`)
-- if runtime command cache is missing/stale, run `node skills/run-ctl.mjs -- env update -e <env>`
+- confirm skill-local wrapper is available (`node ./run-ctl.mjs -- ...`)
+- confirm current env context through bootstrap skill app-manage (`$nocobase-env-bootstrap task=app-manage app_env_action=current target_dir=<target_dir> app_scope=project`)
+- if no env is configured/current, request env bootstrap through `$nocobase-env-bootstrap task=app-manage` (`app_env_action=add/use`)
+- if runtime command cache is missing/stale, run `node ./run-ctl.mjs -- env update -e <current_env_name>`
 - if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
 - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
 - restart app before retrying runtime refresh
@@ -217,7 +218,7 @@ Primary write path:
 Guarded fallback path (user-role membership only):
 
 - allowed only when `allow_generic_association_write=true`
-- use generic `node skills/run-ctl.mjs -- resource update/list` only for `users.roles` association operations
+- use generic `node ./run-ctl.mjs -- resource update/list` only for `users.roles` association operations
 - mandatory readback after write
 
 Hard restrictions:
@@ -253,7 +254,7 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 
 - task normalized to canonical task
 - required inputs complete before writes
-- CLI capability gate passes (`env` available, runtime commands resolvable)
+- CLI capability gate passes (env context available via `$nocobase-env-bootstrap task=app-manage app_env_action=current`, runtime commands resolvable)
 - CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
 - runtime command names resolved from command map/help
 - every write has immediate readback evidence

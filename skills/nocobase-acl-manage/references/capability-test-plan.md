@@ -1,4 +1,4 @@
-﻿# ACL Capability Verification Matrix (CLI)
+# ACL Capability Verification Matrix (CLI)
 
 This document defines executable capability checks for `nocobase-acl-manage` v2 using CLI calls.
 
@@ -22,7 +22,7 @@ Excluded:
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| ACL-SMOKE-001 | cli | `node skills/run-ctl.mjs -- --help` + env availability | runtime |
+| ACL-SMOKE-001 | cli | `node ./run-ctl.mjs -- --help` + `$nocobase-env-bootstrap task=app-manage app_env_action=current` availability | runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -50,8 +50,9 @@ Excluded:
 
 Required:
 
-- shared wrapper available (`skills/run-ctl.mjs`) and `node` available
-- configured env and token
+- skill-local wrapper available (`./run-ctl.mjs`) and `node` available
+- bootstrap skill app-manage available (`$nocobase-env-bootstrap task=app-manage ...`)
+- configured current env context and token (when remote env requires it)
 - `@nocobase/plugin-api-doc` active (`swagger:get` available for runtime command discovery)
 - `@nocobase/plugin-api-keys` active (token generation/refresh recovery path)
 

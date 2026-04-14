@@ -1,4 +1,4 @@
-﻿# ACL Manage Skill Refactor Plan (v2, CLI Transport)
+# ACL Manage Skill Refactor Plan (v2, CLI Transport)
 
 Last updated: 2026-04-13
 
@@ -56,7 +56,7 @@ Resource permission interaction requirement:
 Current transport strategy is CLI-first:
 
 1. use `nocobase-ctl` runtime commands generated from swagger
-   - execute through shared wrapper: `node skills/run-ctl.mjs -- <nocobase-ctl-args>`
+   - execute through skill-local wrapper: `node ./run-ctl.mjs -- <nocobase-ctl-args>`
 2. verify commands through CLI help discovery
 3. use generic `resource` commands only for guarded user-role membership fallback
 4. no direct REST mutation fallback in this skill
@@ -65,9 +65,9 @@ Current transport strategy is CLI-first:
 
 CLI capability gate requires:
 
-- shared wrapper exists (`skills/run-ctl.mjs`) and `node` exists
-- target env exists (`node skills/run-ctl.mjs -- env`)
-- runtime commands are available (`node skills/run-ctl.mjs -- env update` when needed)
+- skill-local wrapper exists (`./run-ctl.mjs`) and `node` exists
+- bootstrap skill app-manage is available and current env is available (`$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>`)
+- runtime commands are available (`node ./run-ctl.mjs -- env update` when needed)
 - `@nocobase/plugin-api-doc` is active so `swagger:get` can provide runtime command schema
 - `@nocobase/plugin-api-keys` is active so token bootstrap/refresh can recover auth failures
 - recovery command for missing dependencies:

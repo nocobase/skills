@@ -1,4 +1,4 @@
-﻿# Scopes
+# Scopes
 
 ## Table of Contents
 
@@ -140,7 +140,7 @@ Common scope-related CLI commands:
 - `data_sources_roles_resources_scopes_update`
 - `data_sources_roles_resources_scopes_destroy`
 
-All calls should use resolved `nocobase-ctl` runtime commands through shared wrapper (`node skills/run-ctl.mjs -- <nocobase-ctl-args>`) discovered from CLI help.
+All calls should use resolved `nocobase-ctl` runtime commands through skill-local wrapper (`node ./run-ctl.mjs -- <nocobase-ctl-args>`) discovered from CLI help, after env context is confirmed by `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>`.
 
 Business rules:
 

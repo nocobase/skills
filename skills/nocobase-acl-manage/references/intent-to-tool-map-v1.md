@@ -1,11 +1,15 @@
-﻿# ACL Intent To Command Map v1
+# ACL Intent To Command Map v1
 
 This reference maps canonical tasks to `nocobase-ctl` CLI commands for `nocobase-acl-manage` v2.
 
 All operations should use CLI commands instead of MCP JSON-RPC.
-Execute through shared wrapper:
+Execute ACL commands through skill-local wrapper:
 
-- `node skills/run-ctl.mjs -- <nocobase-ctl-args>`
+- `node ./run-ctl.mjs -- <nocobase-ctl-args>`
+
+Resolve current env context through bootstrap skill app-manage:
+
+- `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>`
 
 ## Runtime Command Discovery
 
@@ -13,16 +17,21 @@ Because runtime commands are generated from swagger, command names can vary by b
 
 Prerequisite gate before runtime discovery:
 
-1. Run `node skills/run-ctl.mjs -- env update -e <env>`.
-2. If output shows `swagger:get` 404 or API documentation plugin error, activate dependency bundle and retry:
+1. Run `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>` to get `current_env_name`.
+2. If there is no current env, add/use one first:
+   - local URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<local_url> app_scope=project target_dir=<target_dir>`
+   - remote URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<remote_url> app_token=<token> app_scope=project target_dir=<target_dir>`
+   - switch: `$nocobase-env-bootstrap task=app-manage app_env_action=use app_env_name=<env> app_scope=project target_dir=<target_dir>`
+3. Run `node ./run-ctl.mjs -- env update -e <current_env_name>`.
+4. If output shows `swagger:get` 404 or API documentation plugin error, activate dependency bundle and retry:
    - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
    - restart app before rerun.
-3. If output shows `401/403/Auth required`, ensure `@nocobase/plugin-api-keys` is active and refresh token env first.
+5. If output shows `401/403/Auth required`, ensure `@nocobase/plugin-api-keys` is active and refresh token env first.
 
 Resolution order:
 
 1. Try preferred command patterns in this file.
-2. Confirm with `node skills/run-ctl.mjs -- --help` and wrapper-executed subcommand help.
+2. Confirm with `node ./run-ctl.mjs -- --help` and wrapper-executed subcommand help.
 3. If preferred pattern is absent, match by fallback regex over command tree text.
 4. Record the resolved runtime command names in execution evidence.
 

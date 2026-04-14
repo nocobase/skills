@@ -1,4 +1,4 @@
-﻿# ACL CLI Capability Notes
+# ACL CLI Capability Notes
 
 This folder now tracks CLI-oriented verification for `nocobase-acl-manage` v2.
 
@@ -16,12 +16,21 @@ These legacy files are not the default validation path for the current skill con
 
 ## Recommended CLI Verification Flow
 
-1. Verify CLI and env through shared wrapper:
+1. Verify CLI and env through skill-local wrapper:
 
 ```bash
-node skills/run-ctl.mjs -- --help
-node skills/run-ctl.mjs -- env
-node skills/run-ctl.mjs -- env update -e local
+node ./run-ctl.mjs -- --help
+node ./run-ctl.mjs -- env update -e local
+```
+
+Use `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=.` to verify current env context before ACL writes.
+
+If there is no current env, bootstrap first:
+
+```text
+Use $nocobase-env-bootstrap task=app-manage:
+- app_env_action=add app_env_name=local app_base_url=http://localhost:13000/api app_scope=project target_dir=.
+- app_env_action=use app_env_name=local app_scope=project target_dir=.
 ```
 
 If `env update` fails with `swagger:get`/API documentation plugin errors, activate dependency plugins and retry:
@@ -30,12 +39,12 @@ If `env update` fails with `swagger:get`/API documentation plugin errors, activa
 Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys
 ```
 
-Then restart app, refresh token env if needed, and rerun `node skills/run-ctl.mjs -- env update -e local`.
+Then restart app, refresh token env if needed, and rerun `node ./run-ctl.mjs -- env update -e local`.
 
 2. Verify runtime command availability:
 
 ```bash
-node skills/run-ctl.mjs -- --help
+node ./run-ctl.mjs -- --help
 # then inspect resolved acl command group help
 ```
 
@@ -44,8 +53,8 @@ node skills/run-ctl.mjs -- --help
 4. For guarded membership fallback checks, explicitly enable policy in task context and use:
 
 ```bash
-node skills/run-ctl.mjs -- resource update --resource users ...
-node skills/run-ctl.mjs -- resource list --resource users.roles ...
+node ./run-ctl.mjs -- resource update --resource users ...
+node ./run-ctl.mjs -- resource list --resource users.roles ...
 ```
 
 ## Report Guidance

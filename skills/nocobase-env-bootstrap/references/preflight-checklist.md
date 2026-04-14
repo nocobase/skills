@@ -1,4 +1,4 @@
-﻿# Preflight Checklist
+# Preflight Checklist
 
 ## Purpose
 
@@ -40,7 +40,8 @@ MCP checks are executed only for explicit `task=mcp-connect`.
 - Reference: <https://docs.nocobase.com/cn/get-started/installation/env>
 
 6. CLI bootstrap prerequisites
-- Verify shared wrapper `skills/run-ctl.mjs` exists and `node` is available.
+- Verify skill-local wrapper `./run-ctl.mjs` exists and `node` is available.
+- Verify app env helper `./env-manage.mjs` exists and `node` is available.
 - Wrapper will resolve global `nocobase-ctl`/`nbctl` first, then local `run.js` candidates.
 - Verify token env exists or can be generated later for CLI env bootstrap (default `NOCOBASE_API_TOKEN`).
 - For running targets (deploy/upgrade/diagnose), verify CLI dependency plugins:

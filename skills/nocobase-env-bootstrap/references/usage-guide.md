@@ -1,4 +1,4 @@
-﻿# NocoBase Env Bootstrap Usage Guide
+# NocoBase Env Bootstrap Usage Guide
 
 ## What This Skill Does
 
@@ -6,6 +6,7 @@
 
 - preflight checks
 - install and deploy in a single environment
+- app environment management (`task=app-manage`: add/use/current/list)
 - upgrade safety gates
 - environment troubleshooting
 - automatic local CLI environment bootstrap for downstream skills
@@ -50,8 +51,10 @@ Only use WebFetch to official docs when a required local template is missing.
   - `@nocobase/plugin-api-keys`
   - preferred command: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
   - if plugin state changed, restart app before `env update`
-- `node skills/run-ctl.mjs -- env add --name local --base-url http://localhost:13000/api --token <token> -s project`
-- `node skills/run-ctl.mjs -- env update -e local -s project`
+- `node ./env-manage.mjs add --name local --url http://localhost:13000/api --scope project --base-dir .`
+- `node ./env-manage.mjs current --scope project --base-dir .`
+
+`env-manage add` includes strict connectivity verification (`env update`) and fails when update fails.
 
 APP_KEY examples:
 
@@ -84,9 +87,37 @@ CLI bootstrap responsibilities:
 - ensure runtime dependency plugins (`api-doc`, `api-keys`) are active
 - add or update local env definition (`env add`)
 - refresh runtime command cache (`env update`)
-- read back configured env (`env -s project`)
+- read back configured env (`node ./env-manage.mjs current --scope project --base-dir .`)
+- expose machine-readable current env context for downstream skills
 
 If token env is missing, `cli-postcheck` now tries automatic token generation first; only when that fails should you manually activate `@nocobase/plugin-api-keys` and provide token.
+
+## App Environment Management Task
+
+When user asks to add/switch/check environment directly, use `task=app-manage`.
+
+Add env:
+
+```bash
+node ./env-manage.mjs add --name staging --url https://demo.example.com/api --token-env NOCOBASE_API_TOKEN --scope project --base-dir .
+```
+
+Switch env:
+
+```bash
+node ./env-manage.mjs use --name staging --scope project --base-dir .
+```
+
+Read current env:
+
+```bash
+node ./env-manage.mjs current --scope project --base-dir .
+```
+
+Token policy:
+
+- local URL (`localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`): token mandatory, auto-acquired by env-manage (no placeholder token allowed)
+- remote URL: manual token required
 
 ## Optional MCP Flow (Explicit Only)
 

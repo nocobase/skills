@@ -1,0 +1,5 @@
+version: 1
+agent:
+  id: nocobase-publish-manage
+  default_prompt: "Use $nocobase-publish-manage for NocoBase publish workflows with precheck, backup_restore, migration templates (full_overwrite or structure_only), verify, and rollback. Keep execution Node-only and use skill-local run-ctl for CLI operations. Enforce gates: CLI health (handoff to $nocobase-env-bootstrap task=app-manage on failure), commercial capability detection via CLI pm list based on plugin-migration-manager (if missing, guide to purchase https://www.nocobase.com/en/commercial or restart app), and required plugin readiness (migration_manager + backup_manager, handoff to $nocobase-plugin-manage enable when missing). Require explicit confirmation before publish/rollback apply mode."
+

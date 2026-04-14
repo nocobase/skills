@@ -237,9 +237,9 @@ if (-not $nodeCmd) {
   exit 1
 }
 
-$ctlWrapper = Join-Path $PSScriptRoot '..\..\run-ctl.mjs'
+$ctlWrapper = Join-Path $PSScriptRoot '..\run-ctl.mjs'
 if (-not (Test-Path -LiteralPath $ctlWrapper -PathType Leaf)) {
-  Record-Check fail 'CLI-001' "Cannot find shared ctl wrapper: $ctlWrapper" 'Ensure skills/run-ctl.mjs exists, then rerun postcheck.'
+  Record-Check fail 'CLI-001' "Cannot find skill-local ctl wrapper: $ctlWrapper" 'Ensure nocobase-env-bootstrap/run-ctl.mjs exists, then rerun postcheck.'
   Write-Host "summary: fail=$Fail warn=$Warn pass=$Pass"
   exit 1
 }
@@ -249,7 +249,7 @@ $resolvedComposeFile = Get-ComposeFilePath -InputComposeFile $AutoApiKeyComposeF
 $apiKeyCreateHint = "Auto token generation failed. Fallback manual only: enable @nocobase/plugin-api-keys, generate API key, set $TokenEnv, then rerun postcheck."
 $apiKeyAutoHint = "Auto token generation uses CLI: generate-api-key -n $AutoApiKeyName -u $AutoApiKeyUsername -r $AutoApiKeyRole -e $AutoApiKeyExpiresIn."
 
-Record-Check pass 'CLI-001' "Detected shared ctl wrapper: $ctlWrapper"
+Record-Check pass 'CLI-001' "Detected skill-local ctl wrapper: $ctlWrapper"
 Write-Host "cli_base_dir: $resolvedBaseDir"
 Write-Host "cli_auto_api_key: $(if($autoApiKeyEnabled){'enabled'}else{'disabled'})"
 
@@ -405,13 +405,13 @@ if ($Fail -eq 0) {
   }
 
   if ($readbackResult.ExitCode -ne 0) {
-    Record-Check fail 'CLI-005' "Readback failed: $($readbackResult.OutputText)" 'Run `node skills/run-ctl.mjs -- env -s <scope>` manually and verify.'
+    Record-Check fail 'CLI-005' "Readback failed: $($readbackResult.OutputText)" 'Run `node ./run-ctl.mjs -- env -s <scope>` manually and verify.'
   } else {
     $text = $readbackResult.OutputText
     if ($text -match [regex]::Escape($EnvName) -and $text -match [regex]::Escape($resolvedBaseUrl)) {
       Record-Check pass 'CLI-005' 'Readback confirms expected env and base URL.'
     } else {
-      Record-Check warn 'CLI-005' 'Readback completed but expected env/base URL was not clearly found in output.' 'Inspect `node skills/run-ctl.mjs -- env -s <scope>` output manually.'
+      Record-Check warn 'CLI-005' 'Readback completed but expected env/base URL was not clearly found in output.' 'Inspect `node ./run-ctl.mjs -- env -s <scope>` output manually.'
     }
   }
 }

@@ -1,4 +1,4 @@
-﻿# Install Runbook
+# Install Runbook
 
 ## Goal
 
@@ -155,14 +155,17 @@ For install/deploy tasks, run this section as the default final stage after app 
 3. Ensure token env exists (default `NOCOBASE_API_TOKEN`).
 - If missing, `cli-postcheck` will try automatic API key generation first (local `yarn nocobase generate-api-key`, then `docker compose exec` fallback).
 - Only if automatic path fails, fallback to manual token creation/export.
+- If env URL is local (`localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`), env-manage must auto-acquire a usable token and still run strict connectivity verification.
+- If env URL is remote, manual token is mandatory.
 
 4. Run CLI bootstrap command chain:
 
 ```bash
-node skills/run-ctl.mjs -- env add --name local --base-url http://localhost:13000/api --token $NOCOBASE_API_TOKEN -s project
-node skills/run-ctl.mjs -- env update -e local -s project
-node skills/run-ctl.mjs -- env -s project
+node ./env-manage.mjs add --name local --url http://localhost:13000/api --scope project --base-dir .
+node ./env-manage.mjs current --scope project --base-dir .
 ```
+
+Note: `env-manage add` now always includes `env update` connectivity verification internally.
 
 5. Scripted command pattern:
 
