@@ -43,12 +43,14 @@ description: >-
   10. Before the first `applyBlueprint`, run the local prepare-write gate on that same blueprint (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a field object that is actually needed for `popup` / `target` / `renderer` / field-specific `type`, and every custom `edit` popup contains exactly one `editForm`. If the gate reports extra outer tabs, accidental outer `requestBody` wrappers, stringified fallback envelopes, illegal tab keys, block-level `layout`, or bad custom `edit` popups, rewrite locally before writing.
   11. For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise **ASCII-first** prewrite preview rendered from the same blueprint. Prefer the local prepare-write gate because it renders that preview and returns the normalized CLI body together: short intent summary + one ASCII wireframe, popup depth exactly one level deep, and full JSON hidden unless the user asks for it. This preview is mandatory even when you will execute immediately afterward. Only stop for confirmation when the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first; otherwise show the preview and continue in the same run.
   12. If the user asks for default values, linkage, computed values, show/hide, required/disabled, or action visibility/state, treat it as a reaction task first. Whole-page authoring goes through top-level `reaction.items[]`; localized edits go through `getReactionMeta` -> `set*Rules`. Do not start by guessing raw configure keys.
+  13. Template selection is intent-first, and whole-page `create` / `replace` is not exempt. When the draft contains a reusable popup / block / fields scene, proactively probe templates through contextual `list-templates` before locking in inline content. Use a real `target.uid` when available; otherwise build the strongest planning context from the intended opener/resource/association scene. Do not guess compatibility locally. Auto-pick one stable best available candidate when ranking yields a clear winner; if the top candidates still tie, stop and ask. Explicit template `uid` / `name` only resolves identity first; availability still comes from the contextual backend result. Default selected templates to `reference`, and switch to `copy` only for explicit local-customization intent.
 - Minimum read set:
   1. Read [cli-transport.md](./references/cli-transport.md) first.
   2. Read [cli-command-surface.md](./references/cli-command-surface.md) second.
   3. Read [transport-crosswalk.md](./references/transport-crosswalk.md) third when you may need CLI <-> MCP fallback name translation.
   4. Read [normative-contract.md](./references/normative-contract.md) fourth.
   5. Read [execution-checklist.md](./references/execution-checklist.md) fifth.
+  5.5. If the request suggests reuse / standard CRUD popup / relation-click details / repeated form-field layout / copying an existing popup, read [templates.md](./references/templates.md) before deciding inline vs template. This also applies to whole-page `create` / `replace`.
   6. Then choose **one** path:
      - whole-page `applyBlueprint` authoring -> [page-blueprint.md](./references/page-blueprint.md) + [tool-shapes.md](./references/tool-shapes.md) + [ascii-preview.md](./references/ascii-preview.md)；若从业务意图出发，再加读 [page-intent.md](./references/page-intent.md)
      - whole-page `applyBlueprint` + interaction/reaction -> 再加读 [reaction.md](./references/reaction.md)
@@ -102,6 +104,7 @@ description: >-
 - [normative-contract.md](./references/normative-contract.md): global contract and precedence.
 - [execution-checklist.md](./references/execution-checklist.md): default runbook.
 - [verification.md](./references/verification.md): readback rules.
+- [template-decision-summary.md](./references/template-decision-summary.md): final user-visible template path summary contract.
 
 ### Whole-page `applyBlueprint` path
 

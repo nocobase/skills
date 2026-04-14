@@ -19,6 +19,8 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
 - If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
+- If template reuse may be relevant, read [templates.md](./templates.md) before choosing inline vs template authoring. Treat it as the only template-selection rule source; this checklist keeps only the execution boundary.
+- Whole-page `create` / `replace` should not skip this step. Probe reusable popup/block/fields scenes before finalizing inline structure.
 - If the request mentions default values, linkage, computed values, show/hide, required/disabled, or action state, decide explicitly whether this is a whole-page reaction task or a localized reaction task before choosing structural APIs.
 - If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
 - The deterministic same-title group tie-break is: first prefer a same-title group already containing the target page title; otherwise choose the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
@@ -65,9 +67,10 @@ Use this path when the user is describing one page as a whole.
 3. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
 4. Draft or assemble one **page blueprint** document.
 5. If the same page also needs interaction logic, add top-level `reaction.items[]` in the same blueprint instead of splitting structure and reactions into separate whole-page writes.
-6. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
-7. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-8. Before the **first** `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check:
+6. If template reuse looks attractive, probe templates before finalizing inline content. When there is no live host/opener yet, use the strongest planned opener/resource scene context rather than downgrading the task to discovery-only immediately. Binding rules stay in [templates.md](./templates.md).
+7. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
+8. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+9. Before the **first** `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check:
    - tabs count matches the request
    - if this is a normal single-page request, `tabs.length` is exactly `1`
    - every `tab.blocks` is a non-empty array
@@ -85,15 +88,15 @@ Use this path when the user is describing one page as a whole.
    - in `replace`, those explicit keys only need to be stable within the current write; prefer role-suffixed or page-scoped names such as `mainTab`, `usersTableBlock`, `createFormBlock`, `submitAction`, and `maintainAction` over bare generic keys like `main`, `usersTable`, or `submit`
    - the gate must catch structure mistakes such as extra outer tabs, stringified body content, illegal tab keys, block-level `layout`, invalid `tab.layout` / `popup.layout`, and broken custom `edit` popups before the first write
    - if any item fails, rewrite the blueprint before the first write; do not use backend errors as the first validator
-9. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. Prefer the same local prepare-write gate because it emits that preview and the normalized CLI body together. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
-10. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
-11. When you call `applyBlueprint`:
+10. Before the **first** `applyBlueprint` on any whole-page task, show one ASCII wireframe rendered from that same blueprint. Prefer the same local prepare-write gate because it emits that preview and the normalized CLI body together. This preview is mandatory even when execution will continue immediately afterward. Keep it concise: short intent summary + one wireframe, popup expansion depth exactly **1**, JSON hidden unless the user explicitly asks for it or a technical review still needs it.
+11. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview for confirmation. Otherwise continue immediately to `applyBlueprint`.
+12. When you call `applyBlueprint`:
    - Open [tool-shapes.md](./tool-shapes.md) and copy the **CLI request body** shape first.
    - In CLI-first execution, pass the blueprint itself as raw JSON via `--body` / `--body-file`.
    - Only in MCP fallback should that same blueprint be wrapped as `requestBody: { ... }`.
    - Never stringify the blueprint and never add an outer `{ values: ... }` wrapper.
    - If the CLI reports request-body validation errors, first re-check the chosen command and raw body shape. If MCP fallback reports `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the fallback envelope before changing inner blueprint fields.
-12. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
+13. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ### Notes
 
@@ -126,6 +129,7 @@ Use this path when the user is describing one page as a whole.
 - Layout cells are only block key strings or `{ key, span }`; do not use `uid`, `ref`, or `$ref`. If layout is omitted, the server auto-generates a simple top-to-bottom layout.
 - If `replace` produces multiple tabs while the current page still has `enableTabs = false`, set `page.enableTabs: true` explicitly.
 - `replace` mode is for rebuilding one page, not for a tiny local edit. Nested popups still stay inside the same page blueprint as inline popup definitions.
+- See [templates.md](./templates.md) for the only normative template-selection rules. This checklist only summarizes when that decision must happen before writing.
 - Keep non-blueprint control fields out of the payload; follow [normative-contract.md](./normative-contract.md).
 - In testing / multi-agent runs, do not perform destructive cleanup unless the user explicitly asked for deletion.
 
@@ -137,7 +141,8 @@ Use this path when the user asks to add/move/remove/update only part of an exist
 2. Use `describe-surface` only when the richer public tree helps analysis.
 3. Use `catalog` only when target capability is uncertain.
 4. If the request is reaction-related, call `get-reaction-meta` before any write and do not guess raw configure keys or valid action/state names.
-5. Use the smallest low-level write that preserves semantics:
+5. When the task is a standard reusable popup / relation-click / fields-template scene, follow [templates.md](./templates.md) before committing to inline popup or duplicated field content. In whole-page planning, missing live target uid is not a blocker if the planned scene context is already strong enough.
+6. Use the smallest low-level write that preserves semantics:
    - `compose` for structured block/field/action insertion under a container
    - `configure` for simple semantic changes
    - `update-settings` for settings-domain writes
@@ -150,7 +155,7 @@ Use this path when the user asks to add/move/remove/update only part of an exist
    - in CLI-first execution, pass the raw business object through `--body` / `--body-file`
    - only in MCP fallback wrap that same business object under `requestBody`
    - if the chosen tool needs `target.uid` / `locator.uid`, source that uid from live readback rather than inventing `"root"`
-6. Read back only the affected target/parent, unless hierarchy changed.
+7. Read back only the affected target/parent, unless hierarchy changed.
 
 For detailed reaction payload shapes and host-target caveats, defer to [reaction.md](./reaction.md).
 

@@ -30,12 +30,21 @@ A page-blueprint draft is good when:
 - destructive blast radius is explicit for replace/delete scenarios
 - remaining assumptions are stated outside the JSON payload
 
+### Template Decision Acceptance
+
+- Final user-visible preview or summary that claims a template outcome should follow [template-decision-summary.md](./template-decision-summary.md): selected paths must say `reference` or `copy` plus one short controlled reason, and non-binding paths must say discovery-only or non-template explicitly.
+- The default ASCII preview should at least expose template identity + `mode` when the blueprint already contains them; runtime preview does not need to invent a reason on its own.
+- Without a live `target.uid` / opener, whole-page planning should still use the strongest planned opener/resource context it can describe. If that contextual query yields one stable best candidate, the preview may claim that `template` / `popup.template` was auto-selected.
+- If the final result stayed discovery-only, keep that explicit in the summary. Valid non-binding reasons still include live/planned context being too weak, a resolved explicit template being unavailable in the current context, or multiple candidates remaining unresolved after the stable ranking.
+- If multiple templates were only discovered but not bound, make that explicit instead of implying the backend or the skill silently chose one.
+
 ## 2. Write Readback Principles
 
 - Verify only the surfaces affected by the write, unless hierarchy changed.
 - A successful write response is not enough; confirm via readback.
 - Popup-specific claims require popup-specific readback.
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
+- Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
 
 ## 3. Minimum Readback Targets
 
@@ -71,7 +80,17 @@ After popup-related writes, confirm:
 - required content exists, not just shell
 - if the user explicitly cares about binding semantics, binding still matches live facts
 
-## 5. Replace / Destructive Checks
+## 5. Template-specific Checks
+
+After template-related writes, confirm:
+
+- for `reference` template writes, the readback still exposes the intended template reference / uid / mode
+- for `copy` or `convert-template-to-copy`, the readback no longer exposes the template reference
+- when the task intentionally stayed inline/discovery-only, no template reference was accidentally written
+- the user-facing preview/summary and the persisted result agree on whether the final path was `reference`, `copy`, or non-template
+- when whole-page auto-selection chose one best candidate, the persisted uid/mode agrees with that planned winner
+
+## 6. Replace / Destructive Checks
 
 For replace/delete style operations, explicitly confirm:
 

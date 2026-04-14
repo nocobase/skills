@@ -37,6 +37,63 @@ function assertInOrder(text, fragments, message) {
   }
 }
 
+function assertPointsToTemplates(text, sourceLabel) {
+  assert.match(text, /\[templates\.md\]/i, `${sourceLabel} should point to templates.md`);
+}
+
+function assertDiscoveryOnlyBoundary(text, sourceLabel) {
+  assert.match(
+    text,
+    /(?:planned opener|planned .*resource context|strongest planned .*context)/i,
+    `${sourceLabel} should mention planned-context template probing`,
+  );
+  assert.match(
+    text,
+    /(?:loose discovery|loose search) results?/i,
+    `${sourceLabel} should keep the no-loose-discovery binding boundary`,
+  );
+}
+
+function assertNoAutoInjectBoundary(text, sourceLabel) {
+  assert.match(
+    text,
+    /(?:loose discovery|loose search)/i,
+    `${sourceLabel} should keep the no-loose-discovery binding boundary`,
+  );
+}
+
+function assertDiscoveryOnlyIncludesExplicitTemplateUnavailable(text, sourceLabel) {
+  assert.match(
+    text,
+    /discovery-only[\s\S]{0,240}explicit template(?: is| being) unavailable in the current context/i,
+    `${sourceLabel} should keep explicit-template-unavailable as a discovery-only reason`,
+  );
+}
+
+function assertNoTemplateDecisionMatrix(text, sourceLabel) {
+  assert.doesNotMatch(text, /## Decision Table/i, `${sourceLabel} should not redefine the template decision table`);
+  assert.doesNotMatch(
+    text,
+    /## Automatic Selection Rule/i,
+    `${sourceLabel} should not redefine the template automatic-selection router`,
+  );
+}
+
+function assertOpenAIGuardrails(text) {
+  assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
+  assert.match(text, /field popup/i, 'openai prompt should keep field-popup click-open guidance');
+  assert.match(
+    text,
+    /associatedRecords(?:\+| \+ )associationField/i,
+    'openai prompt should keep associatedRecords+associationField guidance',
+  );
+  assert.match(
+    text,
+    /(?:exactly )?one `?editForm`?/i,
+    'openai prompt should keep exactly-one-editForm guidance for custom edit popups',
+  );
+}
+
 test('skill docs keep a CLI-first contract while preserving payload docs', () => {
   const requiredFiles = [
     'SKILL.md',
@@ -49,6 +106,7 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
     'references/ascii-preview.md',
     'references/page-blueprint.md',
     'references/page-intent.md',
+    'references/template-decision-summary.md',
     'references/reaction.md',
   ];
 
@@ -71,6 +129,11 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(skill, /Before the first `applyBlueprint`, run the local prepare-write gate/i);
   assert.match(skill, /raw JSON body through `nocobase-ctl flow-surfaces apply-blueprint --body` \/ `--body-file`/i);
   assert.match(skill, /returns the normalized CLI body/i);
+  assert.match(skill, /Template selection is intent-first/i);
+  assert.match(skill, /whole-page `create` \/ `replace` is not exempt/i);
+  assert.match(skill, /stable best available candidate/i);
+  assert.match(skill, /if the top candidates still tie, stop and ask/i);
+  assert.match(skill, /read \[templates\.md\].*before deciding inline vs template/i);
   assert.doesNotMatch(skill, /flow_surfaces_apply_blueprint\.requestBody/);
   assert.doesNotMatch(skill, /normalized \{ requestBody: <blueprint> \}/i);
 
@@ -82,6 +145,7 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assertRelativeMarkdownLinksExist('references/ascii-preview.md');
   assertRelativeMarkdownLinksExist('references/page-blueprint.md');
   assertRelativeMarkdownLinksExist('references/page-intent.md');
+  assertRelativeMarkdownLinksExist('references/template-decision-summary.md');
   assertRelativeMarkdownLinksExist('references/reaction.md');
   assertRelativeMarkdownLinksExist('references/popup.md');
   assertRelativeMarkdownLinksExist('references/verification.md');
@@ -149,6 +213,12 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(pageIntent, /do not stringify the final page blueprint/i);
   assert.match(pageIntent, /CLI `--body` \/ `--body-file`/);
   assert.match(pageIntent, /only in MCP fallback should that same object be wrapped under `requestBody`/i);
+  assertPointsToTemplates(pageIntent, 'page-intent.md');
+  assertNoTemplateDecisionMatrix(pageIntent, 'page-intent.md');
+  assert.match(pageIntent, /whole-page `create` \/ `replace`[\s\S]*probe templates/i);
+  assert.match(pageIntent, /stable best candidate/i);
+  assert.doesNotMatch(pageIntent, /whole-page `create` \/ `replace`[\s\S]*stays discovery-only/i);
+  assert.doesNotMatch(pageIntent, /explicit template `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
 
   const pageBlueprint = read('references/page-blueprint.md');
   assert.match(pageBlueprint, /Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`/);
@@ -160,6 +230,10 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(pageBlueprint, /Every field placed into any blueprint `fields\[\]` must come from live `collections:get\(appends=\["fields"\]\)` truth/i);
   assert.match(pageBlueprint, /do \*\*not\*\* support generic `form`/i);
   assert.match(pageBlueprint, /`editForm`/);
+  assertPointsToTemplates(pageBlueprint, 'page-blueprint.md');
+  assertNoTemplateDecisionMatrix(pageBlueprint, 'page-blueprint.md');
+  assert.match(pageBlueprint, /stable best candidate/i);
+  assertNoAutoInjectBoundary(pageBlueprint, 'page-blueprint.md');
 
   const executionChecklist = read('references/execution-checklist.md');
   assert.match(executionChecklist, /Use CLI first/i);
@@ -172,6 +246,11 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(executionChecklist, /collections:get\(appends=\["fields"\]\)/);
   assert.match(executionChecklist, /do \*\*not\*\* create another same-title group/i);
   assert.match(executionChecklist, /exactly one `editForm`/i);
+  assertPointsToTemplates(executionChecklist, 'execution-checklist.md');
+  assertNoTemplateDecisionMatrix(executionChecklist, 'execution-checklist.md');
+  assert.match(executionChecklist, /use the strongest planned opener\/resource scene context/i);
+  assert.match(executionChecklist, /whole-page `create` \/ `replace` should not skip this step/i);
+  assert.doesNotMatch(executionChecklist, /explicit `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
   assert.doesNotMatch(executionChecklist, /Confirm MCP is reachable and authenticated/i);
   assert.doesNotMatch(executionChecklist, /copy the \*\*Tool-call envelope\*\* shape first/i);
 
@@ -181,6 +260,7 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(normative, /CLI request-body rule and MCP fallback map/i);
   assert.match(normative, /Correct CLI body/i);
   assert.match(normative, /Correct MCP fallback envelope/i);
+  assert.match(normative, /Template-selection semantics[\s\S]*\[templates\.md\]/i);
   assert.match(normative, /Do not start by changing the inner blueprint shape until the CLI request body, or the fallback envelope/i);
   assert.match(normative, /do \*\*not\*\* create another same-title group/i);
   assert.match(normative, /only default field truth for UI authoring/i);
@@ -227,6 +307,12 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(asciiPreview, /whole-page `applyBlueprint` authoring before the first write/i);
   assert.match(asciiPreview, /return the normalized CLI raw body only when the gate passes/i);
   assert.match(asciiPreview, /If MCP fallback is later required, wrap that same object under `requestBody`/i);
+  assert.match(asciiPreview, /\{ requestBody, templateDecision \}/i);
+  assert.match(asciiPreview, /normalized `templateDecision`/i);
+  assert.match(asciiPreview, /should not emit the legacy outer-wrapper warning/i);
+  assert.match(asciiPreview, /inconsistent-template-decision/i);
+  assert.match(asciiPreview, /matching one bound uid\/mode for the current decision is sufficient/i);
+  assert.doesNotMatch(asciiPreview, /matches only one binding on a mixed-template page/i);
   assert.doesNotMatch(asciiPreview, /return the normalized \{ requestBody: <blueprint> \} tool-call envelope/i);
 
   const runtimePlaybook = read('references/runtime-playbook.md');
@@ -250,7 +336,37 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   const templates = read('references/templates.md');
   assert.match(templates, /Canonical front door is `nocobase-ctl flow-surfaces`/);
   assert.match(templates, /JSON examples below default to the CLI raw body/i);
+  assert.match(templates, /single normative template-selection source/i);
+  assert.match(templates, /defines both template-selection semantics/i);
+  assert.match(templates, /## Decision Table/);
+  assert.match(templates, /## Identity Resolution/);
+  assert.match(templates, /explicit template `uid` resolves one exact candidate identity/i);
+  assert.match(templates, /explicit template `name` resolves identity only when it matches exactly one candidate/i);
+  assert.match(templates, /non-unique template `name`[\s\S]*ask(?: the user)?(?: to choose| for)? an exact uid/i);
+  assert.match(templates, /identity resolution does \*\*not\*\* prove current-context compatibility/i);
+  assert.match(templates, /availability is not yet proven/i);
+  assert.match(templates, /explicit template row missing or `available = false`[\s\S]*do not bind/i);
+  assert.match(templates, /Whole-page `create` \/ `replace` should proactively probe templates/i);
+  assert.match(templates, /missing live `target\.uid` does \*\*not\*\* by itself block/i);
+  assert.match(templates, /stable best-candidate ranking/i);
+  assert.match(templates, /no explicit template[\s\S]*`1`[\s\S]*select that template/i);
+  assert.match(
+    templates,
+    /`>1`, stable best candidate exists[\s\S]*auto-select the best candidate/i,
+  );
+  assert.match(templates, /top candidates still tied after ranking[\s\S]*ask the user to choose/i);
+  assert.match(templates, /Without a live `target\.uid`, search results may still drive whole-page binding/i);
+  assert.match(templates, /Do not treat `available = true` as a recommendation signal/i);
+  assert.match(templates, /must not recreate the frontend compatibility checks locally/i);
+  assert.match(templates, /does not bypass contextual availability/i);
+  assert.match(templates, /If the user explicitly requires that exact template, stop at the compatibility explanation/i);
+  assert.match(templates, /Default selected templates to `reference`/i);
+  assert.match(templates, /switch to `copy` only/i);
+  assert.match(templates, /Mode selection only happens after template selection/i);
+  assert.match(templates, /`copy` is not a fallback when no concrete template was selected/i);
   assert.match(templates, /## CLI-first Request Shapes/);
+  assert.match(templates, /when no live `target\.uid` exists yet[\s\S]*omit `target\.uid`/i);
+  assert.match(templates, /Do not invent extra planning-only fields/i);
   assert.match(templates, /list-templates/);
   assert.match(templates, /save-template/);
   assert.match(templates, /get-template/);
@@ -262,6 +378,18 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.doesNotMatch(templates, /saveTemplate/);
   assert.doesNotMatch(templates, /convertTemplateToCopy/);
   assert.doesNotMatch(templates, /destroyTemplate/);
+  assert.doesNotMatch(templates, /exactly one usable candidate/i);
+  assert.doesNotMatch(templates, /multiple available templates when the user did not explicitly ask for reuse\/unification/i);
+  assert.doesNotMatch(templates, /do not implicitly select one/i);
+
+  const popup = read('references/popup.md');
+  assertPointsToTemplates(popup, 'popup.md');
+  assert.match(popup, /\[template-decision-summary\.md\]/i, 'popup.md should point to template-decision-summary.md for final non-binding reasons');
+  assertNoTemplateDecisionMatrix(popup, 'popup.md');
+  assertDiscoveryOnlyBoundary(popup, 'popup.md');
+  assertDiscoveryOnlyIncludesExplicitTemplateUnavailable(popup, 'popup.md');
+  assert.doesNotMatch(popup, /Only stay discovery-only when/i);
+  assert.doesNotMatch(popup, /explicit template `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
 
   const verification = read('references/verification.md');
   assert.match(verification, /Canonical front door is `nocobase-ctl flow-surfaces`/);
@@ -269,9 +397,45 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(verification, /nocobase-ctl flow-surfaces describe-surface/);
   assert.match(verification, /nocobase-ctl flow-surfaces get --page-schema-uid/);
   assert.match(verification, /update-settings/);
+  assertNoTemplateDecisionMatrix(verification, 'verification.md');
+  assert.match(verification, /\[template-decision-summary\.md\]/i);
+  assert.match(verification, /final user-visible preview or summary[\s\S]*discovery-only or non-template explicitly/i);
+  assert.match(verification, /default ASCII preview should at least expose template identity \+ `mode`/i);
+  assert.match(verification, /Without a live `target\.uid` \/ opener[\s\S]*planned opener\/resource context/i);
+  assert.match(verification, /stable best candidate/i);
+  assertDiscoveryOnlyIncludesExplicitTemplateUnavailable(verification, 'verification.md');
+  assert.match(verification, /For `reference` template writes/i);
+  assert.match(verification, /For `copy` or `convert-template-to-copy`/i);
+  assert.match(verification, /non-template/i);
+  assert.doesNotMatch(verification, /Discovery-only is now the fallback only when/i);
   assert.doesNotMatch(verification, /describeSurface/);
   assert.doesNotMatch(verification, /get\(\{ pageSchemaUid \}\)/);
   assert.doesNotMatch(verification, /updateSettings/);
+
+  const templateDecisionSummary = read('references/template-decision-summary.md');
+  assert.match(templateDecisionSummary, /does \*\*not\*\* define template selection/i);
+  assertPointsToTemplates(templateDecisionSummary, 'template-decision-summary.md');
+  assert.match(templateDecisionSummary, /prepareApplyBlueprintRequest\(\.\.\.\).*nb-page-preview --prepare-write/i);
+  assert.match(templateDecisionSummary, /`selected-reference`/);
+  assert.match(templateDecisionSummary, /`selected-copy`/);
+  assert.match(templateDecisionSummary, /`discovery-only`/);
+  assert.match(templateDecisionSummary, /`inline-non-template`/);
+  assert.match(templateDecisionSummary, /`standard-reuse`/);
+  assert.match(templateDecisionSummary, /`local-customization`/);
+  assert.match(templateDecisionSummary, /`missing-live-context`/);
+  assert.match(templateDecisionSummary, /`explicit-template-unavailable`/);
+  assert.match(templateDecisionSummary, /`multiple-discovered-not-bound`/);
+  assert.match(templateDecisionSummary, /\{ requestBody, templateDecision \}/i);
+  assert.match(templateDecisionSummary, /other blueprint gates fail/i);
+  assert.match(templateDecisionSummary, /blueprint is not recognizable yet/i);
+  assert.match(templateDecisionSummary, /inconsistent-template-decision/i);
+  assert.match(templateDecisionSummary, /current template decision, not the entire page/i);
+  assert.match(templateDecisionSummary, /only verifies that the blueprint contains at least one matching template uid\/mode/i);
+  assert.match(templateDecisionSummary, /does not yet prove node-level scope\/path identity on mixed pages/i);
+  assert.match(templateDecisionSummary, /mixed pages may still contain other bound templates elsewhere/i);
+  assert.match(templateDecisionSummary, /do \*\*not\*\* mean the whole blueprint is unbound/i);
+  assert.match(templateDecisionSummary, /ASCII preview does not need to invent a reason/i);
+  assert.doesNotMatch(templateDecisionSummary, /## Decision Table/i);
 
   const chartCore = read('references/chart-core.md');
   assert.match(chartCore, /Canonical front door is `nocobase-ctl flow-surfaces`/);
@@ -283,12 +447,18 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
 
   const openaiYaml = read('agents/openai.yaml');
   assert.match(openaiYaml, /Canonical front door: `nocobase-ctl flow-surfaces`/);
-  assert.match(openaiYaml, /Local prerequisite: `nocobase-ctl` on PATH/i);
-  assert.match(openaiYaml, /`nocobase-ctl --help` and `nocobase-ctl env --help`/i);
-  assert.match(openaiYaml, /repair the CLI path instead of switching to MCP/i);
+  assert.match(openaiYaml, /`nocobase-ctl --help`(?: and| \+) `nocobase-ctl env --help`/i);
+  assert.match(openaiYaml, /repair (?:the )?CLI(?: [^.;]+)?(?: instead of switching to MCP| before MCP)/i);
+  assert.match(openaiYaml, /Intent first/i);
+  assert.match(openaiYaml, /identity, not availability/i);
+  assert.match(openaiYaml, /No live target\.uid is not a blocker/i);
+  assert.match(openaiYaml, /stable best winner/i);
+  assert.match(openaiYaml, /Default selected templates to `reference`/i);
   assert.match(openaiYaml, /apply-blueprint/);
+  assert.match(openaiYaml, /localized edit[\s\S]*matching `flow-surfaces` command/i);
   assert.match(openaiYaml, /get-reaction-meta/);
-  assert.match(openaiYaml, /API\/MCP docs remain payload mapping and fallback only/i);
+  assertOpenAIGuardrails(openaiYaml);
+  assert.match(openaiYaml, /API\/MCP docs (?:remain|=) payload mapping (?:and|\+) fallback(?: only)?/i);
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
-  assert.ok(defaultPrompt.length < 950, 'openai default_prompt should stay below 950 chars to leave loader headroom');
+  assert.ok(defaultPrompt.length <= 890, 'openai default_prompt should stay at or below 890 chars to leave prompt headroom');
 });
