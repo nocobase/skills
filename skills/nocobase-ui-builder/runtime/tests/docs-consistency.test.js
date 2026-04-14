@@ -132,7 +132,13 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(skill, /Template selection is intent-first/i);
   assert.match(skill, /whole-page `create` \/ `replace` is not exempt/i);
   assert.match(skill, /stable best available candidate/i);
-  assert.match(skill, /if the top candidates still tie, stop and ask/i);
+  assert.match(skill, /Multiple usable templates are not a blocker/i);
+  assert.match(skill, /relation\/association-field match first/i);
+  assert.match(skill, /scene\/description fit next/i);
+  assert.match(
+    skill,
+    /(?:if the top candidates still tie, stop and ask|ask only when the final top candidates still tie)/i,
+  );
   assert.match(skill, /read \[templates\.md\].*before deciding inline vs template/i);
   assert.match(skill, /users may describe blocks, relations, and operations in business language/i);
   assert.match(skill, /ordered single-page runs/i);
@@ -377,6 +383,9 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
     templates,
     /`>1`, stable best candidate exists[\s\S]*auto-select the best candidate/i,
   );
+  assert.match(templates, /directly bind one highest-probability winner/i);
+  assert.match(templates, /exact relation \/ association-field match/i);
+  assert.match(templates, /name\/description match to the current business scene/i);
   assert.match(templates, /top candidates still tied after ranking[\s\S]*ask the user to choose/i);
   assert.match(templates, /Without a live `target\.uid`, search results may still drive whole-page binding/i);
   assert.match(templates, /Do not treat `available = true` as a recommendation signal/i);
@@ -478,10 +487,16 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(openaiYaml, /identity, not availability/i);
   assert.match(openaiYaml, /never treat a whole page as a template/i);
   assert.match(openaiYaml, /No live target\.uid is not a blocker/i);
-  assert.match(openaiYaml, /stable best winner/i);
+  assert.match(openaiYaml, /(?:stable best winner|auto-pick the best winner)/i);
+  assert.match(openaiYaml, /Multiple templates are not a blocker/i);
+  assert.match(openaiYaml, /relation-field match/i);
+  assert.match(openaiYaml, /description\/scene fit/i);
   assert.match(openaiYaml, /Default selected templates to `reference`/i);
   assert.match(openaiYaml, /apply-blueprint/);
-  assert.match(openaiYaml, /localized edit[\s\S]*matching `flow-surfaces` command/i);
+  assert.match(
+    openaiYaml,
+    /localized edit[\s\S]*(?:matching `flow-surfaces` command|-> `flow-surfaces` command)/i,
+  );
   assert.match(openaiYaml, /get-reaction-meta/);
   assertOpenAIGuardrails(openaiYaml);
   assert.match(openaiYaml, /API\/MCP docs (?:remain|=) payload mapping (?:and|\+) fallback(?: only)?/i);

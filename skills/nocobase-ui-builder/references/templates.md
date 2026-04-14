@@ -45,7 +45,7 @@ Treat the task as non-template-first in these scenes:
 - obvious local customization or "start from that and modify it here" intent
 - template search without enough live/planned scene context to describe the intended opener/resource shape
 
-Multiple discovered/available templates do **not** by themselves make the task non-template-first. If the scene is reusable, rank candidates first and ask only when the top candidates still tie.
+Multiple discovered/available templates do **not** by themselves make the task non-template-first. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and ask only when the final top candidates still tie.
 
 ## Path Boundaries
 
@@ -121,7 +121,7 @@ Interpretation rules:
 - Without a live `target.uid`, search results may still drive whole-page binding when the planning context is strong enough and the backend returns a stable best available candidate.
 - Without either a real live target or a strong planning context, search results are only discovery and must not drive automatic binding.
 - If zero candidates are `available = true`, continue without a template and, when helpful, mention that this is a reusable scene that could be templated later.
-- If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking.
+- If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking and directly bind the highest-probability winner when it is clear.
 - If the top candidates still tie after ranking, present the tied candidates and ask the user to choose instead of silently picking one.
 
 ## Stable Best-candidate Ranking
@@ -131,10 +131,11 @@ When more than one `available = true` candidate remains, rank them in this exact
 1. explicit identity match (`uid` first, then one unique exact `name`)
 2. exact `type` / `usage` match
 3. exact opener match (`actionType` / `actionScope`)
-4. exact structure match for the planned scene (`collection`, `resource`, `association`, `root use`, and equivalent backend-supported context filters)
+4. exact relation / association-field match for the planned scene
 5. better name/description match to the current business scene and entity wording
-6. higher `usageCount`
-7. smaller template `uid` as the final deterministic tie-break
+6. exact remaining structure match for the planned scene (`collection`, `resource`, `association`, `root use`, and equivalent backend-supported context filters)
+7. higher `usageCount`
+8. smaller template `uid` as the final deterministic tie-break
 
 If the available data still leaves the top candidates indistinguishable after this ranking, do not auto-bind; present the tied candidates and ask.
 
