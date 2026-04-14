@@ -18,6 +18,8 @@ description: >-
 - Use `nocobase-ctl flow-surfaces` as the canonical front door for Modern page (v2) authoring.
 - Keep the current page blueprint, reaction, verification, and API payload docs as the authoring contract and fallback reference set.
 - Fall back to direct MCP/API invocation only when the CLI itself is unavailable in the current environment.
+- When one user request spans several pages, decompose it into ordered single-page runs; each page still follows the same template-probing, preview, write, and readback loop.
+- Users may describe blocks, relations, and operations in business language only. Infer the minimal reasonable structure from that request; do not inflate it into a pseudo-spec.
 
 # Transport Selection
 
@@ -44,6 +46,9 @@ description: >-
   11. For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise **ASCII-first** prewrite preview rendered from the same blueprint. Prefer the local prepare-write gate because it renders that preview and returns the normalized CLI body together: short intent summary + one ASCII wireframe, popup depth exactly one level deep, and full JSON hidden unless the user asks for it. This preview is mandatory even when you will execute immediately afterward. Only stop for confirmation when the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first; otherwise show the preview and continue in the same run.
   12. If the user asks for default values, linkage, computed values, show/hide, required/disabled, or action visibility/state, treat it as a reaction task first. Whole-page authoring goes through top-level `reaction.items[]`; localized edits go through `getReactionMeta` -> `set*Rules`. Do not start by guessing raw configure keys.
   13. Template selection is intent-first, and whole-page `create` / `replace` is not exempt. When the draft contains a reusable popup / block / fields scene, proactively probe templates through contextual `list-templates` before locking in inline content. Use a real `target.uid` when available; otherwise build the strongest planning context from the intended opener/resource/association scene. Do not guess compatibility locally. Auto-pick one stable best available candidate when ranking yields a clear winner; if the top candidates still tie, stop and ask. Explicit template `uid` / `name` only resolves identity first; availability still comes from the contextual backend result. Default selected templates to `reference`, and switch to `copy` only for explicit local-customization intent.
+  14. If one task asks for several pages, split it into an ordered page plan first and execute one page per run; never author or imply a multi-page `applyBlueprint` payload.
+  15. After one page writes successfully and readback confirms a reusable popup / block / fields scene, you may save that scene as a template seed for later pages in the same task. Later pages must still rerun contextual `list-templates` before binding, and the page itself is never a template type.
+  16. When the user's request is moderately ambiguous, infer only the minimal reasonable structure needed for the current page. Do not silently invent extra tabs, exact field sets, or rigid layouts unless the request or live facts require them.
 - Minimum read set:
   1. Read [cli-transport.md](./references/cli-transport.md) first.
   2. Read [cli-command-surface.md](./references/cli-command-surface.md) second.
@@ -59,6 +64,7 @@ description: >-
 
 ## Routing
 
+- Task-level multi-page request -> decompose into ordered single-page whole-page or localized runs; each page remains one `applyBlueprint` write or one localized edit sequence.
 - Whole-page create or replace -> canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`; whole-page public write contract remains `applyBlueprint`, and the default prewrite surface is one ASCII wireframe rendered from that same blueprint.
 - Localized edit on an existing page/tab/popup/node -> canonical front door is the matching `nocobase-ctl flow-surfaces ...` command family (`compose`, `configure`, `add*`, `move*`, `remove*`, `create-page`, `update-menu`, and related operations).
 - Whole-page interaction / reaction authoring -> `nocobase-ctl flow-surfaces apply-blueprint` with top-level `reaction.items[]`.

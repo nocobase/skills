@@ -55,6 +55,15 @@ Multiple discovered/available templates do **not** by themselves make the task n
 - Do not bind `template` / `popup.template` from loose text search alone. Binding still requires one contextual `list-templates` result that the backend marks usable for the planned scene.
 - If both live context and planning context are too weak to describe the intended reusable scene, template search stays discovery-only and the write path should remain unresolved or inline/non-template by default.
 
+## Task-level Multi-page Orchestration
+
+- `applyBlueprint` still creates or replaces one page at a time. If the user asks for several pages, decompose the task into sequential page runs.
+- Reuse across pages is still scene-based: popup templates, block templates, and `fields` usage. Do **not** treat an entire page as a template type.
+- An earlier page in the same task may become a template seed only after its write and readback succeed and the reusable popup / block / fields scene is concrete enough to save.
+- Use `save-template` on that concrete scene, not on the page as a whole.
+- A same-task seed does **not** bypass contextual availability. Later pages must still call `list-templates` with the later page's live or planning context before binding.
+- If no same-task seed or existing template is contextually usable, stay inline/non-template for the current page rather than inventing page-template behavior.
+
 ## Identity Resolution
 
 - An explicit template `uid` resolves one exact candidate identity.

@@ -134,6 +134,10 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(skill, /stable best available candidate/i);
   assert.match(skill, /if the top candidates still tie, stop and ask/i);
   assert.match(skill, /read \[templates\.md\].*before deciding inline vs template/i);
+  assert.match(skill, /users may describe blocks, relations, and operations in business language/i);
+  assert.match(skill, /ordered single-page runs/i);
+  assert.match(skill, /never author or imply a multi-page `applyBlueprint` payload/i);
+  assert.match(skill, /template seed for later pages/i);
   assert.doesNotMatch(skill, /flow_surfaces_apply_blueprint\.requestBody/);
   assert.doesNotMatch(skill, /normalized \{ requestBody: <blueprint> \}/i);
 
@@ -217,6 +221,9 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assertNoTemplateDecisionMatrix(pageIntent, 'page-intent.md');
   assert.match(pageIntent, /whole-page `create` \/ `replace`[\s\S]*probe templates/i);
   assert.match(pageIntent, /stable best candidate/i);
+  assert.match(pageIntent, /spans several pages[\s\S]*ordered page plan/i);
+  assert.match(pageIntent, /minimal reasonable structure/i);
+  assert.match(pageIntent, /template seed for a later page/i);
   assert.doesNotMatch(pageIntent, /whole-page `create` \/ `replace`[\s\S]*stays discovery-only/i);
   assert.doesNotMatch(pageIntent, /explicit template `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
 
@@ -250,6 +257,9 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assertNoTemplateDecisionMatrix(executionChecklist, 'execution-checklist.md');
   assert.match(executionChecklist, /use the strongest planned opener\/resource scene context/i);
   assert.match(executionChecklist, /whole-page `create` \/ `replace` should not skip this step/i);
+  assert.match(executionChecklist, /spans several pages[\s\S]*ordered page runs/i);
+  assert.match(executionChecklist, /only then may you `save-template`/i);
+  assert.match(executionChecklist, /natural-language business request may only describe blocks, relations, and operations/i);
   assert.doesNotMatch(executionChecklist, /explicit `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
   assert.doesNotMatch(executionChecklist, /Confirm MCP is reachable and authenticated/i);
   assert.doesNotMatch(executionChecklist, /copy the \*\*Tool-call envelope\*\* shape first/i);
@@ -348,6 +358,10 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(templates, /explicit template row missing or `available = false`[\s\S]*do not bind/i);
   assert.match(templates, /Whole-page `create` \/ `replace` should proactively probe templates/i);
   assert.match(templates, /missing live `target\.uid` does \*\*not\*\* by itself block/i);
+  assert.match(templates, /If the user asks for several pages, decompose the task into sequential page runs/i);
+  assert.match(templates, /Do \*\*not\*\* treat an entire page as a template type/i);
+  assert.match(templates, /earlier page in the same task may become a template seed only after its write and readback succeed/i);
+  assert.match(templates, /same-task seed does \*\*not\*\* bypass contextual availability/i);
   assert.match(templates, /stable best-candidate ranking/i);
   assert.match(templates, /no explicit template[\s\S]*`1`[\s\S]*select that template/i);
   assert.match(
@@ -450,7 +464,10 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(openaiYaml, /`nocobase-ctl --help`(?: and| \+) `nocobase-ctl env --help`/i);
   assert.match(openaiYaml, /repair (?:the )?CLI(?: [^.;]+)?(?: instead of switching to MCP| before MCP)/i);
   assert.match(openaiYaml, /Intent first/i);
+  assert.match(openaiYaml, /Natural-language prompts may only name blocks\/relations\/actions/i);
+  assert.match(openaiYaml, /Multi-page asks split into sequential single-page runs/i);
   assert.match(openaiYaml, /identity, not availability/i);
+  assert.match(openaiYaml, /never treat a whole page as a template/i);
   assert.match(openaiYaml, /No live target\.uid is not a blocker/i);
   assert.match(openaiYaml, /stable best winner/i);
   assert.match(openaiYaml, /Default selected templates to `reference`/i);

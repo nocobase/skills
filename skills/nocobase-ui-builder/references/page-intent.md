@@ -22,21 +22,23 @@ This file focuses on the **inner page blueprint document**. For the actual CLI/A
 ## 2. Authoring Steps
 
 1. Identify whether the task is **create** or **replace**.
-2. Choose the simplest starting archetype from [page-archetypes.md](./page-archetypes.md).
-3. Decide the minimal tab structure. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs.
-4. Remove any placeholder `Summary` / `Later` / `备用` tab or explanatory `markdown` / note / banner block unless the user explicitly asked for it.
-5. For each tab, decide major blocks first, then fields/actions/record actions.
-6. Keep popup behavior inline under the relevant field/action/record action, but do not assume inline is final. If a popup/block/fields segment belongs to a standard reusable scene, proactively probe templates through [templates.md](./templates.md) before locking in inline content, even during whole-page `create` / `replace`.
-7. Assemble the final JSON page blueprint from [page-blueprint.md](./page-blueprint.md), using only canonical public names.
-8. Before the real `applyBlueprint` call, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`. If the gate catches extra outer tabs, stringified body content, illegal tab keys, block-level `layout`, or broken custom `edit` popups, rewrite locally before the real write.
-9. Then open [tool-shapes.md](./tool-shapes.md) and prepare the blueprint as the raw CLI JSON body. Only in MCP fallback should that same object be wrapped under `requestBody`.
-10. Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). Prefer the same local prepare-write gate because it emits that preview and the normalized CLI body together. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
+2. If one user request spans several pages, split it into an ordered page plan first. Each page still becomes one executable inner page blueprint document and one actual `applyBlueprint` run.
+3. Choose the simplest starting archetype from [page-archetypes.md](./page-archetypes.md).
+4. Decide the minimal tab structure. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs.
+5. Remove any placeholder `Summary` / `Later` / `备用` tab or explanatory `markdown` / note / banner block unless the user explicitly asked for it.
+6. For each tab, decide major blocks first, then fields/actions/record actions.
+7. Keep popup behavior inline under the relevant field/action/record action, but do not assume inline is final. If a popup/block/fields segment belongs to a standard reusable scene, proactively probe templates through [templates.md](./templates.md) before locking in inline content, even during whole-page `create` / `replace`.
+8. Assemble the final JSON page blueprint from [page-blueprint.md](./page-blueprint.md), using only canonical public names.
+9. Before the real `applyBlueprint` call, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, there is no empty / placeholder tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, every `tab.layout` / `popup.layout` is an object when present, block `key` values are unique, every field named in blueprint `fields[]` has a non-empty live `interface`, every field entry stays a simple string unless `popup` / `target` / `renderer` / field-specific `type` is actually required, and every custom `edit` popup contains exactly one `editForm`. If the gate catches extra outer tabs, stringified body content, illegal tab keys, block-level `layout`, or broken custom `edit` popups, rewrite locally before the real write.
+10. Then open [tool-shapes.md](./tool-shapes.md) and prepare the blueprint as the raw CLI JSON body. Only in MCP fallback should that same object be wrapped under `requestBody`.
+11. Before the first `applyBlueprint` on any whole-page task, show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md). Prefer the same local prepare-write gate because it emits that preview and the normalized CLI body together. If the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first, stop after that preview; otherwise continue immediately.
 
 ## 3. Authoring Heuristics
 
 - Prefer the smallest number of tabs that explains the user intent.
 - A normal single-page request defaults to one tab unless the user explicitly asks for multiple route-backed tabs.
 - Side-by-side blocks, relation tables, and deep popup chains are layout inside one tab, not a reason to create extra tabs.
+- Users may describe only blocks, relations, and actions in business language. Infer the minimal reasonable structure, but do not silently expand the request into an exact pseudo-spec with extra tabs, full field lists, or rigid layout unless the intent or live facts require it.
 - Do not carry empty / placeholder tabs in a single-page draft just to "leave room" for later edits.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks just to explain future work.
 - Prefer one dominant archetype before mixing patterns.
@@ -47,6 +49,7 @@ This file focuses on the **inner page blueprint document**. For the actual CLI/A
 - `navigation.group.routeId` is exact targeting only; if existing-group metadata must change, switch to the low-level `updateMenu` path instead of applyBlueprint.
 - Do not over-specify popup content when a simple opener is enough for the request.
 - Whole-page `create` / `replace` should still probe templates for reusable scenes. A missing live `target.uid` only means you must use planned opener/resource context instead of a live target; it is not an automatic downgrade to inline-only.
+- In a multi-page task, finish and read back the current page before you save a reusable popup / block / fields scene as a template seed for a later page. The later page still needs a contextual selection pass from [templates.md](./templates.md), and the earlier page itself is never a template type.
 - Do not bind `template` / `popup.template` from loose discovery alone. Bind only when [templates.md](./templates.md) says the contextual backend result already yields one stable best candidate.
 - If multiple usable candidates remain tied after ranking, surface that tie in the prewrite preview and stop for the user instead of silently picking one.
 - Default blueprint `fields[]` entries to simple strings. Only upgrade a field entry to an object when `popup`, `target`, `renderer`, or field-specific `type` is actually required.
