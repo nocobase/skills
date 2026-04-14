@@ -19,8 +19,8 @@ Custom data transformation, complex conditional calculations, string processing,
 ## Configuration List
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| arguments | array | [] | No | List of input arguments, each item `{ name, value }`. `name` is the variable name available in the script, `value` is the variable value (supports workflow variable references). Variable names must be valid JavaScript identifiers and cannot be duplicated. |
-| content | string | `return "Hello world!";` | Yes | The JavaScript code to execute. Must use `return` to return a result. The code runs in an isolated Node.js Worker Thread environment. |
+| arguments | array | [] | No | List of input arguments, each item `{ name, value }`. `name` is the variable name available in the script, `value` is the variable value. Variable names must be valid JavaScript identifiers and cannot be duplicated. Variables should follow [Common Conventions - variables](../conventions/index.md#variable-expressions). |
+| content | string | `return "Hello world!";` | Yes | The JavaScript code to execute. If `return someVariable` is used, the value of `someVariable` will be returned as the node's output. |
 | timeout | number | 0 | No | Maximum execution time in milliseconds. `0` means no timeout. |
 | continue | boolean | false | No | Whether to continue the workflow when the script throws an exception. If `true`, the node status is resolved even on error; if `false`, the node status is set to error. |
 
@@ -30,6 +30,10 @@ Custom data transformation, complex conditional calculations, string processing,
 - Use `return` to return results; the return value becomes the node's output.
 - `console.log()` and `console.error()` output is captured in the workflow log.
 - When the workflow is synchronous, the script executes synchronously within the request; when asynchronous, the script executes in the background and resumes the workflow upon completion.
+
+## Modules and APIs Available in the Script
+- Standard JavaScript built-in objects and functions (e.g., `Array`, `Date`, `Math`, etc.).
+- Modules can not be imported by default. If you need specific Node.js modules, please add `WORKFLOW_SCRIPT_MODULES` environment variable in the format of comma-separated module names (e.g., `fs,path,lodash`), and these modules will be available for import in the script. When using modules, the execution engine will use `node:vm` (instead of `isolated-vm`), and the sandbox will have access to the Node.js environment, so be cautious of security implications.
 
 ## Branch Description
 Does not support branches.

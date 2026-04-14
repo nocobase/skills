@@ -13,7 +13,7 @@ description: Complete, authoritative list of functions and operators available i
 
 ## Expression Syntax
 
-math.js supports a rich expression language:
+Variables from the NocoBase workflow context can be referenced in expressions using `{{variableName}}` syntax. For example:
 
 ```
 // Operators
