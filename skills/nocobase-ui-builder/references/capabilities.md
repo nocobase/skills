@@ -23,7 +23,7 @@ Read this file when you already know you need to add something into a content ar
 ### Choose an action when
 
 - the block already exists and the user wants a button-like operation
-- examples: `addNew`, `view`, `edit`, custom `popup`, `submit` on `createForm` / `editForm`, `reset` only when the live target / catalog explicitly shows it is supported, js action
+- examples: `addNew`, `view`, `edit`, custom `popup`, `submit` on `createForm` / `editForm`, `reset` only when the live target / catalog explicitly shows it is supported, js action, and `addChild` under `recordActions`
 
 ## 3. Data-bound vs Non-data Blocks
 
@@ -45,3 +45,5 @@ Read this file when you already know you need to add something into a content ar
 - Record-level actions belong on record-capable owners such as table/details/list/gridCard.
 - Non-record actions belong to block/form/panel style containers.
 - `view` / `edit` / `addNew` may create or use popup behavior; see [popup.md](./popup.md).
+- `addChild` is a record action, not a block action.
+- For the canonical `addChild` placement and live-target rule, follow [normative-contract.md](./normative-contract.md).

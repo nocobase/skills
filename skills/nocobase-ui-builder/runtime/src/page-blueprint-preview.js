@@ -26,6 +26,8 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setBlockLinkageRules',
   'setActionLinkageRules',
 ]);
+const ADD_CHILD_RECORD_ACTION_MESSAGE =
+  '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -689,8 +691,19 @@ function validateFieldPopups(items, path, state) {
   }
 }
 
-function validateActions(items, path, state) {
+function validateActions(items, path, state, { recordActions = false } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
+    const actionType =
+      typeof item === 'string' ? normalizeLowerText(item) : isPlainObject(item) ? normalizeLowerText(item.type) : '';
+    if (!recordActions && actionType === 'addchild') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'add-child-must-use-record-actions',
+        ADD_CHILD_RECORD_ACTION_MESSAGE,
+      );
+    }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
     const popupPath = `${path}[${index}].popup`;
     validatePopupDocument(item.popup, popupPath, state);
@@ -742,8 +755,8 @@ function validateBlock(block, path, state) {
   }
 
   validateFieldPopups(block.fields, `${path}.fields`, state);
-  validateActions(block.actions, `${path}.actions`, state);
-  validateActions(block.recordActions, `${path}.recordActions`, state);
+  validateActions(block.actions, `${path}.actions`, state, { recordActions: false });
+  validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true });
 }
 
 function validateTab(tab, index, state) {

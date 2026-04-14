@@ -241,6 +241,18 @@ Create a record-level view action and give it a title directly:
 }
 ```
 
+`addChild` uses the same `add-record-action + settings` shape, but it is only valid when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled:
+
+```json
+{
+  "target": { "uid": "tree-table-uid" },
+  "type": "addChild",
+  "settings": {
+    "title": "Add child"
+  }
+}
+```
+
 ## When Not to Force Something into `settings`
 
 - live `catalog.configureOptions` does not expose the field
