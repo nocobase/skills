@@ -22,7 +22,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
 - If template reuse may be relevant, read [templates.md](./templates.md) before choosing inline vs template authoring. Treat it as the only template-selection rule source; this checklist keeps only the execution boundary.
 - Whole-page `create` / `replace` should not skip this step. Probe reusable popup/block/fields scenes before finalizing inline structure.
-- If a later page should reuse a scene from an earlier page in the same task, the earlier page must first finish and read back successfully; only then may you `save-template` the concrete popup/block/fields scene for later reuse. Later pages still need contextual `list-templates`.
+- If a later popup/block/fields scene should be the same as an earlier one in the same task and no usable template exists yet, the earlier scene becomes the bootstrap source: finish and read it back successfully, then `save-template` it immediately. Later scenes still need contextual `list-templates`.
 - For same-task `reference` reuse, add two lightweight checks around that handoff: `get-template` must succeed immediately after `save-template`, and after the later-page bind a follow-up `get-template` should usually show higher `usageCount`.
 - If the request mentions default values, linkage, computed values, show/hide, required/disabled, or action state, decide explicitly whether this is a whole-page reaction task or a localized reaction task before choosing structural APIs.
 - If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
@@ -102,7 +102,7 @@ Use this path when the user is describing one page as a whole.
    - Never stringify the blueprint and never add an outer `{ values: ... }` wrapper.
    - If the CLI reports request-body validation errors, first re-check the chosen command and raw body shape. If MCP fallback reports `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the fallback envelope before changing inner blueprint fields.
 14. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
-15. In a multi-page task, only after successful readback may the current page contribute a reusable popup / block / fields scene via `save-template`; the next page must still re-enter the template selection flow from [templates.md](./templates.md).
+15. In a multi-page task, only after successful readback may the current page contribute a reusable popup / block / fields scene via `save-template`; if the request explicitly said another scene should be the same and no usable template existed yet, do that save immediately. The next page must still re-enter the template selection flow from [templates.md](./templates.md).
 
 ### Notes
 

@@ -37,7 +37,7 @@ Treat the task as template-first only when it matches one of these scenes:
 - a standard CRUD-style popup should be reused under a known opener, for example `view`, `edit`, `addNew`, or another confirmed popup-capable action/field
 - a repeated form field layout should be reused under a host with compatible live collection/root-use context
 - the user explicitly asks to reuse, unify, or follow an existing template
-- natural-language reuse cues such as "差不多", "沿用前面的思路", "保持一致", "别每次都重新排", or "不要每次都从零搭" also count as reuse intent when the surrounding popup / block / fields scene is already concrete enough
+- natural-language reuse cues such as "一样", "同样", "差不多", "沿用前面的思路", "保持一致", "别每次都重新排", or "不要每次都从零搭" also count as reuse intent when the surrounding popup / block / fields scene is already concrete enough
 
 Treat the task as non-template-first in these scenes:
 
@@ -45,7 +45,7 @@ Treat the task as non-template-first in these scenes:
 - obvious local customization or "start from that and modify it here" intent
 - template search without enough live/planned scene context to describe the intended opener/resource shape
 
-Multiple discovered/available templates do **not** by themselves make the task non-template-first. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and ask only when the final top candidates still tie.
+Multiple discovered/available templates do **not** by themselves make the task non-template-first. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and ask only when the final top candidates still tie. If the user explicitly says a popup/block/fields scene should be the same and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse intent.
 
 ## Path Boundaries
 
@@ -63,7 +63,8 @@ Multiple discovered/available templates do **not** by themselves make the task n
 - An earlier page in the same task may become a template seed only after its write and readback succeed and the reusable popup / block / fields scene is concrete enough to save.
 - Use `save-template` on that concrete scene, not on the page as a whole.
 - A same-task seed does **not** bypass contextual availability. Later pages must still call `list-templates` with the later page's live or planning context before binding.
-- If no same-task seed or existing template is contextually usable, stay inline/non-template for the current page rather than inventing page-template behavior.
+- If the request explicitly says another scene should be the same and no same-task seed or existing template is contextually usable yet, the first successful concrete block/popup/fields scene becomes the bootstrap source: save it immediately after readback, then let later matching scenes reuse it through normal contextual selection.
+- If no same-task seed or existing template is contextually usable and there is no explicit reuse intent, stay inline/non-template for the current page rather than inventing page-template behavior.
 
 ### Same-task live reuse loop
 
@@ -95,6 +96,7 @@ Enter this table only when the task already matches a closed reusable scene, or 
 | user explicitly named a template `uid`, or one unique template `name` | resolved | no live target, but planning context is still weak | n/a | discovery-only; identity is known, availability is not yet proven |
 | whole-page or localized flow | resolved explicit template | yes live/planned context | explicit template row `available = true` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | resolved explicit template | yes live/planned context | explicit template row missing or `available = false` | do not bind; surface `disabledReason` or the compatibility gap |
+| whole-page or localized flow | no explicit template, explicit same/similar reuse intent | yes live/planned context | `0` | build the first concrete popup/block/fields scene as the bootstrap source, then `save-template` after successful readback |
 | whole-page or localized flow | no explicit template | yes live/planned context | `0` | inline/non-template |
 | whole-page or localized flow | no explicit template | yes live/planned context | `1` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | no explicit template | yes live/planned context | `>1`, stable best candidate exists | auto-select the best candidate, then choose `reference` or `copy` |
@@ -120,7 +122,8 @@ Interpretation rules:
 - If the user explicitly requires that exact template, stop at the compatibility explanation instead of silently switching to inline content or another template.
 - Without a live `target.uid`, search results may still drive whole-page binding when the planning context is strong enough and the backend returns a stable best available candidate.
 - Without either a real live target or a strong planning context, search results are only discovery and must not drive automatic binding.
-- If zero candidates are `available = true`, continue without a template and, when helpful, mention that this is a reusable scene that could be templated later.
+- If zero candidates are `available = true` and explicit same/similar reuse intent is present for a popup / block / fields scene, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
+- If zero candidates are `available = true` and there is no explicit reuse intent, continue without a template and, when helpful, mention that this is a reusable scene that could be templated later.
 - If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking and directly bind the highest-probability winner when it is clear.
 - If the top candidates still tie after ranking, present the tied candidates and ask the user to choose instead of silently picking one.
 
@@ -146,9 +149,10 @@ If the available data still leaves the top candidates indistinguishable after th
 3. If no explicit template was provided and the request falls into a closed reusable scene, call `list-templates` first. This applies to whole-page drafts too.
 4. Prefer rows with `available = true`, then rank them with the stable best-candidate rule. Auto-bind when one winner remains.
 5. Once one concrete template is both resolved and contextually usable, decide `mode`. Default selected templates to `reference`; switch to `copy` only when the request clearly asks for local customization / detachment.
-6. If no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
-7. If the top candidates still tie after ranking, stop and ask instead of silently falling back to inline content.
-8. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
+6. If no concrete template was selected because zero usable templates exist but the user explicitly said the later popup/block/fields scene should be the same, bootstrap the first concrete scene and save it as a template after successful readback so later matching scenes can reuse it.
+7. Otherwise, if no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
+8. If the top candidates still tie after ranking, stop and ask instead of silently falling back to inline content.
+9. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
 
 ## Search and Selection
 

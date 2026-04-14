@@ -135,6 +135,8 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(skill, /Multiple usable templates are not a blocker/i);
   assert.match(skill, /relation\/association-field match first/i);
   assert.match(skill, /scene\/description fit next/i);
+  assert.match(skill, /"一样".*"同样".*"差不多".*"沿用前面的思路"/i);
+  assert.match(skill, /save that source as a template immediately/i);
   assert.match(
     skill,
     /(?:if the top candidates still tie, stop and ask|ask only when the final top candidates still tie)/i,
@@ -143,7 +145,7 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(skill, /users may describe blocks, relations, and operations in business language/i);
   assert.match(skill, /ordered single-page runs/i);
   assert.match(skill, /never author or imply a multi-page `applyBlueprint` payload/i);
-  assert.match(skill, /template seed for later pages/i);
+  assert.match(skill, /(?:template seed for later pages|save that scene as a template seed)/i);
   assert.doesNotMatch(skill, /flow_surfaces_apply_blueprint\.requestBody/);
   assert.doesNotMatch(skill, /normalized \{ requestBody: <blueprint> \}/i);
 
@@ -230,6 +232,8 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(pageIntent, /spans several pages[\s\S]*ordered page plan/i);
   assert.match(pageIntent, /minimal reasonable structure/i);
   assert.match(pageIntent, /template seed for a later page/i);
+  assert.match(pageIntent, /"一样".*"同样".*"沿用前面的思路"/i);
+  assert.match(pageIntent, /save the first successful concrete scene immediately after readback/i);
   assert.match(pageIntent, /整体交互别差太多/i);
   assert.doesNotMatch(pageIntent, /whole-page `create` \/ `replace`[\s\S]*stays discovery-only/i);
   assert.doesNotMatch(pageIntent, /explicit template `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
@@ -265,7 +269,8 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(executionChecklist, /use the strongest planned opener\/resource scene context/i);
   assert.match(executionChecklist, /whole-page `create` \/ `replace` should not skip this step/i);
   assert.match(executionChecklist, /spans several pages[\s\S]*ordered page runs/i);
-  assert.match(executionChecklist, /only then may you `save-template`/i);
+  assert.match(executionChecklist, /earlier scene becomes the bootstrap source/i);
+  assert.match(executionChecklist, /`save-template` it immediately/i);
   assert.match(executionChecklist, /`get-template` must succeed immediately after `save-template`/i);
   assert.match(executionChecklist, /higher `usageCount`/i);
   assert.match(executionChecklist, /natural-language business request may only describe blocks, relations, and operations/i);
@@ -376,8 +381,11 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(templates, /page B, run contextual `list-templates` again/i);
   assert.match(templates, /`usageCount` should usually increase/i);
   assert.match(templates, /沿用前面的思路/i);
+  assert.match(templates, /"一样".*"同样".*"差不多"/i);
   assert.match(templates, /不要每次都从零搭/i);
   assert.match(templates, /stable best-candidate ranking/i);
+  assert.match(templates, /bootstrap the first concrete scene and save it as a template after successful readback/i);
+  assert.match(templates, /no explicit template, explicit same\/similar reuse intent/i);
   assert.match(templates, /no explicit template[\s\S]*`1`[\s\S]*select that template/i);
   assert.match(
     templates,
@@ -483,19 +491,21 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(openaiYaml, /repair (?:the )?CLI(?: [^.;]+)?(?: instead of switching to MCP| before MCP)/i);
   assert.match(openaiYaml, /Intent first/i);
   assert.match(openaiYaml, /Natural-language prompts may only name blocks\/relations\/actions/i);
-  assert.match(openaiYaml, /Multi-page asks split into sequential single-page runs/i);
+  assert.match(openaiYaml, /Multi-page asks split into (?:sequential )?single-page runs/i);
   assert.match(openaiYaml, /identity, not availability/i);
-  assert.match(openaiYaml, /never treat a whole page as a template/i);
-  assert.match(openaiYaml, /No live target\.uid is not a blocker/i);
+  assert.match(openaiYaml, /never treat (?:a whole )?page as a template/i);
+  assert.match(openaiYaml, /(?:No live target\.uid is not a blocker|target\.uid can be planned, not live)/i);
   assert.match(openaiYaml, /(?:stable best winner|auto-pick the best winner)/i);
   assert.match(openaiYaml, /Multiple templates are not a blocker/i);
-  assert.match(openaiYaml, /relation-field match/i);
+  assert.match(openaiYaml, /relation-field(?: match)?/i);
   assert.match(openaiYaml, /description\/scene fit/i);
-  assert.match(openaiYaml, /Default selected templates to `reference`/i);
+  assert.match(openaiYaml, /Same\/similar popup(?: or|\/)block = template intent/i);
+  assert.match(openaiYaml, /save-template after readback/i);
+  assert.match(openaiYaml, /(?:Default selected templates to `reference`|`reference` default)/i);
   assert.match(openaiYaml, /apply-blueprint/);
   assert.match(
     openaiYaml,
-    /localized edit[\s\S]*(?:matching `flow-surfaces` command|-> `flow-surfaces` command)/i,
+    /localized edit[\s\S]*(?:matching `flow-surfaces` command|-> `flow-surfaces` command|-> `flow-surfaces`)/i,
   );
   assert.match(openaiYaml, /get-reaction-meta/);
   assertOpenAIGuardrails(openaiYaml);
