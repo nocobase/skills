@@ -224,6 +224,7 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(pageIntent, /spans several pages[\s\S]*ordered page plan/i);
   assert.match(pageIntent, /minimal reasonable structure/i);
   assert.match(pageIntent, /template seed for a later page/i);
+  assert.match(pageIntent, /整体交互别差太多/i);
   assert.doesNotMatch(pageIntent, /whole-page `create` \/ `replace`[\s\S]*stays discovery-only/i);
   assert.doesNotMatch(pageIntent, /explicit template `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
 
@@ -362,6 +363,8 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(templates, /Do \*\*not\*\* treat an entire page as a template type/i);
   assert.match(templates, /earlier page in the same task may become a template seed only after its write and readback succeed/i);
   assert.match(templates, /same-task seed does \*\*not\*\* bypass contextual availability/i);
+  assert.match(templates, /沿用前面的思路/i);
+  assert.match(templates, /不要每次都从零搭/i);
   assert.match(templates, /stable best-candidate ranking/i);
   assert.match(templates, /no explicit template[\s\S]*`1`[\s\S]*select that template/i);
   assert.match(

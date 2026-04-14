@@ -37,6 +37,7 @@ Treat the task as template-first only when it matches one of these scenes:
 - a standard CRUD-style popup should be reused under a known opener, for example `view`, `edit`, `addNew`, or another confirmed popup-capable action/field
 - a repeated form field layout should be reused under a host with compatible live collection/root-use context
 - the user explicitly asks to reuse, unify, or follow an existing template
+- natural-language reuse cues such as "差不多", "沿用前面的思路", "保持一致", "别每次都重新排", or "不要每次都从零搭" also count as reuse intent when the surrounding popup / block / fields scene is already concrete enough
 
 Treat the task as non-template-first in these scenes:
 
