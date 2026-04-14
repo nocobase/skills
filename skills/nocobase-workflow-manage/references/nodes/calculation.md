@@ -18,8 +18,8 @@ Calculating order amounts, concatenating text, or generating derived fields.
 ## Configuration Items
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| engine | string | formula.js | Yes | Calculation engine: `formula.js`, `math.js`, `string`. It's recommended to specify explicitly; defaults to `math.js` on the backend if not provided. See [evaluator engine reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
-| expression | string | None | Yes | Calculation expression; can reference workflow context variables with `{{variable}}` syntax. Expression syntax depends on the `engine`. For available functions see [formula.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md). |
+| engine | string | formula.js | Yes | Calculation engine: `formula.js`, `math.js`, `string`. It's recommended to specify explicitly; defaults to `math.js` on the backend if not provided. See [evaluator engine reference](../../../nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
+| expression | string | None | Yes | Calculation expression; can reference workflow context variables with `{{variable}}` syntax. Expression syntax depends on the `engine`. For available functions see [formula.js reference](../../../nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../nocobase-utils/references/evaluators/mathjs.md). |
 
 ## Branch Description
 Does not support branching.
