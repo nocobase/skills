@@ -11,7 +11,7 @@ const OUTPUT_LIMIT = 10 * 1024 * 1024;
 
 dotenv.config({ path: ENV_FILE, override: false });
 
-export const AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS ?? 120_000);
+export const AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS ?? 300_000);
 
 let mockAppReadyPromise: Promise<void> | null = null;
 
