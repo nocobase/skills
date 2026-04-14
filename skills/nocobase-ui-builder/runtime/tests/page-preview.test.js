@@ -144,6 +144,60 @@ test('renderPageBlueprintAsciiPreview shows template mode for block and popup te
   assert.match(result.ascii, /Template: employee-popup-template \[mode=copy\]/);
 });
 
+test('renderPageBlueprintAsciiPreview keeps popup template binding and warns that local popup content is ignored', () => {
+  const result = renderPageBlueprintAsciiPreview({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Templated page',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'employeeTable',
+            type: 'table',
+            collection: 'employees',
+            fields: ['nickname'],
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'Employee details',
+                  template: {
+                    uid: 'employee-popup-template',
+                    mode: 'reference',
+                  },
+                  mode: 'drawer',
+                  layout: {
+                    rows: [['ignoredPopupBlock']],
+                  },
+                  blocks: [
+                    {
+                      key: 'ignoredPopupBlock',
+                      type: 'details',
+                      title: 'Ignored popup block',
+                      collection: 'employees',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /Template: employee-popup-template \[mode=reference\]/);
+  assert.match(result.ascii, /Ignored local popup keys: mode, blocks, layout/);
+  assert.doesNotMatch(result.ascii, /Ignored popup block/);
+  assert.deepEqual(result.warnings, ['Popup "Employee details" will ignore local popup keys: mode, blocks, layout.']);
+});
+
 test('renderPageBlueprintAsciiPreview does not invent template mode when the blueprint omitted it', () => {
   const result = renderPageBlueprintAsciiPreview({
     version: '1',
@@ -1168,6 +1222,72 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
+});
+
+test('prepareApplyBlueprintRequest accepts popup template payloads that also carry ignored local popup keys', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+              recordActions: [
+                {
+                  type: 'edit',
+                  title: 'Edit',
+                  popup: {
+                    title: 'Edit user',
+                    template: {
+                      uid: 'user-edit-popup-template',
+                      mode: 'reference',
+                    },
+                    mode: 'drawer',
+                    layout: 'side-by-side',
+                    blocks: {
+                      ignored: true,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      templateDecision: {
+        kind: 'selected-reference',
+        template: {
+          uid: 'user-edit-popup-template',
+        },
+        reasonCode: 'standard-reuse',
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.match(result.ascii, /Template: user-edit-popup-template \[mode=reference\]/);
+  assert.match(result.ascii, /Ignored local popup keys: mode, blocks, layout/);
+  assert.deepEqual(result.templateDecision, {
+    kind: 'selected-reference',
+    mode: 'reference',
+    template: {
+      uid: 'user-edit-popup-template',
+    },
+    reasonCode: 'standard-reuse',
+    reason: 'standard reuse',
+    summary: 'Template user-edit-popup-template via reference: standard reuse.',
+  });
+  assert.deepEqual(result.warnings, ['Popup "Edit user" will ignore local popup keys: mode, blocks, layout.']);
 });
 
 test('page preview cli prepare-write returns normalized cli body json', async () => {

@@ -328,6 +328,21 @@ function getRealTemplateBinding(template) {
   return { uid, mode };
 }
 
+function hasTemplateDocument(template) {
+  return !!normalizeText(template?.uid);
+}
+
+function getIgnoredPopupLocalKeys(popup) {
+  if (!isPlainObject(popup) || !hasTemplateDocument(popup.template)) return [];
+  return ['mode', 'blocks', 'layout'].filter((key) => hasOwn(popup, key));
+}
+
+function buildIgnoredPopupLocalKeysWarning(popup, keys) {
+  const title = normalizeText(popup?.title);
+  const prefix = title ? `Popup "${trimLabel(title, MAX_HEADER_TEXT)}"` : 'Popup template binding';
+  return `${prefix} will ignore local popup keys: ${keys.join(', ')}.`;
+}
+
 function collectTemplateBindingsFromPopup(popup, path, bindings) {
   if (!isPlainObject(popup)) return;
 
@@ -337,6 +352,7 @@ function collectTemplateBindingsFromPopup(popup, path, bindings) {
       ...templateBinding,
       path: `${path}.template`,
     });
+    return;
   }
 
   for (const [index, block] of ensureArray(popup.blocks).entries()) {
@@ -506,12 +522,22 @@ function buildBlockHeader(block, options = {}) {
 
 function renderPopupDocument(popup, context) {
   const warnings = context.warnings;
-  const blocks = ensureArray(popup?.blocks).filter((block) => isPlainObject(block));
   const body = [];
-  const layoutRows = collectLayoutOrder(popup?.layout, blocks, warnings);
-
   const templateLine = describeTemplateReference(popup?.template);
   if (templateLine) body.push(templateLine);
+
+  const ignoredLocalKeys = getIgnoredPopupLocalKeys(popup);
+  if (ignoredLocalKeys.length) {
+    body.push(`Ignored local popup keys: ${ignoredLocalKeys.join(', ')}`);
+    warnings.push(buildIgnoredPopupLocalKeysWarning(popup, ignoredLocalKeys));
+  }
+
+  if (hasTemplateDocument(popup?.template)) {
+    return makeBox(`Popup: ${trimLabel(normalizeText(popup?.title, 'Untitled popup'), MAX_HEADER_TEXT)}`, body);
+  }
+
+  const blocks = ensureArray(popup?.blocks).filter((block) => isPlainObject(block));
+  const layoutRows = collectLayoutOrder(popup?.layout, blocks, warnings);
 
   if (layoutRows?.length) {
     const rendered = new Set();
@@ -814,6 +840,10 @@ function validatePopupDocument(popup, path, state) {
     return;
   }
 
+  if (hasTemplateDocument(popup.template)) {
+    return;
+  }
+
   if (hasOwn(popup, 'layout') && !isPlainObject(popup.layout)) {
     pushValidationError(
       state.errors,
@@ -841,7 +871,7 @@ function validatePopupDocument(popup, path, state) {
 
 function validateCustomEditPopup(popup, path, state) {
   if (!isPlainObject(popup)) return;
-  if (popup.template && !Array.isArray(popup.blocks)) return;
+  if (hasTemplateDocument(popup.template)) return;
 
   const editFormCount = countBlocksOfType(popup.blocks, 'editForm');
   if (editFormCount !== 1) {

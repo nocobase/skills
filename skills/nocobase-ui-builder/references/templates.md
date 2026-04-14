@@ -65,6 +65,20 @@ Multiple discovered/available templates do **not** by themselves make the task n
 - A same-task seed does **not** bypass contextual availability. Later pages must still call `list-templates` with the later page's live or planning context before binding.
 - If no same-task seed or existing template is contextually usable, stay inline/non-template for the current page rather than inventing page-template behavior.
 
+### Same-task live reuse loop
+
+Use this concrete loop when page B should reuse a popup / block / fields scene created on page A in the same task:
+
+1. create page A and finish the normal readback first
+2. identify the concrete reusable source uid from that readback, for example a popup-capable `view` action uid
+3. call `save-template` on that concrete source
+4. immediately call `get-template` on the returned template uid; if it cannot be read back, stop before planning reuse
+5. when planning page B, run contextual `list-templates` again with page B's opener/resource scene; do not bind from the page-A seed alone
+6. bind `popup.template` / `template` on page B only when that later-page result still shows the chosen uid as `available = true`
+7. after page B writes in `reference` mode, re-read `get-template`; `usageCount` should usually increase and acts as a secondary confirmation
+
+This loop was verified live against `nocobase-ctl flow-surfaces` for a users-record `view` popup saved on one page and later rebound on another page. Treat that as proof that same-task reuse must stay command-driven, not as permission to skip the contextual re-probe.
+
 ## Identity Resolution
 
 - An explicit template `uid` resolves one exact candidate identity.

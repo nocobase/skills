@@ -45,6 +45,7 @@ A page-blueprint draft is good when:
 - Popup-specific claims require popup-specific readback.
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 - Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
+- Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.
 
 ## 3. Minimum Readback Targets
 
@@ -58,8 +59,11 @@ A page-blueprint draft is good when:
 | `add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | popup page/tab readback |
 | `compose` / `add-block` / `add-field` / `add-action` / `add-record-action` | direct parent/target readback |
 | `configure` / `update-settings` | modified target readback |
+| `save-template` | `nocobase-ctl flow-surfaces get-template --uid <templateUid>` and, for `saveMode="convert"`, source-target readback |
 | `get-reaction-meta` + `set-*` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
 | `move-node` / `remove-node` | parent/target readback |
+| `convert-template-to-copy` | modified target readback |
+| `update-template` | `nocobase-ctl flow-surfaces get-template --uid <uid>` |
 | `update-menu` / `create-menu` | menu tree when placement matters |
 
 ### Reaction-specific readback
@@ -89,6 +93,11 @@ After template-related writes, confirm:
 - when the task intentionally stayed inline/discovery-only, no template reference was accidentally written
 - the user-facing preview/summary and the persisted result agree on whether the final path was `reference`, `copy`, or non-template
 - when whole-page auto-selection chose one best candidate, the persisted uid/mode agrees with that planned winner
+- same-task multi-page reuse is accepted only when source-page readback proved the saved scene first, `save-template` returned a template uid that `get-template` can read, and the later page reran contextual `list-templates` before binding
+- the later-page contextual `list-templates` result must show the chosen uid as `available = true`; an earlier same-task seed alone is not enough
+- if the later-page contextual result does not expose that saved uid as `available = true`, keep the later page discovery-only or inline/non-template instead of binding from the earlier seed alone
+- when a later page binds that saved template via `reference`, re-read `get-template` after the write; `usageCount` should usually increase and serves as a secondary confirmation, not the sole proof
+- for `saveMode="convert"`, the source readback must now expose the converted template reference / uid / mode rather than the old inline subtree
 
 ## 6. Replace / Destructive Checks
 

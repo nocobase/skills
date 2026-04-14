@@ -260,6 +260,8 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(executionChecklist, /whole-page `create` \/ `replace` should not skip this step/i);
   assert.match(executionChecklist, /spans several pages[\s\S]*ordered page runs/i);
   assert.match(executionChecklist, /only then may you `save-template`/i);
+  assert.match(executionChecklist, /`get-template` must succeed immediately after `save-template`/i);
+  assert.match(executionChecklist, /higher `usageCount`/i);
   assert.match(executionChecklist, /natural-language business request may only describe blocks, relations, and operations/i);
   assert.doesNotMatch(executionChecklist, /explicit `uid` \/ `name`[\s\S]*(?:identity|compatibility)/i);
   assert.doesNotMatch(executionChecklist, /Confirm MCP is reachable and authenticated/i);
@@ -363,6 +365,10 @@ test('skill docs keep a CLI-first contract while preserving payload docs', () =>
   assert.match(templates, /Do \*\*not\*\* treat an entire page as a template type/i);
   assert.match(templates, /earlier page in the same task may become a template seed only after its write and readback succeed/i);
   assert.match(templates, /same-task seed does \*\*not\*\* bypass contextual availability/i);
+  assert.match(templates, /### Same-task live reuse loop/i);
+  assert.match(templates, /immediately call `get-template` on the returned template uid/i);
+  assert.match(templates, /page B, run contextual `list-templates` again/i);
+  assert.match(templates, /`usageCount` should usually increase/i);
   assert.match(templates, /沿用前面的思路/i);
   assert.match(templates, /不要每次都从零搭/i);
   assert.match(templates, /stable best-candidate ranking/i);
