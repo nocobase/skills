@@ -1,9 +1,9 @@
 ---
-title: "Update Data"
-description: "Explains the filter conditions, update modes, and configuration examples for the Update Data node."
+title: "Update Record"
+description: "Explains the filter conditions, update modes, and configuration examples for the Update Record node."
 ---
 
-# Update Data
+# Update Record
 
 ## Node Type
 
@@ -20,7 +20,7 @@ Updating the status and timestamp fields after an order is successfully paid.
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | collection | string | None | Yes | Target data table. For a single data source, use the collection name, e.g. `posts`; for data sources not main, use `dataSource:collection`. |
-| usingAssignFormSchema | boolean | true | Yes | Whether to use a custom assignment form (primarily affects the frontend configuration display). This option is used to avoid legacy values configuration format, and should always be set to true for new configurations. If you don't know how to configure the `assignFormSchema` field, leave it as false to use legacy UI. |
+| usingAssignFormSchema | boolean | false | Yes | Whether to use a custom assignment form (primarily affects the frontend configuration display). This option Should always be set to false for new configurations. |
 | assignFormSchema | object | {} | No | UI Schema for the custom assignment form (primarily for frontend use). The schema format follows Formily form schema, each field should be configured accordingly (type in collection) as the values are assigned. Each key of properties should be generated as an uid string. |
 | params.individualHooks | boolean | false | No | Update mode: `false` for batch update; `true` for individual update (triggers record-level hooks/workflows). |
 | params.filter | object | None | Yes | Filter conditions (must contain at least one condition). See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
@@ -31,72 +31,13 @@ Does not support branches.
 
 ## Example Configuration
 
-### usingAssignFormSchema: false (legacy values configuration)
+### usingAssignFormSchema: false
 
 ```json
 {
   "collection": "posts",
   "usingAssignFormSchema": false,
   "assignFormSchema": {},
-  "params": {
-    "individualHooks": true,
-    "filter": {
-      "$and": [
-        { "id": { "$eq": "{{ $context.data.id }}" } }
-      ]
-    },
-    "values": {
-      "status": "published"
-    }
-  }
-}
-```
-
-### usingAssignFormSchema: true
-
-```json
-{
-  "collection": "posts",
-  "usingAssignFormSchema": true,
-  "assignFormSchema": {
-    "_isJSONSchemaObject": true,
-    "version": "2.0",
-    "name": "exuqo5zqbv5",
-    "type": "void",
-    "x-component": "Grid",
-    "x-initializer": "assignFieldValuesForm:configureFields",
-    "properties": {
-      "fqqktkzlw8x": {
-        "_isJSONSchemaObject": true,
-        "version": "2.0",
-        "type": "void",
-        "x-component": "Grid.Row",
-        "properties": {
-          "0q1kjh4llub": {
-            "_isJSONSchemaObject": true,
-            "version": "2.0",
-            "type": "void",
-            "x-component": "Grid.Col",
-            "properties": {
-              "title": {
-                "_isJSONSchemaObject": true,
-                "version": "2.0",
-                "type": "string",
-                "name": "title",
-                "x-toolbar": "FormItemSchemaToolbar",
-                "x-settings": "fieldSettings:FormItem",
-                "x-component": "AssignedField",
-                "x-decorator": "FormItem",
-                "x-collection-field": "posts.title"
-              }
-            },
-            "name": "0q1kjh4llub"
-          }
-        },
-        "name": "fqqktkzlw8x"
-      }
-    }
-  },
   "params": {
     "individualHooks": true,
     "filter": {

@@ -1,0 +1,23 @@
+module: Contacts Copy
+icon: fundoutlined
+group: Other Copy
+pages:
+- page: Contacts Copy
+  coll: nb_crm_contacts
+  icon: fundoutlined
+  blocks:
+  - key: table
+    type: table
+    coll: nb_crm_contacts
+    fields:
+    - name
+    - salutation
+    - email
+    - phone
+    - mobile
+    - title
+    actions:
+    - filter
+    - refresh
+    - addNew
+  layout: []

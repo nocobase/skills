@@ -8,7 +8,6 @@ description: "Introduces the SMTP configuration, sender, recipient, and content 
 ## Node Type
 
 `mailer`
-Please use the above `type` value to create the node; do not use the document filename as the type.
 
 ## Node Description
 Sends an email via SMTP. Upstream variables can be used to configure recipients, subject, and content.
@@ -33,6 +32,8 @@ Send a confirmation email to the customer after an order is completed.
 | html | string | None | No | HTML content (when `contentType=html`). |
 | text | string | None | No | Text content (when `contentType=text`). |
 | ignoreFail | boolean | false | No | Whether to ignore failures and continue the workflow. |
+
+Most fields support variable expressions following [Common Conventions - variables](../conventions/index.md#variable-expressions), allowing dynamic configuration based on workflow context. For example, the `to` field can be set to `["{{ $context.data.email }}"]` to send to an email address from the trigger data.
 
 ## Branch Description
 Branches are not supported.

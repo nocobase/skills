@@ -1,0 +1,38 @@
+﻿networks:
+  nocobase:
+    driver: bridge
+
+services:
+  app:
+    image: ${NOCOBASE_APP_IMAGE:-registry.cn-shanghai.aliyuncs.com/nocobase/nocobase:latest-full}
+    restart: always
+    networks:
+      - nocobase
+    depends_on:
+      - postgres
+    environment:
+      - APP_KEY=${APP_KEY:?APP_KEY is required. Set a random value in .env}
+      - DB_DIALECT=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=nocobase
+      - DB_USER=nocobase
+      - DB_PASSWORD=nocobase
+      - TZ=${TZ:-Asia/Shanghai}
+    volumes:
+      - ./storage:/app/nocobase/storage
+    ports:
+      - '${APP_PORT:-13000}:80'
+
+  postgres:
+    image: ${NOCOBASE_POSTGRES_IMAGE:-registry.cn-shanghai.aliyuncs.com/nocobase/postgres:16}
+    restart: always
+    command: postgres -c wal_level=logical
+    environment:
+      POSTGRES_USER: nocobase
+      POSTGRES_DB: nocobase
+      POSTGRES_PASSWORD: nocobase
+    volumes:
+      - ./storage/db/postgres:/var/lib/postgresql/data
+    networks:
+      - nocobase

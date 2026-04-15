@@ -1,0 +1,68 @@
+module: Opportunities Copy
+icon: fundoutlined
+group: Main Copy
+pages:
+- page: Opportunities Copy
+  coll: nb_crm_opportunities
+  icon: fundoutlined
+  tabs:
+  - title: Pipeline
+    blocks:
+    - key: pipeline_header_block
+      type: jsBlock
+      desc: Pipeline Header Block
+      file: ./js/opportunities_pipeline_pipeline_header_block.js
+    - key: kanban_board_block_resource_based
+      type: jsBlock
+      desc: Kanban Board Block (Resource-based)
+      file: ./js/opportunities_pipeline_kanban_board_block_resource_based.js
+    layout:
+    - - pipeline_header_block
+    - - kanban_board_block_resource_based
+  - title: Table
+    blocks:
+    - key: filterForm
+      type: filterForm
+      fields:
+      - field: name
+        label: Search
+      js_items:
+      - desc: Pipeline Stats Filter Block
+        file: ./js/opportunities_table_filterForm_pipeline_stats_filter_block.js
+      field_layout:
+      - - '[JS:Pipeline Stats Filter Block]'
+      - - name
+    - key: table
+      type: table
+      coll: nb_crm_opportunities
+      fields:
+      - name
+      - amount
+      - currency
+      - stage
+      - lead_source
+      - contact
+      - customer
+      - expected_close_date
+      - win_probability
+      actions:
+      - filter
+      - refresh
+      - addNew
+      - type: ai
+        employee: viz
+        tasks_file: ./ai/eb930c5a_tasks.yaml
+      event_flows:
+      - event:
+          eventName: beforeRender
+          defaultParams:
+            condition:
+              items: []
+              logic: $and
+        flow_key: 858jqylowfr
+        step_key: vf3lwi5tk73
+        desc: 858jqylowfr
+        file: ./js/opportunities_table_tpl_table_event_858jqylowfr_vf3lwi5tk73.js
+    layout:
+    - - filterForm
+    - - table

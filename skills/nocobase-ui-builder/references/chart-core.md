@@ -4,9 +4,11 @@ Read [chart.md](./chart.md) first for chart tasks. Read this file only after you
 
 If you need to verify complex contracts, negative cases, or regression matrices, continue with [chart-validation.md](./chart-validation.md). This file only keeps the runtime main path.
 
+Canonical front door is `nocobase-ctl flow-surfaces`. When this file mentions `add-block`, `configure`, `context`, or `get`, it refers to CLI command families and raw CLI bodies; use MCP only as fallback, and use [tool-shapes.md](./tool-shapes.md) or [settings.md](./settings.md) for envelope details.
+
 ## Contents
 
-1. Public DSL
+1. Public Blueprint
 2. Default strategy
 3. Recommended execution order
 4. Outer block parameters (minimum exposed set)
@@ -14,16 +16,16 @@ If you need to verify complex contracts, negative cases, or regression matrices,
 6. Query rules
 7. Visual rules
 8. Events rules
-9. How to use `flowSurfaces:context`
+9. How to use `context`
 10. JS context notes
 11. Readback
 12. Boundary reminders
 13. Current skill limitations
 14. When to fall back to legacy `configure`
 
-## Public DSL
+## Public Blueprint
 
-For chart, `flowSurfaces.configure(...).changes` / `compose(...).blocks[].settings` should default to these three semantic groups:
+For chart, `nocobase-ctl flow-surfaces configure --body { changes }` / `compose --body { blocks[].settings }` should default to these three semantic groups:
 
 ```json
 {
@@ -45,7 +47,7 @@ Chart is also an example of the general public-settings pattern: when creating o
 
 1. Default to `query.mode = "builder"` first.
 2. Default to `visual.mode = "basic"` first.
-3. When reconfiguring an existing chart, default to the `safeDefaults` returned by `flowSurfaces:context(path="chart")`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
+3. When reconfiguring an existing chart, default to the `safeDefaults` returned by `nocobase-ctl flow-surfaces context --body { path: "chart" }`. When creating a new chart, create the block first, write `query` first, and only then read `path="chart"`.
 4. If you hit `riskyPatterns`, do not forbid the path outright. You may continue, but you must mark the result as risky and add `readback`.
 5. If you hit `unsupportedPatterns`, do not invent a payload. Rewrite it into a safe subset or tell the user clearly that the current contract does not support it.
 6. Only upgrade under the following conditions:
@@ -57,12 +59,12 @@ Chart is also an example of the general public-settings pattern: when creating o
 
 The most stable execution order for a chart block is not a one-shot blind write. It is:
 
-1. `addBlock(type="chart", settings={ title?, displayTitle?, height?, heightMode? })`
-2. If you are configuring a builder query, read `flowSurfaces:context(path="collection")` first to pick fields
+1. `add-block(type="chart", settings={ title?, displayTitle?, height?, heightMode? })`
+2. If you are configuring a builder query, read `context(path="collection")` first to pick fields
 3. Run `configure(changes={ query, title?, displayTitle?, height?, heightMode? })` first
-4. Then read `flowSurfaces:context(path="chart")`
+4. Then read `context(path="chart")`
 5. Based on `chart.queryOutputs / aliases / supportedMappings / supportedStyles / safeDefaults / riskyPatterns / unsupportedPatterns`, run `configure(changes={ visual, events? })`
-6. Use `get(uid)` for canonical readback
+6. Use `nocobase-ctl flow-surfaces get --uid <chart-uid>` for canonical readback
 7. If a risky pattern is hit, state clearly in the result that this is a risky path, and confirm persistence through readback
 
 When reconfiguring an existing chart, you may skip the initial block-creation step and continue directly from "read `path="chart"` / clear stale query state / reconfigure visual". If you want to clear old builder state, especially residue such as `sorting` / `filter`, do not rely on omission and hope the server clears it. Pass explicit empties instead, for example:
@@ -179,7 +181,7 @@ Valid:
 - `context(path="chart").chart.aliases` is only safe for `visual.mappings.*`
 - Do not assume that an alias appearing in `chart.aliases` can also be used in `query.sorting.field`
 - `limit` must be an integer greater than or equal to 0; `offset` must also be an integer greater than or equal to 0
-- In the public DSL, always write `sorting[].direction = "asc" | "desc"`
+- In the public blueprint, always write `sorting[].direction = "asc" | "desc"`
 - Do not write internal persisted shape `query.orders[].order` yourself; backend compatibility logic handles that conversion
 
 Invalid:
@@ -202,7 +204,7 @@ Valid:
 - `sqlDatasource` is optional
 - SQL is additionally persisted into `flowSql`; whether it was truly saved cannot be judged from stepParams alone
 - SQL should only be a single read-only `SELECT` / `WITH`
-- After `configure(query)`, immediately prefer reading `flowSurfaces:context(path="chart")`
+- After `configure(query)`, immediately prefer reading `context(path="chart")`
 - If SQL has no runtime template variables, `chart.queryOutputs` now prefers to infer outputs from SQL preview metadata, and will try to return output columns even when the current dataset is empty
 - If SQL contains template variables / `ctx` / liquid binds, preview may fail to infer outputs early, and the path falls into `riskyPatterns`
 - If `chart.queryOutputs` is missing, FlowSurfaces now rejects writes of `visual.mode = "basic"`. The skill can only write `query` first, then close the loop through `context(path="chart") + readback`
@@ -250,7 +252,7 @@ Invalid:
 
 `visual.mappings.*` should prefer, in order:
 
-1. `chart.queryOutputs` returned by `flowSurfaces:context(path="chart")`
+1. `chart.queryOutputs` returned by `context(path="chart")`
 2. aliases explicitly declared in builder query
 3. if a dimension has no alias, its field-path output directly, for example `department.title`
 
@@ -305,7 +307,7 @@ Typical uses:
 - open popup / openView
 - lightweight interactions
 
-## How to use `flowSurfaces:context`
+## How to use `context`
 
 For chart, `context` should now be read by scenario rather than reading the same data set up front in all cases:
 
@@ -355,7 +357,7 @@ Key points:
 Two different context types must be distinguished here:
 
 1. **FlowSurfaces stable context**
-   - fields stably exposed to the skill by `flowSurfaces:context`
+   - fields stably exposed to the skill by `nocobase-ctl flow-surfaces context`
    - for chart, the currently stable fields are:
      - `collection`
      - `chart.queryOutputs`
@@ -368,7 +370,7 @@ Two different context types must be distinguished here:
 2. **frontend runtime assumptions**
    - variables typically available at runtime to `ChartBlockModel` / `ChartOptionModel` / `ChartEventsModel`
    - they are appropriate for writing `visual.raw` / `events.raw`
-   - do not mistake them for fields that `flowSurfaces:context` is guaranteed to return
+   - do not mistake them for fields that `nocobase-ctl flow-surfaces context` is guaranteed to return
 
 ### `visual.raw`
 
@@ -417,13 +419,13 @@ Minimum required post-write readback:
 - `tree.stepParams.chartSettings.configure.query`
 - `tree.stepParams.chartSettings.configure.chart.option`
 - `tree.stepParams.chartSettings.configure.chart.events`
-- if the public DSL used `resource` / `sorting.direction`, readback should show the internal canonical structure:
+- if the public blueprint used `resource` / `sorting.direction`, readback should show the internal canonical structure:
   - `query.collectionPath`
   - `query.orders[].order`
 - for SQL chart, additionally confirm that it has been stably persisted into `flowSql`
 - do not judge success only from `tree.stepParams.chartSettings.configure.query.sql`
 
-On the skill side, persistence should be confirmed against the internal readback structure, not by assuming the public DSL was persisted verbatim.
+On the skill side, persistence should be confirmed against the internal readback structure, not by assuming the public blueprint was persisted verbatim.
 
 ## Boundary Reminders
 
@@ -432,7 +434,7 @@ On the skill side, persistence should be confirmed against the internal readback
 ## Current Skill Limitations
 
 - `visual.raw` / `events.raw` must not reuse ordinary `jsBlock` / `js action` models. They should use `ChartOptionModel` / `ChartEventsModel` respectively.
-- These two code paths should still prefer conservative templates, and when needed, call `flowSurfaces:context` first to narrow context, then write, then read back.
+- These two code paths should still prefer conservative templates, and when needed, call `context` first to narrow context, then write, then read back.
 - If the user only wants "a chart rendered first", always prefer `builder + basic`. Do not start with custom JS.
 - If the user wants to switch the chart collection, prefer providing both of these in the same write:
   - new `query`

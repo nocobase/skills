@@ -8,7 +8,6 @@ description: "Introduces the aggregation mode and branching rules of the Paralle
 ## Node Type
 
 `parallel`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Executes multiple branches simultaneously and aggregates the results of the branches according to a specified mode.

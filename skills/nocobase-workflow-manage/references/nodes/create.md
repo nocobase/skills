@@ -1,9 +1,9 @@
 ---
-title: "Create Data"
-description: "Explains the target collection and field assignment method of the create data node."
+title: "Create Record"
+description: "Explains the target collection and field assignment method of the create record node."
 ---
 
-# Create Data
+# Create Record
 
 ## Node Type
 

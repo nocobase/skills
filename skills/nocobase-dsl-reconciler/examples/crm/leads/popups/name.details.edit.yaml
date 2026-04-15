@@ -1,0 +1,17 @@
+field: edit
+field_uid: a29c5d97220
+block_key: details
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_crm_leads
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  field_template:
+    templateUid: 3d77445kyzp
+    templateName: 'Form (Add new): nb_crm_leads'
+    targetUid: bd7f0823f37
+    mode: reference
+  actions:
+  - submit
+mode: drawer

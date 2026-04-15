@@ -1,0 +1,58 @@
+target: $orders_copy.table.actions.addNew
+field: addnew
+field_uid: a53955a897d
+block_key: table
+blocks:
+- key: reference
+  type: reference
+  template_uid: gu87q52q2tg
+  template_name: 'Form (Add new): New Orders from Quotations'
+  reference_mode: reference
+  template_content:
+    key: createForm
+    type: createForm
+    coll: nb_crm_orders
+    fields:
+    - quotation
+    - currency
+    - exchange_rate
+    - order_amount
+    - owner
+    field_layout:
+    - - quotation
+    - - currency
+      - exchange_rate
+      - order_amount
+    - - owner
+    actions:
+    - submit
+    linkage_rules:
+      value:
+      - key: d3rxlfzox52
+        title: Linkage rule
+        enable: true
+        condition:
+          logic: $and
+          items: []
+        actions:
+        - key: r4mhxlsel8c
+          name: linkageAssignField
+          params:
+            value:
+              field: 2975331a412
+              assignValue: '{{ ctx.formValues.quotation.currencyInfo.name }}'
+        - key: shxshn7eqy4
+          name: linkageAssignField
+          params:
+            value:
+              field: de4ea7c82af
+              assignValue: '{{ ctx.formValues.quotation.exchange_rate }}'
+        - key: keo3lxs632y
+          name: linkageAssignField
+          params:
+            value:
+              field: 605ab8f79f2
+              assignValue: '{{ ctx.formValues.quotation.total_amount }}'
+layout:
+- - reference
+mode: dialog

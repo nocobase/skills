@@ -8,7 +8,6 @@ description: "Explains how the sub-workflow call node handles the called workflo
 ## Node Type
 
 `subflow`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Calls another workflow and uses its "Workflow Output" as a variable in the current process.
@@ -20,7 +19,7 @@ Extract a common process into a sub-workflow for reuse, similar to a function ca
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | workflow | string | None | Yes | The key of the workflow to be called. Synchronous processes can only call synchronous processes. |
-| context | object | {} | No | Trigger variable context; the structure must meet the input requirements of the target workflow's trigger. |
+| context | object | {} | No | Trigger variable context; the structure must meet the input requirements of the target workflow's trigger. Could use variable in context. Variables should follow [Common Conventions - variables](../conventions/index.md#variable-expressions). |
 
 ## Branch Description
 Does not support branches.

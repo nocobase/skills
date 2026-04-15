@@ -19,9 +19,9 @@ Deciding whether to continue the process based on whether inventory is sufficien
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | rejectOnFalse | boolean | true | Yes | Mode selection. `true` means continue only if the condition is true, otherwise end with a failed status; `false` enables "Yes/No" branching. |
-| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
+| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
 | calculation | object | None | Yes (if engine=basic) | Logical calculation configuration used when `engine=basic`. See "basic structure description" below. |
-| expression | string | None | Yes (if engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md). |
+| expression | string | None | Yes (if engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../nocobase-utils/references/evaluators/mathjs.md). |
 
 ### basic Structure Description
 `calculation` supports grouping and nesting:

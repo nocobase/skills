@@ -1,0 +1,25 @@
+{
+  "probe_tool": "available_actions_list",
+  "role_create": "roles_create",
+  "roles_list": "roles_list",
+  "roles_get": "roles_get",
+  "roles_update": "roles_update",
+  "roles_destroy": "roles_destroy",
+  "role_mode_read": "roles_check",
+  "role_mode_write": "roles_set_system_role_mode",
+  "available_actions_list": "available_actions_list",
+  "data_source_role_update": "data_sources_roles_update",
+  "data_source_role_get": "data_sources_roles_get",
+  "data_source_resource_create": "roles_data_source_resources_create",
+  "data_source_resource_update": "roles_data_source_resources_update",
+  "data_source_resource_get": "roles_data_source_resources_get",
+  "role_collections_list": "roles_data_sources_collections_list",
+  "route_write": "roles_desktop_routes_add",
+  "route_list": "roles_desktop_routes_list",
+  "bind_user": "roles_users_add",
+  "generic_resource_update": "resource_update",
+  "generic_resource_list": "resource_list",
+  "resource_update": "roles_data_source_resources_update",
+  "resource_get": "roles_data_source_resources_get"
+}
+

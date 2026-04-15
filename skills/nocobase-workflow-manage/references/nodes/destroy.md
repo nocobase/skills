@@ -32,7 +32,8 @@ Branches are not supported.
   "params": {
     "filter": {
       "$and": [
-        { "status": { "$eq": "canceled" } }
+        { "status": { "$eq": "canceled" } },
+        { "createdAt": { "$lte": "{{ $system.now }}" } }
       ]
     }
   }

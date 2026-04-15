@@ -11,7 +11,7 @@ Use the available NocoBase data-modeling surface to inspect and change collectio
 
 Prefer the transport in this order:
 
-- the `nocobase` CLI whenever it is available
+- the `nocobase-ctl` CLI whenever it is available
 - MCP only when the CLI is unavailable and the current session is already connected through MCP with the needed operation exposed there
 - another equivalent data-modeling transport only when the CLI is unavailable and it exposes the same operation surface
 
@@ -19,7 +19,7 @@ Do not make the skill depend on one executable name. Treat CLI command names, MC
 
 Transport-selection rule:
 
-1. Check whether the `nocobase` CLI is available in the current environment.
+1. Check whether the `nocobase-ctl` CLI is available in the current environment.
 2. If it is available, use the CLI.
 3. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI instead of switching to MCP.
 4. Only fall back to MCP or another transport when the CLI itself is unavailable.
@@ -28,12 +28,12 @@ Read `references/decision-matrix.md` first when the request is broad or the corr
 
 # Mandatory Gates
 
-1. Confirm the chosen data-modeling transport is reachable and authenticated before any write operation. If `nocobase` CLI is available, that should be the chosen transport.
+1. Confirm the chosen data-modeling transport is reachable and authenticated before any write operation. If `nocobase-ctl` CLI is available, that should be the chosen transport.
 2. For plugin-backed tables or fields, read `references/plugin-provided-capabilities.md` before mutating schema.
 3. For `view` collections, verify the upstream database view exists with `db-views list|get` before creating or updating anything.
-4. Before using a `nocobase` CLI modeling command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples. When CLI is unavailable and the transport is MCP or another non-CLI surface, inspect its exposed parameter schema before first use.
+4. Before using a `nocobase-ctl` CLI modeling command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples. When CLI is unavailable and the transport is MCP or another non-CLI surface, inspect its exposed parameter schema before first use.
 
-Stop and ask the user to fix auth when the chosen transport returns `401`, `403`, `Auth required`, or equivalent access errors. If the chosen transport is `nocobase` CLI, guide the user to restore CLI authentication rather than switching transports.
+Stop and ask the user to fix auth when the chosen transport returns `401`, `403`, `Auth required`, or equivalent access errors. If the chosen transport is `nocobase-ctl` CLI, guide the user to restore CLI authentication rather than switching transports.
 
 # Final Command Surface
 
@@ -49,10 +49,10 @@ Use only this final data-modeling operation surface:
 
 When the transport is CLI-based, prefer learning exact flags from help instead of keeping large command-shape reminders in prompt context:
 
-- `nocobase data-modeling collections apply --help`
-- `nocobase data-modeling collections fields list --help`
-- `nocobase data-modeling fields apply --help`
-- `nocobase data-modeling collections destroy --help`
+- `nocobase-ctl data-modeling collections apply --help`
+- `nocobase-ctl data-modeling collections fields list --help`
+- `nocobase-ctl data-modeling fields apply --help`
+- `nocobase-ctl data-modeling collections destroy --help`
 
 Do not prefer older low-level collection or nested field commands when the final command surface can handle the task.
 

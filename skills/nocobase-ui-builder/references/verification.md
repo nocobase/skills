@@ -1,78 +1,108 @@
 # Verification
 
-Read this file when you need to do `inspect`, or when you need to confirm whether a write was actually persisted. For family / locator / write target, see [runtime-playbook.md](./runtime-playbook.md). For request shapes, see [tool-shapes.md](./tool-shapes.md). For popup details, see [popup.md](./popup.md). Whether `catalog` is required, and how success must be phrased for `shell-only popup`, is governed by [normative-contract.md](./normative-contract.md).
+Use this file to verify inspect/prewrite output and post-write persistence.
 
-## Inspect
+Canonical front door is `nocobase-ctl flow-surfaces`. Treat the readback routes below as CLI-first families; use MCP only as fallback after the CLI path is unavailable.
+
+## 1. Inspect / Prewrite Verification
 
 ### Core Rules
 
-- `inspect` is read-only. Do not call any write API.
-- For menu-title discovery, default to `desktop_routes_list_accessible(tree=true)` first. It only represents the menu tree visible to the current role, not the full system truth. For initialized surfaces, default to `get` first.
-- Whether to continue with `catalog` is governed by the `Catalog Contract` in [normative-contract.md](./normative-contract.md).
-- `inspect` output should focus on the current structure, key uid / route / capability, and blockers. Do not mix in wording like "write succeeded" or "already persisted".
+- `inspect` and page-blueprint drafting are read-only.
+- whole-page `applyBlueprint` authoring is **ASCII-first** before the first write; the preview should still be traceable back to one concrete blueprint draft, whether execution pauses for review or continues immediately.
+- For menu questions, default to the visible menu tree first.
+- For initialized pages/popup trees, default to `nocobase-ctl flow-surfaces get` first.
+- Use `nocobase-ctl flow-surfaces describe-surface` only when its richer public tree is actually needed.
+- Do not describe a draft as if a write already succeeded.
 
-### Acceptance Levels
+### Draft Acceptance
 
-- `structural-confirmed`: menu tree / `get` / route-tree readback has confirmed that the structure exists, is in the correct position, and the node was persisted.
-- `semantic-confirmed`: beyond structure, the target semantics were also confirmed through live capability / binding / context / code consistency.
-- `partial/unverified`: the write returned success, but live readback was insufficient to confirm the semantics the user actually cares about. You must say that verification is incomplete.
+A page-blueprint draft is good when:
 
-### Minimum Read Chain
+- create vs replace is clear
+- required collections/fields/bindings are backed by live facts
+- tabs/blocks/popups are structurally explicit
+- any ASCII wireframe shown to the user matches the same tabs / blocks / popup structure as the blueprint draft
+- if execution proceeded immediately, the ASCII wireframe still appeared before the first `applyBlueprint`
+- if duplicate same-title menu groups existed, the preview/readback states which routeId was chosen and no extra same-title group was created unless the user explicitly asked for one
+- canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
+- low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
+- destructive blast radius is explicit for replace/delete scenarios
+- remaining assumptions are stated outside the JSON payload
 
-| target family | Default read order | Common reasons to append more reads (still governed by normative contract) |
-| --- | --- | --- |
-| `menu-group` | `desktop_routes_list_accessible(tree=true)` | usually not needed |
-| `menu-item` | menu tree; then `get` via `routeId/pageSchemaUid` if needed | the user wants internal page capability, and the menu item has already been initialized as `flowPage` |
-| `page` / `outer-tab` / `route-content` | `get` | need capability / contract / `configureOptions` / `settingsContract` |
-| `popup-page` / `popup-tab` / `popup-content` | `get` | need popup creation capability, `resourceBindings`, or event/settings contract |
-| `node` | `get` | need to determine public container capability or a path-level contract precisely |
+### Template Decision Acceptance
 
-### Read-Only Assertions
+- Final user-visible preview or summary that claims a template outcome should follow [template-decision-summary.md](./template-decision-summary.md): selected paths must say `reference` or `copy` plus one short controlled reason, and non-binding paths must say discovery-only or non-template explicitly.
+- The default ASCII preview should at least expose template identity + `mode` when the blueprint already contains them; runtime preview does not need to invent a reason on its own.
+- Without a live `target.uid` / opener, whole-page planning should still use the strongest planned opener/resource context it can describe. If that contextual query yields one stable best candidate, the preview may claim that `template` / `popup.template` was auto-selected.
+- If the final result stayed discovery-only, keep that explicit in the summary. Valid non-binding reasons still include live/planned context being too weak, a resolved explicit template being unavailable in the current context, or multiple candidates remaining unresolved after the stable ranking.
+- If multiple templates were only discovered but not bound, make that explicit instead of implying the backend or the skill silently chose one.
 
-- Menu: unique match, clear `routeId/type/parentMenuRouteId`, and whether the `menu-item` has already been initialized.
-- Page / `outer-tab`: `pageSchemaUid/tabSchemaUid/routeId` is locatable, title / icon / documentTitle / order are clear, and `gridUid` has been obtained when needed.
-- `route-content` / popup subtree / normal node: whether `tree/nodeMap` contains the target block / field / action; whether the popup subtree already has `popupPageUid/popupTabUid/popupGridUid`; and if the user cares about "current record", whether live `catalog.blocks[].resourceBindings` actually exposes `currentRecord`.
+## 2. Write Readback Principles
 
-## Write Readback
+- Verify only the surfaces affected by the write, unless hierarchy changed.
+- A successful write response is not enough; confirm via readback.
+- Popup-specific claims require popup-specific readback.
+- Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
+- Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
+- Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.
 
-### Usage Principles
+## 3. Minimum Readback Targets
 
-- After a write, only verify targets directly related to the current change. Upgrade to full verification only when lifecycle or route/tree hierarchy changed.
-- For menu writes, prioritize checking `routeId/type/parentMenuRouteId`. For menu moves, upgrade to menu-tree readback rather than flow-tree validation.
-- Popup, field, and configuration assertions must follow live readback. Do not treat the write response alone as completion.
-- `shell-only popup` can only be accepted as `structural-confirmed`. Do not describe it as popup content being completed.
-- Batch writes are not the default preference. If you use `addBlocks/addFields/addActions/addRecordActions`, inspect `ok/error/index` item by item. Stop on any failure, report successes and failures separately, do not auto-rollback, and do not continue downstream writes that depend on "all succeeded".
-- `setLayout` and `setEventFlows` are high-impact full-replace operations. Read the full current state before writing, and validate against the full layout / flow state after writing. Do not judge success by a local delta.
-- `destroyPage`, `removeTab`, `removePopupTab`, `removeNode`, `apply(mode="replace")`, and `mutate` combinations that delete / replace an existing subtree are destructive paths. Explain the blast radius before execution, and during readback prioritize confirming that the deletion / replacement boundary matches expectations.
+| operation | minimum readback |
+| --- | --- |
+| `apply-blueprint` create | menu tree if menu placement matters + `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` replace | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` and affected tab/content checks |
+| `apply-blueprint` with `reaction.items[]` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` plus the affected reaction slot in readback |
+| `create-page` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `add-tab` / `update-tab` / `move-tab` / `remove-tab` | page or tab readback |
+| `add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | popup page/tab readback |
+| `compose` / `add-block` / `add-field` / `add-action` / `add-record-action` | direct parent/target readback |
+| `configure` / `update-settings` | modified target readback |
+| `save-template` | `nocobase-ctl flow-surfaces get-template --uid <templateUid>` and, for `saveMode="convert"`, source-target readback |
+| `get-reaction-meta` + `set-*` | target readback plus write-result `resolvedScene` / `fingerprint` checks |
+| `move-node` / `remove-node` | parent/target readback |
+| `convert-template-to-copy` | modified target readback |
+| `update-template` | `nocobase-ctl flow-surfaces get-template --uid <uid>` |
+| `update-menu` / `create-menu` | menu tree when placement matters |
 
-### Operation -> Minimum Readback Target
+### Reaction-specific readback
 
-| Operation | Minimum readback target | When to upgrade to full route/tree validation |
-| --- | --- | --- |
-| `createMenu(type="group")` | return value; menu-tree readback if needed | when a parent menu is specified, or when a page will be attached under it next |
-| `createMenu(type="item")` | return value; if the user only wants a menu entry, read the menu tree to confirm position | do not upgrade separately when `createPage(menuRouteId=...)` follows immediately |
-| `updateMenu` | return value; read the menu tree when moving | when changing parent, discovering the target menu by title, or confirming the final attachment position |
-| `createPage` | `get({ pageSchemaUid })` | always upgrade |
-| `addTab/updateTab/moveTab/removeTab` | `page` or the corresponding `outer-tab` | always upgrade |
-| `addPopupTab/updatePopupTab/movePopupTab/removePopupTab` | `popup-page` or the corresponding `popup-tab` | always upgrade |
-| `compose/addBlock/addField/addAction/addRecordAction` | direct parent / direct container target | do not upgrade |
-| `configure/updateSettings` | modified target; direct parent if needed | do not upgrade |
-| `setLayout` | target container + full `rows/sizes/rowOrder` state | always validate as a full layout |
-| `setEventFlows` | modified target + full flow state | always validate as a full flow state |
-| `apply/mutate` | directly affected target; if subtree hierarchy changes, then read the parent too | only upgrade when structural hierarchy actually changed |
+After a reaction write, confirm at least:
 
-### Readback Focus Points
+- the returned `resolvedScene` matches the intended scene family
+- the returned `fingerprint` changed when the slot content changed
+- the persisted rule slot exists where expected
+- for form `fieldValue` / `fieldLinkage`, rules land on the form-grid slot rather than the outer form step root
+- for clear operations, `rules: []` really leaves the persisted slot empty
 
-- Menu: correct `routeId` type, synchronized `parentMenuRouteId`, title, icon, tooltip, and `hideInMenu`; do not misclassify `createMenu(type="item")` as an initialized page.
-- Page / `outer-tab`: page route / tab route exists and is in the right order; if visible in the live environment, `pageRoute.options.flowSurfacePageInitialized = true`; a newly added tab has its grid anchor filled in.
-- `popup-tab`: the popup page still exists, tab count and order are correct, `tree.use = ChildPageTabModel`, and any newly added tab has its grid anchor filled in.
-- Popup subtree: confirm that `popupPageUid/popupTabUid/popupGridUid` is attached at the correct place. If the target was only a `shell-only popup`, it can be at most `structural-confirmed`. If the scenario is viewing or editing the current record, `popupGridUid` must contain more than an empty shell, and if resource binding is visible live, additionally confirm that `details/editForm` binds to `currentRecord` before calling it `semantic-confirmed`.
-- Structure / fields / configuration: the new node is findable in `tree/nodeMap`; the table has `actionsColumnUid`; record-popup `details/editForm/submit` actually exists; the field is located down to `wrapperUid/fieldUid/innerFieldUid`; and `flowRegistry`, layout, and association-field `clickToOpen/openView` were persisted.
-- `setLayout`: `rows/sizes/rowOrder` fully matches expectations, and child coverage matches the number of column widths. Do not only check whether a single child still exists.
-- `setLayout`: if the user intent is "side by side in the same row / left-right split", readback must confirm that each target uid lands in a different top-level cell within the same row, for example `[[left], [right]]`. If readback shows `[[left, right]]`, it is a failure even if both children exist.
-- `setLayout`: `sizes[rowKey]` must be a one-dimensional `number[]`, and its length must equal the number of columns in that row. Nested arrays or readback that degenerates into "only one narrow left column with blank space on the right" both count as failure, not partial success.
-- `setEventFlows`: the final flow set must fully match expectations, with no stale flow left behind and no required binding within scope accidentally dropped.
-- Direct to-many association display field with ordinary display intent: if the user added a details/list/gridCard field like `users.roles`, confirm during readback that it did not degrade into a sub-table-style use. If needed, also confirm that `fieldSettings.init.fieldPath` was normalized to the association field itself, such as `roles` rather than `roles.title`, and that `titleField` was persisted.
-- Explicit sub-table intent on an existing association field: if the user asked to switch an existing details/list/gridCard field such as `roles` into sub-table display, confirm during readback that the original field wrapper still exists, its wrapper-level model setting switched to `DisplaySubTableFieldModel`, the inner field `tree.use` also became `DisplaySubTableFieldModel`, and `fieldSettings.init` still binds to the same association field. Also confirm that no accidental extra table block or stale layout row was left behind while performing the switch.
-- `filterForm` wiring: do not only look at the `addField` return value, and do not only check whether the filter field itself exists. In multi-target scenarios, treat `filterManager` in the parent content-container readback as a common success signal, and when live visibility allows, also verify that field-level target binding info such as `defaultTargetUid` matches expectations.
-- RunJS: besides UI-structure readback, also confirm that the final persisted `code` is exactly the same as the code that passed the validator gate.
+## 4. Popup-specific Checks
+
+After popup-related writes, confirm:
+
+- popup subtree exists
+- required content exists, not just shell
+- if the user explicitly cares about binding semantics, binding still matches live facts
+
+## 5. Template-specific Checks
+
+After template-related writes, confirm:
+
+- for `reference` template writes, the readback still exposes the intended template reference / uid / mode
+- for `copy` or `convert-template-to-copy`, the readback no longer exposes the template reference
+- when the task intentionally stayed inline/discovery-only, no template reference was accidentally written
+- the user-facing preview/summary and the persisted result agree on whether the final path was `reference`, `copy`, or non-template
+- when whole-page auto-selection chose one best candidate, the persisted uid/mode agrees with that planned winner
+- same-task multi-page reuse is accepted only when source-page readback proved the saved scene first, `save-template` returned a template uid that `get-template` can read, and the later page reran contextual `list-templates` before binding
+- the later-page contextual `list-templates` result must show the chosen uid as `available = true`; an earlier same-task seed alone is not enough
+- if the later-page contextual result does not expose that saved uid as `available = true`, keep the later page discovery-only or inline/non-template instead of binding from the earlier seed alone
+- when a later page binds that saved template via `reference`, re-read `get-template` after the write; `usageCount` should usually increase and serves as a secondary confirmation, not the sole proof
+- for `saveMode="convert"`, the source readback must now expose the converted template reference / uid / mode rather than the old inline subtree
+
+## 6. Replace / Destructive Checks
+
+For replace/delete style operations, explicitly confirm:
+
+- the intended page/tab/node still exists or was removed as expected
+- extra tabs/nodes that should disappear actually disappeared
+- unaffected sibling structure was not unexpectedly damaged
