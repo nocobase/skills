@@ -1,10 +1,10 @@
 # Templates
 
-Read this file when the task involves saving a reusable UI template, searching/selecting templates, applying a template during `add*` / `compose`, switching popup-template targets, converting a reference to copy mode, or reasoning about template `usageCount`.
+Read this file when the task involves saving a reusable UI template, searching/selecting templates, applying a template during `add*` / `compose`, editing content under an existing template reference, switching popup-template targets, converting a reference to copy mode, or reasoning about template `usageCount`.
 
 Canonical front door is `nocobase-ctl flow-surfaces`. JSON examples below default to the CLI raw body unless a block is explicitly labeled as MCP fallback. For CLI/MCP envelope mapping, see [tool-shapes.md](./tool-shapes.md). For popup-specific rules, see [popup.md](./popup.md). For general execution order, see [execution-checklist.md](./execution-checklist.md).
 
-This file is the single normative template-selection source for `nocobase-ui-builder`. If another reference file summarizes template behavior and conflicts with this file, follow this file and shorten the other file instead of duplicating rules.
+This file is the single normative template-selection and existing-reference edit-routing source for `nocobase-ui-builder`. If another reference file summarizes template behavior and conflicts with this file, follow this file and shorten the other file instead of duplicating rules.
 
 ## Public page blueprint vs low-level template APIs
 
@@ -251,6 +251,39 @@ Choose the mode only after a template is actually selected:
 
 Do not silently turn a clear local-customization request into `reference`.
 
+## Existing-reference Edit Routing
+
+This section governs **localized edits on existing surfaces that already expose a template reference**. It is separate from template discovery/selection for new bindings.
+
+Default principles:
+
+- If the user is editing template-owned content under an existing template reference, default to editing the **template source**.
+- Keep current host / opener / `openView` wrapper settings local to the current instance unless the user explicitly asks to change the shared template instead.
+- Only use `convert-template-to-copy` when the user clearly wants local-only behavior, detachment, or copy mode.
+- Popup-template switching through `configure(changes.openView.template)` is a separate route from editing the current template source.
+- Current local helper/template-selection flow only covers template discovery/binding. It does **not** decide localized existing-reference edit routing.
+
+Template-owned content defaults:
+
+- popup inner blocks, fields, details items, layout, and actions
+- structure/layout/fields/actions inside a referenced block template
+- imported form-grid fields inside a referenced fields template
+
+Host-local defaults:
+
+- current opener title, drawer/modal mode, size, and outer `openView` wrapper config
+- `clickToOpen` and similar current-instance trigger behavior
+- parent-page placement, sibling order, or other surrounding layout outside the referenced template subtree
+
+Use this routing table before writing:
+
+| user intent on an existing reference | result | default write target |
+| --- | --- | --- |
+| edit template-owned popup / block / fields content | `edit-template-source` | resolve the template through `get-template`, then write the template `targetUid` subtree |
+| edit current-instance opener/host config only | `edit-host-local-config` | keep the write on the current live opener / host target |
+| switch an existing popup opener to another popup template | `switch-template-reference` | `configure(changes.openView.template)` on the current opener |
+| explicit “只改当前这个” / “不要影响别处” / `copy` / detach intent | `detach-to-copy` | `convert-template-to-copy`, then edit the detached local content |
+
 ## CLI-first Request Shapes
 
 `list-templates` for popup-template discovery in a concrete opener context:
@@ -487,7 +520,8 @@ When the caller wants the backend to attempt automatic popup-template reuse on a
 - Keeps a live link to the saved template
 - Usually increases `usageCount`
 - Block / fields references should not be retargeted by arbitrary config writes
-- Referenced popup content is effectively read-only until you either detach it or switch popup template through the supported popup-config path
+- Referenced content is not edited as ad-hoc local inline content; default localized edits should resolve to the template source unless the user explicitly asks for local-only behavior
+- Popup openers may still switch to another popup template through the supported popup-config path when the user explicitly asks to switch templates
 
 ### `copy`
 
@@ -507,8 +541,8 @@ Supported result `type` values:
 
 Default guidance:
 
-- For block / fields references: this is the normal escape hatch before editing the reused content
-- For popup references: use this when the user wants to edit popup inner blocks locally, or when an explicit detach is preferable to switching templates
+- For block / fields references: use this only when the user explicitly wants local-only edits or detachment from the shared template
+- For popup references: use this only when the user explicitly wants current-instance popup content to diverge locally, or when detach is preferable to switching templates
 
 After conversion:
 
@@ -533,7 +567,8 @@ When removing pages, tabs, popup tabs, blocks, fields, or popup openers that car
 - Do not write raw template uid/mode fields directly into low-level step params or model settings
 - Do not use `openView.uid` as the default popup reuse mechanism
 - Do not assume block, fields, and popup templates share the same retargeting rules after creation
-- Do not mutate popup inner blocks of a referenced popup template directly; detach first unless the requested change is specifically switching to another popup template through the supported config path
+- Do not assume every edit on a referenced template should start by detaching to `copy`
+- Do not treat referenced popup/block/fields content as anonymous local inline content; either resolve and edit the template source, switch templates through the supported popup-config path, or detach only for explicit local-only intent
 - Do not skip `list-templates` when template discovery is the real task
 - Do not skip whole-page template probing just because there is no live `target.uid`
 - Do not auto-bind a template from loose discovery results in whole-page `create` / `replace`; binding must still come from one contextual backend result plus the stable best-candidate rule

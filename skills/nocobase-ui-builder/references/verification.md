@@ -4,6 +4,8 @@ Use this file to verify inspect/prewrite output and post-write persistence.
 
 Canonical front door is `nocobase-ctl flow-surfaces`. Treat the readback routes below as CLI-first families; use MCP only as fallback after the CLI path is unavailable.
 
+For template-mode semantics and localized existing-reference edit routing, keep [templates.md](./templates.md) as the normative source and use this file only for readback expectations.
+
 ## 1. Inspect / Prewrite Verification
 
 ### Core Rules
@@ -46,6 +48,7 @@ A page-blueprint draft is good when:
 - If a popup write relied on `popup.tryTemplate=true` because no explicit `popup.template` was present, verify whether the final persisted popup stayed inline/default, bound a template, or silently missed. When local popup content was also present, confirm whether it became the miss fallback instead of assuming template reuse from the write request alone.
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 - Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
+- If a localized edit resolved to a template source, verify the template source readback itself before inferring that current references now reflect the change.
 - Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.
 
 ## 3. Minimum Readback Targets
@@ -94,6 +97,8 @@ After template-related writes, confirm:
 - when the task intentionally stayed inline/discovery-only, no template reference was accidentally written
 - the user-facing preview/summary and the persisted result agree on whether the final path was `reference`, `copy`, or non-template
 - when whole-page auto-selection chose one best candidate, the persisted uid/mode agrees with that planned winner
+- when a localized edit was supposed to change template-owned content on an existing reference, the template `targetUid` readback contains the change and the current reference still points at the same template uid/mode
+- when a localized edit was supposed to change current-instance host/openView config only, that current target readback changed while the template source remained unchanged when that distinction matters
 - same-task multi-page reuse is accepted only when source-page readback proved the saved scene first, `save-template` returned a template uid that `get-template` can read, and the later page reran contextual `list-templates` before binding
 - the later-page contextual `list-templates` result must show the chosen uid as `available = true`; an earlier same-task seed alone is not enough
 - if the later-page contextual result does not expose that saved uid as `available = true`, keep the later page discovery-only or inline/non-template instead of binding from the earlier seed alone

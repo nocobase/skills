@@ -34,6 +34,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
 | create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
 | add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
 | replace existing instance-level event flows | `nocobase-ctl flow-surfaces set-event-flows` |
 | localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
 | reorder/remove tab or popup tab | `nocobase-ctl flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
@@ -53,6 +54,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
+- If a localized edit hits an existing template reference, route template-owned content edits to the template source by default; keep current host/openView config edits local; only explicit local-only intent should trigger `copy`. Follow [templates.md](./templates.md) instead of restating that matrix here.
 - If the request is about an existing target's event flow or `Execute JavaScript` step, route to `get` / `describe-surface` readback first, then `set-event-flows` with the full `flowRegistry`.
 - If the request is about default values, linkage, computed fields, show/hide, required/disabled, or action state, route to reaction authoring before considering raw configure keys.
 - For localized reaction work, do not start from `context`; start from `get-reaction-meta` and use `context` only when raw variable paths are still missing.

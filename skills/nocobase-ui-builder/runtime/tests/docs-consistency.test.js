@@ -153,7 +153,63 @@ function assertSaveAsTemplateWritePath(text, sourceLabel) {
   );
 }
 
+function assertExistingReferenceEditMatrix(text, sourceLabel) {
+  assert.match(text, /Existing-reference Edit Routing/i, `${sourceLabel} should define existing-reference edit routing`);
+  for (const outcome of ['edit-template-source', 'edit-host-local-config', 'switch-template-reference', 'detach-to-copy']) {
+    assert.match(text, new RegExp(outcome, 'i'), `${sourceLabel} should include ${outcome}`);
+  }
+  assert.match(text, /template-owned content/i, `${sourceLabel} should define template-owned content`);
+  assert.match(text, /Host-local defaults/i, `${sourceLabel} should define host-local defaults`);
+  assert.match(text, /does \*\*not\*\* decide localized existing-reference edit routing|does not decide localized existing-reference edit routing/i, `${sourceLabel} should keep helper scope explicit`);
+}
+
+function assertExistingReferenceRoutingBridge(text, sourceLabel) {
+  assertPointsToTemplates(text, sourceLabel);
+  assert.match(text, /template[- ]source/i, `${sourceLabel} should mention template-source edits`);
+  assert.match(text, /host-local|current-instance|opener-local|openView config/i, `${sourceLabel} should distinguish host-local edits`);
+  assert.match(text, /copy|detach/i, `${sourceLabel} should mention explicit detach/copy handling`);
+}
+
+function assertSkillKeepsTemplateRulesMinimal(text) {
+  assertPointsToTemplates(text, 'SKILL.md');
+  assertNoTemplateDecisionMatrix(text, 'SKILL.md');
+  assert.match(text, /existing template reference/i, 'SKILL.md should keep the top-level existing-reference rule');
+  assert.match(text, /template source/i, 'SKILL.md should keep template-source editing visible');
+  assert.match(text, /host\/openView config edits local|host-local/i, 'SKILL.md should keep host-local boundary visible');
+  assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md should not restate popup.tryTemplate details');
+  assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md should not restate popup.saveAsTemplate details');
+  assert.doesNotMatch(text, /keyword-only search/i, 'SKILL.md should not restate template search heuristics');
+  assert.doesNotMatch(text, /backend returned order|stable best-candidate/i, 'SKILL.md should not restate template ranking heuristics');
+}
+
+function assertSkillKeepsIntentFirst(text) {
+  assert.match(text, /intent-first/i, 'SKILL.md should keep intent-first routing visible');
+  assert.match(text, /whole-page authoring[\s\S]{0,120}`applyBlueprint`/i, 'SKILL.md should route whole-page authoring through applyBlueprint');
+  assert.match(
+    text,
+    /localized existing-surface edits[\s\S]{0,120}(?:low-level )?`flow-surfaces`/i,
+    'SKILL.md should route localized edits through low-level flow-surfaces commands',
+  );
+  assert.match(
+    text,
+    /reaction work[\s\S]{0,120}`get-reaction-meta`[\s\S]{0,80}`set\*Rules`/i,
+    'SKILL.md should keep reaction work routing visible',
+  );
+  assert.match(
+    text,
+    /After that route is clear[\s\S]{0,120}\[templates\.md\]/i,
+    'SKILL.md should route template-specific decisions to templates.md after intent routing',
+  );
+  assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md intent-first rule should not absorb popup.tryTemplate details');
+  assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md intent-first rule should not absorb popup.saveAsTemplate details');
+}
+
 function assertOpenAIGuardrails(text) {
+  assert.match(
+    text,
+    /localized edits[\s\S]{0,80}(?:low-level )?`flow-surfaces`/i,
+    'openai prompt should keep localized low-level flow-surfaces routing visible',
+  );
   assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
   assert.match(text, /field popup/i, 'openai prompt should keep field-popup guidance');
   assert.match(
@@ -176,6 +232,8 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /popup\.tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
   assert.match(text, /popup\.saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
   assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
+  assert.match(text, /template source/i, 'openai prompt should mention template-source editing for existing references');
+  assert.match(text, /local-only intent|local customization/i, 'openai prompt should mention explicit local-only intent before copy');
 }
 
 test('required docs and relative links stay valid', () => {
@@ -326,16 +384,16 @@ test('event-flow JS write contract stays discoverable across routing docs', () =
 
 test('template selection stays centralized and prompt keeps minimum guardrails', () => {
   const skill = read('SKILL.md');
-  assert.match(skill, /read \[templates\.md\].*before deciding inline vs template/i);
-  assertContextualTemplateProbeGuardrails(skill, 'SKILL.md');
-  assertTryTemplateWriteFallback(skill, 'SKILL.md');
-  assertSaveAsTemplateWritePath(skill, 'SKILL.md');
+  assertSkillKeepsIntentFirst(skill);
+  assert.match(skill, /read \[templates\.md\].*before deciding inline vs template|read \[templates\.md\].*copy/i);
+  assertSkillKeepsTemplateRulesMinimal(skill);
 
   const templates = read('references/templates.md');
   assertTemplateDocMinimumContract(templates, 'references/templates.md');
   assertContextualTemplateProbeGuardrails(templates, 'references/templates.md');
   assertTryTemplateWriteFallback(templates, 'references/templates.md');
   assertSaveAsTemplateWritePath(templates, 'references/templates.md');
+  assertExistingReferenceEditMatrix(templates, 'references/templates.md');
 
   for (const relativePath of [
     'references/execution-checklist.md',
@@ -364,13 +422,21 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   const verification = read('references/verification.md');
   assertNoTemplateDecisionMatrix(verification, 'references/verification.md');
   assert.match(verification, /\[template-decision-summary\.md\]/i);
+  assertExistingReferenceRoutingBridge(verification, 'references/verification.md');
+
+  for (const relativePath of [
+    'references/execution-checklist.md',
+    'references/popup.md',
+    'references/runtime-playbook.md',
+  ]) {
+    assertExistingReferenceRoutingBridge(read(relativePath), relativePath);
+  }
 
   const openaiYaml = read('agents/openai.yaml');
   const defaultPrompt = readYamlDoubleQuotedScalar(openaiYaml, 'default_prompt');
   assert.match(defaultPrompt, /Canonical front door: `nocobase-ctl flow-surfaces`/);
-  assert.match(defaultPrompt, /Intent-first routing/i);
-  assert.match(defaultPrompt, /structure-repeat-first/i);
-  assert.match(defaultPrompt, /plan-query` probe/i);
+  assert.match(defaultPrompt, /Intent-first/i);
+  assert.match(defaultPrompt, /Repeat-eligible scenes/i);
   assert.match(defaultPrompt, /local customization/i);
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);
