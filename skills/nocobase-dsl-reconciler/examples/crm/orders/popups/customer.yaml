@@ -1,0 +1,5 @@
+target: $orders_copy.table.fields.customer
+field: customer
+field_uid: 5fbdd6c7723
+blocks: []
+mode: drawer

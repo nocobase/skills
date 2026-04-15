@@ -1,0 +1,21 @@
+module: Data Analysis Copy
+icon: fundoutlined
+group: Other Copy
+pages:
+- page: Data Analysis Copy
+  coll: nb_crm_data_analysis
+  icon: fundoutlined
+  blocks:
+  - key: table
+    type: table
+    coll: nb_crm_data_analysis
+    fields:
+    - name
+    - collection
+    - description
+    actions:
+    - filter
+    - refresh
+    - bulkDelete
+    - addNew
+  layout: []

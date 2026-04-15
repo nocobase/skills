@@ -1,8 +1,23 @@
 # ACL Safety And Debug
 
+## Table of Contents
+
+- [Role selection security](#role-selection-security)
+- [Association operation safety](#association-operation-safety)
+- [Association payload sanitization](#association-payload-sanitization)
+- [Association endpoints use source update permission](#association-endpoints-use-source-update-permission)
+- [Field-to-append transformation for read operations](#field-to-append-transformation-for-read-operations)
+- [Own-scope prerequisites](#own-scope-prerequisites)
+- [Snippet permissions are high leverage](#snippet-permissions-are-high-leverage)
+- [Route permissions are independent](#route-permissions-are-independent)
+- [Scoped action verification caveat](#scoped-action-verification-caveat)
+- [Built-in scope safety](#built-in-scope-safety)
+- [Scope variable source of truth](#scope-variable-source-of-truth)
+- [Common Pitfalls](#common-pitfalls)
+
 ## Role selection security
 
-- Current role is resolved from `X-Role`, the user’s assigned roles, and the system role mode.
+- Current role is resolved from `X-Role`, the user's assigned roles, and the system role mode.
 - If a requested role does not belong to the user, middleware rejects it.
 - In `default` mode, asking for union role does not behave like true union mode.
 
@@ -28,7 +43,7 @@ Implications:
 
 - disallowed association writes may be removed from the payload instead of behaving like a simple scalar-field denial
 - relation updates need to be explicitly covered by the permitted action config
-- if the user reports “association data silently not saved”, inspect ACL first, not only form payloads
+- if the user reports "association data silently not saved", inspect ACL first, not only form payloads
 - a relation field being present in view permissions does not imply it may be changed in create/update payloads
 - relation-field update permission should be read as association-change permission for ordinary form submissions
 
@@ -136,7 +151,7 @@ Implications:
 
 - Treating a role as "configured" after only setting action names without deciding field lists, scopes, route access, and system snippets.
 - Leaving global strategy empty without confirming that independent permissions intentionally cover all required collections.
-- Leaving field lists empty by accident and thereby granting full-field access where the business expected tighter control.
+- Leaving field lists empty by accident and thereby removing field visibility/editability where the business expected normal access.
 - Leaving scopes empty by accident and thereby granting full-row access where the business expected organizational isolation.
 - Treating union-role behavior as a role-definition problem before checking system role mode.
 - Treating route visibility as a data-table ACL bug before checking route bindings.

@@ -1,5 +1,14 @@
 # Scopes
 
+## Table of Contents
+
+- [Critical Scope Format Rule](#critical-scope-format-rule)
+- [Always Check Built-in Scopes First](#always-check-built-in-scopes-first)
+- [Custom Scope Creation Rules](#custom-scope-creation-rules)
+- [MCP Tool Rules](#mcp-tool-rules)
+- [Scope Variables](#scope-variables)
+- [Boundary Notes](#boundary-notes)
+
 Use scopes for:
 
 - own-record access
@@ -9,21 +18,24 @@ Use scopes for:
 
 General rule:
 
-- Decide scope explicitly for every important action.
-- If there is no scope, confirm that full-row visibility or mutation is intended.
+- decide scope explicitly for every important action
+- if there is no scope, confirm that full-row visibility or mutation is intended
 
-## ⚠️ CRITICAL: Scope Format Rule
+## Critical Scope Format Rule
 
-A scope's `scope` field uses the same filter condition format as all other NocoBase filter configurations.
+A scope's `scope` field uses the same filter condition format as other NocoBase filters.
 
-**Full format reference**: [nocobase-utils / Filter Condition Format](../../../../nocobase-utils/references/filter/index.md)
+Full format reference: [nocobase-utils / Filter Condition Format](../../nocobase-utils/references/filter/index.md)
 
-Key rules (summary):
-- **Always wrap conditions with `$and` or `$or`** — never place field conditions at the root level.
-- Use `$and` for single or AND-combined conditions; `$or` for OR-combined conditions.
-- Values can be dynamic variables with `{{path}}` syntax. In ACL scopes, the available variables are `$user` (current user) and `$nRole` (current role).
+Key rules:
 
-❌ **Wrong** (missing logical operator wrapper):
+- always wrap conditions with `$and` or `$or`; do not place field conditions at root level
+- use `$and` for single or AND-combined conditions
+- use `$or` for OR-combined conditions
+- values can use dynamic variables with `{{path}}`; ACL commonly uses `$user` and `$nRole`
+
+Wrong example (missing logical wrapper):
+
 ```json
 {
   "department": {
@@ -34,109 +46,130 @@ Key rules (summary):
 }
 ```
 
-```json
-// ✅ Single condition
-{ "$and": [ { "createdBy": { "id": { "$eq": "{{$user.id}}" } } } ] }
+Correct examples:
 
-// ✅ Multiple AND conditions
+```json
 {
   "$and": [
-    { "status": { "$eq": "published" } },
-    { "department": { "id": { "$eq": "{{$user.department.id}}" } } }
-  ]
-}
-
-// ✅ OR conditions
-{
-  "$or": [
-    { "status": { "$eq": "published" } },
-    { "createdBy": { "id": { "$eq": "{{$user.id}}" } } }
-  ]
-}
-```
-
-## CRITICAL: Always Check Built-in Scopes First
-
-**Before creating any custom scope, ALWAYS list existing scopes first:**
-
-```
-GET /api/dataSources/{dataSourceKey}/roles.resourcesScopes:list
-```
-
-NocoBase provides built-in scopes that cover common use cases:
-
-- **`all`** (ID varies by installation)
-  - Means no row restriction
-  - Use when the action should access all records
-
-- **`own`** (ID varies by installation)
-  - Means own-record semantics based on `createdById`
-  - Use when the action should only access records created by the current user
-  - **This is the correct choice for "only own records" requirements**
-
-**DO NOT create custom scopes for common patterns that built-in scopes already cover.**
-
-Example of checking scopes:
-```json
-// Response from scopes:list
-{
-  "data": [
     {
-      "id": 355828166098945,
-      "key": "all",
-      "name": "{{t(\"All records\")}}",
-      "scope": {}
-    },
-    {
-      "id": 355828166098946,
-      "key": "own",
-      "name": "{{t(\"Own records\")}}",
-      "scope": {"createdById": "{{ ctx.state.currentUser.id }}"}
+      "createdBy": {
+        "id": {
+          "$eq": "{{$user.id}}"
+        }
+      }
     }
   ]
 }
 ```
 
-Use the `id` from the built-in scope when configuring actions:
 ```json
 {
-  "name": "update",
-  "scopeId": 355828166098946,
-  "fields": ["quantity", "notes"]
+  "$and": [
+    {
+      "status": {
+        "$eq": "published"
+      }
+    },
+    {
+      "department": {
+        "id": {
+          "$eq": "{{$user.department.id}}"
+        }
+      }
+    }
+  ]
 }
 ```
 
+```json
+{
+  "$or": [
+    {
+      "status": {
+        "$eq": "published"
+      }
+    },
+    {
+      "createdBy": {
+        "id": {
+          "$eq": "{{$user.id}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+## Always Check Built-in Scopes First
+
+Before creating any custom scope, list existing scopes first through MCP tool calls.
+
+Built-in scopes:
+
+- `all`
+  - means no row restriction
+- `own`
+  - means own-record semantics based on `createdById`
+  - use for "only own records" requirements tied to creator identity
+
+Do not create custom scopes for patterns already covered by built-in scopes.
+
+Use built-in `scopeId` directly when binding action permissions.
+
 ## Custom Scope Creation Rules
 
-**Only create custom scopes when built-in scopes cannot satisfy the requirement.**
+Only create custom scopes when built-in scopes cannot satisfy the requirement.
 
-Examples of when custom scopes are needed:
-- Department-level access
-- Manager approval
-- Site-specific data
-- Published content only
-- Custom ownership fields (not `createdBy`)
+Typical custom cases:
 
-### API Rules
+- department-level access
+- manager approval boundaries
+- site-specific data
+- published-content-only filters
+- custom ownership fields (not `createdBy`)
 
-- Business scopes should be created under the target data source.
-- Do not create business scopes in global `rolesResourcesScopes`.
-- When creating a scope, pass business fields such as `name`, `resourceName`, and `scope`.
-- Do not pass `id` when creating a scope.
-- When binding an existing scope to an action, pass `scopeId`.
-- Do not bind a scope by passing nested `scope.id` or a full `scope` object in place of `scopeId`.
+## MCP Tool Rules
 
-### Scope Variables
+This skill is MCP-first. Do not call REST endpoints such as `/api/*` directly.
 
-In ACL scopes, the frontend variable selector primarily exposes:
+Common scope-related MCP tools:
 
-- `$user` — current user, backed by the `users` collection. Default depth is 3, so nested paths like `{{$user.department.manager.id}}` are selectable when those relations exist.
-- `$nRole` — current role, bound to the `roles` collection. Intended mainly for the current role value itself.
+- `data_sources_roles_resources_scopes_list`
+- `data_sources_roles_resources_scopes_get`
+- `data_sources_roles_resources_scopes_create`
+- `data_sources_roles_resources_scopes_update`
+- `data_sources_roles_resources_scopes_destroy`
+
+All calls should use JSON-RPC `tools/call` with runtime names from `tools/list`.
+
+Business rules:
+
+- create business scopes under the target data source
+- do not create business scopes in global `rolesResourcesScopes`
+- when creating a scope, pass business fields such as `name`, `resourceName`, and `scope`
+- do not pass `id` when creating a scope
+- bind existing scopes via `scopeId`
+- do not bind by nested `scope.id` or full `scope` object
+
+## Scope Variables
+
+The ACL scope variable selector primarily exposes:
+
+- `$user`
+  - current user
+  - backed by the `users` collection
+  - nested paths such as `{{$user.department.manager.id}}` may be available when relations exist
+- `$nRole`
+  - current role
+  - bound to the `roles` collection
+  - mainly intended for current role value checks
 
 Recommended usage:
-- Use `$user` for most business scopes: `{{$user.id}}`, `{{$user.site.id}}`, `{{$user.company.id}}`
 
-### Boundary Notes
+- use `$user` for most business scopes
+- examples: `{{$user.id}}`, `{{$user.site.id}}`, `{{$user.company.id}}`
 
-- `own` does not mean owner, assignee, approver, manager, or department member.
-- For those business semantics, create a custom scope and reference `$user` against the real business relation path.
+## Boundary Notes
+
+- `own` does not mean owner, assignee, approver, manager, or department member
+- for those semantics, create a custom scope and reference `$user` against real business relation paths

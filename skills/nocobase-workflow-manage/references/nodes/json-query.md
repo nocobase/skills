@@ -8,7 +8,6 @@ description: "Explains the engine selection, expressions, and result mapping con
 ## Node Type
 
 `json-query`
-Please use the above `type` value to create the node; do not use the document filename as the type.
 
 ## Node Description
 Uses a JSON query engine to filter, transform, or calculate complex JSON data.
@@ -20,7 +19,7 @@ Extract fields from a third-party response or restructure JSON data.
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | engine | string | jmespath | Yes | Query engine: `jmespath`, `jsonpathplus`, `jsonata`. |
-| source | any | None | Yes | JSON data source (variable or constant). |
+| source | any | None | Yes | JSON data source (variable or constant). Variables should follow [Common Conventions - variables](../conventions/index.md#variable-expressions). |
 | expression | string | None | Yes | Query expression; syntax is determined by the `engine`. |
 | model | array | [] | No | Result mapping rules; applies only when the result is an object or an array of objects. |
 | model[].path | string | None | Yes | Value path (dot notation). |

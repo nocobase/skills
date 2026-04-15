@@ -13,6 +13,8 @@ description: Complete, authoritative list of functions available in @formulajs/f
 
 ## Expression Examples
 
+Variable references in expressions use `{{variable}}` syntax, and function names are uppercase. Here are some examples:
+
 ```
 // Arithmetic
 SUM({{$context.data.price}}, {{$context.data.tax}})

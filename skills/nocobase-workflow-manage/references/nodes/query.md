@@ -8,7 +8,6 @@ description: "Explains the filtering, sorting, pagination, and return modes of t
 ## Node Type
 
 `query`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Queries data table records based on filter conditions; can return single or multiple results.

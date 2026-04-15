@@ -24,6 +24,7 @@ Subsequent nodes can reference these variables in their configuration items base
 ## Usage Notes
 
 * **Only type values explicitly listed in the documentation can be used**; other values will cause the workflow to be unrecognized.
+* Variables are NOT supported in trigger configuration items. Only static values are allowed.
 
 ## Trigger Documentation Directory
 

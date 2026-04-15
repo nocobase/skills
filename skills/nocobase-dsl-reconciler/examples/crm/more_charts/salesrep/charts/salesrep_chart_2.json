@@ -1,0 +1,27 @@
+{
+  "query": {
+    "mode": "sql",
+    "sql": "WITH activity_stats AS (\n  SELECT\n    type,\n    COUNT(*) FILTER (\n      WHERE activity_date >= DATE_TRUNC('week', CURRENT_DATE)\n    ) as this_week,\n    COUNT(*) FILTER (\n      WHERE activity_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days'\n        AND activity_date < DATE_TRUNC('week', CURRENT_DATE)\n    ) as last_week\n  FROM nb_crm_activities\n  WHERE 1=1\n    AND activity_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '14 days'\n  {% if ctx.role != 'root' and ctx.role != 'admin' %}\n    AND owner_id = {{ ctx.user.id }}\n  {% endif %}\n  GROUP BY type\n)\nSELECT\n  CASE type\n    WHEN 'call' THEN 'Calls'\n    WHEN 'email' THEN 'Emails'\n    WHEN 'meeting' THEN 'Meetings'\n    WHEN 'visit' THEN 'Visits'\n    WHEN 'note' THEN 'Notes'\n    WHEN 'task' THEN 'Tasks'\n    ELSE type\n  END as activity_type,\n  type as type_code,\n  COALESCE(this_week, 0) as this_week,\n  COALESCE(last_week, 0) as last_week,\n  CASE\n    WHEN last_week > 0 THEN ROUND((this_week - last_week) * 100.0 / last_week, 1)\n    WHEN this_week > 0 THEN 100\n    ELSE 0\n  END as change_pct\nFROM activity_stats\nORDER BY this_week DESC"
+  },
+  "chart": {
+    "option": {
+      "mode": "custom",
+      "builder": {
+        "legend": true,
+        "tooltip": true,
+        "label": false,
+        "type": "line",
+        "xField": "activity_type",
+        "yField": "type_code",
+        "smooth": false,
+        "xAxisLabelRotate": 0,
+        "yAxisSplitLine": true
+      },
+      "raw": "const t = function(key, opts) { return ctx.t(key, Object.assign({ ns: 'nb_crm' }, opts)); };\n\nconst data = ctx.data.objects || [];\n\nconst types = data.map(function(d) { return d.activity_type; });\nconst thisWeek = data.map(function(d) { return Number(d.this_week); });\nconst lastWeek = data.map(function(d) { return Number(d.last_week); });\n\nconst totalThis = thisWeek.reduce(function(a, b) { return a + b; }, 0);\nconst totalLast = lastWeek.reduce(function(a, b) { return a + b; }, 0);\nconst overallChange = totalLast > 0 ? ((totalThis - totalLast) / totalLast * 100).toFixed(1) : 0;\n\nreturn {\n  title: {\n    text: t('Weekly Activity Comparison'),\n    subtext: `${t('This Week')}: ${totalThis} | ${t('Last Week')}: ${totalLast} | ${overallChange >= 0 ? '+' : ''}${overallChange}%`,\n    left: 'center'\n  },\n  tooltip: {\n    trigger: 'axis',\n    axisPointer: { type: 'shadow' },\n    formatter: function(params) {\n      const idx = params[0].dataIndex;\n      const item = data[idx];\n      const changeIcon = item.change_pct >= 0 ? '↑' : '↓';\n      const changeColor = item.change_pct >= 0 ? '#52c41a' : '#f5222d';\n      return `<b>${item.activity_type}</b><br/>\n        ${t('This Week')}: ${item.this_week}<br/>\n        ${t('Last Week')}: ${item.last_week}<br/>\n        <span style=\"color:${changeColor}\">${changeIcon} ${Math.abs(item.change_pct)}%</span>`;\n    }\n  },\n  legend: {\n    data: [t('This Week'), t('Last Week')],\n    bottom: 10\n  },\n  grid: {\n    left: '10%',\n    right: '10%',\n    top: 80,\n    bottom: 60\n  },\n  xAxis: {\n    type: 'category',\n    data: types\n  },\n  yAxis: {\n    type: 'value',\n    name: t('Count')\n  },\n  series: [\n    {\n      name: t('This Week'),\n      type: 'bar',\n      data: thisWeek,\n      itemStyle: { color: '#1890ff' },\n      label: {\n        show: true,\n        position: 'top'\n      }\n    },\n    {\n      name: t('Last Week'),\n      type: 'bar',\n      data: lastWeek,\n      itemStyle: { color: '#d9d9d9' },\n      label: {\n        show: true,\n        position: 'top'\n      }\n    }\n  ]\n}\n"
+    },
+    "events": {
+      "mode": "custom",
+      "raw": "chart.off('click');\nchart.on('click', function() {\n    ctx.router.navigate('/admin/n6bh6s6isej');\n});"
+    }
+  }
+}

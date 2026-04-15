@@ -1,0 +1,23 @@
+tasks:
+- title: Opportunity Form Filler
+  user: 'Log this opportunity from my call notes.
+
+
+    Just finished a great call with Pinnacle Systems'' VP Engineering Mike:
+
+
+    - They''re a fintech company, about 200 people
+
+    - Current data platform is struggling, having issues daily
+
+    - Looking at us plus two others: DataCorp and CloudBase
+
+    - Budget approved for $150-200K, must go live by Q2
+
+    - Mike is our champion but CFO Sarah has final sign-off
+
+    - Next week we''ll do a technical deep-dive, POC in February
+
+    - Mike said if POC goes well, should be able to sign by end of March'
+  autoSend: true
+  system_file: ./ai/295047ff_task0.md

@@ -20,8 +20,9 @@ Executing statistical SQL or batch correcting data. For standard CRUD operations
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | dataSource | string | main | Yes | Data source key; must be a database-type data source. |
-| sql | string | None | Yes | SQL statement, supports variable templates. |
-| withMeta | boolean | false | No | Whether to return metadata (returns `[result, meta]`). |
+| sql | string | None | Yes | SQL statement, supports variable configured in the parameters list, and using `:var_name` format (NOT common `{{ var_name }}` format). |
+| variables | array of objects | [] | No | List of parameters used in the SQL statement. Each parameter object should have `name` (string) and `value` (any) fields. The value can be a static value or a workflow variable reference. See [Common Conventions - variables](../conventions/index.md#variable-expressions). |
+| withMeta | boolean | false | No | Whether to return metadata (returns `[result, meta]`). Better to set to `false` |
 
 ## Branch Description
 Does not support branches.
@@ -30,7 +31,10 @@ Does not support branches.
 ```json
 {
   "dataSource": "main",
-  "sql": "SELECT COUNT(*) AS total FROM orders WHERE status = 'paid'",
+  "sql": "SELECT COUNT(*) AS total FROM orders WHERE status = :status",
+  "variables": [
+    { "name": "status", "value": "{{$context.data.status}}" }
+  ],
   "withMeta": false
 }
 ```
