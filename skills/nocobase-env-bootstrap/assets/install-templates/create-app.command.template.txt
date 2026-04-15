@@ -1,0 +1,8 @@
+yarn create __CREATE_PACKAGE__ __PROJECT_NAME__ -d __DB_DIALECT__ \
+  -e DB_HOST=__DB_HOST__ \
+  -e DB_PORT=__DB_PORT__ \
+  -e DB_DATABASE=__DB_DATABASE__ \
+  -e DB_USER=__DB_USER__ \
+  -e DB_PASSWORD=__DB_PASSWORD__ \
+  -e DB_UNDERSCORED=__DB_UNDERSCORED__ \
+  -e TZ=__TZ__

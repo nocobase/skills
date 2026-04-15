@@ -5,7 +5,7 @@ This reference maps canonical tasks to `nocobase-ctl` CLI commands for `nocobase
 All operations should use CLI commands instead of MCP JSON-RPC.
 Execute ACL commands through skill-local wrapper:
 
-- `node ./run-ctl.mjs -- <nocobase-ctl-args>`
+- `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`
 
 Resolve current env context through bootstrap skill app-manage:
 
@@ -22,7 +22,7 @@ Prerequisite gate before runtime discovery:
    - local URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<local_url> app_scope=project target_dir=<target_dir>`
    - remote URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<remote_url> app_token=<token> app_scope=project target_dir=<target_dir>`
    - switch: `$nocobase-env-bootstrap task=app-manage app_env_action=use app_env_name=<env> app_scope=project target_dir=<target_dir>`
-3. Run `node ./run-ctl.mjs -- env update -e <current_env_name>`.
+3. Run `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`.
 4. If output shows `swagger:get` 404 or API documentation plugin error, activate dependency bundle and retry:
    - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
    - restart app before rerun.
@@ -31,7 +31,7 @@ Prerequisite gate before runtime discovery:
 Resolution order:
 
 1. Try preferred command patterns in this file.
-2. Confirm with `node ./run-ctl.mjs -- --help` and wrapper-executed subcommand help.
+2. Confirm with `node ./scripts/run-ctl.mjs -- --help` and wrapper-executed subcommand help.
 3. If preferred pattern is absent, match by fallback regex over command tree text.
 4. Record the resolved runtime command names in execution evidence.
 

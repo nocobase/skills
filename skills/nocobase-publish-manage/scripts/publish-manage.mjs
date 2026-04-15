@@ -7,7 +7,9 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import {
   evaluateMigrationTemplateRules,
+  getMigrationTemplateDefinition,
   getMigrationTemplateKeys,
+  getMigrationTemplateOptions,
   resolveMigrationTemplate,
 } from './migration-template-rules.mjs';
 import {
@@ -20,6 +22,16 @@ const ACTIONS = new Set(['precheck', 'publish', 'verify', 'rollback']);
 const CHANNELS = new Set(['auto', 'local_cli', 'remote_api', 'remote_ssh_cli']);
 const METHODS = new Set(['backup_restore', 'migration']);
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1', 'host.docker.internal']);
+const METHOD_UI_META = {
+  backup_restore: {
+    label: 'Use existing backup package',
+    description: 'Use an existing backup package: download from source, then upload and restore on target.',
+  },
+  migration: {
+    label: 'Create new release package',
+    description: 'Create a new migration package on source, then validate and apply it on target.',
+  },
+};
 
 const COMMERCIAL_URL = 'https://www.nocobase.com/en/commercial';
 const PUBLISH_CAPABILITY_SENTINELS = ['@nocobase/plugin-migration-manager', 'migration-manager', 'migration manager', 'migration_manager'];
@@ -48,24 +60,32 @@ function fail(code, message, details = {}) {
   process.exit(code === 'RELEASE_INVALID_INPUT' ? 2 : 1);
 }
 
+function methodUiMeta(method) {
+  return METHOD_UI_META[method] || {
+    label: method || '',
+    description: '',
+  };
+}
+
 function help() {
   process.stdout.write(
     [
       'Usage:',
-      '  node ./publish-manage.mjs <action> --method <backup_restore|migration> [options]',
+      '  node ./scripts/publish-manage.mjs <action> --method <backup_restore|migration> [options]',
       '',
       'Required:',
       '  action: precheck|publish|verify|rollback',
-      '  --method backup_restore|migration',
+      '  --method backup_restore|migration (backup_restore=use existing backup package, migration=create new release package)',
+      '  --publish-method-confirm backup_restore|migration (required gate for publish --apply)',
       '',
       'Main options:',
       '  --channel auto|local_cli|remote_api|remote_ssh_cli',
-      `  --migration-template ${getMigrationTemplateKeys().join('|')} (required when method=migration)`,
-      '  --mode <legacy> (compat alias: overwrite/full -> full_overwrite, structure/schema -> structure_only)',
+      `  --migration-template ${getMigrationTemplateKeys().join('|')} (required for migration publish execution)`,
+      '  --mode <legacy> (compat alias: overwrite/full -> full_overwrite, structure/schema -> schema_only_all)',
       '  --source-env <name> --target-env <name>',
       '  --source-url <url> --target-url <url>',
       '  --source-token-env <ENV> --target-token-env <ENV>',
-      '  --backup-artifact <id> (required for rollback)',
+      '  --backup-artifact <id> (required for rollback and backup_restore publish --apply)',
       '  --backup-auto true|false (default true)',
       '  --apply --confirm confirm',
       '  --base-dir <dir> --scope project|global --prefer auto|global|local',
@@ -109,6 +129,7 @@ function parseArgs(argv) {
     targetTokenEnv: '',
     backupArtifact: '',
     backupAuto: true,
+    publishMethodConfirm: '',
     apply: false,
     confirm: '',
     baseDir: process.cwd(),
@@ -149,6 +170,8 @@ function parseArgs(argv) {
     if (a.startsWith('--backup-auto=')) { opts.backupAuto = parseBooleanFlag(a.slice(14), '--backup-auto'); continue; }
     if (a === '--confirm') { opts.confirm = argValue(argv, i, a); i += 1; continue; }
     if (a.startsWith('--confirm=')) { opts.confirm = a.slice(10); continue; }
+    if (a === '--publish-method-confirm') { opts.publishMethodConfirm = argValue(argv, i, a); i += 1; continue; }
+    if (a.startsWith('--publish-method-confirm=')) { opts.publishMethodConfirm = a.slice(25); continue; }
     if (a === '--base-dir') { opts.baseDir = argValue(argv, i, a); i += 1; continue; }
     if (a.startsWith('--base-dir=')) { opts.baseDir = a.slice(11); continue; }
     if (a === '--scope') { opts.scope = argValue(argv, i, a); i += 1; continue; }
@@ -170,12 +193,16 @@ function parseArgs(argv) {
 
   if (!ACTIONS.has(opts.action)) fail('RELEASE_INVALID_INPUT', `Invalid action: ${opts.action}`);
   if (!METHODS.has(opts.method)) fail('RELEASE_INVALID_INPUT', `Invalid method: ${opts.method}`);
+  if (opts.publishMethodConfirm && !METHODS.has(opts.publishMethodConfirm)) {
+    fail('RELEASE_INVALID_INPUT', `Invalid --publish-method-confirm: ${opts.publishMethodConfirm}`);
+  }
   if (!CHANNELS.has(opts.channel)) fail('RELEASE_INVALID_INPUT', `Invalid channel: ${opts.channel}`);
 
   const templateResolution = resolveMigrationTemplate({
     method: opts.method,
     migrationTemplate: opts.migrationTemplate,
     legacyMode: opts.modeLegacy,
+    allowEmpty: true,
   });
   if (!templateResolution.ok) {
     fail('RELEASE_INVALID_INPUT', templateResolution.errors.join(' '));
@@ -790,12 +817,119 @@ function resolveDefaultMigrationDownloadPath(opts, fileName = '') {
   return path.join(opts.baseDir, '.tmp-publish', safeName);
 }
 
-function buildDefaultMigrationRuleValues(migrationTemplate = '') {
-  const mode = migrationTemplate === 'structure_only' ? 'schema_only' : 'overwrite';
+function resolveDefaultBackupDownloadPath(opts, backupArtifact = '') {
+  const fallbackName = `backup_${nowId()}.nbdata`;
+  const safeName = backupArtifact || fallbackName;
+  return path.join(opts.baseDir, '.tmp-publish', safeName);
+}
+
+function normalizeListRows(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.rows)) return payload.rows;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (payload.data && Array.isArray(payload.data.items)) return payload.data.items;
+  return [];
+}
+
+function normalizeBackupCandidate(row) {
+  const name = firstPathValue(row, ['name', 'fileName', 'id']);
   return {
-    name: `auto_rule_${mode}_${nowId()}`,
+    name: name ? String(name) : '',
+    created_at: firstPathValue(row, ['createdAt', 'created_at']) || '',
+    size: firstPathValue(row, ['size', 'fileSize', 'sizeText']) || '',
+    raw: row,
+  };
+}
+
+async function listLatestBackupCandidates(baseUrl, tokenPack, limit = 5) {
+  if (!baseUrl || !tokenPack?.token) {
+    return {
+      ok: false,
+      artifacts: [],
+      attempts: [],
+      error: 'Missing source backup list context (baseUrl/token).',
+    };
+  }
+
+  const request = createResourceOperationRequest('backup_list', {
+    page: 1,
+    pageSize: limit,
+    sort: ['-createdAt'],
+  });
+  if (!request) {
+    return {
+      ok: false,
+      artifacts: [],
+      attempts: [],
+      error: 'backup_list resource operation is unavailable.',
+    };
+  }
+
+  const attempts = [];
+  for (const route of request.routes) {
+    const api = await callApi({
+      route,
+      baseUrl,
+      token: tokenPack.token,
+      method: request.method || 'GET',
+      query: request.query,
+      body: request.body,
+      transport: request.transport || 'json',
+      responseType: request.response_type || 'json',
+    });
+    attempts.push({
+      route,
+      status: api.status,
+      ok: api.ok,
+      error: extractApiErrorMessage(api),
+    });
+
+    if (!api.ok) {
+      continue;
+    }
+
+    const rows = normalizeListRows(api.payload);
+    const artifacts = rows
+      .map((row) => normalizeBackupCandidate(row))
+      .filter((row) => row.name)
+      .slice(0, limit);
+    return {
+      ok: true,
+      artifacts,
+      attempts,
+      error: '',
+    };
+  }
+
+  return {
+    ok: false,
+    artifacts: [],
+    attempts,
+    error: 'Unable to list source backup artifacts.',
+  };
+}
+
+function buildDefaultMigrationRuleValues(migrationTemplate = '') {
+  const templateDef = getMigrationTemplateDefinition(migrationTemplate) || getMigrationTemplateDefinition('schema_only_all');
+  const normalizedTemplate = templateDef?.key || 'schema_only_all';
+  const userGlobalRule = templateDef?.user_global_rule || 'schema-only';
+  const systemGlobalRule = templateDef?.system_global_rule || 'schema-only';
+  return {
+    name: `auto_publish_${normalizedTemplate}_${nowId()}`,
     description: 'Auto generated by nocobase-publish-manage.',
-    rules: { mode },
+    rules: {
+      userDefined: {
+        globalRule: userGlobalRule,
+        enableIndependentRules: false,
+      },
+      systemDefined: {
+        globalRule: systemGlobalRule,
+        enableIndependentRules: false,
+      },
+    },
   };
 }
 
@@ -829,10 +963,7 @@ async function resolveDefaultMigrationRuleId(baseUrl, tokenPack, migrationTempla
   }
 
   const defaultValues = buildDefaultMigrationRuleValues(migrationTemplate);
-  const createBodies = [
-    { values: defaultValues },
-    defaultValues,
-  ];
+  const createBodies = [defaultValues];
   for (const body of createBodies) {
     const created = await callApi({
       route: '/migrationRules:create',
@@ -910,11 +1041,21 @@ async function waitForMigrationFileReady(baseUrl, tokenPack, fileName, timeoutMs
 }
 
 function planCommands(opts, ctx) {
-  const backupId = opts.backupArtifact || `backup_${nowId()}.nbdata`;
+  const generatedBackupId = `backup_${nowId()}.nbdata`;
+  const backupId = opts.action === 'rollback' ? (opts.backupArtifact || generatedBackupId) : generatedBackupId;
   const commands = [];
 
   if (opts.action === 'publish') {
     if (opts.method === 'backup_restore') {
+      commands.push({
+        step: 'backup-download',
+        operation: 'backup_download',
+        exec_context: 'source',
+        params: {
+          backupArtifact: opts.backupArtifact || '',
+          outputPathRef: 'latest_backup_file',
+        },
+      });
       if (opts.backupAuto) {
         commands.push({
           step: 'backup-create',
@@ -924,19 +1065,31 @@ function planCommands(opts, ctx) {
         });
       }
       commands.push({
-        step: 'restore',
-        operation: 'backup_restore',
+        step: 'backup-upload',
+        operation: 'backup_upload',
         exec_context: 'target',
-        params: opts.backupAuto
-          ? { backupArtifactRef: 'latest_created', backupArtifact: backupId }
-          : { backupArtifact: opts.backupArtifact || backupId },
+        params: {
+          filePathRef: 'latest_backup_downloaded',
+          fileName: opts.backupArtifact || '',
+        },
       });
     } else {
+      commands.push({
+        step: 'migration-rule-create',
+        operation: 'migration_rules_create',
+        exec_context: 'source',
+        params: {
+          values: buildDefaultMigrationRuleValues(opts.migrationTemplate),
+        },
+      });
       commands.push({
         step: 'migration-generate',
         operation: 'migration_generate',
         exec_context: 'source',
-        params: { migrationTemplate: opts.migrationTemplate },
+        params: {
+          ruleIdRef: 'latest_migration_rule',
+          migrationTemplate: opts.migrationTemplate,
+        },
       });
       commands.push({
         step: 'migration-download',
@@ -1005,6 +1158,8 @@ async function executePlan(opts, ctx, commands) {
   let ok = true;
   const runtimeState = {
     latestBackupArtifact: '',
+    latestBackupDownloadedFile: '',
+    latestMigrationRuleId: '',
     latestMigrationFile: '',
     latestMigrationDownloadedFile: '',
     latestMigrationTaskId: '',
@@ -1045,6 +1200,12 @@ async function executePlan(opts, ctx, commands) {
       if (params.backupArtifactRef === 'latest_created' && runtimeState.latestBackupArtifact) {
         params.backupArtifact = runtimeState.latestBackupArtifact;
       }
+      if (params.filePathRef === 'latest_backup_downloaded' && runtimeState.latestBackupDownloadedFile) {
+        params.filePath = runtimeState.latestBackupDownloadedFile;
+      }
+      if (params.ruleIdRef === 'latest_migration_rule' && runtimeState.latestMigrationRuleId) {
+        params.ruleId = runtimeState.latestMigrationRuleId;
+      }
       if (params.fileNameRef === 'latest_created' && runtimeState.latestMigrationFile) {
         params.fileName = runtimeState.latestMigrationFile;
       }
@@ -1063,6 +1224,12 @@ async function executePlan(opts, ctx, commands) {
           params.fileName || runtimeState.latestMigrationFile || '',
         );
       }
+      if (params.outputPathRef === 'latest_backup_file') {
+        params.outputPath = resolveDefaultBackupDownloadPath(
+          opts,
+          params.backupArtifact || opts.backupArtifact || '',
+        );
+      }
 
       const tokenPack = resolveApiToken(opts, execRuntime.context, ctx.channel, execRuntime.envName);
       if (!execRuntime.baseUrl && ctx.channel !== 'remote_ssh_cli') {
@@ -1078,7 +1245,23 @@ async function executePlan(opts, ctx, commands) {
         ok = false;
         continue;
       }
-      if ((c.operation === 'migration_generate' || c.operation === 'migration_files_create') && !params.ruleId) {
+      const requiresGeneratedRuleId = params.ruleIdRef === 'latest_migration_rule';
+      if (requiresGeneratedRuleId && !params.ruleId) {
+        steps.push({
+          step: c.step,
+          lane: ctx.channel === 'remote_api' ? 'remote_api' : 'local_api',
+          operation: c.operation,
+          exec_context: execRuntime.context,
+          exec_env: execRuntime.envName || '',
+          exec_base_url: execRuntime.baseUrl || '',
+          status: 'failed',
+          token_source: tokenPack.source,
+          error: 'Missing generated migration rule ID. migrationRules:create must succeed before migrationFiles:create.',
+        });
+        ok = false;
+        continue;
+      }
+      if ((c.operation === 'migration_generate' || c.operation === 'migration_files_create') && !params.ruleId && !params.ruleIdRef) {
         const defaultRuleId = await resolveDefaultMigrationRuleId(
           execRuntime.baseUrl,
           tokenPack,
@@ -1092,6 +1275,12 @@ async function executePlan(opts, ctx, commands) {
         params.outputPath = resolveDefaultMigrationDownloadPath(
           opts,
           params.fileName || runtimeState.latestMigrationFile || '',
+        );
+      }
+      if (c.operation === 'backup_download' && !params.outputPath) {
+        params.outputPath = resolveDefaultBackupDownloadPath(
+          opts,
+          params.backupArtifact || opts.backupArtifact || '',
         );
       }
       if (c.operation === 'migration_files_download') {
@@ -1158,10 +1347,14 @@ async function executePlan(opts, ctx, commands) {
         if (stepOk) {
           parsedPayload = jsonSafe((r.stdout || '').trim());
         }
+        const createdRuleId = firstPathValue(parsedPayload, ['data.id', 'id', 'data.data.id']);
         const createdName = firstPathValue(parsedPayload, ['data.name', 'name']);
         const createdFileName = firstPathValue(parsedPayload, ['data.fileName', 'fileName', 'data.data.fileName']);
         const createdTaskId = firstPathValue(parsedPayload, ['data.task', 'task', 'data.taskId', 'taskId', 'data.data.task']);
         const downloadedPath = firstPathValue(parsedPayload, ['data.saved_path', 'saved_path']);
+        if (stepOk && c.operation === 'migration_rules_create' && createdRuleId) {
+          runtimeState.latestMigrationRuleId = String(createdRuleId);
+        }
         if (stepOk && c.operation === 'backup_create' && createdName) {
           runtimeState.latestBackupArtifact = createdName;
         }
@@ -1185,6 +1378,9 @@ async function executePlan(opts, ctx, commands) {
         if (stepOk && c.operation === 'migration_files_download' && downloadedPath) {
           runtimeState.latestMigrationDownloadedFile = downloadedPath;
         }
+        if (stepOk && c.operation === 'backup_download' && downloadedPath) {
+          runtimeState.latestBackupDownloadedFile = downloadedPath;
+        }
 
         steps.push({
           step: c.step,
@@ -1199,6 +1395,8 @@ async function executePlan(opts, ctx, commands) {
           env_use_command: envUseResult?.command || [],
           command: r.command,
           artifact_name: createdName || '',
+          rule_id: createdRuleId || params.ruleId || '',
+          request_rule_id: params.ruleId || '',
           migration_file: createdFileName || '',
           downloaded_file: downloadedPath || '',
           task_id: createdTaskId || '',
@@ -1303,6 +1501,7 @@ async function executePlan(opts, ctx, commands) {
       }
 
       if (successful?.api?.ok) {
+        const createdRuleId = firstPathValue(successful.api?.payload, ['data.id', 'id', 'data.data.id']);
         const createdName = firstPathValue(successful.api?.payload, ['data.name', 'name']);
         const createdFileName = firstPathValue(successful.api?.payload, ['data.fileName', 'fileName', 'data.data.fileName']);
         const createdTaskId = firstPathValue(
@@ -1310,6 +1509,9 @@ async function executePlan(opts, ctx, commands) {
           ['data.task', 'task', 'data.taskId', 'taskId', 'data.data.task'],
         );
         const downloadedPath = firstPathValue(successful.api?.payload, ['data.saved_path', 'saved_path']);
+        if (c.operation === 'migration_rules_create' && createdRuleId) {
+          runtimeState.latestMigrationRuleId = String(createdRuleId);
+        }
         if (c.operation === 'backup_create' && createdName) {
           runtimeState.latestBackupArtifact = createdName;
         }
@@ -1328,6 +1530,9 @@ async function executePlan(opts, ctx, commands) {
         if (c.operation === 'migration_files_download' && downloadedPath) {
           runtimeState.latestMigrationDownloadedFile = downloadedPath;
         }
+        if (c.operation === 'backup_download' && downloadedPath) {
+          runtimeState.latestBackupDownloadedFile = downloadedPath;
+        }
         steps.push({
           step: c.step,
           lane: ctx.channel === 'remote_api' ? 'remote_api' : 'local_api',
@@ -1340,6 +1545,8 @@ async function executePlan(opts, ctx, commands) {
           response_status: successful.api.status,
           token_source: tokenPack.source,
           artifact_name: createdName || '',
+          rule_id: createdRuleId || params.ruleId || '',
+          request_rule_id: params.ruleId || '',
           migration_file: createdFileName || '',
           downloaded_file: downloadedPath || '',
           task_id: createdTaskId || '',
@@ -1446,6 +1653,8 @@ async function executePlan(opts, ctx, commands) {
     ok,
     steps,
       latest_backup_artifact: runtimeState.latestBackupArtifact || '',
+      latest_backup_downloaded_file: runtimeState.latestBackupDownloadedFile || '',
+      latest_migration_rule_id: runtimeState.latestMigrationRuleId || '',
       latest_migration_file: runtimeState.latestMigrationFile || '',
       latest_migration_downloaded_file: runtimeState.latestMigrationDownloadedFile || '',
       latest_migration_task_id: runtimeState.latestMigrationTaskId || '',
@@ -1465,6 +1674,7 @@ async function main() {
   const warnings = [];
   const checks = [];
   const actionRequired = [];
+  const backupCandidates = [];
   let sourceEnvExists = null;
   let targetEnvExists = null;
   let targetCliReady = opts.targetEnv ? false : null;
@@ -1679,6 +1889,49 @@ async function main() {
     }
   }
 
+  if (
+    opts.method === 'backup_restore' &&
+    envListCall.code === 0 &&
+    sourceEnvExists === true
+  ) {
+    const sourceRuntime = resolveExecContextRuntime(opts, ctx, 'source');
+    const sourceTokenPack = resolveApiToken(opts, 'source', ctx.channel, sourceRuntime.envName);
+    const candidateResult = await listLatestBackupCandidates(sourceRuntime.baseUrl, sourceTokenPack, 5);
+    backupCandidates.push(...candidateResult.artifacts);
+
+    checks.push({
+      id: 'REL-BKP-001',
+      ok: candidateResult.ok,
+      message: candidateResult.ok
+        ? `Loaded ${backupCandidates.length} source backup candidates for selection.`
+        : 'Failed to load source backup candidates for selection.',
+    });
+
+    if (!candidateResult.ok) {
+      warnings.push(candidateResult.error || 'Unable to query source backup candidates.');
+    }
+
+    const hasSelectedBackup = Boolean(opts.backupArtifact && opts.backupArtifact.trim());
+    if (opts.action === 'publish' && opts.apply && !hasSelectedBackup) {
+      blockers.push('When publish method is "Use existing backup package", selecting a source backup artifact is required before execution.');
+      actionRequired.push({
+        type: 'choose_backup_artifact',
+        must_confirm_by_user: true,
+        auto_resolve_forbidden: true,
+        method: 'backup_restore',
+        method_label: methodUiMeta('backup_restore').label,
+        source_env: sourceRuntime.envName || opts.sourceEnv || '',
+        source_base_url: sourceRuntime.baseUrl || '',
+        message: 'Choose one backup artifact and rerun with --backup-artifact <name>.',
+        backup_candidates: backupCandidates.map((item) => ({
+          name: item.name,
+          created_at: item.created_at,
+          size: item.size,
+        })),
+      });
+    }
+  }
+
   const compatibility = {
     source_db_driver: '',
     target_db_driver: '',
@@ -1697,14 +1950,82 @@ async function main() {
   warnings.push(...templateRules.warnings);
   warnings.push(...opts.templateWarnings);
 
+  if (opts.method === 'migration' && !opts.migrationTemplate) {
+    actionRequired.push({
+      type: 'choose_migration_template',
+      must_confirm_by_user: true,
+      auto_resolve_forbidden: true,
+      method: 'migration',
+      method_label: methodUiMeta('migration').label,
+      message: 'For "Create new release package", choose one migration template preset and rerun with --migration-template <key>.',
+      options: getMigrationTemplateOptions().map((option) => ({
+        key: option.key,
+        label: option.label,
+        description: option.description,
+        user_defined_rule: option.user_defined_rule,
+        system_defined_rule: option.system_defined_rule,
+        high_risk: option.high_risk,
+      })),
+      rerun_example: 'node ./scripts/publish-manage.mjs publish --method migration --publish-method-confirm migration --migration-template <template-key> --apply --confirm confirm',
+    });
+  }
+
+  if (opts.action === 'publish' && opts.apply) {
+    const publishMethodGateOk = opts.publishMethodConfirm === opts.method;
+    const selectedMethodMeta = methodUiMeta(opts.method);
+    checks.push({
+      id: 'REL-GATE-001',
+      ok: publishMethodGateOk,
+      message: publishMethodGateOk
+        ? `Publish method gate confirmed: ${opts.method} (${selectedMethodMeta.label}).`
+        : 'Publish method gate not confirmed.',
+    });
+    if (!publishMethodGateOk) {
+      blockers.push('Publish method gate not confirmed: choose a publish method before execution.');
+      actionRequired.push({
+        type: 'choose_publish_method',
+        must_confirm_by_user: true,
+        auto_resolve_forbidden: true,
+        message: 'Before publish execution, choose a method and confirm with --publish-method-confirm <same-as--method>.',
+        options: [
+          {
+            method: 'backup_restore',
+            label: methodUiMeta('backup_restore').label,
+            description: methodUiMeta('backup_restore').description,
+          },
+          {
+            method: 'migration',
+            label: methodUiMeta('migration').label,
+            description: methodUiMeta('migration').description,
+          },
+        ],
+        selected_method: opts.method,
+        selected_method_label: selectedMethodMeta.label,
+        rerun_example: `node ./scripts/publish-manage.mjs publish --method ${opts.method} --publish-method-confirm ${opts.method} --apply --confirm confirm`,
+      });
+    }
+  }
+
   if (!opts.sourceEnv && !opts.sourceUrl) warnings.push('source context not explicit; source env defaults to local.');
 
   const plan = planCommands(opts, ctx);
-  let execution = { ok: true, steps: [], latest_backup_artifact: '' };
+  let execution = {
+    ok: true,
+    steps: [],
+    latest_backup_artifact: '',
+    latest_backup_downloaded_file: '',
+    latest_migration_rule_id: '',
+  };
   if (opts.action !== 'precheck' && blockers.length === 0) {
     execution = await executePlan(opts, ctx, plan.commands);
   } else if (opts.action !== 'precheck') {
-    execution = { ok: false, steps: [], latest_backup_artifact: '' };
+    execution = {
+      ok: false,
+      steps: [],
+      latest_backup_artifact: '',
+      latest_backup_downloaded_file: '',
+      latest_migration_rule_id: '',
+    };
   }
 
   let verification = blockers.length ? 'failed' : 'passed';
@@ -1719,6 +2040,7 @@ async function main() {
       request: {
         action: opts.action,
         method: opts.method,
+        publish_method_confirm: opts.publishMethodConfirm || null,
         migration_template: opts.migrationTemplate || null,
         legacy_mode: opts.modeLegacy || null,
         channel: opts.channel,
@@ -1733,6 +2055,11 @@ async function main() {
       },
       pre_state: { available_envs: envs, env_list_exit_code: envListCall.code },
       plugin_checks: pluginCheck,
+      backup_candidates: backupCandidates.map((item) => ({
+        name: item.name,
+        created_at: item.created_at,
+        size: item.size,
+      })),
       checks,
       blockers,
       warnings,
@@ -1744,7 +2071,9 @@ async function main() {
       assumptions: [
         opts.channel === 'auto' ? `channel auto-resolved to ${ctx.channel}` : 'channel explicitly set',
         opts.targetTokenEnv ? `target token env is ${opts.targetTokenEnv}` : 'target token env defaulted to NOCOBASE_API_TOKEN',
-        opts.method === 'migration' ? `migration template selected: ${opts.migrationTemplate}` : 'migration template not required for backup_restore',
+        opts.method === 'migration'
+          ? (opts.migrationTemplate ? `migration template selected: ${opts.migrationTemplate}` : 'migration template not selected yet')
+          : 'migration template not required for backup_restore',
       ],
       fallback_hints: verification === 'failed'
         ? [

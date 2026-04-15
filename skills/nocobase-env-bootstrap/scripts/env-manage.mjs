@@ -62,10 +62,10 @@ const RUN_CTL_PATH = path.join(THIS_DIR, 'run-ctl.mjs');
 function printHelp() {
   const lines = [
     'Usage:',
-    '  node ./env-manage.mjs add --name <env> --url <base-url> [--token <token>] [--token-env <ENV_NAME>] [--scope project|global] [--base-dir <dir>]',
-    '  node ./env-manage.mjs use --name <env> [--scope project|global] [--base-dir <dir>]',
-    '  node ./env-manage.mjs current [--scope project|global] [--base-dir <dir>]',
-    '  node ./env-manage.mjs list [--scope project|global] [--base-dir <dir>]',
+    '  node ./scripts/env-manage.mjs add --name <env> --url <base-url> [--token <token>] [--token-env <ENV_NAME>] [--scope project|global] [--base-dir <dir>]',
+    '  node ./scripts/env-manage.mjs use --name <env> [--scope project|global] [--base-dir <dir>]',
+    '  node ./scripts/env-manage.mjs current [--scope project|global] [--base-dir <dir>]',
+    '  node ./scripts/env-manage.mjs list [--scope project|global] [--base-dir <dir>]',
     '',
     'Rules:',
     '  - Local URLs always require a real token and env-manage auto-acquires it.',
@@ -74,10 +74,10 @@ function printHelp() {
     '  - Local add auto-recovers dependencies: if api-doc/api-keys is missing, env-manage tries pm enable + retry.',
     '',
     'Examples:',
-    '  node ./env-manage.mjs add --name local --url http://localhost:13000/api --scope project',
-    '  node ./env-manage.mjs add --name staging --url https://demo.example.com/api --token-env NOCOBASE_API_TOKEN --scope project',
-    '  node ./env-manage.mjs use --name local --scope project',
-    '  node ./env-manage.mjs current --scope project',
+    '  node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --scope project',
+    '  node ./scripts/env-manage.mjs add --name staging --url https://demo.example.com/api --token-env NOCOBASE_API_TOKEN --scope project',
+    '  node ./scripts/env-manage.mjs use --name local --scope project',
+    '  node ./scripts/env-manage.mjs current --scope project',
   ];
   process.stdout.write(`${lines.join('\n')}\n`);
 }
@@ -334,8 +334,8 @@ function buildRemoteTokenGuide(options, normalized, reason) {
       'Copy the token and rerun env-manage add with --token (or --token-env).',
     ],
     rerun_examples: [
-      `node ./env-manage.mjs add --name ${options.name} --url ${normalized.baseUrl} --token <your_token> --scope ${options.scope} --base-dir ${options.baseDir}`,
-      `node ./env-manage.mjs add --name ${options.name} --url ${normalized.baseUrl} --token-env NOCOBASE_API_TOKEN --scope ${options.scope} --base-dir ${options.baseDir}`,
+      `node ./scripts/env-manage.mjs add --name ${options.name} --url ${normalized.baseUrl} --token <your_token> --scope ${options.scope} --base-dir ${options.baseDir}`,
+      `node ./scripts/env-manage.mjs add --name ${options.name} --url ${normalized.baseUrl} --token-env NOCOBASE_API_TOKEN --scope ${options.scope} --base-dir ${options.baseDir}`,
     ],
     token_env_examples: {
       powershell: "$env:NOCOBASE_API_TOKEN='<your_token>'",

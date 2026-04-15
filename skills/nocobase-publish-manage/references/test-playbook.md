@@ -41,10 +41,10 @@ When apply mode is used:
 
 ## Cases
 
-### TC01 Precheck Migration Structure Only
+### TC01 Precheck Migration Schema-Only-All
 
 ```text
-node ./publish-manage.mjs precheck --method migration --migration-template structure_only --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs precheck --method migration --migration-template schema_only_all --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
@@ -52,22 +52,23 @@ Expected:
 - `verification=passed` or `failed` with actionable blockers
 - `channel` explicitly resolved
 
-### TC02 Publish Plan Only
+### TC02 Publish Plan Only (Backup Restore)
 
 ```text
-node ./publish-manage.mjs publish --method backup_restore --target-env <TARGET_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs publish --method backup_restore --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
 
 - `verification=pending_verification`
 - `execution.steps[*].status=planned`
-- `commands_or_actions[*].operation` exists for release mutations (`backup_create`, `backup_restore`, `migration_generate`, `migration_up`)
+- `commands_or_actions[*].operation` includes `backup_download` and `backup_upload`
+- `backup_candidates` exists (latest source candidates when query succeeds)
 
 ### TC03 Publish Apply Without Confirm (Guard)
 
 ```text
-node ./publish-manage.mjs publish --method backup_restore --target-env <TARGET_ENV> --base-dir <BASE_DIR> --apply
+node ./scripts/publish-manage.mjs publish --method backup_restore --target-env <TARGET_ENV> --base-dir <BASE_DIR> --apply
 ```
 
 Expected:
@@ -78,7 +79,7 @@ Expected:
 ### TC04 Rollback Missing Backup ID (Guard)
 
 ```text
-node ./publish-manage.mjs rollback --method backup_restore --target-env <TARGET_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs rollback --method backup_restore --target-env <TARGET_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
@@ -88,7 +89,7 @@ Expected:
 ### TC05 Remote API Missing Token (Guard)
 
 ```text
-node ./publish-manage.mjs precheck --method backup_restore --channel remote_api --target-url <TARGET_URL> --target-token-env <TOKEN_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs precheck --method backup_restore --channel remote_api --target-url <TARGET_URL> --target-token-env <TOKEN_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
@@ -98,7 +99,7 @@ Expected:
 ### TC06 Remote SSH Missing Path (Guard)
 
 ```text
-node ./publish-manage.mjs precheck --method backup_restore --channel remote_ssh_cli --ssh-host <SSH_HOST> --ssh-user <SSH_USER> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs precheck --method backup_restore --channel remote_ssh_cli --ssh-host <SSH_HOST> --ssh-user <SSH_USER> --base-dir <BASE_DIR>
 ```
 
 Expected:
@@ -108,7 +109,7 @@ Expected:
 ### TC07 Migration Full Overwrite Warning
 
 ```text
-node ./publish-manage.mjs precheck --method migration --migration-template full_overwrite --target-env <TARGET_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs precheck --method migration --migration-template full_overwrite --target-env <TARGET_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
@@ -118,27 +119,81 @@ Expected:
 ### TC08 Non-Commercial Gate
 
 ```text
-node ./publish-manage.mjs precheck --method backup_restore --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs precheck --method backup_restore --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
 
 - if `pm list` does not include enabled `plugin-migration-manager` capability:
-- `blockers` includes commercial capability missing reason
-- `action_required` includes purchase URL `https://www.nocobase.com/en/commercial`
-- `action_required` includes restart-app guidance before rerun
+  - `blockers` includes commercial capability missing reason
+  - `action_required` includes purchase URL `https://www.nocobase.com/en/commercial`
+  - `action_required` includes restart-app guidance before rerun
 
 ### TC09 Required Plugin Activation Gate
 
 ```text
-node ./publish-manage.mjs precheck --method migration --migration-template structure_only --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
+node ./scripts/publish-manage.mjs precheck --method migration --migration-template schema_only_all --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR>
 ```
 
 Expected:
 
 - if migration/backup manager plugin is missing or disabled:
-- `blockers` includes required plugin not ready
-- `action_required` includes `$nocobase-plugin-manage enable ...`
+  - `blockers` includes required plugin not ready
+  - `action_required` includes `$nocobase-plugin-manage enable ...`
+
+### TC10 Publish Method Hard Gate
+
+```text
+node ./scripts/publish-manage.mjs publish --method migration --migration-template schema_only_all --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR> --apply --confirm confirm
+```
+
+Expected:
+
+- `blockers` includes publish method gate not confirmed
+- `action_required` includes `choose_publish_method`
+- rerun hint includes `--publish-method-confirm migration`
+
+### TC10B Migration Template Selection Gate
+
+```text
+node ./scripts/publish-manage.mjs publish --method migration --publish-method-confirm migration --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR> --apply --confirm confirm
+```
+
+Expected:
+
+- `blockers` includes unresolved migration template
+- `action_required` includes `choose_migration_template`
+- options include 4 presets (`schema_only_all`, `user_overwrite_only`, `system_overwrite_only`, `full_overwrite`)
+- `action_required.choose_migration_template.options[*]` includes both `user_defined_rule` and `system_defined_rule`
+
+### TC11 Backup Artifact Selection Gate
+
+```text
+node ./scripts/publish-manage.mjs publish --method backup_restore --publish-method-confirm backup_restore --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR> --apply --confirm confirm
+```
+
+Expected:
+
+- `blockers` includes missing backup artifact selection
+- `action_required` includes `choose_backup_artifact`
+- `action_required.choose_backup_artifact.backup_candidates` returns up to latest 5 source backups
+
+### TC12 Migration Apply Happy Path
+
+```text
+node ./scripts/publish-manage.mjs publish --method migration --publish-method-confirm migration --migration-template schema_only_all --source-env <SOURCE_ENV> --target-env <TARGET_ENV> --base-dir <BASE_DIR> --apply --confirm confirm
+```
+
+Expected:
+
+- `verification=passed`
+- steps include source then target contexts:
+  - `migration-rule-create` (source)
+  - `migration-generate` (source, with resolved rule ID)
+  - `migration-download` (source)
+  - `backup-create` (target, when backup_auto=true)
+  - `migration-check` (target)
+  - `migration-up` (target)
 
 ## Quick Regression Set
 
@@ -149,4 +204,7 @@ Expected:
 5. TC06
 6. TC08
 7. TC09
-
+8. TC10
+9. TC10B
+10. TC11
+11. TC12

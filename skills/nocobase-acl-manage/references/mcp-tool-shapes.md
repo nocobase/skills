@@ -6,7 +6,7 @@ Use this reference when ACL writes fail because command names or argument shapes
 
 ## Mandatory Contract
 
-1. Execute ACL operations through skill-local wrapper: `node ./run-ctl.mjs -- <nocobase-ctl-args>`.
+1. Execute ACL operations through skill-local wrapper: `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`.
 2. Prefer ACL-specific runtime commands before generic `resource` commands.
 3. Use `-j` for readback and verification output.
 4. Resolve actual command names from wrapper-executed help.
@@ -80,16 +80,16 @@ nocobase-ctl resource list --resource users.roles --source-id 1 -j
 ## Troubleshooting Hints
 
 1. `command not found`:
-- Ensure `node` exists and `./run-ctl.mjs` is present.
+- Ensure `node` exists and `./scripts/run-ctl.mjs` is present.
 
 2. `unknown command`:
-- Run `node ./run-ctl.mjs -- --help`, then resolve actual runtime command name.
+- Run `node ./scripts/run-ctl.mjs -- --help`, then resolve actual runtime command name.
 
 3. `Invalid JSON`:
 - Validate payload JSON and quote escaping.
 
 4. `401/403/Auth required`:
-- Verify selected env/token; run `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>` and `node ./run-ctl.mjs -- env update -e <current_env_name>`.
+- Verify selected env/token; run `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>` and `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`.
 - Ensure `@nocobase/plugin-api-keys` is active, then refresh token env and retry.
 
 5. `swagger:get` or API documentation plugin errors during `env update`:

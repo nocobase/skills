@@ -1,5 +1,15 @@
 param(
   [int]$Port = 13000,
+  [ValidateSet('docker', 'create-nocobase-app', 'git')]
+  [string]$InstallMethod = 'docker',
+  [ValidateSet('bundled', 'existing')]
+  [string]$DbMode = 'bundled',
+  [string]$DbDialect = '',
+  [string]$DbHost = '',
+  [string]$DbPort = '',
+  [string]$DbDatabase = '',
+  [string]$DbUser = '',
+  [string]$DbPassword = '',
   [switch]$McpRequired,
   [ValidateSet('none', 'api-key', 'oauth')]
   [string]$McpAuthMode = 'none',
@@ -12,6 +22,9 @@ param(
 $Fail = 0
 $Warn = 0
 $Pass = 0
+$PostgresInstallUrl = 'https://www.postgresql.org/download/'
+$MySqlInstallUrl = 'https://dev.mysql.com/doc/en/installing.html'
+$MySqlDownloadUrl = 'https://dev.mysql.com/downloads/mysql'
 
 function Record-Check {
   param(
@@ -85,6 +98,91 @@ function Get-ComposeFilePath {
     }
   }
   return ''
+}
+
+function Is-MethodDocker {
+  return $InstallMethod -eq 'docker'
+}
+
+function Is-MethodCreateOrGit {
+  return $InstallMethod -in @('create-nocobase-app', 'git')
+}
+
+function Is-MethodGit {
+  return $InstallMethod -eq 'git'
+}
+
+function Emit-DbInstallAction {
+  Write-Host 'action_required: install_or_configure_database'
+  Write-Host "postgres_install_url: $PostgresInstallUrl"
+  Write-Host "mysql_install_url: $MySqlInstallUrl"
+  Write-Host "mysql_download_url: $MySqlDownloadUrl"
+}
+
+function Test-TcpReachable {
+  param(
+    [string]$DbHost,
+    [int]$PortNumber,
+    [int]$TimeoutMs = 3000
+  )
+
+  try {
+    $client = New-Object System.Net.Sockets.TcpClient
+    $iar = $client.BeginConnect($DbHost, $PortNumber, $null, $null)
+    if (-not $iar.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) {
+      $client.Close()
+      return $false
+    }
+    $client.EndConnect($iar)
+    $client.Close()
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Test-PostgresAuthProbe {
+  param(
+    [string]$DbHost,
+    [string]$PortNumber,
+    [string]$Database,
+    [string]$User,
+    [string]$Password
+  )
+
+  if (-not (Has-Command psql)) {
+    return $null
+  }
+
+  $previous = [System.Environment]::GetEnvironmentVariable('PGPASSWORD', 'Process')
+  [System.Environment]::SetEnvironmentVariable('PGPASSWORD', $Password, 'Process')
+  try {
+    return Test-CommandSuccess -Command 'psql' -Arguments @('-h', $DbHost, '-p', $PortNumber, '-U', $User, '-d', $Database, '-c', 'select 1;', '-tA')
+  } finally {
+    [System.Environment]::SetEnvironmentVariable('PGPASSWORD', $previous, 'Process')
+  }
+}
+
+function Test-MySqlAuthProbe {
+  param(
+    [string]$DbHost,
+    [string]$PortNumber,
+    [string]$Database,
+    [string]$User,
+    [string]$Password
+  )
+
+  if (-not (Has-Command mysql)) {
+    return $null
+  }
+
+  $previous = [System.Environment]::GetEnvironmentVariable('MYSQL_PWD', 'Process')
+  [System.Environment]::SetEnvironmentVariable('MYSQL_PWD', $Password, 'Process')
+  try {
+    return Test-CommandSuccess -Command 'mysql' -Arguments @('--protocol=TCP', '-h', $DbHost, '-P', $PortNumber, '-u', $User, '-D', $Database, '--connect-timeout=5', '-e', 'SELECT 1;')
+  } finally {
+    [System.Environment]::SetEnvironmentVariable('MYSQL_PWD', $previous, 'Process')
+  }
 }
 
 function Test-IsPlaceholderAppKey {
@@ -236,27 +334,88 @@ function Emit-ActivatePluginAction {
 
 Write-Host "cwd: $(Get-Location)"
 Write-Host "timestamp: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+Write-Host "install_method: $InstallMethod"
+
+$dbDialectFromEnv = Get-DotEnvValue -Key 'DB_DIALECT'
+$dbHostFromEnv = Get-DotEnvValue -Key 'DB_HOST'
+$dbPortFromEnv = Get-DotEnvValue -Key 'DB_PORT'
+$dbDatabaseFromEnv = Get-DotEnvValue -Key 'DB_DATABASE'
+$dbUserFromEnv = Get-DotEnvValue -Key 'DB_USER'
+$dbPasswordFromEnv = Get-DotEnvValue -Key 'DB_PASSWORD'
+
+$dbDialectResolved = if ($DbDialect) { $DbDialect } elseif ($dbDialectFromEnv) { $dbDialectFromEnv } else { 'postgres' }
+if ($dbDialectResolved -notin @('postgres', 'mysql')) {
+  Record-Check fail 'INPUT-003' "Unsupported DB_DIALECT '$dbDialectResolved'." 'Use DB_DIALECT=postgres or DB_DIALECT=mysql.'
+}
+$dbHostResolved = if ($DbHost) { $DbHost } elseif ($dbHostFromEnv) { $dbHostFromEnv } else { '' }
+$dbPortResolved = if ($DbPort) { $DbPort } elseif ($dbPortFromEnv) { $dbPortFromEnv } else { '' }
+$dbDatabaseResolved = if ($DbDatabase) { $DbDatabase } elseif ($dbDatabaseFromEnv) { $dbDatabaseFromEnv } else { '' }
+$dbUserResolved = if ($DbUser) { $DbUser } elseif ($dbUserFromEnv) { $dbUserFromEnv } else { '' }
+$dbPasswordResolved = if ($DbPassword) { $DbPassword } elseif ($dbPasswordFromEnv) { $dbPasswordFromEnv } else { '' }
+
+$dbModeResolved = $DbMode
+$hasExternalDbInputs = -not [string]::IsNullOrWhiteSpace($dbHostResolved) -or
+  -not [string]::IsNullOrWhiteSpace($dbPortResolved) -or
+  -not [string]::IsNullOrWhiteSpace($dbDatabaseResolved) -or
+  -not [string]::IsNullOrWhiteSpace($dbUserResolved) -or
+  -not [string]::IsNullOrWhiteSpace($dbPasswordResolved)
+
+if (Is-MethodCreateOrGit) {
+  $dbModeResolved = 'existing'
+} elseif ((Is-MethodDocker) -and $dbModeResolved -eq 'bundled' -and $hasExternalDbInputs) {
+  $dbModeResolved = 'existing'
+}
+
+if ([string]::IsNullOrWhiteSpace($dbPortResolved)) {
+  if ($dbDialectResolved -eq 'postgres') {
+    $dbPortResolved = '5432'
+  } else {
+    $dbPortResolved = '3306'
+  }
+}
+
+Write-Host "db_mode: $dbModeResolved"
+Write-Host "db_dialect: $dbDialectResolved"
+if (-not [string]::IsNullOrWhiteSpace($dbHostResolved)) {
+  Write-Host "db_host: $dbHostResolved"
+}
 
 if (Has-Command docker) {
   if (Test-CommandSuccess -Command docker -Arguments @('--version')) {
     Record-Check pass 'DEP-DOCKER-001' 'Docker detected.'
   } else {
-    Record-Check fail 'DEP-DOCKER-001' 'Docker command exists but version check failed.' 'Reinstall Docker.'
+    if (Is-MethodDocker) {
+      Record-Check fail 'DEP-DOCKER-001' 'Docker command exists but version check failed.' 'Reinstall Docker.'
+    } else {
+      Record-Check warn 'DEP-DOCKER-001' "Docker command exists but version check failed (optional for method=$InstallMethod)." 'Reinstall Docker if you plan to use docker method.'
+    }
   }
 
   if (Test-CommandSuccess -Command docker -Arguments @('info')) {
     Record-Check pass 'DEP-DOCKER-002' 'Docker daemon is reachable.'
   } else {
-    Record-Check fail 'DEP-DOCKER-002' 'Docker daemon is not reachable.' 'Start Docker service.'
+    if (Is-MethodDocker) {
+      Record-Check fail 'DEP-DOCKER-002' 'Docker daemon is not reachable.' 'Start Docker service.'
+    } else {
+      Record-Check warn 'DEP-DOCKER-002' "Docker daemon is not reachable (optional for method=$InstallMethod)." 'Start Docker service if you plan to use docker method.'
+    }
   }
 
   if (Test-CommandSuccess -Command docker -Arguments @('compose', 'version')) {
     Record-Check pass 'DEP-DOCKER-003' 'Docker Compose detected.'
   } else {
-    Record-Check fail 'DEP-DOCKER-003' 'Docker Compose check failed.' 'Install Compose v2.'
+    if (Is-MethodDocker) {
+      Record-Check fail 'DEP-DOCKER-003' 'Docker Compose check failed.' 'Install Compose v2.'
+    } else {
+      Record-Check warn 'DEP-DOCKER-003' "Docker Compose check failed (optional for method=$InstallMethod)." 'Install Compose v2 if you plan to use docker method.'
+    }
   }
 } else {
-  Record-Check warn 'DEP-DOCKER-001' 'Docker not detected.' 'Install from https://docs.docker.com/get-started/get-docker/'
+  if (Is-MethodDocker) {
+    Record-Check fail 'DEP-DOCKER-001' 'Docker not detected.' 'Install from https://docs.docker.com/get-started/get-docker/'
+  } else {
+    Record-Check warn 'DEP-DOCKER-001' "Docker not detected (optional for method=$InstallMethod)." 'Install Docker only if docker method is needed.'
+  }
 }
 
 if (Has-Command node) {
@@ -266,13 +425,25 @@ if (Has-Command node) {
     if ($nodeMajor -ge 20) {
       Record-Check pass 'DEP-NODE-001' "Node.js version is compatible ($nodeVersion)."
     } else {
-      Record-Check warn 'DEP-NODE-001' "Node.js is below recommended version 20 ($nodeVersion)." 'Install Node.js >= 20.'
+      if (Is-MethodCreateOrGit) {
+        Record-Check fail 'DEP-NODE-001' "Node.js is below required version 20 for method=$InstallMethod ($nodeVersion)." 'Install Node.js >= 20.'
+      } else {
+        Record-Check warn 'DEP-NODE-001' "Node.js is below recommended version 20 ($nodeVersion)." 'Install Node.js >= 20.'
+      }
     }
   } else {
-    Record-Check warn 'DEP-NODE-001' "Node.js version check failed ($nodeVersion)." 'Install Node.js >= 20.'
+    if (Is-MethodCreateOrGit) {
+      Record-Check fail 'DEP-NODE-001' "Node.js version check failed for method=$InstallMethod ($nodeVersion)." 'Install Node.js >= 20.'
+    } else {
+      Record-Check warn 'DEP-NODE-001' "Node.js version check failed ($nodeVersion)." 'Install Node.js >= 20.'
+    }
   }
 } else {
-  Record-Check warn 'DEP-NODE-001' 'Node.js not detected.' 'Install Node.js >= 20 from https://nodejs.org/en/download'
+  if (Is-MethodCreateOrGit) {
+    Record-Check fail 'DEP-NODE-001' "Node.js not detected (required for method=$InstallMethod)." 'Install Node.js >= 20 from https://nodejs.org/en/download'
+  } else {
+    Record-Check warn 'DEP-NODE-001' 'Node.js not detected.' 'Install Node.js >= 20 from https://nodejs.org/en/download'
+  }
 }
 
 if (Has-Command yarn) {
@@ -280,16 +451,28 @@ if (Has-Command yarn) {
   if ($yarnVersion -match '^1\.22\.') {
     Record-Check pass 'DEP-YARN-001' "Yarn classic detected ($yarnVersion)."
   } else {
-    Record-Check warn 'DEP-YARN-001' "Yarn is not 1.22.x ($yarnVersion)." 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/'
+    if (Is-MethodCreateOrGit) {
+      Record-Check fail 'DEP-YARN-001' "Yarn is not 1.22.x (required for method=$InstallMethod, current=$yarnVersion)." 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/'
+    } else {
+      Record-Check warn 'DEP-YARN-001' "Yarn is not 1.22.x ($yarnVersion)." 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/'
+    }
   }
 } else {
-  Record-Check warn 'DEP-YARN-001' 'Yarn not detected.' 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/'
+  if (Is-MethodCreateOrGit) {
+    Record-Check fail 'DEP-YARN-001' "Yarn not detected (required for method=$InstallMethod)." 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/'
+  } else {
+    Record-Check warn 'DEP-YARN-001' 'Yarn not detected.' 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/'
+  }
 }
 
 if (Has-Command git) {
   Record-Check pass 'DEP-GIT-001' 'Git detected.'
 } else {
-  Record-Check warn 'DEP-GIT-001' 'Git not detected.' 'Install from https://git-scm.com/install'
+  if (Is-MethodGit) {
+    Record-Check fail 'DEP-GIT-001' 'Git not detected (required for method=git).' 'Install from https://git-scm.com/install'
+  } else {
+    Record-Check warn 'DEP-GIT-001' 'Git not detected.' 'Install from https://git-scm.com/install'
+  }
 }
 
 $portInUse = Test-PortInUse -TargetPort $Port
@@ -314,26 +497,77 @@ try {
   Record-Check warn 'NET-001' 'Could not verify DNS reachability.' 'If offline/restricted, use offline package workflow.'
 }
 
-if (Test-Path -LiteralPath '.env') {
-  $dbDialectFromEnv = Get-DotEnvValue -Key 'DB_DIALECT'
-} else {
-  $dbDialectFromEnv = ''
-}
-
 $composeFilePath = Get-ComposeFilePath
 $hasDbDialectInCompose = $false
 if ($composeFilePath) {
   $hasDbDialectInCompose = Select-String -Path $composeFilePath -Pattern 'DB_DIALECT=' -Quiet
 }
 
-if (-not [string]::IsNullOrWhiteSpace($dbDialectFromEnv)) {
-  Record-Check pass 'ENV-001' '.env contains DB_DIALECT.'
-} elseif ($hasDbDialectInCompose) {
-  Record-Check pass 'ENV-001' "$composeFilePath contains DB_DIALECT for Docker runtime."
-} elseif (Test-Path -LiteralPath '.env') {
-  Record-Check warn 'ENV-001' '.env found but DB_DIALECT is missing, and compose file has no DB_DIALECT.' 'Set DB_DIALECT in .env or docker-compose app environment before start/upgrade.'
+if ($dbModeResolved -eq 'existing') {
+  if ($dbDialectResolved -in @('postgres', 'mysql')) {
+    Record-Check pass 'DB-REQ-001' "External DB dialect is supported ($dbDialectResolved)."
+  } else {
+    Record-Check fail 'DB-REQ-001' "External DB mode requires db_dialect=postgres|mysql (current=$dbDialectResolved)." 'Set DB_DIALECT to postgres or mysql.'
+  }
+
+  $missingDbFields = @()
+  if ([string]::IsNullOrWhiteSpace($dbHostResolved)) { $missingDbFields += 'DB_HOST' }
+  if ([string]::IsNullOrWhiteSpace($dbPortResolved)) { $missingDbFields += 'DB_PORT' }
+  if ([string]::IsNullOrWhiteSpace($dbDatabaseResolved)) { $missingDbFields += 'DB_DATABASE' }
+  if ([string]::IsNullOrWhiteSpace($dbUserResolved)) { $missingDbFields += 'DB_USER' }
+  if ([string]::IsNullOrWhiteSpace($dbPasswordResolved)) { $missingDbFields += 'DB_PASSWORD' }
+
+  if ($missingDbFields.Count -gt 0) {
+    Record-Check fail 'DB-REQ-002' "External DB mode is missing required fields: $($missingDbFields -join ', ')." "Provide DB_* values or install PostgreSQL/MySQL first. PostgreSQL: $PostgresInstallUrl | MySQL: $MySqlInstallUrl"
+    Emit-DbInstallAction
+  } else {
+    Record-Check pass 'DB-REQ-002' 'External DB required fields are present.'
+
+    if ($dbPortResolved -notmatch '^\d+$') {
+      Record-Check fail 'DB-REQ-003' "DB_PORT must be numeric (current=$dbPortResolved)." 'Set DB_PORT to a valid numeric port.'
+    } elseif (Test-TcpReachable -DbHost $dbHostResolved -PortNumber ([int]$dbPortResolved)) {
+      Record-Check pass 'DB-CONN-001' "Database endpoint is reachable (${dbHostResolved}:$dbPortResolved)."
+    } else {
+      Record-Check fail 'DB-CONN-001' "Database endpoint is not reachable (${dbHostResolved}:$dbPortResolved)." "Start database service or install one: PostgreSQL $PostgresInstallUrl | MySQL $MySqlInstallUrl"
+      Emit-DbInstallAction
+    }
+
+    if ($dbDialectResolved -eq 'postgres') {
+      $pgProbe = Test-PostgresAuthProbe -DbHost $dbHostResolved -PortNumber $dbPortResolved -Database $dbDatabaseResolved -User $dbUserResolved -Password $dbPasswordResolved
+      if ($null -eq $pgProbe) {
+        Record-Check warn 'DB-AUTH-001' 'psql client is not available; skipped PostgreSQL auth probe.' 'Install psql for stronger preflight verification.'
+      } elseif ($pgProbe) {
+        Record-Check pass 'DB-AUTH-001' 'PostgreSQL auth probe succeeded.'
+      } else {
+        Record-Check fail 'DB-AUTH-001' "PostgreSQL auth probe failed (host=$dbHostResolved, db=$dbDatabaseResolved, user=$dbUserResolved)." 'Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions.'
+      }
+    } elseif ($dbDialectResolved -eq 'mysql') {
+      $myProbe = Test-MySqlAuthProbe -DbHost $dbHostResolved -PortNumber $dbPortResolved -Database $dbDatabaseResolved -User $dbUserResolved -Password $dbPasswordResolved
+      if ($null -eq $myProbe) {
+        Record-Check warn 'DB-AUTH-001' 'mysql client is not available; skipped MySQL auth probe.' 'Install mysql client for stronger preflight verification.'
+      } elseif ($myProbe) {
+        Record-Check pass 'DB-AUTH-001' 'MySQL auth probe succeeded.'
+      } else {
+        Record-Check fail 'DB-AUTH-001' "MySQL auth probe failed (host=$dbHostResolved, db=$dbDatabaseResolved, user=$dbUserResolved)." 'Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions.'
+      }
+    }
+  }
 } else {
-  Record-Check warn 'ENV-001' '.env not found and compose file has no DB_DIALECT.' 'Create .env with DB_DIALECT or add DB_DIALECT to docker-compose app environment before start/upgrade.'
+  Record-Check pass 'DB-REQ-000' 'Using bundled database mode.'
+}
+
+if ($dbModeResolved -eq 'bundled' -and (Is-MethodDocker)) {
+  if (-not [string]::IsNullOrWhiteSpace($dbDialectFromEnv)) {
+    Record-Check pass 'ENV-001' '.env contains DB_DIALECT.'
+  } elseif ($hasDbDialectInCompose) {
+    Record-Check pass 'ENV-001' "$composeFilePath contains DB_DIALECT for Docker runtime."
+  } elseif (Test-Path -LiteralPath '.env') {
+    Record-Check warn 'ENV-001' '.env found but DB_DIALECT is missing, and compose file has no DB_DIALECT.' 'Set DB_DIALECT in .env or docker-compose app environment before start/upgrade.'
+  } else {
+    Record-Check warn 'ENV-001' '.env not found and compose file has no DB_DIALECT.' 'Create .env with DB_DIALECT or add DB_DIALECT to docker-compose app environment before start/upgrade.'
+  }
+} else {
+  Record-Check pass 'ENV-001' "External DB mode will use provided DB_* values (method=$InstallMethod)."
 }
 
 $appKey = Get-DotEnvValue -Key 'APP_KEY'
@@ -342,7 +576,12 @@ if ([string]::IsNullOrWhiteSpace($appKey)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($appKey)) {
-  Record-Check fail 'ENV-APPKEY-001' 'APP_KEY is missing.' "Generate and set APP_KEY (for example: [System.BitConverter]::ToString((1..32 | ForEach-Object {Get-Random -Max 256})).Replace('-', '').ToLower())."
+  $hasProjectMarker = (Test-Path -LiteralPath '.env') -or (Test-Path -LiteralPath 'package.json') -or (-not [string]::IsNullOrWhiteSpace($composeFilePath))
+  if ($hasProjectMarker) {
+    Record-Check fail 'ENV-APPKEY-001' 'APP_KEY is missing for existing project files.' "Generate and set APP_KEY (for example: [System.BitConverter]::ToString((1..32 | ForEach-Object {Get-Random -Max 256})).Replace('-', '').ToLower())."
+  } else {
+    Record-Check warn 'ENV-APPKEY-001' 'APP_KEY is not set yet; check deferred to local install script generation stage.'
+  }
 } elseif (Test-IsPlaceholderAppKey -Value $appKey) {
   Record-Check fail 'ENV-APPKEY-001' 'APP_KEY uses an insecure placeholder-like value.' 'Set a random APP_KEY with at least 32 characters; avoid values containing change-me/secret-key.'
 } elseif ($appKey.Length -lt 32) {

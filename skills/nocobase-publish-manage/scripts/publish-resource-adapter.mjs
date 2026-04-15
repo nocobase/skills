@@ -1,8 +1,12 @@
 function inferMigrationMode(migrationTemplate = '') {
-  if (migrationTemplate === 'structure_only') {
+  if (migrationTemplate === 'schema_only_all' || migrationTemplate === 'structure_only') {
     return 'structure';
   }
-  if (migrationTemplate === 'full_overwrite') {
+  if (
+    migrationTemplate === 'full_overwrite' ||
+    migrationTemplate === 'user_overwrite_only' ||
+    migrationTemplate === 'system_overwrite_only'
+  ) {
     return 'overwrite';
   }
   return '';
@@ -177,9 +181,9 @@ const RESOURCE_OPERATION_DEFS = {
     buildQuery: () => ({}),
     buildBody: (params) => {
       if (params.values && typeof params.values === 'object') {
-        return { values: params.values };
+        return params.values;
       }
-      return { values: pickDefined(params, ['name', 'description', 'rules']) };
+      return pickDefined(params, ['name', 'description', 'rules']);
     },
   },
   migration_rules_update: {
@@ -190,9 +194,9 @@ const RESOURCE_OPERATION_DEFS = {
     buildQuery: ({ filterByTk, ruleId, id }) => ({ filterByTk: firstDefined(filterByTk, ruleId, id) }),
     buildBody: (params) => {
       if (params.values && typeof params.values === 'object') {
-        return { values: params.values };
+        return params.values;
       }
-      return { values: pickDefined(params, ['name', 'description', 'rules']) };
+      return pickDefined(params, ['name', 'description', 'rules']);
     },
   },
   migration_rules_destroy: {

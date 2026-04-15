@@ -26,24 +26,59 @@ Install and start NocoBase in one environment with minimal friction, then bootst
 3. Alternative: Git source
 - Best for source-level development and customization.
 
-## Docker Template Source Priority
+## Local Script Entrypoints
 
-1. First choice: local templates from `assets/docker-templates/`.
-2. Fallback only: official Docker docs via WebFetch when a required local template is missing.
-3. Always report template source in output (`local` or `web-fallback`).
+Use skill-local scripts and templates directly:
+
+Windows:
+
+```powershell
+powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql> --db-underscored <true|false> --project-name <name>
+```
+
+Linux/macOS:
+
+```bash
+bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql> --db-underscored <true|false> --project-name <name>
+```
+
+Do not fetch install command snippets from web pages during execution.
+
+## Local Template Source Priority
+
+1. Docker path: `assets/docker-templates/`
+2. create-app/git path: `assets/install-templates/`
+3. Always report template source as `local`.
+
+Post-install marker:
+
+- Install script writes `.nocobase-install-method` in app directory.
+- Upgrade script uses this marker first when `--method` is omitted (`auto` mode).
+
+## Database Mode Policy
+
+1. `docker` default: `db_mode=bundled` (uses bundled db service template).
+2. `docker` with user DB inputs (`DB_HOST` etc.) or explicit `db_mode=existing`: switch to external DB template.
+3. `create-nocobase-app` / `git`: always require external DB (`db_mode=existing`), and must use `db_dialect=postgres|mysql`.
+4. For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask `DB_UNDERSCORED` preference; default to `false` when omitted.
+5. When DB is missing, stop and ask user to install PostgreSQL or MySQL first:
+- PostgreSQL: <https://www.postgresql.org/download/>
+- MySQL install docs: <https://dev.mysql.com/doc/en/installing.html>
+- MySQL downloads: <https://dev.mysql.com/downloads/mysql>
 
 ## Quick Mode (Recommended)
 
 Inputs:
 
 - release channel (`latest`, `beta`, `alpha`)
-- database dialect (`postgres`, `mysql`, `mariadb`; default `postgres`)
+- database mode (`bundled` default for docker)
+- database dialect (`postgres`, `mysql`; default `postgres`)
 - target directory
 
 Flow:
 
 1. Run preflight and confirm zero blockers.
-2. Copy local compose template from `assets/docker-templates/` based on `db_dialect`.
+2. Copy local compose template from `assets/docker-templates/` based on `db_mode + db_dialect`.
 3. Prepare `.env` with a random `APP_KEY` (required), optional `APP_PORT`, and optional `NOCOBASE_APP_IMAGE`.
 4. Start app stack.
 5. Verify app is reachable and login page loads.
@@ -62,9 +97,7 @@ export APP_KEY="$(openssl rand -hex 32)"
 Core command pattern (Docker):
 
 ```bash
-docker compose pull
-docker compose up -d
-docker compose logs --tail=200 app
+bash scripts/install.sh --method docker --target-dir . --release-channel latest --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
 ```
 
 ## Standard Mode
@@ -73,14 +106,21 @@ docker compose logs --tail=200 app
 
 Required decisions:
 
-- database dialect: `postgres`, `mysql`, or `mariadb`
+- database mode: `bundled` or `existing`
+- database dialect:
+- bundled mode: `postgres` or `mysql`
+- existing mode: `postgres` or `mysql`
+- `db_underscored` preference (default `false`, confirm for local DB hosts)
 - release channel
 - target directory
 
 Steps:
 
-1. Select local compose template by database dialect and copy it to `docker-compose.yml`.
-2. Set required environment variables. `APP_KEY` must be random and non-placeholder. `DB_DIALECT` is usually provided by the selected compose template, and may be overridden only when intentionally needed.
+1. Select local compose template by `db_mode + db_dialect` and copy it to `docker-compose.yml`.
+2. Set required environment variables.
+- `APP_KEY` must be random and non-placeholder.
+- For existing mode, `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD` are required.
+- `DB_UNDERSCORED` default is `false` and should be confirmed for local DB hosts.
 3. Start services with `docker compose up -d`.
 4. Validate app and logs.
 
@@ -93,15 +133,23 @@ Steps:
 3. Run NocoBase install command.
 4. Start dev runtime.
 
+Database requirement:
+
+- Must have reachable PostgreSQL or MySQL (`db_mode=existing`).
+- Required inputs: `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD`.
+- Optional input: `DB_UNDERSCORED` (default `false`; confirm for local DB hosts).
+
 Typical command pattern:
 
 ```bash
-yarn create nocobase-app my-nocobase
-cd my-nocobase
-yarn install
-yarn nocobase install --lang=zh-CN
+bash scripts/install.sh --method create-nocobase-app --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase-app --run-mode none
+cd my-nocobase-app
 yarn dev
 ```
+
+Template sources:
+
+- `assets/install-templates/create-app.command.template.txt`
 
 ### C) Git Path
 
@@ -112,15 +160,24 @@ Steps:
 3. Prepare `.env`.
 4. Run install and start command.
 
+Database requirement:
+
+- Must have reachable PostgreSQL or MySQL (`db_mode=existing`).
+- Required inputs: `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD`.
+- Optional input: `DB_UNDERSCORED` (default `false`; confirm for local DB hosts).
+
 Typical command pattern:
 
 ```bash
-git clone https://github.com/nocobase/nocobase.git my-nocobase
+bash scripts/install.sh --method git --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase --run-mode none
 cd my-nocobase
-yarn install
-yarn nocobase install
 yarn dev
 ```
+
+Template sources:
+
+- `assets/install-templates/git.clone.command.template.txt`
+- `assets/install-templates/git.env.template`
 
 ## Post-Install Verification
 
@@ -140,7 +197,7 @@ Next-step instruction rule:
 
 ## Final CLI Bootstrap Stage (Default)
 
-For install/deploy tasks, run this section as the default final stage after app startup.
+For install tasks, run this section as the default final stage after app startup.
 
 1. Resolve local API URL:
 - `http://localhost:<port>/api`
@@ -161,8 +218,8 @@ For install/deploy tasks, run this section as the default final stage after app 
 4. Run CLI bootstrap command chain:
 
 ```bash
-node ./env-manage.mjs add --name local --url http://localhost:13000/api --scope project --base-dir .
-node ./env-manage.mjs current --scope project --base-dir .
+node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --scope project --base-dir .
+node ./scripts/env-manage.mjs current --scope project --base-dir .
 ```
 
 Note: `env-manage add` now always includes `env update` connectivity verification internally.

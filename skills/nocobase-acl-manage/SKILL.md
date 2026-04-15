@@ -175,10 +175,10 @@ Default behavior when user says `you decide`:
 - normalize create-role wording to `role.create-blank` baseline first, then permission assignment
 
 2. Capability gate (CLI).
-- confirm skill-local wrapper is available (`node ./run-ctl.mjs -- ...`)
+- confirm skill-local wrapper is available (`node ./scripts/run-ctl.mjs -- ...`)
 - confirm current env context through bootstrap skill app-manage (`$nocobase-env-bootstrap task=app-manage app_env_action=current target_dir=<target_dir> app_scope=project`)
 - if no env is configured/current, request env bootstrap through `$nocobase-env-bootstrap task=app-manage` (`app_env_action=add/use`)
-- if runtime command cache is missing/stale, run `node ./run-ctl.mjs -- env update -e <current_env_name>`
+- if runtime command cache is missing/stale, run `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`
 - if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
 - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
 - restart app before retrying runtime refresh
@@ -218,7 +218,7 @@ Primary write path:
 Guarded fallback path (user-role membership only):
 
 - allowed only when `allow_generic_association_write=true`
-- use generic `node ./run-ctl.mjs -- resource update/list` only for `users.roles` association operations
+- use generic `node ./scripts/run-ctl.mjs -- resource update/list` only for `users.roles` association operations
 - mandatory readback after write
 
 Hard restrictions:

@@ -11,44 +11,44 @@ Provide a single CLI wrapper path for app environment operations used by downstr
 
 Use skill-local script:
 
-- `node ./env-manage.mjs <action> ...`
+- `node ./scripts/env-manage.mjs <action> ...`
 
 ## Command Contract
 
 ### 1) Add environment
 
 ```bash
-node ./env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --scope project --base-dir <target_dir>
 ```
 
 Manual token input (typically remote env only):
 
 ```bash
-node ./env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --token <token> --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --token <token> --scope project --base-dir <target_dir>
 ```
 
 Or read manual token from env:
 
 ```bash
-node ./env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --token-env NOCOBASE_API_TOKEN --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --token-env NOCOBASE_API_TOKEN --scope project --base-dir <target_dir>
 ```
 
 ### 2) Switch environment
 
 ```bash
-node ./env-manage.mjs use --name <env_name> --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs use --name <env_name> --scope project --base-dir <target_dir>
 ```
 
 ### 3) Current environment
 
 ```bash
-node ./env-manage.mjs current --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs current --scope project --base-dir <target_dir>
 ```
 
 ### 4) List environments
 
 ```bash
-node ./env-manage.mjs list --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs list --scope project --base-dir <target_dir>
 ```
 
 ## Local vs Remote Token Policy

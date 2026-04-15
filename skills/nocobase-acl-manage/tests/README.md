@@ -19,8 +19,8 @@ These legacy files are not the default validation path for the current skill con
 1. Verify CLI and env through skill-local wrapper:
 
 ```bash
-node ./run-ctl.mjs -- --help
-node ./run-ctl.mjs -- env update -e local
+node ./scripts/run-ctl.mjs -- --help
+node ./scripts/run-ctl.mjs -- env update -e local
 ```
 
 Use `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=.` to verify current env context before ACL writes.
@@ -39,12 +39,12 @@ If `env update` fails with `swagger:get`/API documentation plugin errors, activa
 Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys
 ```
 
-Then restart app, refresh token env if needed, and rerun `node ./run-ctl.mjs -- env update -e local`.
+Then restart app, refresh token env if needed, and rerun `node ./scripts/run-ctl.mjs -- env update -e local`.
 
 2. Verify runtime command availability:
 
 ```bash
-node ./run-ctl.mjs -- --help
+node ./scripts/run-ctl.mjs -- --help
 # then inspect resolved acl command group help
 ```
 
@@ -53,8 +53,8 @@ node ./run-ctl.mjs -- --help
 4. For guarded membership fallback checks, explicitly enable policy in task context and use:
 
 ```bash
-node ./run-ctl.mjs -- resource update --resource users ...
-node ./run-ctl.mjs -- resource list --resource users.roles ...
+node ./scripts/run-ctl.mjs -- resource update --resource users ...
+node ./scripts/run-ctl.mjs -- resource list --resource users.roles ...
 ```
 
 ## Report Guidance

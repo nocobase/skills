@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Define deterministic release orchestration for `nocobase-publish-manage` with Node-only scripts in this skill folder.
+Define deterministic release orchestration for `nocobase-publish-manage` with Node-only scripts inside this skill directory.
 
 ## Runtime Entry Points
 
-- `node ./publish-manage.mjs <action> ...`
-- `node ./run-ctl.mjs -- <nocobase-ctl-args>`
-- `$nocobase-env-bootstrap task=app-manage ...` (for environment lifecycle only)
+- `node ./scripts/publish-manage.mjs <action> ...`
+- `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`
+- `$nocobase-env-bootstrap task=app-manage ...` (environment lifecycle only)
 
 ## Action Matrix
 
@@ -23,7 +23,7 @@ Define deterministic release orchestration for `nocobase-publish-manage` with No
 
 | Channel | Main Transport | Typical Use |
 |---|---|---|
-| `local_cli` | `run-ctl.mjs` wrapper | local app / local operator |
+| `local_cli` | `scripts/run-ctl.mjs` wrapper | local app / local operator |
 | `remote_api` | API action routes | remote app API reachable |
 | `remote_ssh_cli` | `ssh` + app CLI | remote host with shell access |
 | `auto` | heuristic resolution | default mode |
@@ -38,26 +38,61 @@ Auto-resolution order:
 
 ## Method Matrix
 
-| Method | Steps |
+| Method | Publish Steps |
 |---|---|
-| `backup_restore` | backup target -> restore target |
-| `migration` | backup target -> generate migration on source -> download package from source -> upload/check on target -> run task on target |
+| `backup_restore` | source list latest backups (gate) -> source download backup file -> target create backup (optional auto) -> target upload/restore |
+| `migration` | source create migration rule -> source generate migration file (ruleId required) -> source download package -> target create backup (optional auto) -> target check migration file -> target run migration task |
 
-Migration template:
+Migration template presets:
 
-- `full_overwrite`: high-impact replace behavior
-- `structure_only`: structure-only migration path
+- `schema_only_all`: user-defined=`schema-only`, system=`schema-only`
+- `user_overwrite_only`: user-defined=`overwrite`, system=`schema-only`
+- `system_overwrite_only`: user-defined=`schema-only`, system=`overwrite-first`
+- `full_overwrite`: user-defined=`overwrite`, system=`overwrite-first`
+
+User-visible method labels:
+
+- `backup_restore`: `Use existing backup package`
+- `migration`: `Create new release package`
+
+## Execution Context Contract
+
+For publish actions, every planned/executed step must carry explicit context:
+
+- `exec_context`: `source` or `target`
+- `exec_env`: resolved env name for the step
+- `exec_base_url`: resolved API base URL for the step
+
+Execution order for mutation flows:
+
+1. finish source-side package creation/download
+2. then execute target-side backup/check/apply
 
 ## Safety Rules
 
 1. `publish` / `rollback` in apply mode require `--confirm confirm`.
-2. `migration` requires explicit template (`full_overwrite` or `structure_only`).
+2. `migration` publish requires explicit template (`schema_only_all`, `user_overwrite_only`, `system_overwrite_only`, or `full_overwrite`).
 3. `rollback` requires explicit backup artifact.
 4. remote API publish requires valid token env.
 5. remote SSH flow requires host + path.
 6. CLI detection failure must hand off to `nocobase-env-bootstrap` for repair.
-7. If `pm list` cannot detect enabled `plugin-migration-manager` capability, block publish and provide guidance: purchase commercial edition or restart target app if already purchased.
-8. Required plugins for release are `migration_manager` (`@nocobase/plugin-migration-manager`) and `backup_manager` (`@nocobase/plugin-backups`); if missing or inactive, hand off to `nocobase-plugin-manage enable ...`.
+7. If `pm list` cannot detect enabled `plugin-migration-manager`, block publish and provide guidance:
+   - purchase commercial edition
+   - or restart target app if already purchased
+8. Required plugins are:
+   - `migration_manager` (`@nocobase/plugin-migration-manager`)
+   - `backup_manager` (`@nocobase/plugin-backups`)
+   If missing or inactive, return plugin activation action.
+9. For `publish + backup_restore + apply=true`, user must choose one source backup artifact before execution starts. Runtime returns latest 5 source candidates and blocks execution when `--backup-artifact` is missing.
+10. For `publish + apply=true`, method selection is a hard gate. Runtime requires `--publish-method-confirm <same-as--method>` before execution starts.
+11. For `publish + method=migration + apply=true`, template preset selection is a hard gate. Runtime must return `action_required.type=choose_migration_template` when template is missing.
+12. For migration publish, `migration_rules_create` payload must set:
+    - `rules.userDefined.globalRule`
+    - `rules.systemDefined.globalRule`
+    - `rules.userDefined.enableIndependentRules=false`
+    - `rules.systemDefined.enableIndependentRules=false`
+13. For migration publish, `migration_rules_create` must succeed and provide rule ID before `migration_files_create` runs.
+14. Any `action_required` choice gate (`choose_publish_method`, `choose_backup_artifact`, `choose_migration_template`) must be treated as user-input required and must not be auto-resolved by orchestration.
 
 ## Verification States
 
@@ -67,14 +102,15 @@ Migration template:
 
 ## Output Envelope
 
-`publish-manage.mjs` returns JSON with:
+`scripts/publish-manage.mjs` returns JSON with:
 
-- `request`
+- `request` (includes `publish_method_confirm`)
 - `channel`
 - `target_resolution`
 - `pre_state`
 - `checks`, `blockers`, `warnings`
 - `plugin_checks`
+- `backup_candidates`
 - `action_required`
 - `backup_artifact`
 - `commands_or_actions`
@@ -84,15 +120,19 @@ Migration template:
 - `fallback_hints`
 - `next_steps`
 
-For release `commands_or_actions[*]` and `execution.steps[*]`, each step includes:
+Execution summary includes tracked IDs/files:
 
-- `exec_context`: `source` or `target`
-- `exec_env`: resolved env name for the step
-- `exec_base_url`: resolved API base URL for the step
+- `latest_backup_artifact`
+- `latest_backup_downloaded_file`
+- `latest_migration_rule_id`
+- `latest_migration_file`
+- `latest_migration_downloaded_file`
+- `latest_migration_task_id`
+- `latest_restore_task_id`
 
 ## Resource Adapter Coverage
 
-`publish-resource-adapter.mjs` provides operation templates for:
+`scripts/publish-resource-adapter.mjs` provides operation templates for:
 
 - backups plugin:
   - create/list/destroy/restore/upload/download
@@ -108,8 +148,7 @@ For release `commands_or_actions[*]` and `execution.steps[*]`, each step include
 
 ## Notes
 
-- Runtime route names for backup/migration may vary across plugin versions.
-- Use precheck output plus target runtime action list to confirm final route names in your environment.
-- Migration template policy is maintained in `../migration-template-rules.mjs`.
-- Resource operation templates and adapter rules are maintained in `../publish-resource-adapter.mjs`.
-
+- Runtime route names for backup/migration can vary across plugin versions.
+- Use precheck output plus runtime route attempts to confirm final route names in your environment.
+- Migration template policy is maintained in `../scripts/migration-template-rules.mjs`.
+- Resource operation templates and adapter rules are maintained in `../scripts/publish-resource-adapter.mjs`.

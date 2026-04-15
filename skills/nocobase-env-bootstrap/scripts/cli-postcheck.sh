@@ -24,7 +24,7 @@ CLI_DEPENDENCY_PLUGINS='@nocobase/plugin-api-doc,@nocobase/plugin-api-keys'
 CLI_DEPENDENCY_ENABLE_CMD='Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys'
 INSTALL_GUIDE='https://github.com/nocobase/nocobase-ctl'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CTL_WRAPPER="${SCRIPT_DIR}/../run-ctl.mjs"
+CTL_WRAPPER="${SCRIPT_DIR}/run-ctl.mjs"
 BASE_DIR=""
 
 record() {
@@ -176,7 +176,7 @@ if ! has_cmd node; then
 fi
 
 if [[ ! -f "$CTL_WRAPPER" ]]; then
-  record fail CLI-001 "Cannot find skill-local ctl wrapper: ${CTL_WRAPPER}" 'Ensure nocobase-env-bootstrap/run-ctl.mjs exists, then rerun postcheck.'
+  record fail CLI-001 "Cannot find skill-local ctl wrapper: ${CTL_WRAPPER}" 'Ensure nocobase-env-bootstrap/scripts/run-ctl.mjs exists, then rerun postcheck.'
   printf 'summary: fail=%d warn=%d pass=%d\n' "$FAIL" "$WARN" "$PASS"
   exit 1
 fi
@@ -318,11 +318,11 @@ if [[ "$FAIL" -eq 0 ]]; then
     if printf '%s' "$READBACK" | grep -F "$ENV_NAME" >/dev/null 2>&1 && printf '%s' "$READBACK" | grep -F "$BASE_URL" >/dev/null 2>&1; then
       record pass CLI-005 'Readback confirms expected env and base URL.'
     else
-      record warn CLI-005 'Readback completed but expected env/base URL was not clearly found in output.' 'Inspect `node ./run-ctl.mjs -- env -s <scope>` output manually.'
+      record warn CLI-005 'Readback completed but expected env/base URL was not clearly found in output.' 'Inspect `node ./scripts/run-ctl.mjs -- env -s <scope>` output manually.'
     fi
   else
     printf '%s\n' "$READBACK"
-    record fail CLI-005 'Readback failed.' 'Run `node ./run-ctl.mjs -- env -s <scope>` manually and verify.'
+    record fail CLI-005 'Readback failed.' 'Run `node ./scripts/run-ctl.mjs -- env -s <scope>` manually and verify.'
   fi
 fi
 

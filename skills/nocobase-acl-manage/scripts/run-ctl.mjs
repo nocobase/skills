@@ -10,12 +10,12 @@ const INSTALL_URL = 'https://github.com/nocobase/nocobase-ctl';
 function printHelp() {
   const help = [
     'Usage:',
-    '  node ./run-ctl.mjs [--prefer auto|global|local] [--base-dir <dir>] [--debug] -- <ctl args...>',
-    '  node ./run-ctl.mjs <ctl args...>',
+    '  node ./scripts/run-ctl.mjs [--prefer auto|global|local] [--base-dir <dir>] [--debug] -- <ctl args...>',
+    '  node ./scripts/run-ctl.mjs <ctl args...>',
     '',
     'Examples:',
-    '  node ./run-ctl.mjs -- env update -e local',
-    '  node ./run-ctl.mjs --prefer local -- env add --name local --base-url http://localhost:13000/api --token xxx -s project',
+    '  node ./scripts/run-ctl.mjs -- env update -e local',
+    '  node ./scripts/run-ctl.mjs --prefer local -- env add --name local --base-url http://localhost:13000/api --token xxx -s project',
     '',
     'Env overrides:',
     '  NOCOBASE_CTL_RUN_JS=<absolute-or-relative-path-to-bin/run.js>',
@@ -92,7 +92,7 @@ function parseArgs(argv) {
   }
 
   if (ctlArgs.length === 0) {
-    throw new Error('Missing ctl arguments. Example: node ./run-ctl.mjs -- env update -e local');
+    throw new Error('Missing ctl arguments. Example: node ./scripts/run-ctl.mjs -- env update -e local');
   }
 
   return {

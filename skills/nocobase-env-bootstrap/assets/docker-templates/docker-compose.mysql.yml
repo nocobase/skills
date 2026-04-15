@@ -18,7 +18,7 @@ services:
       - DB_DATABASE=nocobase
       - DB_USER=root
       - DB_PASSWORD=nocobase
-      - DB_UNDERSCORED=true
+      - DB_UNDERSCORED=${DB_UNDERSCORED:-false}
       - TZ=${TZ:-Asia/Shanghai}
     volumes:
       - ./storage:/app/nocobase/storage

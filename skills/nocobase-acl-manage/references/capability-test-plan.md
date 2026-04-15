@@ -22,7 +22,7 @@ Excluded:
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| ACL-SMOKE-001 | cli | `node ./run-ctl.mjs -- --help` + `$nocobase-env-bootstrap task=app-manage app_env_action=current` availability | runtime |
+| ACL-SMOKE-001 | cli | `node ./scripts/run-ctl.mjs -- --help` + `$nocobase-env-bootstrap task=app-manage app_env_action=current` availability | runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -50,7 +50,7 @@ Excluded:
 
 Required:
 
-- skill-local wrapper available (`./run-ctl.mjs`) and `node` available
+- skill-local wrapper available (`./scripts/run-ctl.mjs`) and `node` available
 - bootstrap skill app-manage available (`$nocobase-env-bootstrap task=app-manage ...`)
 - configured current env context and token (when remote env requires it)
 - `@nocobase/plugin-api-doc` active (`swagger:get` available for runtime command discovery)
