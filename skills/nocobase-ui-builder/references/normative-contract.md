@@ -1,6 +1,6 @@
 # Normative Contract
 
-This page is the single source of truth for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page.
+This page defines the global contract for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page. Template-selection semantics are defined normatively in [templates.md](./templates.md); this file sets the global precedence, transport, and public write contract around them.
 
 ## 0. Canonical Transport
 
@@ -14,9 +14,10 @@ Rule precedence is always:
 
 1. live `nocobase-ctl flow-surfaces --help` / live generated CLI behavior
 2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level `flow_surfaces_*` write contracts
-3. this `Normative Contract`
-4. topic references (`popup`, `verification`, `runtime-playbook`, etc.)
-5. examples and heuristics
+3. this `Normative Contract` for global transport, request-shape, and authoring rules
+4. [templates.md](./templates.md) for template-selection semantics
+5. other topic references (`popup`, `verification`, `runtime-playbook`, etc.)
+6. examples and heuristics
 
 If a lower-priority local document conflicts with a live contract fact, follow the live contract. If CLI behavior and backend contract appear to diverge, repair the CLI/runtime generation path first and do not silently author against stale assumptions.
 

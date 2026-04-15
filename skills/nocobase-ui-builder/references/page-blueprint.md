@@ -26,6 +26,7 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing inline content. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
 
 Important:
@@ -629,6 +630,8 @@ Inline popup is supported beneath a field/action/record action through:
 ```
 
 `popup.layout` is valid because popup is a popup document. By contrast, block objects themselves do **not** accept `layout`; use `tab.layout` or `popup.layout`.
+
+In whole-page `create` / `replace`, do not bind `popup.template` from loose discovery or text search alone. Instead, build the strongest planned opener/resource context you have, run the contextual selection flow from [templates.md](./templates.md), and bind `popup.template` only when one stable best available candidate wins.
 
 ### Layout cell shape
 

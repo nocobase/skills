@@ -55,7 +55,11 @@ Use the zero-dependency preview helper for deterministic output:
 - prepare-write helper: `prepareApplyBlueprintRequest(blueprint)`
 - prepare-write CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
 
-The CLI/helper should prefer the inner page blueprint object. If it receives an outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
+The CLI/helper should prefer the inner page blueprint object. If it receives a legacy outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
+
+For local helper usage, `prepare-write` may also receive one outer helper envelope like `{ requestBody, templateDecision }`. This helper envelope is official and should not emit the legacy outer-wrapper warning. When `templateDecision` is present and valid, the helper should return the normalized `templateDecision` object only after the blueprint is already recognizable, even if other blueprint gates later fail. If that `templateDecision` contradicts the actual bound template uid/mode in the blueprint, reject it with `inconsistent-template-decision` instead of returning a misleading summary. For `selected-reference` / `selected-copy`, matching one bound uid/mode for the current decision is sufficient even on mixed-template pages. The ASCII wireframe itself still stays reason-free.
+
+Preview-only `renderPageBlueprintAsciiPreview(...)` / `nb-page-preview --stdin-json` should not treat `{ requestBody, templateDecision }` as a special success path. If preview-only receives that helper envelope, it may still unwrap `requestBody` for compatibility, but it should ignore `templateDecision` and still emit the legacy outer-wrapper warning so wrong-surface calls remain visible.
 
 For the **first real write**, prefer the prepare-write helper/CLI rather than preview-only mode. It should use the same inner blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return the normalized CLI raw body only when the gate passes. If MCP fallback is later required, wrap that same object under `requestBody` according to [tool-shapes.md](./tool-shapes.md).
 
