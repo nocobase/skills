@@ -1,4 +1,5 @@
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
+import { summarizeTemplateDecision } from './template-decision-summary.js';
 
 const DEFAULT_MAX_SUMMARY_ITEMS = 4;
 const DEFAULT_MAX_POPUP_DEPTH = 1;
@@ -8,8 +9,10 @@ const MAX_HEADER_TEXT = 48;
 const PLACEHOLDER_TEXT_PATTERN = /^(summary|later|placeholder|todo)$/i;
 const PLACEHOLDER_TEXT_CN_PATTERN = /^(备用|待定|稍后)$/;
 const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
+const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['requestBody', 'templateDecision']);
 const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
 const EDIT_ACTION_TYPES = new Set(['edit']);
+const REAL_TEMPLATE_MODES = new Set(['reference', 'copy']);
 const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
   'setFieldValueRules',
   'setFieldLinkageRules',
@@ -26,6 +29,8 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setBlockLinkageRules',
   'setActionLinkageRules',
 ]);
+const ADD_CHILD_RECORD_ACTION_MESSAGE =
+  '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -245,6 +250,18 @@ function describeResource(node) {
   return parts.length ? `Resource: ${parts.join(' ')}` : '';
 }
 
+function describeTemplateReference(template) {
+  if (!isPlainObject(template)) return '';
+  const uid = normalizeText(template.uid);
+  if (!uid) return '';
+  const mode = normalizeText(template.mode);
+  const usage = normalizeText(template.usage);
+  const suffix = [];
+  if (mode) suffix.push(`mode=${mode}`);
+  if (usage) suffix.push(`usage=${usage}`);
+  return suffix.length ? `Template: ${uid} [${suffix.join(', ')}]` : `Template: ${uid}`;
+}
+
 function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
@@ -299,6 +316,91 @@ function countBlocksOfType(blocks, type) {
   return ensureArray(blocks).filter(
     (block) => isPlainObject(block) && normalizeLowerText(block.type) === normalizedType,
   ).length;
+}
+
+function getRealTemplateBinding(template) {
+  if (!isPlainObject(template)) return null;
+
+  const uid = normalizeText(template.uid);
+  const mode = normalizeLowerText(template.mode);
+  if (!uid || !REAL_TEMPLATE_MODES.has(mode)) return null;
+
+  return { uid, mode };
+}
+
+function hasTemplateDocument(template) {
+  return !!normalizeText(template?.uid);
+}
+
+function getIgnoredPopupLocalKeys(popup) {
+  if (!isPlainObject(popup) || !hasTemplateDocument(popup.template)) return [];
+  return ['mode', 'blocks', 'layout'].filter((key) => hasOwn(popup, key));
+}
+
+function buildIgnoredPopupLocalKeysWarning(popup, keys) {
+  const title = normalizeText(popup?.title);
+  const prefix = title ? `Popup "${trimLabel(title, MAX_HEADER_TEXT)}"` : 'Popup template binding';
+  return `${prefix} will ignore local popup keys: ${keys.join(', ')}.`;
+}
+
+function collectTemplateBindingsFromPopup(popup, path, bindings) {
+  if (!isPlainObject(popup)) return;
+
+  const templateBinding = getRealTemplateBinding(popup.template);
+  if (templateBinding) {
+    bindings.push({
+      ...templateBinding,
+      path: `${path}.template`,
+    });
+    return;
+  }
+
+  for (const [index, block] of ensureArray(popup.blocks).entries()) {
+    collectTemplateBindingsFromBlock(block, `${path}.blocks[${index}]`, bindings);
+  }
+}
+
+function collectTemplateBindingsFromPopupItems(items, path, bindings) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    collectTemplateBindingsFromPopup(item.popup, `${path}[${index}].popup`, bindings);
+  }
+}
+
+function collectTemplateBindingsFromBlock(block, path, bindings) {
+  if (!isPlainObject(block)) return;
+
+  const templateBinding = getRealTemplateBinding(block.template);
+  if (templateBinding) {
+    bindings.push({
+      ...templateBinding,
+      path: `${path}.template`,
+    });
+  }
+
+  collectTemplateBindingsFromPopupItems(block.fields, `${path}.fields`, bindings);
+  collectTemplateBindingsFromPopupItems(block.actions, `${path}.actions`, bindings);
+  collectTemplateBindingsFromPopupItems(block.recordActions, `${path}.recordActions`, bindings);
+}
+
+function collectBlueprintTemplateBindings(blueprint) {
+  const bindings = [];
+
+  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
+    if (!isPlainObject(tab)) continue;
+    for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
+      collectTemplateBindingsFromBlock(block, `tabs[${tabIndex}].blocks[${blockIndex}]`, bindings);
+    }
+  }
+
+  return bindings;
+}
+
+function summarizeTemplateBindings(bindings) {
+  return bindings
+    .slice(0, DEFAULT_MAX_SUMMARY_ITEMS)
+    .map((binding) => `"${binding.uid}" via ${binding.mode} at ${binding.path}`)
+    .join(', ');
 }
 
 function describeField(field) {
@@ -420,14 +522,22 @@ function buildBlockHeader(block, options = {}) {
 
 function renderPopupDocument(popup, context) {
   const warnings = context.warnings;
-  const blocks = ensureArray(popup?.blocks).filter((block) => isPlainObject(block));
   const body = [];
-  const layoutRows = collectLayoutOrder(popup?.layout, blocks, warnings);
+  const templateLine = describeTemplateReference(popup?.template);
+  if (templateLine) body.push(templateLine);
 
-  if (popup?.template?.uid) {
-    const usage = normalizeText(popup?.template?.usage);
-    body.push(usage ? `Template: ${popup.template.uid} (${usage})` : `Template: ${popup.template.uid}`);
+  const ignoredLocalKeys = getIgnoredPopupLocalKeys(popup);
+  if (ignoredLocalKeys.length) {
+    body.push(`Ignored local popup keys: ${ignoredLocalKeys.join(', ')}`);
+    warnings.push(buildIgnoredPopupLocalKeysWarning(popup, ignoredLocalKeys));
   }
+
+  if (hasTemplateDocument(popup?.template)) {
+    return makeBox(`Popup: ${trimLabel(normalizeText(popup?.title, 'Untitled popup'), MAX_HEADER_TEXT)}`, body);
+  }
+
+  const blocks = ensureArray(popup?.blocks).filter((block) => isPlainObject(block));
+  const layoutRows = collectLayoutOrder(popup?.layout, blocks, warnings);
 
   if (layoutRows?.length) {
     const rendered = new Set();
@@ -500,6 +610,9 @@ function renderBlock(block, context) {
   const script = normalizeText(block?.script);
   const chart = normalizeText(block?.chart);
   const resource = describeResource(block);
+  const templateLine = describeTemplateReference(block?.template);
+
+  if (templateLine) body.push(templateLine);
 
   const fieldsSummary = summarizeList(fields, { formatter: (value) => value });
   if (fieldsSummary) body.push(`Fields: ${fieldsSummary}`);
@@ -564,12 +677,27 @@ function renderTab(tab, index, context) {
   return makeBox(`Tab: ${tabTitle}`, body);
 }
 
-function normalizeBlueprintInput(input, warnings, errors = []) {
+function isWrappedBlueprintInput(input) {
+  return isPlainObject(input)
+    && !Array.isArray(input.tabs)
+    && !normalizeText(input.mode)
+    && !normalizeText(input.version)
+    && hasOwn(input, 'requestBody');
+}
+
+function isPrepareHelperEnvelope(input) {
+  return isWrappedBlueprintInput(input) && hasOwn(input, 'templateDecision');
+}
+
+function normalizeBlueprintInput(input, warnings, errors = [], options = {}) {
+  const { suppressLegacyWrapperWarning = false } = options;
   if (!isPlainObject(input)) return null;
 
-  if (!Array.isArray(input.tabs) && !normalizeText(input.mode) && !normalizeText(input.version) && hasOwn(input, 'requestBody')) {
+  if (isWrappedBlueprintInput(input)) {
     if (isPlainObject(input.requestBody)) {
-      warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
+      if (!suppressLegacyWrapperWarning) {
+        warnings.push('Received outer requestBody wrapper; preview unwrapped the inner page blueprint.');
+      }
       return input.requestBody;
     }
 
@@ -595,6 +723,77 @@ function normalizeBlueprintInput(input, warnings, errors = []) {
   }
 
   return input;
+}
+
+function extractPrepareTemplateDecision(input, options = {}) {
+  if (Object.prototype.hasOwnProperty.call(options, 'templateDecision')) {
+    return options.templateDecision;
+  }
+
+  if (isPrepareHelperEnvelope(input)) {
+    return input.templateDecision;
+  }
+
+  return undefined;
+}
+
+function validateTemplateDecision(decision) {
+  if (typeof decision === 'undefined') {
+    return {
+      errors: [],
+      summary: undefined,
+    };
+  }
+
+  try {
+    return {
+      errors: [],
+      summary: summarizeTemplateDecision(decision),
+    };
+  } catch (error) {
+    return {
+      errors: [
+        createValidationError(
+          'templateDecision',
+          'invalid-template-decision',
+          error?.message || String(error),
+        ),
+      ],
+      summary: undefined,
+    };
+  }
+}
+
+function validateTemplateDecisionConsistency(templateDecision, blueprint) {
+  if (!templateDecision || !isRecognizablePageBlueprint(blueprint)) {
+    return [];
+  }
+
+  const bindings = collectBlueprintTemplateBindings(blueprint);
+
+  if (templateDecision.kind === 'selected-reference' || templateDecision.kind === 'selected-copy') {
+    const expectedUid = normalizeText(templateDecision?.template?.uid);
+    const expectedMode = normalizeLowerText(templateDecision.mode);
+    const matchedBinding = bindings.find((binding) => binding.uid === expectedUid && binding.mode === expectedMode);
+
+    if (!matchedBinding) {
+      const details = bindings.length
+        ? ` Found bound templates: ${summarizeTemplateBindings(bindings)}.`
+        : ' The blueprint does not bind any template with that uid/mode.';
+
+      return [
+        createValidationError(
+          'templateDecision',
+          'inconsistent-template-decision',
+          `templateDecision "${templateDecision.kind}" requires template "${expectedUid}" via ${expectedMode} in the blueprint.${details}`,
+        ),
+      ];
+    }
+
+    return [];
+  }
+
+  return [];
 }
 
 function isRecognizablePageBlueprint(blueprint) {
@@ -641,6 +840,10 @@ function validatePopupDocument(popup, path, state) {
     return;
   }
 
+  if (hasTemplateDocument(popup.template)) {
+    return;
+  }
+
   if (hasOwn(popup, 'layout') && !isPlainObject(popup.layout)) {
     pushValidationError(
       state.errors,
@@ -668,7 +871,7 @@ function validatePopupDocument(popup, path, state) {
 
 function validateCustomEditPopup(popup, path, state) {
   if (!isPlainObject(popup)) return;
-  if (popup.template && !Array.isArray(popup.blocks)) return;
+  if (hasTemplateDocument(popup.template)) return;
 
   const editFormCount = countBlocksOfType(popup.blocks, 'editForm');
   if (editFormCount !== 1) {
@@ -689,8 +892,19 @@ function validateFieldPopups(items, path, state) {
   }
 }
 
-function validateActions(items, path, state) {
+function validateActions(items, path, state, { recordActions = false } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
+    const actionType =
+      typeof item === 'string' ? normalizeLowerText(item) : isPlainObject(item) ? normalizeLowerText(item.type) : '';
+    if (!recordActions && actionType === 'addchild') {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}[${index}]`,
+        'add-child-must-use-record-actions',
+        ADD_CHILD_RECORD_ACTION_MESSAGE,
+      );
+    }
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
     const popupPath = `${path}[${index}].popup`;
     validatePopupDocument(item.popup, popupPath, state);
@@ -742,8 +956,8 @@ function validateBlock(block, path, state) {
   }
 
   validateFieldPopups(block.fields, `${path}.fields`, state);
-  validateActions(block.actions, `${path}.actions`, state);
-  validateActions(block.recordActions, `${path}.recordActions`, state);
+  validateActions(block.actions, `${path}.actions`, state, { recordActions: false });
+  validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true });
 }
 
 function validateTab(tab, index, state) {
@@ -967,6 +1181,17 @@ function validateBlueprint(blueprint, options = {}) {
     reactionTargetRegistry: buildReactionTargetRegistry(blueprint),
   };
 
+  for (const key of BLUEPRINT_ILLEGAL_ROOT_KEYS) {
+    if (!hasOwn(blueprint, key)) continue;
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      key,
+      'illegal-blueprint-control-field',
+      `Inner page blueprint must not include control field "${key}". Keep helper envelopes outside the blueprint root.`,
+    );
+  }
+
   const mode = normalizeLowerText(blueprint.mode);
   if (!['create', 'replace'].includes(mode)) {
     pushValidationError(
@@ -1043,12 +1268,21 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const warnings = [];
   const normalizeErrors = [];
   const expectedOuterTabs = getExpectedOuterTabs(options);
-  const blueprint = normalizeBlueprintInput(input, warnings, normalizeErrors);
+  const templateDecisionInput = extractPrepareTemplateDecision(input, options);
+  const blueprint = normalizeBlueprintInput(input, warnings, normalizeErrors, {
+    suppressLegacyWrapperWarning: isPrepareHelperEnvelope(input),
+  });
+  const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
   const facts = buildPrepareFacts(blueprint, expectedOuterTabs);
-  const ascii = isRecognizablePageBlueprint(blueprint) ? renderRecognizableBlueprintAscii(blueprint, warnings, options) : '';
+  const ascii = recognizableBlueprint ? renderRecognizableBlueprintAscii(blueprint, warnings, options) : '';
+  const { errors: templateDecisionErrors, summary: templateDecision } = validateTemplateDecision(templateDecisionInput);
+  const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, blueprint);
+  const resolvedTemplateDecision = recognizableBlueprint && templateDecision && !templateDecisionConsistencyErrors.length
+    ? cloneSerializable(templateDecision)
+    : undefined;
 
-  let errors = normalizeErrors;
-  if (!isRecognizablePageBlueprint(blueprint)) {
+  let errors = [...normalizeErrors, ...templateDecisionErrors, ...templateDecisionConsistencyErrors];
+  if (!recognizableBlueprint) {
     if (!errors.length) {
       errors = [
         createValidationError(
@@ -1064,6 +1298,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
       warnings: unique(warnings),
       errors,
       facts,
+      ...(resolvedTemplateDecision ? { templateDecision: resolvedTemplateDecision } : {}),
     };
   }
 
@@ -1074,6 +1309,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     warnings: unique(warnings),
     errors,
     facts,
+    ...(resolvedTemplateDecision ? { templateDecision: resolvedTemplateDecision } : {}),
   };
 
   if (result.ok) {
