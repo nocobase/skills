@@ -200,8 +200,8 @@ const user = await UserModel.findByPk(1); // Sequelize Model API
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/database.md
-- https://pr-8998.v2.docs.nocobase.com/cn/api/database/repository.md
+- https://docs.nocobase.com/cn/plugin-development/server/database.md
+- https://docs.nocobase.com/cn/api/database/repository.md
 
 ## Related
 

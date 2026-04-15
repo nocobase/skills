@@ -278,8 +278,8 @@ ConfigurableBlockModel.registerFlow({
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/flow-engine/definitions/flow-definition.md
-- https://pr-8998.v2.docs.nocobase.com/cn/flow-engine/definitions/step-definition.md
+- https://docs.nocobase.com/cn/flow-engine/definitions/flow-definition.md
+- https://docs.nocobase.com/cn/flow-engine/definitions/step-definition.md
 
 ## Related
 

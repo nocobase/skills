@@ -224,7 +224,7 @@ resource.on('saved', (data) => {
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/api/flow-engine/resource.md
+- https://docs.nocobase.com/cn/api/flow-engine/resource.md
 
 ## Related
 

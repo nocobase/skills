@@ -192,7 +192,7 @@ const MyFormDialog = observer(function MyFormDialog({
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/component/index.md
+- https://docs.nocobase.com/cn/plugin-development/client/component/index.md
 - https://5x.ant.design (Ant Design v5 component library)
 
 ## Related

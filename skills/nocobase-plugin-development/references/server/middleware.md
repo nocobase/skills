@@ -121,7 +121,7 @@ this.app.use(async (ctx, next) => {
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/middleware.md
+- https://docs.nocobase.com/cn/plugin-development/server/middleware.md
 
 ## Related
 

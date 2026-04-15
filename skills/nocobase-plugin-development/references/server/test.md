@@ -171,7 +171,7 @@ yarn test packages/plugins/@my-project/plugin-hello/src/server/__tests__/api.tes
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/test.md
+- https://docs.nocobase.com/cn/plugin-development/server/test.md
 
 ## Related
 

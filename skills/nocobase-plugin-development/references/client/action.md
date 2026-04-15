@@ -259,7 +259,7 @@ These concrete action models are available for extension or reference:
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/flow-engine/action.md
+- https://docs.nocobase.com/cn/plugin-development/client/flow-engine/action.md
 
 ## Related
 

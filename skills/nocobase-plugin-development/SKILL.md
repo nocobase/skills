@@ -199,7 +199,7 @@ These defaults apply unless the user explicitly requests otherwise. Do NOT ask a
 | Client version | `client-v2` ONLY. All client code in `src/client-v2/`. Never use `src/client/` or import from `@nocobase/client` | Never |
 | Model registration | `registerModelLoaders` (lazy loading) | Never |
 | Route registration | `componentLoader` (lazy loading) | Never |
-| Settings page registration | `pluginSettingsRouter.add` with `componentLoader` | Never |
+| Settings page registration | `pluginSettingsManager.addMenuItem()` + `addPageTabItem()` with `componentLoader` | Never |
 | ACL | `acl.allow('*', '*', 'loggedIn')` | User mentions fine-grained permissions |
 | Locale files | `zh-CN.json` + `en-US.json` | User mentions other languages |
 | `addCollection` (client-side) | Do NOT add — recommend UI "Data Source Management" instead | Only as a demo; if needed, use `eventBus` pattern (NOT direct call in `load()`) |
@@ -238,7 +238,7 @@ packages/core/flow-engine/src/     — FlowEngine
 When a full working example is needed:
 
 - **Source install**: Read `packages/plugins/@nocobase-example/` for working example plugins.
-- **Non-source install**: Browse https://github.com/nocobase/nocobase/tree/main/packages/plugins/%40nocobase-example/
+- **Non-source install**: Browse https://github.com/nocobase/nocobase/tree/develop/packages/plugins/%40nocobase-example/
 
 # Reference Loading Map
 
@@ -304,6 +304,6 @@ Final response must include:
 
 - [Reference Index](references/index.md): global index of all reference files.
 - [Getting Started](references/getting-started.md): plugin scaffold and project structure.
-- [Online Docs — Plugin Development](https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/index.md): full plugin development documentation. [verified: 2026-04-10]
-- [Online Docs — FlowEngine](https://pr-8998.v2.docs.nocobase.com/cn/flow-engine/index.md): FlowEngine complete reference. [verified: 2026-04-10]
-- [Example Plugins (GitHub)](https://github.com/nocobase/nocobase/tree/main/packages/plugins/%40nocobase-example): working example plugins. [verified: 2026-04-10]
+- [Online Docs — Plugin Development](https://docs.nocobase.com/cn/plugin-development/index.md): full plugin development documentation. [verified: 2026-04-10]
+- [Online Docs — FlowEngine](https://docs.nocobase.com/cn/flow-engine/index.md): FlowEngine complete reference. [verified: 2026-04-10]
+- [Example Plugins (GitHub)](https://github.com/nocobase/nocobase/tree/develop/packages/plugins/%40nocobase-example): working example plugins. [verified: 2026-04-10]

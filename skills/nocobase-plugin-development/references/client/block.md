@@ -211,7 +211,7 @@ Related sub-models: `TableColumnModel`, `FormItemModel`, `DetailsItemModel`, `Fo
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/flow-engine/block.md
+- https://docs.nocobase.com/cn/plugin-development/client/flow-engine/block.md
 
 ## Related
 

@@ -143,7 +143,7 @@ Migrations run based on `on` timing and `appVersion` comparison.
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/server/migration.md
+- https://docs.nocobase.com/cn/plugin-development/server/migration.md
 
 ## Related
 

@@ -60,8 +60,8 @@ After enabling, the plugin appears in the Plugin Manager (typically at `http://l
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/write-your-first-plugin.md
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/project-structure.md
+- https://docs.nocobase.com/cn/plugin-development/write-your-first-plugin.md
+- https://docs.nocobase.com/cn/plugin-development/project-structure.md
 
 ## Related Links
 

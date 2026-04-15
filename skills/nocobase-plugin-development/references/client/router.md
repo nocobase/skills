@@ -24,16 +24,24 @@ export default function MyPage() {
 }
 ```
 
-## Template: Plugin Settings Page
+## Template: Plugin Settings Page (Single Page)
 
 ```ts
 // In plugin.tsx load()
-this.pluginSettingsRouter.add('my-feature', {
+// Step 1: Register menu entry
+this.pluginSettingsManager.addMenuItem({
+  key: 'my-feature',
   title: this.t('My Feature Settings'),
   icon: 'SettingOutlined',  // Ant Design v5 icon name from https://5x.ant.design/components/icon
+});
+// Step 2: Register the actual page (key='index' maps to menu root path)
+this.pluginSettingsManager.addPageTabItem({
+  menuKey: 'my-feature',
+  key: 'index',
+  title: this.t('My Feature Settings'),
   componentLoader: () => import('./pages/MySettingsPage'),
 });
-// Accessible at /v2/admin/settings/my-feature
+// Accessible at /admin/settings/my-feature
 ```
 
 ## Template: Nested Routes
@@ -63,30 +71,33 @@ this.router.add('root.about', {
 });
 ```
 
-## Template: Multi-Level Settings Page
+## Template: Multi-Tab Settings Page
 
-```tsx
-import { Outlet } from 'react-router-dom';
-
-const pluginName = 'my-feature';
-
-// Parent with Outlet
-this.pluginSettingsRouter.add(pluginName, {
+```ts
+// Register menu entry
+this.pluginSettingsManager.addMenuItem({
+  key: 'my-feature',
   title: this.t('My Feature'),
   icon: 'SettingOutlined',
-  element: <Outlet />,
 });
 
-// Sub-pages
-this.pluginSettingsRouter.add(`${pluginName}.general`, {
+// Tab 1: General (key='index' -> /admin/settings/my-feature)
+this.pluginSettingsManager.addPageTabItem({
+  menuKey: 'my-feature',
+  key: 'index',
   title: this.t('General'),
   componentLoader: () => import('./pages/GeneralPage'),
 });
 
-this.pluginSettingsRouter.add(`${pluginName}.advanced`, {
+// Tab 2: Advanced (-> /admin/settings/my-feature/advanced)
+this.pluginSettingsManager.addPageTabItem({
+  menuKey: 'my-feature',
+  key: 'advanced',
   title: this.t('Advanced'),
   componentLoader: () => import('./pages/AdvancedPage'),
 });
+// When only 1 visible page, tabs are auto-hidden.
+// When 2+ visible pages, tabs appear at the top.
 ```
 
 ## Template: Dynamic Route Params
@@ -118,11 +129,12 @@ ctx.router.navigate('/my-page');  // navigates to /v2/my-page
 
 ## Key Points
 
-- All v2 routes get `/v2` prefix automatically.
-- First arg to `.add()` is route name; dot notation means nesting (`root.home` is child of `root`).
+- `this.router.add()` first arg is route name; dot notation means nesting (`root.home` is child of `root`).
 - Always use `componentLoader` (lazy) not `Component` (eager).
 - Page files must use `export default`.
 - `this.router` (Plugin) = RouterManager for registration. `ctx.router` (component) = React Router for navigation. They are different objects.
+- Settings pages: use `this.pluginSettingsManager.addMenuItem()` + `addPageTabItem()`. Must register menu first, then page. Plugin class must use `Plugin<any, Application>` for correct types.
+- Settings page `key: 'index'` maps to menu root path (no `/index` suffix).
 - Icon names: use string names like `'SettingOutlined'`, `'ApiOutlined'`, `'DatabaseOutlined'` from Ant Design v5 icon set.
 
 ## Common Ant Design v5 Icon Names
@@ -133,7 +145,7 @@ Full list: https://5x.ant.design/components/icon
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/router.md
+- https://docs.nocobase.com/cn/plugin-development/client/router.md
 
 ## Related
 

@@ -6,9 +6,9 @@
 
 ```tsx
 // src/client-v2/plugin.tsx
-import { Plugin } from '@nocobase/client-v2';
+import { Plugin, Application } from '@nocobase/client-v2';
 
-export class PluginMyFeatureClient extends Plugin {
+export class PluginMyFeatureClient extends Plugin<any, Application> {
   async load() {
     // 1. Register models (lazy loading)
     this.flowEngine.registerModelLoaders({
@@ -23,10 +23,16 @@ export class PluginMyFeatureClient extends Plugin {
       },
     });
 
-    // 2. Register plugin settings page (lazy loading)
-    this.pluginSettingsRouter.add('my-feature', {
+    // 2. Register plugin settings page (menu + page)
+    this.pluginSettingsManager.addMenuItem({
+      key: 'my-feature',
       title: this.t('My Feature Settings'),
       icon: 'SettingOutlined',
+    });
+    this.pluginSettingsManager.addPageTabItem({
+      menuKey: 'my-feature',
+      key: 'index',
+      title: this.t('My Feature Settings'),
       componentLoader: () => import('./pages/MySettingsPage'),
     });
 
@@ -92,13 +98,13 @@ Providers add unnecessary React rendering layers, hurt performance, and make the
 
 ## Key Points
 
-- Import `Plugin` from `@nocobase/client-v2` (not `@nocobase/client`).
+- Import `Plugin` and `Application` from `@nocobase/client-v2` (not `@nocobase/client`). Use `Plugin<any, Application>` for correct `pluginSettingsManager` types.
 - Use `registerModelLoaders` (lazy) not `registerModels` (eager).
 - Use `componentLoader` (lazy) not `Component` (eager) for routes.
 - `this.t()` auto-injects plugin namespace -- use in `load()` for runtime strings.
 - `this.router` is RouterManager (for registering routes). `ctx.router` in components is React Router (for navigation).
 - **WARNING:** In `load()`, do NOT rely on runtime router state (e.g., `this.app.router.router.state`, `location`, `pathname`). The React RouterProvider may not be mounted yet at load time. Use `this.router.add()` for route registration only; read route state in components or flow handlers, not in `load()`.
-- `this.pluginSettingsRouter` registers settings pages under `/v2/admin/settings/`.
+- `this.pluginSettingsManager` registers settings pages under `/admin/settings/` using `addMenuItem()` + `addPageTabItem()`.
 - `this.flowEngine` gives access to the FlowEngine instance for model registration.
 - `this.context` is the same object as `useFlowContext()` in components.
 - `this.app.eventBus` is a standard `EventTarget` for app lifecycle events (e.g., `'dataSource:loaded'`).
@@ -111,7 +117,7 @@ Providers add unnecessary React rendering layers, hurt performance, and make the
 | `this.flowEngine` | FlowEngine | Register models |
 | `this.engine` | FlowEngine | Alias for `this.flowEngine` |
 | `this.router` | RouterManager | Register page routes |
-| `this.pluginSettingsRouter` | PluginSettingsManager | Register settings pages |
+| `this.pluginSettingsManager` | PluginSettingsManager | Register settings pages (`addMenuItem` + `addPageTabItem`) |
 | `this.t(key)` | Function | i18n with auto namespace |
 | `this.context` | FlowEngineContext | Same as useFlowContext(). See availability note below |
 | `this.context.api` | APIClient | HTTP requests. Available in `load()` |
@@ -122,7 +128,7 @@ Providers add unnecessary React rendering layers, hurt performance, and make the
 
 ## Deep Reference
 
-- https://pr-8998.v2.docs.nocobase.com/cn/plugin-development/client/plugin.md
+- https://docs.nocobase.com/cn/plugin-development/client/plugin.md
 
 ## Related
 
