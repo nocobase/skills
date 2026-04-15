@@ -130,8 +130,8 @@ function assertTryTemplateWriteFallback(text, sourceLabel) {
   );
   assert.match(
     text,
-    /no local popup content|no explicit local popup content|without local popup content|without inline popup content/i,
-    `${sourceLabel} should scope popup.tryTemplate to the no-local-popup-content case`,
+    /no local popup content|no explicit local popup content|without local popup content|without inline popup content|local popup content[\s\S]{0,40}fallback|fallback[\s\S]{0,40}local popup/i,
+    `${sourceLabel} should describe either the no-local-popup-content guard or the local-popup fallback`,
   );
 }
 
@@ -150,8 +150,13 @@ function assertOpenAIGuardrails(text) {
     'openai prompt should require contextual template probing for repeat-eligible scenes',
   );
   assert.match(text, /keyword-only search[\s\S]{0,40}discovery-only/i, 'openai prompt should keep keyword-only guardrail');
-  assert.match(text, /smallest uid breaks a final tie|smaller uid/i, 'openai prompt should keep deterministic uid tie-break');
+  assert.match(
+    text,
+    /backend order|first compatible row|first result|first returned row/i,
+    'openai prompt should keep backend-order tie-break guidance',
+  );
   assert.match(text, /popup\.tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
+  assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
 }
 
 test('required docs and relative links stay valid', () => {

@@ -16,7 +16,7 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 - Reuse returned popup uids directly when a write establishes a popup subtree.
 - Do not invent `currentRecord` or `associatedRecords` support where the live capability does not expose it.
 - When a popup looks like a standard reusable scene, follow [templates.md](./templates.md) before choosing inline `popup` vs `popup.template`. For repeat-eligible popup scenes, contextual `list-templates` is mandatory before binding `popup.template` or finalizing inline fallback; keyword-only search stays discovery-only. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear.
-- When no explicit `popup.template` is present and there is no local popup content, default to `popup.tryTemplate=true` on popup-capable write paths. Keep [templates.md](./templates.md) as the planning truth source; `popup.tryTemplate=true` is only the execution fallback and should not replace contextual `list-templates`.
+- When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on popup-capable write paths. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning truth source; `popup.tryTemplate=true` is only the execution fallback and should not replace contextual `list-templates`.
 - This file keeps popup-specific hard boundaries only; template-selection details stay in [templates.md](./templates.md).
 - Without a live opener/target uid, whole-page popup planning should still probe popup templates from the strongest planned opener/resource context. `discovery-only` remains valid when that context is still too weak, when a resolved explicit template is unavailable in the current context, or when the top candidates remain tied after ranking. Keep the exact user-visible reason contract in [template-decision-summary.md](./template-decision-summary.md).
 
@@ -25,7 +25,7 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 For `addNew`, `view`, and `edit`:
 
 - backend may auto-complete a standard CRUD popup when no explicit popup content/template is supplied
-- if no explicit `popup.template` is present and there is no local popup content, write `popup.tryTemplate=true` first so the backend can try popup-template reuse before falling back to normal CRUD popup completion or a silent miss
+- if no explicit `popup.template` is present, write `popup.tryTemplate=true` first so the backend can try popup-template reuse before falling back to local popup content, normal CRUD popup completion, or a silent miss
 - read back the popup subtree before assuming whether content is already complete
 - only add custom popup content when the default completion is insufficient for the confirmed intent
 - for `edit`, rely on the default popup only when a standard single-form edit popup is enough; if the user wants custom layout, extra sibling blocks, or nested popups, author explicit `popup.blocks` / `popup.layout`
@@ -36,7 +36,7 @@ For `addNew`, `view`, and `edit`:
 
 Use inline popup when the page as a whole is being created/replaced and the popup is part of that page structure.
 
-For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate. When no explicit `popup.template` is present and there is no local popup content, keep `popup.tryTemplate=true` as the default inline popup fallback.
+For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the default inline popup fallback, and preserve local popup content as the miss fallback when needed.
 
 The popup subtree in public `applyBlueprint` still follows the same public page-blueprint rules:
 

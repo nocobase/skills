@@ -59,7 +59,7 @@ Use structural signatures rather than wording alone when deciding whether two sc
 - `fields`: compare host collection/root-use context, field order, renderer/popup/template behavior, and relevant field settings. Ignore host title and outer layout shell.
 - Only scenes with the same signature count as repeated. Similar wording alone is not enough when fields, actions, or data source semantics differ.
 
-Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and if semantic ranking still ties, use the smaller uid as the deterministic final tie-break. If the scene is repeated, or if it is a single standard reusable scene with strong context, and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
+Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and if semantic ranking still ties, preserve backend order and keep the first compatible row. If the scene is repeated, or if it is a single standard reusable scene with strong context, and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
 
 ## Path Boundaries
 
@@ -73,7 +73,7 @@ Multiple discovered/available templates do **not** by themselves make the task i
 ## Popup Write Fallback
 
 - `list-templates` remains the planning truth source. `popup.tryTemplate` is only the write-time fallback that lets the backend attempt direct popup-template reuse when planning already decided the scene is eligible but the request does not carry one explicit popup template binding.
-- When no explicit `popup.template` is present and there is no local popup content, default to `popup.tryTemplate=true` for popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action / field popup specs, and whole-page `applyBlueprint` inline popup specs.
+- When no explicit `popup.template` is present, default to `popup.tryTemplate=true` for popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action / field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup blocks/layout may still remain as the miss fallback.
 - Backend matching stays server-owned:
   - non-relation popup scene -> match non-relation popup templates only
   - relation popup scene -> prefer the same relation / association-field popup template first, then fall back to a non-relation popup template
@@ -126,7 +126,7 @@ Enter this table only when the task already matches a repeat-eligible reusable s
 | whole-page or localized flow | no explicit template, single occurrence only but one-off/custom | yes live/planned context | `0` | inline/non-template |
 | whole-page or localized flow | no explicit template | yes live/planned context | `1` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | no explicit template | yes live/planned context | `>1`, stable best candidate exists | auto-select the best candidate, then choose `reference` or `copy` |
-| whole-page or localized flow | no explicit template | yes live/planned context | `>1`, semantic ranking still tied after ranking | auto-select the smallest uid as the final deterministic tie-break |
+| whole-page or localized flow | no explicit template | yes live/planned context | `>1`, semantic ranking still tied after ranking | preserve backend order and auto-select the first compatible row |
 
 ## Automatic Selection Rule
 
@@ -138,7 +138,7 @@ Use the decision table above as the normative router. When the chosen row still 
 4. filter to the intended `type` / `usage` / opener/resource context
 5. keep only rows with `available = true`
 6. rank the remaining candidates using the stable best-candidate rule below
-7. automatic binding is allowed when one top candidate wins that ranking, or when the remaining semantic tie is resolved by the smallest uid
+7. automatic binding is allowed when one top candidate wins that ranking, or when the remaining semantic tie is resolved by backend order and the first compatible row
 
 Interpretation rules:
 
@@ -151,7 +151,7 @@ Interpretation rules:
 - If zero candidates are `available = true` and the task already contains a repeated popup / block / fields scene, bootstrap the first concrete repeated scene and save it as a template after successful readback instead of dropping the reuse plan.
 - If zero candidates are `available = true` and the scene appears only once, continue without a template only when it is one-off/custom or the context is still weak. For a single standard reusable scene with strong context, bootstrap it after the first successful write and save the template immediately.
 - If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking and directly bind the highest-probability winner when it is clear.
-- If the top candidates still tie on semantic ranking, use the smaller uid as the final deterministic tie-break instead of inventing another heuristic.
+- If the top candidates still tie on semantic ranking, keep the backend returned order and use the first compatible row instead of inventing another heuristic.
 
 ## Stable Best-candidate Ranking
 
@@ -164,9 +164,9 @@ When more than one `available = true` candidate remains, rank them in this exact
 5. better name/description match to the current business scene and entity wording
 6. exact remaining structure match for the planned scene (`collection`, `resource`, `association`, `root use`, and equivalent backend-supported context filters)
 7. higher `usageCount`
-8. smaller template `uid` as the final deterministic tie-break
+8. backend returned order as the final deterministic tie-break
 
-If the available data still leaves the top candidates equal on semantic ranking after steps 1-7, use step 8 (`smaller template uid`) as the final deterministic winner.
+If the available data still leaves the top candidates equal on semantic ranking after steps 1-7, use step 8 (backend returned order) and keep the first compatible row as the final deterministic winner.
 
 ## Default Model Behavior
 
@@ -177,7 +177,7 @@ If the available data still leaves the top candidates equal on semantic ranking 
 5. Once one concrete template is both resolved and contextually usable, decide `mode`. Default selected templates to `reference`; switch to `copy` only when the request clearly asks for local customization / detachment.
 6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, or it contains one single standard reusable scene with strong context, bootstrap the earliest concrete scene and save it as a template after successful readback so later matching scenes can reuse it. Prefer `saveMode="convert"` when supported so the first reusable instance also becomes a template reference.
 7. Otherwise, if no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
-8. If the top candidates still tie on semantic ranking, use the smaller uid as the final deterministic winner instead of falling back to inline content or asking.
+8. If the top candidates still tie on semantic ranking, keep the backend returned order and use the first compatible row as the final deterministic winner instead of falling back to inline content or asking.
 9. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
 
 ## Search and Selection
@@ -455,7 +455,7 @@ Use inline `popup.blocks/layout` only when the user wants local popup content ra
 
 For public `applyBlueprint`, keep the same rule: use inline `popup` / `popup.template` only, never low-level popup-retarget config shapes.
 
-When no explicit `popup.template` is present and there is no local popup content, prefer `popup.tryTemplate=true` on those popup-capable write paths instead of inventing a guessed template uid. Keep the final planning/preview explanation grounded in contextual `list-templates`, not in local compatibility guesses.
+When no explicit `popup.template` is present, prefer `popup.tryTemplate=true` on those popup-capable write paths instead of inventing a guessed template uid. Local popup content may remain as the miss fallback. Keep the final planning/preview explanation grounded in contextual `list-templates`, not in local compatibility guesses.
 
 ## Update an Existing Popup Template Reference
 
@@ -467,6 +467,8 @@ Use this when the user says things like:
 - "让这个字段改用另一个 popup template"
 
 Do not generalize this rule to block or fields-template references. Those should not be treated as freely retargetable after creation.
+
+When the caller wants the backend to attempt automatic popup-template reuse on an existing opener without naming one exact template, `flowSurfaces apply` popup specs and low-level `configure(changes.openView.tryTemplate=true)` are the corresponding execution fallback paths. Keep planning/identity decisions on `list-templates`; use `openView.tryTemplate` only as the write-time fallback.
 
 ## Reference vs Copy
 
