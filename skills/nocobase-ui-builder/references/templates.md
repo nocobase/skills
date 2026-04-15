@@ -75,6 +75,7 @@ Multiple discovered/available templates do **not** by themselves make the task i
 - `list-templates` remains the planning truth source. `popup.tryTemplate` is only the write-time fallback that lets the backend attempt direct popup-template reuse when planning already decided the scene is eligible but the request does not carry one explicit popup template binding.
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` for popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action / field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup blocks/layout may still remain as the miss fallback.
 - When the user explicitly wants the new local popup itself to become a reusable template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths instead of planning a second `save-template` call.
+- When contextual probing found no usable popup template and the current write already includes the first repeated popup as explicit local `popup.blocks`, prefer `popup.saveAsTemplate={ name, description }` on that first popup instead of deferring template creation to a second step after readback. This is the default bootstrap path for same-page repeated popup scenes too, especially repeated relation/details popups.
 - `popup.saveAsTemplate` requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 - Backend matching stays server-owned:
   - non-relation popup scene -> match non-relation popup templates only
@@ -82,6 +83,7 @@ Multiple discovered/available templates do **not** by themselves make the task i
   - if multiple candidates are still usable, the backend selects the first returned row; do not recreate or override that ranking in the skill
 - `popup.tryTemplate=true` does not replace contextual `list-templates`. Use contextual probing for planning, identity resolution, and user-visible decisions; use `popup.tryTemplate=true` only as the execution fallback when the write has no explicit `popup.template`.
 - If `popup.tryTemplate=true` misses and the request also includes local popup blocks/layout, the local popup content still wins. If it misses and there is no local popup content, let the normal backend fallback path continue instead of inventing a popup locally.
+- `popup.saveAsTemplate` only bootstraps that first local popup. Do not assume later sibling popups in the same request can already bind the freshly created template; keep later same-request siblings on `popup.tryTemplate=true`, local inline fallback, or a planned post-write localized rebind when one shared template reference must be visible immediately after the run.
 
 ## Task-level Multi-page Orchestration
 
@@ -91,6 +93,7 @@ Multiple discovered/available templates do **not** by themselves make the task i
 - Use `save-template` on that concrete scene, not on the page as a whole.
 - A same-task seed does **not** bypass contextual availability. Later pages must still call `list-templates` with the later page's live or planning context before binding.
 - If no same-task seed or existing template is contextually usable yet and the task contains a repeated scene, the first successful concrete block/popup/fields scene becomes the bootstrap source: save it immediately after readback, and when supported prefer `save-template(saveMode="convert")` so the first repeated instance also becomes a template reference.
+- For popup scenes only, if that first bootstrap source is already being created through a popup-capable write with explicit local `popup.blocks`, prefer the create-time shortcut `popup.saveAsTemplate={ name, description }` over a later standalone `save-template` call.
 - If no same-task seed or existing template is contextually usable and the scene appears only once, stay inline/non-template only when the scene is one-off/custom or the planning context is still weak. For single standard reusable scenes with strong context, prefer bootstrap-after-first-write instead.
 
 ### Same-task live reuse loop
@@ -177,7 +180,7 @@ If the available data still leaves the top candidates equal on semantic ranking 
 3. If no explicit template was provided and the request falls into a repeat-eligible scene, call `list-templates` first. This applies to whole-page drafts too.
 4. Prefer rows with `available = true`, then rank them with the stable best-candidate rule. Auto-bind when one winner remains.
 5. Once one concrete template is both resolved and contextually usable, decide `mode`. Default selected templates to `reference`; switch to `copy` only when the request clearly asks for local customization / detachment.
-6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, or it contains one single standard reusable scene with strong context, bootstrap the earliest concrete scene and save it as a template after successful readback so later matching scenes can reuse it. Prefer `saveMode="convert"` when supported so the first reusable instance also becomes a template reference.
+6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, or it contains one single standard reusable scene with strong context, bootstrap the earliest concrete scene and save it as a template so later matching scenes can reuse it. For popup-capable writes that already carry explicit local `popup.blocks`, prefer create-time `popup.saveAsTemplate={ name, description }`; otherwise save it after successful readback. Prefer `saveMode="convert"` when supported so the first reusable instance also becomes a template reference.
 7. Otherwise, if no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
 8. If the top candidates still tie on semantic ranking, keep the backend returned order and use the first compatible row as the final deterministic winner instead of falling back to inline content or asking.
 9. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
@@ -225,6 +228,7 @@ When the skill auto-creates a template because a repeated scene had no usable ex
 - Keep `name` human-facing and concise, for example `角色表格`, `角色详情弹窗`, or `User edit form fields`.
 - Put most structural and search information in `description`, not in `name`.
 - `description` should include the reusable scene, collection/resource/association context, key fields, key actions/recordActions, default mode, and an `auto-generated by nocobase-ui-builder` marker when that template was created automatically.
+- For popup seeds, include the opener/resource or relation context in `name`/`description`, for example `角色详情弹窗` or `借阅记录-图书详情弹窗`, so later contextual `list-templates` search can rank it higher.
 - Avoid timestamps or hashes in `name` unless they are the minimum needed to resolve a real name collision after signature comparison.
 
 ## Read or Refine Template Metadata
