@@ -70,6 +70,17 @@ Multiple discovered/available templates do **not** by themselves make the task i
 - Do not bind `template` / `popup.template` from loose text search alone. Keyword-only search remains discovery-only. Binding still requires one contextual `list-templates` result that the backend marks usable for the planned scene.
 - If both live context and planning context are too weak to describe the intended reusable scene, template search stays discovery-only and the write path should remain unresolved or inline/non-template by default.
 
+## Popup Write Fallback
+
+- `list-templates` remains the planning truth source. `popup.tryTemplate` is only the write-time fallback that lets the backend attempt direct popup-template reuse when planning already decided the scene is eligible but the request does not carry one explicit popup template binding.
+- When no explicit `popup.template` is present and there is no local popup content, default to `popup.tryTemplate=true` for popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action / field popup specs, and whole-page `applyBlueprint` inline popup specs.
+- Backend matching stays server-owned:
+  - non-relation popup scene -> match non-relation popup templates only
+  - relation popup scene -> prefer the same relation / association-field popup template first, then fall back to a non-relation popup template
+  - if multiple candidates are still usable, the backend selects the first returned row; do not recreate or override that ranking in the skill
+- `popup.tryTemplate=true` does not replace contextual `list-templates`. Use contextual probing for planning, identity resolution, and user-visible decisions; use `popup.tryTemplate=true` only as the execution fallback when the write has no explicit `popup.template`.
+- If `popup.tryTemplate=true` misses and the request also includes local popup blocks/layout, the local popup content still wins. If it misses and there is no local popup content, let the normal backend fallback path continue instead of inventing a popup locally.
+
 ## Task-level Multi-page Orchestration
 
 - `applyBlueprint` still creates or replaces one page at a time. If the user asks for several pages, decompose the task into sequential page runs.
@@ -443,6 +454,8 @@ Use popup templates through the popup-capable creation entry points:
 Use inline `popup.blocks/layout` only when the user wants local popup content rather than template reuse.
 
 For public `applyBlueprint`, keep the same rule: use inline `popup` / `popup.template` only, never low-level popup-retarget config shapes.
+
+When no explicit `popup.template` is present and there is no local popup content, prefer `popup.tryTemplate=true` on those popup-capable write paths instead of inventing a guessed template uid. Keep the final planning/preview explanation grounded in contextual `list-templates`, not in local compatibility guesses.
 
 ## Update an Existing Popup Template Reference
 

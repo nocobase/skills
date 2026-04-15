@@ -34,6 +34,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
 | create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
 | add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| replace existing instance-level event flows | `nocobase-ctl flow-surfaces set-event-flows` |
 | localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
 | reorder/remove tab or popup tab | `nocobase-ctl flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
 | reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
@@ -52,6 +53,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
+- If the request is about an existing target's event flow or `Execute JavaScript` step, route to `get` / `describe-surface` readback first, then `set-event-flows` with the full `flowRegistry`.
 - If the request is about default values, linkage, computed fields, show/hide, required/disabled, or action state, route to reaction authoring before considering raw configure keys.
 - For localized reaction work, do not start from `context`; start from `get-reaction-meta` and use `context` only when raw variable paths are still missing.
 - If the request crosses families or the target is not unique, narrow the target before writing.

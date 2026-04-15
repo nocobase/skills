@@ -32,6 +32,7 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 | menu lifecycle | `nocobase-ctl flow-surfaces create-menu` / `update-menu` / `create-page` / `destroy-page` |
 | tab lifecycle | `nocobase-ctl flow-surfaces add-tab` / `update-tab` / `move-tab` / `remove-tab` |
 | popup-tab lifecycle | `nocobase-ctl flow-surfaces add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` |
+| event-flow replacement | `nocobase-ctl flow-surfaces set-event-flows` |
 | reaction discovery | `nocobase-ctl flow-surfaces get-reaction-meta` |
 | reaction write | `nocobase-ctl flow-surfaces set-field-value-rules` / `set-field-linkage-rules` / `set-block-linkage-rules` / `set-action-linkage-rules` |
 
@@ -39,6 +40,7 @@ For complex writes, prefer `--body-file`; for example, `--body-file <json-file>`
 
 - Whole-page page-building still uses one page blueprint JSON plus the local `nb-page-preview --prepare-write` gate before the first remote write.
 - Localized edits still use the same backend families documented in `runtime-playbook.md`; the difference is that the canonical front door is now the CLI command, not direct MCP invocation.
+- Existing-surface event-flow replacement routes through `nocobase-ctl flow-surfaces set-event-flows`; keep the full `flowRegistry` shape from live readback instead of inventing a partial patch.
 - Reaction work still starts from `get-reaction-meta`, then writes the matching `set-*` rules command.
 - If you need the fallback MCP tool name for the same family, open [transport-crosswalk.md](./transport-crosswalk.md). This file stays CLI-centric and does not duplicate the fallback-name table.
 

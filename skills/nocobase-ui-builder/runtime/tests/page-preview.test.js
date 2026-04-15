@@ -144,6 +144,42 @@ test('renderPageBlueprintAsciiPreview shows template mode for block and popup te
   assert.match(result.ascii, /Template: employee-popup-template \[mode=copy\]/);
 });
 
+test('renderPageBlueprintAsciiPreview shows popup.tryTemplate auto-selection intent when no explicit template is bound', () => {
+  const result = renderPageBlueprintAsciiPreview({
+    version: '1',
+    mode: 'create',
+    page: {
+      title: 'Templated page',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'employeeTable',
+            type: 'table',
+            collection: 'employees',
+            fields: ['nickname'],
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'Employee details',
+                  tryTemplate: true,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
+  assert.doesNotMatch(result.ascii, /Default popup content/);
+});
+
 test('renderPageBlueprintAsciiPreview keeps popup template binding and warns that local popup content is ignored', () => {
   const result = renderPageBlueprintAsciiPreview({
     version: '1',
@@ -1284,6 +1320,78 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
+});
+
+test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'department.title',
+                popup: {
+                  title: 'Department details',
+                  tryTemplate: true,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.tryTemplate, true);
+});
+
+test('prepareApplyBlueprintRequest rejects non-boolean popup.tryTemplate values', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  tryTemplate: 'yes',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'invalid-popup-try-template' &&
+        issue.path === 'tabs[0].blocks[0].recordActions[0].popup.tryTemplate',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest accepts popup template payloads that also carry ignored local popup keys', () => {

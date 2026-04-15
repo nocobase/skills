@@ -43,6 +43,7 @@ A page-blueprint draft is good when:
 - Verify only the surfaces affected by the write, unless hierarchy changed.
 - A successful write response is not enough; confirm via readback.
 - Popup-specific claims require popup-specific readback.
+- If a popup write relied on `popup.tryTemplate=true` because no explicit `popup.template` was present and there was no local popup content, verify whether the final persisted popup stayed inline/default, bound a template, or silently missed. Do not claim template reuse from the write request alone.
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 - Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
 - Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.

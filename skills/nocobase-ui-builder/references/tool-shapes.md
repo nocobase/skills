@@ -25,9 +25,11 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs.
-- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+- Do not add placeholder `Summary` / `Later` / `Fallback` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
+- For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing inline fallback; keyword-only search stays discovery-only.
+- When no explicit `popup.template` is present and there is no local popup content, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Keep [templates.md](./templates.md) as the planning source of truth.
 
 Safe mental model:
 
@@ -136,6 +138,81 @@ Notes:
 - For form `fieldValue` / `fieldLinkage`, keep targeting the outer form block uid.
 - Reuse the returned capability `fingerprint` in the matching `set-*` write.
 - Use `flow_surfaces_context` only when you still need lower-level ctx paths beyond the returned metadata.
+
+### `set-event-flows`
+
+Use `set-event-flows` only for full replacement of a target node's instance-level `flowRegistry`.
+
+CLI request body:
+
+```json
+{
+  "target": { "uid": "submit-action-uid" },
+  "flowRegistry": {
+    "submitFlow": {
+      "key": "submitFlow",
+      "on": "click",
+      "steps": {
+        "runJsStep": {
+          "params": {
+            "code": "ctx.message.success(ctx.t('Saved'));"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Alternative `on` shape when the flow is inserted relative to a built-in flow/step:
+
+```json
+{
+  "target": { "uid": "employee-create-form-uid" },
+  "flowRegistry": {
+    "submitHook": {
+      "key": "submitHook",
+      "on": {
+        "eventName": "submit",
+        "phase": "beforeStep",
+        "flowKey": "formSettings",
+        "stepKey": "refresh"
+      },
+      "steps": {}
+    }
+  }
+}
+```
+
+Notes:
+
+- Prefer `flowRegistry` over `flows`.
+- `submitFlow`, `submitHook`, and `runJsStep` are placeholders for live keys copied from readback.
+- For `Execute JavaScript`, keep the existing step shape and update only `params.code` after local RunJS validation.
+- Do not guess unsupported `eventName`, `phase`, `flowKey`, or `stepKey`; keep the live contract from readback.
+
+MCP fallback envelope:
+
+```json
+{
+  "requestBody": {
+    "target": { "uid": "submit-action-uid" },
+    "flowRegistry": {
+      "submitFlow": {
+        "key": "submitFlow",
+        "on": "click",
+        "steps": {
+          "runJsStep": {
+            "params": {
+              "code": "ctx.message.success(ctx.t('Saved'));"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ## 2. `applyBlueprint`
 

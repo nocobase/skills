@@ -262,6 +262,10 @@ function describeTemplateReference(template) {
   return suffix.length ? `Template: ${uid} [${suffix.join(', ')}]` : `Template: ${uid}`;
 }
 
+function describePopupTryTemplate(popup) {
+  return popup?.tryTemplate === true ? 'Template: auto-select [tryTemplate=true]' : '';
+}
+
 function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
@@ -525,6 +529,8 @@ function renderPopupDocument(popup, context) {
   const body = [];
   const templateLine = describeTemplateReference(popup?.template);
   if (templateLine) body.push(templateLine);
+  const tryTemplateLine = describePopupTryTemplate(popup);
+  if (tryTemplateLine && !templateLine) body.push(tryTemplateLine);
 
   const ignoredLocalKeys = getIgnoredPopupLocalKeys(popup);
   if (ignoredLocalKeys.length) {
@@ -570,7 +576,7 @@ function renderPopupDocument(popup, context) {
       body.push(...indentLines(renderBlock(block, context), '  '));
       if (index !== blocks.length - 1) body.push('');
     }
-  } else if (!popup?.template?.uid) {
+  } else if (!popup?.template?.uid && popup?.tryTemplate !== true) {
     body.push('Default popup content');
   }
 
@@ -838,6 +844,16 @@ function validatePopupDocument(popup, path, state) {
   if (!isPlainObject(popup)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-popup', 'Popup must be one object.');
     return;
+  }
+
+  if (hasOwn(popup, 'tryTemplate') && typeof popup.tryTemplate !== 'boolean') {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.tryTemplate`,
+      'invalid-popup-try-template',
+      'popup.tryTemplate must stay a boolean when present.',
+    );
   }
 
   if (hasTemplateDocument(popup.template)) {
