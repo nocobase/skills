@@ -914,16 +914,15 @@ function planCommands(opts, ctx) {
   const commands = [];
 
   if (opts.action === 'publish') {
-    if (opts.backupAuto) {
-      commands.push({
-        step: 'backup-create',
-        operation: 'backup_create',
-        exec_context: 'target',
-        params: { backupArtifact: backupId },
-      });
-    }
-
     if (opts.method === 'backup_restore') {
+      if (opts.backupAuto) {
+        commands.push({
+          step: 'backup-create',
+          operation: 'backup_create',
+          exec_context: 'target',
+          params: { backupArtifact: backupId },
+        });
+      }
       commands.push({
         step: 'restore',
         operation: 'backup_restore',
@@ -945,6 +944,14 @@ function planCommands(opts, ctx) {
         exec_context: 'source',
         params: { fileNameRef: 'latest_created', outputPathRef: 'latest_migration_file' },
       });
+      if (opts.backupAuto) {
+        commands.push({
+          step: 'backup-create',
+          operation: 'backup_create',
+          exec_context: 'target',
+          params: { backupArtifact: backupId },
+        });
+      }
       commands.push({
         step: 'migration-check',
         operation: 'migration_files_check',
