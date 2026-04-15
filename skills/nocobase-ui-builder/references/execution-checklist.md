@@ -20,10 +20,8 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - If the request needs real fields/relations/bindings, gather live schema facts before writing.
 - If JS is involved, validate JS first.
 - If the request needs block / form fields, derive the candidate field list from `collections:get(appends=["fields"])` and drop any field whose `interface` is empty / null before authoring blueprint.
-- If template reuse may be relevant, read [templates.md](./templates.md) before choosing inline vs template authoring. Treat it as the only template-selection rule source; this checklist keeps only the execution boundary.
-- Whole-page `create` / `replace` should not skip this step. Probe reusable popup/block/fields scenes before finalizing inline structure.
-- If a later popup/block/fields scene should be the same as an earlier one in the same task and no usable template exists yet, the earlier scene becomes the bootstrap source: finish and read it back successfully, then `save-template` it immediately. Later scenes still need contextual `list-templates`.
-- For same-task `reference` reuse, add two lightweight checks around that handoff: `get-template` must succeed immediately after `save-template`, and after the later-page bind a follow-up `get-template` should usually show higher `usageCount`.
+- If the task contains reusable or repeated popup / block / fields scenes, read [templates.md](./templates.md) before deciding inline vs template authoring. Whole-page `create` / `replace` is not exempt; when no live host/opener exists yet, use the strongest planned scene context you already have.
+- Keep template concerns at the execution boundary only: `save-template` happens only after successful readback, and same-task reuse should verify the saved template from live readback (`get-template`, and `usageCount` when that reuse path applies).
 - If the request mentions default values, linkage, computed values, show/hide, required/disabled, or action state, decide explicitly whether this is a whole-page reaction task or a localized reaction task before choosing structural APIs.
 - If a target menu group is named by title, inspect the live menu tree before authoring. When one or more visible same-title groups already exist, do **not** create another same-title group for disambiguation; prefer exact `routeId` reuse, otherwise choose one existing group deterministically from the live tree and disclose that routeId in the prewrite preview.
 - The deterministic same-title group tie-break is: first prefer a same-title group already containing the target page title; otherwise choose the visible top-level same-title group with the smallest `sort`, tie-break by the smallest route id.
@@ -72,7 +70,7 @@ Use this path when the user is describing one page as a whole.
 4. Choose a page archetype from [page-archetypes.md](./page-archetypes.md) only as a starting pattern.
 5. Draft or assemble one **page blueprint** document.
 6. If the same page also needs interaction logic, add top-level `reaction.items[]` in the same blueprint instead of splitting structure and reactions into separate whole-page writes.
-7. If template reuse looks attractive, probe templates before finalizing inline content. When there is no live host/opener yet, use the strongest planned opener/resource scene context rather than downgrading the task to discovery-only immediately. Binding rules stay in [templates.md](./templates.md).
+7. If the draft contains a reusable popup / block / fields scene, hand template planning off to [templates.md](./templates.md) before finalizing inline content. Use live context when present; otherwise use the strongest planned opener/resource scene context.
 8. For a normal single-page request, default to exactly **one tab** unless the user explicitly asked for multiple route-backed tabs. Side-by-side blocks, relation tables, and deep popup chains stay inside that tab. Do not carry empty / placeholder tabs in the draft.
 9. Shrink the draft to the minimal executable structure before first write: remove placeholder `Summary` / `Later` / `备用` tabs and explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
 10. Before the **first** `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and then run the authoring self-check:
@@ -102,7 +100,7 @@ Use this path when the user is describing one page as a whole.
    - Never stringify the blueprint and never add an outer `{ values: ... }` wrapper.
    - If the CLI reports request-body validation errors, first re-check the chosen command and raw body shape. If MCP fallback reports `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first re-check the fallback envelope before changing inner blueprint fields.
 14. Verify via `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
-15. In a multi-page task, only after successful readback may the current page contribute a reusable popup / block / fields scene via `save-template`; if the request explicitly said another scene should be the same and no usable template existed yet, do that save immediately. The next page must still re-enter the template selection flow from [templates.md](./templates.md).
+15. In a multi-page task, only after successful readback may the current page contribute a reusable popup / block / fields scene via `save-template`. Rebinding behavior stays in [templates.md](./templates.md).
 
 ### Notes
 
@@ -148,7 +146,7 @@ Use this path when the user asks to add/move/remove/update only part of an exist
 2. Use `describe-surface` only when the richer public tree helps analysis.
 3. Use `catalog` only when target capability is uncertain.
 4. If the request is reaction-related, call `get-reaction-meta` before any write and do not guess raw configure keys or valid action/state names.
-5. When the task is a standard reusable popup / relation-click / fields-template scene, follow [templates.md](./templates.md) before committing to inline popup or duplicated field content. In whole-page planning, missing live target uid is not a blocker if the planned scene context is already strong enough.
+5. When the task enters a reusable popup / relation-click / fields-template scene, route template choice through [templates.md](./templates.md) before committing to inline popup or duplicated field content.
 6. Use the smallest low-level write that preserves semantics:
    - `compose` for structured block/field/action insertion under a container
    - `configure` for simple semantic changes

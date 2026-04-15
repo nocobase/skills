@@ -18,6 +18,8 @@ Use the official helper envelope `{ requestBody, templateDecision }` for that pa
 - `selected-reference` and `selected-copy` must include:
   - `mode`
   - `template.uid`
+  - optional `template.name`
+  - optional `template.description`
   - one short controlled `reason`
 - `selected-reference` and `selected-copy` describe the current template decision, not the entire page. Mixed pages may still contain other bound templates elsewhere.
 - Current runtime consistency checking is still page-level: it only verifies that the blueprint contains at least one matching template uid/mode for the current decision, and it does not yet prove node-level scope/path identity on mixed pages.
@@ -33,11 +35,13 @@ Use the official helper envelope `{ requestBody, templateDecision }` for that pa
 - `selected-copy`
   - `local-customization`
 - `discovery-only`
+  - `bootstrap-after-first-write`
   - `missing-live-context`
   - `explicit-template-unavailable`
   - `multiple-discovered-not-bound`
 - `inline-non-template`
-  - `not-template-first`
+  - `single-occurrence`
+  - `not-repeat-eligible`
   - `no-usable-template`
 
 ## Preview Boundary
@@ -45,12 +49,13 @@ Use the official helper envelope `{ requestBody, templateDecision }` for that pa
 - The default ASCII preview should expose template identity + `mode` only when the blueprint already contains them.
 - The ASCII preview does not need to invent a reason.
 - The final user-visible summary should use this contract whenever it says a template ended as `reference`, `copy`, discovery-only, or non-template.
+- When `template.name` is present, prefer that readable name in the summary sentence; fall back to `template.uid` only when no readable name is available.
 
 ## Output Pattern
 
 Use short stable sentences such as:
 
-- `Template employee-popup-template via reference: standard reuse.`
-- `Template employee-form-template via copy: local customization.`
-- `Template employee-popup-template stayed discovery-only: the current opener/host/planning context was insufficient.`
-- `Stayed inline/non-template: no usable template was available.`
+- `Template 角色详情弹窗 via reference: standard reuse.`
+- `Template User edit form via copy: local customization.`
+- `Template 角色表格 stayed discovery-only: the first repeated scene must be written and saved before later instances can bind it; convert is preferred only when supported.`
+- `Stayed inline/non-template: the scene appeared only once in the current task.`

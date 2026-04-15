@@ -15,6 +15,8 @@ const TEMPLATE_DECISION_CONFIG = {
   },
   'discovery-only': {
     reasons: {
+      'bootstrap-after-first-write':
+        'the first repeated scene must be written and saved before later instances can bind it; convert is preferred only when supported',
       'missing-live-context': 'the current opener/host/planning context was insufficient',
       'explicit-template-unavailable': 'the explicit template is unavailable in the current context',
       'multiple-discovered-not-bound': 'multiple templates were discovered but the best candidate was not uniquely resolved',
@@ -22,7 +24,8 @@ const TEMPLATE_DECISION_CONFIG = {
   },
   'inline-non-template': {
     reasons: {
-      'not-template-first': 'the request is not template-first',
+      'single-occurrence': 'the scene appeared only once in the current task',
+      'not-repeat-eligible': 'the scene is too customized or structurally unique for template reuse',
       'no-usable-template': 'no usable template was available',
     },
   },
@@ -34,10 +37,10 @@ function normalizeText(value) {
 }
 
 function getTemplateLabel(template) {
-  const uid = normalizeText(template?.uid);
-  if (uid) return uid;
   const name = normalizeText(template?.name);
   if (name) return name;
+  const uid = normalizeText(template?.uid);
+  if (uid) return uid;
   return '';
 }
 
@@ -89,16 +92,18 @@ export function summarizeTemplateDecision(decision) {
     const uid = normalizeText(template?.uid);
     if (!uid) throw new Error(`Template decision "${kind}" requires template.uid.`);
     const mode = TEMPLATE_DECISION_CONFIG[kind].mode;
+    const normalizedTemplate = {
+      uid,
+      ...(normalizeText(template?.name) ? { name: normalizeText(template.name) } : {}),
+      ...(normalizeText(template?.description) ? { description: normalizeText(template.description) } : {}),
+    };
     return {
       kind,
       mode,
-      template: {
-        uid,
-        ...(normalizeText(template?.name) ? { name: normalizeText(template.name) } : {}),
-      },
+      template: normalizedTemplate,
       reasonCode,
       reason,
-      summary: buildSelectedSummary(kind, uid, reason),
+      summary: buildSelectedSummary(kind, getTemplateLabel(normalizedTemplate) || uid, reason),
     };
   }
 
@@ -116,6 +121,7 @@ export function summarizeTemplateDecision(decision) {
     base.template = {
       ...(normalizeText(template?.uid) ? { uid: normalizeText(template.uid) } : {}),
       ...(normalizeText(template?.name) ? { name: normalizeText(template.name) } : {}),
+      ...(normalizeText(template?.description) ? { description: normalizeText(template.description) } : {}),
     };
   }
 

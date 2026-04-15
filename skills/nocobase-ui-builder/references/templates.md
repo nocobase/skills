@@ -21,36 +21,48 @@ This file is the single normative template-selection source for `nocobase-ui-bui
 - `block` templates may also be consumed as `usage = "fields"` when the saved source is a supported form-like block and the caller only wants its grid fields.
 - The backend keeps ownership checks, allowed-source checks, and usage accounting. Do not bypass those rules by writing raw template markers into model settings.
 
-## Intent-first Selection
+## Structure-repeat-first Selection
 
-- Decide the user intent first. Template-first is **not** the global default.
-- Only switch into template discovery/selection when the request falls into one of the closed reusable scenes below.
+- Task understanding/routing still starts from user intent. This file only governs template planning after the current page/edit path and reusable scene are already understood.
+- Decide whether the task contains a repeat-eligible reusable scene first. The template path is not the global default for every page element, but repeated structure in the same task is enough to enter the template path even when the user did not explicitly ask for reuse.
+- Only switch into template discovery/selection when the request falls into one of the repeat-eligible scenes below or when the same task already contains two or more structurally matching scenes.
 - `list-templates` is the only automatic-selection truth source. The skill must not recreate the frontend compatibility checks locally.
 - Frontend/server compatibility dimensions such as resource, association, root `use`, and `filterByTk` are only for deciding which live context you must pass into `list-templates`; they are not a backup selector when the query context is incomplete.
-- Whole-page `create` / `replace` is **not** exempt from template planning. When the draft contains a closed reusable scene, probe templates before locking in inline content.
+- Whole-page `create` / `replace` is **not** exempt from template planning. When the draft contains a repeat-eligible scene, probe templates before locking in inline content.
 
-## Closed Reusable Scenes
+## Repeat-eligible Scenes
 
-Treat the task as template-first only when it matches one of these scenes:
+Treat the task as entering the template path when it matches one of these scenes:
 
 - a relation/display field should click and open a standard details popup
 - a standard CRUD-style popup should be reused under a known opener, for example `view`, `edit`, `addNew`, or another confirmed popup-capable action/field
 - a repeated form field layout should be reused under a host with compatible live collection/root-use context
+- the same task contains two or more structurally matching popup / block / fields scenes
 - the user explicitly asks to reuse, unify, or follow an existing template
 - natural-language reuse cues such as "一样", "同样", "差不多", "沿用前面的思路", "保持一致", "别每次都重新排", or "不要每次都从零搭" also count as reuse intent when the surrounding popup / block / fields scene is already concrete enough
 
-Treat the task as non-template-first in these scenes:
+Treat the task as inline/non-template by default in these scenes:
 
 - highly customized or one-off popup/layout content
 - obvious local customization or "start from that and modify it here" intent
 - template search without enough live/planned scene context to describe the intended opener/resource shape
+- a repeat-eligible scene that appears only once in the current task
 
-Multiple discovered/available templates do **not** by themselves make the task non-template-first. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and ask only when the final top candidates still tie. If the user explicitly says a popup/block/fields scene should be the same and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse intent.
+## Repeated-scene Signature
+
+Use structural signatures rather than wording alone when deciding whether two scenes should share one template:
+
+- `block`: compare block type, primary collection/resource/binding/association context, field order, record actions/actions, and behavior-changing settings. Ignore page-local titles, keys, and uids.
+- `popup`: compare opener type, popup block tree, primary resource/binding/association context, field order, and actions/recordActions. Ignore outer page metadata.
+- `fields`: compare host collection/root-use context, field order, renderer/popup/template behavior, and relevant field settings. Ignore host title and outer layout shell.
+- Only scenes with the same signature count as repeated. Similar wording alone is not enough when fields, actions, or data source semantics differ.
+
+Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and ask only when the final top candidates still tie. If the scene is repeated and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
 
 ## Path Boundaries
 
 - Localized existing-surface work with a live `target.uid` / opener is the normal place where automatic template selection may run.
-- Whole-page `create` / `replace` should proactively probe templates for closed reusable scenes before finalizing inline popup/block/form-field content.
+- Whole-page `create` / `replace` should proactively probe templates for repeat-eligible scenes before finalizing inline popup/block/form-field content.
 - A missing live `target.uid` does **not** by itself block whole-page template binding. Use the strongest available **planning context** instead.
 - Planning context means the draft already knows enough about the intended reusable scene to build one contextual `list-templates` query, for example: target `type` / `usage`, intended `actionType` / `actionScope`, collection/resource/association/root-use semantics, and the business scene keywords.
 - Do not bind `template` / `popup.template` from loose text search alone. Binding still requires one contextual `list-templates` result that the backend marks usable for the planned scene.
@@ -63,8 +75,8 @@ Multiple discovered/available templates do **not** by themselves make the task n
 - An earlier page in the same task may become a template seed only after its write and readback succeed and the reusable popup / block / fields scene is concrete enough to save.
 - Use `save-template` on that concrete scene, not on the page as a whole.
 - A same-task seed does **not** bypass contextual availability. Later pages must still call `list-templates` with the later page's live or planning context before binding.
-- If the request explicitly says another scene should be the same and no same-task seed or existing template is contextually usable yet, the first successful concrete block/popup/fields scene becomes the bootstrap source: save it immediately after readback, then let later matching scenes reuse it through normal contextual selection.
-- If no same-task seed or existing template is contextually usable and there is no explicit reuse intent, stay inline/non-template for the current page rather than inventing page-template behavior.
+- If no same-task seed or existing template is contextually usable yet and the task contains a repeated scene, the first successful concrete block/popup/fields scene becomes the bootstrap source: save it immediately after readback, and when supported prefer `save-template(saveMode="convert")` so the first repeated instance also becomes a template reference.
+- If no same-task seed or existing template is contextually usable and the repeat-eligible scene appears only once in the task, stay inline/non-template for the current page rather than inventing page-template behavior.
 
 ### Same-task live reuse loop
 
@@ -72,7 +84,7 @@ Use this concrete loop when page B should reuse a popup / block / fields scene c
 
 1. create page A and finish the normal readback first
 2. identify the concrete reusable source uid from that readback, for example a popup-capable `view` action uid
-3. call `save-template` on that concrete source
+3. call `save-template` on that concrete source; when supported and the goal is one shared live template across all repeated instances, prefer `saveMode="convert"`
 4. immediately call `get-template` on the returned template uid; if it cannot be read back, stop before planning reuse
 5. when planning page B, run contextual `list-templates` again with page B's opener/resource scene; do not bind from the page-A seed alone
 6. bind `popup.template` / `template` on page B only when that later-page result still shows the chosen uid as `available = true`
@@ -88,7 +100,7 @@ This loop was verified live against `nocobase-ctl flow-surfaces` for a users-rec
 
 ## Decision Table
 
-Enter this table only when the task already matches a closed reusable scene, or when the user explicitly named an existing template.
+Enter this table only when the task already matches a repeat-eligible reusable scene, or when the user explicitly named an existing template.
 
 | request shape | template identity | live opener / target context | contextual usable candidates | result |
 | --- | --- | --- | --- | --- |
@@ -96,8 +108,8 @@ Enter this table only when the task already matches a closed reusable scene, or 
 | user explicitly named a template `uid`, or one unique template `name` | resolved | no live target, but planning context is still weak | n/a | discovery-only; identity is known, availability is not yet proven |
 | whole-page or localized flow | resolved explicit template | yes live/planned context | explicit template row `available = true` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | resolved explicit template | yes live/planned context | explicit template row missing or `available = false` | do not bind; surface `disabledReason` or the compatibility gap |
-| whole-page or localized flow | no explicit template, explicit same/similar reuse intent | yes live/planned context | `0` | build the first concrete popup/block/fields scene as the bootstrap source, then `save-template` after successful readback |
-| whole-page or localized flow | no explicit template | yes live/planned context | `0` | inline/non-template |
+| whole-page or localized flow | no explicit template, repeated scene detected | yes live/planned context | `0` | build the earliest repeated popup/block/fields scene as the bootstrap source, then `save-template`; prefer `saveMode="convert"` when supported |
+| whole-page or localized flow | no explicit template, single occurrence only | yes live/planned context | `0` | inline/non-template |
 | whole-page or localized flow | no explicit template | yes live/planned context | `1` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | no explicit template | yes live/planned context | `>1`, stable best candidate exists | auto-select the best candidate, then choose `reference` or `copy` |
 | whole-page or localized flow | no explicit template | yes live/planned context | `>1`, top candidates still tied after ranking | present the tied candidates and ask the user to choose |
@@ -106,7 +118,7 @@ Enter this table only when the task already matches a closed reusable scene, or 
 
 Use the decision table above as the normative router. When the chosen row still allows automatic binding, and no exact template has already been resolved, apply this exact candidate-selection order:
 
-1. confirm the task matches a closed reusable scene
+1. confirm the task matches a repeat-eligible reusable scene
 2. gather the strongest context you can: real `target.uid` first, otherwise one strong planning context from the current whole-page draft
 3. call `list-templates` with that context
 4. filter to the intended `type` / `usage` / opener/resource context
@@ -122,8 +134,8 @@ Interpretation rules:
 - If the user explicitly requires that exact template, stop at the compatibility explanation instead of silently switching to inline content or another template.
 - Without a live `target.uid`, search results may still drive whole-page binding when the planning context is strong enough and the backend returns a stable best available candidate.
 - Without either a real live target or a strong planning context, search results are only discovery and must not drive automatic binding.
-- If zero candidates are `available = true` and explicit same/similar reuse intent is present for a popup / block / fields scene, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
-- If zero candidates are `available = true` and there is no explicit reuse intent, continue without a template and, when helpful, mention that this is a reusable scene that could be templated later.
+- If zero candidates are `available = true` and the task already contains a repeated popup / block / fields scene, bootstrap the first concrete repeated scene and save it as a template after successful readback instead of dropping the reuse plan.
+- If zero candidates are `available = true` and the repeat-eligible scene appears only once, continue without a template and, when helpful, mention that this is a reusable scene that could be templated later.
 - If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking and directly bind the highest-probability winner when it is clear.
 - If the top candidates still tie after ranking, present the tied candidates and ask the user to choose instead of silently picking one.
 
@@ -146,10 +158,10 @@ If the available data still leaves the top candidates indistinguishable after th
 
 1. If the user supplied a template `uid` or `name`, resolve identity first. A `name` must resolve uniquely, or you must ask for an exact uid.
 2. If the final write path depends on opener/host/target context, run contextual `list-templates` or another equivalent live availability check even for explicitly named templates.
-3. If no explicit template was provided and the request falls into a closed reusable scene, call `list-templates` first. This applies to whole-page drafts too.
+3. If no explicit template was provided and the request falls into a repeat-eligible scene, call `list-templates` first. This applies to whole-page drafts too.
 4. Prefer rows with `available = true`, then rank them with the stable best-candidate rule. Auto-bind when one winner remains.
 5. Once one concrete template is both resolved and contextually usable, decide `mode`. Default selected templates to `reference`; switch to `copy` only when the request clearly asks for local customization / detachment.
-6. If no concrete template was selected because zero usable templates exist but the user explicitly said the later popup/block/fields scene should be the same, bootstrap the first concrete scene and save it as a template after successful readback so later matching scenes can reuse it.
+6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, bootstrap the earliest concrete repeated scene and save it as a template after successful readback so later matching scenes can reuse it. Prefer `saveMode="convert"` when supported so the first repeated instance also becomes a template reference.
 7. Otherwise, if no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
 8. If the top candidates still tie after ranking, stop and ask instead of silently falling back to inline content.
 9. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
@@ -177,6 +189,16 @@ Interpretation rules:
 - A search result that "looks right" is still not enough for automatic binding if the scene context is incomplete or the top candidates remain tied.
 - `description` is required and intentionally searchable. Encourage precise descriptions when saving/updating templates.
 
+## Auto-generated Name and Description
+
+When the skill auto-creates a template because a repeated scene had no usable existing template:
+
+- `name` should be a short readable label in the current conversation language. If the conversation is in Chinese, use a Chinese readable name; if it is in English, use an English readable name.
+- Keep `name` human-facing and concise, for example `角色表格`, `角色详情弹窗`, or `User edit form fields`.
+- Put most structural and search information in `description`, not in `name`.
+- `description` should include the reusable scene, collection/resource/association context, key fields, key actions/recordActions, default mode, and an `auto-generated by nocobase-ui-builder` marker when that template was created automatically.
+- Avoid timestamps or hashes in `name` unless they are the minimum needed to resolve a real name collision after signature comparison.
+
 ## Read or Refine Template Metadata
 
 - Use `get-template` when the user already knows a template uid and needs its latest metadata or `usageCount`.
@@ -191,7 +213,7 @@ Choose the mode only after a template is actually selected:
 
 - use `reference` when the goal is standard reuse, consistency, or explicit cross-surface unification
 - use `copy` when the user wants to start from a selected template but clearly expects local customization or detachment from the original
-- use inline/non-template content when the task is not template-first, the context is discovery-only, no template is available, or the scene is obviously one-off/custom
+- use inline/non-template content when the scene appears only once, the context is discovery-only, no template is available, or the scene is obviously one-off/custom
 
 Do not silently turn a clear local-customization request into `reference`.
 
@@ -356,6 +378,12 @@ Optional behavior:
 
 - `saveMode = "duplicate"` (default): create the template only
 - `saveMode = "convert"`: create the template and convert the current source to a template reference when the source kind supports conversion
+
+Naming guidance:
+
+- Prefer a short readable `name` in the current conversation language.
+- Keep business meaning in `name`; keep search detail in `description`.
+- For automatically created templates, prefer names like `角色表格`, `角色详情弹窗`, or `User registration form`, then describe the exact fields/actions/context in `description`.
 
 Backend constraints to respect:
 

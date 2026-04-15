@@ -759,7 +759,7 @@ test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision 
     {
       templateDecision: {
         kind: 'inline-non-template',
-        reasonCode: 'not-template-first',
+        reasonCode: 'single-occurrence',
       },
     },
   );
@@ -767,9 +767,71 @@ test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision 
   assert.equal(result.ok, true);
   assert.deepEqual(result.templateDecision, {
     kind: 'inline-non-template',
-    reasonCode: 'not-template-first',
-    reason: 'the request is not template-first',
-    summary: 'Stayed inline/non-template: the request is not template-first.',
+    reasonCode: 'single-occurrence',
+    reason: 'the scene appeared only once in the current task',
+    summary: 'Stayed inline/non-template: the scene appeared only once in the current task.',
+  });
+  assert.equal(result.errors.length, 0);
+});
+
+test('prepareApplyBlueprintRequest accepts not-repeat-eligible templateDecision on mixed pages with other bound templates', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Employees' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'profileForm',
+              type: 'details',
+              template: {
+                uid: 'employee-form-template',
+                mode: 'reference',
+                usage: 'fields',
+              },
+            },
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname', 'email'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    title: 'Highly customized details',
+                    blocks: [
+                      {
+                        type: 'details',
+                        collection: 'users',
+                        fields: ['nickname', 'email'],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      templateDecision: {
+        kind: 'inline-non-template',
+        reasonCode: 'not-repeat-eligible',
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.templateDecision, {
+    kind: 'inline-non-template',
+    reasonCode: 'not-repeat-eligible',
+    reason: 'the scene is too customized or structurally unique for template reuse',
+    summary: 'Stayed inline/non-template: the scene is too customized or structurally unique for template reuse.',
   });
   assert.equal(result.errors.length, 0);
 });
@@ -839,7 +901,7 @@ test('prepareApplyBlueprintRequest returns normalized templateDecision when the 
     {
       templateDecision: {
         kind: 'inline-non-template',
-        reasonCode: 'not-template-first',
+        reasonCode: 'single-occurrence',
       },
     },
   );
@@ -848,9 +910,9 @@ test('prepareApplyBlueprintRequest returns normalized templateDecision when the 
   assert.equal(result.cliBody, undefined);
   assert.deepEqual(result.templateDecision, {
     kind: 'inline-non-template',
-    reasonCode: 'not-template-first',
-    reason: 'the request is not template-first',
-    summary: 'Stayed inline/non-template: the request is not template-first.',
+    reasonCode: 'single-occurrence',
+    reason: 'the scene appeared only once in the current task',
+    summary: 'Stayed inline/non-template: the scene appeared only once in the current task.',
   });
   assert.ok(result.errors.some((issue) => issue.ruleId === 'unexpected-outer-tab-count'));
 });
@@ -1384,6 +1446,64 @@ test('page preview cli prepare-write accepts helper envelope with templateDecisi
     summary: 'Template employee-popup-template stayed discovery-only: the current opener/host/planning context was insufficient.',
   });
   assert.doesNotMatch(payload.ascii, /the current opener\/host\/planning context was insufficient/i);
+});
+
+test('page preview cli prepare-write accepts bootstrap-before-bind templateDecision without forcing convert', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      requestBody: {
+        version: '1',
+        mode: 'create',
+        page: { title: 'Employees' },
+        tabs: [
+          {
+            title: 'Overview',
+            blocks: [
+              {
+                key: 'usersTable',
+                type: 'table',
+                collection: 'users',
+                fields: ['nickname'],
+              },
+            ],
+          },
+        ],
+      },
+      templateDecision: {
+        kind: 'discovery-only',
+        template: {
+          name: '角色表格',
+        },
+        reasonCode: 'bootstrap-after-first-write',
+      },
+    }),
+  );
+
+  const exitCode = await runPagePreviewCli(['--stdin-json', '--prepare-write'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.deepEqual(payload.warnings, []);
+  assert.deepEqual(payload.templateDecision, {
+    kind: 'discovery-only',
+    template: {
+      name: '角色表格',
+    },
+    reasonCode: 'bootstrap-after-first-write',
+    reason: 'the first repeated scene must be written and saved before later instances can bind it; convert is preferred only when supported',
+    summary:
+      'Template 角色表格 stayed discovery-only: the first repeated scene must be written and saved before later instances can bind it; convert is preferred only when supported.',
+  });
+  assert.doesNotMatch(payload.ascii, /convert is preferred only when supported/i);
 });
 
 test('page preview cli prepare-write accepts explicit expected outer tab count', async () => {
