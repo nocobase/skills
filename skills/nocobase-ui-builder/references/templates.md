@@ -36,6 +36,7 @@ This file is the single normative template-selection source for `nocobase-ui-bui
 Treat the task as entering the template path when it matches one of these scenes:
 
 - a relation/display field should click and open a standard details popup
+- business wording such as "all relation data should open detail popups", "relation displays inside the details block should also open popups", or "the popup should show that related record in a details block" counts as a strong cue for relation-details popup reuse when the same page contains both table/list-style relation displays and details-style relation displays
 - a standard CRUD-style popup should be reused under a known opener, for example `view`, `edit`, `addNew`, or another confirmed popup-capable action/field
 - a repeated form field layout should be reused under a host with compatible live collection/root-use context
 - the same task contains two or more structurally matching popup / block / fields scenes
@@ -57,6 +58,7 @@ Use structural signatures rather than wording alone when deciding whether two sc
 - `block`: compare block type, primary collection/resource/binding/association context, field order, record actions/actions, and behavior-changing settings. Ignore page-local titles, keys, and uids.
 - `popup`: compare opener type, popup block tree, primary resource/binding/association context, field order, and actions/recordActions. Ignore outer page metadata.
 - `fields`: compare host collection/root-use context, field order, renderer/popup/template behavior, and relevant field settings. Ignore host title and outer layout shell.
+- For standard relation-details popups, a table-cell/display-field opener and a details/read-only-field opener on the same page should still count as the same repeated popup scene when the relation/association context and popup details content are otherwise the same. Do not let that lightweight opener-shell difference block template probing or popup template seeding.
 - Only scenes with the same signature count as repeated. Similar wording alone is not enough when fields, actions, or data source semantics differ.
 
 Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and if semantic ranking still ties, preserve backend order and keep the first compatible row. If the scene is repeated, or if it is a single standard reusable scene with strong context, and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
