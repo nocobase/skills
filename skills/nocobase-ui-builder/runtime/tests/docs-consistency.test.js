@@ -52,6 +52,20 @@ function assertTemplateDocMinimumContract(text, sourceLabel) {
   assert.match(text, /name/i, `${sourceLabel} should keep name guidance`);
 }
 
+function assertContextualTemplateProbeGuardrails(text, sourceLabel) {
+  assert.match(
+    text,
+    /repeat-eligible[\s\S]{0,260}contextual `?list-templates`?/i,
+    `${sourceLabel} should require contextual list-templates for repeat-eligible scenes`,
+  );
+  assert.match(text, /hard gate|mandatory|must/i, `${sourceLabel} should make the contextual probe non-optional`);
+  assert.match(
+    text,
+    /keyword-only search[\s\S]{0,80}discovery-only|loose text search alone/i,
+    `${sourceLabel} should keep keyword-only search as discovery-only`,
+  );
+}
+
 function assertOpenAIGuardrails(text) {
   assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
   assert.match(text, /field popup/i, 'openai prompt should keep field-popup guidance');
@@ -61,6 +75,13 @@ function assertOpenAIGuardrails(text) {
     'openai prompt should keep associatedRecords+associationField guidance',
   );
   assert.match(text, /(?:exactly )?one `?editForm`?/i, 'openai prompt should keep one-editForm guidance');
+  assert.match(
+    text,
+    /repeat-eligible[\s\S]{0,80}(?:must|mandatory)[\s\S]{0,80}contextual `?list-templates`?/i,
+    'openai prompt should require contextual template probing for repeat-eligible scenes',
+  );
+  assert.match(text, /keyword-only search[\s\S]{0,40}discovery-only/i, 'openai prompt should keep keyword-only guardrail');
+  assert.match(text, /smallest uid breaks a final tie|smaller uid/i, 'openai prompt should keep deterministic uid tie-break');
 }
 
 test('required docs and relative links stay valid', () => {
@@ -120,12 +141,15 @@ test('docs keep canonical CLI-first envelope boundaries', () => {
 test('template selection stays centralized and prompt keeps minimum guardrails', () => {
   const skill = read('SKILL.md');
   assert.match(skill, /read \[templates\.md\].*before deciding inline vs template/i);
+  assertContextualTemplateProbeGuardrails(skill, 'SKILL.md');
 
   const templates = read('references/templates.md');
   assertTemplateDocMinimumContract(templates, 'references/templates.md');
+  assertContextualTemplateProbeGuardrails(templates, 'references/templates.md');
 
   for (const relativePath of [
     'references/execution-checklist.md',
+    'references/page-blueprint.md',
     'references/page-intent.md',
     'references/popup.md',
     'references/template-decision-summary.md',
@@ -133,6 +157,9 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
     const text = read(relativePath);
     assertPointsToTemplates(text, relativePath);
     assertNoTemplateDecisionMatrix(text, relativePath);
+    if (relativePath !== 'references/template-decision-summary.md') {
+      assertContextualTemplateProbeGuardrails(text, relativePath);
+    }
   }
 
   const templateDecisionSummary = read('references/template-decision-summary.md');
@@ -148,7 +175,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(defaultPrompt, /Canonical front door: `nocobase-ctl flow-surfaces`/);
   assert.match(defaultPrompt, /Intent-first routing/i);
   assert.match(defaultPrompt, /structure-repeat-first/i);
-  assert.match(defaultPrompt, /final tie/i);
+  assert.match(defaultPrompt, /plan-query` probe/i);
   assert.match(defaultPrompt, /local customization/i);
   assert.match(defaultPrompt, /apply-blueprint/);
   assert.match(defaultPrompt, /get-reaction-meta/);

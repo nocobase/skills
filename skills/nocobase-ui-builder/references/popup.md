@@ -15,7 +15,7 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 - If popup resource binding matters, confirm it with live facts instead of guessing.
 - Reuse returned popup uids directly when a write establishes a popup subtree.
 - Do not invent `currentRecord` or `associatedRecords` support where the live capability does not expose it.
-- When a popup looks like a standard reusable scene, follow [templates.md](./templates.md) before choosing inline `popup` vs `popup.template`. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear.
+- When a popup looks like a standard reusable scene, follow [templates.md](./templates.md) before choosing inline `popup` vs `popup.template`. For repeat-eligible popup scenes, contextual `list-templates` is mandatory before binding `popup.template` or finalizing inline fallback; keyword-only search stays discovery-only. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear.
 - This file keeps popup-specific hard boundaries only; template-selection details stay in [templates.md](./templates.md).
 - Without a live opener/target uid, whole-page popup planning should still probe popup templates from the strongest planned opener/resource context. `discovery-only` remains valid when that context is still too weak, when a resolved explicit template is unavailable in the current context, or when the top candidates remain tied after ranking. Keep the exact user-visible reason contract in [template-decision-summary.md](./template-decision-summary.md).
 
@@ -34,7 +34,7 @@ For `addNew`, `view`, and `edit`:
 
 Use inline popup when the page as a whole is being created/replaced and the popup is part of that page structure.
 
-For whole-page `create` / `replace`, do not bind `popup.template` from loose search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate.
+For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate.
 
 The popup subtree in public `applyBlueprint` still follows the same public page-blueprint rules:
 

@@ -26,6 +26,7 @@ This file is the single normative template-selection source for `nocobase-ui-bui
 - Task understanding/routing still starts from user intent. This file only governs template planning after the current page/edit path and reusable scene are already understood.
 - Decide whether the task contains a repeat-eligible reusable scene first. The template path is not the global default for every page element, but repeated structure in the same task is enough to enter the template path even when the user did not explicitly ask for reuse.
 - Only switch into template discovery/selection when the request falls into one of the repeat-eligible scenes below or when the same task already contains two or more structurally matching scenes.
+- For repeat-eligible popup / block / fields scenes, contextual `list-templates` probing is mandatory before binding one template or finalizing the inline fallback. Keyword-only search is discovery-only, not binding proof.
 - `list-templates` is the only automatic-selection truth source. The skill must not recreate the frontend compatibility checks locally.
 - Frontend/server compatibility dimensions such as resource, association, root `use`, and `filterByTk` are only for deciding which live context you must pass into `list-templates`; they are not a backup selector when the query context is incomplete.
 - Whole-page `create` / `replace` is **not** exempt from template planning. When the draft contains a repeat-eligible scene, probe templates before locking in inline content.
@@ -57,7 +58,7 @@ Use structural signatures rather than wording alone when deciding whether two sc
 - `fields`: compare host collection/root-use context, field order, renderer/popup/template behavior, and relevant field settings. Ignore host title and outer layout shell.
 - Only scenes with the same signature count as repeated. Similar wording alone is not enough when fields, actions, or data source semantics differ.
 
-Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and ask only when the final top candidates still tie. If the scene is repeated and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
+Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and if semantic ranking still ties, use the smaller uid as the deterministic final tie-break. If the scene is repeated and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
 
 ## Path Boundaries
 
@@ -65,7 +66,7 @@ Multiple discovered/available templates do **not** by themselves make the task i
 - Whole-page `create` / `replace` should proactively probe templates for repeat-eligible scenes before finalizing inline popup/block/form-field content.
 - A missing live `target.uid` does **not** by itself block whole-page template binding. Use the strongest available **planning context** instead.
 - Planning context means the draft already knows enough about the intended reusable scene to build one contextual `list-templates` query, for example: target `type` / `usage`, intended `actionType` / `actionScope`, collection/resource/association/root-use semantics, and the business scene keywords.
-- Do not bind `template` / `popup.template` from loose text search alone. Binding still requires one contextual `list-templates` result that the backend marks usable for the planned scene.
+- Do not bind `template` / `popup.template` from loose text search alone. Keyword-only search remains discovery-only. Binding still requires one contextual `list-templates` result that the backend marks usable for the planned scene.
 - If both live context and planning context are too weak to describe the intended reusable scene, template search stays discovery-only and the write path should remain unresolved or inline/non-template by default.
 
 ## Task-level Multi-page Orchestration
@@ -112,7 +113,7 @@ Enter this table only when the task already matches a repeat-eligible reusable s
 | whole-page or localized flow | no explicit template, single occurrence only | yes live/planned context | `0` | inline/non-template |
 | whole-page or localized flow | no explicit template | yes live/planned context | `1` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | no explicit template | yes live/planned context | `>1`, stable best candidate exists | auto-select the best candidate, then choose `reference` or `copy` |
-| whole-page or localized flow | no explicit template | yes live/planned context | `>1`, top candidates still tied after ranking | present the tied candidates and ask the user to choose |
+| whole-page or localized flow | no explicit template | yes live/planned context | `>1`, semantic ranking still tied after ranking | auto-select the smallest uid as the final deterministic tie-break |
 
 ## Automatic Selection Rule
 
@@ -124,7 +125,7 @@ Use the decision table above as the normative router. When the chosen row still 
 4. filter to the intended `type` / `usage` / opener/resource context
 5. keep only rows with `available = true`
 6. rank the remaining candidates using the stable best-candidate rule below
-7. automatic binding is allowed when one top candidate wins that ranking without a final tie
+7. automatic binding is allowed when one top candidate wins that ranking, or when the remaining semantic tie is resolved by the smallest uid
 
 Interpretation rules:
 
@@ -137,7 +138,7 @@ Interpretation rules:
 - If zero candidates are `available = true` and the task already contains a repeated popup / block / fields scene, bootstrap the first concrete repeated scene and save it as a template after successful readback instead of dropping the reuse plan.
 - If zero candidates are `available = true` and the repeat-eligible scene appears only once, continue without a template and, when helpful, mention that this is a reusable scene that could be templated later.
 - If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking and directly bind the highest-probability winner when it is clear.
-- If the top candidates still tie after ranking, present the tied candidates and ask the user to choose instead of silently picking one.
+- If the top candidates still tie on semantic ranking, use the smaller uid as the final deterministic tie-break instead of inventing another heuristic.
 
 ## Stable Best-candidate Ranking
 
@@ -152,7 +153,7 @@ When more than one `available = true` candidate remains, rank them in this exact
 7. higher `usageCount`
 8. smaller template `uid` as the final deterministic tie-break
 
-If the available data still leaves the top candidates indistinguishable after this ranking, do not auto-bind; present the tied candidates and ask.
+If the available data still leaves the top candidates equal on semantic ranking after steps 1-7, use step 8 (`smaller template uid`) as the final deterministic winner.
 
 ## Default Model Behavior
 
@@ -163,7 +164,7 @@ If the available data still leaves the top candidates indistinguishable after th
 5. Once one concrete template is both resolved and contextually usable, decide `mode`. Default selected templates to `reference`; switch to `copy` only when the request clearly asks for local customization / detachment.
 6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, bootstrap the earliest concrete repeated scene and save it as a template after successful readback so later matching scenes can reuse it. Prefer `saveMode="convert"` when supported so the first repeated instance also becomes a template reference.
 7. Otherwise, if no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
-8. If the top candidates still tie after ranking, stop and ask instead of silently falling back to inline content.
+8. If the top candidates still tie on semantic ranking, use the smaller uid as the final deterministic winner instead of falling back to inline content or asking.
 9. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
 
 ## Search and Selection
@@ -186,8 +187,19 @@ Interpretation rules:
 - An explicit template `name` must resolve uniquely before compatibility checking. If several templates match, present the candidates and ask for an exact uid.
 - When popup template discovery is the real task, always send `type = "popup"`. When a live opener is known, also send `actionType` and `actionScope`.
 - Without a live `target.uid`, whole-page planning should still probe templates with the strongest supported scene context from the draft. Those results may drive automatic binding when the ranking produces one stable best candidate.
-- A search result that "looks right" is still not enough for automatic binding if the scene context is incomplete or the top candidates remain tied.
+- A search result that "looks right" is still not enough for automatic binding if the scene context is incomplete or the top candidates remain tied. Keyword-only search is discovery-only even when one result looks semantically correct.
 - `description` is required and intentionally searchable. Encourage precise descriptions when saving/updating templates.
+
+## Local Helper Enforcement
+
+- Prefer `nb-template-decision plan-query` to derive one contextual `list-templates` request from scene context before the real probe.
+- Prefer `nb-template-decision select` to normalize the probe result into `selected`, `discovery-only`, `inline-non-template`, or `needs-user-choice`.
+- `select` should consume the `plan-query` `probe` object, not raw candidates alone. A missing or non-contextual probe must keep the result discovery-only (or fail contract validation), even when one candidate looks usable.
+- For helper input, a bare `explicitTemplate` string resolves identity as `uid` first, then as one unique exact `name` when no uid matches.
+- In helper output, `needs-user-choice` is for explicit template identity ambiguity only, not for ranking ties.
+- The helper may expand search terms from collection / association / field / opener context, including lightweight singular variants such as `roles -> role`, but keyword-only search still stays discovery-only until the scene context is strong enough.
+- The helper must not invent backend-only planning fields; keep the final `list-templates` request to supported keys such as `target`, `type`, `usage`, `actionType`, `actionScope`, `search`, `page`, and `pageSize`.
+- Current runtime prewrite/readback helpers do not auto-run `plan-query -> list-templates -> select`; callers must invoke that helper flow explicitly when they want the hard gate enforced in local runtime automation.
 
 ## Auto-generated Name and Description
 

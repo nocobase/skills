@@ -4,6 +4,7 @@ import { runTask } from './runner.js';
 export { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 export { prepareApplyBlueprintRequest } from './page-blueprint-preview.js';
 export { summarizeTemplateDecision } from './template-decision-summary.js';
+export { planTemplateQuery, selectTemplateDecision } from './template-selection.js';
 
 async function loadMaybeFile(cwd, filePath, reader) {
   if (!filePath) return undefined;

@@ -26,7 +26,7 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
-- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). Whole-page drafts may and should bind templates when that file's contextual selection flow yields one stable best candidate.
+- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing inline content. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
 
 Important:
