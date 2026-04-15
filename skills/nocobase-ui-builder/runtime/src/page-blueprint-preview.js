@@ -266,6 +266,16 @@ function describePopupTryTemplate(popup) {
   return popup?.tryTemplate === true ? 'Template: auto-select [tryTemplate=true]' : '';
 }
 
+function describePopupSaveAsTemplate(popup) {
+  if (!isPlainObject(popup?.saveAsTemplate)) return '';
+  const name = normalizeText(popup.saveAsTemplate.name);
+  if (!name) return '';
+  const label = trimLabel(name, MAX_HEADER_TEXT);
+  return normalizeText(popup.saveAsTemplate.description)
+    ? `Template: save as "${label}" [description provided]`
+    : `Template: save as "${label}"`;
+}
+
 function hasOwn(target, key) {
   return isPlainObject(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
@@ -531,6 +541,8 @@ function renderPopupDocument(popup, context) {
   if (templateLine) body.push(templateLine);
   const tryTemplateLine = describePopupTryTemplate(popup);
   if (tryTemplateLine && !templateLine) body.push(tryTemplateLine);
+  const saveAsTemplateLine = describePopupSaveAsTemplate(popup);
+  if (saveAsTemplateLine && !templateLine) body.push(saveAsTemplateLine);
 
   const ignoredLocalKeys = getIgnoredPopupLocalKeys(popup);
   if (ignoredLocalKeys.length) {
@@ -853,6 +865,62 @@ function validatePopupDocument(popup, path, state) {
       `${path}.tryTemplate`,
       'invalid-popup-try-template',
       'popup.tryTemplate must stay a boolean when present.',
+    );
+  }
+
+  const hasSaveAsTemplate = hasOwn(popup, 'saveAsTemplate');
+  if (hasSaveAsTemplate && !isPlainObject(popup.saveAsTemplate)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.saveAsTemplate`,
+      'invalid-popup-save-as-template',
+      'popup.saveAsTemplate must stay one object when present.',
+    );
+  }
+  if (isPlainObject(popup.saveAsTemplate) && !normalizeText(popup.saveAsTemplate.name)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.saveAsTemplate.name`,
+      'invalid-popup-save-as-template-name',
+      'popup.saveAsTemplate.name must stay a non-empty string.',
+    );
+  }
+  if (isPlainObject(popup.saveAsTemplate) && !normalizeText(popup.saveAsTemplate.description)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.saveAsTemplate.description`,
+      'invalid-popup-save-as-template-description',
+      'popup.saveAsTemplate.description must stay a non-empty string.',
+    );
+  }
+  if (hasSaveAsTemplate && hasTemplateDocument(popup.template)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.saveAsTemplate`,
+      'conflicting-popup-save-as-template',
+      'popup.saveAsTemplate cannot be combined with popup.template.',
+    );
+  }
+  if (hasSaveAsTemplate && hasOwn(popup, 'tryTemplate')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.saveAsTemplate`,
+      'conflicting-popup-save-as-template',
+      'popup.saveAsTemplate cannot be combined with popup.tryTemplate.',
+    );
+  }
+  if (hasSaveAsTemplate && ensureArray(popup.blocks).length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.saveAsTemplate`,
+      'popup-save-as-template-missing-blocks',
+      'popup.saveAsTemplate requires explicit local popup.blocks.',
     );
   }
 

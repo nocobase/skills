@@ -135,6 +135,24 @@ function assertTryTemplateWriteFallback(text, sourceLabel) {
   );
 }
 
+function assertSaveAsTemplateWritePath(text, sourceLabel) {
+  assert.match(
+    text,
+    /popup\.saveAsTemplate\s*=\s*\{\s*name,\s*description\s*\}|`popup\.saveAsTemplate=\{ name, description \}`|`popup\.saveAsTemplate`/i,
+    `${sourceLabel} should mention popup.saveAsTemplate`,
+  );
+  assert.match(
+    text,
+    /explicit(?: local)? `?popup\.blocks`?|requires `?popup\.blocks`?|requires explicit local popup\.blocks/i,
+    `${sourceLabel} should require explicit popup.blocks for popup.saveAsTemplate`,
+  );
+  assert.match(
+    text,
+    /cannot be combined with `?popup\.template`?[\s\S]{0,60}`?popup\.tryTemplate`?|cannot be combined with `?popup\.tryTemplate`?[\s\S]{0,60}`?popup\.template`?/i,
+    `${sourceLabel} should forbid combining popup.saveAsTemplate with popup.template and popup.tryTemplate`,
+  );
+}
+
 function assertOpenAIGuardrails(text) {
   assert.match(text, /routeId/i, 'openai prompt should keep routeId guidance for existing groups');
   assert.match(text, /field popup/i, 'openai prompt should keep field-popup guidance');
@@ -156,6 +174,7 @@ function assertOpenAIGuardrails(text) {
     'openai prompt should keep backend-order tie-break guidance',
   );
   assert.match(text, /popup\.tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
+  assert.match(text, /popup\.saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
   assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
 }
 
@@ -310,11 +329,13 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.match(skill, /read \[templates\.md\].*before deciding inline vs template/i);
   assertContextualTemplateProbeGuardrails(skill, 'SKILL.md');
   assertTryTemplateWriteFallback(skill, 'SKILL.md');
+  assertSaveAsTemplateWritePath(skill, 'SKILL.md');
 
   const templates = read('references/templates.md');
   assertTemplateDocMinimumContract(templates, 'references/templates.md');
   assertContextualTemplateProbeGuardrails(templates, 'references/templates.md');
   assertTryTemplateWriteFallback(templates, 'references/templates.md');
+  assertSaveAsTemplateWritePath(templates, 'references/templates.md');
 
   for (const relativePath of [
     'references/execution-checklist.md',
@@ -332,6 +353,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
     }
     if (relativePath !== 'references/template-decision-summary.md') {
       assertTryTemplateWriteFallback(text, relativePath);
+      assertSaveAsTemplateWritePath(text, relativePath);
     }
   }
 

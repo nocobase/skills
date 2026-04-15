@@ -74,6 +74,8 @@ Multiple discovered/available templates do **not** by themselves make the task i
 
 - `list-templates` remains the planning truth source. `popup.tryTemplate` is only the write-time fallback that lets the backend attempt direct popup-template reuse when planning already decided the scene is eligible but the request does not carry one explicit popup template binding.
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` for popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action / field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup blocks/layout may still remain as the miss fallback.
+- When the user explicitly wants the new local popup itself to become a reusable template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths instead of planning a second `save-template` call.
+- `popup.saveAsTemplate` requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 - Backend matching stays server-owned:
   - non-relation popup scene -> match non-relation popup templates only
   - relation popup scene -> prefer the same relation / association-field popup template first, then fall back to a non-relation popup template
@@ -450,6 +452,8 @@ Use popup templates through the popup-capable creation entry points:
 - `add-action` / `add-record-action` via `popup.template`
 - `add-field` / `add-fields` via `popup.template`
 - `compose` action / field specs via `popup.template`
+
+When the goal is "create this popup and immediately keep it as a reusable template seed", use `popup.saveAsTemplate={ name, description }` on those same create-time popup entry points and on whole-page `applyBlueprint` inline popup specs. The backend will save the local popup as a popup template and convert the created popup to that template reference immediately.
 
 Use inline `popup.blocks/layout` only when the user wants local popup content rather than template reuse.
 
