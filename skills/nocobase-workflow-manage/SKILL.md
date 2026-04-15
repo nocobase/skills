@@ -49,7 +49,7 @@ Transport-selection rules:
    - If `nocobase-ctl` CLI is available, that should be the chosen transport.
    - Stop and ask the user to fix auth when the chosen transport returns `401`, `403`, `Auth required`, or equivalent access errors.
    - If the chosen transport is `nocobase-ctl` CLI, guide the user to restore CLI authentication rather than switching transports.
-2. Before using a `nocobase-ctl` CLI workflow command you have not used yet in the current task, run `nocobase-ctl workflows --help` or `nocobase-ctl workflows <subcommand> --help` once and follow the generated help text.
+2. Before using a `nocobase-ctl` CLI workflow command you have not used yet in the current task, run `nocobase-ctl workflow workflows --help`, `nocobase-ctl workflow flow-nodes --help`, or the matching `nocobase-ctl workflow <topic> <subcommand> --help` once and follow the generated help text.
 3. When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md).
 4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`. Data modeling skill may be used to understand related collections and fields when configuring workflow triggers and nodes.
 
@@ -70,30 +70,37 @@ Transport-selection rules:
 
 Use only this final workflow operation surface. When the transport is CLI-based, discover exact flags from `--help` instead of keeping large command-shape reminders in context:
 
-- Inspect workflows: `workflows list`
-- Inspect one workflow (with nodes and version stats): `workflows get`
-- Create a workflow: `workflows create`
-- Update a workflow: `workflows update`
-- Create a new revision: `workflows revision`
-- Execute a workflow manually: `workflows execute`
-- Create a node under a workflow: `workflows nodes create`
-- Update a node configuration: `flow_nodes update`
-- Delete a node: `flow_nodes destroy`
-- Move a node: `flow_nodes move`
-- Duplicate a node: `flow_nodes duplicate`
-- Test a node: `flow_nodes test`
-- List executions: `executions list`
-- Inspect one execution (with jobs): `executions get`
-- Inspect a node job: `jobs get`
+- Inspect workflows: `workflow workflows list`
+- Inspect one workflow (with nodes and version stats): `workflow workflows get`
+- Create a workflow: `workflow workflows create`
+- Update a workflow: `workflow workflows update`
+- Create a new revision: `workflow workflows revision`
+- Execute a workflow manually: `workflow workflows execute`
+- Create a node under a workflow: `workflow workflows nodes create`
+- Update a node configuration: `workflow flow-nodes update`
+- Delete a node: `workflow flow-nodes destroy`
+- Delete a branch: `workflow flow-nodes destroy-branch`
+- Move a node: `workflow flow-nodes move`
+- Duplicate a node: `workflow flow-nodes duplicate`
+- Test a node: `workflow flow-nodes test`
+- List executions: `workflow executions list`
+- Inspect one execution (with jobs): `workflow executions get`
+- Inspect a node job: `workflow jobs get`
 
 When the transport is CLI-based, prefer learning exact flags from help:
 
 ```
-nocobase-ctl workflows --help
-nocobase-ctl workflows list --help
-nocobase-ctl workflows create --help
-nocobase-ctl workflows nodes create --help
+nocobase-ctl workflow -h
+nocobase-ctl workflow workflows -h
+nocobase-ctl workflow workflows list -h
+nocobase-ctl workflow workflows create -h
+nocobase-ctl workflow workflows nodes create -h
+nocobase-ctl workflow flow-nodes -h
+nocobase-ctl workflow executions -h
+nocobase-ctl workflow jobs -h
 ```
+
+Use [Workflow CLI index](references/cli/index.md) as the stable CLI family map and parameter guide.
 
 When the transport is MCP or HTTP API, consult [Workflow HTTP API index](references/http-api/index.md) for the exact endpoint and parameter shapes.
 
@@ -125,38 +132,38 @@ Then map the requested action to the corresponding operation in the [Final Comma
 
 ## Creating a New Workflow
 
-1. **Create workflow** — `workflows create` with `type`, `title`, `sync`, `enabled: false`
-2. **Configure trigger** — `workflows update` with `config`
-3. **Add nodes in order** — `workflows nodes create` for each node, chaining via `upstreamId`; wait for each node to be fully created before creating the next
-4. **Configure each node** — `flow_nodes update` with `config`
+1. **Create workflow** — `workflow workflows create` with `type`, `title`, `sync`, `enabled: false`
+2. **Configure trigger** — `workflow workflows update` with `config`
+3. **Add nodes in order** — `workflow workflows nodes create` for each node, chaining via `upstreamId`; wait for each node to be fully created before creating the next
+4. **Configure each node** — `workflow flow-nodes update` with `config`
 5. **Verify** — read back the workflow with nodes to confirm trigger config, node count, order, and each node's config are correct
-6. **Enable workflow** — confirm with the user, then `workflows update` with `enabled: true`
-7. **Test / verify** — `workflows execute` with `autoRevision=1`
+6. **Enable workflow** — confirm with the user, then `workflow workflows update` with `enabled: true`
+7. **Test / verify** — `workflow workflows execute` with `autoRevision=1`
 
 ## Editing an Existing Workflow
 
-1. **Fetch workflow with nodes and version stats** — `workflows get` with `appends[]=nodes` and `appends[]=versionStats`
+1. **Fetch workflow with nodes and version stats** — `workflow workflows get` with `appends[]=nodes` and `appends[]=versionStats`
 2. **Check if version is frozen** (`versionStats.executed > 0`)
-   - **Yes → create a new revision first**: `workflows revision`
+   - **Yes → create a new revision first**: `workflow workflows revision`
      The `key` parameter is the workflow's `key` field (obtained from the workflow record in step 1). It **must** be provided to create a revision of the same workflow. Omitting `key` creates an independent copy instead.
      Use the returned new `id` for all subsequent operations. Discard the old `id`.
    - **No → proceed directly**
 3. **Edit as needed**:
-   - Update trigger config → `workflows update` with `config`
-   - Add node → `workflows nodes create`
-   - Update node config → `flow_nodes update`
-   - Delete node → `flow_nodes destroy`
-   - Move node → `flow_nodes move` with `upstreamId` and optional `branchIndex` (`upstreamId: null` moves to the front; `branchIndex: null` for main chain)
-   - Copy node → `flow_nodes duplicate` with `upstreamId` and optional `branchIndex`
+   - Update trigger config → `workflow workflows update` with `config`
+   - Add node → `workflow workflows nodes create`
+   - Update node config → `workflow flow-nodes update`
+   - Delete node → `workflow flow-nodes destroy`
+   - Move node → `workflow flow-nodes move` with `upstreamId` and optional `branchIndex` (`upstreamId: null` moves to the front; `branchIndex: null` for main chain)
+   - Copy node → `workflow flow-nodes duplicate` with `upstreamId` and optional `branchIndex`
 4. **Verify** — read back modified nodes to confirm changes took effect
-5. **Enable (if needed)** — confirm with the user, then `workflows update` with `enabled: true`
+5. **Enable (if needed)** — confirm with the user, then `workflow workflows update` with `enabled: true`
 
 ## Diagnosing a Failed Execution
 
-1. **List executions** to find the failed one: `executions list` filtered by `workflowId`, sorted by `-id`
-2. **Get execution detail** with jobs (exclude result to reduce size): `executions get` with `appends[]=jobs`, `appends[]=workflow.nodes`, `except[]=jobs.result`
+1. **List executions** to find the failed one: `workflow executions list` filtered by `workflowId`, sorted by `-id`
+2. **Get execution detail** with jobs (exclude result to reduce size): `workflow executions get` with `appends[]=jobs`, `appends[]=workflow.nodes`, `except[]=jobs.result`
 3. **Find the failed job** — look for `job.status` values of `-1` (FAILED), `-2` (ERROR), or `-3` (ABORTED)
-4. **Get full job detail** to see the error: `jobs get` — inspect `result` for the error message or output that caused the failure
+4. **Get full job detail** to see the error: `workflow jobs get` — inspect `result` for the error message or output that caused the failure
 5. Fix the issue (update node config or create a new revision if version is frozen), then re-execute.
 
 ## Error Handling
@@ -183,6 +190,7 @@ After completing any workflow operation, verify:
 
 - [Workflow architecture and data model](references/modeling/index.md): use when deciding sync mode, revision rules, status codes, or variable groups.
 - [Workflow conventions](references/conventions/index.md): use when building `collection`, `filter`, `appends`, and variable expressions.
+- [Workflow CLI index](references/cli/index.md): use when running through `nocobase-ctl` — maps workflow tasks to canonical command families, argument placement, and body shapes.
 - [Workflow HTTP API index](references/http-api/index.md): use when using MCP or API fallback — maps operations to endpoints and parameter shapes.
 - [Workflow triggers](references/triggers/index.md): use when selecting the correct trigger type, then load the single matching trigger file.
 - [Workflow nodes](references/nodes/index.md): use when selecting node types, branching behavior, or node-specific config files.
