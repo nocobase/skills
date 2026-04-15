@@ -232,6 +232,87 @@ test('selectTemplateDecision keeps repeat-eligible single occurrences inline whe
   assert.equal(result.templateDecision.reasonCode, 'single-occurrence');
 });
 
+test('planTemplateQuery requires contextual probing for single standard reusable scenes that prefer templates', () => {
+  const result = planTemplateQuery({
+    templateType: 'popup',
+    preferTemplate: true,
+    singleOccurrence: true,
+    context: {
+      sourceCollectionName: 'users',
+      collectionName: 'roles',
+      associationName: 'users.roles',
+      fieldPath: 'roles',
+      openerUse: 'DisplayTextFieldModel',
+    },
+    searchTerms: ['角色详情', 'role details'],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.requiresContextualProbe, true);
+  assert.equal(result.probe.querySummary.preferTemplate, true);
+});
+
+test('selectTemplateDecision bootstraps single standard reusable scenes when no usable template exists yet', () => {
+  const scene = {
+    templateType: 'popup',
+    preferTemplate: true,
+    singleOccurrence: true,
+    context: {
+      sourceCollectionName: 'users',
+      collectionName: 'roles',
+      associationName: 'users.roles',
+      fieldPath: 'roles',
+      openerUse: 'DisplayTextFieldModel',
+    },
+    searchTerms: ['角色详情', 'role details'],
+  };
+  const result = selectTemplateDecision({
+    scene,
+    probe: buildProbe(scene),
+    candidates: [],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.outcome, 'discovery-only');
+  assert.equal(result.templateDecision.reasonCode, 'bootstrap-after-first-write');
+});
+
+test('selectTemplateDecision selects templates for single standard reusable scenes when a usable template exists', () => {
+  const scene = {
+    templateType: 'popup',
+    preferTemplate: true,
+    singleOccurrence: true,
+    context: {
+      sourceCollectionName: 'users',
+      collectionName: 'roles',
+      associationName: 'users.roles',
+      fieldPath: 'roles',
+      openerUse: 'DisplayTextFieldModel',
+    },
+    searchTerms: ['角色详情', 'role details'],
+  };
+  const result = selectTemplateDecision({
+    scene,
+    probe: buildProbe(scene),
+    candidates: [
+      {
+        uid: 'etvze5dfw78',
+        name: 'role-details-popup',
+        description: 'Popup for users.roles display field detail scenes.',
+        type: 'popup',
+        available: true,
+        collectionName: 'roles',
+        sourceCollectionName: 'users',
+        associationName: 'users.roles',
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.outcome, 'selected');
+  assert.equal(result.selectedTemplate.uid, 'etvze5dfw78');
+});
+
 test('selectTemplateDecision resolves bare explicit template string by exact name after uid miss', () => {
   const scene = buildRolePopupScene();
   const result = selectTemplateDecision({

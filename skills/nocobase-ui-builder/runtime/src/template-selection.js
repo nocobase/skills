@@ -81,6 +81,7 @@ function normalizeScene(scene) {
     templateType,
     usage,
     repeatEligible: Boolean(scene.repeatEligible),
+    preferTemplate: Boolean(scene.preferTemplate || context.preferTemplate),
     singleOccurrence: Boolean(scene.singleOccurrence),
     targetUid: normalizeText(scene.targetUid || context.targetUid),
     actionType: normalizeLowerText(scene.actionType || context.actionType),
@@ -519,6 +520,7 @@ export function planTemplateQuery(sceneInput) {
     ...(scene.actionType ? { actionType: scene.actionType } : {}),
     ...(scene.actionScope ? { actionScope: scene.actionScope } : {}),
     repeatEligible: scene.repeatEligible,
+    ...(scene.preferTemplate ? { preferTemplate: true } : {}),
     contextStrength: contextStrength.strength,
     contextReasons: contextStrength.reasons,
     searchTerms,
@@ -538,8 +540,8 @@ export function planTemplateQuery(sceneInput) {
       'Planning context is still weak; keyword-only search stays discovery-only until the intended opener/host context is stronger.',
     );
   }
-  if (!scene.repeatEligible) {
-    warnings.push('Scene is not marked repeat-eligible; contextual probing is optional and should not force template binding.');
+  if (!scene.repeatEligible && !scene.preferTemplate) {
+    warnings.push('Scene is not marked repeat-eligible or template-preferred; contextual probing is optional and should not force template binding.');
   }
   if (!searchTerms.length) {
     warnings.push('No search terms were derived; the query will rely only on live target/type/opener filters.');
@@ -547,7 +549,7 @@ export function planTemplateQuery(sceneInput) {
 
   return {
     ok: true,
-    requiresContextualProbe: scene.repeatEligible,
+    requiresContextualProbe: Boolean(scene.repeatEligible || scene.preferTemplate),
     requestBody,
     querySummary,
     probe,
@@ -594,7 +596,9 @@ export function selectTemplateDecision({
     };
   }
 
-  if (!scene.repeatEligible && !explicit) {
+  const requiresProactiveTemplateFlow = Boolean(scene.repeatEligible || scene.preferTemplate || explicit);
+
+  if (!scene.repeatEligible && !scene.preferTemplate && !explicit) {
     return {
       ok: true,
       outcome: 'inline-non-template',
@@ -604,7 +608,7 @@ export function selectTemplateDecision({
   }
 
   const probeErrors = validateProbe(probe, scene, {
-    requiresProbe: Boolean(scene.repeatEligible || explicit),
+    requiresProbe: requiresProactiveTemplateFlow,
   });
   if (probeErrors.length) {
     return {
@@ -655,7 +659,7 @@ export function selectTemplateDecision({
 
   const usableCandidates = relevantCandidates.filter((candidate) => candidate.available === true);
   if (!usableCandidates.length) {
-    if (scene.singleOccurrence) {
+    if (scene.singleOccurrence && !scene.preferTemplate) {
       return {
         ok: true,
         outcome: 'inline-non-template',
