@@ -38,3 +38,9 @@ fields:
   - name: tasks
     interface: o2m
     title: Tasks
+  - name: createdAt
+    interface: createdAt
+    title: Created At
+  - name: updatedAt
+    interface: updatedAt
+    title: Updated At

@@ -58,65 +58,65 @@ pages:
         target_uid: b0iepbe6g6o
         blocks:
           createForm:
-            uid: yqbhx1fsbkw
+            uid: b8ftatj0z4h
             type: createForm
-            grid_uid: d14wx04xpoi
+            grid_uid: norv9idp180
             fields:
               name:
-                wrapper: 2tj9cdoa4kk
-                field: ''
+                wrapper: cf13x1vu6ys
+                field: 9ec4jtll365
               email:
-                wrapper: 7swm3t6esa8
-                field: ''
+                wrapper: j0edr0cbvxw
+                field: hbum5562272
               role:
-                wrapper: mdj619xc8av
-                field: ''
+                wrapper: t7h67i42cbw
+                field: 8sjlir1pewd
             actions:
               submit:
-                uid: e7zuehfvf1q
+                uid: t10u5sb7ls0
       table.recordActions.edit:
         target_uid: d82rw1s5kl6
         blocks:
           editForm:
-            uid: fsmvyeofjc9
+            uid: 7xy7250hytc
             type: editForm
-            grid_uid: b0us5jcx2cs
+            grid_uid: k7eq9ewxoj2
             fields:
               name:
-                wrapper: fzph8hwjpwo
-                field: ''
+                wrapper: 8nnk47lznqx
+                field: efkexi583yq
               email:
-                wrapper: yec7ov4rnmu
-                field: ''
+                wrapper: vsa7c68odco
+                field: 0044y2aoft4
               role:
-                wrapper: 5qx0m8vcjq0
-                field: ''
+                wrapper: 7pujvfxb58p
+                field: dwttd66vot9
             actions:
               submit:
-                uid: p9k1f43czhv
+                uid: tcwrfal5yb4
       table.fields.name:
         target_uid: rijmib88ru9
         blocks:
           details:
-            uid: crc7voq6cm0
+            uid: w5g1uapguty
             type: details
-            grid_uid: 7ki4wrol4py
+            grid_uid: 5oigigh5c24
             fields:
               name:
-                wrapper: jteyii3qu4k
-                field: gk63mrtnpk9
+                wrapper: baxwl36czq8
+                field: 1x8pi19qz0j
               email:
-                wrapper: 11tgay0nbg6
-                field: n0sxp95v4yp
+                wrapper: 7qm6bvnbd31
+                field: ea41dtrib0s
               role:
-                wrapper: j1wtau3oqsq
-                field: ph4qmaa9s7w
+                wrapper: jjcc40xejef
+                field: aimmczatxmm
               createdAt:
-                wrapper: dqlpasz9j2m
-                field: xwkjdi6hn0w
+                wrapper: id2zm16v1zw
+                field: vob013wvzf3
             actions:
               edit:
-                uid: 2prtj1wybdt
+                uid: i7iw958gvr5
   projects:
     route_id: 359245907623936
     page_uid: 175j3gqyu4l

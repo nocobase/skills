@@ -14,3 +14,9 @@ fields:
       - { value: manager, label: Manager }
       - { value: developer, label: Developer }
       - { value: designer, label: Designer }
+  - name: createdAt
+    interface: createdAt
+    title: Created At
+  - name: updatedAt
+    interface: updatedAt
+    title: Updated At

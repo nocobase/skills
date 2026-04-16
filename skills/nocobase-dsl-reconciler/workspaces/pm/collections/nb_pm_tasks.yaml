@@ -33,3 +33,9 @@ fields:
     interface: m2o
     title: Assignee
     target: nb_pm_members
+  - name: createdAt
+    interface: createdAt
+    title: Created At
+  - name: updatedAt
+    interface: updatedAt
+    title: Updated At
