@@ -1,0 +1,31 @@
+name: 'Form (Edit): Tasks'
+type: block
+collectionName: nb_pm_tasks
+content:
+  key: editForm
+  type: updateForm
+  coll: nb_pm_tasks
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - project
+    - assignee
+    - status
+    - priority
+    - due_date
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - status
+    - '--- Assignment ---'
+    - - project
+      - assignee
+    - '--- Properties ---'
+    - - priority
+      - due_date
+    - '--- Details ---'
+    - - description
+  actions:
+    - submit

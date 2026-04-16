@@ -1,0 +1,28 @@
+name: 'Detail: Members'
+type: block
+collectionName: nb_pm_members
+content:
+  key: details
+  type: details
+  coll: nb_pm_members
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - email
+    - phone
+    - role
+    - department
+    - status
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - status
+    - '--- Contact ---'
+    - - email
+      - phone
+    - '--- Role ---'
+    - - role
+      - department
+  actions:
+    - edit
