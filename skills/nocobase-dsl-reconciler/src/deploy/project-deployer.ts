@@ -319,16 +319,28 @@ export async function deployProject(
     if (!r.ok) log(`  ✗ ${r.label}: ${r.error}`);
   }
 
-  // Check test data — every collection should have at least 1 record
-  const emptyColls: string[] = [];
-  for (const [collName] of Object.entries(collDefs)) {
+  // Check test data — every collection must have records with actual field values
+  const dataIssues: string[] = [];
+  for (const [collName, collDef] of Object.entries(collDefs)) {
     try {
       const r = await nb.http.get(`${nb.baseUrl}/api/${collName}:list`, { params: { pageSize: 1 } });
-      if (!r.data?.data?.length) emptyColls.push(collName);
+      const rows = r.data?.data || [];
+      if (!rows.length) {
+        dataIssues.push(`${collName}: no records`);
+        continue;
+      }
+      // Check first record has at least one non-null business field
+      const SYSTEM = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
+      const row = rows[0];
+      const bizFields = Object.entries(row).filter(([k, v]) => !SYSTEM.has(k) && v !== null && v !== undefined);
+      if (!bizFields.length) {
+        const fieldNames = collDef.fields.filter(f => !SYSTEM.has(f.name)).map(f => f.name).slice(0, 5).join(', ');
+        dataIssues.push(`${collName}: records exist but ALL fields are empty — re-insert with: {"${fieldNames.split(', ')[0]}":"value", ...}`);
+      }
     } catch { /* skip */ }
   }
-  if (emptyColls.length) {
-    const msg = `Empty collections (insert test data before continuing): ${emptyColls.join(', ')}`;
+  if (dataIssues.length) {
+    const msg = `Test data issues:\n${dataIssues.map(i => `  - ${i}`).join('\n')}`;
     log(`\n  ✗ ${msg}`);
     throw new Error(msg);
   }
