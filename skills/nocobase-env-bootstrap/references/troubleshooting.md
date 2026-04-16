@@ -133,7 +133,7 @@ Actions:
 Symptoms:
 
 - Unsupported dialect errors.
-- Cannot connect to MariaDB/MSSQL/PostgreSQL from app.
+- Cannot connect to MySQL/MSSQL/PostgreSQL from app.
 
 Checks:
 

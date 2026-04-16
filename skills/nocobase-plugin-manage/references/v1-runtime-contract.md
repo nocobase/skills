@@ -137,7 +137,7 @@ If marker block is missing or JSON parse fails, fallback to API inspect (`pm:lis
 
 ```text
 Use $nocobase-plugin-manage inspect
-Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server
+Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc
 Use $nocobase-plugin-manage disable file-manager
 ```
 
@@ -158,13 +158,21 @@ If both local and remote appear valid and confidence is low, ask one disambiguat
 When channel resolves to `local`, resolve execution backend with this priority:
 
 1. explicit `execution_backend` (if not `auto`)
-2. local Docker backend (`docker_cli`) when compose environment is available and service exists (default `app`)
-3. local host backend (`host_cli`) when `yarn nocobase` is available
-4. if none are available, stop and return rich fallback hints (do not silently fallback to `remote_api`)
+2. for `inspect`, local Docker backend (`docker_cli`) when compose environment is available and service exists (default `app`)
+3. for `inspect`, local host backend (`host_cli`) when `yarn nocobase` is available
+4. for `install/enable/disable`, deterministic fallback chain: `docker_cli -> remote_api -> manual fallback`
+5. if both docker and remote_api write paths are unavailable/failed, stop and return rich fallback hints
+
+Fast docker eligibility check for local write actions:
+
+- resolve target port from `target.base_url`
+- query compose mapping via `docker compose port <service> 80`
+- if target port is not in compose mapping, skip `docker_cli` write path directly and continue with `remote_api` fallback
+- this avoids long docker retries against unrelated local instances
 
 Local channel semantics note:
 
-- local writes should use local CLI backend (`docker_cli` or `host_cli`)
+- local writes should try docker CLI first, then remote API fallback before manual guidance
 - local inspect/readback should prefer local CLI `pm list` marker JSON
 - local API inspect (`pm:list`, `pm:get`) is fallback only when local CLI marker extraction is unavailable
 
@@ -188,9 +196,10 @@ Local channel semantics note:
 - Local `pm list` marker block missing or invalid JSON: fallback to API inspect/readback and report parse issue in output.
 - API unavailable in safe mode: stop mutation; ask for reachable `base_url` or explicit switch to `fast` mode.
 - Async mutation uncertainty: never mark success without readback confirmation.
-- Backend unavailable (`docker_cli`/`host_cli` unavailable for local channel, or `remote_api` unavailable for remote channel): return `verification=failed` and rich fallback hints:
+- Backend unavailable (`docker_cli` unavailable + remote fallback unavailable for local write chain, or `remote_api` unavailable for remote channel): return `verification=failed` and rich fallback hints:
 - `Plugin manager URL`: `<base_url>/admin/settings/plugin-manager`
 - `API keys URL`: `<base_url>/admin/settings/api-keys`
 - when `base_url` is unknown, use default `http://127.0.0.1:13000`
 - `Manual activation`: enable target plugin in plugin manager UI, restart app, rerun inspect/postcheck
-- `MCP special case`: enable `@nocobase/plugin-mcp-server`, restart app, rerun MCP postcheck
+- `Remote API fallback`: when local docker write fails, retry `pm:add/pm:enable/pm:disable` via target API before manual fallback
+- `CLI runtime dependency special case`: enable `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys`, restart app, then hand off runtime refresh to `nocobase-env-bootstrap` / `nocobase-acl-manage`

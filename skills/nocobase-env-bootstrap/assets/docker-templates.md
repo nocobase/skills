@@ -1,23 +1,38 @@
 ﻿# Docker Templates (Local-First)
 
-This skill ships deterministic local Docker templates for bundled databases.
-Use local templates first. Only use WebFetch as fallback when a requested
-variant is missing locally.
+This skill ships deterministic local Docker templates for both bundled and
+existing database modes.
+Use local templates first and keep install execution local.
+Do not fetch install command snippets from web pages during runtime.
 
 ## Template Files
 
 - `assets/docker-templates/docker-compose.postgres.yml`
 - `assets/docker-templates/docker-compose.mysql.yml`
 - `assets/docker-templates/docker-compose.mariadb.yml`
+- `assets/docker-templates/docker-compose.external.postgres.yml`
+- `assets/docker-templates/docker-compose.external.mysql.yml`
+- `assets/docker-templates/docker-compose.external.mariadb.yml`
 
 ## Selection Rule
 
-1. Default (`quick` mode): `docker-compose.postgres.yml`
-2. `db_dialect=mysql`: `docker-compose.mysql.yml`
-3. `db_dialect=mariadb`: `docker-compose.mariadb.yml`
+1. `db_mode=bundled` (default)
+- `db_dialect=postgres`: `docker-compose.postgres.yml`
+- `db_dialect=mysql`: `docker-compose.mysql.yml`
+- `db_dialect=mariadb`: `docker-compose.mariadb.yml`
 
-Note: external database compose templates are intentionally not included in this
-revision. If users explicitly require external DB, use official docs as fallback.
+2. `db_mode=existing`
+- `db_dialect=postgres`: `docker-compose.external.postgres.yml`
+- `db_dialect=mysql`: `docker-compose.external.mysql.yml`
+- `db_dialect=mariadb`: `docker-compose.external.mariadb.yml`
+
+Note: existing DB mode supports `postgres`, `mysql`, and `mariadb` in this skill.
+
+## DB_UNDERSCORED Policy
+
+- For MySQL/MariaDB paths, templates consume `DB_UNDERSCORED` from `.env`.
+- Default value is `false`.
+- For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask user preference before install. If user does not specify, keep `false`.
 
 ## APP_KEY Policy
 

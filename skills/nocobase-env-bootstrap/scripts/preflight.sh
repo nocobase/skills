@@ -3,15 +3,61 @@
 set -u
 
 DEFAULT_PORT="${1:-13000}"
+INSTALL_METHOD="${2:-${INSTALL_METHOD:-docker}}"
+DB_MODE="${3:-${DB_MODE:-bundled}}"
+DB_DIALECT_INPUT="${4:-${DB_DIALECT:-}}"
 MCP_REQUIRED="${MCP_REQUIRED:-0}"
 MCP_AUTH_MODE="${MCP_AUTH_MODE:-none}"
 MCP_URL="${MCP_URL:-}"
 MCP_APP_NAME="${MCP_APP_NAME:-}"
 MCP_TOKEN_ENV="${MCP_TOKEN_ENV:-NOCOBASE_API_TOKEN}"
 MCP_PACKAGES="${MCP_PACKAGES:-}"
+DB_HOST_INPUT="${DB_HOST:-}"
+DB_PORT_INPUT="${DB_PORT:-}"
+DB_DATABASE_INPUT="${DB_DATABASE:-}"
+DB_USER_INPUT="${DB_USER:-}"
+DB_PASSWORD_INPUT="${DB_PASSWORD:-}"
+POSTGRES_INSTALL_URL='https://www.postgresql.org/download/'
+MYSQL_INSTALL_URL='https://dev.mysql.com/doc/en/installing.html'
+MYSQL_DOWNLOAD_URL='https://dev.mysql.com/downloads/mysql'
+MARIADB_INSTALL_URL='https://mariadb.org/download/'
 FAIL=0
 WARN=0
 PASS=0
+
+case "$INSTALL_METHOD" in
+  docker|create-nocobase-app|git) ;;
+  *)
+    printf '[fail] INPUT-001: Invalid INSTALL_METHOD "%s".\n' "$INSTALL_METHOD"
+    printf '  fix: Use one of docker/create-nocobase-app/git.\n'
+    exit 1
+    ;;
+esac
+
+case "$DB_MODE" in
+  bundled|existing) ;;
+  *)
+    printf '[fail] INPUT-002: Invalid DB_MODE "%s".\n' "$DB_MODE"
+    printf '  fix: Use one of bundled/existing.\n'
+    exit 1
+    ;;
+esac
+
+is_method_docker() {
+  [[ "$INSTALL_METHOD" == "docker" ]]
+}
+
+is_method_create_or_git() {
+  [[ "$INSTALL_METHOD" == "create-nocobase-app" || "$INSTALL_METHOD" == "git" ]]
+}
+
+is_method_git() {
+  [[ "$INSTALL_METHOD" == "git" ]]
+}
+
+has_external_db_inputs() {
+  [[ -n "$DB_HOST_INPUT" || -n "$DB_PORT_INPUT" || -n "$DB_DATABASE_INPUT" || -n "$DB_USER_INPUT" || -n "$DB_PASSWORD_INPUT" ]]
+}
 
 record() {
   local level="$1"
@@ -139,6 +185,31 @@ emit_activate_plugin_action() {
   printf 'required_step: rerun_mcp_postcheck\n'
 }
 
+emit_db_install_action() {
+  printf 'action_required: install_or_configure_database\n'
+  printf 'postgres_install_url: %s\n' "$POSTGRES_INSTALL_URL"
+  printf 'mysql_install_url: %s\n' "$MYSQL_INSTALL_URL"
+  printf 'mysql_download_url: %s\n' "$MYSQL_DOWNLOAD_URL"
+  printf 'mariadb_install_url: %s\n' "$MARIADB_INSTALL_URL"
+}
+
+tcp_reachable() {
+  local host="$1"
+  local port="$2"
+
+  if has_cmd nc; then
+    nc -z -w 3 "$host" "$port" >/dev/null 2>&1
+    return $?
+  fi
+
+  if has_cmd timeout; then
+    timeout 3 bash -c ":</dev/tcp/${host}/${port}" >/dev/null 2>&1
+    return $?
+  fi
+
+  return 2
+}
+
 http_status() {
   local url="$1"
   local token="${2:-}"
@@ -164,27 +235,85 @@ http_status() {
 
 printf 'cwd: %s\n' "$(pwd)"
 printf 'timestamp: %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+printf 'install_method: %s\n' "$INSTALL_METHOD"
+
+DB_DIALECT_ENV="$(dotenv_value "DB_DIALECT")"
+DB_HOST_ENV="$(dotenv_value "DB_HOST")"
+DB_PORT_ENV="$(dotenv_value "DB_PORT")"
+DB_DATABASE_ENV="$(dotenv_value "DB_DATABASE")"
+DB_USER_ENV="$(dotenv_value "DB_USER")"
+DB_PASSWORD_ENV="$(dotenv_value "DB_PASSWORD")"
+
+DB_DIALECT_RESOLVED="${DB_DIALECT_INPUT:-$DB_DIALECT_ENV}"
+if [[ -z "$DB_DIALECT_RESOLVED" ]]; then
+  DB_DIALECT_RESOLVED='postgres'
+fi
+if [[ "$DB_DIALECT_RESOLVED" != "postgres" && "$DB_DIALECT_RESOLVED" != "mysql" && "$DB_DIALECT_RESOLVED" != "mariadb" ]]; then
+  record fail INPUT-003 "Unsupported DB_DIALECT '${DB_DIALECT_RESOLVED}'." "Use DB_DIALECT=postgres, DB_DIALECT=mysql, or DB_DIALECT=mariadb."
+fi
+DB_HOST_RESOLVED="${DB_HOST_INPUT:-$DB_HOST_ENV}"
+DB_PORT_RESOLVED="${DB_PORT_INPUT:-$DB_PORT_ENV}"
+DB_DATABASE_RESOLVED="${DB_DATABASE_INPUT:-$DB_DATABASE_ENV}"
+DB_USER_RESOLVED="${DB_USER_INPUT:-$DB_USER_ENV}"
+DB_PASSWORD_RESOLVED="${DB_PASSWORD_INPUT:-$DB_PASSWORD_ENV}"
+
+DB_MODE_RESOLVED="$DB_MODE"
+if is_method_create_or_git; then
+  DB_MODE_RESOLVED='existing'
+elif is_method_docker && [[ "$DB_MODE_RESOLVED" == "bundled" ]] && has_external_db_inputs; then
+  DB_MODE_RESOLVED='existing'
+fi
+
+if [[ -z "$DB_PORT_RESOLVED" ]]; then
+  if [[ "$DB_DIALECT_RESOLVED" == "postgres" ]]; then
+    DB_PORT_RESOLVED='5432'
+  else
+    DB_PORT_RESOLVED='3306'
+  fi
+fi
+
+printf 'db_mode: %s\n' "$DB_MODE_RESOLVED"
+printf 'db_dialect: %s\n' "$DB_DIALECT_RESOLVED"
+if [[ -n "$DB_HOST_RESOLVED" ]]; then
+  printf 'db_host: %s\n' "$DB_HOST_RESOLVED"
+fi
 
 if has_cmd docker; then
   if docker --version >/dev/null 2>&1; then
     record pass DEP-DOCKER-001 "Docker detected."
   else
-    record fail DEP-DOCKER-001 "Docker command exists but version check failed." "Reinstall Docker."
+    if is_method_docker; then
+      record fail DEP-DOCKER-001 "Docker command exists but version check failed." "Reinstall Docker."
+    else
+      record warn DEP-DOCKER-001 "Docker command exists but version check failed (optional for method=${INSTALL_METHOD})." "Reinstall Docker if you plan to use docker method."
+    fi
   fi
 
   if docker info >/dev/null 2>&1; then
     record pass DEP-DOCKER-002 "Docker daemon is reachable."
   else
-    record fail DEP-DOCKER-002 "Docker daemon is not reachable." "Start Docker service."
+    if is_method_docker; then
+      record fail DEP-DOCKER-002 "Docker daemon is not reachable." "Start Docker service."
+    else
+      record warn DEP-DOCKER-002 "Docker daemon is not reachable (optional for method=${INSTALL_METHOD})." "Start Docker service if you plan to use docker method."
+    fi
   fi
 
   if docker compose version >/dev/null 2>&1; then
     record pass DEP-DOCKER-003 "Docker Compose detected."
   else
-    record fail DEP-DOCKER-003 "Docker Compose check failed." "Install Compose v2."
+    if is_method_docker; then
+      record fail DEP-DOCKER-003 "Docker Compose check failed." "Install Compose v2."
+    else
+      record warn DEP-DOCKER-003 "Docker Compose check failed (optional for method=${INSTALL_METHOD})." "Install Compose v2 if you plan to use docker method."
+    fi
   fi
 else
-  record warn DEP-DOCKER-001 "Docker not detected." "Install from https://docs.docker.com/get-started/get-docker/"
+  if is_method_docker; then
+    record fail DEP-DOCKER-001 "Docker not detected." "Install from https://docs.docker.com/get-started/get-docker/"
+  else
+    record warn DEP-DOCKER-001 "Docker not detected (optional for method=${INSTALL_METHOD})." "Install Docker only if docker method is needed."
+  fi
 fi
 
 if has_cmd node; then
@@ -193,10 +322,18 @@ if has_cmd node; then
   if [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] && [[ "$NODE_MAJOR" -ge 20 ]]; then
     record pass DEP-NODE-001 "Node.js version is compatible ($NODE_VERSION)."
   else
-    record warn DEP-NODE-001 "Node.js is below recommended version 20 ($NODE_VERSION)." "Install Node.js >= 20."
+    if is_method_create_or_git; then
+      record fail DEP-NODE-001 "Node.js is below required version 20 for method=${INSTALL_METHOD} ($NODE_VERSION)." "Install Node.js >= 20."
+    else
+      record warn DEP-NODE-001 "Node.js is below recommended version 20 ($NODE_VERSION)." "Install Node.js >= 20."
+    fi
   fi
 else
-  record warn DEP-NODE-001 "Node.js not detected." "Install Node.js >= 20 from https://nodejs.org/en/download"
+  if is_method_create_or_git; then
+    record fail DEP-NODE-001 "Node.js not detected (required for method=${INSTALL_METHOD})." "Install Node.js >= 20 from https://nodejs.org/en/download"
+  else
+    record warn DEP-NODE-001 "Node.js not detected." "Install Node.js >= 20 from https://nodejs.org/en/download"
+  fi
 fi
 
 if has_cmd yarn; then
@@ -204,16 +341,28 @@ if has_cmd yarn; then
   if [[ "$YARN_VERSION" =~ ^1\.22\. ]]; then
     record pass DEP-YARN-001 "Yarn classic detected ($YARN_VERSION)."
   else
-    record warn DEP-YARN-001 "Yarn is not 1.22.x ($YARN_VERSION)." "Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/"
+    if is_method_create_or_git; then
+      record fail DEP-YARN-001 "Yarn is not 1.22.x (required for method=${INSTALL_METHOD}, current=$YARN_VERSION)." "Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/"
+    else
+      record warn DEP-YARN-001 "Yarn is not 1.22.x ($YARN_VERSION)." "Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/"
+    fi
   fi
 else
-  record warn DEP-YARN-001 "Yarn not detected." "Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/"
+  if is_method_create_or_git; then
+    record fail DEP-YARN-001 "Yarn not detected (required for method=${INSTALL_METHOD})." "Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/"
+  else
+    record warn DEP-YARN-001 "Yarn not detected." "Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/"
+  fi
 fi
 
 if has_cmd git; then
   record pass DEP-GIT-001 "Git detected."
 else
-  record warn DEP-GIT-001 "Git not detected." "Install from https://git-scm.com/install"
+  if is_method_git; then
+    record fail DEP-GIT-001 "Git not detected (required for method=git)." "Install from https://git-scm.com/install"
+  else
+    record warn DEP-GIT-001 "Git not detected." "Install from https://git-scm.com/install"
+  fi
 fi
 
 if has_cmd ss; then
@@ -246,21 +395,85 @@ else
   record warn NET-001 "Could not verify DNS reachability." "If offline/restricted, use offline package workflow."
 fi
 
-DB_DIALECT_FROM_ENV="$(dotenv_value "DB_DIALECT")"
+if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
+  if [[ "$DB_DIALECT_RESOLVED" == "postgres" || "$DB_DIALECT_RESOLVED" == "mysql" || "$DB_DIALECT_RESOLVED" == "mariadb" ]]; then
+    record pass DB-REQ-001 "External DB dialect is supported (${DB_DIALECT_RESOLVED})."
+  else
+    record fail DB-REQ-001 "External DB mode requires db_dialect=postgres|mysql|mariadb (current=${DB_DIALECT_RESOLVED})." "Set DB_DIALECT to postgres, mysql, or mariadb."
+  fi
+
+  missing_db_fields=()
+  if [[ -z "$DB_HOST_RESOLVED" ]]; then missing_db_fields+=("DB_HOST"); fi
+  if [[ -z "$DB_PORT_RESOLVED" ]]; then missing_db_fields+=("DB_PORT"); fi
+  if [[ -z "$DB_DATABASE_RESOLVED" ]]; then missing_db_fields+=("DB_DATABASE"); fi
+  if [[ -z "$DB_USER_RESOLVED" ]]; then missing_db_fields+=("DB_USER"); fi
+  if [[ -z "$DB_PASSWORD_RESOLVED" ]]; then missing_db_fields+=("DB_PASSWORD"); fi
+
+  if [[ "${#missing_db_fields[@]}" -gt 0 ]]; then
+    record fail DB-REQ-002 "External DB mode is missing required fields: ${missing_db_fields[*]}." "Provide DB_* values or install PostgreSQL/MySQL/MariaDB first. PostgreSQL: ${POSTGRES_INSTALL_URL} | MySQL: ${MYSQL_INSTALL_URL} | MariaDB: ${MARIADB_INSTALL_URL}"
+    emit_db_install_action
+  else
+    record pass DB-REQ-002 "External DB required fields are present."
+    if [[ "$DB_PORT_RESOLVED" =~ ^[0-9]+$ ]]; then
+      if tcp_reachable "$DB_HOST_RESOLVED" "$DB_PORT_RESOLVED"; then
+        record pass DB-CONN-001 "Database endpoint is reachable (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED})."
+      else
+        tcp_rc=$?
+        if [[ "$tcp_rc" == "2" ]]; then
+          record fail DB-CONN-001 "Cannot verify database connectivity (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED}) because nc/timeout probing is unavailable." "Install PostgreSQL/MySQL/MariaDB client tools and retry. PostgreSQL: ${POSTGRES_INSTALL_URL} | MySQL: ${MYSQL_INSTALL_URL} | MariaDB: ${MARIADB_INSTALL_URL}"
+        else
+          record fail DB-CONN-001 "Database endpoint is not reachable (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED})." "Start database service or install one: PostgreSQL ${POSTGRES_INSTALL_URL} | MySQL ${MYSQL_INSTALL_URL} | MariaDB ${MARIADB_INSTALL_URL}"
+        fi
+        emit_db_install_action
+      fi
+
+      if [[ "$DB_DIALECT_RESOLVED" == "postgres" ]]; then
+        if has_cmd psql; then
+          if PGPASSWORD="$DB_PASSWORD_RESOLVED" psql -h "$DB_HOST_RESOLVED" -p "$DB_PORT_RESOLVED" -U "$DB_USER_RESOLVED" -d "$DB_DATABASE_RESOLVED" -c "select 1;" -tA >/dev/null 2>&1; then
+            record pass DB-AUTH-001 "PostgreSQL auth probe succeeded."
+          else
+            record fail DB-AUTH-001 "PostgreSQL auth probe failed (host=${DB_HOST_RESOLVED}, db=${DB_DATABASE_RESOLVED}, user=${DB_USER_RESOLVED})." "Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions."
+          fi
+        else
+          record warn DB-AUTH-001 "psql client is not available; skipped PostgreSQL auth probe." "Install psql for stronger preflight verification."
+        fi
+      elif [[ "$DB_DIALECT_RESOLVED" == "mysql" || "$DB_DIALECT_RESOLVED" == "mariadb" ]]; then
+        if has_cmd mysql; then
+          if MYSQL_PWD="$DB_PASSWORD_RESOLVED" mysql --protocol=TCP -h "$DB_HOST_RESOLVED" -P "$DB_PORT_RESOLVED" -u "$DB_USER_RESOLVED" -D "$DB_DATABASE_RESOLVED" --connect-timeout=5 -e "SELECT 1;" >/dev/null 2>&1; then
+            record pass DB-AUTH-001 "MySQL/MariaDB auth probe succeeded."
+          else
+            record fail DB-AUTH-001 "MySQL/MariaDB auth probe failed (host=${DB_HOST_RESOLVED}, db=${DB_DATABASE_RESOLVED}, user=${DB_USER_RESOLVED})." "Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions."
+          fi
+        else
+          record warn DB-AUTH-001 "mysql client is not available; skipped MySQL/MariaDB auth probe." "Install mysql client for stronger preflight verification."
+        fi
+      fi
+    else
+      record fail DB-REQ-003 "DB_PORT must be numeric (current=${DB_PORT_RESOLVED})." "Set DB_PORT to a valid numeric port."
+    fi
+  fi
+else
+  record pass DB-REQ-000 "Using bundled database mode."
+fi
+
 COMPOSE_FILE_PATH="$(compose_file_path)"
 HAS_DB_DIALECT_IN_COMPOSE=0
 if [[ -n "$COMPOSE_FILE_PATH" ]] && grep -E 'DB_DIALECT=' "$COMPOSE_FILE_PATH" >/dev/null 2>&1; then
   HAS_DB_DIALECT_IN_COMPOSE=1
 fi
 
-if [[ -n "$DB_DIALECT_FROM_ENV" ]]; then
-  record pass ENV-001 ".env contains DB_DIALECT."
-elif [[ "$HAS_DB_DIALECT_IN_COMPOSE" == "1" ]]; then
-  record pass ENV-001 "${COMPOSE_FILE_PATH} contains DB_DIALECT for Docker runtime."
-elif [[ -f .env ]]; then
-  record warn ENV-001 ".env found but DB_DIALECT is missing, and compose file has no DB_DIALECT." "Set DB_DIALECT in .env or docker-compose app environment before start/upgrade."
+if [[ "$DB_MODE_RESOLVED" == "bundled" ]] && is_method_docker; then
+  if [[ -n "$DB_DIALECT_ENV" ]]; then
+    record pass ENV-001 ".env contains DB_DIALECT."
+  elif [[ "$HAS_DB_DIALECT_IN_COMPOSE" == "1" ]]; then
+    record pass ENV-001 "${COMPOSE_FILE_PATH} contains DB_DIALECT for Docker runtime."
+  elif [[ -f .env ]]; then
+    record warn ENV-001 ".env found but DB_DIALECT is missing, and compose file has no DB_DIALECT." "Set DB_DIALECT in .env or docker-compose app environment before start/upgrade."
+  else
+    record warn ENV-001 ".env not found and compose file has no DB_DIALECT." "Create .env with DB_DIALECT or add DB_DIALECT to docker-compose app environment before start/upgrade."
+  fi
 else
-  record warn ENV-001 ".env not found and compose file has no DB_DIALECT." "Create .env with DB_DIALECT or add DB_DIALECT to docker-compose app environment before start/upgrade."
+  record pass ENV-001 "External DB mode will use provided DB_* values (method=${INSTALL_METHOD})."
 fi
 
 APP_KEY_VALUE="$(dotenv_value "APP_KEY")"
@@ -268,8 +481,17 @@ if [[ -z "$APP_KEY_VALUE" ]]; then
   APP_KEY_VALUE="${APP_KEY:-}"
 fi
 
+HAS_PROJECT_MARKER=0
+if [[ -f .env || -f package.json || -n "$COMPOSE_FILE_PATH" ]]; then
+  HAS_PROJECT_MARKER=1
+fi
+
 if [[ -z "$APP_KEY_VALUE" ]]; then
-  record fail ENV-APPKEY-001 "APP_KEY is missing." "Generate and set APP_KEY (example: openssl rand -hex 32)."
+  if [[ "$HAS_PROJECT_MARKER" == "1" ]]; then
+    record fail ENV-APPKEY-001 "APP_KEY is missing for existing project files." "Generate and set APP_KEY (example: openssl rand -hex 32)."
+  else
+    record warn ENV-APPKEY-001 "APP_KEY is not set yet; check deferred to local install script generation stage."
+  fi
 elif is_placeholder_app_key "$APP_KEY_VALUE"; then
   record fail ENV-APPKEY-001 "APP_KEY uses an insecure placeholder-like value." "Set a random APP_KEY with at least 32 characters; avoid values containing change-me/secret-key."
 elif [[ ${#APP_KEY_VALUE} -lt 32 ]]; then

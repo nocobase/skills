@@ -455,27 +455,27 @@ Expected:
 - verification behavior remains readback-based (`passed` or `pending_verification`)
 - readback should include local `pm list` marker JSON parsing; API actions such as `pm:get` are fallback only
 
-### TC14 All Backends Unavailable (Rich Guidance)
+### TC14 Local Write Fallback To Remote API
 
 Prompt:
 
 ```text
-Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server
+Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc
 Assume current workspace resolves to a local target.
-Assume docker/host CLI are unavailable, while remote API is reachable.
+Assume local docker write path is unavailable, while remote API is reachable with valid token.
 ```
 
 Task:
 
-- Validate local-channel behavior does not silently switch to remote API when local backends are unavailable.
+- Validate local write fallback chain uses remote API after docker failure.
 
 Expected:
 
-- `verification=failed`
-- no silent `execution_backend=remote_api` fallback for this local-target case
-- output includes `fallback_hints` with concrete manual actions
-- fallback includes plugin manager URL and API keys URL templates
-- next steps explicitly mention manual UI activation and retry path
+- `channel=local`
+- output records docker write failure first
+- then attempts `remote_api` mutation route (`pm:enable`)
+- verification remains readback-based (`passed` or `pending_verification`)
+- no direct jump to manual fallback when remote API path succeeds
 
 ### TC15 Auto Mode With Both app_path + base_url
 
@@ -506,8 +506,30 @@ Expected:
 
 - `channel=local`
 - `target_resolution` explicitly mentions `app_path` precedence
-- `execution_backend` resolves to `docker_cli` or `host_cli` (not `remote_api`)
-- verification remains readback-based (`passed` or `pending_verification`)
+- first write attempt uses `docker_cli`
+- when docker write fails and remote prerequisites are ready, fallback may use `remote_api`
+- verification remains readback-based (`passed`, `pending_verification`, or `failed` with rich manual fallback if both paths fail)
+
+### TC16 Local Port Mismatch Fast Skip
+
+Prompt:
+
+```text
+Use $nocobase-plugin-manage enable @nocobase/plugin-localization
+Assume target resolves to local mode with:
+- app_path compose maps app service port to 13000
+- target.base_url points to http://localhost:19000
+```
+
+Task:
+
+- Validate docker write path is skipped quickly when target URL port does not belong to compose mapping.
+
+Expected:
+
+- output includes explicit docker-eligibility evidence (target port mismatch)
+- no long-running docker write attempt against unrelated compose target
+- write flow proceeds to `remote_api` fallback when token/base_url are ready, otherwise returns manual fallback guidance
 
 ## Quick Regression Set
 
@@ -519,5 +541,6 @@ Use this set for fast smoke checks:
 4. TC11 local enable
 5. TC05 local disable
 6. TC02 remote inspect
-7. TC14 all backends unavailable guidance
+7. TC14 local write fallback to remote API
 8. TC15 auto mode app_path precedence
+9. TC16 local port mismatch fast skip
