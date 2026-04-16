@@ -1,0 +1,37 @@
+name: nb_pm_members
+title: Members
+fields:
+  - name: name
+    interface: input
+    title: Name
+  - name: email
+    interface: email
+    title: Email
+  - name: phone
+    interface: phone
+    title: Phone
+  - name: role
+    interface: select
+    title: Role
+    options:
+      - value: project_manager
+        label: Project Manager
+      - value: developer
+        label: Developer
+      - value: designer
+        label: Designer
+      - value: tester
+        label: Tester
+      - value: analyst
+        label: Analyst
+  - name: department
+    interface: input
+    title: Department
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: active
+        label: Active
+      - value: inactive
+        label: Inactive
