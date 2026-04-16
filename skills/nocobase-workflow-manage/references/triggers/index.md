@@ -26,6 +26,20 @@ Subsequent nodes can reference these variables in their configuration items base
 * **Only type values explicitly listed in the documentation can be used**; other values will cause the workflow to be unrecognized.
 * Variables are NOT supported in trigger configuration items. Only static values are allowed.
 
+## Execution Mode Matrix
+
+Execution mode semantics are defined by the workflow's `sync` field. See [workflows.md - Execution Mode](../modeling/workflows.md#execution-mode). The table below only summarizes trigger-specific support and constraints.
+
+| Type Value | Mode Support | Notes |
+| --- | --- | --- |
+| `collection` | Depends on workflow `sync` | No trigger-specific mode rule documented here. |
+| `schedule` | Async only | Always runs with `sync=false`. |
+| `action` | Depends on workflow `sync` | No trigger-specific mode rule documented here. |
+| `custom-action` | Sync or async | Behavior differs by mode; sync can intercept the request, async cannot. |
+| `request-interception` | Sync only | Always runs with `sync=true`. |
+| `webhook` | Sync or async | Response behavior differs by mode. |
+| `approval` | Depends on workflow `sync` | No trigger-specific mode rule documented here. |
+
 ## Trigger Documentation Directory
 
 ### Built-in Triggers
