@@ -30,7 +30,7 @@ List collections, fields, and relationships. Wait for user confirmation before p
 1. Create working directory `/tmp/myapp/`
 2. Write files following the structure in `templates/crm/` (full reference below)
 3. Deploy: `npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force`
-4. Insert test data (see `templates/seed.sh`)
+4. Seed test data: `npx tsx cli/cli.ts seed /tmp/myapp`
 
 **Warning: routes.yaml `title` must match the pages/ directory name** (lowercase).
 e.g. `title: Projects` → `pages/myapp/projects/layout.yaml`
@@ -132,6 +132,9 @@ export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:1
 
 # Deploy
 npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force
+
+# Seed test data (auto-generates from collection YAML, handles FK IDs correctly)
+npx tsx cli/cli.ts seed /tmp/myapp --count 5
 
 # Export
 npx tsx cli/cli.ts export-project "MyApp" /tmp/export
