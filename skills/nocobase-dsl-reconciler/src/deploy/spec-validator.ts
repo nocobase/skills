@@ -273,17 +273,27 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
     }
   }
 
-  // ── Rule 3: filterForm search with filterPaths should combine relation fields ──
-  if (bs.type === 'filterForm') {
-    const fields = bs.fields || [];
-    const searchFields = fields.filter(f => typeof f === 'object' && (f as Record<string, unknown>).filterPaths);
-    const plainFields = fields.filter(f => typeof f === 'string' || (typeof f === 'object' && !(f as Record<string, unknown>).filterPaths && !(f as Record<string, unknown>).label));
-    // If there's a search field AND a plain relation field that could be merged into filterPaths
-    for (const pf of plainFields) {
-      const pfName = typeof pf === 'string' ? pf : (pf as Record<string, unknown>).field as string;
-      // Common relation fields that should be in filterPaths instead of separate filters
-      if (searchFields.length && ['project', 'customer', 'lead', 'contact', 'assignee', 'owner', 'member'].includes(pfName)) {
-        issues.push({ level: 'warn', page: pageTitle, block: key, message: `filterForm has separate "${pfName}" filter — consider adding ${pfName}.name to Search filterPaths instead` });
+  // ── Rule 3: filterForm must not contain m2o fields (causes $eq association error) ──
+  if (bs.type === 'filterForm' && knownColls?.size) {
+    const blockColl = bs.coll || '';
+    if (blockColl) {
+      // Load collection to find m2o fields
+      const collFile = path.join(projectDir, 'collections', `${blockColl}.yaml`);
+      if (fs.existsSync(collFile)) {
+        try {
+          const collDef = loadYaml<Record<string, unknown>>(collFile);
+          const m2oNames = new Set(
+            ((collDef?.fields || []) as Record<string, unknown>[])
+              .filter(f => f.interface === 'm2o')
+              .map(f => f.name as string),
+          );
+          for (const f of bs.fields || []) {
+            const fname = typeof f === 'string' ? f : (f as Record<string, unknown>).field as string;
+            if (fname && m2oNames.has(fname)) {
+              issues.push({ level: 'error', page: pageTitle, block: key, message: `filterForm has m2o field "${fname}" — relation fields cannot be used as direct filters (causes "$eq neither association nor attribute" error). Remove it or use ${fname}.name in Search filterPaths instead.` });
+            }
+          }
+        } catch { /* skip */ }
       }
     }
   }
