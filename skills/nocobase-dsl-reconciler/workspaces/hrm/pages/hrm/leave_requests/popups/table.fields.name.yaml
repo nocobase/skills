@@ -1,0 +1,31 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - request_code
+      - employee
+      - leave_type
+      - start_date
+      - end_date
+      - days_requested
+      - status
+      - approver_name
+      - reason
+      - createdAt
+    field_layout:
+      - '--- Leave Request ---'
+      - - request_code
+        - employee
+      - - leave_type
+        - status
+      - - start_date
+        - end_date
+      - - days_requested
+        - approver_name
+      - - reason
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer

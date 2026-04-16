@@ -1,0 +1,2 @@
+target: $SELF.table.actions.addNew
+popup: templates/popup/add_new_nb_hrm_positions.yaml

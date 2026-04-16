@@ -1,0 +1,57 @@
+name: nb_hrm_leave_requests
+title: Leave Requests
+titleField: request_code
+fields:
+  - name: request_code
+    interface: input
+    title: Request Code
+  - name: employee_id
+    interface: integer
+    title: Employee ID
+  - name: employee
+    interface: m2o
+    title: Employee
+    target: nb_hrm_employees
+    foreignKey: employee_id
+    targetField: id
+  - name: leave_type
+    interface: select
+    title: Leave Type
+    options:
+      - value: annual
+        label: Annual
+      - value: sick
+        label: Sick
+      - value: unpaid
+        label: Unpaid
+      - value: parental
+        label: Parental
+      - value: compensatory
+        label: Compensatory
+  - name: start_date
+    interface: dateOnly
+    title: Start Date
+  - name: end_date
+    interface: dateOnly
+    title: End Date
+  - name: days_requested
+    interface: number
+    title: Days Requested
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: pending
+        label: Pending
+      - value: approved
+        label: Approved
+      - value: rejected
+        label: Rejected
+      - value: cancelled
+        label: Cancelled
+  - name: approver_name
+    interface: input
+    title: Approver Name
+  - name: reason
+    interface: textarea
+    title: Reason

@@ -1,0 +1,43 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_hrm_positions
+    fields:
+      - field: title
+        label: Search
+        filterPaths:
+          - title
+          - code
+      - status
+      - department
+    js_items:
+      - key: stats_filter_block
+        file: ./js/filter_stats.js
+        desc: Stats Filter Block
+    field_layout:
+      - - '[JS:Stats Filter Block]'
+      - - title
+        - status
+        - department
+  - key: table
+    type: table
+    coll: nb_hrm_positions
+    fields:
+      - field: title
+        popup: true
+      - code
+      - department
+      - grade
+      - employment_type
+      - headcount
+      - status
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

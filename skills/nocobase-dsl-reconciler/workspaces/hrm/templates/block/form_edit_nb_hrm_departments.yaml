@@ -1,0 +1,28 @@
+name: 'Form (Edit): Departments'
+type: block
+collectionName: nb_hrm_departments
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hrm_departments
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - code
+    - manager_name
+    - location
+    - budget
+    - status
+    - description
+  field_layout:
+    - '--- Department Profile ---'
+    - - name
+      - code
+    - - manager_name
+      - location
+    - - budget
+      - status
+    - - description
+  actions:
+    - submit

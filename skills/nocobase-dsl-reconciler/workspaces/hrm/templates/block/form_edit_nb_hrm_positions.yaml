@@ -1,0 +1,30 @@
+name: 'Form (Edit): Positions'
+type: block
+collectionName: nb_hrm_positions
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hrm_positions
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - title
+    - code
+    - department
+    - grade
+    - employment_type
+    - headcount
+    - status
+    - description
+  field_layout:
+    - '--- Position Profile ---'
+    - - title
+      - code
+    - - department
+      - grade
+    - - employment_type
+      - headcount
+    - - status
+    - - description
+  actions:
+    - submit

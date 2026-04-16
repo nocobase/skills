@@ -1,0 +1,6 @@
+name: 'Popup (Edit): Attendance'
+type: popup
+collectionName: nb_hrm_attendance
+content:
+  blocks:
+    - ref: templates/block/form_edit_nb_hrm_attendance.yaml

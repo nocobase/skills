@@ -1,0 +1,6 @@
+name: 'Popup (Add new): Payroll'
+type: popup
+collectionName: nb_hrm_payroll
+content:
+  blocks:
+    - ref: templates/block/form_add_new_nb_hrm_payroll.yaml

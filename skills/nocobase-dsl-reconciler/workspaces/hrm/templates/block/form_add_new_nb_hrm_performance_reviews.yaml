@@ -1,0 +1,32 @@
+name: 'Form (Add new): Performance Reviews'
+type: block
+collectionName: nb_hrm_performance_reviews
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hrm_performance_reviews
+  fields:
+    - review_code
+    - employee
+    - reviewer
+    - review_period
+    - score
+    - rating
+    - status
+    - goals
+    - strengths
+    - improvement_plan
+  field_layout:
+    - '--- Review Summary ---'
+    - - review_code
+      - review_period
+    - - employee
+      - reviewer
+    - - score
+      - rating
+    - - status
+    - - goals
+    - - strengths
+    - - improvement_plan
+  actions:
+    - submit

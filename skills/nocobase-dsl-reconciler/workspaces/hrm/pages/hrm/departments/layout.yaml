@@ -1,0 +1,42 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_hrm_departments
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - code
+          - manager_name
+          - location
+      - status
+    js_items:
+      - key: stats_filter_block
+        file: ./js/filter_stats.js
+        desc: Stats Filter Block
+    field_layout:
+      - - '[JS:Stats Filter Block]'
+      - - name
+        - status
+  - key: table
+    type: table
+    coll: nb_hrm_departments
+    fields:
+      - field: name
+        popup: true
+      - code
+      - manager_name
+      - location
+      - budget
+      - status
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

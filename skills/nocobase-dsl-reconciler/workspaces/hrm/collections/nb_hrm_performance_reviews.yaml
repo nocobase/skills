@@ -1,0 +1,64 @@
+name: nb_hrm_performance_reviews
+title: Performance Reviews
+titleField: review_code
+fields:
+  - name: review_code
+    interface: input
+    title: Review Code
+  - name: employee_id
+    interface: integer
+    title: Employee ID
+  - name: employee
+    interface: m2o
+    title: Employee
+    target: nb_hrm_employees
+    foreignKey: employee_id
+    targetField: id
+  - name: reviewer_id
+    interface: integer
+    title: Reviewer ID
+  - name: reviewer
+    interface: m2o
+    title: Reviewer
+    target: nb_hrm_employees
+    foreignKey: reviewer_id
+    targetField: id
+  - name: review_period
+    interface: input
+    title: Review Period
+  - name: score
+    interface: number
+    title: Score
+  - name: rating
+    interface: select
+    title: Rating
+    options:
+      - value: outstanding
+        label: Outstanding
+      - value: exceeds
+        label: Exceeds Expectations
+      - value: meets
+        label: Meets Expectations
+      - value: below
+        label: Below Expectations
+  - name: goals
+    interface: textarea
+    title: Goals
+  - name: strengths
+    interface: textarea
+    title: Strengths
+  - name: improvement_plan
+    interface: textarea
+    title: Improvement Plan
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: draft
+        label: Draft
+      - value: submitted
+        label: Submitted
+      - value: completed
+        label: Completed
+      - value: archived
+        label: Archived

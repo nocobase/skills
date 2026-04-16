@@ -1,0 +1,29 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - title
+      - code
+      - department
+      - grade
+      - employment_type
+      - headcount
+      - status
+      - description
+      - createdAt
+    field_layout:
+      - '--- Position Profile ---'
+      - - title
+        - code
+      - - department
+        - grade
+      - - employment_type
+        - headcount
+      - - status
+      - - description
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer

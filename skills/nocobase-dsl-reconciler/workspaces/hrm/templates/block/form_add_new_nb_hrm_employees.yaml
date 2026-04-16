@@ -1,0 +1,36 @@
+name: 'Form (Add new): Employees'
+type: block
+collectionName: nb_hrm_employees
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hrm_employees
+  fields:
+    - employee_id
+    - full_name
+    - email
+    - phone
+    - department
+    - position
+    - manager
+    - hire_date
+    - employment_type
+    - status
+    - base_salary
+    - address
+  field_layout:
+    - '--- Employee Profile ---'
+    - - employee_id
+      - full_name
+    - - email
+      - phone
+    - - department
+      - position
+    - - manager
+      - hire_date
+    - - employment_type
+      - status
+    - - base_salary
+    - - address
+  actions:
+    - submit

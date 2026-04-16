@@ -1,0 +1,2 @@
+target: $SELF.table.fields.request_code
+popup: templates/popup/detail_nb_hrm_leave_requests.yaml

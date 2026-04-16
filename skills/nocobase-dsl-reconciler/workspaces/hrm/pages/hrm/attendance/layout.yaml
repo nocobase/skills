@@ -1,0 +1,43 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_hrm_attendance
+    fields:
+      - field: entry_code
+        label: Search
+        filterPaths:
+          - entry_code
+      - attendance_status
+      - employee
+    js_items:
+      - key: stats_filter_block
+        file: ./js/filter_stats.js
+        desc: Stats Filter Block
+    field_layout:
+      - - '[JS:Stats Filter Block]'
+      - - entry_code
+        - attendance_status
+        - employee
+  - key: table
+    type: table
+    coll: nb_hrm_attendance
+    fields:
+      - field: entry_code
+        popup: true
+      - employee
+      - attendance_date
+      - check_in
+      - check_out
+      - attendance_status
+      - work_hours
+      - overtime_hours
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

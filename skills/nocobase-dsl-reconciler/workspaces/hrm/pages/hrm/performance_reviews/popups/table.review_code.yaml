@@ -1,0 +1,2 @@
+target: $SELF.table.fields.review_code
+popup: templates/popup/detail_nb_hrm_performance_reviews.yaml

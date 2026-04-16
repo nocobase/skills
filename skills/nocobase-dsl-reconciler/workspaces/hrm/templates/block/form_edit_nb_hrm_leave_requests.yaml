@@ -1,0 +1,32 @@
+name: 'Form (Edit): Leave Requests'
+type: block
+collectionName: nb_hrm_leave_requests
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hrm_leave_requests
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - request_code
+    - employee
+    - leave_type
+    - start_date
+    - end_date
+    - days_requested
+    - status
+    - approver_name
+    - reason
+  field_layout:
+    - '--- Leave Request ---'
+    - - request_code
+      - employee
+    - - leave_type
+      - status
+    - - start_date
+      - end_date
+    - - days_requested
+      - approver_name
+    - - reason
+  actions:
+    - submit

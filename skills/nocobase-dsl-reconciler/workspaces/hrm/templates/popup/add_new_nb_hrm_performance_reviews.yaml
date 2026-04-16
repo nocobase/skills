@@ -1,0 +1,6 @@
+name: 'Popup (Add new): Performance Reviews'
+type: popup
+collectionName: nb_hrm_performance_reviews
+content:
+  blocks:
+    - ref: templates/block/form_add_new_nb_hrm_performance_reviews.yaml

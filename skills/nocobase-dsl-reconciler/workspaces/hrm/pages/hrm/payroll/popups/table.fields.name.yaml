@@ -1,0 +1,33 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - payroll_code
+      - employee
+      - pay_period
+      - base_salary
+      - allowance
+      - bonus
+      - deduction
+      - net_pay
+      - payment_status
+      - payment_date
+      - createdAt
+    field_layout:
+      - '--- Payroll Run ---'
+      - - payroll_code
+        - employee
+      - - pay_period
+        - payment_status
+      - - base_salary
+        - allowance
+      - - bonus
+        - deduction
+      - - net_pay
+        - payment_date
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer

@@ -1,0 +1,6 @@
+name: 'Popup (Detail): Payroll'
+type: popup
+collectionName: nb_hrm_payroll
+content:
+  blocks:
+    - ref: templates/block/detail_nb_hrm_payroll.yaml

@@ -1,0 +1,28 @@
+name: 'Detail: Departments'
+type: block
+collectionName: nb_hrm_departments
+content:
+  key: details
+  type: details
+  coll: nb_hrm_departments
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - code
+    - manager_name
+    - location
+    - budget
+    - status
+    - description
+  field_layout:
+    - '--- Department Profile ---'
+    - - name
+      - code
+    - - manager_name
+      - location
+    - - budget
+      - status
+    - - description
+  actions:
+    - edit
