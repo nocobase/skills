@@ -1,43 +1,23 @@
 name: nb_pm_members
 title: Members
+titleField: name
 fields:
   - name: name
     interface: input
     title: Name
+    required: true
   - name: email
     interface: email
     title: Email
+  - name: role
+    interface: input
+    title: Role
+  - name: department
+    interface: input
+    title: Department
   - name: phone
     interface: phone
     title: Phone
-  - name: role
-    interface: select
-    title: Role
-    options:
-      - value: manager
-        label: Manager
-      - value: developer
-        label: Developer
-      - value: designer
-        label: Designer
-      - value: tester
-        label: Tester
-      - value: analyst
-        label: Analyst
-  - name: department
-    interface: select
-    title: Department
-    options:
-      - value: engineering
-        label: Engineering
-      - value: design
-        label: Design
-      - value: product
-        label: Product
-      - value: qa
-        label: QA
-      - value: operations
-        label: Operations
   - name: status
     interface: select
     title: Status

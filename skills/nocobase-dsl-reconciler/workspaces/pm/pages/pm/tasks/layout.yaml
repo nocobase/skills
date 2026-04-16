@@ -8,30 +8,29 @@ blocks:
         filterPaths:
           - name
           - description
-      - status
+      - project
       - assignee
-    js_items:
-      - key: filter_buttons
-        file: ./js/filter_buttons.js
-        desc: Task Filter Buttons
+      - status
+      - priority
     field_layout:
-      - - '[JS:Task Filter Buttons]'
       - - name
         - status
-        - assignee
+      - - priority
+        - project
+      - - assignee
   - key: table
     type: table
     coll: nb_pm_tasks
     fields:
       - field: name
         popup: true
-      - status
-      - priority
-      - dueDate
-      - estimatedHours
-      - actualHours
       - project
       - assignee
+      - status
+      - priority
+      - due_date
+      - estimated_hours
+      - createdAt
     actions:
       - filter
       - refresh

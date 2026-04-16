@@ -1,6 +1,0 @@
-name: 'Popup (Edit): Milestones'
-type: popup
-collectionName: nb_pm_milestones
-content:
-  blocks:
-    - ref: templates/block/form_edit_nb_pm_milestones.yaml

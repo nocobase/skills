@@ -1,4 +1,4 @@
-name: 'Details: Members'
+name: 'Detail: Members'
 type: block
 collectionName: nb_pm_members
 content:
@@ -8,18 +8,17 @@ content:
   fields:
     - name
     - email
-    - phone
     - role
     - department
+    - phone
     - status
     - createdAt
-    - updatedAt
   field_layout:
-    - '--- Profile ---'
-    - [name, email]
-    - [phone]
-    - '--- Work ---'
-    - [role, department]
-    - [status]
-    - '--- System ---'
-    - [createdAt, updatedAt]
+    - '--- Member Info ---'
+    - - name
+      - email
+    - - role
+      - department
+    - - phone
+      - status
+    - - createdAt

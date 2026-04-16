@@ -8,16 +8,17 @@ content:
   fields:
     - name
     - email
-    - phone
     - role
     - department
+    - phone
     - status
   field_layout:
-    - '--- Profile ---'
-    - [name, email]
-    - [phone]
-    - '--- Work ---'
-    - [role, department]
-    - [status]
+    - '--- Member Info ---'
+    - - name
+      - email
+    - - role
+      - department
+    - - phone
+      - status
   actions:
     - submit

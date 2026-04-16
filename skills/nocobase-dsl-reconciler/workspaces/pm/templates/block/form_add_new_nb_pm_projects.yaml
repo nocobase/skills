@@ -7,21 +7,26 @@ content:
   coll: nb_pm_projects
   fields:
     - name
+    - code
     - status
+    - priority
+    - owner
+    - start_date
+    - end_date
     - budget
-    - startDate
-    - endDate
-    - manager
     - description
   field_layout:
-    - '--- Basic Info ---'
-    - [name, status]
-    - [budget]
-    - '--- Timeline ---'
-    - [startDate, endDate]
-    - '--- Team ---'
-    - [manager]
-    - '--- Details ---'
-    - [description]
+    - '--- Project Info ---'
+    - - name
+      - code
+    - - status
+      - priority
+    - - owner
+    - '--- Schedule & Budget ---'
+    - - start_date
+      - end_date
+    - - budget
+    - '--- Description ---'
+    - - description
   actions:
     - submit

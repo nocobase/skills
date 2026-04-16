@@ -1,4 +1,4 @@
-name: 'Details: Tasks'
+name: 'Detail: Tasks'
 type: block
 collectionName: nb_pm_tasks
 content:
@@ -7,25 +7,26 @@ content:
   coll: nb_pm_tasks
   fields:
     - name
-    - status
-    - priority
-    - dueDate
-    - estimatedHours
-    - actualHours
     - project
     - assignee
+    - status
+    - priority
+    - due_date
+    - estimated_hours
     - description
     - createdAt
-    - updatedAt
   field_layout:
     - '--- Task Info ---'
-    - [name, status]
-    - [priority, dueDate]
-    - '--- Time Tracking ---'
-    - [estimatedHours, actualHours]
+    - - name
+      - status
+    - - priority
+      - due_date
     - '--- Assignment ---'
-    - [project, assignee]
-    - '--- Details ---'
-    - [description]
-    - '--- System ---'
-    - [createdAt, updatedAt]
+    - - project
+      - assignee
+    - '--- Effort ---'
+    - - estimated_hours
+    - '--- Description ---'
+    - - description
+    - '--- Audit ---'
+    - - createdAt

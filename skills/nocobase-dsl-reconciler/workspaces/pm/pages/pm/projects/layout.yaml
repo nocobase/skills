@@ -7,29 +7,27 @@ blocks:
         label: Search
         filterPaths:
           - name
+          - code
           - description
       - status
-      - manager
-    js_items:
-      - key: filter_buttons
-        file: ./js/filter_buttons.js
-        desc: Project Filter Buttons
+      - priority
+      - owner
     field_layout:
-      - - '[JS:Project Filter Buttons]'
       - - name
         - status
-        - manager
+      - - priority
+        - owner
   - key: table
     type: table
     coll: nb_pm_projects
     fields:
       - field: name
         popup: true
+      - code
       - status
-      - budget
-      - startDate
-      - endDate
-      - manager
+      - priority
+      - owner
+      - end_date
       - createdAt
     actions:
       - filter
