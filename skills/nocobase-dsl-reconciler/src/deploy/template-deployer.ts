@@ -46,6 +46,11 @@ interface ExistingTemplate {
 
 export type TemplateUidMap = Map<string, string>; // oldUid → newUid
 export interface PendingPopupTemplate { name: string; collName: string; file: string; uid: string; targetUid: string; }
+export interface DeployTemplatesResult {
+  uidMap: TemplateUidMap;
+  pendingPopupTemplates: PendingPopupTemplate[];
+  deployedTemplates: Record<string, { uid: string; targetUid: string; type: string; collection?: string }>;
+}
 
 /**
  * Auto-discover template YAML files when _index.yaml doesn't exist.
@@ -232,7 +237,8 @@ export async function deployTemplates(
   projectDir: string,
   log: (msg: string) => void = console.log,
   copyMode = false,
-): Promise<TemplateUidMap> {
+  savedTemplateUids?: Record<string, { uid: string; targetUid: string; type: string; collection?: string }>,
+): Promise<DeployTemplatesResult> {
   const tplDir = path.join(projectDir, 'templates');
   if (!fs.existsSync(tplDir)) return new Map();
 
@@ -270,6 +276,8 @@ export async function deployTemplates(
 
   const uidMap: TemplateUidMap = new Map();
   const pendingPopupTemplates: { name: string; collName: string; file: string; uid: string; targetUid: string }[] = [];
+  // Track deployed template UIDs for state persistence
+  const deployedTemplates: Record<string, { uid: string; targetUid: string; type: string; collection?: string }> = {};
   let created = 0;
   let reused = 0;
   let skipped = 0;
@@ -285,7 +293,29 @@ export async function deployTemplates(
     const tplSpec = loadYaml<Record<string, unknown>>(tplFile);
     const collName = (tpl.collection || tplSpec.collectionName) as string || '';
 
-    // Check if template already exists (by name + collection)
+    // Priority 1: Match by persisted UID from state.yaml (most reliable)
+    const stateKey = `${tpl.type}:${tpl.name}`;
+    const savedEntry = savedTemplateUids?.[stateKey];
+    if (!copyMode && savedEntry?.uid) {
+      // Verify the saved UID still exists in NocoBase
+      try {
+        const check = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: savedEntry.uid } });
+        if (check.data?.data) {
+          uidMap.set(tpl.uid, savedEntry.uid);
+          if (tpl.targetUid && savedEntry.targetUid) uidMap.set(tpl.targetUid, savedEntry.targetUid);
+          // Sync content
+          const tplContent = tplSpec.content as Record<string, unknown>;
+          if (tpl.type === 'block' && savedEntry.targetUid && tplContent) {
+            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `); } catch { /* skip */ }
+          }
+          deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
+          reused++;
+          continue;
+        }
+      } catch { /* saved UID no longer valid, fall through to name matching */ }
+    }
+
+    // Priority 2: Match by name + collection (fallback)
     // In copy mode: skip reuse — always create independent templates
     const matchKey = makeMatchKey(tpl.name, collName);
     const existingEntry = copyMode ? undefined : (existingByKey.get(matchKey) || existingByName.get(tpl.name));
@@ -319,6 +349,7 @@ export async function deployTemplates(
           log(`  ! template sync ${tpl.name}: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
         }
       }
+      deployedTemplates[stateKey] = { uid: existingEntry.uid, targetUid: existingEntry.targetUid, type: tpl.type, collection: collName };
       reused++;
       continue;
     }
@@ -376,6 +407,7 @@ export async function deployTemplates(
       if (tpl.targetUid) {
         uidMap.set(tpl.targetUid, result.targetUid);
       }
+      deployedTemplates[stateKey] = { uid: result.templateUid, targetUid: result.targetUid, type: tpl.type, collection: collName };
       log(`  + template "${tpl.name}" (${tpl.type}) → ${result.templateUid}`);
       created++;
     } catch (e) {
@@ -385,7 +417,7 @@ export async function deployTemplates(
   }
 
   log(`  templates: ${created} created, ${reused} reused${skipped ? `, ${skipped} deferred/skipped` : ''}`);
-  return { uidMap, pendingPopupTemplates };
+  return { uidMap, pendingPopupTemplates, deployedTemplates };
 }
 
 // ── Block template creation ──

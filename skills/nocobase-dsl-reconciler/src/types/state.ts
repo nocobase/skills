@@ -49,7 +49,15 @@ export interface PageState {
   popups?: Record<string, PopupState>;
 }
 
+export interface TemplateState {
+  uid: string;         // NocoBase template UID
+  targetUid: string;   // template target flowModel UID
+  type: 'block' | 'popup';
+  collection?: string;
+}
+
 export interface ModuleState {
   group_id?: number;
   pages: Record<string, PageState>;
+  template_uids?: Record<string, TemplateState>;  // key = "type:name" e.g. "block:Form: Tasks"
 }

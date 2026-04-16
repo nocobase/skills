@@ -199,9 +199,12 @@ export async function deployProject(
   let templateUidMap: TemplateUidMap = new Map();
   let pendingPopups: PendingPopupTemplate[] = [];
   if (!opts.page) {
-    const tplResult = await deployTemplates(nb, root, log, ctx.copyMode);
+    const tplResult = await deployTemplates(nb, root, log, ctx.copyMode, state.template_uids);
     templateUidMap = tplResult.uidMap;
     pendingPopups = tplResult.pendingPopupTemplates;
+    // Persist template UIDs to state for next deploy
+    state.template_uids = { ...(state.template_uids || {}), ...tplResult.deployedTemplates } as typeof state.template_uids;
+    saveYaml(stateFile, state);
   }
 
   // For pending popup templates: expand their content inline into the first referencing popup
@@ -303,7 +306,12 @@ export async function deployProject(
         const collTitle = pageColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         const tplName = `Popup (${popupType}): ${collTitle}`;
         try {
-          await convertPopupToTemplate(nb, targetUid, tplName, pageColl, log);
+          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, pageColl, log);
+          if (tplResult) {
+            const key = `popup:${tplName}`;
+            if (!state.template_uids) state.template_uids = {};
+            state.template_uids[key] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: pageColl };
+          }
         } catch { /* skip */ }
       }
     }
