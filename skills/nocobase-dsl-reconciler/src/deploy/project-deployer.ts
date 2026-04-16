@@ -327,48 +327,9 @@ export async function deployProject(
     if (!r.ok) log(`  ✗ ${r.label}: ${r.error}`);
   }
 
-  // Check test data — every collection must have records with actual field values
-  const dataIssues: string[] = [];
-  for (const [collName, collDef] of Object.entries(collDefs)) {
-    try {
-      const r = await nb.http.get(`${nb.baseUrl}/api/${collName}:list`, { params: { pageSize: 1 } });
-      const rows = r.data?.data || [];
-      if (!rows.length) {
-        dataIssues.push(`${collName}: no records`);
-        continue;
-      }
-      // Check first record has at least one non-null business field
-      const SYSTEM = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
-      const row = rows[0];
-      const bizFields = Object.entries(row).filter(([k, v]) => !SYSTEM.has(k) && v !== null && v !== undefined);
-      if (!bizFields.length) {
-        const fieldNames = collDef.fields.filter(f => !SYSTEM.has(f.name)).map(f => f.name).slice(0, 5).join(', ');
-        dataIssues.push(`${collName}: records exist but ALL fields are empty — run: npx tsx cli/cli.ts seed <project-dir>`);
-      }
-
-      // Check m2o FK validity: if FK has a value, the related record must exist
-      for (const fd of collDef.fields) {
-        if (fd.interface !== 'm2o' || !fd.target) continue;
-        const fkName = fd.foreignKey || `${fd.name}Id`;
-        const fkVal = row[fkName];
-        if (fkVal !== null && fkVal !== undefined) {
-          try {
-            const related = await nb.http.get(`${nb.baseUrl}/api/${fd.target}:get`, { params: { filterByTk: fkVal } });
-            if (!related.data?.data?.id) {
-              dataIssues.push(`${collName}.${fkName}=${fkVal} points to non-existent ${fd.target} record — use real IDs, not 1/2/3. Run: npx tsx cli/cli.ts seed <project-dir>`);
-            }
-          } catch {
-            dataIssues.push(`${collName}.${fkName}=${fkVal} points to non-existent ${fd.target} record — use real IDs, not 1/2/3. Run: npx tsx cli/cli.ts seed <project-dir>`);
-          }
-        }
-      }
-    } catch { /* skip */ }
-  }
-  if (dataIssues.length) {
-    const msg = `Test data issues:\n${dataIssues.map(i => `  - ${i}`).join('\n')}`;
-    log(`\n  ✗ ${msg}`);
-    throw new Error(msg);
-  }
+  // Data verification is now a separate step: npx tsx cli/cli.ts verify-data <dir>
+  // Deploy no longer blocks on missing/broken test data — AI inserts data after deploy,
+  // then runs verify-data as a separate validation pass.
 
   // Set menu sortIndex to match routes.yaml declaration order
   await syncMenuOrder(nb, state, routes, log);

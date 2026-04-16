@@ -56,6 +56,9 @@ async function main() {
     case 'seed':
       await cmdSeed(args.slice(1));
       break;
+    case 'verify-data':
+      await cmdVerifyData(args.slice(1));
+      break;
     case 'verify-sql':
       await cmdVerifySql(args.slice(1));
       break;
@@ -537,6 +540,14 @@ function cmdValidateWorkflows(args: string[]) {
 
   console.log(`\n  Result: ${wfDirs.length} workflow(s), ${totalErrors} error(s), ${totalWarnings} warning(s)`);
   if (totalErrors > 0) process.exit(1);
+}
+
+async function cmdVerifyData(args: string[]) {
+  const dir = args[0];
+  if (!dir) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
+  const { verifyData } = await import('./verify-data');
+  const result = await verifyData(path.resolve(dir));
+  if (result.failed > 0) process.exit(1);
 }
 
 async function cmdSeed(args: string[]) {
