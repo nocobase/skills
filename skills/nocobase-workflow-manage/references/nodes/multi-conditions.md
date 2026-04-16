@@ -38,6 +38,9 @@ Choosing different processing branches based on status/level, similar to switch/
 - Each branchIndex value can appear at most once.
 - When adding a new condition branch, pick the next integer after the current maximum.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 ```json
 {

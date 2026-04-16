@@ -29,6 +29,9 @@ Extract fields from a third-party response or restructure JSON data.
 ## Branch Description
 Branches are not supported.
 
+## Test Support
+Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes:test`, because the server-side instruction implements `test()`.
+
 ## Example Configuration
 ```json
 {

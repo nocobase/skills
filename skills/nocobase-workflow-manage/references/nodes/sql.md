@@ -27,6 +27,9 @@ Executing statistical SQL or batch correcting data. For standard CRUD operations
 ## Branch Description
 Does not support branches.
 
+## Test Support
+Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes:test`, because the server-side instruction implements `test()`.
+
 ## Example Configuration
 ```json
 {

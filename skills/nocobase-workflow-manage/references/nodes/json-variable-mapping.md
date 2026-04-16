@@ -29,6 +29,9 @@ Map the raw JSON from a webhook into clear variables for use by subsequent nodes
 ## Branch Description
 Branches are not supported.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 ```json
 {
