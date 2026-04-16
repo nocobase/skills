@@ -105,6 +105,7 @@ Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
 8. **JS: copy from templates** — copy from `templates/crm/js/` and modify
 9. **SQL: two-step pattern** — `ctx.sql.save({uid, sql}) + ctx.sql.runById(uid)`
 10. **Parent tables first** — seed data: insert tables without foreign keys first
+11. **Do NOT define system columns** — never include `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `id` in collection YAML (auto-created by NocoBase)
 
 ## Common Errors
 
@@ -117,6 +118,7 @@ Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
 | `Request failed 400` | Check field definitions in collection YAML |
 | Chart SQL failed | Insert test data first; quote field names e.g. `"createdAt"` |
 | `Block references fields not in` | Remove non-existent fields from layout.yaml |
+| `string violation` on create | Collection has wrong field types — remove `createdAt`/`updatedAt` from YAML and re-deploy |
 
 ## Command Reference
 

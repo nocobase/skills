@@ -60,7 +60,9 @@ export async function ensureCollection(
   def: CollectionDef,
   log: (msg: string) => void = console.log,
 ): Promise<void> {
-  const fields = def.fields.map(toApplyField);
+  // Skip system columns — NocoBase auto-creates these
+  const SYSTEM_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
+  const fields = def.fields.filter(f => !SYSTEM_FIELDS.has(f.name)).map(toApplyField);
 
   // Auto-detect titleField: first 'name' or 'title' field, or explicit from def
   const titleField = def.titleField
