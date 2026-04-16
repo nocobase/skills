@@ -24,6 +24,18 @@ export interface SpecIssue {
 export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIssue[] {
   const issues: SpecIssue[] = [];
 
+  // Build set of known collections from project
+  const collDir = path.join(projectDir, 'collections');
+  const knownColls = new Set<string>();
+  if (fs.existsSync(collDir)) {
+    for (const f of fs.readdirSync(collDir).filter(f => f.endsWith('.yaml'))) {
+      try {
+        const c = loadYaml<Record<string, unknown>>(path.join(collDir, f));
+        if (c?.name) knownColls.add(c.name as string);
+      } catch { /* skip */ }
+    }
+  }
+
   for (const page of pages) {
     const blocks = page.layout.blocks || [];
     const tabs = page.layout.tabs;
@@ -33,12 +45,12 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
 
     // Check each block
     for (const bs of allBlocks) {
-      validateBlock(bs, page.title, page.popups, issues, projectDir);
+      validateBlock(bs, page.title, page.popups, issues, projectDir, knownColls);
     }
 
     // Check popups
     for (const ps of page.popups) {
-      validatePopup(ps, page.title, issues, projectDir);
+      validatePopup(ps, page.title, issues, projectDir, knownColls);
     }
 
     // Must have at least addNew popup + detail popup template for main table
@@ -125,8 +137,13 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
   return issues;
 }
 
-function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], issues: SpecIssue[], projectDir: string): void {
+function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
   const key = bs.key || bs.type;
+
+  // ── Rule: block coll must reference an existing collection ──
+  if (bs.coll && knownColls?.size && !knownColls.has(bs.coll)) {
+    issues.push({ level: 'error', page: pageTitle, block: key, message: `collection "${bs.coll}" not found — create collections/${bs.coll}.yaml first` });
+  }
 
   // ── Rule 1: filterForm MUST have field_layout (grid) ──
   if (bs.type === 'filterForm') {
@@ -272,7 +289,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
   }
 }
 
-function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string): void {
+function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
   const blocks = ps.blocks || [];
   const tabs = ps.tabs || [];
 
@@ -287,17 +304,17 @@ function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], pr
           const tpl = loadYaml<Record<string, unknown>>(tplPath);
           const content = tpl.content as Record<string, unknown>;
           if (content) {
-            validateBlock(content as any, `${pageTitle} popup [${tpl.name || bAny.ref}]`, [], issues, projectDir);
+            validateBlock(content as any, `${pageTitle} popup [${tpl.name || bAny.ref}]`, [], issues, projectDir, knownColls);
           }
         } catch { /* skip malformed */ }
       }
     } else {
-      validateBlock(bs, `${pageTitle} popup`, [], issues, projectDir);
+      validateBlock(bs, `${pageTitle} popup`, [], issues, projectDir, knownColls);
     }
   }
   for (const tab of tabs) {
     for (const bs of (tab.blocks || [])) {
-      validateBlock(bs, `${pageTitle} popup tab`, [], issues, projectDir);
+      validateBlock(bs, `${pageTitle} popup tab`, [], issues, projectDir, knownColls);
     }
   }
 }
