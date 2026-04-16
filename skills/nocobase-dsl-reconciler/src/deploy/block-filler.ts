@@ -458,14 +458,20 @@ export async function enableM2oClickToOpen(
   neededColls.add(coll);
   for (const targetColl of neededColls) {
     if (!popupDefaults[targetColl]) continue;
-    // Find live popup template by collectionName + type=popup (or type=block with Detail)
-    const live = liveTemplates.find(t =>
+    // Find live popup template by collectionName + type=popup, prefer Detail
+    const isDetail = (t: Record<string, unknown>) => {
+      const name = (t.name || '').toString().toLowerCase();
+      return name.includes('detail') || name.includes('view');
+    };
+    const isNotForm = (t: Record<string, unknown>) => {
+      const name = (t.name || '').toString().toLowerCase();
+      return !name.includes('add new') && !name.includes('edit');
+    };
+    const collTemplates = liveTemplates.filter(t =>
       (t as Record<string, unknown>).collectionName === targetColl &&
-      ((t as Record<string, unknown>).type === 'popup' && (t as Record<string, unknown>).name?.toString().includes('Detail'))
-    ) || liveTemplates.find(t =>
-      (t as Record<string, unknown>).collectionName === targetColl &&
-      (t as Record<string, unknown>).type === 'popup'
-    );
+      (t as Record<string, unknown>).type === 'popup',
+    ) as Record<string, unknown>[];
+    const live = collTemplates.find(isDetail) || collTemplates.find(isNotForm) || null;
     if (live) {
       templateNameToUid.set(targetColl, { templateUid: (live as Record<string, unknown>).uid as string, targetUid: ((live as Record<string, unknown>).targetUid as string) || '' });
     }
