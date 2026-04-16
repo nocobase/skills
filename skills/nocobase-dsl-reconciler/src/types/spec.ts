@@ -173,19 +173,47 @@ export interface PageSpec {
   page_event_flows?: EventFlowSpec[];
 }
 
+// ── Field interface types ──
+
+/** All supported NocoBase field interfaces. */
+export type FieldInterface =
+  // Basic scalar
+  | 'input' | 'textarea' | 'email' | 'phone' | 'url'
+  | 'password' | 'color' | 'icon'
+  | 'integer' | 'number' | 'percent' | 'checkbox'
+  // Choices
+  | 'select' | 'multipleSelect' | 'radioGroup' | 'checkboxGroup'
+  | 'chinaRegion'
+  // Date & time
+  | 'datetime' | 'datetimeNoTz' | 'dateOnly' | 'time' | 'unixTimestamp'
+  // Rich text & media
+  | 'markdown' | 'richText' | 'vditor' | 'attachment' | 'attachmentURL'
+  // Relations
+  | 'm2o' | 'o2m' | 'm2m' | 'o2o'
+  // System (auto-created, do NOT include in collection YAML)
+  | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
+  | 'id' | 'snowflakeId' | 'uuid' | 'nanoid'
+  // Advanced
+  | 'formula' | 'sequence' | 'sort' | 'code' | 'encryption' | 'json'
+  | 'tableoid' | 'space'
+  // Map / geometry (plugin-backed)
+  | 'point' | 'lineString' | 'circle' | 'polygon';
+
 // ── Collection field def ──
 
 export interface FieldDef {
   name: string;
-  interface: string;
+  interface: FieldInterface;
   title: string;
   required?: boolean;
-  target?: string;
-  targetField?: string;
-  foreignKey?: string;
-  options?: (string | { value: string; label: string })[];
+  target?: string;           // relation target collection
+  targetField?: string;      // relation target field (default: id)
+  foreignKey?: string;       // explicit FK name
+  through?: string;          // m2m join table
+  options?: (string | { value: string; label: string; color?: string })[];
   default?: unknown;
   description?: string;
+  uiSchema?: Record<string, unknown>;
 }
 
 // ── Collection def ──

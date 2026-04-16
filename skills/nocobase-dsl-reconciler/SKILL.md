@@ -77,21 +77,25 @@ Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
 
 ## Field Type Reference
 
-| interface | Purpose | Required params |
-|-----------|---------|-----------------|
-| input | Short text | — |
-| textarea | Long text | — |
-| select | Dropdown | `options: [{value, label}]` |
-| number | Decimal | — |
-| integer | Integer | — |
-| dateOnly | Date | — |
-| datetime | Date + time | — |
-| m2o | Many-to-one | `target: collection_name` |
-| o2m | One-to-many | `target: collection_name` |
-| email | Email | — |
-| phone | Phone | — |
-| percent | Percentage | — |
-| checkbox | Boolean | — |
+All supported field interfaces are defined in `src/types/spec.ts` (`FieldInterface` type).
+
+For detailed field capabilities, relation rules, and compact payload guidance, see:
+`../nocobase-data-modeling/references/field-capabilities.md`
+
+Quick reference for common types used in collection YAML:
+
+| interface | Required params |
+|-----------|-----------------|
+| input, textarea, email, phone, url | — |
+| integer, number, percent, checkbox | — |
+| select, multipleSelect, radioGroup | `options: [{value, label}]` |
+| dateOnly, datetime, time | — |
+| markdown, richText, attachment | — |
+| m2o | `target: collection_name` |
+| o2m | `target: collection_name`, `foreignKey: field_name` |
+| m2m | `target: collection_name`, `through: join_table` |
+
+> System columns (`id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`) are auto-created — do NOT define them.
 
 ## Key Rules
 

@@ -85,13 +85,36 @@ export class CollectionsApi {
         },
       };
     } else if (def.interface === 'o2m') {
-      if (!def.target) return null; // skip o2m without target (auto-created by NocoBase)
+      if (!def.target) return null;
       body = {
         name: def.name, type: 'hasMany', interface: 'o2m',
         target: def.target, foreignKey: def.foreignKey || `${coll.split('.').pop()}_id`,
         uiSchema: {
           title: def.title, 'x-component': 'AssociationField',
           'x-component-props': { multiple: true },
+        },
+      };
+    } else if (def.interface === 'm2m') {
+      if (!def.target) return null;
+      body = {
+        name: def.name, type: 'belongsToMany', interface: 'm2m',
+        target: def.target,
+        ...(def.through ? { through: def.through } : {}),
+        ...(def.foreignKey ? { foreignKey: def.foreignKey } : {}),
+        uiSchema: {
+          title: def.title, 'x-component': 'AssociationField',
+          'x-component-props': { multiple: true },
+        },
+      };
+    } else if (def.interface === 'o2o') {
+      if (!def.target) return null;
+      body = {
+        name: def.name, type: 'hasOne', interface: 'o2o',
+        target: def.target,
+        ...(def.foreignKey ? { foreignKey: def.foreignKey } : {}),
+        uiSchema: {
+          title: def.title, 'x-component': 'AssociationField',
+          'x-component-props': { multiple: false },
         },
       };
     } else {

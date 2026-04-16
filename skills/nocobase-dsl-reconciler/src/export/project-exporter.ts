@@ -1003,17 +1003,52 @@ async function exportCollections(nb: NocoBaseClient, outDir: string): Promise<vo
     const name = c.name as string;
     if (!name || name.startsWith('_') || !name.startsWith('nb_')) continue;
 
-    const meta = await nb.collections.fieldMeta(name);
-    const fields = Object.entries(meta).map(([fname, fmeta]) => ({
-      name: fname,
-      interface: fmeta.interface,
-    }));
+    // Fetch full field definitions (not just interface) for rich export
+    let fields: Record<string, unknown>[];
+    try {
+      const fResp = await nb.http.get(`${nb.baseUrl}/api/collections/${name}/fields:list`, { params: { paginate: false } });
+      const SYSTEM_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
+      fields = ((fResp.data?.data || []) as Record<string, unknown>[])
+        .filter((f: any) => f.interface && !SYSTEM_FIELDS.has(f.name as string))
+        .map((f: any) => {
+          const entry: Record<string, unknown> = {
+            name: f.name,
+            interface: f.interface,
+          };
+          if (f.title) entry.title = f.title;
+          // Relations
+          if (f.target) entry.target = f.target;
+          if (f.foreignKey) entry.foreignKey = f.foreignKey;
+          if (f.through) entry.through = f.through;
+          // Select options
+          const enumArr = f.uiSchema?.enum;
+          if (Array.isArray(enumArr) && enumArr.length) {
+            entry.options = enumArr.map((e: any) => {
+              const opt: Record<string, string> = { value: e.value, label: e.label };
+              if (e.color) opt.color = e.color;
+              return opt;
+            });
+          }
+          if (f.required) entry.required = true;
+          return entry;
+        });
+    } catch {
+      // Fallback to basic fieldMeta
+      const meta = await nb.collections.fieldMeta(name);
+      fields = Object.entries(meta).map(([fname, fmeta]) => ({
+        name: fname,
+        interface: fmeta.interface,
+      }));
+    }
 
-    fs.writeFileSync(path.join(collDir, `${name}.yaml`), dumpYaml({
+    const collDef: Record<string, unknown> = {
       name,
       title: c.title || name,
-      fields,
-    }));
+    };
+    if (c.titleField) collDef.titleField = c.titleField;
+    collDef.fields = fields;
+
+    fs.writeFileSync(path.join(collDir, `${name}.yaml`), dumpYaml(collDef));
     count++;
   }
   console.log(`  + ${count} collections`);

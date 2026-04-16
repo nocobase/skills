@@ -22,12 +22,13 @@ function toApplyField(fd: FieldDef): Record<string, unknown> {
     title: fd.title,
   };
 
-  // Relation fields — warn if m2o missing target (skip field, don't crash)
-  if (fd.interface === 'm2o' && !fd.target) return field; // skip — field may already exist in NocoBase
-  if ((fd.interface === 'o2m') && !fd.target) return field; // skip — NocoBase manages reverse relations
+  // Relation fields — skip if missing required target
+  const RELATION_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'o2o']);
+  if (RELATION_INTERFACES.has(fd.interface) && !fd.target) return field;
   if (fd.target) field.target = fd.target;
   if (fd.foreignKey) field.foreignKey = fd.foreignKey;
   if (fd.targetField) field.targetKey = fd.targetField;
+  if (fd.through) field.through = fd.through;
 
   // Required
   if (fd.required) field.required = true;
