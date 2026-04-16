@@ -26,6 +26,25 @@ description: "Trigger flows after user actions (creation/update) are completed, 
 | actions | string[] | - | Required only in Global mode | Operation types allowed to trigger in Global mode, currently supported: `"create"`, `"update"`. |
 | appends | string[] | [] | No | Paths of associated fields to be preloaded. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 
+## UI Setup for Local Mode
+
+When `global = false`, this trigger does not run until the workflow is bound on a supported UI action button.
+
+- Supported UI entry points:
+  - Create-form `Submit` button.
+  - Edit-form `Submit` button.
+  - Record-level `Update data` actions that open an edit form, then submit that form.
+- If the page or button does not exist yet, use the UI builder references for the page-side work:
+  - [UI builder recipe - forms and actions](../../../nocobase-ui-builder/references/recipes/forms-and-actions.md)
+  - [UI builder settings - add-action](../../../nocobase-ui-builder/references/settings.md#add-action)
+  - [UI builder settings - add-record-action](../../../nocobase-ui-builder/references/settings.md#add-record-action)
+
+<!-- TODO: ### Binding Steps -->
+
+### Global Mode Note
+
+When `global = true`, no button binding is required. Any matching create/update action on the configured collection can trigger the workflow automatically. Use local mode when only specific buttons or forms should expose the trigger.
+
 ## Example Configuration
 
 ### Local mode, triggered only by buttons/operations bound to this workflow
