@@ -42,6 +42,25 @@ export async function deployJsItems(
       log(`      ✗ JS item ${jsSpec.file}: ctx.render(null) 是空占位符，需要实现实际内容`);
       continue;
     }
+    // Forbidden APIs in NocoBase JS sandbox
+    const forbidden = [
+      { pattern: /\bnew\s+URLSearchParams\b/, name: 'URLSearchParams' },
+      { pattern: /<\w+[\s/>]/, name: 'JSX syntax (use React.createElement instead)' },
+      { pattern: /\bimport\s+/, name: 'ES module import' },
+      { pattern: /\bexport\s+(default\s+)?/, name: 'ES module export' },
+      { pattern: /\bfetch\s*\(/, name: 'fetch() (use ctx.request instead)' },
+      { pattern: /\bwindow\./, name: 'window object' },
+      { pattern: /\bdocument\./, name: 'document object' },
+    ];
+    let hasForbidden = false;
+    for (const { pattern, name } of forbidden) {
+      if (pattern.test(code)) {
+        log(`      ✗ JS item ${jsSpec.file}: uses ${name} — not available in NocoBase JS sandbox`);
+        hasForbidden = true;
+        break;
+      }
+    }
+    if (hasForbidden) continue;
     if (/ctx\.sql\s*\(/.test(code) && !/ctx\.sql\.(save|runById)/.test(code)) {
       log(`      ✗ JS item ${jsSpec.file}: ctx.sql() 直接调用不可用，请用 ctx.sql.save() + ctx.sql.runById()`);
       continue;
