@@ -220,11 +220,7 @@ export function scaffold(
 
   // ── 2. defaults.yaml ──
 
-  const defaults: Record<string, Record<string, string>> = { popups: {}, forms: {} };
-  for (const collName of collNames) {
-    defaults.popups[collName] = `templates/popup/detail_${collName}.yaml`;
-    defaults.forms[collName] = `templates/block/form_add_new_${collName}.yaml`;
-  }
+  const defaults: Record<string, Record<string, string>> = {};
   fs.writeFileSync(path.join(root, 'defaults.yaml'), dumpYaml(defaults));
 
   // ── 3. state.yaml ──
@@ -277,84 +273,18 @@ export function scaffold(
       ['description'],
     ];
 
-    // Block templates (the form/detail block itself)
+    // Form template — ONE shared definition for addNew/edit/detail
+    // Deployer auto-derives edit + detail popups from addNew (popup-expander.ts)
     fs.writeFileSync(
-      path.join(root, 'templates', 'block', `form_add_new_${collName}.yaml`),
+      path.join(root, 'templates', 'block', `form_${collName}.yaml`),
       dumpYaml({
-        name: `Form (Add new): ${title}`,
+        name: `Form: ${title}`,
         type: 'block',
         collectionName: collName,
         content: {
           key: 'createForm', type: 'createForm', coll: collName,
           fields: sharedFields, field_layout: sharedLayout,
           actions: ['submit'],
-        },
-      }),
-    );
-
-    fs.writeFileSync(
-      path.join(root, 'templates', 'block', `form_edit_${collName}.yaml`),
-      dumpYaml({
-        name: `Form (Edit): ${title}`,
-        type: 'block',
-        collectionName: collName,
-        content: {
-          key: 'editForm', type: 'editForm', coll: collName,
-          resource_binding: { filterByTk: '{{ctx.view.inputArgs.filterByTk}}' },
-          fields: sharedFields, field_layout: sharedLayout,
-          actions: ['submit'],
-        },
-      }),
-    );
-
-    fs.writeFileSync(
-      path.join(root, 'templates', 'block', `detail_${collName}.yaml`),
-      dumpYaml({
-        name: `Detail: ${title}`,
-        type: 'block',
-        collectionName: collName,
-        content: {
-          key: 'details', type: 'details', coll: collName,
-          resource_binding: { filterByTk: '{{ctx.view.inputArgs.filterByTk}}' },
-          fields: sharedFields, field_layout: sharedLayout,
-          actions: ['edit'],
-        },
-      }),
-    );
-
-    // Popup templates (whole drawer — deferred creation: deploy inline → saveTemplate)
-    fs.writeFileSync(
-      path.join(root, 'templates', 'popup', `add_new_${collName}.yaml`),
-      dumpYaml({
-        name: `Popup (Add new): ${title}`,
-        type: 'popup',
-        collectionName: collName,
-        content: {
-          blocks: [{ ref: `templates/block/form_add_new_${collName}.yaml` }],
-        },
-      }),
-    );
-
-    fs.writeFileSync(
-      path.join(root, 'templates', 'popup', `edit_${collName}.yaml`),
-      dumpYaml({
-        name: `Popup (Edit): ${title}`,
-        type: 'popup',
-        collectionName: collName,
-        content: {
-          blocks: [{ ref: `templates/block/form_edit_${collName}.yaml` }],
-        },
-      }),
-    );
-
-    fs.writeFileSync(
-      path.join(root, 'templates', 'popup', `detail_${collName}.yaml`),
-      dumpYaml({
-        name: `Popup (Detail): ${title}`,
-        type: 'popup',
-        collectionName: collName,
-        content: {
-          blocks: [{ ref: `templates/block/detail_${collName}.yaml` }],
         },
       }),
     );
@@ -502,28 +432,13 @@ function generateCrudPage(
 
   // js/ directory created but empty — AI adds JS in round 3
 
-  // popups — reference popup templates
+  // Only addNew popup — edit + detail are auto-derived by popup-expander
   fs.writeFileSync(
     path.join(pageDir, 'popups', 'table.addNew.yaml'),
     dumpYaml({
       target: '$SELF.table.actions.addNew',
-      popup: `templates/popup/add_new_${coll}.yaml`,
-    }),
-  );
-
-  fs.writeFileSync(
-    path.join(pageDir, 'popups', 'table.edit.yaml'),
-    dumpYaml({
-      target: '$SELF.table.recordActions.edit',
-      popup: `templates/popup/edit_${coll}.yaml`,
-    }),
-  );
-
-  fs.writeFileSync(
-    path.join(pageDir, 'popups', 'table.name.yaml'),
-    dumpYaml({
-      target: '$SELF.table.fields.name',
-      popup: `templates/popup/detail_${coll}.yaml`,
+      coll,
+      blocks: [{ ref: `templates/block/form_${coll}.yaml` }],
     }),
   );
 }
