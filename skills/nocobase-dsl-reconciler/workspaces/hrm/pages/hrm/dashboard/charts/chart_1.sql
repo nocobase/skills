@@ -1,5 +1,5 @@
-SELECT d.name AS label, COUNT(e.id) AS value
-FROM nb_hrm_departments d
-JOIN nb_hrm_employees e ON e.department_id = d.id
-GROUP BY d.name
+SELECT position AS label, COUNT(id) AS value
+FROM nb_hrm_employees
+WHERE position IS NOT NULL
+GROUP BY position
 ORDER BY value DESC
