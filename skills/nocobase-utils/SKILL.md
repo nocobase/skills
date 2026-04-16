@@ -19,7 +19,7 @@ Invoke this skill (or its sub-references) when you need authoritative reference 
 # Bundled Scripts
 
 - Reuse [scripts/uid.js](scripts/uid.js) when a UI or schema payload needs a short random UID and there is no existing project helper already in use.
-- The script supports both patterns: import `uid()` into target code, or run `node scripts/uid.js 16` to print a UID immediately during agent work.
+- The script supports both patterns: import `uid()` into target code, or resolve the script path in the current workspace and run `node <resolved-path-to-uid.js> 16` to print a UID during agent work.
 
 # Reference Index
 

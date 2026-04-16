@@ -7,6 +7,7 @@ Use this reference when part of a NocoBase UI, schema, or configuration payload 
 - Prefer an existing project utility if the current file or package already uses one.
 - Otherwise reuse [scripts/uid.js](../../scripts/uid.js).
 - Keep the default length `11` unless the surrounding code has a stronger convention.
+- When executing the helper as a script, resolve the file path in the current workspace first. Do not assume the current working directory matches the skill document location.
 
 ## Guardrails
 
@@ -20,10 +21,10 @@ const blockUid = uid();
 const fieldUid = uid(16);
 ```
 
-```bash
-node scripts/uid.js
-node scripts/uid.js 16
-```
+Command form:
+
+- Resolve the path to `skills/nocobase-utils/scripts/uid.js` in the current workspace.
+- Then run `node <resolved-path-to-uid.js>` or `node <resolved-path-to-uid.js> 16`.
 
 ## Implementation
 

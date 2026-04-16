@@ -24,9 +24,8 @@ description: "Dedicated flow triggered by approval initiation, used for managing
 | mode | number | 0 | Yes | Trigger mode: `1` Approval before saving (data is written only after approval), `0` Approval after saving (data is written before entering approval). |
 | centralized | boolean | false | No | Whether to allow initiating approvals in the Pending Center; if `false`, approvals can only be initiated on data blocks/buttons. |
 | audienceType | number | 1 | No | Scope of initiators: `0` Restricted (requires configuration of initiator scope), `1` Unrestricted (all visible users). |
-| applyForm | string | - | No | Initiator interface (v1 legacy UI Schema uid). |
-| approvalUid | string | - | No | Initiator interface (v2 configuration uid). |
-| taskCardUid | string | - | No | uid for "My Applications" list card configuration. |
+| approvalUid | string | - | No | Initiator interface (v2 configuration uid). If no value already exists, resolve the shared UID helper path first, then run `node <resolved-path-to-uid.js>` and write the generated value into the config. |
+| taskCardUid | string | - | No | uid for "My Applications" list card configuration. If no value already exists, resolve the shared UID helper path first, then run `node <resolved-path-to-uid.js>` and write the generated value into the config. |
 | recordShowMode | boolean | false | No | Record display mode in flow: `false` Snapshot, `true` Latest data. |
 | appends | string[] | [] | No | Paths of preloaded associated fields. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
 | withdrawable | boolean | false | No | Whether to allow the initiator to withdraw (automatically generated from initiator interface configuration). |
@@ -48,6 +47,8 @@ Approval triggers usually need both workflow-side configuration and page-side en
 
 Open the trigger dialog and configure the initiator interface (`approvalUid`):
 
+- For any UID-backed config value in this trigger, keep the existing value if one is already present. Otherwise resolve the shared helper path from [nocobase-utils UID generation](../../../nocobase-utils/references/uid/index.md) in the current workspace, then run `node <resolved-path-to-uid.js>`.
+- Do not leave placeholder strings such as `uid-for-initiator-interface` or `uid-for-task-card` in the final workflow payload.
 - Add at least one form block bound to the same collection. Without a form block, initiators cannot submit from the approval center or resubmit after withdrawal.
 - Add Markdown blocks only as helpers; they do not replace the form.
 - Configure action buttons inside that interface as needed, for example `Submit`, `Save draft`, and optionally `Withdraw`.
@@ -96,10 +97,15 @@ If users should start approvals from collection forms in the application UI, bin
       "template": 1
     }
   ],
-  "approvalUid": "uid-for-initiator-interface",
-  "taskCardUid": "uid-for-task-card"
+  "approvalUid": "<pre-generated uid if missing>",
+  "taskCardUid": "<pre-generated uid if missing>"
 }
 ```
+
+Before finalizing a payload like the example above, generate missing UID values first:
+
+- Locate `skills/nocobase-utils/scripts/uid.js` in the current workspace instead of assuming a document-relative path.
+- Run `node <resolved-path-to-uid.js>`.
 
 ## Output Variables
 The variable selector for this trigger is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$context`, for example `{{$context.data.title}}`.
