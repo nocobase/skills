@@ -1,27 +1,37 @@
 # Normative Contract
 
-This page is the single source of truth for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page.
+This page defines the global contract for `nocobase-ui-builder`. Other reference files may explain a topic, but they must not contradict this page. Template-selection semantics are defined normatively in [templates.md](./templates.md); this file sets the global precedence, transport, and public write contract around them.
+
+## 0. Canonical Transport
+
+- Canonical front door: `nocobase-ctl flow-surfaces`
+- Retained `applyBlueprint`, `flowSurfaces:*`, and MCP tool docs in this skill remain the backend contract, payload reference, and fallback map.
+- `nb-page-preview` and `nb-runjs` remain local helper CLIs only.
 
 ## 1. Precedence
 
 Rule precedence is always:
 
-1. live MCP behavior / live `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level `flow_surfaces_*` write contracts
-2. this `Normative Contract`
-3. topic references (`popup`, `verification`, `runtime-playbook`, etc.)
-4. examples and heuristics
+1. live `nocobase-ctl flow-surfaces --help` / live generated CLI behavior
+2. live backend `applyBlueprint` / `get` / `describeSurface` / `catalog` / `getReactionMeta` / `context` / low-level `flow_surfaces_*` write contracts
+3. this `Normative Contract` for global transport, request-shape, and authoring rules
+4. [templates.md](./templates.md) for template-selection semantics
+5. other topic references (`popup`, `verification`, `runtime-playbook`, etc.)
+6. examples and heuristics
 
-If a lower-priority local document conflicts with a live contract fact, follow the live contract.
+If a lower-priority local document conflicts with a live contract fact, follow the live contract. If CLI behavior and backend contract appear to diverge, repair the CLI/runtime generation path first and do not silently author against stale assumptions.
 
 ## 2. Public Structural Write Contract
 
 ### Default split
 
-- **Whole-page create** -> simplified **page blueprint** -> `applyBlueprint(mode="create")` -> readback.
-- **Whole-page replace** -> simplified **page blueprint** -> `applyBlueprint(mode="replace")` -> readback.
-- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `applyBlueprint(...)` -> readback.
-- **Localized edit on an existing surface** -> low-level APIs directly (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
-- **Localized interaction / reaction edit** -> `getReactionMeta` -> matching `set*Rules` -> readback.
+- **Whole-page create** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="create")` -> readback.
+- **Whole-page replace** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="replace")` -> readback.
+- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `nocobase-ctl flow-surfaces apply-blueprint` -> readback.
+- **Localized edit on an existing surface** -> matching `nocobase-ctl flow-surfaces ...` command -> low-level APIs (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
+- **Localized interaction / reaction edit** -> `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set*Rules` -> readback.
+
+This file keeps backend action names because they are still the stable payload families and fallback names.
 
 ### What the public page blueprint is
 
@@ -46,12 +56,13 @@ The public `applyBlueprint` payload is:
 - field entries default to simple string field names; use a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required
 - when the intent is "click the shown record / relation record to open details", the canonical page-blueprint authoring is a field-level inline `popup`; backend / readback may normalize this to clickable-field / `clickToOpen` semantics. Use an action / recordAction only when the request explicitly asks for a button or action column.
 
-### MCP tool-call envelope rule
+### CLI request-body rule and MCP fallback map
 
-When calling any `flow_surfaces_*` MCP tool:
+For actual execution in this skill:
 
-- first distinguish whether the tool uses top-level locator fields directly or a `requestBody`
-- if the schema says `requestBody`, then `requestBody` must be the final business **object**
+- `nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body
+- most other body-based `flow-surfaces` commands expect the raw business object through CLI `--body` / `--body-file`
+- only in MCP fallback should that same business object be wrapped under `requestBody`
 - do **not** stringify the JSON document
 - do **not** wrap it again as `{ values: payload }`
 - do **not** leak tool-envelope fields such as `requestBody` into the inner page blueprint
@@ -59,10 +70,32 @@ When calling any `flow_surfaces_*` MCP tool:
 Important exception:
 
 - `flow_surfaces_get` uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`)
-- most other `flow_surfaces_*` actions in this skill path use `requestBody`
-- for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `page-blueprint.md` focuses on the inner page document, not the full MCP envelope
+- most other `flow_surfaces_*` fallback tools in this skill path use `requestBody`
+- for actual invocation templates, treat [tool-shapes.md](./tool-shapes.md) as the primary cookbook; `page-blueprint.md` focuses on the inner page document, not the CLI body/fallback envelope mapping
 
-Correct:
+Correct CLI body:
+
+```json
+{
+  "version": "1",
+  "mode": "create",
+  "navigation": {
+    "group": { "routeId": 12 },
+    "item": { "title": "Employees" }
+  },
+  "page": { "title": "Employees" },
+  "tabs": [
+    {
+      "title": "Overview",
+      "blocks": [
+        { "type": "table", "collection": "employees", "fields": ["nickname"] }
+      ]
+    }
+  ]
+}
+```
+
+Correct MCP fallback envelope:
 
 ```json
 {
@@ -107,7 +140,7 @@ Also wrong:
 }
 ```
 
-For requestBody-based tools such as `describeSurface`, `catalog`, `context`, `applyBlueprint`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
+For fallback requestBody-based tools such as `describeSurface`, `catalog`, `context`, `applyBlueprint`, `compose`, `configure`, `add*`, `move*`, and `remove*`, do not send the inner business payload directly at the top level.
 
 ## 2.1 Error-first recovery rules
 
@@ -122,7 +155,7 @@ If a tool returns one of these patterns, fix the tool call shape first:
   - do not use the literal `"root"` as a flow-surfaces uid
   - first read live structure with `get` / `describeSurface` and reuse a real uid, or pick a page-level API that does not require such a uid
 
-Do not start by changing the inner blueprint shape until the MCP envelope / targeting shape is confirmed correct.
+Do not start by changing the inner blueprint shape until the CLI request body, or the fallback envelope / targeting shape, is confirmed correct.
 
 Canonical resource rule:
 
@@ -251,7 +284,7 @@ Do **not** emulate a plan-style patch workflow in user-facing authoring.
 
 Stop instead of guessing when:
 
-- MCP is unreachable or unauthenticated
+- the chosen transport is unreachable or unauthenticated
 - the live schema/tool surface is missing a required action
 - the target is not unique
 - schema facts are missing for required fields/relations/bindings

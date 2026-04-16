@@ -8,7 +8,6 @@ description: "Explains the status code, response headers, and return body config
 ## Node Type
 
 `response`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Configures the HTTP response content for a synchronous Webhook flow and terminates the flow.

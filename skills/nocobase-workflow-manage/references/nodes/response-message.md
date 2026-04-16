@@ -8,7 +8,6 @@ description: "Explains the return prompt configuration of the response message n
 ## Node Type
 
 `response-message`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Configures the message content returned to the client when a request ends (only available for intercept-type synchronous workflows).

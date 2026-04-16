@@ -26,9 +26,9 @@ Choosing different processing branches based on status/level, similar to switch/
 | --- | --- | --- | --- | --- |
 | uid | string | None | No | Unique identifier for the conditional branch, mainly used for front-end display; recommended to provide. |
 | title | string | None | No | Title of the conditional branch; defaults to "Condition X" if not set. |
-| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
+| engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
 | calculation | object | None | Yes (engine=basic) | Used when `engine=basic`, structure same as `calculation` in the Condition node. |
-| expression | string | None | Yes (engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md). |
+| expression | string | None | Yes (engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../nocobase-utils/references/evaluators/mathjs.md). |
 
 ## Branch Description
 

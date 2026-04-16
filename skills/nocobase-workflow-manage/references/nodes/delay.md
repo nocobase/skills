@@ -20,7 +20,7 @@ Automatically close an order after waiting for a payment timeout, similar to `sl
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | unit | number | 60000 | Yes | Time unit millisecond multiplier: 1000 (second), 60000 (minute), 3600000 (hour), 86400000 (day), 604800000 (week). |
-| duration | number | 1 | Yes | Duration value; multiplied by `unit` to get the total wait time in milliseconds. |
+| duration | number | 1 | Yes | Duration value; multiplied by `unit` to get the total wait time in milliseconds. Could use static values or workflow variables. Variables should follow [Common Conventions - variables](../conventions/index.md#variable-expressions). |
 | endStatus | number | 1 | Yes | End status: `1` to succeed and continue, `-1` to fail and exit. |
 
 ## Branch Description

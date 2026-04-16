@@ -2,7 +2,9 @@
 
 This file defines the simplified public **page-structure JSON blueprint** used by `applyBlueprint`.
 
-This file is for authoring the **inner page blueprint document**. It is **not** the primary tool-call cookbook. For the actual MCP invocation shape, always read [tool-shapes.md](./tool-shapes.md) and start from its **Tool-call envelope** examples.
+Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file defines the inner page document that the CLI eventually sends to the backend action.
+
+This file is for authoring the **inner page blueprint document**. It is **not** the primary CLI cookbook. For the actual CLI request-body shape, and for the MCP fallback envelope when needed, always read [tool-shapes.md](./tool-shapes.md).
 
 ## 1. Core Rules
 
@@ -24,16 +26,18 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing inline content. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
 
 Important:
 
 - This file describes the **inner page blueprint document** only.
-- When you call `flow_surfaces_apply_blueprint`, put this document under `requestBody` as an **object**.
-- Do not stringify this document into `requestBody: "{\"version\":\"1\"...}"`.
-- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the outer MCP tool-call envelope.
-- If the tool returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer MCP call envelope; do not start by mutating the inner page blueprint blindly.
-- Unless a block is explicitly labeled **Tool-call envelope**, every JSON snippet below should be treated as inner blueprint only.
+- In CLI-first execution, pass this document itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
+- Only in MCP fallback should that same object be wrapped under `requestBody` as an **object**.
+- Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
+- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the MCP fallback tool-call envelope.
+- If the CLI returns request-body validation errors, first fix the raw body shape and chosen command. If MCP fallback returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer fallback envelope.
+- Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint and also as the CLI raw body.
 
 ## 2. Top-level Shape
 
@@ -626,6 +630,8 @@ Inline popup is supported beneath a field/action/record action through:
 ```
 
 `popup.layout` is valid because popup is a popup document. By contrast, block objects themselves do **not** accept `layout`; use `tab.layout` or `popup.layout`.
+
+In whole-page `create` / `replace`, do not bind `popup.template` from loose discovery or text search alone. Instead, build the strongest planned opener/resource context you have, run the contextual selection flow from [templates.md](./templates.md), and bind `popup.template` only when one stable best available candidate wins.
 
 ### Layout cell shape
 

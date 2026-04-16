@@ -8,7 +8,6 @@ description: "Explains the termination status configuration of the end workflow 
 ## Node Type
 
 `end`
-Please use the above `type` value to create the node; do not use the document filename as the type.
 
 ## Node Description
 Immediately ends the execution of the current workflow and exits with a specified status.
