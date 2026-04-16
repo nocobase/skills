@@ -217,15 +217,30 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
         if (fs.existsSync(sqlFile)) {
           const sql = fs.readFileSync(sqlFile, 'utf8');
           if (sql.includes('TODO:') || sql.includes('Category A') || sql.includes('UNION ALL SELECT')) {
-            issues.push({ level: 'error', page: pageTitle, block: key, message: `chart SQL "${sqlFile}" 是 demo 数据，需要替换为真实查询` });
+            issues.push({ level: 'error', page: pageTitle, block: key, message: `chart SQL "${sqlFile}" contains demo data — replace with real queries` });
           }
         }
       } catch { /* skip */ }
     }
   }
 
-  // ── Rule 4: createForm/editForm MUST have field_layout with sections ──
-  if (['createForm', 'editForm'].includes(bs.type)) {
+  // ── Rule: JS blocks must not have fake SQL (SELECT 0, SELECT literal) ──
+  if (bs.type === 'jsBlock' && bs.file) {
+    try {
+      const jsPath = path.resolve(projectDir, bs.file);
+      if (fs.existsSync(jsPath)) {
+        const jsContent = fs.readFileSync(jsPath, 'utf8');
+        // Detect fake KPI SQL: SELECT 0, SELECT 42, SELECT 'literal'
+        const fakeSqlPattern = /sql:\s*['"`]SELECT\s+\d+\s+(AS|as)\s+\w+['"`]/;
+        if (fakeSqlPattern.test(jsContent)) {
+          issues.push({ level: 'error', page: pageTitle, block: key, message: `JS "${bs.file}" has fake SQL (SELECT 0 AS value) — replace with real query against collection table` });
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  // ── Rule 4: createForm/editForm/details MUST have field_layout with sections ──
+  if (['createForm', 'editForm', 'details'].includes(bs.type)) {
     if (!bs.field_layout || !bs.field_layout.length) {
       issues.push({ level: 'error', page: pageTitle, block: key, message: `${bs.type} MUST have field_layout with sections (--- Title ---) and grid layout` });
     } else {
@@ -238,6 +253,16 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
       for (const row of bs.field_layout) {
         if (Array.isArray(row) && row.length > 4) {
           issues.push({ level: 'warn', page: pageTitle, block: key, message: `${bs.type} row has ${row.length} fields — max 4 per row recommended` });
+        }
+      }
+      // Check: empty sections (divider followed by another divider or end)
+      for (let i = 0; i < bs.field_layout.length; i++) {
+        const row = bs.field_layout[i];
+        if (typeof row === 'string' && row.startsWith('---')) {
+          const next = bs.field_layout[i + 1];
+          if (!next || (typeof next === 'string' && next.startsWith('---'))) {
+            issues.push({ level: 'error', page: pageTitle, block: key, message: `${bs.type} field_layout has empty section "${row}" — add fields or remove the divider` });
+          }
         }
       }
     }
