@@ -1,0 +1,11 @@
+name: 'Popup (Detail): Tasks'
+type: popup
+collectionName: nb_pm_tasks
+dataSourceKey: main
+targetUid: 2sbe0r25ped-detail-popup
+description: 'Popup (Detail): Tasks'
+content:
+  blocks:
+    - ref: templates/block/detail_nb_pm_tasks.yaml
+  layout:
+    - - details

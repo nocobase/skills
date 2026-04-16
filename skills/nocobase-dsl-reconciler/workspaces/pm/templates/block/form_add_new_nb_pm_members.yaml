@@ -1,0 +1,21 @@
+name: 'Form (Add new): Members'
+type: block
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: rzfvozyjo4y
+description: 'Form (Add new): Members'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_members
+  fields:
+    - name
+    - email
+    - role
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - email
+    - - role
+  actions:
+    - submit

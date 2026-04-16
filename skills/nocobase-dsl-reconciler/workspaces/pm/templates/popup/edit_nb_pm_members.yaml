@@ -1,0 +1,11 @@
+name: 'Popup (Edit): Members'
+type: popup
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: rzfvozyjo4y-edit-popup
+description: 'Popup (Edit): Members'
+content:
+  blocks:
+    - ref: templates/block/form_edit_nb_pm_members.yaml
+  layout:
+    - - editForm

@@ -1,0 +1,11 @@
+name: 'Popup (Detail): Projects'
+type: popup
+collectionName: nb_pm_projects
+dataSourceKey: main
+targetUid: 50uyiee14mq-detail-popup
+description: 'Popup (Detail): Projects'
+content:
+  blocks:
+    - ref: templates/block/detail_nb_pm_projects.yaml
+  layout:
+    - - details

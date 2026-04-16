@@ -1,0 +1,23 @@
+name: 'Form (Edit): Members'
+type: block
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: rzfvozyjo4y-edit
+description: 'Form (Edit): Members'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_members
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - email
+    - role
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - email
+    - - role
+  actions:
+    - submit
