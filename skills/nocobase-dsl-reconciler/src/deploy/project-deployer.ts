@@ -328,7 +328,9 @@ export async function deployProject(
     } catch { /* skip */ }
   }
   if (emptyColls.length) {
-    log(`\n  ✗ 以下数据表没有测试数据，请插入（每表 5-8 条）：${emptyColls.join(', ')}`);
+    const msg = `Empty collections (insert test data before continuing): ${emptyColls.join(', ')}`;
+    log(`\n  ✗ ${msg}`);
+    throw new Error(msg);
   }
 
   // Set menu sortIndex to match routes.yaml declaration order
