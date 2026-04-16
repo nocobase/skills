@@ -320,6 +320,21 @@ export async function deployProject(
   // Ensure popup template blocks have binding: 'currentRecord' (for edit/detail popups)
   await ensurePopupBindings(nb, state, log);
 
+  // Re-run m2o popup binding on all page blocks (popup templates may not have existed during fillBlock)
+  log(`\n  ── Post-deploy: m2o popup binding ──`);
+  const { enableM2oClickToOpen } = await import('./block-filler');
+  for (const [pageKey, pageState] of Object.entries(state.pages)) {
+    for (const [blockKey, blockInfo] of Object.entries(pageState.blocks || {})) {
+      if (!blockInfo.uid) continue;
+      const pageInfo = pages.find(p => slugify(p.title) === pageKey);
+      if (!pageInfo) continue;
+      const blockColl = pageInfo.layout?.coll as string || '';
+      if (blockColl) {
+        await enableM2oClickToOpen(nb, blockInfo.uid, blockColl, pageInfo.dir, log);
+      }
+    }
+  }
+
   // SQL verify
   const sqlResult = await verifySqlFromPages(nb, pages);
   log(`\n  ── SQL Verification: ${sqlResult.passed} passed, ${sqlResult.failed} failed ──`);
