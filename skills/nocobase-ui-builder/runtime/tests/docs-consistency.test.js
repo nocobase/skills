@@ -161,13 +161,31 @@ function assertExistingReferenceEditMatrix(text, sourceLabel) {
   assert.match(text, /template-owned content/i, `${sourceLabel} should define template-owned content`);
   assert.match(text, /Host-local defaults/i, `${sourceLabel} should define host-local defaults`);
   assert.match(text, /does \*\*not\*\* decide localized existing-reference edit routing|does not decide localized existing-reference edit routing/i, `${sourceLabel} should keep helper scope explicit`);
+  assert.match(
+    text,
+    /page-scoped wording[\s\S]{0,160}(?:not local-only intent|mean local-only behavior)|this page[\s\S]{0,80}not local-only|direct page URL[\s\S]{0,160}(?:not local-only intent|mean local-only behavior)/i,
+    `${sourceLabel} should say page-scoped wording does not imply local-only intent`,
+  );
+  assert.match(
+    text,
+    /do not use `?copy` as a safety fallback|stop and clarify instead of auto-detaching|clarify instead of auto-detaching/i,
+    `${sourceLabel} should forbid auto-copy fallback for existing references`,
+  );
 }
 
 function assertExistingReferenceRoutingBridge(text, sourceLabel) {
   assertPointsToTemplates(text, sourceLabel);
   assert.match(text, /template[- ]source/i, `${sourceLabel} should mention template-source edits`);
-  assert.match(text, /host-local|current-instance|opener-local|openView config/i, `${sourceLabel} should distinguish host-local edits`);
-  assert.match(text, /copy|detach/i, `${sourceLabel} should mention explicit detach/copy handling`);
+  assert.match(
+    text,
+    /page-scoped wording[\s\S]{0,160}(?:not|mean)|page wording[\s\S]{0,120}(?:not|mean)|explicit local-only|do not default to `?copy`?|do not auto-detach|ask, not `?copy`?/i,
+    `${sourceLabel} should keep the no-auto-copy bridge visible`,
+  );
+}
+
+function assertExistingReferenceReadbackBridge(text, sourceLabel) {
+  assertPointsToTemplates(text, sourceLabel);
+  assert.match(text, /template[- ]source/i, `${sourceLabel} should keep template-source readback visible`);
 }
 
 function assertSkillKeepsTemplateRulesMinimal(text) {
@@ -176,6 +194,16 @@ function assertSkillKeepsTemplateRulesMinimal(text) {
   assert.match(text, /existing template reference/i, 'SKILL.md should keep the top-level existing-reference rule');
   assert.match(text, /template source/i, 'SKILL.md should keep template-source editing visible');
   assert.match(text, /host\/openView config edits local|host-local/i, 'SKILL.md should keep host-local boundary visible');
+  assert.match(
+    text,
+    /page-scoped wording[\s\S]{0,160}(?:not local-only intent|mean local-only behavior)/i,
+    'SKILL.md should say page-scoped wording is not enough for local-only routing',
+  );
+  assert.match(
+    text,
+    /clarify before writing|do not auto-detach/i,
+    'SKILL.md should block automatic detach on unresolved existing-reference scope',
+  );
   assert.doesNotMatch(text, /popup\.tryTemplate/i, 'SKILL.md should not restate popup.tryTemplate details');
   assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md should not restate popup.saveAsTemplate details');
   assert.doesNotMatch(text, /keyword-only search/i, 'SKILL.md should not restate template search heuristics');
@@ -234,6 +262,16 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
   assert.match(text, /template source/i, 'openai prompt should mention template-source editing for existing references');
   assert.match(text, /local-only intent|local customization/i, 'openai prompt should mention explicit local-only intent before copy');
+  assert.match(
+    text,
+    /page-scoped wording[\s\S]{0,80}not local-only intent|page wording[\s\S]{0,80}not local-only intent/i,
+    'openai prompt should block page-scoped wording from implying local-only edits',
+  );
+  assert.match(
+    text,
+    /ask, not `?copy`?|unresolved scope[\s\S]{0,80}ask/i,
+    'openai prompt should route unresolved existing-reference scope to clarification instead of copy',
+  );
 }
 
 test('required docs and relative links stay valid', () => {
@@ -422,7 +460,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   const verification = read('references/verification.md');
   assertNoTemplateDecisionMatrix(verification, 'references/verification.md');
   assert.match(verification, /\[template-decision-summary\.md\]/i);
-  assertExistingReferenceRoutingBridge(verification, 'references/verification.md');
+  assertExistingReferenceReadbackBridge(verification, 'references/verification.md');
 
   for (const relativePath of [
     'references/execution-checklist.md',

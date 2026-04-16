@@ -19,7 +19,7 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on popup-capable write paths. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning truth source; `popup.tryTemplate=true` is only the execution fallback and should not replace contextual `list-templates`.
 - When the user explicitly wants the new local popup itself to become a reusable popup template seed immediately, use `popup.saveAsTemplate={ name, description }` on supported create-time popup writes instead of planning a separate save step. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 - This file keeps popup-specific hard boundaries only; template-selection details stay in [templates.md](./templates.md).
-- For localized edits on an existing popup template reference, do not default to `copy`. Use [templates.md](./templates.md) to decide whether the request is editing template-owned popup content, current opener-local config, switching to another popup template, or explicitly detaching to local-only content.
+- For localized edits on an existing popup template reference, route through [templates.md](./templates.md). Popup-owned content still defaults to the template source; page-scoped wording alone is not local-only intent, and `copy` is allowed only for explicit detach/local-only requests.
 - Without a live opener/target uid, whole-page popup planning should still probe popup templates from the strongest planned opener/resource context. `discovery-only` remains valid when that context is still too weak, when a resolved explicit template is unavailable in the current context, or when the top candidates remain tied after ranking. Keep the exact user-visible reason contract in [template-decision-summary.md](./template-decision-summary.md).
 
 ## 3. CRUD Popup Defaults
@@ -121,7 +121,7 @@ Use low-level APIs when the user is editing an existing popup or opener locally.
 Typical flow:
 
 1. locate opener/target with `get`
-2. if the opener already references a popup template and the user is editing popup-owned content, route through [templates.md](./templates.md) first so the write lands on the template source by default
+2. if the opener already references a popup template, route through [templates.md](./templates.md) first; popup-owned content defaults to the template source, and detach-to-copy requires explicit local-only intent
 3. if the user is only changing current-instance title / size / mode / `clickToOpen` / outer `openView` config, keep that write on the current opener/host target
 4. if capability is uncertain, read `catalog`
 5. write the opener or popup content

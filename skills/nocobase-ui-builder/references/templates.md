@@ -258,8 +258,11 @@ This section governs **localized edits on existing surfaces that already expose 
 Default principles:
 
 - If the user is editing template-owned content under an existing template reference, default to editing the **template source**.
+- Page-scoped wording such as "这个页面里的字段", "把这个页面的 X 去掉", or a direct page URL does **not** by itself mean local-only behavior. If live readback shows the edited content belongs to a referenced template subtree, keep the default route on the template source.
 - Keep current host / opener / `openView` wrapper settings local to the current instance unless the user explicitly asks to change the shared template instead.
 - Only use `convert-template-to-copy` when the user clearly wants local-only behavior, detachment, or copy mode.
+- Do not use `copy` as a safety fallback just because the user did not mention templates explicitly, because the request was phrased around one page, or because detaching feels safer.
+- If live readback still cannot distinguish template-owned content from current-instance host / opener / `openView` config, stop and clarify instead of auto-detaching to `copy`.
 - Popup-template switching through `configure(changes.openView.template)` is a separate route from editing the current template source.
 - Current local helper/template-selection flow only covers template discovery/binding. It does **not** decide localized existing-reference edit routing.
 

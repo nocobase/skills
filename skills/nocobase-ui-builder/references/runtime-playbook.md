@@ -54,7 +54,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
-- If a localized edit hits an existing template reference, route template-owned content edits to the template source by default; keep current host/openView config edits local; only explicit local-only intent should trigger `copy`. Follow [templates.md](./templates.md) instead of restating that matrix here.
+- If a localized edit hits an existing template reference, route through [templates.md](./templates.md) before writing: template-owned edits default to the template source, host/openView config stays local, page-scoped wording alone does not justify `copy`, and unresolved scope should be clarified instead of auto-detaching.
 - If the request is about an existing target's event flow or `Execute JavaScript` step, route to `get` / `describe-surface` readback first, then `set-event-flows` with the full `flowRegistry`.
 - If the request is about default values, linkage, computed fields, show/hide, required/disabled, or action state, route to reaction authoring before considering raw configure keys.
 - For localized reaction work, do not start from `context`; start from `get-reaction-meta` and use `context` only when raw variable paths are still missing.
