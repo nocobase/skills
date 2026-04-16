@@ -1,6 +1,6 @@
 ---
 name: nocobase-plugin-development
-description: Use when users need to create a NocoBase plugin from scratch, including server-side collections/APIs and client-side blocks/fields/actions with FlowEngine.
+description: Use when users want to create, build, implement, or develop a NocoBase plugin — any request involving plugin scaffolding, server-side code (collections, APIs, ACL, migrations), client-side code (blocks, fields, actions, settings pages, routes, components), or full-stack NocoBase plugin development.
 argument-hint: "[user requirement in natural language]"
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, WebFetch
 owner: nocobase-team
