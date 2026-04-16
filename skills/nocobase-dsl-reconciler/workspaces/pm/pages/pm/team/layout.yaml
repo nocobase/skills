@@ -10,7 +10,6 @@ blocks:
           - email
       - role
       - department
-      - status
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
@@ -20,7 +19,6 @@ blocks:
       - - name
         - role
         - department
-      - - status
   - key: table
     type: table
     coll: nb_pm_members

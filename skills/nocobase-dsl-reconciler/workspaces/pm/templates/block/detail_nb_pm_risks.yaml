@@ -15,3 +15,13 @@ content:
     - mitigation
     - createdAt
     - updatedAt
+  field_layout:
+    - '--- Risk Info ---'
+    - [name, project]
+    - [probability, impact]
+    - '--- Status ---'
+    - [status, owner]
+    - '--- Mitigation ---'
+    - [mitigation]
+    - '--- System ---'
+    - [createdAt, updatedAt]

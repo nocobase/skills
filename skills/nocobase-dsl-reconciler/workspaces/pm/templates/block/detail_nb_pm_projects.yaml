@@ -15,3 +15,15 @@ content:
     - description
     - createdAt
     - updatedAt
+  field_layout:
+    - '--- Basic Info ---'
+    - [name, status]
+    - [budget]
+    - '--- Timeline ---'
+    - [startDate, endDate]
+    - '--- Team ---'
+    - [manager]
+    - '--- Details ---'
+    - [description]
+    - '--- System ---'
+    - [createdAt, updatedAt]

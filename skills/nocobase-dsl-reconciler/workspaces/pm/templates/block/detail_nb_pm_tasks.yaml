@@ -17,3 +17,15 @@ content:
     - description
     - createdAt
     - updatedAt
+  field_layout:
+    - '--- Task Info ---'
+    - [name, status]
+    - [priority, dueDate]
+    - '--- Time Tracking ---'
+    - [estimatedHours, actualHours]
+    - '--- Assignment ---'
+    - [project, assignee]
+    - '--- Details ---'
+    - [description]
+    - '--- System ---'
+    - [createdAt, updatedAt]

@@ -21,6 +21,15 @@ blocks:
   - key: chart_2
     type: chart
     chart_config: ./charts/chart_2.yaml
+  - key: chart_3
+    type: chart
+    chart_config: ./charts/chart_3.yaml
+  - key: chart_4
+    type: chart
+    chart_config: ./charts/chart_4.yaml
+  - key: chart_5
+    type: chart
+    chart_config: ./charts/chart_5.yaml
 layout:
   - - kpi_total_projects
     - kpi_active_tasks
@@ -28,3 +37,6 @@ layout:
     - kpi_overdue_tasks
   - - chart_1: 12
     - chart_2: 12
+  - - chart_3: 12
+    - chart_4: 12
+  - - chart_5

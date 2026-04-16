@@ -14,3 +14,12 @@ content:
     - status
     - createdAt
     - updatedAt
+  field_layout:
+    - '--- Profile ---'
+    - [name, email]
+    - [phone]
+    - '--- Work ---'
+    - [role, department]
+    - [status]
+    - '--- System ---'
+    - [createdAt, updatedAt]

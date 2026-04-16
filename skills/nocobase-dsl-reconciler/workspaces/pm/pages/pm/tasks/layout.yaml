@@ -9,8 +9,6 @@ blocks:
           - name
           - description
       - status
-      - priority
-      - project
       - assignee
     js_items:
       - key: filter_buttons
@@ -20,8 +18,6 @@ blocks:
       - - '[JS:Task Filter Buttons]'
       - - name
         - status
-        - priority
-      - - project
         - assignee
   - key: table
     type: table

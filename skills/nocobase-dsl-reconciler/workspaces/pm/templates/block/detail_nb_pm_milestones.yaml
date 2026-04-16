@@ -13,3 +13,11 @@ content:
     - description
     - createdAt
     - updatedAt
+  field_layout:
+    - '--- Basic Info ---'
+    - [name, project]
+    - [dueDate, status]
+    - '--- Details ---'
+    - [description]
+    - '--- System ---'
+    - [createdAt, updatedAt]

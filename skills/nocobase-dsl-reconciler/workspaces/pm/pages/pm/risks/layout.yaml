@@ -9,10 +9,7 @@ blocks:
           - name
           - mitigation
       - status
-      - probability
-      - impact
       - project
-      - owner
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
@@ -21,10 +18,7 @@ blocks:
       - - '[JS:Risk Filter Buttons]'
       - - name
         - status
-        - probability
-      - - impact
         - project
-        - owner
   - key: table
     type: table
     coll: nb_pm_risks
