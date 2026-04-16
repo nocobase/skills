@@ -10,11 +10,13 @@ content:
   fields:
     - name
     - status
+    - manager
     - description
   field_layout:
     - '--- Basic Info ---'
     - - name
       - status
+    - - manager
     - - description
   actions:
     - submit

@@ -9,6 +9,7 @@ blocks:
           - name
           - description
       - status
+      - manager
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
@@ -17,6 +18,7 @@ blocks:
       - - '[JS:Project Filter Buttons]'
       - - name
         - status
+        - manager
   - key: table
     type: table
     coll: nb_pm_projects
@@ -24,6 +26,7 @@ blocks:
       - field: name
         popup: true
       - status
+      - manager
       - createdAt
     actions:
       - filter

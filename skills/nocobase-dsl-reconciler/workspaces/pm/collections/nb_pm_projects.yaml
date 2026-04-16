@@ -19,3 +19,11 @@ fields:
   - name: description
     interface: textarea
     title: Description
+  - name: manager
+    interface: m2o
+    title: Manager
+    target: nb_pm_members
+    foreignKey: managerId
+  - name: managerId
+    interface: integer
+    title: Manager ID
