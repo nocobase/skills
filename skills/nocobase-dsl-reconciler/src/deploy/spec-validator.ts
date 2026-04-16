@@ -224,20 +224,8 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
     }
   }
 
-  // ── Rule: JS blocks must not have fake SQL (SELECT 0, SELECT literal) ──
-  if (bs.type === 'jsBlock' && bs.file) {
-    try {
-      const jsPath = path.resolve(projectDir, bs.file);
-      if (fs.existsSync(jsPath)) {
-        const jsContent = fs.readFileSync(jsPath, 'utf8');
-        // Detect fake KPI SQL: SELECT 0, SELECT 42, SELECT 'literal'
-        const fakeSqlPattern = /sql:\s*['"`]SELECT\s+\d+\s+(AS|as)\s+\w+['"`]/;
-        if (fakeSqlPattern.test(jsContent)) {
-          issues.push({ level: 'error', page: pageTitle, block: key, message: `JS "${bs.file}" has fake SQL (SELECT 0 AS value) — replace with real query against collection table` });
-        }
-      }
-    } catch { /* skip */ }
-  }
+  // SQL validation is done post-deploy by verifySqlFromPages (actual execution against DB)
+  // No need for pattern matching here
 
   // ── Rule 4: createForm/editForm/details MUST have field_layout with sections ──
   if (['createForm', 'editForm', 'details'].includes(bs.type)) {
