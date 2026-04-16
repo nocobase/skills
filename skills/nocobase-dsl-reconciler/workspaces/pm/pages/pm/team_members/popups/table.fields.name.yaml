@@ -1,0 +1,28 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - project
+      - member
+      - role_on_project
+      - status
+      - allocation_percent
+      - start_date
+      - end_date
+      - createdAt
+    field_layout:
+      - '--- Assignment ---'
+      - - project
+        - member
+      - - role_on_project
+        - status
+      - '--- Allocation ---'
+      - - allocation_percent
+      - - start_date
+        - end_date
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer
