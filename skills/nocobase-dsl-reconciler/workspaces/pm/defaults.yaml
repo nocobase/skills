@@ -1,0 +1,8 @@
+popups:
+  nb_pm_projects: templates/popup/detail_nb_pm_projects.yaml
+  nb_pm_tasks: templates/popup/detail_nb_pm_tasks.yaml
+  nb_pm_members: templates/popup/detail_nb_pm_members.yaml
+forms:
+  nb_pm_projects: templates/block/form_add_new_nb_pm_projects.yaml
+  nb_pm_tasks: templates/block/form_add_new_nb_pm_tasks.yaml
+  nb_pm_members: templates/block/form_add_new_nb_pm_members.yaml

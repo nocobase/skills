@@ -1,0 +1,40 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_projects
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - description
+      - status
+      - priority
+    field_layout:
+      - - name
+        - status
+      - - priority
+    actions:
+      - submit
+      - reset
+  - key: table
+    type: table
+    coll: nb_pm_projects
+    fields:
+      - field: name
+        popup: true
+      - status
+      - priority
+      - start_date
+      - end_date
+      - createdAt
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

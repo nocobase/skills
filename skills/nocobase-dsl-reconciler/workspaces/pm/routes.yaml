@@ -1,0 +1,10 @@
+- title: PM
+  type: group
+  icon: projectoutlined
+  children:
+    - title: Projects
+      icon: fundprojectscreenoutlined
+    - title: Tasks
+      icon: checksquareoutlined
+    - title: Members
+      icon: teamoutlined
