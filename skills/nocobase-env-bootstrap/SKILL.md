@@ -4,8 +4,8 @@ description: "Use when users need to prepare a NocoBase environment, install and
 argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|upgrade|diagnose|app-manage] [target-dir]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
-version: 1.10.1
-last-reviewed: 2026-04-15
+version: 1.11.0
+last-reviewed: 2026-04-16
 risk-level: medium
 ---
 
@@ -47,7 +47,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `allow_dirty` | upgrade git optional | `false` | boolean (`true/false`) | "Allow upgrade on dirty git worktree?" |
 | `target_dir` | install/upgrade | current directory | writable path | "Where should the project be created or operated?" |
 | `db_mode` | install | `bundled` for docker; `existing` for create/git | one of `bundled/existing` | "Use bundled database or connect existing database?" |
-| `db_dialect` | install | `postgres` | one of `postgres/mysql` | "Use PostgreSQL or MySQL?" |
+| `db_dialect` | install | `postgres` | one of `postgres/mysql/mariadb` | "Use PostgreSQL, MySQL, or MariaDB?" |
 | `db_host` | when `db_mode=existing` | none | non-empty host | "Which DB host should be used?" |
 | `db_port` | when `db_mode=existing` | by dialect (`5432`/`3306`) | numeric port | "Which DB port should be used?" |
 | `db_database` | when `db_mode=existing` | none | non-empty database name | "Which DB database should be used?" |
@@ -57,12 +57,13 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `port` | no | `13000` | integer 1..65535 | "Which app port should be used?" |
 | `network_profile` | no | `online` | one of `online/restricted/offline` | "Can this host access external internet directly?" |
 | `cli_env_name` | no | `local` | non-empty slug | "Which local nocobase-ctl env name should be created?" |
-| `cli_token_env` | no | `NOCOBASE_API_TOKEN` | valid env variable name | "Which env var stores API token for nocobase-ctl env bootstrap?" |
+| `cli_auth_mode` | no | `oauth` | one of `oauth/token` | "Use OAuth mode (default) or token mode for CLI env bootstrap?" |
+| `cli_token_env` | no | `NOCOBASE_API_TOKEN` | valid env variable name | "Which env var stores API token when token mode is used?" |
 | `app_env_action` | only when `task=app-manage` | `current` | one of `add/use/current/list` | "Which app environment action should run: add, use, current, or list?" |
 | `app_env_name` | conditional | none | required for `app_env_action=add/use` | "Which environment name should be used?" |
 | `app_base_url` | conditional | none | required for `app_env_action=add`; valid HTTP/HTTPS URL | "Which application URL should be used for env add?" |
 | `app_scope` | no | `project` | one of `project/global` | "Should this env action use project or global scope?" |
-| `app_token` | conditional | none | required when `app_env_action=add` and URL is remote | "Please provide API token for remote environment add." |
+| `app_token` | conditional | none | required when `app_env_action=add` uses token mode with remote URL | "Please provide API token for token-mode remote environment add." |
 
 Default behavior when user says "you decide":
 
@@ -76,6 +77,7 @@ Default behavior when user says "you decide":
 - `port=13000`
 - `network_profile=online`
 - `cli_env_name=local`
+- `cli_auth_mode=oauth`
 - `cli_token_env=NOCOBASE_API_TOKEN`
 
 # Mandatory Clarification Gate
@@ -94,18 +96,23 @@ Default behavior when user says "you decide":
 - DB policy is mandatory for install:
 - `docker` default is `db_mode=bundled`.
 - If user provides DB connection inputs on docker path, switch to `db_mode=existing`.
-- `create-nocobase-app` and `git` always require `db_mode=existing` plus PostgreSQL/MySQL readiness.
+- `create-nocobase-app` and `git` always require `db_mode=existing` plus PostgreSQL/MySQL/MariaDB readiness.
 - If DB host is local (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask for `db_underscored` preference; default to `false` when user does not specify.
 - If DB is missing or unreachable for existing mode, stop and provide official install links:
 - PostgreSQL: `https://www.postgresql.org/download/`
 - MySQL install docs: `https://dev.mysql.com/doc/en/installing.html`
 - MySQL downloads: `https://dev.mysql.com/downloads/mysql`
-- Token rule is mandatory:
-- local URL (strict): host in `localhost`, `127.0.0.1`, `::1`, `*.localhost`, or `host.docker.internal` -> token is mandatory but auto-acquired by `env-manage` (never use placeholder token).
-- remote URL: token must be manually provided by user (`app_token` or token env).
+- MariaDB downloads: `https://mariadb.org/download/`
+- App env auth-mode rule is mandatory:
+- default add mode is `oauth` (unless token args are provided without explicit auth-mode).
+- oauth mode requires dependency bundle `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth` and interactive `env auth`.
+- token mode local URL (strict): host in `localhost`, `127.0.0.1`, `::1`, `*.localhost`, or `host.docker.internal` -> token is mandatory but auto-acquired by `env-manage` (never use placeholder token).
+- token mode remote URL: token must be manually provided by user (`app_token` or token env).
 - For install flows, always run CLI environment bootstrap (`node ./scripts/env-manage.mjs add ...`) as final stage.
-- Before running `env update`, ensure CLI dependency plugins are active: `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys`; if missing, enable via `nocobase-plugin-manage` and restart app.
-- If `cli_token_env` is missing during CLI bootstrap, attempt automatic token generation first; ask user manually only when automatic path fails.
+- Before running `env update`, ensure CLI dependency plugins are active by auth mode:
+- oauth: `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
+- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
+- If token mode is used and `cli_token_env` is missing during CLI bootstrap, attempt automatic token generation first; ask user manually only when automatic path fails.
 - If required inputs are missing or ambiguous, stop and ask one short clarification question.
 - If any required path is invalid or not writable, stop and request a valid writable path before continuing.
 
@@ -147,16 +154,17 @@ Default behavior when user says "you decide":
 - Verify service availability, login path, basic plugin/runtime health, and error logs.
 - For install, app startup and login readiness complete core install flow.
 - Ensure CLI dependency plugin bundle is active before CLI runtime refresh:
-- `@nocobase/plugin-api-doc`
-- `@nocobase/plugin-api-keys`
+- oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
+- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
 - Preferred activation path:
-- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
+- token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
 - If plugin state changed, restart app before `node ./scripts/run-ctl.mjs -- env update ...`.
 - Always run CLI bootstrap as final stage for install/upgrade:
-- Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName <cli_env_name> -TokenEnv <cli_token_env> -Scope project -BaseDir <target_dir>`
-- Linux/macOS: `bash scripts/cli-postcheck.sh <port> <cli_env_name> <cli_token_env> project <target_dir>`
+- Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName <cli_env_name> -AuthMode <cli_auth_mode> -TokenEnv <cli_token_env> -Scope project -BaseDir <target_dir>`
+- Linux/macOS: `AUTH_MODE=<cli_auth_mode> bash scripts/cli-postcheck.sh <port> <cli_env_name> <cli_token_env> project <target_dir>`
 - CLI bootstrap target command:
-- `node ./scripts/env-manage.mjs add --name <cli_env_name> --url http://localhost:<port>/api --scope project --base-dir <target_dir>`
+- `node ./scripts/env-manage.mjs add --name <cli_env_name> --url http://localhost:<port>/api --auth-mode <cli_auth_mode> --scope project --base-dir <target_dir>`
 - After env add succeeds, run runtime refresh for downstream command readiness:
 - `node ./scripts/run-ctl.mjs -- env update -e <cli_env_name> -s project`
 - Perform immediate readback (`node ./scripts/env-manage.mjs current --scope project --base-dir <target_dir>`) and include expected vs actual values.
@@ -169,12 +177,14 @@ Default behavior when user says "you decide":
 - `cli_env_name`
 - `base_url`
 - `scope`
+- `auth_mode`
 - `env_update_status`
 - For `task=app-manage`, include app env operation evidence:
 - `app_env_action`
 - `current_env_name`
 - `current_base_url`
 - `is_local`
+- `auth_mode` (for add)
 - `token_mode` (for add)
 - For `install` success paths, include first-login credentials:
 - if root credentials were not explicitly customized, show default `admin@nocobase.com` / `admin123` and remind user to rotate password.
@@ -189,7 +199,7 @@ Default behavior when user says "you decide":
 | [assets/install-templates.md](assets/install-templates.md) | create-app/git install | local command/env template mapping and channel defaults |
 | [references/preflight-checklist.md](references/preflight-checklist.md) | before install/upgrade | dependency, path, network, and port checks |
 | [references/install-runbook.md](references/install-runbook.md) | install and first startup | docker/create-app/git execution guide |
-| [references/app-env-manage.md](references/app-env-manage.md) | `task=app-manage` | add/use/current/list contract with local-vs-remote token policy |
+| [references/app-env-manage.md](references/app-env-manage.md) | `task=app-manage` | add/use/current/list contract with oauth/token auth-mode policy |
 | [references/upgrade-runbook.md](references/upgrade-runbook.md) | single-instance upgrade | pre-check, execution, post-check, rollback guidance |
 | [references/troubleshooting.md](references/troubleshooting.md) | diagnose and recovery | high-frequency issue decision table |
 
@@ -219,16 +229,17 @@ Confirmation template:
 - Preflight completed and contains zero unresolved blocking failures.
 - Preflight fails when `APP_KEY` is weak for existing project files, and defers missing `APP_KEY` only for fresh install targets before local install script generation.
 - Existing DB mode fails when required DB fields are missing or endpoint is unreachable.
-- `create-nocobase-app`/`git` fail preflight when PostgreSQL/MySQL is unavailable.
+- `create-nocobase-app`/`git` fail preflight when PostgreSQL/MySQL/MariaDB is unavailable.
 - Method and release channel are explicitly confirmed or defaulted.
 - Install commands are recorded and reproducible.
 - Install core success is determined by app startup and login readiness.
 - CLI final stage runs for install/upgrade and successfully creates/updates local env via skill-local env helper (`node ./scripts/env-manage.mjs add ...`).
 - `task=app-manage` supports `add/use/current/list` through `node ./scripts/env-manage.mjs ...`.
-- App env add enforces local-vs-remote token rule correctly (local token auto-acquired and required, remote token manual and required).
+- App env add enforces auth-mode rules correctly (`oauth` default with metadata/auth flow; token mode keeps local-vs-remote token policy).
 - App env add is not considered success unless `env update` connectivity verification succeeds.
 - CLI runtime refresh (`node ./scripts/run-ctl.mjs -- env update ...`) succeeds for the bootstrap env.
 - If runtime refresh fails with `swagger:get` 404 or API documentation disabled, skill applies plugin activation sequence and retries.
+- OAuth path confirms `@nocobase/plugin-idp-oauth` is active before OAuth metadata/auth verification.
 - Token acquisition path confirms `@nocobase/plugin-api-keys` is active before generating/providing token.
 - Readback confirms expected env name/base URL/scope and current env selection.
 - Upgrade path includes backup confirmation.
@@ -244,18 +255,18 @@ Confirmation template:
 2. Preflight with missing Docker and missing Node.
 3. Preflight fails on missing or placeholder-like `APP_KEY`, and passes after random key is set.
 4. Install preflight blocks on critical issues.
-5. CLI bootstrap fails when token is missing, then succeeds after auto-generate/manual token fix.
-6. CLI bootstrap detects missing `api-doc`/`api-keys` dependency plugins and emits activation guidance.
+5. CLI bootstrap default oauth path fails when `idp-oauth` is missing, then succeeds after dependency auto-enable/login fix.
+6. CLI bootstrap token mode fails when token is missing, then succeeds after auto-generate/manual token fix.
 7. Upgrade with method auto-detected, backup confirmed, upgrade plan confirmed, and successful post-check.
 8. Diagnose `Environment mismatch` and produce actionable steps.
 9. Diagnose startup failure caused by port conflict and provide fix command.
 10. Diagnose startup failure caused by file permission denied (`EACCES`) and provide concrete permission/access fix steps.
 11. Docker install in offline mode succeeds using local compose template without external docs lookup.
 12. Docker install with user-provided DB inputs auto-switches to `db_mode=existing`.
-13. create/git preflight fails when DB is unavailable and returns official PostgreSQL/MySQL install links.
+13. create/git preflight fails when DB is unavailable and returns official PostgreSQL/MySQL/MariaDB install links.
 14. create/git preflight passes when DB endpoint and auth probe succeed.
-15. `task=app-manage` with local URL auto-acquires usable token, runs `env update`, and returns current env info only on full connectivity success.
-16. `task=app-manage` with remote URL + missing token fails with clear token-required error.
+15. `task=app-manage` with oauth mode validates metadata/auth flow, runs `env update`, and returns current env info only on full connectivity success.
+16. `task=app-manage` with token mode remote URL + missing token fails with clear token-required error.
 
 # Output Contract
 
@@ -283,7 +294,7 @@ For `install` tasks, `recommended next action` must include:
 - [Install Templates](assets/install-templates.md): local command templates for create-app/git plus channel mapping overrides.
 - [Preflight Checklist](references/preflight-checklist.md): use before any mutable action.
 - [Install Runbook](references/install-runbook.md): use for install and startup flows.
-- [App Environment Manage](references/app-env-manage.md): use for app env add/use/current/list operations and token policy.
+- [App Environment Manage](references/app-env-manage.md): use for app env add/use/current/list operations and oauth/token policy.
 - [Upgrade Runbook](references/upgrade-runbook.md): use for safe single-instance upgrades.
 - [Troubleshooting KB](references/troubleshooting.md): use for high-frequency failures.
 - [NocoBase Docker Installation](https://docs.nocobase.com/cn/get-started/installation/docker): primary Docker install reference. [verified: 2026-04-08]
@@ -299,3 +310,4 @@ For `install` tasks, `recommended next action` must include:
 - [PostgreSQL Download](https://www.postgresql.org/download/): PostgreSQL installation guide and packages. [verified: 2026-04-15]
 - [MySQL Install Docs](https://dev.mysql.com/doc/en/installing.html): MySQL official installation documentation. [verified: 2026-04-15]
 - [MySQL Downloads](https://dev.mysql.com/downloads/mysql): MySQL official download page. [verified: 2026-04-15]
+- [MariaDB Downloads](https://mariadb.org/download/): MariaDB official download page. [verified: 2026-04-16]

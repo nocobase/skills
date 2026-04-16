@@ -2,6 +2,8 @@ param(
   [int]$Port = 13000,
   [string]$EnvName = 'local',
   [string]$TokenEnv = 'NOCOBASE_API_TOKEN',
+  [ValidateSet('oauth', 'token')]
+  [string]$AuthMode = 'oauth',
   [ValidateSet('project', 'global')]
   [string]$Scope = 'project',
   [string]$BaseUrl = '',
@@ -19,8 +21,16 @@ param(
 $Fail = 0
 $Warn = 0
 $Pass = 0
-$CliDependencyPlugins = '@nocobase/plugin-api-doc,@nocobase/plugin-api-keys'
-$CliDependencyEnableCommand = 'Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys'
+$CliDependencyPlugins = if ($AuthMode -eq 'oauth') {
+  '@nocobase/plugin-api-doc,@nocobase/plugin-idp-oauth'
+} else {
+  '@nocobase/plugin-api-doc,@nocobase/plugin-api-keys'
+}
+$CliDependencyEnableCommand = if ($AuthMode -eq 'oauth') {
+  'Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth'
+} else {
+  'Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys'
+}
 $InstallGuide = 'https://github.com/nocobase/nocobase-ctl'
 
 function Record-Check {
@@ -252,6 +262,83 @@ $apiKeyAutoHint = "Auto token generation uses CLI: generate-api-key -n $AutoApiK
 Record-Check pass 'CLI-001' "Detected skill-local ctl wrapper: $ctlWrapper"
 Write-Host "cli_base_dir: $resolvedBaseDir"
 Write-Host "cli_auto_api_key: $(if($autoApiKeyEnabled){'enabled'}else{'disabled'})"
+Write-Host "cli_auth_mode: $AuthMode"
+
+$resolvedBaseUrl = if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+  "http://localhost:$Port/api"
+} else {
+  $BaseUrl
+}
+
+Write-Host "cli_target_env: $EnvName"
+Write-Host "cli_base_url: $resolvedBaseUrl"
+Write-Host "cli_scope: $Scope"
+
+if ($AuthMode -eq 'oauth') {
+  Record-Check pass 'CLI-002' "OAuth mode selected; token env '$TokenEnv' is not required for bootstrap."
+  $envManage = Join-Path $PSScriptRoot 'env-manage.mjs'
+  if (-not (Test-Path -LiteralPath $envManage -PathType Leaf)) {
+    Record-Check fail 'CLI-003' "Cannot find env-manage script: $envManage" 'Ensure nocobase-env-bootstrap/scripts/env-manage.mjs exists, then rerun postcheck.'
+    Write-Host "summary: fail=$Fail warn=$Warn pass=$Pass"
+    exit 1
+  }
+
+  $oauthAddOutputBuilder = New-Object System.Text.StringBuilder
+  & node $envManage add --name $EnvName --url $resolvedBaseUrl --auth-mode oauth --scope $Scope --base-dir $resolvedBaseDir 2>&1 | ForEach-Object {
+    $line = [string]$_
+    [void]$oauthAddOutputBuilder.AppendLine($line)
+    Write-Host $line
+  }
+  $oauthAddOutput = $oauthAddOutputBuilder.ToString()
+  $oauthAddExit = $LASTEXITCODE
+
+  if ($oauthAddExit -eq 0) {
+    Record-Check pass 'CLI-003' "OAuth env bootstrap completed for '$EnvName'."
+    Record-Check pass 'CLI-004' "Runtime update completed in OAuth flow."
+    Record-Check pass 'CLI-005' "Readback completed in OAuth flow."
+  } else {
+    $oauthAuthorizationUrl = ''
+    $urlMatches = [regex]::Matches($oauthAddOutput, 'https?://[^\s"<>]+')
+    foreach ($match in $urlMatches) {
+      $candidate = [string]$match.Value
+      if ($candidate -match 'response_type=code' -or $candidate -match '/authorize') {
+        $oauthAuthorizationUrl = $candidate
+        break
+      }
+    }
+    if ([string]::IsNullOrWhiteSpace($oauthAuthorizationUrl) -and $urlMatches.Count -gt 0) {
+      $oauthAuthorizationUrl = [string]$urlMatches[0].Value
+    }
+
+    $needsOauthLogin = ($oauthAddOutput -match 'ENV_OAUTH_INTERACTIVE_REQUIRED') -or ($oauthAddOutput -match 'ENV_OAUTH_AUTH_FAILED') -or (-not [string]::IsNullOrWhiteSpace($oauthAuthorizationUrl))
+    if ($needsOauthLogin) {
+      $loginCommand = ''
+      $loginCommandMatch = [regex]::Match($oauthAddOutput, '"login_command"\s*:\s*"([^"]+)"')
+      if ($loginCommandMatch.Success) {
+        $loginCommand = ($loginCommandMatch.Groups[1].Value -replace '\\\\', '\')
+      }
+      Record-Check fail 'CLI-003' "OAuth env bootstrap is waiting for browser authorization or requires retry." 'Open oauth_authorization_url (if provided) and complete login, or run login_command, then rerun cli-postcheck.'
+      Write-Host 'action_required: complete_oauth_login'
+      Write-Host 'required_step: open_oauth_authorization_url_or_run_login_command'
+      if (-not [string]::IsNullOrWhiteSpace($oauthAuthorizationUrl)) {
+        Write-Host "oauth_authorization_url: $oauthAuthorizationUrl"
+      }
+      if (-not [string]::IsNullOrWhiteSpace($loginCommand)) {
+        Write-Host "login_command: $loginCommand"
+      }
+      Write-Host 'login_behavior: env_auth_will_open_browser_or_print_authorization_url'
+      Write-Host 'required_step: rerun_cli_postcheck'
+    } else {
+      Record-Check fail 'CLI-003' "OAuth env bootstrap failed." 'Fix the error in env-manage output and rerun postcheck.'
+    }
+  }
+
+  Write-Host "summary: fail=$Fail warn=$Warn pass=$Pass"
+  if ($Fail -gt 0) {
+    exit 1
+  }
+  exit 0
+}
 
 $token = [System.Environment]::GetEnvironmentVariable($TokenEnv)
 if ([string]::IsNullOrWhiteSpace($token) -and $autoApiKeyEnabled) {
@@ -285,16 +372,6 @@ if ([string]::IsNullOrWhiteSpace($token) -and $autoApiKeyEnabled) {
 } else {
   Record-Check pass 'CLI-002' "Token env '$TokenEnv' is present."
 }
-
-$resolvedBaseUrl = if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
-  "http://localhost:$Port/api"
-} else {
-  $BaseUrl
-}
-
-Write-Host "cli_target_env: $EnvName"
-Write-Host "cli_base_url: $resolvedBaseUrl"
-Write-Host "cli_scope: $Scope"
 
 $envAddResult = Invoke-CtlCommand -WrapperPath $ctlWrapper -WorkDir $resolvedBaseDir -CtlArgs @('env', 'add', '--name', $EnvName, '--base-url', $resolvedBaseUrl, '--token', $token, '-s', $Scope)
 if ($envAddResult.RawOutput) {

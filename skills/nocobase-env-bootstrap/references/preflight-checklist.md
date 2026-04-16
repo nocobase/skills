@@ -9,9 +9,9 @@ MCP checks are executed only for explicit `task=mcp-connect`.
 
 Preflight must run with explicit `install_method` context:
 
-- Windows: `powershell -File scripts/preflight.ps1 -InstallMethod <docker|create-nocobase-app|git> -DbMode <bundled|existing> -DbDialect <postgres|mysql>`
-- Linux/macOS: `bash scripts/preflight.sh 13000 <docker|create-nocobase-app|git> <bundled|existing> <postgres|mysql>`
-- When `DbMode=existing`, `DbDialect` must be `postgres` or `mysql`.
+- Windows: `powershell -File scripts/preflight.ps1 -InstallMethod <docker|create-nocobase-app|git> -DbMode <bundled|existing> -DbDialect <postgres|mysql|mariadb>`
+- Linux/macOS: `bash scripts/preflight.sh 13000 <docker|create-nocobase-app|git> <bundled|existing> <postgres|mysql|mariadb>`
+- When `DbMode=existing`, `DbDialect` must be `postgres`, `mysql`, or `mariadb`.
 
 ## Blocking Checks
 
@@ -31,7 +31,7 @@ Preflight must run with explicit `install_method` context:
   - <https://git-scm.com/install>
 
 3. Database readiness
-- `create-nocobase-app` and `git` require external DB (`postgres` or `mysql`) and must not continue without it.
+- `create-nocobase-app` and `git` require external DB (`postgres`, `mysql`, or `mariadb`) and must not continue without it.
 - `docker` defaults to bundled DB, but if user specifies DB connection inputs then external DB mode is required.
 - For external DB mode, required fields:
   - `DB_HOST`
@@ -45,6 +45,7 @@ Preflight must run with explicit `install_method` context:
   - PostgreSQL: <https://www.postgresql.org/download/>
   - MySQL install docs: <https://dev.mysql.com/doc/en/installing.html>
   - MySQL downloads: <https://dev.mysql.com/downloads/mysql>
+  - MariaDB downloads: <https://mariadb.org/download/>
 
 4. Port conflict
 - Check whether target app port is already in use.
@@ -66,12 +67,14 @@ Preflight must run with explicit `install_method` context:
 - Verify skill-local wrapper `./scripts/run-ctl.mjs` exists and `node` is available.
 - Verify app env helper `./scripts/env-manage.mjs` exists and `node` is available.
 - Wrapper will resolve global `nocobase-ctl`/`nbctl` first, then local `run.js` candidates.
-- Verify token env exists or can be generated later for CLI env bootstrap (default `NOCOBASE_API_TOKEN`).
+- Verify auth mode for CLI bootstrap (`oauth` default).
+- For token mode, verify token env exists or can be generated later (default `NOCOBASE_API_TOKEN`).
 - For running targets (upgrade/diagnose), verify CLI dependency plugins:
-- `@nocobase/plugin-api-doc` (`swagger:get` source for `env update`)
-- `@nocobase/plugin-api-keys` (token generation/refresh path)
+- oauth mode: `@nocobase/plugin-api-doc` (`swagger:get` source for `env update`) + `@nocobase/plugin-idp-oauth`
+- token mode: `@nocobase/plugin-api-doc` (`swagger:get` source for `env update`) + `@nocobase/plugin-api-keys` (token generation/refresh path)
 - If dependency plugins are missing, apply activation sequence:
-- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys -> restart app -> rerun cli-postcheck`
+- oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth -> restart app -> rerun cli-postcheck`
+- token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys -> restart app -> rerun cli-postcheck`
 
 ## MCP Blocking Checks (explicit `task=mcp-connect` only)
 

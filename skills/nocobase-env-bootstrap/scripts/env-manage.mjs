@@ -3,12 +3,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ACTIONS = new Set(['add', 'use', 'current', 'list']);
 const SCOPES = new Set(['project', 'global']);
 const PREFERS = new Set(['auto', 'global', 'local']);
+const AUTH_MODES = new Set(['oauth', 'token']);
 const LOCAL_HOSTS = new Set([
   'localhost',
   '127.0.0.1',
@@ -26,7 +27,10 @@ const PLACEHOLDER_TOKEN_PATTERNS = [
   'token_here',
   'your_token',
 ];
-const CLI_DEPENDENCY_PLUGINS = ['@nocobase/plugin-api-doc', '@nocobase/plugin-api-keys'];
+const CLI_DEPENDENCY_PLUGINS_BY_AUTH_MODE = {
+  oauth: ['@nocobase/plugin-api-doc', '@nocobase/plugin-idp-oauth'],
+  token: ['@nocobase/plugin-api-doc', '@nocobase/plugin-api-keys'],
+};
 const CLI_PM_APP_SERVICE = 'app';
 const API_DOC_ERROR_PATTERNS = [
   'swagger:get',
@@ -49,6 +53,13 @@ const AUTH_ERROR_PATTERNS = [
   'plugin-api-keys',
   'api key',
 ];
+const OAUTH_DEP_ERROR_PATTERNS = [
+  'plugin-idp-oauth',
+  'idpoauth',
+  'oauth',
+  'oauth-authorization-server',
+  '.well-known/oauth-authorization-server',
+];
 const ALREADY_ENABLED_PATTERNS = [
   'already enabled',
   'has been enabled',
@@ -62,16 +73,17 @@ const RUN_CTL_PATH = path.join(THIS_DIR, 'run-ctl.mjs');
 function printHelp() {
   const lines = [
     'Usage:',
-    '  node ./scripts/env-manage.mjs add --name <env> --url <base-url> [--token <token>] [--token-env <ENV_NAME>] [--scope project|global] [--base-dir <dir>]',
+    '  node ./scripts/env-manage.mjs add --name <env> --url <base-url> [--auth-mode oauth|token] [--token <token>] [--token-env <ENV_NAME>] [--scope project|global] [--base-dir <dir>]',
     '  node ./scripts/env-manage.mjs use --name <env> [--scope project|global] [--base-dir <dir>]',
     '  node ./scripts/env-manage.mjs current [--scope project|global] [--base-dir <dir>]',
     '  node ./scripts/env-manage.mjs list [--scope project|global] [--base-dir <dir>]',
     '',
     'Rules:',
-    '  - Local URLs always require a real token and env-manage auto-acquires it.',
-    '  - Remote URLs require manual token input (--token or --token-env).',
+    '  - add defaults to OAuth auth-mode unless token args are provided without --auth-mode.',
+    '  - oauth mode: local dependencies are api-doc + idp-oauth, then env auth + env update.',
+    '  - token mode: local URLs require auto-acquired token; remote URLs require manual token input.',
     '  - add always runs env update for connectivity verification; update failure means add failure.',
-    '  - Local add auto-recovers dependencies: if api-doc/api-keys is missing, env-manage tries pm enable + retry.',
+    '  - Local add auto-recovers dependencies by auth-mode plugin bundle and retries.',
     '',
     'Examples:',
     '  node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --scope project',
@@ -127,6 +139,8 @@ function parseArgs(argv) {
     action,
     name: '',
     url: '',
+    authMode: 'oauth',
+    authModeExplicit: false,
     token: '',
     tokenEnv: '',
     scope: 'project',
@@ -192,6 +206,18 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === '--auth-mode') {
+      options.authMode = parseArgValue(argv, i, arg).toLowerCase();
+      options.authModeExplicit = true;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith('--auth-mode=')) {
+      options.authMode = arg.slice('--auth-mode='.length).toLowerCase();
+      options.authModeExplicit = true;
+      continue;
+    }
+
     if (arg === '--scope' || arg === '-s') {
       options.scope = parseArgValue(argv, i, arg);
       i += 1;
@@ -231,6 +257,9 @@ function parseArgs(argv) {
   if (!PREFERS.has(options.prefer)) {
     failValidation(`Invalid prefer "${options.prefer}". Expected auto|global|local.`);
   }
+  if (!AUTH_MODES.has(options.authMode)) {
+    failValidation(`Invalid auth mode "${options.authMode}". Expected oauth|token.`);
+  }
 
   options.baseDir = path.resolve(options.baseDir);
 
@@ -240,6 +269,9 @@ function parseArgs(argv) {
     }
     if (!options.url) {
       failValidation('Missing required --url/--base-url for add action.');
+    }
+    if (!options.authModeExplicit && (options.token || options.tokenEnv)) {
+      options.authMode = 'token';
     }
   }
 
@@ -321,6 +353,59 @@ function deriveAdminUrlsFromApiBase(baseUrl) {
   }
 }
 
+function getCliDependencyPluginsForAuthMode(authMode) {
+  return CLI_DEPENDENCY_PLUGINS_BY_AUTH_MODE[authMode] || CLI_DEPENDENCY_PLUGINS_BY_AUTH_MODE.oauth;
+}
+
+function buildPluginEnableHint(plugins) {
+  return `Use $nocobase-plugin-manage enable ${plugins.join(' ')}`;
+}
+
+function buildNodeScriptCommand(scriptPath, scriptArgs = []) {
+  return ['node', scriptPath, ...scriptArgs].join(' ');
+}
+
+function buildRunCtlCommand(options, ctlArgs) {
+  return buildNodeScriptCommand(RUN_CTL_PATH, ['--base-dir', options.baseDir, '--', ...ctlArgs]);
+}
+
+function buildEnvManageCommand(options, args) {
+  return buildNodeScriptCommand(path.join(THIS_DIR, 'env-manage.mjs'), [...args, '--base-dir', options.baseDir]);
+}
+
+async function probeOauthMetadata(baseUrl) {
+  const url = `${baseUrl.replace(/\/+$/, '')}/.well-known/oauth-authorization-server`;
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    const hasAuthorizeEndpoint = Boolean(
+      data
+      && typeof data === 'object'
+      && typeof data.authorization_endpoint === 'string'
+      && data.authorization_endpoint.length > 0,
+    );
+    return {
+      ok: response.ok && hasAuthorizeEndpoint,
+      status: response.status,
+      url,
+      data,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      url,
+      data: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function buildRemoteTokenGuide(options, normalized, reason) {
   const urls = deriveAdminUrlsFromApiBase(normalized.baseUrl);
   return {
@@ -334,13 +419,33 @@ function buildRemoteTokenGuide(options, normalized, reason) {
       'Copy the token and rerun env-manage add with --token (or --token-env).',
     ],
     rerun_examples: [
-      `node ./scripts/env-manage.mjs add --name ${options.name} --url ${normalized.baseUrl} --token <your_token> --scope ${options.scope} --base-dir ${options.baseDir}`,
-      `node ./scripts/env-manage.mjs add --name ${options.name} --url ${normalized.baseUrl} --token-env NOCOBASE_API_TOKEN --scope ${options.scope} --base-dir ${options.baseDir}`,
+      buildEnvManageCommand(options, ['add', '--name', options.name, '--url', normalized.baseUrl, '--token', '<your_token>', '--scope', options.scope]),
+      buildEnvManageCommand(options, ['add', '--name', options.name, '--url', normalized.baseUrl, '--token-env', 'NOCOBASE_API_TOKEN', '--scope', options.scope]),
     ],
     token_env_examples: {
       powershell: "$env:NOCOBASE_API_TOKEN='<your_token>'",
       bash: "export NOCOBASE_API_TOKEN='<your_token>'",
     },
+  };
+}
+
+function buildRemoteOauthGuide(options, normalized, reason) {
+  const urls = deriveAdminUrlsFromApiBase(normalized.baseUrl);
+  const requiredPlugins = getCliDependencyPluginsForAuthMode('oauth');
+  return {
+    reason,
+    required_plugins: requiredPlugins,
+    plugin_manager_url: urls.plugin_manager_url,
+    oauth_metadata_url: `${normalized.baseUrl.replace(/\/+$/, '')}/.well-known/oauth-authorization-server`,
+    steps: [
+      'Open Plugin Manager and ensure @nocobase/plugin-api-doc and @nocobase/plugin-idp-oauth are enabled.',
+      'Restart app if plugin state changed.',
+      'Run env auth in an interactive terminal to complete OAuth login (it opens browser automatically, or prints an authorization URL).',
+    ],
+    rerun_examples: [
+      buildEnvManageCommand(options, ['add', '--name', options.name, '--url', normalized.baseUrl, '--auth-mode', 'oauth', '--scope', options.scope]),
+      buildRunCtlCommand(options, ['env', 'auth', '-e', options.name, '-s', options.scope]),
+    ],
   };
 }
 
@@ -365,8 +470,8 @@ function maskSensitiveArgs(args) {
   return masked;
 }
 
-function runCtl(ctlArgs, options) {
-  const commandArgs = [
+function buildCtlCommandArgs(options, ctlArgs) {
+  return [
     RUN_CTL_PATH,
     '--base-dir',
     options.baseDir,
@@ -375,6 +480,10 @@ function runCtl(ctlArgs, options) {
     '--',
     ...ctlArgs,
   ];
+}
+
+function runCtl(ctlArgs, options) {
+  const commandArgs = buildCtlCommandArgs(options, ctlArgs);
 
   if (options.debug) {
     process.stderr.write(`env-manage debug: ${process.execPath} ${commandArgs.join(' ')}\n`);
@@ -393,6 +502,68 @@ function runCtl(ctlArgs, options) {
     error: result.error ? result.error.message : '',
     command: [process.execPath, ...maskSensitiveArgs(commandArgs)],
   };
+}
+
+async function runCtlWithLiveOutput(ctlArgs, options) {
+  const commandArgs = buildCtlCommandArgs(options, ctlArgs);
+
+  if (options.debug) {
+    process.stderr.write(`env-manage debug: ${process.execPath} ${commandArgs.join(' ')}\n`);
+  }
+
+  return await new Promise((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    let errorMessage = '';
+    let settled = false;
+
+    const child = spawn(process.execPath, commandArgs, {
+      cwd: options.baseDir,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    child.stdout.on('data', (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      process.stderr.write(text);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      process.stderr.write(text);
+    });
+
+    child.on('error', (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      errorMessage = error instanceof Error ? error.message : String(error);
+      resolve({
+        exitCode: 1,
+        stdout,
+        stderr,
+        error: errorMessage,
+        command: [process.execPath, ...maskSensitiveArgs(commandArgs)],
+      });
+    });
+
+    child.on('close', (code) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve({
+        exitCode: code ?? 1,
+        stdout,
+        stderr,
+        error: errorMessage,
+        command: [process.execPath, ...maskSensitiveArgs(commandArgs)],
+      });
+    });
+  });
 }
 
 function parseEnvRows(tableText) {
@@ -557,6 +728,34 @@ function summarizeText(text, maxLength = 420) {
   return `${compact.slice(0, maxLength)}...`;
 }
 
+function extractAuthorizationUrl(text) {
+  const clean = stripAnsi(text || '');
+  const matches = clean.match(/https?:\/\/[^\s"'<>]+/g);
+  if (!matches || matches.length === 0) {
+    return '';
+  }
+  return matches.find((url) => url.includes('response_type=code'))
+    || matches.find((url) => url.includes('/authorize'))
+    || matches[0];
+}
+
+function summarizeOauthProbeResult(result) {
+  if (!result) {
+    return null;
+  }
+  const dataText = typeof result.data === 'string'
+    ? result.data
+    : result.data === null || result.data === undefined
+      ? ''
+      : JSON.stringify(result.data);
+  return {
+    ok: result.ok,
+    status: result.status,
+    url: result.url,
+    output: summarizeText(dataText),
+  };
+}
+
 function containsPattern(text, patterns) {
   const normalized = (text || '').toLowerCase();
   return patterns.some((pattern) => normalized.includes(pattern));
@@ -568,6 +767,10 @@ function isApiDocDependencyError(text) {
 
 function isAuthDependencyError(text) {
   return containsPattern(text, AUTH_ERROR_PATTERNS);
+}
+
+function isOauthDependencyError(text) {
+  return containsPattern(text, OAUTH_DEP_ERROR_PATTERNS);
 }
 
 function isAlreadyEnabledOutput(text) {
@@ -1233,11 +1436,21 @@ function restartLocalRuntime(baseDir, backend) {
   };
 }
 
-function ensureLocalCliDependencyPlugins(options, normalized, reason, dockerTarget = null, tokenForApi = '') {
+function ensureLocalCliDependencyPlugins(
+  options,
+  normalized,
+  reason,
+  pluginNames,
+  dockerTarget = null,
+  tokenForApi = '',
+) {
   const pluginResults = [];
   const successfulBackends = new Set();
+  const requiredPlugins = Array.isArray(pluginNames) && pluginNames.length > 0
+    ? pluginNames
+    : getCliDependencyPluginsForAuthMode(options.authMode);
 
-  for (const pluginName of CLI_DEPENDENCY_PLUGINS) {
+  for (const pluginName of requiredPlugins) {
     const result = enableLocalDependencyPlugin(options, normalized, pluginName, dockerTarget, tokenForApi);
     pluginResults.push(result);
     if (result.ok && result.backend) {
@@ -1270,6 +1483,8 @@ function ensureLocalCliDependencyPlugins(options, normalized, reason, dockerTarg
   return {
     attempted: true,
     reason,
+    auth_mode: options.authMode,
+    required_plugins: requiredPlugins,
     docker_target: dockerTarget || null,
     plugins: pluginResults,
     all_enabled: allEnabled,
@@ -1331,16 +1546,252 @@ function acquireLocalToken(options, normalized, dockerTarget = null, policy = {}
   return { value: '', source: '', attempts };
 }
 
-function doAdd(options) {
+function isInteractiveAuthRequiredError(text) {
+  return summarizeText(text, 1000).toLowerCase().includes('requires an interactive terminal');
+}
+
+async function doAddOauthMode(options, normalized, dependencyPlugins, dockerTarget) {
+  const loginCommand = buildRunCtlCommand(options, ['env', 'auth', '-e', options.name, '-s', options.scope]);
+  const followupCommand = buildRunCtlCommand(options, ['env', 'update', '-e', options.name, '-s', options.scope]);
+  const dependencyRecovery = {
+    auth_mode: 'oauth',
+    required_plugins: dependencyPlugins,
+    docker_target: dockerTarget,
+    dependency_phase: null,
+    oauth_probe: {
+      initial: null,
+      final: null,
+    },
+    oauth_auth_phase: null,
+    update_phase: null,
+  };
+
+  const buildAddArgs = () => [
+    'env',
+    'add',
+    '--name',
+    options.name,
+    '--base-url',
+    normalized.baseUrl,
+    '-s',
+    options.scope,
+  ];
+
+  let metadataProbe = await probeOauthMetadata(normalized.baseUrl);
+  dependencyRecovery.oauth_probe.initial = summarizeOauthProbeResult(metadataProbe);
+
+  if (!metadataProbe.ok && normalized.isLocal) {
+    dependencyRecovery.dependency_phase = ensureLocalCliDependencyPlugins(
+      options,
+      normalized,
+      'oauth-metadata-probe',
+      dependencyPlugins,
+      dockerTarget,
+      '',
+    );
+    if (dependencyRecovery.dependency_phase.all_enabled) {
+      metadataProbe = await probeOauthMetadata(normalized.baseUrl);
+      dependencyRecovery.oauth_probe.final = summarizeOauthProbeResult(metadataProbe);
+    }
+  } else {
+    dependencyRecovery.oauth_probe.final = dependencyRecovery.oauth_probe.initial;
+  }
+
+  if (!metadataProbe.ok) {
+    const localEnableHint = buildPluginEnableHint(dependencyPlugins);
+    failRuntime('OAuth metadata endpoint is not available for this environment.', {
+      error_code: 'ENV_OAUTH_METADATA_UNAVAILABLE',
+      env_name: options.name,
+      base_url: normalized.baseUrl,
+      scope: options.scope,
+      auth_mode: 'oauth',
+      action_required: normalized.isLocal ? 'enable_local_oauth_dependencies' : 'enable_remote_oauth_dependencies',
+      suggested_command: normalized.isLocal ? localEnableHint : null,
+      remote_oauth_guide: normalized.isLocal ? null : buildRemoteOauthGuide(options, normalized, 'metadata_unavailable'),
+      auto_dependency_recovery: dependencyRecovery,
+    });
+  }
+
+  const addResult = runCtl(buildAddArgs(), options);
+  if (addResult.exitCode !== 0) {
+    failRuntime('Failed to add environment in OAuth mode.', {
+      env_name: options.name,
+      base_url: normalized.baseUrl,
+      scope: options.scope,
+      auth_mode: 'oauth',
+      ctl: addResult,
+      auto_dependency_recovery: dependencyRecovery,
+    });
+  }
+
+  const useResult = runCtl(['env', 'use', options.name, '-s', options.scope], options);
+  if (useResult.exitCode !== 0) {
+    failRuntime('Environment added but failed to switch current environment.', {
+      env_name: options.name,
+      scope: options.scope,
+      auth_mode: 'oauth',
+      ctl: useResult,
+      auto_dependency_recovery: dependencyRecovery,
+    });
+  }
+
+  const authResult = await runCtlWithLiveOutput(['env', 'auth', '-e', options.name, '-s', options.scope], options);
+  const authOutputText = commandOutputText(authResult);
+  const authAuthorizationUrl = extractAuthorizationUrl(authOutputText);
+  dependencyRecovery.oauth_auth_phase = {
+    ...summarizeCommandResult(authResult),
+    authorization_url: authAuthorizationUrl || null,
+  };
+  if (authResult.exitCode !== 0) {
+    const authRequiresInteractive = isInteractiveAuthRequiredError(authOutputText);
+    failRuntime(
+      authRequiresInteractive
+        ? 'OAuth login requires an interactive terminal session.'
+        : 'OAuth login failed for environment.',
+      {
+        error_code: authRequiresInteractive
+          ? 'ENV_OAUTH_INTERACTIVE_REQUIRED'
+          : 'ENV_OAUTH_AUTH_FAILED',
+        action_required: authRequiresInteractive || authAuthorizationUrl ? 'complete_oauth_login' : null,
+        env_name: options.name,
+        base_url: normalized.baseUrl,
+        scope: options.scope,
+        auth_mode: 'oauth',
+        oauth_authorization_url: authAuthorizationUrl || null,
+        login_command: authRequiresInteractive
+          ? loginCommand
+          : null,
+        followup_command: authRequiresInteractive
+          ? followupCommand
+          : null,
+        interactive_login_hint: authRequiresInteractive
+          ? 'Run login_command in an interactive terminal. The command opens browser automatically, or prints authorization URL when auto-open is unavailable.'
+          : null,
+        authorization_url_available_via: authRequiresInteractive ? 'login_command_output' : null,
+        ctl: authResult,
+        auto_dependency_recovery: dependencyRecovery,
+      },
+    );
+  }
+
+  let updateResult = runCtl(['env', 'update', '-e', options.name, '-s', options.scope], options);
+  let updateRetryResult = null;
+  if (updateResult.exitCode !== 0 && normalized.isLocal) {
+    const initialUpdateErrorText = commandOutputText(updateResult);
+    const updateMatchesApiDoc = isApiDocDependencyError(initialUpdateErrorText);
+    const updateMatchesOauth = isOauthDependencyError(initialUpdateErrorText);
+    if (updateMatchesApiDoc || updateMatchesOauth) {
+      const dependencyEnable = ensureLocalCliDependencyPlugins(
+        options,
+        normalized,
+        'oauth-env-update',
+        dependencyPlugins,
+        dockerTarget,
+        '',
+      );
+      if (dependencyEnable.all_enabled) {
+        updateRetryResult = runCtl(['env', 'update', '-e', options.name, '-s', options.scope], options);
+        if (updateRetryResult.exitCode === 0) {
+          updateResult = updateRetryResult;
+        }
+      }
+      dependencyRecovery.update_phase = {
+        triggered: true,
+        trigger: {
+          api_doc_dependency: updateMatchesApiDoc,
+          oauth_dependency: updateMatchesOauth,
+          update_error: summarizeText(initialUpdateErrorText),
+        },
+        dependency_enable: dependencyEnable,
+        env_update_retry: summarizeCommandResult(updateRetryResult),
+      };
+    }
+  }
+
+  if (updateResult.exitCode !== 0) {
+    const finalUpdateErrorText = commandOutputText(updateResult);
+    failRuntime('Environment added and OAuth login completed, but connectivity verification failed during env update.', {
+      error_code: 'ENV_UPDATE_CONNECTIVITY_FAILED',
+      env_name: options.name,
+      base_url: normalized.baseUrl,
+      scope: options.scope,
+      auth_mode: 'oauth',
+      action_required: isAuthDependencyError(finalUpdateErrorText) ? 'complete_oauth_login' : null,
+      login_command: isAuthDependencyError(finalUpdateErrorText)
+        ? loginCommand
+        : null,
+      followup_command: followupCommand,
+      interactive_login_hint: isAuthDependencyError(finalUpdateErrorText)
+        ? 'Run login_command in an interactive terminal. The command opens browser automatically, or prints authorization URL when auto-open is unavailable.'
+        : null,
+      authorization_url_available_via: isAuthDependencyError(finalUpdateErrorText) ? 'login_command_output' : null,
+      ctl: updateResult,
+      auto_dependency_recovery: dependencyRecovery,
+    });
+  }
+
+  const currentState = getCurrentState(options);
+  printResult({
+    ok: true,
+    action: 'add',
+    env_name: options.name,
+    base_url: normalized.baseUrl,
+    is_local: normalized.isLocal,
+    auth_mode: 'oauth',
+    auth_status: 'oauth-authenticated',
+    token_mode: null,
+    token_source: null,
+    token_acquisition_attempts: [],
+    scope: options.scope,
+    base_dir: options.baseDir,
+    current_state: currentState,
+    steps: {
+      add: {
+        command: addResult.command,
+        exit_code: addResult.exitCode,
+      },
+      use: {
+        command: useResult.command,
+        exit_code: useResult.exitCode,
+      },
+      env_auth: {
+        command: authResult.command,
+        exit_code: authResult.exitCode,
+        authorization_url: authAuthorizationUrl || null,
+      },
+      env_update: {
+        command: updateResult.command,
+        exit_code: updateResult.exitCode,
+      },
+      env_update_retry: updateRetryResult
+        ? {
+            command: updateRetryResult.command,
+            exit_code: updateRetryResult.exitCode,
+          }
+        : null,
+    },
+    auto_dependency_recovery: dependencyRecovery,
+  });
+}
+
+async function doAdd(options) {
   const normalized = normalizeBaseUrl(options.url);
+  const dependencyPlugins = getCliDependencyPluginsForAuthMode(options.authMode);
   const dockerTarget = normalized.isLocal
     ? detectDockerTargetForUrl(options.baseDir, normalized)
     : null;
+
+  if (options.authMode === 'oauth') {
+    await doAddOauthMode(options, normalized, dependencyPlugins, dockerTarget);
+    return;
+  }
 
   let token = { value: '', source: '' };
   let tokenMode = '';
   let tokenAcquisition = [];
   const dependencyRecovery = {
+    auth_mode: options.authMode,
+    required_plugins: dependencyPlugins,
     docker_target: dockerTarget,
     token_phase: null,
     update_phase: null,
@@ -1373,6 +1824,7 @@ function doAdd(options) {
         options,
         normalized,
         'token-acquire',
+        dependencyPlugins,
         dockerTarget,
         token.value,
       );
@@ -1460,6 +1912,7 @@ function doAdd(options) {
         options,
         normalized,
         'env-update',
+        dependencyPlugins,
         dockerTarget,
         token.value,
       );
@@ -1535,6 +1988,8 @@ function doAdd(options) {
     env_name: options.name,
     base_url: normalized.baseUrl,
     is_local: normalized.isLocal,
+    auth_mode: 'token',
+    auth_status: 'token-authenticated',
     token_mode: tokenMode,
     token_source: token.source || null,
     token_acquisition_attempts: tokenAcquisition,
@@ -1616,11 +2071,11 @@ function doList(options) {
   });
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
 
   if (options.action === 'add') {
-    doAdd(options);
+    await doAdd(options);
     return;
   }
   if (options.action === 'use') {
@@ -1636,4 +2091,8 @@ function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  failRuntime('Unhandled env-manage failure.', {
+    detail: error instanceof Error ? error.message : String(error),
+  });
+});

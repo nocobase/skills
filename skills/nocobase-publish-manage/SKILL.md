@@ -108,6 +108,11 @@ Anti-inference policy:
 - For ambiguous input such as "publish local to 19000", run precheck only and ask user to choose.
 - If runtime returns any `action_required` choice gate, stop and wait for user response.
 
+Deterministic keyword routing:
+
+- Follow [references/intent-routing.md](references/intent-routing.md) exactly.
+- Conflict (`restore` + `migration` in one request) must stop execution and ask user to choose one intent.
+
 # Workflow
 
 1. Normalize and validate input.
@@ -150,6 +155,7 @@ Anti-inference policy:
 | Reference | Use When | Notes |
 |---|---|---|
 | [references/v1-runtime-contract.md](references/v1-runtime-contract.md) | implementing action/channel/method matrix | canonical behavior contract |
+| [references/intent-routing.md](references/intent-routing.md) | mapping user keywords to intent/method flow | deterministic anti-inference routing |
 | [references/test-playbook.md](references/test-playbook.md) | verifying skill behavior | prompt-ready acceptance set |
 | [publish-resource-adapter.mjs](scripts/publish-resource-adapter.mjs) | any release mutation/readback | unified resource templates for backup/migration operations |
 | [run-ctl.mjs](scripts/run-ctl.mjs) | any ctl command execution | local/global nocobase-ctl resolver |

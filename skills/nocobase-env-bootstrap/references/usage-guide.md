@@ -25,6 +25,7 @@ If users do not specify details, default behavior is:
 - `release_channel=latest`
 - `port=13000`
 - `cli_env_name=local`
+- `cli_auth_mode=oauth`
 - `cli_token_env=NOCOBASE_API_TOKEN`
 
 The default flow does **not** ask whether MCP should be connected.
@@ -35,8 +36,10 @@ For Docker install, use local templates first:
 
 - `assets/docker-templates/docker-compose.postgres.yml`
 - `assets/docker-templates/docker-compose.mysql.yml`
+- `assets/docker-templates/docker-compose.mariadb.yml`
 - `assets/docker-templates/docker-compose.external.postgres.yml`
 - `assets/docker-templates/docker-compose.external.mysql.yml`
+- `assets/docker-templates/docker-compose.external.mariadb.yml`
 
 Do not switch to web search for installation commands; keep install execution local-script and local-template first.
 
@@ -55,25 +58,26 @@ Install script writes `.nocobase-install-method` in the app directory (`docker`,
 Windows:
 
 ```powershell
-powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql> --db-underscored <true|false> --project-name <name>
+powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-underscored <true|false> --project-name <name>
 ```
 
 Linux/macOS:
 
 ```bash
-bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql> --db-underscored <true|false> --project-name <name>
+bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-underscored <true|false> --project-name <name>
 ```
 
 Database policy:
 
 - `docker` default uses bundled DB (`db_mode=bundled`).
 - If user provides DB connection inputs on docker path, script auto-switches to `db_mode=existing`.
-- `create-nocobase-app` / `git` always require external DB (`db_mode=existing`) with `db_dialect=postgres|mysql`.
+- `create-nocobase-app` / `git` always require external DB (`db_mode=existing`) with `db_dialect=postgres|mysql|mariadb`.
 - For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask user `DB_UNDERSCORED` preference. Default is `false`.
 - If DB is not available, stop and ask user to install one:
   - PostgreSQL: <https://www.postgresql.org/download/>
   - MySQL install docs: <https://dev.mysql.com/doc/en/installing.html>
   - MySQL downloads: <https://dev.mysql.com/downloads/mysql>
+  - MariaDB downloads: <https://mariadb.org/download/>
 
 ## Quick Install Flow
 
@@ -83,12 +87,12 @@ Database policy:
 4. Run local install script for docker path.
 5. Verify logs and login URL.
 6. Run CLI bootstrap final stage:
-- ensure dependency plugins are active first:
-  - `@nocobase/plugin-api-doc`
-  - `@nocobase/plugin-api-keys`
-  - preferred command: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- ensure dependency plugins are active first (auth-mode bundle):
+  - oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
+  - token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
+  - preferred command (oauth): `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
   - if plugin state changed, restart app before `env update`
-- `node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --scope project --base-dir .`
+- `node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --auth-mode oauth --scope project --base-dir .`
 - `node ./scripts/env-manage.mjs current --scope project --base-dir .`
 
 `env-manage add` includes strict connectivity verification (`env update`) and fails when update fails.
@@ -175,24 +179,27 @@ For install/upgrade flows, local CLI bootstrap is executed as the final stage by
 Windows:
 
 ```powershell
-powershell -File scripts/cli-postcheck.ps1 -Port 13000 -EnvName local -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir .
+powershell -File scripts/cli-postcheck.ps1 -Port 13000 -EnvName local -AuthMode oauth -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir .
 ```
 
 Linux/macOS:
 
 ```bash
-bash scripts/cli-postcheck.sh 13000 local NOCOBASE_API_TOKEN project .
+AUTH_MODE=oauth bash scripts/cli-postcheck.sh 13000 local NOCOBASE_API_TOKEN project .
 ```
 
 CLI bootstrap responsibilities:
 
-- ensure runtime dependency plugins (`api-doc`, `api-keys`) are active
+- ensure runtime dependency plugins are active by auth mode
+  - oauth (default): `api-doc`, `idp-oauth`
+  - token: `api-doc`, `api-keys`
 - add or update local env definition (`env add`)
+- complete OAuth login (`env auth`) when auth mode is oauth
 - refresh runtime command cache (`env update`)
 - read back configured env (`node ./scripts/env-manage.mjs current --scope project --base-dir .`)
 - expose machine-readable current env context for downstream skills
 
-If token env is missing, `cli-postcheck` now tries automatic token generation first; only when that fails should you manually activate `@nocobase/plugin-api-keys` and provide token.
+In token mode, if token env is missing, `cli-postcheck` tries automatic token generation first; only when that fails should you manually activate `@nocobase/plugin-api-keys` and provide token.
 
 ## App Environment Management Task
 
@@ -201,7 +208,13 @@ When user asks to add/switch/check environment directly, use `task=app-manage`.
 Add env:
 
 ```bash
-node ./scripts/env-manage.mjs add --name staging --url https://demo.example.com/api --token-env NOCOBASE_API_TOKEN --scope project --base-dir .
+node ./scripts/env-manage.mjs add --name staging --url https://demo.example.com/api --auth-mode oauth --scope project --base-dir .
+```
+
+Token mode add env (remote + manual token):
+
+```bash
+node ./scripts/env-manage.mjs add --name staging --url https://demo.example.com/api --auth-mode token --token-env NOCOBASE_API_TOKEN --scope project --base-dir .
 ```
 
 Switch env:
@@ -216,10 +229,12 @@ Read current env:
 node ./scripts/env-manage.mjs current --scope project --base-dir .
 ```
 
-Token policy:
+Auth mode policy:
 
-- local URL (`localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`): token mandatory, auto-acquired by env-manage (no placeholder token allowed)
-- remote URL: manual token required
+- default mode is oauth; env-manage probes OAuth metadata and completes `env auth`
+- oauth dependency bundle: `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
+- token mode local URL (`localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`): token mandatory, auto-acquired by env-manage (no placeholder token allowed)
+- token mode remote URL: manual token required
 
 ## Optional MCP Flow (Explicit Only)
 

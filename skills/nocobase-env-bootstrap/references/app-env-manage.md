@@ -18,20 +18,24 @@ Use skill-local script:
 ### 1) Add environment
 
 ```bash
-node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --auth-mode oauth --scope project --base-dir <target_dir>
 ```
 
-Manual token input (typically remote env only):
+Manual token input (typically remote env only, token mode):
 
 ```bash
-node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --token <token> --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --auth-mode token --token <token> --scope project --base-dir <target_dir>
 ```
 
 Or read manual token from env:
 
 ```bash
-node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --token-env NOCOBASE_API_TOKEN --scope project --base-dir <target_dir>
+node ./scripts/env-manage.mjs add --name <env_name> --url <app_url_or_api_url> --auth-mode token --token-env NOCOBASE_API_TOKEN --scope project --base-dir <target_dir>
 ```
+
+Compatibility rule:
+
+- if `--token` or `--token-env` is provided without `--auth-mode`, `env-manage` auto-switches to `token` mode.
 
 ### 2) Switch environment
 
@@ -51,28 +55,26 @@ node ./scripts/env-manage.mjs current --scope project --base-dir <target_dir>
 node ./scripts/env-manage.mjs list --scope project --base-dir <target_dir>
 ```
 
-## Local vs Remote Token Policy
+## Auth Mode Policy
 
-Token requirement is decided by URL host:
+Add action supports two auth modes:
 
-- local hosts (token mandatory, auto-acquired by env-manage):
-  - `localhost`
-  - `127.0.0.1`
-  - `::1`
-  - any host ending with `.localhost`
-  - `host.docker.internal`
-- remote hosts (token manual and required):
-  - any other host
+- `oauth` (default)
+- `token`
 
 Rules:
 
-- Local add must auto-acquire a usable non-placeholder token from local context.
-- Remote add must receive manual token (`--token` or `--token-env`).
+- Default add mode is `oauth`.
+- OAuth dependencies are `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`.
+- OAuth add flow is: metadata probe -> `env add` -> `env use` -> `env auth` -> `env update`.
+- If OAuth metadata probe fails on local URL, env-manage auto-attempts plugin enable and retry.
+- OAuth login (`env auth`) requires interactive terminal.
+- Token mode local/remote policy:
+  - local hosts (`localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`): token mandatory and auto-acquired by env-manage.
+  - remote hosts: manual token required (`--token` or `--token-env`).
+- Token-mode dependency bundle is `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`.
 - `add` always performs `env update` connectivity verification.
-- For local add, if token/runtime dependency is missing, env-manage auto-attempts:
-  - enable `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys` via local plugin CLI paths
-  - best-effort app restart
-  - token re-acquire + `env add`/`env update` retry
+- For local add, if auth/runtime dependency is missing, env-manage auto-attempts plugin enable, best-effort restart, and retry.
 - If `env update` fails, `add` returns failure (no false success).
 
 ## URL Normalization
@@ -102,7 +104,9 @@ Add example:
   "env_name": "local",
   "base_url": "http://localhost:13000/api",
   "is_local": true,
-  "token_mode": "auto-local-required",
+  "auth_mode": "oauth",
+  "auth_status": "oauth-authenticated",
+  "token_mode": null,
   "scope": "project",
   "current_state": {
     "current_env_name": "local",
@@ -111,10 +115,13 @@ Add example:
   "steps": {
     "add": { "exit_code": 0 },
     "use": { "exit_code": 0 },
+    "env_auth": { "exit_code": 0 },
     "env_update": { "exit_code": 0 }
   }
 }
 ```
+
+Token-mode add output includes `auth_mode=token`, `auth_status=token-authenticated`, and token acquisition fields.
 
 Current example:
 
@@ -138,7 +145,16 @@ Current example:
 
 ## Failure Cases
 
-1. Remote URL + missing token:
+1. OAuth metadata endpoint unavailable:
+- fail with `ENV_OAUTH_METADATA_UNAVAILABLE`
+- payload includes `required_plugins` / `auto_dependency_recovery`
+- for remote URL payload includes `remote_oauth_guide`
+
+2. OAuth login requires interactive terminal:
+- fail with `ENV_OAUTH_INTERACTIVE_REQUIRED`
+- payload includes `action_required=complete_oauth_login` and `login_command`
+
+3. Remote URL + missing token in token mode:
 - fail with `ENV_TOKEN_REQUIRED_FOR_REMOTE`
 - payload includes `action_required=provide_remote_api_token`
 - payload includes `remote_token_guide` with:
@@ -146,18 +162,18 @@ Current example:
   - API keys URL
   - 3-step manual guidance and rerun examples
 
-2. Local URL + auto token acquisition failed:
+4. Local URL + auto token acquisition failed in token mode:
 - fail with `ENV_LOCAL_TOKEN_AUTO_ACQUIRE_FAILED`
 
-3. Invalid URL:
+5. Invalid URL:
 - fail with `ENV_MANAGE_INVALID_INPUT`
 
-4. Connectivity verification failed (`env update`):
+6. Connectivity verification failed (`env update`):
 - fail with `ENV_UPDATE_CONNECTIVITY_FAILED`
 - payload includes `auto_dependency_recovery` for local auto-retry diagnostics
 - when remote token is invalid/expired, payload includes:
   - `action_required=refresh_remote_api_token`
   - `remote_token_guide`
 
-5. Underlying CLI/runtime failure:
+7. Underlying CLI/runtime failure:
 - fail with `ENV_MANAGE_RUNTIME_ERROR`

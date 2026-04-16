@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 const METHODS = new Set(['docker', 'create-nocobase-app', 'git']);
 const CHANNELS = new Set(['latest', 'beta', 'alpha']);
-const DIALECTS = new Set(['postgres', 'mysql']);
-const EXTERNAL_DB_DIALECTS = new Set(['postgres', 'mysql']);
+const DIALECTS = new Set(['postgres', 'mysql', 'mariadb']);
+const EXTERNAL_DB_DIALECTS = new Set(['postgres', 'mysql', 'mariadb']);
 const DB_MODES = new Set(['bundled', 'existing']);
 const RUN_MODES = new Set(['none', 'dev', 'start']);
 
@@ -24,7 +24,7 @@ function printHelp() {
     '  --target-dir <dir>                           Base directory. Default: .',
     '  --release-channel <latest|beta|alpha>       Release channel. Default: latest',
     '  --db-mode <bundled|existing>                Database mode. Default: bundled',
-    '  --db-dialect <postgres|mysql>               Database dialect. Default: postgres',
+    '  --db-dialect <postgres|mysql|mariadb>       Database dialect. Default: postgres',
     '  --project-name <name>                        Project directory name (method-specific default)',
     '  --db-host <host>                             DB host (required for existing mode)',
     '  --db-port <port>                             DB port (method/dialect default when omitted)',
@@ -376,7 +376,7 @@ function validateDbPolicy(options) {
     throw new Error(`Method ${options.method} requires db-mode=existing`);
   }
   if (options.dbMode === 'existing' && !EXTERNAL_DB_DIALECTS.has(options.dbDialect)) {
-    throw new Error(`db-dialect=${options.dbDialect} is not supported for existing database mode. Use postgres or mysql.`);
+    throw new Error(`db-dialect=${options.dbDialect} is not supported for existing database mode. Use postgres, mysql, or mariadb.`);
   }
 }
 

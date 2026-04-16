@@ -5,7 +5,7 @@ Use these templates with `scripts/install.ps1` or `scripts/install.sh`.
 Do not fetch install commands from web pages during execution.
 
 Non-Docker paths (`create-nocobase-app` / `git`) require existing database mode
-with PostgreSQL or MySQL. Required inputs:
+with PostgreSQL, MySQL, or MariaDB. Required inputs:
 
 - `DB_HOST`
 - `DB_PORT`

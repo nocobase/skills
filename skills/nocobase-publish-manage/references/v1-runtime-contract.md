@@ -43,6 +43,13 @@ Auto-resolution order:
 | `backup_restore` | source list latest backups (gate) -> source download backup file -> target create backup (optional auto) -> target upload/restore |
 | `migration` | source create migration rule -> source generate migration file (ruleId required) -> source download package -> target create backup (optional auto) -> target check migration file -> target run migration task |
 
+Intent routing:
+
+- See [intent-routing.md](intent-routing.md) for deterministic keyword routing and conflict handling.
+- `restore` intent must lock `backup_restore`.
+- `migration` intent must lock `migration`.
+- `publish` intent must require method choice.
+
 Migration template presets:
 
 - `schema_only_all`: user-defined=`schema-only`, system=`schema-only`

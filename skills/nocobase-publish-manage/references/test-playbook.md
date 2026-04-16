@@ -195,6 +195,56 @@ Expected:
   - `migration-check` (target)
   - `migration-up` (target)
 
+### TC13 Intent Routing: Restore Keyword
+
+```text
+User request intent text: "Restore data from local to test"
+```
+
+Expected:
+
+- intent resolves to restore
+- method is locked to `backup_restore`
+- next required gate is `choose_backup_artifact`
+- migration template selection is not shown
+
+### TC14 Intent Routing: Migration Keyword
+
+```text
+User request intent text: "Migrate local to test"
+```
+
+Expected:
+
+- intent resolves to migration
+- method is locked to `migration`
+- next required gate is `choose_migration_template`
+- backup artifact selection is not shown
+
+### TC15 Intent Routing: Generic Publish Keyword
+
+```text
+User request intent text: "Publish local to test"
+```
+
+Expected:
+
+- intent resolves to publish
+- method is not auto-inferred
+- next required gate is `choose_publish_method`
+
+### TC16 Intent Routing Conflict
+
+```text
+User request intent text: "Restore and migrate local to test"
+```
+
+Expected:
+
+- routing conflict detected (`restore` + `migration`)
+- workflow stops and requests one explicit intent from user
+- no publish apply execution starts
+
 ## Quick Regression Set
 
 1. TC01
@@ -208,3 +258,7 @@ Expected:
 9. TC10B
 10. TC11
 11. TC12
+12. TC13
+13. TC14
+14. TC15
+15. TC16

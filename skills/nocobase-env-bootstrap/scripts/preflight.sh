@@ -20,6 +20,7 @@ DB_PASSWORD_INPUT="${DB_PASSWORD:-}"
 POSTGRES_INSTALL_URL='https://www.postgresql.org/download/'
 MYSQL_INSTALL_URL='https://dev.mysql.com/doc/en/installing.html'
 MYSQL_DOWNLOAD_URL='https://dev.mysql.com/downloads/mysql'
+MARIADB_INSTALL_URL='https://mariadb.org/download/'
 FAIL=0
 WARN=0
 PASS=0
@@ -189,6 +190,7 @@ emit_db_install_action() {
   printf 'postgres_install_url: %s\n' "$POSTGRES_INSTALL_URL"
   printf 'mysql_install_url: %s\n' "$MYSQL_INSTALL_URL"
   printf 'mysql_download_url: %s\n' "$MYSQL_DOWNLOAD_URL"
+  printf 'mariadb_install_url: %s\n' "$MARIADB_INSTALL_URL"
 }
 
 tcp_reachable() {
@@ -246,8 +248,8 @@ DB_DIALECT_RESOLVED="${DB_DIALECT_INPUT:-$DB_DIALECT_ENV}"
 if [[ -z "$DB_DIALECT_RESOLVED" ]]; then
   DB_DIALECT_RESOLVED='postgres'
 fi
-if [[ "$DB_DIALECT_RESOLVED" != "postgres" && "$DB_DIALECT_RESOLVED" != "mysql" ]]; then
-  record fail INPUT-003 "Unsupported DB_DIALECT '${DB_DIALECT_RESOLVED}'." "Use DB_DIALECT=postgres or DB_DIALECT=mysql."
+if [[ "$DB_DIALECT_RESOLVED" != "postgres" && "$DB_DIALECT_RESOLVED" != "mysql" && "$DB_DIALECT_RESOLVED" != "mariadb" ]]; then
+  record fail INPUT-003 "Unsupported DB_DIALECT '${DB_DIALECT_RESOLVED}'." "Use DB_DIALECT=postgres, DB_DIALECT=mysql, or DB_DIALECT=mariadb."
 fi
 DB_HOST_RESOLVED="${DB_HOST_INPUT:-$DB_HOST_ENV}"
 DB_PORT_RESOLVED="${DB_PORT_INPUT:-$DB_PORT_ENV}"
@@ -394,10 +396,10 @@ else
 fi
 
 if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
-  if [[ "$DB_DIALECT_RESOLVED" == "postgres" || "$DB_DIALECT_RESOLVED" == "mysql" ]]; then
+  if [[ "$DB_DIALECT_RESOLVED" == "postgres" || "$DB_DIALECT_RESOLVED" == "mysql" || "$DB_DIALECT_RESOLVED" == "mariadb" ]]; then
     record pass DB-REQ-001 "External DB dialect is supported (${DB_DIALECT_RESOLVED})."
   else
-    record fail DB-REQ-001 "External DB mode requires db_dialect=postgres|mysql (current=${DB_DIALECT_RESOLVED})." "Set DB_DIALECT to postgres or mysql."
+    record fail DB-REQ-001 "External DB mode requires db_dialect=postgres|mysql|mariadb (current=${DB_DIALECT_RESOLVED})." "Set DB_DIALECT to postgres, mysql, or mariadb."
   fi
 
   missing_db_fields=()
@@ -408,7 +410,7 @@ if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
   if [[ -z "$DB_PASSWORD_RESOLVED" ]]; then missing_db_fields+=("DB_PASSWORD"); fi
 
   if [[ "${#missing_db_fields[@]}" -gt 0 ]]; then
-    record fail DB-REQ-002 "External DB mode is missing required fields: ${missing_db_fields[*]}." "Provide DB_* values or install PostgreSQL/MySQL first. PostgreSQL: ${POSTGRES_INSTALL_URL} | MySQL: ${MYSQL_INSTALL_URL}"
+    record fail DB-REQ-002 "External DB mode is missing required fields: ${missing_db_fields[*]}." "Provide DB_* values or install PostgreSQL/MySQL/MariaDB first. PostgreSQL: ${POSTGRES_INSTALL_URL} | MySQL: ${MYSQL_INSTALL_URL} | MariaDB: ${MARIADB_INSTALL_URL}"
     emit_db_install_action
   else
     record pass DB-REQ-002 "External DB required fields are present."
@@ -418,9 +420,9 @@ if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
       else
         tcp_rc=$?
         if [[ "$tcp_rc" == "2" ]]; then
-          record fail DB-CONN-001 "Cannot verify database connectivity (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED}) because nc/timeout probing is unavailable." "Install PostgreSQL/MySQL client tools and retry. PostgreSQL: ${POSTGRES_INSTALL_URL} | MySQL: ${MYSQL_INSTALL_URL}"
+          record fail DB-CONN-001 "Cannot verify database connectivity (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED}) because nc/timeout probing is unavailable." "Install PostgreSQL/MySQL/MariaDB client tools and retry. PostgreSQL: ${POSTGRES_INSTALL_URL} | MySQL: ${MYSQL_INSTALL_URL} | MariaDB: ${MARIADB_INSTALL_URL}"
         else
-          record fail DB-CONN-001 "Database endpoint is not reachable (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED})." "Start database service or install one: PostgreSQL ${POSTGRES_INSTALL_URL} | MySQL ${MYSQL_INSTALL_URL}"
+          record fail DB-CONN-001 "Database endpoint is not reachable (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED})." "Start database service or install one: PostgreSQL ${POSTGRES_INSTALL_URL} | MySQL ${MYSQL_INSTALL_URL} | MariaDB ${MARIADB_INSTALL_URL}"
         fi
         emit_db_install_action
       fi
@@ -435,15 +437,15 @@ if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
         else
           record warn DB-AUTH-001 "psql client is not available; skipped PostgreSQL auth probe." "Install psql for stronger preflight verification."
         fi
-      elif [[ "$DB_DIALECT_RESOLVED" == "mysql" ]]; then
+      elif [[ "$DB_DIALECT_RESOLVED" == "mysql" || "$DB_DIALECT_RESOLVED" == "mariadb" ]]; then
         if has_cmd mysql; then
           if MYSQL_PWD="$DB_PASSWORD_RESOLVED" mysql --protocol=TCP -h "$DB_HOST_RESOLVED" -P "$DB_PORT_RESOLVED" -u "$DB_USER_RESOLVED" -D "$DB_DATABASE_RESOLVED" --connect-timeout=5 -e "SELECT 1;" >/dev/null 2>&1; then
-            record pass DB-AUTH-001 "MySQL auth probe succeeded."
+            record pass DB-AUTH-001 "MySQL/MariaDB auth probe succeeded."
           else
-            record fail DB-AUTH-001 "MySQL auth probe failed (host=${DB_HOST_RESOLVED}, db=${DB_DATABASE_RESOLVED}, user=${DB_USER_RESOLVED})." "Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions."
+            record fail DB-AUTH-001 "MySQL/MariaDB auth probe failed (host=${DB_HOST_RESOLVED}, db=${DB_DATABASE_RESOLVED}, user=${DB_USER_RESOLVED})." "Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions."
           fi
         else
-          record warn DB-AUTH-001 "mysql client is not available; skipped MySQL auth probe." "Install mysql client for stronger preflight verification."
+          record warn DB-AUTH-001 "mysql client is not available; skipped MySQL/MariaDB auth probe." "Install mysql client for stronger preflight verification."
         fi
       fi
     else

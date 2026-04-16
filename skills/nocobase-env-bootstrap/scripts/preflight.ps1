@@ -25,6 +25,7 @@ $Pass = 0
 $PostgresInstallUrl = 'https://www.postgresql.org/download/'
 $MySqlInstallUrl = 'https://dev.mysql.com/doc/en/installing.html'
 $MySqlDownloadUrl = 'https://dev.mysql.com/downloads/mysql'
+$MariaDbInstallUrl = 'https://mariadb.org/download/'
 
 function Record-Check {
   param(
@@ -117,6 +118,7 @@ function Emit-DbInstallAction {
   Write-Host "postgres_install_url: $PostgresInstallUrl"
   Write-Host "mysql_install_url: $MySqlInstallUrl"
   Write-Host "mysql_download_url: $MySqlDownloadUrl"
+  Write-Host "mariadb_install_url: $MariaDbInstallUrl"
 }
 
 function Test-TcpReachable {
@@ -344,8 +346,8 @@ $dbUserFromEnv = Get-DotEnvValue -Key 'DB_USER'
 $dbPasswordFromEnv = Get-DotEnvValue -Key 'DB_PASSWORD'
 
 $dbDialectResolved = if ($DbDialect) { $DbDialect } elseif ($dbDialectFromEnv) { $dbDialectFromEnv } else { 'postgres' }
-if ($dbDialectResolved -notin @('postgres', 'mysql')) {
-  Record-Check fail 'INPUT-003' "Unsupported DB_DIALECT '$dbDialectResolved'." 'Use DB_DIALECT=postgres or DB_DIALECT=mysql.'
+if ($dbDialectResolved -notin @('postgres', 'mysql', 'mariadb')) {
+  Record-Check fail 'INPUT-003' "Unsupported DB_DIALECT '$dbDialectResolved'." 'Use DB_DIALECT=postgres, DB_DIALECT=mysql, or DB_DIALECT=mariadb.'
 }
 $dbHostResolved = if ($DbHost) { $DbHost } elseif ($dbHostFromEnv) { $dbHostFromEnv } else { '' }
 $dbPortResolved = if ($DbPort) { $DbPort } elseif ($dbPortFromEnv) { $dbPortFromEnv } else { '' }
@@ -504,10 +506,10 @@ if ($composeFilePath) {
 }
 
 if ($dbModeResolved -eq 'existing') {
-  if ($dbDialectResolved -in @('postgres', 'mysql')) {
+  if ($dbDialectResolved -in @('postgres', 'mysql', 'mariadb')) {
     Record-Check pass 'DB-REQ-001' "External DB dialect is supported ($dbDialectResolved)."
   } else {
-    Record-Check fail 'DB-REQ-001' "External DB mode requires db_dialect=postgres|mysql (current=$dbDialectResolved)." 'Set DB_DIALECT to postgres or mysql.'
+    Record-Check fail 'DB-REQ-001' "External DB mode requires db_dialect=postgres|mysql|mariadb (current=$dbDialectResolved)." 'Set DB_DIALECT to postgres, mysql, or mariadb.'
   }
 
   $missingDbFields = @()
@@ -518,7 +520,7 @@ if ($dbModeResolved -eq 'existing') {
   if ([string]::IsNullOrWhiteSpace($dbPasswordResolved)) { $missingDbFields += 'DB_PASSWORD' }
 
   if ($missingDbFields.Count -gt 0) {
-    Record-Check fail 'DB-REQ-002' "External DB mode is missing required fields: $($missingDbFields -join ', ')." "Provide DB_* values or install PostgreSQL/MySQL first. PostgreSQL: $PostgresInstallUrl | MySQL: $MySqlInstallUrl"
+    Record-Check fail 'DB-REQ-002' "External DB mode is missing required fields: $($missingDbFields -join ', ')." "Provide DB_* values or install PostgreSQL/MySQL/MariaDB first. PostgreSQL: $PostgresInstallUrl | MySQL: $MySqlInstallUrl | MariaDB: $MariaDbInstallUrl"
     Emit-DbInstallAction
   } else {
     Record-Check pass 'DB-REQ-002' 'External DB required fields are present.'
@@ -528,7 +530,7 @@ if ($dbModeResolved -eq 'existing') {
     } elseif (Test-TcpReachable -DbHost $dbHostResolved -PortNumber ([int]$dbPortResolved)) {
       Record-Check pass 'DB-CONN-001' "Database endpoint is reachable (${dbHostResolved}:$dbPortResolved)."
     } else {
-      Record-Check fail 'DB-CONN-001' "Database endpoint is not reachable (${dbHostResolved}:$dbPortResolved)." "Start database service or install one: PostgreSQL $PostgresInstallUrl | MySQL $MySqlInstallUrl"
+      Record-Check fail 'DB-CONN-001' "Database endpoint is not reachable (${dbHostResolved}:$dbPortResolved)." "Start database service or install one: PostgreSQL $PostgresInstallUrl | MySQL $MySqlInstallUrl | MariaDB $MariaDbInstallUrl"
       Emit-DbInstallAction
     }
 
@@ -541,14 +543,14 @@ if ($dbModeResolved -eq 'existing') {
       } else {
         Record-Check fail 'DB-AUTH-001' "PostgreSQL auth probe failed (host=$dbHostResolved, db=$dbDatabaseResolved, user=$dbUserResolved)." 'Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions.'
       }
-    } elseif ($dbDialectResolved -eq 'mysql') {
+    } elseif ($dbDialectResolved -in @('mysql', 'mariadb')) {
       $myProbe = Test-MySqlAuthProbe -DbHost $dbHostResolved -PortNumber $dbPortResolved -Database $dbDatabaseResolved -User $dbUserResolved -Password $dbPasswordResolved
       if ($null -eq $myProbe) {
-        Record-Check warn 'DB-AUTH-001' 'mysql client is not available; skipped MySQL auth probe.' 'Install mysql client for stronger preflight verification.'
+        Record-Check warn 'DB-AUTH-001' 'mysql client is not available; skipped MySQL/MariaDB auth probe.' 'Install mysql client for stronger preflight verification.'
       } elseif ($myProbe) {
-        Record-Check pass 'DB-AUTH-001' 'MySQL auth probe succeeded.'
+        Record-Check pass 'DB-AUTH-001' 'MySQL/MariaDB auth probe succeeded.'
       } else {
-        Record-Check fail 'DB-AUTH-001' "MySQL auth probe failed (host=$dbHostResolved, db=$dbDatabaseResolved, user=$dbUserResolved)." 'Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions.'
+        Record-Check fail 'DB-AUTH-001' "MySQL/MariaDB auth probe failed (host=$dbHostResolved, db=$dbDatabaseResolved, user=$dbUserResolved)." 'Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions.'
       }
     }
   }

@@ -8,6 +8,7 @@ TOKEN_ENV="${3:-NOCOBASE_API_TOKEN}"
 SCOPE="${4:-project}"
 BASE_DIR_INPUT="${5:-${BASE_DIR:-}}"
 BASE_URL="${BASE_URL:-http://localhost:${PORT}/api}"
+AUTH_MODE="${AUTH_MODE:-oauth}"
 SKIP_UPDATE="${SKIP_UPDATE:-0}"
 CLI_AUTO_API_KEY="${CLI_AUTO_API_KEY:-1}"
 CLI_AUTO_API_KEY_NAME="${CLI_AUTO_API_KEY_NAME:-cli_auto_token}"
@@ -20,8 +21,16 @@ CLI_AUTO_API_KEY_COMPOSE_FILE="${CLI_AUTO_API_KEY_COMPOSE_FILE:-}"
 FAIL=0
 WARN=0
 PASS=0
-CLI_DEPENDENCY_PLUGINS='@nocobase/plugin-api-doc,@nocobase/plugin-api-keys'
-CLI_DEPENDENCY_ENABLE_CMD='Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys'
+if [[ "$AUTH_MODE" == "oauth" ]]; then
+  CLI_DEPENDENCY_PLUGINS='@nocobase/plugin-api-doc,@nocobase/plugin-idp-oauth'
+  CLI_DEPENDENCY_ENABLE_CMD='Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth'
+else
+  if [[ "$AUTH_MODE" != "token" ]]; then
+    AUTH_MODE="token"
+  fi
+  CLI_DEPENDENCY_PLUGINS='@nocobase/plugin-api-doc,@nocobase/plugin-api-keys'
+  CLI_DEPENDENCY_ENABLE_CMD='Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys'
+fi
 INSTALL_GUIDE='https://github.com/nocobase/nocobase-ctl'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CTL_WRAPPER="${SCRIPT_DIR}/run-ctl.mjs"
@@ -191,6 +200,61 @@ API_KEY_AUTO_HINT="Auto token generation uses CLI: generate-api-key -n ${CLI_AUT
 record pass CLI-001 "Detected skill-local ctl wrapper: ${CTL_WRAPPER}"
 printf 'cli_base_dir: %s\n' "$BASE_DIR"
 printf 'cli_auto_api_key: %s\n' "$([[ "$AUTO_API_KEY_ENABLED" == "1" ]] && printf enabled || printf disabled)"
+printf 'cli_auth_mode: %s\n' "$AUTH_MODE"
+printf 'cli_target_env: %s\n' "$ENV_NAME"
+printf 'cli_base_url: %s\n' "$BASE_URL"
+printf 'cli_scope: %s\n' "$SCOPE"
+
+if [[ "$AUTH_MODE" == "oauth" ]]; then
+  record pass CLI-002 "OAuth mode selected; token env '${TOKEN_ENV}' is not required for bootstrap."
+  ENV_MANAGE="${SCRIPT_DIR}/env-manage.mjs"
+  if [[ ! -f "$ENV_MANAGE" ]]; then
+    record fail CLI-003 "Cannot find env-manage script: ${ENV_MANAGE}" 'Ensure nocobase-env-bootstrap/scripts/env-manage.mjs exists, then rerun postcheck.'
+    printf 'summary: fail=%d warn=%d pass=%d\n' "$FAIL" "$WARN" "$PASS"
+    exit 1
+  fi
+
+  OAUTH_LOG_FILE="$(mktemp)"
+  node "$ENV_MANAGE" add --name "$ENV_NAME" --url "$BASE_URL" --auth-mode oauth --scope "$SCOPE" --base-dir "$BASE_DIR" 2>&1 | tee "$OAUTH_LOG_FILE"
+  OAUTH_ADD_EXIT="${PIPESTATUS[0]}"
+  OAUTH_ADD_OUTPUT="$(cat "$OAUTH_LOG_FILE")"
+  rm -f "$OAUTH_LOG_FILE"
+
+  if [[ "$OAUTH_ADD_EXIT" -eq 0 ]]; then
+    record pass CLI-003 "OAuth env bootstrap completed for '${ENV_NAME}'."
+    record pass CLI-004 "Runtime update completed in OAuth flow."
+    record pass CLI-005 "Readback completed in OAuth flow."
+  else
+    OAUTH_AUTHORIZATION_URL="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | grep -Eo 'https?://[^[:space:]"]+' | grep -E 'response_type=code|/authorize' | head -n 1 || true)"
+    if [[ -z "$OAUTH_AUTHORIZATION_URL" ]]; then
+      OAUTH_AUTHORIZATION_URL="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | grep -Eo 'https?://[^[:space:]"]+' | head -n 1 || true)"
+    fi
+    if printf '%s' "$OAUTH_ADD_OUTPUT" | grep -q 'ENV_OAUTH_INTERACTIVE_REQUIRED\|ENV_OAUTH_AUTH_FAILED' || [[ -n "$OAUTH_AUTHORIZATION_URL" ]]; then
+      LOGIN_COMMAND="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | sed -n 's/^[[:space:]]*"login_command":[[:space:]]*"\(.*\)",\{0,1\}[[:space:]]*$/\1/p' | head -n 1)"
+      LOGIN_COMMAND="${LOGIN_COMMAND//\\\\/\\}"
+      LOGIN_COMMAND="${LOGIN_COMMAND//\\\"/\"}"
+      record fail CLI-003 "OAuth env bootstrap is waiting for browser authorization or requires retry." 'Open oauth_authorization_url (if provided) and complete login, or run login_command, then rerun cli-postcheck.'
+      printf 'action_required: complete_oauth_login\n'
+      printf 'required_step: open_oauth_authorization_url_or_run_login_command\n'
+      if [[ -n "$OAUTH_AUTHORIZATION_URL" ]]; then
+        printf 'oauth_authorization_url: %s\n' "$OAUTH_AUTHORIZATION_URL"
+      fi
+      if [[ -n "$LOGIN_COMMAND" ]]; then
+        printf 'login_command: %s\n' "$LOGIN_COMMAND"
+      fi
+      printf 'login_behavior: env_auth_will_open_browser_or_print_authorization_url\n'
+      printf 'required_step: rerun_cli_postcheck\n'
+    else
+      record fail CLI-003 "OAuth env bootstrap failed." 'Fix the error in env-manage output and rerun postcheck.'
+    fi
+  fi
+
+  printf 'summary: fail=%d warn=%d pass=%d\n' "$FAIL" "$WARN" "$PASS"
+  if [[ "$FAIL" -gt 0 ]]; then
+    exit 1
+  fi
+  exit 0
+fi
 
 TOKEN_VALUE="${!TOKEN_ENV:-}"
 if [[ -z "$TOKEN_VALUE" && "$AUTO_API_KEY_ENABLED" == "1" ]]; then
@@ -224,10 +288,6 @@ elif [[ -z "$TOKEN_VALUE" ]]; then
 else
   record pass CLI-002 "Token env '${TOKEN_ENV}' is present."
 fi
-
-printf 'cli_target_env: %s\n' "$ENV_NAME"
-printf 'cli_base_url: %s\n' "$BASE_URL"
-printf 'cli_scope: %s\n' "$SCOPE"
 
 if ENV_ADD_OUTPUT="$(run_ctl_capture env add --name "$ENV_NAME" --base-url "$BASE_URL" --token "$TOKEN_VALUE" -s "$SCOPE")"; then
   printf '%s\n' "$ENV_ADD_OUTPUT"

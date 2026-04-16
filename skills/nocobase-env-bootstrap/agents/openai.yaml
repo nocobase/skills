@@ -14,24 +14,27 @@ interface:
     Upgrade safety is strict: `backup_confirmed=true` and `confirm-upgrade=true` are mandatory, downgrade is blocked, and git dirty worktree is blocked unless `--allow-dirty true`.
     Database policy is strict:
     docker defaults to bundled DB, but if DB_* inputs are provided then switch to existing DB mode;
-    create-nocobase-app and git always require existing DB (postgres/mysql) with DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD.
+    create-nocobase-app and git always require existing DB (postgres/mysql/mariadb) with DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD.
     For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask DB_UNDERSCORED preference; default is false.
     Run preflight with explicit DB context (`preflight.ps1 -InstallMethod <method> -DbMode <mode> -DbDialect <dialect> ...` / `preflight.sh <port> <method> <mode> <dialect>` + DB_* env).
     If existing DB is missing/unreachable, stop and provide official install links:
     PostgreSQL https://www.postgresql.org/download/ ;
     MySQL install docs https://dev.mysql.com/doc/en/installing.html ;
-    MySQL downloads https://dev.mysql.com/downloads/mysql .
-    Before CLI runtime refresh, ensure CLI dependency plugins are active: @nocobase/plugin-api-doc and @nocobase/plugin-api-keys
+    MySQL downloads https://dev.mysql.com/downloads/mysql ;
+    MariaDB downloads https://mariadb.org/download/ .
+    Before CLI runtime refresh, ensure CLI dependency plugins are active by auth mode:
+    oauth(default): @nocobase/plugin-api-doc + @nocobase/plugin-idp-oauth; token: @nocobase/plugin-api-doc + @nocobase/plugin-api-keys
     (use $nocobase-plugin-manage activation path and restart app if plugin state changed).
     Run all nocobase-ctl commands through the skill-local wrapper `node ./scripts/run-ctl.mjs -- <args>` so global/local installation differences are handled automatically.
     For app environment management, always use skill-local helper `node ./scripts/env-manage.mjs <add|use|current|list> ...`.
-    Local URL token policy is strict: for `localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`,
+    App env add defaults to oauth mode; if token args are provided without explicit auth mode, env-manage switches to token mode.
+    In token mode, local URL token policy is strict: for `localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`,
     token is mandatory but auto-acquired by env-manage (never placeholder); for remote hosts, token must be manually provided by user.
     Env add is only successful when `env update` connectivity verification also succeeds.
     After app startup/upgrade succeeds, bootstrap local CLI env via cli-postcheck
-    (Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName local -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir <target_dir>`;
-    Linux/macOS: `bash scripts/cli-postcheck.sh <port> local NOCOBASE_API_TOKEN project <target_dir>`).
-    cli-postcheck must auto-try API token generation first (local `yarn nocobase generate-api-key`, docker compose fallback)
+    (Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName local -AuthMode oauth -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir <target_dir>`;
+    Linux/macOS: `AUTH_MODE=oauth bash scripts/cli-postcheck.sh <port> local NOCOBASE_API_TOKEN project <target_dir>`).
+    In token mode only, cli-postcheck must auto-try API token generation first (local `yarn nocobase generate-api-key`, docker compose fallback)
     and only ask user for manual token when automatic path fails.
 
 policy:

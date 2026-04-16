@@ -9,24 +9,28 @@ Do not fetch install command snippets from web pages during runtime.
 
 - `assets/docker-templates/docker-compose.postgres.yml`
 - `assets/docker-templates/docker-compose.mysql.yml`
+- `assets/docker-templates/docker-compose.mariadb.yml`
 - `assets/docker-templates/docker-compose.external.postgres.yml`
 - `assets/docker-templates/docker-compose.external.mysql.yml`
+- `assets/docker-templates/docker-compose.external.mariadb.yml`
 
 ## Selection Rule
 
 1. `db_mode=bundled` (default)
 - `db_dialect=postgres`: `docker-compose.postgres.yml`
 - `db_dialect=mysql`: `docker-compose.mysql.yml`
+- `db_dialect=mariadb`: `docker-compose.mariadb.yml`
 
 2. `db_mode=existing`
 - `db_dialect=postgres`: `docker-compose.external.postgres.yml`
 - `db_dialect=mysql`: `docker-compose.external.mysql.yml`
+- `db_dialect=mariadb`: `docker-compose.external.mariadb.yml`
 
-Note: existing DB mode supports `postgres` and `mysql` only in this skill.
+Note: existing DB mode supports `postgres`, `mysql`, and `mariadb` in this skill.
 
 ## DB_UNDERSCORED Policy
 
-- For MySQL paths, templates consume `DB_UNDERSCORED` from `.env`.
+- For MySQL/MariaDB paths, templates consume `DB_UNDERSCORED` from `.env`.
 - Default value is `false`.
 - For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask user preference before install. If user does not specify, keep `false`.
 
