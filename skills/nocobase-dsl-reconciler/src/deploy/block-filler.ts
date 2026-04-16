@@ -413,7 +413,7 @@ async function autoFillRecordActionPopups(
  * Checks defaults.yaml for a matching popup template and binds it.
  * Works for table columns, detail items, form items, list items, etc.
  */
-async function enableM2oClickToOpen(
+export async function enableM2oClickToOpen(
   nb: NocoBaseClient,
   blockUid: string,
   coll: string,
