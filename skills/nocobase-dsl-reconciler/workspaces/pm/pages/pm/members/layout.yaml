@@ -10,17 +10,22 @@ blocks:
           - email
           - role
           - department
-      - status
       - role
       - department
+    js_items:
+      - key: member_status_filters
+        file: ./js/member_status_filters.js
+        desc: Member Status Filters
     field_layout:
+      - - '[JS:Member Status Filters]'
       - - name
-        - status
-      - - role
+        - role
         - department
   - key: table
     type: table
     coll: nb_pm_members
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
         popup: true

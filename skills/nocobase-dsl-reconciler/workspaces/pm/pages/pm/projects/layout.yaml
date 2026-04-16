@@ -9,17 +9,22 @@ blocks:
           - name
           - code
           - description
-      - status
-      - priority
       - owner
+      - priority
+    js_items:
+      - key: project_status_filters
+        file: ./js/project_status_filters.js
+        desc: Project Status Filters
     field_layout:
+      - - '[JS:Project Status Filters]'
       - - name
-        - status
-      - - priority
         - owner
+        - priority
   - key: table
     type: table
     coll: nb_pm_projects
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
         popup: true
