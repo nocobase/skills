@@ -10,7 +10,12 @@ blocks:
           - description
       - status
       - priority
+    js_items:
+      - key: projects_status_buttons
+        file: ./js/projects_filterForm_status_buttons.js
+        desc: Project Status Filter Buttons
     field_layout:
+      - - '[JS:Project Status Filter Buttons]'
       - - name
         - status
         - priority

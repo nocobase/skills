@@ -10,7 +10,12 @@ blocks:
           - description
       - status
       - priority
+    js_items:
+      - key: tasks_status_buttons
+        file: ./js/tasks_filterForm_status_buttons.js
+        desc: Task Status Filter Buttons
     field_layout:
+      - - '[JS:Task Status Filter Buttons]'
       - - name
         - status
         - priority
