@@ -74,8 +74,16 @@ export async function configureFilter(
     const items = (Array.isArray(gridItems) ? gridItems : []) as Record<string, unknown>[];
 
     const fmEntries: Record<string, unknown>[] = [];
-    for (const f of bs.fields || []) {
-      if (typeof f !== 'object' || !f.filterPaths?.length) continue;
+    for (const rawF of bs.fields || []) {
+      // Normalize: string fields get auto-filterPaths (select fields filter by their own name)
+      const f = typeof rawF === 'string'
+        ? { field: rawF, filterPaths: [rawF] }
+        : rawF;
+      if (!f.filterPaths?.length) {
+        // Auto-derive filterPaths for fields without explicit config
+        if (f.field) f.filterPaths = [f.field];
+        else continue;
+      }
       const fp = f.field || '';
       if (!fp) continue;
 
