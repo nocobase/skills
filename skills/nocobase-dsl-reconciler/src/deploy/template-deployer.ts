@@ -294,8 +294,24 @@ export async function deployTemplates(
       if (tpl.targetUid && existingEntry.targetUid) {
         uidMap.set(tpl.targetUid, existingEntry.targetUid);
       }
-      // Sync block template content (fields + layout). Popup templates have different structure.
+      // Validate template fields against live collection (catch stale/wrong field names)
       const tplContent = tplSpec.content as Record<string, unknown>;
+      if (tplContent?.fields && collName) {
+        try {
+          const fResp = await nb.http.get(`${nb.baseUrl}/api/collections/${collName}/fields:list`, { params: { paginate: false } });
+          const liveFieldNames = new Set((fResp.data.data || []).map((f: any) => f.name as string));
+          if (liveFieldNames.size) {
+            const specFields = ((tplContent.fields as unknown[]) || []).map((f: any) => typeof f === 'string' ? f : (f.field || f.fieldPath || '')).filter(Boolean);
+            const missing = specFields.filter(f => !liveFieldNames.has(f));
+            if (missing.length) {
+              log(`  ✗ template "${tpl.name}": fields not in ${collName}: ${missing.join(', ')} — fix the template YAML`);
+              skipped++;
+              continue;
+            }
+          }
+        } catch { /* skip validation if API fails */ }
+      }
+      // Sync block template content (fields + layout). Popup templates have different structure.
       if (tpl.type === 'block' && existingEntry.targetUid && tplContent) {
         try {
           await syncTemplateContent(nb, existingEntry.targetUid, collName, tplContent, log, `      `);
