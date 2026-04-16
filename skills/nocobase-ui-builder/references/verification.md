@@ -49,6 +49,7 @@ A page-blueprint draft is good when:
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 - Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
 - If a localized edit resolved to a template source, verify the template source readback itself before inferring that current references now reflect the change.
+- If live readback before the write showed an existing template reference, and post-write readback no longer exposes that reference or now exposes local inline popup content instead, treat that as a routing failure unless the user explicitly asked for local-only / detach / `copy`.
 - Same-task multi-page template reuse needs one live chain: source-page readback -> `save-template` -> `get-template` -> later-page contextual `list-templates` -> later-page write/readback.
 
 ## 3. Minimum Readback Targets
