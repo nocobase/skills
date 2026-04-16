@@ -1,0 +1,23 @@
+networks:
+  nocobase:
+    driver: bridge
+
+services:
+  app:
+    image: ${NOCOBASE_APP_IMAGE:-registry.cn-shanghai.aliyuncs.com/nocobase/nocobase:latest-full}
+    restart: always
+    networks:
+      - nocobase
+    environment:
+      - APP_KEY=${APP_KEY:?APP_KEY is required. Set a random value in .env}
+      - DB_DIALECT=postgres
+      - DB_HOST=${DB_HOST:?DB_HOST is required for existing database mode}
+      - DB_PORT=${DB_PORT:?DB_PORT is required for existing database mode}
+      - DB_DATABASE=${DB_DATABASE:?DB_DATABASE is required for existing database mode}
+      - DB_USER=${DB_USER:?DB_USER is required for existing database mode}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required for existing database mode}
+      - TZ=${TZ:-Asia/Shanghai}
+    volumes:
+      - ./storage:/app/nocobase/storage
+    ports:
+      - '${APP_PORT:-13000}:80'
