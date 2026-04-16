@@ -574,6 +574,33 @@ export async function convertPopupToTemplate(
       }
     }
 
+    // Check if a template with this name+collection already exists (avoid duplicates)
+    try {
+      const existingList = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
+        params: { paginate: 'false', 'filter[name]': name, 'filter[collectionName]': collName },
+      });
+      const existing = (existingList.data?.data || []) as Record<string, unknown>[];
+      if (existing.length) {
+        const reuse = existing[0];
+        const reuseUid = reuse.uid as string;
+        log(`    = popup template: ${name} (reusing existing: ${reuseUid.slice(0, 8)})`);
+        // Set popupTemplateUid on host
+        const sp = hostResp.data.data.stepParams;
+        sp.popupSettings = sp.popupSettings || {};
+        sp.popupSettings.openView = sp.popupSettings.openView || {};
+        sp.popupSettings.openView.popupTemplateUid = reuseUid;
+        sp.popupSettings.openView.collectionName = collName;
+        const d = hostResp.data.data;
+        await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+          uid: hostUid, use: d.use, parentId: d.parentId,
+          subKey: d.subKey, subType: d.subType,
+          sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
+          stepParams: sp,
+        });
+        return { templateUid: reuseUid, targetUid: (reuse.targetUid || '') as string };
+      }
+    } catch { /* proceed to create */ }
+
     const result = await nb.surfaces.saveTemplate({
       target: { uid: hostUid },
       name,
