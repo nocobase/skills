@@ -273,30 +273,9 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
     }
   }
 
-  // ── Rule 3: filterForm must not contain m2o fields (causes $eq association error) ──
-  if (bs.type === 'filterForm' && knownColls?.size) {
-    const blockColl = bs.coll || '';
-    if (blockColl) {
-      // Load collection to find m2o fields
-      const collFile = path.join(projectDir, 'collections', `${blockColl}.yaml`);
-      if (fs.existsSync(collFile)) {
-        try {
-          const collDef = loadYaml<Record<string, unknown>>(collFile);
-          const m2oNames = new Set(
-            ((collDef?.fields || []) as Record<string, unknown>[])
-              .filter(f => f.interface === 'm2o')
-              .map(f => f.name as string),
-          );
-          for (const f of bs.fields || []) {
-            const fname = typeof f === 'string' ? f : (f as Record<string, unknown>).field as string;
-            if (fname && m2oNames.has(fname)) {
-              issues.push({ level: 'error', page: pageTitle, block: key, message: `filterForm has m2o field "${fname}" — relation fields cannot be used as direct filters (causes "$eq neither association nor attribute" error). Remove it or use ${fname}.name in Search filterPaths instead.` });
-            }
-          }
-        } catch { /* skip */ }
-      }
-    }
-  }
+  // ── Rule 3: filterForm m2o fields need FK-based filterPaths ──
+  // m2o fields in filterForm are valid (dropdown selector), but filterPaths
+  // must use the FK column (assigneeId) not the relation name (assignee)
 }
 
 function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
