@@ -343,7 +343,24 @@ export async function deployProject(
       const bizFields = Object.entries(row).filter(([k, v]) => !SYSTEM.has(k) && v !== null && v !== undefined);
       if (!bizFields.length) {
         const fieldNames = collDef.fields.filter(f => !SYSTEM.has(f.name)).map(f => f.name).slice(0, 5).join(', ');
-        dataIssues.push(`${collName}: records exist but ALL fields are empty — re-insert with: {"${fieldNames.split(', ')[0]}":"value", ...}`);
+        dataIssues.push(`${collName}: records exist but ALL fields are empty — run: npx tsx cli/cli.ts seed <project-dir>`);
+      }
+
+      // Check m2o FK validity: if FK has a value, the related record must exist
+      for (const fd of collDef.fields) {
+        if (fd.interface !== 'm2o' || !fd.target) continue;
+        const fkName = fd.foreignKey || `${fd.name}Id`;
+        const fkVal = row[fkName];
+        if (fkVal !== null && fkVal !== undefined) {
+          try {
+            const related = await nb.http.get(`${nb.baseUrl}/api/${fd.target}:get`, { params: { filterByTk: fkVal } });
+            if (!related.data?.data?.id) {
+              dataIssues.push(`${collName}.${fkName}=${fkVal} points to non-existent ${fd.target} record — use real IDs, not 1/2/3. Run: npx tsx cli/cli.ts seed <project-dir>`);
+            }
+          } catch {
+            dataIssues.push(`${collName}.${fkName}=${fkVal} points to non-existent ${fd.target} record — use real IDs, not 1/2/3. Run: npx tsx cli/cli.ts seed <project-dir>`);
+          }
+        }
       }
     } catch { /* skip */ }
   }
