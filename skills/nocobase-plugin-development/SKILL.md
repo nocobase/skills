@@ -1,11 +1,20 @@
 ---
 name: nocobase-plugin-development
-description: Use when users want to create, build, implement, or develop a NocoBase plugin — any request involving plugin scaffolding, server-side code (collections, APIs, ACL, migrations), client-side code (blocks, fields, actions, settings pages, routes, components), or full-stack NocoBase plugin development.
+description: "Step-by-step playbook for developing a NocoBase plugin, covering scaffolding, server-side code (collections, APIs, ACL, migrations), client-side code (blocks, fields, actions, settings pages, routes, components), i18n, and verification.\nTRIGGER when: user asks to create, build, implement, or develop a NocoBase plugin, mentions 'NocoBase plugin', or describes a feature to be built as a NocoBase plugin. This skill contains NocoBase-specific conventions and templates that general coding cannot replicate — always invoke it instead of planning from scratch."
+when_to_use: |
+  Trigger when: user mentions "NocoBase plugin", or asks to create/build/implement/develop
+  a plugin for NocoBase, or describes a feature that should be built as a NocoBase plugin
+  (e.g. "watermark plugin", "export plugin", "approval plugin").
+  Example requests:
+  - "Help me implement a NocoBase watermark plugin"
+  - "Create a plugin that adds a settings page"
+  - "Build a NocoBase plugin for data export"
+  - "Develop a custom block plugin"
 argument-hint: "[user requirement in natural language]"
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, WebFetch
 owner: nocobase-team
 version: 1.0.0
-last-reviewed: 2026-04-10
+last-reviewed: 2026-04-16
 risk-level: medium
 ---
 
