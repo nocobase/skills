@@ -1,0 +1,27 @@
+name: 'Form (Add new): Time Entries'
+type: block
+collectionName: nb_pm_time_entries
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_time_entries
+  fields:
+    - name
+    - task
+    - member
+    - entry_date
+    - hours
+    - billable
+    - notes
+  field_layout:
+    - '--- Time Entry ---'
+    - - name
+    - - task
+      - member
+    - - entry_date
+      - hours
+    - - billable
+    - '--- Notes ---'
+    - - notes
+  actions:
+    - submit

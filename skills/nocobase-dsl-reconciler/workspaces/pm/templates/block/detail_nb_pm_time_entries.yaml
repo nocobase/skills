@@ -1,0 +1,28 @@
+name: 'Detail: Time Entries'
+type: block
+collectionName: nb_pm_time_entries
+content:
+  key: details
+  type: details
+  coll: nb_pm_time_entries
+  fields:
+    - name
+    - task
+    - member
+    - entry_date
+    - hours
+    - billable
+    - notes
+    - createdAt
+  field_layout:
+    - '--- Time Entry ---'
+    - - name
+    - - task
+      - member
+    - - entry_date
+      - hours
+    - - billable
+    - '--- Notes ---'
+    - - notes
+    - '--- Audit ---'
+    - - createdAt

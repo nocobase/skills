@@ -1,0 +1,6 @@
+name: 'Popup (Detail): Milestones'
+type: popup
+collectionName: nb_pm_milestones
+content:
+  blocks:
+    - ref: templates/block/detail_nb_pm_milestones.yaml
