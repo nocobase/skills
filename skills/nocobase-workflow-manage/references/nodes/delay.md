@@ -8,7 +8,6 @@ description: "Explains the time unit, duration, and end status configuration of 
 ## Node Type
 
 `delay`
-Please use the above `type` value to create the node; do not use the document filename as the type.
 
 ## Node Description
 Waits for a specified duration before continuing or ending the workflow. Used for waiting, timeouts, or beat control in parallel branches (only available for asynchronous workflows).
