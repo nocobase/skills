@@ -10,10 +10,15 @@ blocks:
           - email
       - role
       - status
+    js_items:
+      - key: filter_buttons
+        file: ./js/filter_buttons.js
+        desc: Status Filter Buttons
     field_layout:
+      - - '[JS:Status Filter Buttons]'
       - - name
         - role
-      - - status
+        - status
   - key: table
     type: table
     coll: nb_pm_members

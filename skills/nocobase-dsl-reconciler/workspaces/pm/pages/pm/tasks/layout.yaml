@@ -10,14 +10,15 @@ blocks:
           - description
       - status
       - priority
-      - project
-      - assignee
+    js_items:
+      - key: filter_buttons
+        file: ./js/filter_buttons.js
+        desc: Status Filter Buttons
     field_layout:
+      - - '[JS:Status Filter Buttons]'
       - - name
         - status
-      - - priority
-        - project
-      - - assignee
+        - priority
   - key: table
     type: table
     coll: nb_pm_tasks

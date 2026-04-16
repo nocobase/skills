@@ -10,12 +10,15 @@ blocks:
           - description
       - status
       - priority
-      - owner
+    js_items:
+      - key: filter_buttons
+        file: ./js/filter_buttons.js
+        desc: Status Filter Buttons
     field_layout:
+      - - '[JS:Status Filter Buttons]'
       - - name
         - status
-      - - priority
-        - owner
+        - priority
   - key: table
     type: table
     coll: nb_pm_projects
