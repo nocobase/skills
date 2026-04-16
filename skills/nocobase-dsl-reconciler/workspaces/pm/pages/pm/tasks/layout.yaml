@@ -9,15 +9,15 @@ blocks:
           - name
           - description
       - status
-      - priority
       - project
-      - assignee
+    js_items:
+      - desc: Task Stats Filter Block
+        file: ./js/filter_stats.js
     field_layout:
+      - - '[JS:Task Stats Filter Block]'
       - - name
         - status
-      - - priority
-        - project
-      - - assignee
+      - - project
     actions:
       - submit
       - reset

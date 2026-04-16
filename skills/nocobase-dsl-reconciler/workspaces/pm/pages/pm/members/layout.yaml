@@ -11,7 +11,11 @@ blocks:
           - department
       - role
       - status
+    js_items:
+      - desc: Member Stats Filter Block
+        file: ./js/filter_stats.js
     field_layout:
+      - - '[JS:Member Stats Filter Block]'
       - - name
         - status
       - - role
