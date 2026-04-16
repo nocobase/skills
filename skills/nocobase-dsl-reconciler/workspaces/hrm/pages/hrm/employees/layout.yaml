@@ -1,0 +1,39 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_hrm_employees
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - employee_no
+          - email
+          - position
+      - status
+      - department
+    field_layout:
+      - - name
+        - status
+      - - department
+  - key: table
+    type: table
+    coll: nb_hrm_employees
+    fields:
+      - field: name
+        popup: true
+      - employee_no
+      - department
+      - position
+      - status
+      - createdAt
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

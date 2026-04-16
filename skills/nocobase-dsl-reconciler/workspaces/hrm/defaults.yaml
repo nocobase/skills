@@ -1,0 +1,8 @@
+popups:
+  nb_hrm_departments: templates/popup/detail_nb_hrm_departments.yaml
+  nb_hrm_employees: templates/popup/detail_nb_hrm_employees.yaml
+  nb_hrm_leave_requests: templates/popup/detail_nb_hrm_leave_requests.yaml
+forms:
+  nb_hrm_departments: templates/block/form_add_new_nb_hrm_departments.yaml
+  nb_hrm_employees: templates/block/form_add_new_nb_hrm_employees.yaml
+  nb_hrm_leave_requests: templates/block/form_add_new_nb_hrm_leave_requests.yaml

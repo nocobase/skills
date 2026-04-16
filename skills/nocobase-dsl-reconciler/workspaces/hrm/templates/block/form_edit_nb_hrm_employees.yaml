@@ -1,0 +1,29 @@
+name: 'Form (Edit): Employees'
+type: block
+collectionName: nb_hrm_employees
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hrm_employees
+  fields:
+    - name
+    - employee_no
+    - email
+    - phone
+    - department
+    - position
+    - status
+    - hire_date
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - employee_no
+    - - email
+      - phone
+    - '--- Job Info ---'
+    - - department
+      - position
+    - - status
+      - hire_date
+  actions:
+    - submit

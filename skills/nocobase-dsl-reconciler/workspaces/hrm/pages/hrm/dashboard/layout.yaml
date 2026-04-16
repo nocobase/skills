@@ -1,0 +1,8 @@
+blocks:
+  - key: welcome
+    type: markdown
+    content: |
+      # HR Management Dashboard
+      Welcome to the HR Management system.
+layout:
+  - - welcome

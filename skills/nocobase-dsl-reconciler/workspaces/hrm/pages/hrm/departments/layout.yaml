@@ -1,0 +1,31 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_hrm_departments
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - code
+          - description
+    field_layout:
+      - - name
+  - key: table
+    type: table
+    coll: nb_hrm_departments
+    fields:
+      - field: name
+        popup: true
+      - code
+      - createdAt
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

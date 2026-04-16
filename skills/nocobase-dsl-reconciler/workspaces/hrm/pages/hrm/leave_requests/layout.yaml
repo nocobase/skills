@@ -1,0 +1,38 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_hrm_leave_requests
+    fields:
+      - field: employee
+        label: Search
+        filterPaths:
+          - employee.name
+          - reason
+      - leave_type
+      - status
+    field_layout:
+      - - employee
+        - leave_type
+      - - status
+  - key: table
+    type: table
+    coll: nb_hrm_leave_requests
+    fields:
+      - field: employee
+        popup: true
+      - leave_type
+      - start_date
+      - end_date
+      - status
+      - approver
+      - createdAt
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

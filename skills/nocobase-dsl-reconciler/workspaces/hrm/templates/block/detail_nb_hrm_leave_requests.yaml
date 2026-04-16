@@ -1,0 +1,29 @@
+name: 'Detail: Leave Requests'
+type: block
+collectionName: nb_hrm_leave_requests
+content:
+  key: details
+  type: details
+  coll: nb_hrm_leave_requests
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - employee
+    - leave_type
+    - start_date
+    - end_date
+    - status
+    - reason
+    - approver
+  field_layout:
+    - '--- Leave Info ---'
+    - - employee
+      - leave_type
+    - - start_date
+      - end_date
+    - '--- Approval ---'
+    - - status
+      - approver
+    - - reason
+  actions:
+    - edit

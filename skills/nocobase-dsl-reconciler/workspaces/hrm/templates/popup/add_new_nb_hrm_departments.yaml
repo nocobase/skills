@@ -1,0 +1,6 @@
+name: 'Popup (Add new): Departments'
+type: popup
+collectionName: nb_hrm_departments
+content:
+  blocks:
+    - ref: templates/block/form_add_new_nb_hrm_departments.yaml

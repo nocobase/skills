@@ -1,0 +1,12 @@
+name: nb_hrm_departments
+title: Departments
+fields:
+  - name: name
+    interface: input
+    title: Name
+  - name: code
+    interface: input
+    title: Code
+  - name: description
+    interface: textarea
+    title: Description
