@@ -1,0 +1,10 @@
+field: addnew
+field_uid: b4at3zzgowp
+block_key: 领用记录
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_borrow
+  actions:
+  - submit
+mode: dialog

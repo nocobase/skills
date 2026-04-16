@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormSubmitActionModel",
+  "title": "Filter form submit action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "c4813f54",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormSubmitActionModel.4c12dd9010c188088749.json",
+      "hash": "4c12dd9010c188088749"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormSubmitActionModel.96466229ea0444e70d51.json",
+      "hash": "96466229ea0444e70d51"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormSubmitActionModel.c921105bf114f74625a9.json",
+      "hash": "c921105bf114f74625a9"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

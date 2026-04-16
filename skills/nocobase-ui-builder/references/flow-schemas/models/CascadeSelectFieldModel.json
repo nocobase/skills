@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CascadeSelectFieldModel",
+  "title": "Cascade Select Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "a8cb4be1",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CascadeSelectFieldModel.b5d175173db87ea871af.json",
+      "hash": "b5d175173db87ea871af"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CascadeSelectFieldModel.16d1f63f2baaddeba811.json",
+      "hash": "16d1f63f2baaddeba811"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CascadeSelectFieldModel.268fecab45ee3db121a2.json",
+      "hash": "268fecab45ee3db121a2"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

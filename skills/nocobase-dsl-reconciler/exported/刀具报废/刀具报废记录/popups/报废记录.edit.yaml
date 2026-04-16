@@ -1,0 +1,33 @@
+target: $刀具报废记录_copy.报废记录.fields.edit
+field: edit
+field_uid: 6gwgk1l89fh
+block_key: 报废记录
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_scrap
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - applicant
+  - apply_date
+  - approval_date
+  - tool
+  - status
+  - tool_id
+  - opinion
+  - reason
+  - confirm_date
+  field_layout:
+  - - applicant
+    - apply_date
+  - - approval_date
+    - tool
+  - - status
+    - tool_id
+  - - opinion
+    - reason
+  - - confirm_date
+  actions:
+  - submit
+mode: drawer

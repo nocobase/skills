@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSEditableFieldModel",
+  "title": "JS editable field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "9b3f6239",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSEditableFieldModel.e11af0eb2a42ed4e55d3.json",
+      "hash": "e11af0eb2a42ed4e55d3"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSEditableFieldModel.4b4228ad8aeef8981a3e.json",
+      "hash": "4b4228ad8aeef8981a3e"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSEditableFieldModel.02d8b3af396c3463ac7d.json",
+      "hash": "02d8b3af396c3463ac7d"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

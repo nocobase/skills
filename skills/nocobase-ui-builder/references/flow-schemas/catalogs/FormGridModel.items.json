@@ -1,0 +1,65 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "FormGridModel",
+  "slot": "items",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [
+    "FormItemModel"
+  ],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "FormItemModel",
+      "title": "Form item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/FormItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FormItemModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FormAssociationItemModel",
+      "title": "Form association item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/FormAssociationItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FormAssociationItemModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSItemModel",
+      "title": "JS item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/JSItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSItemModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

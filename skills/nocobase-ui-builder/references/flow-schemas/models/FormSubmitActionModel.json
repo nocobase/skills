@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FormSubmitActionModel",
+  "title": "Form submit action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "d5bd34e1",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FormSubmitActionModel.e4c3b7bc8b1a8964944e.json",
+      "hash": "e4c3b7bc8b1a8964944e"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FormSubmitActionModel.f5dab2f704d23526deb6.json",
+      "hash": "f5dab2f704d23526deb6"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FormSubmitActionModel.c5ea6c4ed166a11e16c5.json",
+      "hash": "c5ea6c4ed166a11e16c5"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

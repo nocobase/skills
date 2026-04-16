@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSFieldModel",
+  "title": "JS field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "8354753d",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSFieldModel.5075beca4c96f572a0ad.json",
+      "hash": "5075beca4c96f572a0ad"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSFieldModel.b16f9645439367890e39.json",
+      "hash": "b16f9645439367890e39"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSFieldModel.01c93078a0501f41d23f.json",
+      "hash": "01c93078a0501f41d23f"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

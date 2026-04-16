@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "5d7cfaaab8074c777fa7",
+  "ownerUses": [
+    "ActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "ActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Action",
+          "type": "default",
+          "danger": false
+        },
+        "linkageRules": {
+          "value": []
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/ActionModel.5d7cfaaab8074c777fa7.json"
+}

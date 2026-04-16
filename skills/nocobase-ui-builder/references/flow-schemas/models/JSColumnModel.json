@@ -1,0 +1,54 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSColumnModel",
+  "title": "JS column",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "c902b8b4",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "JSColumnModel.stepParams.jsSettings.runJs",
+      "message": "JS column code editor embeds runtime globals such as record, collection and navigator.",
+      "x-flow": {
+        "contextRequirements": [
+          "record context",
+          "collection metadata",
+          "runjs runtime"
+        ],
+        "unresolvedReason": "runtime-js-column-context",
+        "recommendedFallback": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSColumnModel.190c46711ac08d3fcdf9.json",
+      "hash": "190c46711ac08d3fcdf9"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSColumnModel.1692a697fe75c55632c8.json",
+      "hash": "1692a697fe75c55632c8"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSColumnModel.34858eb027d3c422a137.json",
+      "hash": "34858eb027d3c422a137"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

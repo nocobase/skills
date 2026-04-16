@@ -1,0 +1,10 @@
+field: addnew
+field_uid: pcco4aps273
+block_key: 报废记录
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_scrap
+  actions:
+  - submit
+mode: dialog

@@ -1,0 +1,51 @@
+module: 机台管理
+icon: desktopoutlined
+group: 刀具管理/机台管理
+
+pages:
+- page: 机台列表
+  icon: desktopoutlined
+  coll: nb_tm_machines
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_tm_machines
+    fields:
+    - field: name
+      filterPaths: [name]
+    - status
+    field_layout:
+    - - name
+      - status
+  - key: table
+    type: table
+    coll: nb_tm_machines
+    fields: [code, name, model, status, location_desc, remark]
+    actions: [filter, refresh, addNew]
+    recordActions: [edit]
+  layout:
+  - - filterForm
+  - - table
+
+- page: 上下机记录
+  icon: swapoutlined
+  coll: nb_tm_machine_bindings
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_tm_machine_bindings
+    fields:
+    - tool
+    - machine
+    field_layout:
+    - - tool
+      - machine
+  - key: table
+    type: table
+    coll: nb_tm_machine_bindings
+    fields: [tool, machine, mount_time, unmount_time, operator, usage_count, remark]
+    actions: [filter, refresh, addNew]
+    recordActions: [edit]
+  layout:
+  - - filterForm
+  - - table

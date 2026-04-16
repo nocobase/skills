@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "8c9e4850716baccbc016",
+  "ownerUses": [
+    "PageModel"
+  ],
+  "value": {
+    "uid": "page-users",
+    "use": "PageModel",
+    "stepParams": {
+      "pageSettings": {
+        "general": {
+          "title": "Users",
+          "displayTitle": true,
+          "enableTabs": false
+        }
+      }
+    },
+    "subModels": {
+      "tabs": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/PageModel.8c9e4850716baccbc016.json"
+}

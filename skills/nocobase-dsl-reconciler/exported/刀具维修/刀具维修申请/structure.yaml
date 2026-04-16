@@ -1,0 +1,56 @@
+module: 刀具维修申请 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具维修 Copy
+pages:
+- page: 刀具维修申请 Copy
+  coll: nb_tm_repair
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - tool
+    - reporter
+    - report_date
+    field_layout:
+    - - tool
+      - reporter
+      - report_date
+    actions:
+    - submit
+    - reset
+  - key: 维修申请
+    type: table
+    title: 维修申请
+    coll: nb_tm_repair
+    fields:
+    - report_date
+    - reporter
+    - tool
+    - damage_reason
+    - tech_lead
+    - repair_person
+    - status
+    - start_time
+    - end_time
+    - repair_hours
+    - acceptance_result
+    js_columns:
+    - title: 维修耗时
+      file: ./js/刀具维修申请_维修申请_col_维修耗时.js
+    - title: 维修
+      file: ./js/刀具维修申请_维修申请_col_维修.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  - key: filter_stats_button_group_block_template_crm_style
+    type: jsBlock
+    desc: Filter Stats Button Group Block Template (CRM-style)
+    file: ./js/刀具维修申请_filter_stats_button_group_block_template_crm_style.js
+  layout:
+  - - filter_stats_button_group_block_template_crm_style
+  - - filterForm
+  - - 维修申请

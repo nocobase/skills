@@ -1,0 +1,200 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "095e4165a8846d299fc5",
+  "ownerUses": [
+    "FormItemModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "FormItemModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "fieldSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "fieldPath": {
+                    "type": "string"
+                  },
+                  "associationPathName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "dataSourceKey",
+                  "collectionName",
+                  "fieldPath"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "editItemSettings": {
+            "type": "object",
+            "properties": {
+              "showLabel": {
+                "type": "object",
+                "properties": {
+                  "showLabel": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "label": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "aclCheck": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "init": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "tooltip": {
+                "type": "object",
+                "properties": {
+                  "tooltip": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "initialValue": {
+                "type": "object",
+                "properties": {
+                  "defaultValue": {}
+                },
+                "additionalProperties": false
+              },
+              "validation": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "required": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "model": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "pattern": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "titleField": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "paginationChange": {
+            "type": "object",
+            "properties": {
+              "aclCheckRefresh": {
+                "type": "object",
+                "properties": {
+                  "strategy": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "formItem"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "FormItemModel",
+              "slot": "field",
+              "slotRef": "catalogs/FormItemModel.field.json",
+              "slotType": "object",
+              "shape": "anyOf",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/FormItemModel.095e4165a8846d299fc5.json"
+}

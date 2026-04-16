@@ -1,0 +1,17 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "154cd901e4e4c3dcf35c",
+  "ownerUses": [
+    "DetailsGridModel"
+  ],
+  "value": {
+    "uid": "todo-details-grid-uid",
+    "use": "DetailsGridModel",
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/DetailsGridModel.154cd901e4e4c3dcf35c.json"
+}

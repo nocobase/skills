@@ -1,0 +1,38 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "89fabe627626f48d46e6",
+  "ownerUses": [
+    "UpdateRecordActionModel"
+  ],
+  "value": {
+    "uid": "update-record-users",
+    "use": "UpdateRecordActionModel",
+    "stepParams": {
+      "assignSettings": {
+        "confirm": {
+          "enable": false,
+          "title": "Perform the Update record",
+          "content": "Are you sure you want to perform the Update record action?"
+        },
+        "assignFieldValues": {
+          "assignedValues": {}
+        }
+      }
+    },
+    "subModels": {
+      "assignForm": {
+        "xFlowGraphModelRef": {
+          "use": "AssignFormModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/AssignFormModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "AssignFormModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/UpdateRecordActionModel.89fabe627626f48d46e6.json"
+}

@@ -1,0 +1,16 @@
+title: Projects by Status
+chartType: pie
+sql: |
+  SELECT 
+    CASE status
+      WHEN 'planning' THEN 'Planning'
+      WHEN 'in_progress' THEN 'In Progress'
+      WHEN 'on_hold' THEN 'On Hold'
+      WHEN 'completed' THEN 'Completed'
+      WHEN 'cancelled' THEN 'Cancelled'
+      ELSE status
+    END as label,
+    COUNT(*) as value
+  FROM nb_pm_projects
+  GROUP BY status
+render_file: ./charts/project_status_render.js

@@ -1,0 +1,10 @@
+field: addnew
+field_uid: hp0z2pfu8hg
+block_key: 维修记录
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_repair
+  actions:
+  - submit
+mode: dialog

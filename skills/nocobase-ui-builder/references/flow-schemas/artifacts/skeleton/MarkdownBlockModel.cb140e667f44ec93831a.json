@@ -1,0 +1,21 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "cb140e667f44ec93831a",
+  "ownerUses": [
+    "MarkdownBlockModel"
+  ],
+  "value": {
+    "uid": "todo-markdown-block-uid",
+    "use": "MarkdownBlockModel",
+    "stepParams": {
+      "markdownBlockSettings": {
+        "editMarkdown": {
+          "content": "This is a demo text, **supports Markdown syntax**."
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/MarkdownBlockModel.cb140e667f44ec93831a.json"
+}

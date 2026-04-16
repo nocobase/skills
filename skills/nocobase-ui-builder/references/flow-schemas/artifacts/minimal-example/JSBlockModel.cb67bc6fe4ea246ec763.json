@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "cb67bc6fe4ea246ec763",
+  "ownerUses": [
+    "JSBlockModel"
+  ],
+  "value": {
+    "uid": "js-block-hello",
+    "use": "JSBlockModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS block.</div>');"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/JSBlockModel.cb67bc6fe4ea246ec763.json"
+}

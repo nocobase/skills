@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "96466229ea0444e70d51",
+  "ownerUses": [
+    "FilterFormSubmitActionModel"
+  ],
+  "value": {
+    "uid": "todo-filter-submit-action-uid",
+    "use": "FilterFormSubmitActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Filter",
+          "type": "primary"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/FilterFormSubmitActionModel.96466229ea0444e70d51.json"
+}

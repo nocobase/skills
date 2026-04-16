@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "369b6523a9272a996c59",
+  "ownerUses": [
+    "SortFieldModel"
+  ],
+  "value": {
+    "uid": "todo-sort-field-model",
+    "use": "SortFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/SortFieldModel.369b6523a9272a996c59.json"
+}

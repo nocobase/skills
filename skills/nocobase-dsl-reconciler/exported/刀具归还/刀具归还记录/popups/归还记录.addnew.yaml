@@ -1,0 +1,33 @@
+target: $刀具归还记录_copy.归还记录.actions.addNew
+field: addnew
+field_uid: 8em191tqu8o
+block_key: 归还记录
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_return
+  fields:
+  - borrow_code
+  - status
+  - confirm_date
+  - approval_date
+  - returner
+  - return_date
+  - tool
+  - actual_usage
+  - remark
+  - tool_id
+  field_layout:
+  - - borrow_code
+    - status
+  - - confirm_date
+    - approval_date
+  - - returner
+    - return_date
+  - - tool
+    - actual_usage
+  - - remark
+    - tool_id
+  actions:
+  - submit
+mode: drawer

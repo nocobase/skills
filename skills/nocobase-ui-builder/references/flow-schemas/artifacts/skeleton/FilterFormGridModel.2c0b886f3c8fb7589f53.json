@@ -1,0 +1,17 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2c0b886f3c8fb7589f53",
+  "ownerUses": [
+    "FilterFormGridModel"
+  ],
+  "value": {
+    "uid": "todo-filter-grid-uid",
+    "use": "FilterFormGridModel",
+    "subModels": {
+      "items": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/FilterFormGridModel.2c0b886f3c8fb7589f53.json"
+}

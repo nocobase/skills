@@ -1,0 +1,10 @@
+field: addnew
+field_uid: rans20ea147
+block_key: 归还记录
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_return
+  actions:
+  - submit
+mode: dialog

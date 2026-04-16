@@ -1,0 +1,47 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "PageModel",
+  "slot": "tabs",
+  "slotType": "array",
+  "shape": "items.oneOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "RootPageTabModel",
+      "title": "Root page tab",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.oneOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/RootPageTabModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RootPageTabModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PageTabModel",
+      "title": "Page tab",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.oneOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/PageTabModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PageTabModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

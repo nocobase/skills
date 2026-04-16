@@ -1,0 +1,162 @@
+# enhance.yaml - AddNew popups with auto-derived edit + detail popups
+popups:
+
+# ========== Projects Page ==========
+- target: $projects.table.actions.addNew
+  auto: [edit, detail]
+  view_field: name
+  coll: nb_pm_projects
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - name
+    - code
+    - status
+    - priority
+    - start_date
+    - end_date
+    - budget
+    - progress_percent
+    - description
+    field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - code
+    - - status
+      - priority
+    - '--- Timeline & Budget ---'
+    - - start_date
+      - end_date
+    - - budget
+      - progress_percent
+    - '--- Description ---'
+    - - description
+    actions: [submit]
+
+# ========== Tasks Page ==========
+- target: $tasks.table.actions.addNew
+  auto: [edit, detail]
+  view_field: title
+  coll: nb_pm_tasks
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - title
+    - project
+    - status
+    - priority
+    - task_type
+    - due_date
+    - estimated_hours
+    - actual_hours
+    - description
+    field_layout:
+    - '--- Task Info ---'
+    - - title
+      - project
+    - - status
+      - priority
+    - '--- Details ---'
+    - - task_type
+      - due_date
+    - - estimated_hours
+      - actual_hours
+    - '--- Description ---'
+    - - description
+    actions: [submit]
+
+# ========== Milestones Page ==========
+- target: $milestones.table.actions.addNew
+  auto: [edit, detail]
+  view_field: name
+  coll: nb_pm_milestones
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - name
+    - project
+    - status
+    - planned_date
+    - actual_date
+    - description
+    field_layout:
+    - '--- Milestone Info ---'
+    - - name
+      - project
+    - - status
+    - '--- Dates ---'
+    - - planned_date
+      - actual_date
+    - '--- Description ---'
+    - - description
+    actions: [submit]
+
+# ========== Members Page ==========
+- target: $members.table.actions.addNew
+  auto: [edit, detail]
+  view_field: member_name
+  coll: nb_pm_members
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - project
+    - member_name
+    - email
+    - role
+    - join_date
+    - allocation_percent
+    - is_active
+    field_layout:
+    - '--- Member Info ---'
+    - - member_name
+      - email
+    - - project
+      - role
+    - '--- Assignment ---'
+    - - join_date
+      - allocation_percent
+    - - is_active
+    actions: [submit]
+
+# ========== Time Entries Page ==========
+- target: $time_entries.table.actions.addNew
+  auto: [edit, detail]
+  view_field: member_name
+  coll: nb_pm_time_entries
+  blocks:
+  - key: form
+    type: createForm
+    resource:
+      binding: currentCollection
+    fields:
+    - project
+    - task
+    - member_name
+    - work_date
+    - hours
+    - billable
+    - description
+    field_layout:
+    - '--- Entry Info ---'
+    - - member_name
+      - work_date
+    - - project
+      - task
+    - '--- Details ---'
+    - - hours
+      - billable
+    - '--- Description ---'
+    - - description
+    actions: [submit]

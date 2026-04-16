@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "8ac2bf97a4438373ef15",
+  "ownerUses": [
+    "IconFieldModel"
+  ],
+  "value": {
+    "uid": "todo-iconfieldmodel",
+    "use": "IconFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/IconFieldModel.8ac2bf97a4438373ef15.json"
+}

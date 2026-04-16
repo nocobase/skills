@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "537ee2817da1062c7511",
+  "ownerUses": [
+    "UploadFieldModel"
+  ],
+  "value": {
+    "uid": "todo-uploadfieldmodel",
+    "use": "UploadFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/UploadFieldModel.537ee2817da1062c7511.json"
+}

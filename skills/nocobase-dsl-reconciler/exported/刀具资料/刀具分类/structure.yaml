@@ -1,0 +1,28 @@
+module: 刀具分类 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具资料 Copy
+pages:
+- page: 刀具分类 Copy
+  coll: nb_tm_categories
+  icon: fundoutlined
+  blocks:
+  - key: 刀具分类
+    type: table
+    title: 刀具分类
+    coll: nb_tm_categories
+    fields:
+    - name
+    - code
+    - description
+    - createdAt
+    js_columns:
+    - title: 分类
+      file: ./js/刀具分类_刀具分类_col_分类.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  layout:
+  - - 刀具分类

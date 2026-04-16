@@ -1,0 +1,29 @@
+module: 报表中心 Copy
+icon: fundoutlined
+group: 刀具管理 Copy
+pages:
+- page: 报表中心 Copy
+  coll: ''
+  icon: fundoutlined
+  blocks:
+  - key: 库存汇总报表
+    type: jsBlock
+    title: 库存汇总报表
+    file: ./js/报表中心_库存汇总报表.js
+  - key: 刀具生命周期分析
+    type: jsBlock
+    title: 刀具生命周期分析
+    file: ./js/报表中心_刀具生命周期分析.js
+  - key: 领用归还统计
+    type: jsBlock
+    title: 领用归还统计
+    file: ./js/报表中心_领用归还统计.js
+  - key: 报废趋势分析
+    type: jsBlock
+    title: 报废趋势分析
+    file: ./js/报表中心_报废趋势分析.js
+  layout:
+  - - 库存汇总报表
+    - 刀具生命周期分析
+  - - 领用归还统计
+    - 报废趋势分析

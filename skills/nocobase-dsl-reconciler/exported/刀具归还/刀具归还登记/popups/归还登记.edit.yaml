@@ -1,0 +1,38 @@
+target: $刀具归还登记_copy.归还登记.fields.edit
+field: edit
+field_uid: qsccms0g8up
+block_key: 归还登记
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_return
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - return_date
+  - returner
+  - tool
+  - borrow_code
+  - actual_usage
+  - status
+  - approval_date
+  - confirm_date
+  - remark
+  field_layout:
+  - '--- 归还信息 ---'
+  - - return_date
+    - returner
+  - '--- 刀具 ---'
+  - - tool
+    - borrow_code
+  - '--- 使用情况 ---'
+  - - actual_usage
+  - '--- 审批 ---'
+  - - status
+    - approval_date
+  - - confirm_date
+  - '--- 备注 ---'
+  - - remark
+  actions:
+  - submit
+mode: drawer

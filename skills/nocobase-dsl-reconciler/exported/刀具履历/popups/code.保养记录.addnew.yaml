@@ -1,0 +1,10 @@
+field: addnew
+field_uid: 6g15dzeq9nn
+block_key: 保养记录
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_maintenance
+  actions:
+  - submit
+mode: dialog

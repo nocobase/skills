@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "2b2517c1e97e113eb9c6",
+  "ownerUses": [
+    "DisplayTextFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaytextfieldmodel",
+    "use": "DisplayTextFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayTextFieldModel.2b2517c1e97e113eb9c6.json"
+}

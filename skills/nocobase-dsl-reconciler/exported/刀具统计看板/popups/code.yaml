@@ -1,0 +1,38 @@
+target: $刀具统计看板_copy.table.fields.code
+field: code
+field_uid: 5xxni748y05
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_borrow
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - expected_return_date
+  - createdAt
+  - applicant
+  - apply_date
+  - expected_usage
+  - updatedAt
+  - remark
+  - tool
+  - confirm_date
+  - status
+  - approval_date
+  - code
+  - tool_id
+  field_layout:
+  - - expected_return_date
+    - createdAt
+  - - applicant
+    - apply_date
+  - - expected_usage
+    - updatedAt
+  - - remark
+    - tool
+  - - confirm_date
+    - status
+  - - approval_date
+    - code
+  - - tool_id
+mode: drawer

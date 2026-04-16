@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "b16f9645439367890e39",
+  "ownerUses": [
+    "JSFieldModel"
+  ],
+  "value": {
+    "uid": "todo-jsfieldmodel",
+    "use": "JSFieldModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/JSFieldModel.b16f9645439367890e39.json"
+}

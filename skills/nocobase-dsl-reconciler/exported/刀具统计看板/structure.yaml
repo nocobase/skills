@@ -1,0 +1,92 @@
+module: 刀具统计看板 Copy
+icon: fundoutlined
+group: 刀具管理 Copy
+pages:
+- page: 刀具统计看板 Copy
+  coll: nb_tm_borrow
+  icon: fundoutlined
+  blocks:
+  - key: kpi_card_template_config_driven_crm_style
+    type: jsBlock
+    desc: KPI Card Template — config-driven, CRM-style
+    file: ./js/刀具统计看板_kpi_card_template_config_driven_crm_style.js
+  - key: kpi_card_template_config_driven_crm_style_2
+    type: jsBlock
+    desc: KPI Card Template — config-driven, CRM-style
+    file: ./js/刀具统计看板_kpi_card_template_config_driven_crm_style_2.js
+  - key: kpi_card_template_config_driven_crm_style_3
+    type: jsBlock
+    desc: KPI Card Template — config-driven, CRM-style
+    file: ./js/刀具统计看板_kpi_card_template_config_driven_crm_style_3.js
+  - key: kpi_card_template_config_driven_crm_style_4
+    type: jsBlock
+    desc: KPI Card Template — config-driven, CRM-style
+    file: ./js/刀具统计看板_kpi_card_template_config_driven_crm_style_4.js
+  - key: kpi_card_template_config_driven_crm_style_5
+    type: jsBlock
+    desc: KPI Card Template — config-driven, CRM-style
+    file: ./js/刀具统计看板_kpi_card_template_config_driven_crm_style_5.js
+  - key: kpi_card_template_config_driven_crm_style_6
+    type: jsBlock
+    desc: KPI Card Template — config-driven, CRM-style
+    file: ./js/刀具统计看板_kpi_card_template_config_driven_crm_style_6.js
+  - key: 刀具分类分布
+    type: jsBlock
+    title: 刀具分类分布
+    file: ./js/刀具统计看板_刀具分类分布.js
+  - key: 使用趋势
+    type: jsBlock
+    title: 使用趋势
+    file: ./js/刀具统计看板_使用趋势.js
+  - key: 使用对比
+    type: jsBlock
+    title: 使用对比
+    file: ./js/刀具统计看板_使用对比.js
+  - key: 近期领用
+    type: table
+    title: 近期领用
+    coll: nb_tm_borrow
+    pageSize: 5
+    fields:
+    - code
+    - apply_date
+    - applicant
+    - tool
+    - expected_return_date
+    - status
+    js_columns:
+    - title: 领用
+      file: ./js/刀具统计看板_近期领用_col_领用.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  - key: jsBlock
+    type: jsBlock
+    file: ./js/刀具统计看板_jsBlock.js
+  - key: jsBlock_2
+    type: jsBlock
+    file: ./js/刀具统计看板_jsBlock_2.js
+  - key: jsBlock_3
+    type: jsBlock
+    file: ./js/刀具统计看板_jsBlock_3.js
+  layout:
+  - - kpi_card_template_config_driven_crm_style
+    - kpi_card_template_config_driven_crm_style_2
+    - kpi_card_template_config_driven_crm_style_3
+    - kpi_card_template_config_driven_crm_style_4
+    - kpi_card_template_config_driven_crm_style_5
+    - kpi_card_template_config_driven_crm_style_6
+  - - col:
+      - 刀具分类分布
+      - 近期领用
+      - jsBlock_2
+      - jsBlock_3
+      size: 12
+    - col:
+      - jsBlock
+      - 使用趋势
+      - 使用对比
+      size: 12

@@ -1,0 +1,37 @@
+target: $刀具领用申请_copy.table.fields.code
+field: code
+field_uid: utas7ait8so
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_borrow
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - code
+  - apply_date
+  - applicant
+  - tool
+  - expected_return_date
+  - expected_usage
+  - status
+  - approval_date
+  - confirm_date
+  - remark
+  field_layout:
+  - '--- 申请信息 ---'
+  - - code
+    - apply_date
+  - - applicant
+  - '--- 刀具 ---'
+  - - tool
+  - '--- 使用计划 ---'
+  - - expected_return_date
+    - expected_usage
+  - '--- 审批 ---'
+  - - status
+    - approval_date
+  - - confirm_date
+  - '--- 备注 ---'
+  - - remark
+mode: drawer

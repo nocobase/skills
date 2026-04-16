@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ExpandCollapseActionModel",
+  "title": "Expand collapse action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "5c3e4bfc",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ExpandCollapseActionModel.6f63cea7b2f92a118cfb.json",
+      "hash": "6f63cea7b2f92a118cfb"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ExpandCollapseActionModel.75521f0c0ca0a9f29c53.json",
+      "hash": "75521f0c0ca0a9f29c53"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ExpandCollapseActionModel.125e22d43fc28db25a8a.json",
+      "hash": "125e22d43fc28db25a8a"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

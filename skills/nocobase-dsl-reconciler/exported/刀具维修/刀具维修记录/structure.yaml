@@ -1,0 +1,54 @@
+module: 刀具维修记录 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具维修 Copy
+pages:
+- page: 刀具维修记录 Copy
+  coll: nb_tm_repair
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - tool
+    - reporter
+    - report_date
+    field_layout:
+    - - tool
+      - reporter
+      - report_date
+    actions:
+    - submit
+    - reset
+  - key: 维修记录
+    type: table
+    title: 维修记录
+    coll: nb_tm_repair
+    fields:
+    - report_date
+    - reporter
+    - tool
+    - damage_reason
+    - tech_lead
+    - repair_person
+    - start_time
+    - end_time
+    - repair_hours
+    - acceptance_result
+    - status
+    js_columns:
+    - title: 维修
+      file: ./js/刀具维修记录_维修记录_col_维修.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  - key: filter_stats_button_group_block_template_crm_style
+    type: jsBlock
+    desc: Filter Stats Button Group Block Template (CRM-style)
+    file: ./js/刀具维修记录_filter_stats_button_group_block_template_crm_style.js
+  layout:
+  - - filter_stats_button_group_block_template_crm_style
+  - - filterForm
+  - - 维修记录

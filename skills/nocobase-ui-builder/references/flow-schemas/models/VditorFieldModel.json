@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "VditorFieldModel",
+  "title": "Vditor",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "4fdfae16",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/VditorFieldModel.5212668f2f24a5d07a90.json",
+      "hash": "5212668f2f24a5d07a90"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/VditorFieldModel.359f96fe8e82cbb87577.json",
+      "hash": "359f96fe8e82cbb87577"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/VditorFieldModel.84bfb7749318754bf3ec.json",
+      "hash": "84bfb7749318754bf3ec"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

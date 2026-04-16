@@ -1,0 +1,48 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "c46c7239ff0d2d766afc",
+  "ownerUses": [
+    "AssignFormModel"
+  ],
+  "value": {
+    "uid": "todo-assign-form-uid",
+    "use": "AssignFormModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "formModelSettings": {
+        "layout": {
+          "layout": "vertical",
+          "colon": true
+        },
+        "assignRules": {
+          "value": []
+        }
+      },
+      "eventSettings": {
+        "linkageRules": {
+          "value": []
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "AssignFormGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/AssignFormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "AssignFormGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/AssignFormModel.c46c7239ff0d2d766afc.json"
+}

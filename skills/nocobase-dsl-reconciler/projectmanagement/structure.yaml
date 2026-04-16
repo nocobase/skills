@@ -1,0 +1,525 @@
+module: Project Management
+icon: projectoutlined
+
+# ========== Collections ==========
+collections:
+
+  nb_pm_projects:
+    title: Projects
+    title_field: name
+    fields:
+    - name: name
+      type: string
+      interface: input
+      title: Project Name
+      required: true
+    - name: code
+      type: string
+      interface: input
+      title: Project Code
+      required: true
+    - name: status
+      type: string
+      interface: select
+      title: Status
+      enum:
+      - value: planning
+        label: Planning
+        color: blue
+      - value: in_progress
+        label: In Progress
+        color: orange
+      - value: on_hold
+        label: On Hold
+        color: gray
+      - value: completed
+        label: Completed
+        color: green
+      - value: cancelled
+        label: Cancelled
+        color: red
+    - name: priority
+      type: string
+      interface: select
+      title: Priority
+      enum:
+      - value: low
+        label: Low
+        color: green
+      - value: medium
+        label: Medium
+        color: blue
+      - value: high
+        label: High
+        color: orange
+      - value: urgent
+        label: Urgent
+        color: red
+    - name: manager
+      type: string
+      interface: input
+      title: Project Manager
+    - name: start_date
+      type: date
+      interface: date
+      title: Start Date
+    - name: end_date
+      type: date
+      interface: date
+      title: End Date
+    - name: budget
+      type: double
+      interface: number
+      title: Budget
+      precision: 2
+    - name: description
+      type: text
+      interface: textarea
+      title: Description
+    - name: progress_percent
+      type: integer
+      interface: integer
+      title: Progress %
+
+  nb_pm_tasks:
+    title: Tasks
+    title_field: title
+    fields:
+    - name: title
+      type: string
+      interface: input
+      title: Task Title
+      required: true
+    - name: project
+      type: belongsTo
+      interface: m2o
+      title: Project
+      target: nb_pm_projects
+      foreignKey: project_id
+    - name: assignee
+      type: string
+      interface: input
+      title: Assignee
+    - name: status
+      type: string
+      interface: select
+      title: Status
+      enum:
+      - value: todo
+        label: To Do
+        color: default
+      - value: in_progress
+        label: In Progress
+        color: blue
+      - value: in_review
+        label: In Review
+        color: orange
+      - value: done
+        label: Done
+        color: green
+      - value: cancelled
+        label: Cancelled
+        color: red
+    - name: priority
+      type: string
+      interface: select
+      title: Priority
+      enum:
+      - value: low
+        label: Low
+        color: green
+      - value: medium
+        label: Medium
+        color: blue
+      - value: high
+        label: High
+        color: orange
+      - value: urgent
+        label: Urgent
+        color: red
+    - name: task_type
+      type: string
+      interface: select
+      title: Task Type
+      enum:
+      - value: feature
+        label: Feature
+        color: blue
+      - value: bug
+        label: Bug
+        color: red
+      - value: improvement
+        label: Improvement
+        color: green
+      - value: documentation
+        label: Documentation
+        color: purple
+      - value: testing
+        label: Testing
+        color: orange
+    - name: due_date
+      type: date
+      interface: date
+      title: Due Date
+    - name: estimated_hours
+      type: double
+      interface: number
+      title: Estimated Hours
+      precision: 1
+    - name: actual_hours
+      type: double
+      interface: number
+      title: Actual Hours
+      precision: 1
+    - name: description
+      type: text
+      interface: textarea
+      title: Description
+
+  nb_pm_milestones:
+    title: Milestones
+    title_field: name
+    fields:
+    - name: name
+      type: string
+      interface: input
+      title: Milestone Name
+      required: true
+    - name: project
+      type: belongsTo
+      interface: m2o
+      title: Project
+      target: nb_pm_projects
+      foreignKey: project_id
+    - name: status
+      type: string
+      interface: select
+      title: Status
+      enum:
+      - value: pending
+        label: Pending
+        color: default
+      - value: in_progress
+        label: In Progress
+        color: blue
+      - value: achieved
+        label: Achieved
+        color: green
+      - value: missed
+        label: Missed
+        color: red
+    - name: planned_date
+      type: date
+      interface: date
+      title: Planned Date
+    - name: actual_date
+      type: date
+      interface: date
+      title: Actual Date
+    - name: description
+      type: text
+      interface: textarea
+      title: Description
+
+  nb_pm_members:
+    title: Project Members
+    title_field: member_name
+    fields:
+    - name: project
+      type: belongsTo
+      interface: m2o
+      title: Project
+      target: nb_pm_projects
+      foreignKey: project_id
+    - name: member_name
+      type: string
+      interface: input
+      title: Member Name
+      required: true
+    - name: email
+      type: string
+      interface: email
+      title: Email
+    - name: role
+      type: string
+      interface: select
+      title: Role
+      enum:
+      - value: project_manager
+        label: Project Manager
+        color: red
+      - value: tech_lead
+        label: Tech Lead
+        color: orange
+      - value: developer
+        label: Developer
+        color: blue
+      - value: designer
+        label: Designer
+        color: purple
+      - value: tester
+        label: Tester
+        color: green
+      - value: analyst
+        label: Analyst
+        color: cyan
+      - value: stakeholder
+        label: Stakeholder
+        color: gray
+    - name: join_date
+      type: date
+      interface: date
+      title: Join Date
+    - name: allocation_percent
+      type: integer
+      interface: integer
+      title: Allocation %
+    - name: is_active
+      type: boolean
+      interface: checkbox
+      title: Active
+
+  nb_pm_time_entries:
+    title: Time Entries
+    title_field: id
+    fields:
+    - name: task
+      type: belongsTo
+      interface: m2o
+      title: Task
+      target: nb_pm_tasks
+      foreignKey: task_id
+    - name: project
+      type: belongsTo
+      interface: m2o
+      title: Project
+      target: nb_pm_projects
+      foreignKey: project_id
+    - name: member_name
+      type: string
+      interface: input
+      title: Member Name
+    - name: work_date
+      type: date
+      interface: date
+      title: Work Date
+    - name: hours
+      type: double
+      interface: number
+      title: Hours
+      precision: 1
+    - name: description
+      type: text
+      interface: textarea
+      title: Work Description
+    - name: billable
+      type: boolean
+      interface: checkbox
+      title: Billable
+
+# ========== Pages ==========
+pages:
+
+- page: Dashboard
+  icon: dashboardoutlined
+  blocks:
+  - key: kpi_projects
+    type: jsBlock
+    desc: Project KPI Cards
+    file: ./js/kpi_projects.js
+  - key: kpi_tasks
+    type: jsBlock
+    desc: Task KPI Cards
+    file: ./js/kpi_tasks.js
+  - key: chart_project_status
+    type: chart
+    chart_config: ./charts/project_status.yaml
+  - key: chart_task_priority
+    type: chart
+    chart_config: ./charts/task_priority.yaml
+  layout:
+  - - kpi_projects
+    - kpi_tasks
+  - - chart_project_status
+    - chart_task_priority
+
+- page: Projects
+  coll: nb_pm_projects
+  icon: folderoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_projects
+    fields:
+    - field: name
+      label: Search
+      filterPaths: [name, code, manager]
+    - field: status
+      label: Status
+    - field: priority
+      label: Priority
+  - key: table
+    type: table
+    coll: nb_pm_projects
+    fields:
+    - code
+    - name
+    - status
+    - priority
+    - manager
+    - start_date
+    - end_date
+    - progress_percent
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+- page: Tasks
+  coll: nb_pm_tasks
+  icon: checkcircleoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_tasks
+    fields:
+    - field: title
+      label: Search
+      filterPaths: [title, assignee, description]
+    - field: status
+      label: Status
+    - field: priority
+      label: Priority
+  - key: table
+    type: table
+    coll: nb_pm_tasks
+    fields:
+    - title
+    - project
+    - assignee
+    - status
+    - priority
+    - due_date
+    - estimated_hours
+    - actual_hours
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+- page: Milestones
+  coll: nb_pm_milestones
+  icon: flagoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_milestones
+    fields:
+    - field: name
+      label: Search
+      filterPaths: [name, description]
+    - field: status
+      label: Status
+  - key: table
+    type: table
+    coll: nb_pm_milestones
+    fields:
+    - name
+    - project
+    - status
+    - planned_date
+    - actual_date
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+- page: Members
+  coll: nb_pm_members
+  icon: teamoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_members
+    fields:
+    - field: member_name
+      label: Search
+      filterPaths: [member_name, email]
+    - field: role
+      label: Role
+    - field: is_active
+      label: Active
+  - key: table
+    type: table
+    coll: nb_pm_members
+    fields:
+    - member_name
+    - project
+    - email
+    - role
+    - allocation_percent
+    - is_active
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table
+
+- page: Time Entries
+  coll: nb_pm_time_entries
+  icon: clockcircleoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_time_entries
+    fields:
+    - field: member_name
+      label: Search
+      filterPaths: [member_name, description]
+    - field: work_date
+      label: Date
+    - field: billable
+      label: Billable
+  - key: table
+    type: table
+    coll: nb_pm_time_entries
+    fields:
+    - member_name
+    - project
+    - task
+    - work_date
+    - hours
+    - billable
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+    - delete
+  layout:
+  - - filterForm
+  - - table

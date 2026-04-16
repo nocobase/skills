@@ -1,0 +1,34 @@
+target: $刀具报废记录_copy.table.fields.apply_date
+field: apply_date
+field_uid: 9wepj5um2nx
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_scrap
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - applicant
+  - apply_date
+  - approval_date
+  - tool
+  - updatedAt
+  - status
+  - createdAt
+  - tool_id
+  - opinion
+  - reason
+  - confirm_date
+  field_layout:
+  - - applicant
+    - apply_date
+  - - approval_date
+    - tool
+  - - updatedAt
+    - status
+  - - createdAt
+    - tool_id
+  - - opinion
+    - reason
+  - - confirm_date
+mode: drawer

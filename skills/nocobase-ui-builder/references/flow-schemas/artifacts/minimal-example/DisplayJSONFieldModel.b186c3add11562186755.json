@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "b186c3add11562186755",
+  "ownerUses": [
+    "DisplayJSONFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayjsonfieldmodel",
+    "use": "DisplayJSONFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayJSONFieldModel.b186c3add11562186755.json"
+}

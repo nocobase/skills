@@ -1,0 +1,53 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ReferenceBlockModel",
+  "title": "Block template",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "4c7272da",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-ui-schema",
+      "path": "ReferenceBlockModel.stepParams.referenceSettings.target.targetUid",
+      "message": "Reference targets must point to an existing block UID or a template-derived target block.",
+      "x-flow": {
+        "contextRequirements": [
+          "existing block uid",
+          "template usage context"
+        ],
+        "unresolvedReason": "runtime-reference-target-resolution",
+        "recommendedFallback": {
+          "targetUid": "todo-target-block-uid",
+          "mode": "reference"
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ReferenceBlockModel.e8b7b4cbc6d4be4088f1.json",
+      "hash": "e8b7b4cbc6d4be4088f1"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ReferenceBlockModel.0d9b15c69c5707dac74e.json",
+      "hash": "0d9b15c69c5707dac74e"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ReferenceBlockModel.c246812c6445152abbf4.json",
+      "hash": "c246812c6445152abbf4"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

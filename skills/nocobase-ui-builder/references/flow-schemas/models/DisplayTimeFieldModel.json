@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayTimeFieldModel",
+  "title": "Display Time Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "aca43b22",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayTimeFieldModel.6810dafda5a7be7ffc38.json",
+      "hash": "6810dafda5a7be7ffc38"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayTimeFieldModel.a043d450c1a836e929b5.json",
+      "hash": "a043d450c1a836e929b5"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayTimeFieldModel.bcad3217c349298d8b07.json",
+      "hash": "bcad3217c349298d8b07"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

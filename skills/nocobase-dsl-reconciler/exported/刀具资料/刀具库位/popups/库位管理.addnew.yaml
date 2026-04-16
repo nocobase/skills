@@ -1,0 +1,16 @@
+target: $刀具库位_copy.库位管理.actions.addNew
+field: addnew
+field_uid: ml5k482phyu
+block_key: 库位管理
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_locations
+  fields:
+  - name
+  field_layout:
+  - '--- 库位信息 ---'
+  - - name
+  actions:
+  - submit
+mode: drawer

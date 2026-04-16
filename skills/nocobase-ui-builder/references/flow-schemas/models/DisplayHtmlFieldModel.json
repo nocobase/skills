@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayHtmlFieldModel",
+  "title": "Display Html Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "facae484",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayHtmlFieldModel.2542c908f68caa0be084.json",
+      "hash": "2542c908f68caa0be084"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayHtmlFieldModel.b8fa96124924e67f5641.json",
+      "hash": "b8fa96124924e67f5641"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayHtmlFieldModel.d7ec3de4aa457e62c9da.json",
+      "hash": "d7ec3de4aa457e62c9da"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

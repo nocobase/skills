@@ -1,0 +1,51 @@
+module: 刀具归还登记 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具归还 Copy
+pages:
+- page: 刀具归还登记 Copy
+  coll: nb_tm_return
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - tool
+    - returner
+    - return_date
+    field_layout:
+    - - tool
+      - returner
+      - return_date
+    actions:
+    - submit
+    - reset
+  - key: 归还登记
+    type: table
+    title: 归还登记
+    coll: nb_tm_return
+    fields:
+    - return_date
+    - returner
+    - tool
+    - borrow_code
+    - actual_usage
+    - status
+    - approval_date
+    - confirm_date
+    js_columns:
+    - title: 归还
+      file: ./js/刀具归还登记_归还登记_col_归还.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  - key: filter_stats_button_group_block_template_crm_style
+    type: jsBlock
+    desc: Filter Stats Button Group Block Template (CRM-style)
+    file: ./js/刀具归还登记_filter_stats_button_group_block_template_crm_style.js
+  layout:
+  - - filter_stats_button_group_block_template_crm_style
+  - - filterForm
+  - - 归还登记

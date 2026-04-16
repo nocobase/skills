@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "PercentFieldModel",
+  "title": "Percent Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "e451eccc",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/PercentFieldModel.c45591b2f084ba7459c5.json",
+      "hash": "c45591b2f084ba7459c5"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/PercentFieldModel.fc18877c1f8aab673b7a.json",
+      "hash": "fc18877c1f8aab673b7a"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/PercentFieldModel.553f269b5af3e58385ba.json",
+      "hash": "553f269b5af3e58385ba"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

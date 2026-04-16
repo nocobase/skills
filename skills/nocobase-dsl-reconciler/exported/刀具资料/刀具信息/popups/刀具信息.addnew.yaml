@@ -1,0 +1,39 @@
+target: $刀具信息_copy.刀具信息.actions.addNew
+field: addnew
+field_uid: 2dee2nx2ozd
+block_key: 刀具信息
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_tools
+  fields:
+  - code
+  - name
+  - spec
+  - cavities
+  - location
+  - life_total
+  - life_used
+  - remark
+  - supplier
+  - barcode
+  - qrcode
+  - drawing
+  - category_rel
+  field_layout:
+  - '--- 基本信息 ---'
+  - - code
+    - name
+  - - uvr8kap7
+    - spec
+  - '--- 刀具参数 ---'
+  - - cavities
+    - location
+  - '--- 寿命设置 ---'
+  - - life_total
+    - life_used
+  - '--- 备注 ---'
+  - - remark
+  actions:
+  - submit
+mode: drawer

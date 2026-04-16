@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplaySubListFieldModel",
+  "title": "Display Sub List Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "0ae3dd75",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplaySubListFieldModel.c5b3e286e66f8df66fb1.json",
+      "hash": "c5b3e286e66f8df66fb1"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplaySubListFieldModel.94e363a266b487bcaa99.json",
+      "hash": "94e363a266b487bcaa99"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplaySubListFieldModel.a044eed23305ac7f22ab.json",
+      "hash": "a044eed23305ac7f22ab"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

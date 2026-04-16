@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c7a2b64dc4eae73963cc",
+  "ownerUses": [
+    "ListItemModel"
+  ],
+  "value": {
+    "uid": "todo-list-item-uid",
+    "use": "ListItemModel",
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "DetailsGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/DetailsGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DetailsGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/ListItemModel.c7a2b64dc4eae73963cc.json"
+}

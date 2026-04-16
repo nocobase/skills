@@ -1,0 +1,419 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "a2c910291223f306ac5f",
+  "ownerUses": [
+    "ListBlockModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "ListBlockModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "resourceSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "associationName": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  },
+                  "filterByTk": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "required": [
+                  "dataSourceKey",
+                  "collectionName"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "resourceSettings2": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "listSettings": {
+            "type": "object",
+            "properties": {
+              "pageSize": {
+                "type": "object",
+                "properties": {
+                  "pageSize": {
+                    "type": "number",
+                    "enum": [
+                      5,
+                      10,
+                      20,
+                      50,
+                      100,
+                      200
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "dataScope": {
+                "type": "object",
+                "properties": {
+                  "filter": {
+                    "$id": "https://nocobase.dev/schemas/plugin-block-list/generic-filter.json",
+                    "definitions": {
+                      "filterCondition": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "value": {},
+                          "noValue": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "logic"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "items"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "filterGroup": {
+                        "type": "object",
+                        "properties": {
+                          "logic": {
+                            "type": "string",
+                            "enum": [
+                              "$and",
+                              "$or"
+                            ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-block-list/generic-filter.json#/definitions/filterCondition"
+                                },
+                                {
+                                  "$ref": "https://nocobase.dev/schemas/plugin-block-list/generic-filter.json#/definitions/filterGroup"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "logic",
+                          "items"
+                        ],
+                        "additionalProperties": true,
+                        "allOf": [
+                          {
+                            "not": {
+                              "required": [
+                                "path"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "operator"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "value"
+                              ]
+                            }
+                          },
+                          {
+                            "not": {
+                              "required": [
+                                "noValue"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "type": "object",
+                    "properties": {
+                      "logic": {
+                        "type": "string",
+                        "enum": [
+                          "$and",
+                          "$or"
+                        ]
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-block-list/generic-filter.json#/definitions/filterCondition"
+                            },
+                            {
+                              "$ref": "https://nocobase.dev/schemas/plugin-block-list/generic-filter.json#/definitions/filterGroup"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "logic",
+                      "items"
+                    ],
+                    "additionalProperties": true,
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "path"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "operator"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "value"
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "noValue"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "defaultSorting": {
+                "type": "object",
+                "properties": {
+                  "sort": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "field": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "asc",
+                            "desc"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "field",
+                        "direction"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "layout": {
+                "type": "object",
+                "properties": {
+                  "layout": {
+                    "type": "string",
+                    "enum": [
+                      "vertical",
+                      "horizontal"
+                    ]
+                  },
+                  "labelAlign": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  },
+                  "labelWidth": {
+                    "type": [
+                      "number",
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "labelWrap": {
+                    "type": "boolean"
+                  },
+                  "colon": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "layout"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          },
+          "paginationChange": {
+            "type": "object",
+            "properties": {
+              "linkageRulesRefresh": {
+                "type": "object",
+                "properties": {
+                  "actionName": {
+                    "type": "string"
+                  },
+                  "flowKey": {
+                    "type": "string"
+                  },
+                  "stepKey": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "actionName",
+                  "flowKey"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "ListBlockModel",
+              "slot": "item",
+              "slotRef": "catalogs/ListBlockModel.item.json",
+              "slotType": "object",
+              "shape": "direct",
+              "defaultUses": [
+                "ListItemModel"
+              ]
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "uid",
+                "use"
+              ],
+              "properties": {
+                "uid": {
+                  "type": "string"
+                },
+                "use": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "xFlowGraphSlotRef": {
+              "ownerUse": "ListBlockModel",
+              "slot": "actions",
+              "slotRef": "catalogs/ListBlockModel.actions.json",
+              "slotType": "array",
+              "shape": "opaque",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/ListBlockModel.a2c910291223f306ac5f.json"
+}

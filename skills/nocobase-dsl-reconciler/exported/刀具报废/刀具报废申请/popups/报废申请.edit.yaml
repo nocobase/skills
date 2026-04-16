@@ -1,0 +1,35 @@
+target: $刀具报废申请_copy.报废申请.fields.edit
+field: edit
+field_uid: h4ye80xnhl3
+block_key: 报废申请
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_scrap
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - apply_date
+  - applicant
+  - tool
+  - reason
+  - opinion
+  - status
+  - approval_date
+  - confirm_date
+  field_layout:
+  - '--- 申请信息 ---'
+  - - apply_date
+    - applicant
+  - '--- 刀具 ---'
+  - - tool
+  - '--- 报废原因 ---'
+  - - reason
+  - '--- 审批 ---'
+  - - opinion
+  - - status
+    - approval_date
+  - - confirm_date
+  actions:
+  - submit
+mode: drawer

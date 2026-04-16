@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "888ab910faba575541c8",
+  "ownerUses": [
+    "ChildPageModel"
+  ],
+  "value": {
+    "uid": "todo-popup-child-page-page",
+    "use": "ChildPageModel",
+    "stepParams": {
+      "pageSettings": {
+        "general": {
+          "displayTitle": false,
+          "enableTabs": true
+        }
+      }
+    },
+    "subModels": {
+      "tabs": [
+        {
+          "xFlowGraphModelRef": {
+            "use": "ChildPageTabModel",
+            "artifact": "skeleton",
+            "modelRef": "models/ChildPageTabModel.json"
+          }
+        }
+      ]
+    }
+  },
+  "relativePath": "artifacts/skeleton/ChildPageModel.888ab910faba575541c8.json"
+}

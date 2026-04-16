@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "f5dab2f704d23526deb6",
+  "ownerUses": [
+    "FormSubmitActionModel"
+  ],
+  "value": {
+    "uid": "todo-form-submit-action-uid",
+    "use": "FormSubmitActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Submit",
+          "type": "primary"
+        }
+      },
+      "submitSettings": {
+        "confirm": {
+          "enable": false,
+          "title": "Submit record",
+          "content": "Are you sure you want to save it?"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/FormSubmitActionModel.f5dab2f704d23526deb6.json"
+}

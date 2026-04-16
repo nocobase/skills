@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "7286c7bf8948363a9652",
+  "ownerUses": [
+    "AddChildActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "AddChildActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/AddChildActionModel.7286c7bf8948363a9652.json"
+}

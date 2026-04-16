@@ -1,0 +1,51 @@
+target: $刀具入库表_copy.刀具入库.fields.edit
+field: edit
+field_uid: mgzqgp8v6bf
+block_key: 刀具入库
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_production
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - mold_type
+  - mold_name
+  - spec
+  - cavities
+  - quantity
+  - quality_standard
+  - plan_date
+  - expected_date
+  - producer
+  - inspector
+  - status
+  - inspection_result
+  - inspection_note
+  - storage_date
+  - remark
+  field_layout:
+  - '--- 刀具信息 ---'
+  - - mold_type
+    - mold_name
+  - - spec
+    - cavities
+  - - quantity
+  - '--- 质量要求 ---'
+  - - quality_standard
+  - '--- 计划与人员 ---'
+  - - plan_date
+    - expected_date
+  - - producer
+    - inspector
+  - '--- 检测 ---'
+  - - status
+    - inspection_result
+  - - inspection_note
+  - '--- 入库 ---'
+  - - storage_date
+  - '--- 备注 ---'
+  - - remark
+  actions:
+  - submit
+mode: drawer

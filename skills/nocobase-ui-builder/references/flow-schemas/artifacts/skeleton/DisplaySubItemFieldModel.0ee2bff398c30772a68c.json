@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "0ee2bff398c30772a68c",
+  "ownerUses": [
+    "DisplaySubItemFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaysubitemfieldmodel",
+    "use": "DisplaySubItemFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplaySubItemFieldModel.0ee2bff398c30772a68c.json"
+}

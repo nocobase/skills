@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "f01c48b52bf2fda1f5e5",
+  "ownerUses": [
+    "DisplayVditorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayvditorfieldmodel",
+    "use": "DisplayVditorFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayVditorFieldModel.f01c48b52bf2fda1f5e5.json"
+}

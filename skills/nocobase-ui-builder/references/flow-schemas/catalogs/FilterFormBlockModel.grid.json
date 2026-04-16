@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "FilterFormBlockModel",
+  "slot": "grid",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "FilterFormGridModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "FilterFormGridModel",
+      "title": "Filter form grid",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/FilterFormGridModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterFormGridModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

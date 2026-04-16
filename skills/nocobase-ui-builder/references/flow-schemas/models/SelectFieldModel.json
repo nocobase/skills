@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "SelectFieldModel",
+  "title": "Select Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "8b263855",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/SelectFieldModel.17d4fb74c4db66b3fa84.json",
+      "hash": "17d4fb74c4db66b3fa84"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/SelectFieldModel.0d2f2684dde9818d1736.json",
+      "hash": "0d2f2684dde9818d1736"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/SelectFieldModel.e19570e1b5d457170dc5.json",
+      "hash": "e19570e1b5d457170dc5"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

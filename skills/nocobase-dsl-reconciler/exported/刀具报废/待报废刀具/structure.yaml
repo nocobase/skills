@@ -1,0 +1,14 @@
+module: 待报废刀具 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具报废 Copy
+pages:
+- page: 待报废刀具 Copy
+  coll: ''
+  icon: fundoutlined
+  blocks:
+  - key: 待报废刀具
+    type: jsBlock
+    title: 待报废刀具
+    file: ./js/待报废刀具_待报废刀具.js
+  layout:
+  - - 待报废刀具

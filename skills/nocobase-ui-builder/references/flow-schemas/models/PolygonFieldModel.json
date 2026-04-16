@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "PolygonFieldModel",
+  "title": "Polygon",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "483a3f96",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/PolygonFieldModel.681960d4bbcde3909cca.json",
+      "hash": "681960d4bbcde3909cca"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/PolygonFieldModel.f0c15e4b8dd780adbc95.json",
+      "hash": "f0c15e4b8dd780adbc95"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/PolygonFieldModel.f34b653fc48f27ce49d3.json",
+      "hash": "f34b653fc48f27ce49d3"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

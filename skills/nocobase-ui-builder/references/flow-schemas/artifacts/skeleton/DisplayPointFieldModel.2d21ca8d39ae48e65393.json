@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2d21ca8d39ae48e65393",
+  "ownerUses": [
+    "DisplayPointFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaypointfieldmodel",
+    "use": "DisplayPointFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayPointFieldModel.2d21ca8d39ae48e65393.json"
+}

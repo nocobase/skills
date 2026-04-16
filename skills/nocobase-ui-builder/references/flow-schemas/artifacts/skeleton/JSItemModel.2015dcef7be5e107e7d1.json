@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2015dcef7be5e107e7d1",
+  "ownerUses": [
+    "JSItemModel"
+  ],
+  "value": {
+    "uid": "todo-js-item-uid",
+    "use": "JSItemModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS item.</div>');"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/JSItemModel.2015dcef7be5e107e7d1.json"
+}

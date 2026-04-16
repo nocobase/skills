@@ -1,0 +1,22 @@
+target: $刀具保养标准_copy.table.fields.name
+field: name
+field_uid: 7gzvb4fcs00
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_maintenance_standards
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - standard
+  - updatedAt
+  - method
+  - name
+  - createdAt
+  field_layout:
+  - - standard
+    - updatedAt
+  - - method
+    - name
+  - - createdAt
+mode: drawer

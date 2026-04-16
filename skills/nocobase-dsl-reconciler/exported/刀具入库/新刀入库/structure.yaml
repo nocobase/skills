@@ -1,0 +1,44 @@
+module: 新刀入库 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具入库 Copy
+pages:
+- page: 新刀入库 Copy
+  coll: ''
+  icon: fundoutlined
+  blocks:
+  - key: 新刀入库
+    type: createForm
+    title: 新刀入库
+    coll: nb_tm_production
+    fields:
+    - spec
+    - cavities
+    - quantity
+    - mold_name
+    - quality_standard
+    - expected_date
+    - mold_type
+    - producer
+    - inspector
+    - plan_date
+    - remark
+    field_layout:
+    - '--- 刀具信息 ---'
+    - - mold_type
+      - mold_name
+    - - spec
+      - cavities
+    - - quantity
+    - '--- 质量要求 ---'
+    - - quality_standard
+    - '--- 计划与人员 ---'
+    - - plan_date
+      - expected_date
+    - - producer
+      - inspector
+    - '--- 备注 ---'
+    - - remark
+    actions:
+    - submit
+  layout:
+  - - 新刀入库

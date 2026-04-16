@@ -1,0 +1,31 @@
+target: $上下机记录_copy.table.actions.addNew
+field: addnew
+field_uid: 95slf58mkur
+block_key: table
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_machine_bindings
+  fields:
+  - unmount_time
+  - machine
+  - mount_time
+  - tool
+  - operator
+  - usage_count
+  - remark
+  field_layout:
+  - '--- 上下机信息 ---'
+  - - tool
+    - machine
+  - - mount_time
+    - unmount_time
+  - - operator
+    - usage_count
+  - '--- 备注 ---'
+  - - remark
+  actions:
+  - submit
+layout:
+- - createForm
+mode: drawer

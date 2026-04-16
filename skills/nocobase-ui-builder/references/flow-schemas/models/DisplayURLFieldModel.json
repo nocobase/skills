@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayURLFieldModel",
+  "title": "Display URLField",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "06403ce4",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayURLFieldModel.ec3c191465c79666dd04.json",
+      "hash": "ec3c191465c79666dd04"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayURLFieldModel.41ab9ba2a933455c7017.json",
+      "hash": "41ab9ba2a933455c7017"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayURLFieldModel.0b976fc403cc010dc7a8.json",
+      "hash": "0b976fc403cc010dc7a8"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

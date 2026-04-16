@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "AssignFormModel",
+  "slot": "grid",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "AssignFormGridModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "AssignFormGridModel",
+      "title": "Assign form grid",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/AssignFormGridModel.json",
+      "skeletonRef": {
+        "modelRef": "models/AssignFormGridModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

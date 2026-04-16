@@ -1,0 +1,116 @@
+group_id: 355258169098240
+pages:
+  新刀入库:
+    route_id: 358922612768768
+    page_uid: hrgowrbm7vv
+    tab_uid: of5kon9hsx4
+    grid_uid: 68glazj754s
+    blocks:
+      form:
+        uid: ovkpigigrmc
+        type: createForm
+        grid_uid: wbgaojvjv2a
+        fields:
+          spec:
+            wrapper: gjqy2vkakyj
+            field: 2o8l5fu9875
+          cavities:
+            wrapper: 26etx65vlz6
+            field: 21kcsc9ee0c
+          quantity:
+            wrapper: bjoaqjwkclx
+            field: ke90nwzxgz0
+          mold_name:
+            wrapper: f5ifwtlbssg
+            field: v7l9i1nlwrl
+          quality_standard:
+            wrapper: ht60pm20yqc
+            field: kb1j6sith8i
+          expected_date:
+            wrapper: 2u0cqcp3o4i
+            field: e9mtu6jcf6q
+          mold_type:
+            wrapper: 46v2spkp8j8
+            field: 1e0y3c0ar4k
+          producer:
+            wrapper: z3bnczoh8al
+            field: p2aqjc0qz6w
+          inspector:
+            wrapper: h20q6mcd5o7
+            field: jyza1eo7opn
+          plan_date:
+            wrapper: ilk6frfjelj
+            field: joa0ieh14rk
+          remark:
+            wrapper: oqwjd0ummej
+            field: kicimn8y2hw
+        actions:
+          submit:
+            uid: 3kt8ieetln4
+  维修申请单:
+    route_id: 358922612768770
+    page_uid: 2lu3bwx16i2
+    tab_uid: 5po8cudrt4z
+    grid_uid: r9wr369e4cd
+    blocks:
+      form:
+        uid: 39ajrxdihp2
+        type: createForm
+        grid_uid: hqhggjdeoy7
+        fields:
+          tool:
+            wrapper: 43eccmmlj6o
+            field: ictfyfovi94
+          deadline:
+            wrapper: n73ney9wexa
+            field: v3ppkrj417e
+          reporter:
+            wrapper: 842dqaz40bo
+            field: x1ne03ju9ys
+          report_date:
+            wrapper: 6a3z1e7lwtx
+            field: fbyqmyalrm6
+          tech_lead:
+            wrapper: jv7idv6y5fk
+            field: 258qy9dgsd5
+          repair_plan:
+            wrapper: 2ao1m5kol7h
+            field: bc7ovm3ncvk
+          damage_reason:
+            wrapper: df8t8nsp6g8
+            field: zgj5phqm1f5
+          repair_person:
+            wrapper: m1uqv4pbudh
+            field: x8ux5a1jf3s
+        actions:
+          submit:
+            uid: 4erthuroohk
+  报废申请单:
+    route_id: 358922614865920
+    page_uid: xjypupsph0s
+    tab_uid: jkvtzdayy6m
+    grid_uid: c069xk66xmh
+    blocks:
+      form:
+        uid: dsmgnlzta9y
+        type: createForm
+        grid_uid: a1q18c4pvi2
+        fields:
+          apply_date:
+            wrapper: 8mcgtbqs90q
+            field: 6ty58tghow9
+          reason:
+            wrapper: g1uu146kbky
+            field: 4xo73crjeyw
+          tool:
+            wrapper: eg46rk6xu1g
+            field: yognxhz11n9
+          opinion:
+            wrapper: 6doqny4izt2
+            field: tbx9wvkpkuq
+          applicant:
+            wrapper: 3xh6o6hcmwc
+            field: bvug17furds
+        actions:
+          submit:
+            uid: 2edwscx529k

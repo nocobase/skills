@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "f0c15e4b8dd780adbc95",
+  "ownerUses": [
+    "PolygonFieldModel"
+  ],
+  "value": {
+    "uid": "todo-polygonfieldmodel",
+    "use": "PolygonFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/PolygonFieldModel.f0c15e4b8dd780adbc95.json"
+}

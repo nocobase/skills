@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "16d14df0926703bac2c3",
+  "ownerUses": [
+    "DisplayIconFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayiconfieldmodel",
+    "use": "DisplayIconFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayIconFieldModel.16d14df0926703bac2c3.json"
+}

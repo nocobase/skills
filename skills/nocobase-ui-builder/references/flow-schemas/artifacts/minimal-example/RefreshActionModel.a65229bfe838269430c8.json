@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "a65229bfe838269430c8",
+  "ownerUses": [
+    "RefreshActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "RefreshActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/RefreshActionModel.a65229bfe838269430c8.json"
+}

@@ -1,0 +1,52 @@
+module: 刀具保养登记 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具保养 Copy
+pages:
+- page: 刀具保养登记 Copy
+  coll: nb_tm_maintenance
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - tool
+    - operator
+    - maintenance_date
+    field_layout:
+    - - tool
+      - operator
+      - maintenance_date
+    actions:
+    - submit
+    - reset
+  - key: 保养登记
+    type: table
+    title: 保养登记
+    coll: nb_tm_maintenance
+    fields:
+    - maintenance_date
+    - maintenance_type
+    - operator
+    - tool
+    - maintenance_standard
+    - content
+    - is_qualified
+    - status
+    - approval_date
+    js_columns:
+    - title: 保养
+      file: ./js/刀具保养登记_保养登记_col_保养.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  - key: filter_stats_button_group_block_template_crm_style
+    type: jsBlock
+    desc: Filter Stats Button Group Block Template (CRM-style)
+    file: ./js/刀具保养登记_filter_stats_button_group_block_template_crm_style.js
+  layout:
+  - - filter_stats_button_group_block_template_crm_style
+  - - filterForm
+  - - 保养登记

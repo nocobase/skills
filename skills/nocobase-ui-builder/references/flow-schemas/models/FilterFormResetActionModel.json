@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormResetActionModel",
+  "title": "Filter form reset action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "01067473",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormResetActionModel.0cf263094ede14368a33.json",
+      "hash": "0cf263094ede14368a33"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormResetActionModel.ab3425b9c14d366a00d6.json",
+      "hash": "ab3425b9c14d366a00d6"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormResetActionModel.fa5c9032d5fb9369a6ac.json",
+      "hash": "fa5c9032d5fb9369a6ac"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

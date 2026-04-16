@@ -1,0 +1,25 @@
+module: 刀具保养标准 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/刀具保养 Copy
+pages:
+- page: 刀具保养标准 Copy
+  coll: nb_tm_maintenance_standards
+  icon: fundoutlined
+  blocks:
+  - key: 保养标准
+    type: table
+    title: 保养标准
+    coll: nb_tm_maintenance_standards
+    fields:
+    - name
+    - method
+    - standard
+    - createdAt
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  layout:
+  - - 保养标准

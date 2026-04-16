@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "e2e38de71b7c1b10bca1",
+  "ownerUses": [
+    "DisplayPolygonFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaypolygonfieldmodel",
+    "use": "DisplayPolygonFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayPolygonFieldModel.e2e38de71b7c1b10bca1.json"
+}

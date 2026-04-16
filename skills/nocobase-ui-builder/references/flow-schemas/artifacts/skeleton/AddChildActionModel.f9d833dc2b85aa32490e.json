@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "f9d833dc2b85aa32490e",
+  "ownerUses": [
+    "AddChildActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "AddChildActionModel"
+  },
+  "relativePath": "artifacts/skeleton/AddChildActionModel.f9d833dc2b85aa32490e.json"
+}

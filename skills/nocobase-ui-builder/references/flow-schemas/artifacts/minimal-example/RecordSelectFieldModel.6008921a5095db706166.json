@@ -1,0 +1,35 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "6008921a5095db706166",
+  "ownerUses": [
+    "RecordSelectFieldModel"
+  ],
+  "value": {
+    "uid": "todo-recordselectfieldmodel",
+    "use": "RecordSelectFieldModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "roles"
+        }
+      }
+    },
+    "subModels": {
+      "field": {
+        "xFlowGraphModelRef": {
+          "use": "DisplayTextFieldModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/DisplayTextFieldModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DisplayTextFieldModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/RecordSelectFieldModel.6008921a5095db706166.json"
+}

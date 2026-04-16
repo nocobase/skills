@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "AssignFormGridModel",
+  "slot": "items",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [
+    "AssignFormItemModel"
+  ],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "AssignFormItemModel",
+      "title": "Assign form item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/AssignFormItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/AssignFormItemModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

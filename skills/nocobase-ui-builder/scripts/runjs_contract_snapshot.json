@@ -1,0 +1,283 @@
+{
+  "contractVersion": 1,
+  "generatedAt": "2026-03-23T05:59:00.630Z",
+  "nocobaseRoot": "/Users/gchust/auto_works/nocobase",
+  "sourceHashes": {
+    "packages/core/flow-engine/src/flowContext.ts": "4431748d556335c3576b59c9d2b97cf081a34631a389d937b121737399fc2ded",
+    "packages/core/flow-engine/src/utils/safeGlobals.ts": "f6334bd1105872be0741b2cd814794dd3467b5ebca9dcb53148b199c7d12a5fc",
+    "packages/core/flow-engine/src/runjs-context/setup.ts": "e146de8a3ba3eaba2b68b15d1b2e31edc38b484bb271a39bf218424cb7084246",
+    "packages/core/flow-engine/src/runjs-context/contexts/base.ts": "e8a6c12982a4059c2ccb034c56a51122a7c42170bed54aa91c28b8416c1939a1",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSBlockRunJSContext.ts": "122945d3bb6cabad4249518e42625d6e926aacc7534fa64eaff51f2c1560bd06",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSFieldRunJSContext.ts": "caf6aae1ad22a61d6cb98817696c4c0d3c814f86e9cb0b88dd18617c3396c179",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSEditableFieldRunJSContext.ts": "81ce066280f46f1a99bfe0d56e94582fb3221afb487f7d143ccc4656906e0bd0",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSItemRunJSContext.ts": "119d5807d2e71872e18a53a9cb98a87f6809e4075f5db464a79fc705fd15f611",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSColumnRunJSContext.ts": "a2fc33d8309d1c9b030a713026941e6526a7d6e2582e28aea8e7cc903a4af587",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSRecordActionRunJSContext.ts": "c27d914b6dc4a43af807b4b41e22e848e08f12249d67c1ef3f4f42a2208ac577",
+    "packages/core/flow-engine/src/runjs-context/contexts/JSCollectionActionRunJSContext.ts": "24a690520178b0115b264626c095a78f4938f564966d570ea3ddf61fcf7d5e56"
+  },
+  "runtime": {
+    "timeoutMs": 5000,
+    "jsxCompiler": "sucrase",
+    "sandbox": "vm",
+    "templatePreprocessDefault": {
+      "v1": true,
+      "v2": false
+    },
+    "registeredModelContexts": [
+      "*",
+      "FormJSFieldItemModel",
+      "JSBlockModel",
+      "JSCollectionActionModel",
+      "JSColumnModel",
+      "JSEditableFieldModel",
+      "JSFieldModel",
+      "JSItemModel",
+      "JSRecordActionModel"
+    ]
+  },
+  "safeGlobals": {
+    "topLevel": [
+      "ctx",
+      "window",
+      "document",
+      "navigator",
+      "console",
+      "setTimeout",
+      "clearTimeout",
+      "setInterval",
+      "clearInterval",
+      "Blob",
+      "URL"
+    ],
+    "window": [
+      "setTimeout",
+      "clearTimeout",
+      "setInterval",
+      "clearInterval",
+      "console",
+      "Math",
+      "Date",
+      "FormData",
+      "addEventListener",
+      "open",
+      "location"
+    ],
+    "document": [
+      "createElement",
+      "querySelector",
+      "querySelectorAll"
+    ],
+    "navigator": [
+      "clipboard",
+      "onLine",
+      "language",
+      "languages"
+    ],
+    "location": [
+      "origin",
+      "protocol",
+      "host",
+      "hostname",
+      "port",
+      "pathname",
+      "assign",
+      "replace",
+      "reload",
+      "href"
+    ]
+  },
+  "ctx": {
+    "baseProperties": [
+      "acl",
+      "antd",
+      "auth",
+      "dataSourceManager",
+      "date",
+      "dayjs",
+      "engine",
+      "i18n",
+      "libs",
+      "logger",
+      "message",
+      "modal",
+      "model",
+      "notification",
+      "popup",
+      "React",
+      "ReactDOM",
+      "ref",
+      "requirejs",
+      "resource",
+      "role",
+      "sql",
+      "token",
+      "urlSearchParams",
+      "view",
+      "viewer"
+    ],
+    "baseMethods": [
+      "aclCheck",
+      "buildServerContextParams",
+      "createJSRunner",
+      "createResource",
+      "getAction",
+      "getActions",
+      "getApiInfos",
+      "getEnvInfos",
+      "getEvents",
+      "getModel",
+      "getStepParams",
+      "getStepResults",
+      "getVar",
+      "getVarInfos",
+      "importAsync",
+      "initResource",
+      "makeResource",
+      "onRefReady",
+      "openView",
+      "render",
+      "renderJson",
+      "request",
+      "requireAsync",
+      "resolveJsonTemplate",
+      "runAction",
+      "setStepParams",
+      "t"
+    ]
+  },
+  "models": {
+    "JSBlockModel": {
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
+      "scene": "block",
+      "properties": [
+        "antd",
+        "element",
+        "React",
+        "record",
+        "value"
+      ],
+      "methods": [
+        "importAsync",
+        "onRefReady",
+        "requireAsync"
+      ],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSBlockRunJSContext.ts"
+    },
+    "JSFieldModel": {
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
+      "scene": "detail",
+      "properties": [
+        "collection",
+        "element",
+        "record",
+        "value"
+      ],
+      "methods": [
+        "onRefReady"
+      ],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSFieldRunJSContext.ts"
+    },
+    "JSEditableFieldModel": {
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
+      "scene": "form",
+      "properties": [
+        "disabled",
+        "element",
+        "form",
+        "formValues",
+        "namePath",
+        "readOnly",
+        "record",
+        "value"
+      ],
+      "methods": [
+        "getValue",
+        "setValue"
+      ],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSEditableFieldRunJSContext.ts"
+    },
+    "JSItemModel": {
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
+      "scene": "form",
+      "properties": [
+        "element",
+        "formValues",
+        "record",
+        "resource"
+      ],
+      "methods": [
+        "onRefReady"
+      ],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSItemRunJSContext.ts"
+    },
+    "JSColumnModel": {
+      "flowKey": "jsSettings",
+      "flowPath": "stepParams.jsSettings.runJs",
+      "scene": "table",
+      "properties": [
+        "antd",
+        "collection",
+        "element",
+        "React",
+        "record",
+        "recordIndex",
+        "viewer"
+      ],
+      "methods": [
+        "importAsync",
+        "onRefReady",
+        "requireAsync"
+      ],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSColumnRunJSContext.ts"
+    },
+    "JSActionModel": {
+      "flowKey": "clickSettings",
+      "flowPath": "clickSettings.runJs",
+      "scene": "table",
+      "properties": [],
+      "methods": [],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/base.ts"
+    },
+    "JSRecordActionModel": {
+      "flowKey": "clickSettings",
+      "flowPath": "clickSettings.runJs",
+      "scene": "table",
+      "properties": [
+        "filterByTk",
+        "record"
+      ],
+      "methods": [],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSRecordActionRunJSContext.ts"
+    },
+    "JSCollectionActionModel": {
+      "flowKey": "clickSettings",
+      "flowPath": "clickSettings.runJs",
+      "scene": "table",
+      "properties": [
+        "resource"
+      ],
+      "methods": [],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/JSCollectionActionRunJSContext.ts"
+    },
+    "JSFormActionModel": {
+      "flowKey": "clickSettings",
+      "flowPath": "clickSettings.runJs",
+      "scene": "form",
+      "properties": [],
+      "methods": [],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/base.ts"
+    },
+    "FilterFormJSActionModel": {
+      "flowKey": "clickSettings",
+      "flowPath": "clickSettings.runJs",
+      "scene": "form",
+      "properties": [],
+      "methods": [],
+      "sourceFile": "packages/core/flow-engine/src/runjs-context/contexts/base.ts"
+    }
+  }
+}

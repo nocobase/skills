@@ -1,0 +1,172 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "118a227ffb1d6274fb8f",
+  "ownerUses": [
+    "TableColumnModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "TableColumnModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "fieldSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "properties": {
+                  "dataSourceKey": {
+                    "type": "string"
+                  },
+                  "collectionName": {
+                    "type": "string"
+                  },
+                  "fieldPath": {
+                    "type": "string"
+                  },
+                  "associationPathName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "dataSourceKey",
+                  "collectionName",
+                  "fieldPath"
+                ],
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "tableColumnSettings": {
+            "type": "object",
+            "properties": {
+              "init": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "title": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "tooltip": {
+                "type": "object",
+                "properties": {
+                  "tooltip": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "width": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "aclCheck": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "quickEdit": {
+                "type": "object",
+                "properties": {
+                  "editable": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "model": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "sorter": {
+                "type": "object",
+                "properties": {
+                  "sorter": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "fixed": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "fieldNames": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "xFlowGraphSlotRef": {
+              "ownerUse": "TableColumnModel",
+              "slot": "field",
+              "slotRef": "catalogs/TableColumnModel.field.json",
+              "slotType": "object",
+              "shape": "anyOf",
+              "defaultUses": []
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/TableColumnModel.118a227ffb1d6274fb8f.json"
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "d7ec3de4aa457e62c9da",
+  "ownerUses": [
+    "DisplayHtmlFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayhtmlfieldmodel",
+    "use": "DisplayHtmlFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayHtmlFieldModel.d7ec3de4aa457e62c9da.json"
+}

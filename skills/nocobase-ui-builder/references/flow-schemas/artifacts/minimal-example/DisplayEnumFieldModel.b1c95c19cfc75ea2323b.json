@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "b1c95c19cfc75ea2323b",
+  "ownerUses": [
+    "DisplayEnumFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayenumfieldmodel",
+    "use": "DisplayEnumFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayEnumFieldModel.b1c95c19cfc75ea2323b.json"
+}

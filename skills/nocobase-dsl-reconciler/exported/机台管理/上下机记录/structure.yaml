@@ -1,0 +1,41 @@
+module: 上下机记录 Copy
+icon: fundoutlined
+group: 刀具管理 Copy/机台管理 Copy
+pages:
+- page: 上下机记录 Copy
+  coll: nb_tm_machine_bindings
+  icon: fundoutlined
+  blocks:
+  - key: filterForm
+    type: filterForm
+    fields:
+    - tool
+    - machine
+    - operator
+    field_layout:
+    - - tool
+      - machine
+      - operator
+    actions:
+    - submit
+    - reset
+  - key: table
+    type: table
+    coll: nb_tm_machine_bindings
+    fields:
+    - tool
+    - machine
+    - mount_time
+    - unmount_time
+    - operator
+    - usage_count
+    - remark
+    actions:
+    - filter
+    - refresh
+    - addNew
+    recordActions:
+    - edit
+  layout:
+  - - filterForm
+  - - table

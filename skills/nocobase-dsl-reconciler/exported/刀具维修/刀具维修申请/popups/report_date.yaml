@@ -1,0 +1,47 @@
+target: $刀具维修申请_copy.table.fields.report_date
+field: report_date
+field_uid: uyupx7iq27c
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_repair
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - report_date
+  - reporter
+  - tool
+  - damage_reason
+  - tech_lead
+  - repair_person
+  - repair_plan
+  - deadline
+  - start_time
+  - end_time
+  - repair_hours
+  - repair_note
+  - acceptance_result
+  - acceptance_note
+  - status
+  field_layout:
+  - '--- 报修 ---'
+  - - report_date
+    - reporter
+  - - tool
+  - - damage_reason
+  - '--- 方案 ---'
+  - - tech_lead
+    - repair_person
+  - - repair_plan
+  - - deadline
+  - '--- 执行 ---'
+  - - start_time
+    - end_time
+  - - repair_hours
+  - - repair_note
+  - '--- 验收 ---'
+  - - acceptance_result
+    - acceptance_note
+  - '--- 状态 ---'
+  - - status
+mode: drawer

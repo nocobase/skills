@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "PopupActionModel",
+  "slot": "page",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "ChildPageModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "ChildPageModel",
+      "title": "Popup child page",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/ChildPageModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ChildPageModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

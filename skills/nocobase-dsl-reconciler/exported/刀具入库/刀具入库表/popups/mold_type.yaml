@@ -1,0 +1,47 @@
+target: $刀具入库表_copy.table.fields.mold_type
+field: mold_type
+field_uid: zuzq0z6mojx
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_production
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - mold_type
+  - mold_name
+  - spec
+  - cavities
+  - quantity
+  - quality_standard
+  - plan_date
+  - expected_date
+  - producer
+  - inspector
+  - status
+  - inspection_result
+  - inspection_note
+  - storage_date
+  - remark
+  field_layout:
+  - '--- 刀具信息 ---'
+  - - mold_type
+    - mold_name
+  - - spec
+    - cavities
+  - - quantity
+  - '--- 质量要求 ---'
+  - - quality_standard
+  - '--- 计划人员 ---'
+  - - plan_date
+    - expected_date
+  - - producer
+    - inspector
+  - '--- 检测入库 ---'
+  - - status
+    - inspection_result
+  - - inspection_note
+  - - storage_date
+  - '--- 备注 ---'
+  - - remark
+mode: drawer

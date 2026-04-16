@@ -1,0 +1,35 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "cfe6dad3a8c8d709ae8e",
+  "ownerUses": [
+    "SubTableColumnModel"
+  ],
+  "value": {
+    "uid": "todo-sub-table-column-model",
+    "use": "SubTableColumnModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "roles.title"
+        }
+      }
+    },
+    "subModels": {
+      "field": {
+        "xFlowGraphModelRef": {
+          "use": "DisplayTextFieldModel",
+          "artifact": "skeleton",
+          "modelRef": "models/DisplayTextFieldModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DisplayTextFieldModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/SubTableColumnModel.cfe6dad3a8c8d709ae8e.json"
+}

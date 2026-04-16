@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "dbcde2540d512238c7de",
+  "ownerUses": [
+    "CodeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-codefieldmodel",
+    "use": "CodeFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/CodeFieldModel.dbcde2540d512238c7de.json"
+}

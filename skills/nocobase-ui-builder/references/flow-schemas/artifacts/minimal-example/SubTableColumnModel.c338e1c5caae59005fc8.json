@@ -1,0 +1,35 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "c338e1c5caae59005fc8",
+  "ownerUses": [
+    "SubTableColumnModel"
+  ],
+  "value": {
+    "uid": "todo-sub-table-column-model",
+    "use": "SubTableColumnModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "roles.title"
+        }
+      }
+    },
+    "subModels": {
+      "field": {
+        "xFlowGraphModelRef": {
+          "use": "DisplayTextFieldModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/DisplayTextFieldModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DisplayTextFieldModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/SubTableColumnModel.c338e1c5caae59005fc8.json"
+}

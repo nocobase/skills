@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "69aeef6229bde6925be4",
+  "ownerUses": [
+    "DisplayCodeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaycodefieldmodel",
+    "use": "DisplayCodeFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayCodeFieldModel.69aeef6229bde6925be4.json"
+}

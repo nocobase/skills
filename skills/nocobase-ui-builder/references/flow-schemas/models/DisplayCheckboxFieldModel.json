@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayCheckboxFieldModel",
+  "title": "Display Checkbox Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "e62d7e6c",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayCheckboxFieldModel.d0480e7d1615c7128d6c.json",
+      "hash": "d0480e7d1615c7128d6c"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayCheckboxFieldModel.23a9644250bcf2879e87.json",
+      "hash": "23a9644250bcf2879e87"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayCheckboxFieldModel.fe115f72ad824a438480.json",
+      "hash": "fe115f72ad824a438480"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

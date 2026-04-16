@@ -1,0 +1,45 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "83255389bd6867ad5c88",
+  "ownerUses": [
+    "RecordPickerFieldModel"
+  ],
+  "value": {
+    "uid": "todo-recordpickerfieldmodel",
+    "use": "RecordPickerFieldModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "roles"
+        }
+      }
+    },
+    "subModels": {
+      "field": {
+        "xFlowGraphModelRef": {
+          "use": "DisplayTextFieldModel",
+          "artifact": "skeleton",
+          "modelRef": "models/DisplayTextFieldModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DisplayTextFieldModel"
+        ]
+      },
+      "grid-block": {
+        "xFlowGraphModelRef": {
+          "use": "BlockGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/BlockGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "BlockGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/RecordPickerFieldModel.83255389bd6867ad5c88.json"
+}

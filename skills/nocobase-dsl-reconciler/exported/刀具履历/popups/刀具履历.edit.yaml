@@ -1,0 +1,41 @@
+target: $刀具履历_copy.刀具履历.fields.edit
+field: edit
+field_uid: jhsqjvivf2k
+block_key: 刀具履历
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_tools
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - name
+  - borrow_code
+  - life_used
+  - current_user_name
+  - cavities
+  - status
+  - location_id
+  - remark
+  - location
+  - spec
+  - life_total
+  - code
+  - category_rel
+  field_layout:
+  - - name
+    - borrow_code
+  - - jdsrqly6
+    - life_used
+  - - current_user_name
+    - cavities
+  - - status
+    - location_id
+  - - remark
+    - location
+  - - spec
+    - life_total
+  - - code
+  actions:
+  - submit
+mode: drawer

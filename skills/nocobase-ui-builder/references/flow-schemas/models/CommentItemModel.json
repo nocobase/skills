@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CommentItemModel",
+  "title": "Comment item",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "351a80da",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CommentItemModel.b5336967481a2b04f4bf.json",
+      "hash": "b5336967481a2b04f4bf"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CommentItemModel.96a5a31a8412225e7696.json",
+      "hash": "96a5a31a8412225e7696"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CommentItemModel.c2931f9251d6ed1e0396.json",
+      "hash": "c2931f9251d6ed1e0396"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

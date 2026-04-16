@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DateTimeTzFilterFieldModel",
+  "title": "Date Time Tz Filter Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "4a980258",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DateTimeTzFilterFieldModel.8b2ecb3d81d5fccbe995.json",
+      "hash": "8b2ecb3d81d5fccbe995"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DateTimeTzFilterFieldModel.d7389a3fd1df370a597d.json",
+      "hash": "d7389a3fd1df370a597d"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DateTimeTzFilterFieldModel.8232293d3b1959623d21.json",
+      "hash": "8232293d3b1959623d21"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

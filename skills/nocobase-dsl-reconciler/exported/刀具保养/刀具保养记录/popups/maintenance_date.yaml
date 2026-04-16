@@ -1,0 +1,42 @@
+target: $刀具保养记录_copy.table.fields.maintenance_date
+field: maintenance_date
+field_uid: hmxmxwbhume
+blocks:
+- key: details
+  type: details
+  coll: nb_tm_maintenance
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - content
+  - unqualified_action
+  - tool
+  - tool_id
+  - operator
+  - approval_date
+  - status
+  - createdAt
+  - maintenance_date
+  - standard_id
+  - maintenance_standard
+  - is_qualified
+  - remark
+  - maintenance_type
+  - updatedAt
+  field_layout:
+  - - content
+    - unqualified_action
+  - - tool
+    - tool_id
+  - - operator
+    - approval_date
+  - - status
+    - createdAt
+  - - maintenance_date
+    - standard_id
+  - - maintenance_standard
+    - is_qualified
+  - - remark
+    - maintenance_type
+  - - updatedAt
+mode: drawer

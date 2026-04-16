@@ -1,0 +1,48 @@
+target: $刀具信息_copy.刀具信息.fields.edit
+field: edit
+field_uid: e9k9r4v6vor
+block_key: 刀具信息
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_tools
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - code
+  - name
+  - spec
+  - cavities
+  - location
+  - status
+  - current_user_name
+  - borrow_code
+  - life_total
+  - life_used
+  - remark
+  - supplier
+  - barcode
+  - qrcode
+  - drawing
+  - category_rel
+  field_layout:
+  - '--- 基本信息 ---'
+  - - code
+    - name
+  - - i4j3vwy7
+    - spec
+  - '--- 刀具参数 ---'
+  - - cavities
+    - location
+  - '--- 状态与领用 ---'
+  - - status
+    - current_user_name
+  - - borrow_code
+  - '--- 寿命信息 ---'
+  - - life_total
+    - life_used
+  - '--- 备注 ---'
+  - - remark
+  actions:
+  - submit
+mode: drawer

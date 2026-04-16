@@ -1,0 +1,41 @@
+target: $刀具保养记录_copy.保养记录.fields.edit
+field: edit
+field_uid: wbbz51y2v58
+block_key: 保养记录
+blocks:
+- key: editForm
+  type: editForm
+  coll: nb_tm_maintenance
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+  - content
+  - unqualified_action
+  - tool
+  - tool_id
+  - operator
+  - approval_date
+  - status
+  - maintenance_date
+  - standard_id
+  - maintenance_standard
+  - is_qualified
+  - remark
+  - maintenance_type
+  field_layout:
+  - - content
+    - unqualified_action
+  - - tool
+    - tool_id
+  - - operator
+    - approval_date
+  - - status
+    - maintenance_date
+  - - standard_id
+    - maintenance_standard
+  - - is_qualified
+    - remark
+  - - maintenance_type
+  actions:
+  - submit
+mode: drawer

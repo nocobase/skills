@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "9e486e319178f63df372",
+  "ownerUses": [
+    "ActionPanelScanActionModel"
+  ],
+  "value": {
+    "uid": "todo-action-panel-scan-action-uid",
+    "use": "ActionPanelScanActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Scan QR code",
+          "icon": "ScanOutlined"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/ActionPanelScanActionModel.9e486e319178f63df372.json"
+}

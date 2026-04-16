@@ -1,0 +1,27 @@
+target: $刀具维修申请_copy.维修申请.actions.addNew
+field: addnew
+field_uid: m04mhtdssr2
+block_key: 维修申请
+blocks:
+- key: createForm
+  type: createForm
+  coll: nb_tm_repair
+  fields:
+  - report_date
+  - reporter
+  - tool
+  - damage_reason
+  - tech_lead
+  field_layout:
+  - '--- 报修信息 ---'
+  - - report_date
+    - reporter
+  - '--- 刀具 ---'
+  - - tool
+  - '--- 损坏情况 ---'
+  - - damage_reason
+  - '--- 技术负责人 ---'
+  - - tech_lead
+  actions:
+  - submit
+mode: drawer

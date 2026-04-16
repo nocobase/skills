@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "232eaf1aa9b2c1728c07",
+  "ownerUses": [
+    "DisplayEnumFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displayenumfieldmodel",
+    "use": "DisplayEnumFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayEnumFieldModel.232eaf1aa9b2c1728c07.json"
+}
