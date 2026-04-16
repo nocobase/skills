@@ -1,92 +1,107 @@
 ---
 name: nocobase-ui-builder
-description: 通过 MCP 创建、读取、更新、移动、删除 NocoBase Modern page (v2) 页面与区块；validation、review、smoke 仅在用户明确要求时进入。
-allowed-tools: All MCP tools provided by NocoBase server, plus local Node for scripts/*.mjs under this skill
+description: >-
+  Use when the user wants to inspect, draft, create, modify, reorder, or
+  delete NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and
+  block / field / action configuration. Also covers reaction-based interaction
+  authoring such as default values, computed linkage, block visibility, and
+  action enable/disable. Whole-page creation or replacement uses the simplified
+  page-structure JSON blueprint through applyBlueprint; localized edits use
+  low-level flow-surfaces APIs. Does not handle ACL, data modeling, workflow
+  orchestration, browser reproduction, page error postmortems, or
+  non-Modern-page navigation.
 ---
 
-# 目标
+# Start Here
 
-通过 `desktopRoutes` 与 `flowModels` MCP 工具处理 NocoBase Modern page (v2) 页面与区块。
+- Hard rules before you write:
+  1. `flow_surfaces_apply_blueprint.requestBody` must stay an **object**; never stringify it.
+  2. For a normal single-page request, default to exactly **one tab**; any second tab is wrong unless the user explicitly asked for multiple route-backed tabs.
+  3. Do not add placeholder content such as `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+  4. Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
+  5. For page authoring, field truth comes from `collections:get(appends=["fields"])`, not `collections.fields:list`.
+  6. A field is authorable into any block/form blueprint `fields[]` only when `collections:get(appends=["fields"])` shows a **non-empty `interface`** for that field. If `interface` is `null` / empty, the field exists in schema but is **not addable** in UI Builder authoring; omit it instead of guessing. This rule also applies to relation popups and nested popup blocks.
+  7. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object; if you keep `layout`, it must stay an object, and when unsure you should omit it.
+  8. If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field; only switch to a button or action column when the requirement explicitly asks for one.
+  9. If a destination menu group title already exists, never create another same-title group just to avoid ambiguity. Prefer an explicit `navigation.group.routeId`; otherwise reuse one existing visible same-title group deterministically from the live menu tree and disclose the chosen routeId in the prewrite preview.
+  10. Before the first `applyBlueprint`, run the local prepare-write gate on that same blueprint (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a field object that is actually needed for `popup` / `target` / `renderer` / field-specific `type`, and every custom `edit` popup contains exactly one `editForm`. If the gate reports extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, or bad custom `edit` popups, rewrite locally before writing.
+  11. For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise **ASCII-first** prewrite preview rendered from the same blueprint. Prefer the local prepare-write gate because it renders that preview and normalizes the final tool-call envelope together: short intent summary + one ASCII wireframe, popup depth exactly one level deep, and full JSON hidden unless the user asks for it. This preview is mandatory even when you will execute immediately afterward. Only stop for confirmation when the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first; otherwise show the preview and continue in the same run.
+  12. If the user asks for default values, linkage, computed values, show/hide, required/disabled, or action visibility/state, treat it as a reaction task first. Whole-page authoring goes through top-level `reaction.items[]`; localized edits go through `getReactionMeta` -> `set*Rules`. Do not start by guessing raw configure keys.
+- Minimum read set:
+  1. Read [normative-contract.md](./references/normative-contract.md) first.
+  2. Read [execution-checklist.md](./references/execution-checklist.md) second.
+  3. Then choose **one** path:
+     - whole-page `applyBlueprint` authoring -> [page-blueprint.md](./references/page-blueprint.md) + [tool-shapes.md](./references/tool-shapes.md) + [ascii-preview.md](./references/ascii-preview.md)；若从业务意图出发，再加读 [page-intent.md](./references/page-intent.md)
+     - whole-page `applyBlueprint` + interaction/reaction -> 再加读 [reaction.md](./references/reaction.md)
+     - localized existing-surface edit -> [runtime-playbook.md](./references/runtime-playbook.md) + [tool-shapes.md](./references/tool-shapes.md)，然后只读所需低层主题文档
+     - localized interaction/reaction edit -> 再加读 [reaction.md](./references/reaction.md)，并先做 `getReactionMeta`
 
-这个 skill 覆盖：
+## Routing
 
-- create / read / update / move / delete 页面、tab、block、action、JS model
-- route-ready、readback、payload guard 驱动的结构化交付
-- validation / review / improve / smoke，但只在用户明确要求时进入
+- Whole-page create or replace -> simplified `applyBlueprint` page blueprint; whole-page public write path in this skill is `applyBlueprint` only, and the default prewrite surface is one ASCII wireframe rendered from that same blueprint.
+- Localized edit on an existing page/tab/popup/node -> low-level flow-surfaces APIs.
+- Whole-page interaction / reaction authoring -> top-level `applyBlueprint.reaction.items[]`.
+- Localized interaction / reaction edit -> `getReactionMeta` first, then `setFieldValueRules` / `setFieldLinkageRules` / `setBlockLinkageRules` / `setActionLinkageRules`.
+- `flow_surfaces_context` is only the lower-level supplement for reaction authoring. Do not use it as the first discovery step when `getReactionMeta` already covers the target.
+- For requestBody-based `flow_surfaces_*` tools, send the business payload under `requestBody` as an **object**. Do not stringify it or wrap it in `{ values: ... }`. `flow_surfaces_get` is the main exception: it uses top-level locator fields directly (`pageSchemaUid` / `routeId` / `tabSchemaUid` / `uid`).
+- Before every write or requestBody-based read, verify two things first: the MCP envelope matches the tool schema, and every `target.uid` / `locator.uid` comes from live readback rather than the invented literal `"root"`.
+- If a tool returns `params/requestBody must be object`, `params/requestBody must match exactly one schema in oneOf`, or `flowSurfaces uid 'root' not found`, fix the **tool-call shape first**.
+- For actual MCP writes, prefer copying the **tool-call envelope** from `tool-shapes.md`; do not copy raw JSON examples from `page-blueprint.md` directly into a tool call.
+- `inspect` and page-blueprint drafting stay read-only until the user explicitly asks to write.
+- For page authoring / field selection, **never use `collections.fields:list`** as the field discovery tool. Use `collections:get(appends=["fields"])` as the only default field truth, and only use `collections.fields:get` for single-field follow-up when the field name is already known.
+- For page authoring / field selection, treat `collections:get(appends=["fields"])` as both the schema truth and the **UI addability gate**: if a field's `interface` is empty / null there, do not place it into any blueprint `fields[]`, even if the field is semantically important.
+- For `applyBlueprint(create)`, prefer `navigation.group.routeId` when an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.
+- If one or more visible same-title menu groups already exist, do **not** create a new same-title group for disambiguation. Reuse an existing group: prefer the exact known `routeId`, otherwise choose one deterministically from the live menu tree and state that chosen routeId in the prewrite preview.
+- For a normal single-page request, default to `tabs.length = 1`; side-by-side blocks and deep popup chains stay inside that tab unless the user explicitly asked for multiple route-backed tabs. Do not carry empty / placeholder tabs in that draft.
+- Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks just to explain future work or organize your thinking.
+- Default blueprint `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is required.
+- Before the first `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and complete the authoring self-check: tabs count matches the request, each `tab.blocks` is non-empty, there is no empty tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a required field object, and every custom `edit` popup has exactly one `editForm`. If the gate fails on extra outer tabs, stringified `requestBody`, illegal tab keys, block-level `layout`, or bad custom `edit` popups, rewrite the blueprint before the first write instead of trial-and-error against the backend.
+- For any whole-page `applyBlueprint` authoring run, show one ASCII wireframe rendered from that same blueprint before the first write. Prefer the local prepare-write gate because it renders that preview and produces the normalized `{ requestBody: <blueprint> }` tool call in one step. This preview is mandatory even when execution continues immediately. Keep popup expansion at one level, keep JSON hidden unless asked, stop only when confirmation is actually needed, and otherwise continue immediately after the preview.
+- In the public page blueprint, `layout` belongs only on `tabs[]` or inline `popup`; never put `layout` on a block object. If you are not sure the layout is correct, omit it.
+- If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field path; use a button or action column only when the user explicitly asks for one.
+- Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
+- For `edit` actions:
+  - standard single-form edit popup -> prefer backend default popup completion
+  - custom popup with sibling blocks / custom layout / deep nesting -> author explicit `popup.blocks` / `popup.layout`, and that custom popup must contain exactly one `editForm`
+- In testing / multi-agent runs, never do destructive cleanup (`destroyPage`, `remove*`, `resource_destroy`, etc.) unless the user explicitly asked for deletion.
 
-顶层 `SKILL.md` 只保留触发边界、统一入口、少量硬 gate 和最终汇报轴。具体任务路由、recipe、block/pattern/JS 契约都以下面的 canonical docs 为准：
+## Scope & Handoff
 
-- [references/index.md](references/index.md)
+- Only handle `menu-group / menu-item / page / tab / popup / content` surfaces that belong to Modern page (v2), plus block / field / action / layout / configuration inside those surfaces.
+- Do not handle non-Modern-page desktop routes, browser reproduction, ACL, workflow authoring, or collection schema mutation.
+- Explicit handoff:
+  - ACL / route permissions / role permissions -> `nocobase-acl-manage`
+  - collection / field / relation authoring -> `nocobase-data-modeling`
+  - workflow create / update / revision / execution -> `nocobase-workflow-manage`
 
-## 何时触发
+## Reference Map
 
-- 用户要创建、读取、更新、移动、删除 Modern page (v2) 页面或区块
-- 用户要用 `desktopRoutes v2` / `flowModels` 修改现有 Modern page
-- 用户要求 route-ready、readback、guard 或结构化 validation 结论
-- 用户明确要求 validation / review / improve / smoke / 浏览器验证
+### Always
 
-## 何时不要触发
+- [normative-contract.md](./references/normative-contract.md): global contract and precedence.
+- [execution-checklist.md](./references/execution-checklist.md): default runbook.
+- [verification.md](./references/verification.md): readback rules.
 
-- 只处理 collections / fields / relations：改用 `nocobase-data-modeling`
-- 只处理 workflow：改用 `nocobase-workflow-manage`
-- 只做 MCP 安装或连接：改用 `nocobase-mcp-setup`
+### Whole-page `applyBlueprint` path
 
-## 统一入口
+- [page-blueprint.md](./references/page-blueprint.md): public page blueprint contract.
+- [page-intent.md](./references/page-intent.md): high-level page intent -> page blueprint authoring heuristics.
+- [page-archetypes.md](./references/page-archetypes.md): first-pass page patterns.
+- [ascii-preview.md](./references/ascii-preview.md): ASCII-first prewrite preview rules.
+- [reaction.md](./references/reaction.md): whole-page reaction/items authoring, recipes, and guardrails.
+- [tool-shapes.md](./references/tool-shapes.md): minimal request envelopes and common invalid payloads.
 
-1. 先打开 [references/index.md](references/index.md)。
-2. 按任务路由补读对应 canonical docs、recipes、block docs、pattern docs、JS docs。
-3. 除 `rest_validation_builder.mjs` / `rest_template_clone_runner.mjs` 这类内建流水线外，默认只通过 `node scripts/ui_write_wrapper.mjs run --action <create-v2|save|mutate|ensure> ...` 执行写入。
-4. wrapper 内部负责 `start-run -> guard -> write -> readback`；不要在外层手动拆流程。
-5. validation / review / improve 只有在用户明确要求时才进入；未进入浏览器验证时，`browser_attach` / `smoke` 要记为 `skipped`。
+### Localized low-level path
 
-## 默认硬 gate
+- [runtime-playbook.md](./references/runtime-playbook.md): family/locator/write-target mental model.
+- [reaction.md](./references/reaction.md): localized reaction discovery/write route and common recipes.
+- [capabilities.md](./references/capabilities.md): block / field / action capability selection.
+- [settings.md](./references/settings.md): `configure` / `updateSettings` semantics.
+- [templates.md](./references/templates.md): template search / apply / save / detach rules.
+- [popup.md](./references/popup.md): popup semantics and guardrails.
+- [aliases.md](./references/aliases.md): narrowing ambiguous user wording.
 
-1. 只要能探测，就不要猜 `use`、slot、`requestBody` 结构。
-2. 任何探测或写操作前都必须先 `start-run`；不要先探测、后补日志。
-3. 裸 `PostDesktoproutes_createv2` / `PostFlowmodels_save` / `PostFlowmodels_mutate` / `PostFlowmodels_ensure` 默认全部禁用；agent 默认只能走 `ui_write_wrapper.mjs` 或已内置完整验证链路的 builder 流水线。
-4. `preflight_write_gate.mjs`、`flow_write_wrapper.mjs` 现在是底层/兼容组件，不再是默认 agent 入口；不要手动拆成“先 gate、再自己写、再自己补 readback”。
-5. `createV2` 成功只代表 `page shell created`；没有 route-ready 与 anchor readback 证据前，不得报页面 ready。
-6. `save` / `mutate` / `ensure` 返回 `ok` 只代表请求提交成功；最终以后续 readback 为准。
-7. 对现有页面默认做局部补丁，不要为了局部改动重建整棵页面树。
-8. 未经 schema / graph 放行的内部、未解析或高风险 model/use，不得直接写入。
-9. 除非用户明确要求打开浏览器、进入页面或做 runtime / smoke 验证，否则不要主动 attach / launch 浏览器。
-10. validation 结论必须拆开 `page shell`、`route-ready`、`readback`、`data`、`runtime`，不能合并成一个“成功”。
-11. live tree patch 禁止靠“旧 uid + 新 parent/subKey/subType”做 reparent；需要移动、克隆或重挂载业务子树时，默认 fresh remap descendants，而不是复用旧 block uid。
-12. 只要 `gridSettings.rows` 与 `subModels.items` 成员不一致，就视为高风险坏树；`save ok` 但 readback 没有稳定 `items` / slot membership 时，一律不得报成功。
+### Topic-specific
 
-## validation / review 子路径
-
-只有在用户明确要求 validation / review / improve / smoke 时才进入这一支：
-
-- 结构化 validation 规则见 [references/validation.md](references/validation.md)
-- run log、phase/gate、report、improve 规则见 [references/ops-and-review.md](references/ops-and-review.md)
-
-如果用户没有明确要求浏览器验证：
-
-- 只做到 route-ready、readback、data-ready 这一级
-- `browser_attach` / `smoke` 记为 `skipped (not requested)`
-- `runtime-usable` 汇报为 `not-run`
-
-## 最终汇报轴
-
-最终说明和 review report 默认至少单独汇报这些轴：
-
-- `pageShellCreated`
-- `routeReady`
-- `readbackMatched`
-- `dataReady`
-- `runtimeUsable`
-- `browserValidation`
-- `dataPreparation`
-- `pageUrl`
-
-允许出现的保守状态包括：
-
-- `not-recorded`
-- `evidence-insufficient`
-- `skipped (not requested)`
-- `not-run`
-
-没有 route-ready 或 readback 证据时，不要写“页面已可打开”或“已落库完成”。
-
-如果本轮实际创建或更新了页面，并且能够拿到 `adminBase`、候选页面 URL 或其他可推导地址，最终结果必须给出实际页面 URL，方便用户点击查看；只有确实无法推导时，才允许说明阻塞原因。
+- [chart.md](./references/chart.md): chart topic routing.
+- [js.md](./references/js.md): RunJS validator contract.

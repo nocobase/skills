@@ -6,7 +6,7 @@ If you need to verify complex contracts, negative cases, or regression matrices,
 
 ## Contents
 
-1. Public DSL
+1. Public Blueprint
 2. Default strategy
 3. Recommended execution order
 4. Outer block parameters (minimum exposed set)
@@ -21,7 +21,7 @@ If you need to verify complex contracts, negative cases, or regression matrices,
 13. Current skill limitations
 14. When to fall back to legacy `configure`
 
-## Public DSL
+## Public Blueprint
 
 For chart, `flowSurfaces.configure(...).changes` / `compose(...).blocks[].settings` should default to these three semantic groups:
 
@@ -179,7 +179,7 @@ Valid:
 - `context(path="chart").chart.aliases` is only safe for `visual.mappings.*`
 - Do not assume that an alias appearing in `chart.aliases` can also be used in `query.sorting.field`
 - `limit` must be an integer greater than or equal to 0; `offset` must also be an integer greater than or equal to 0
-- In the public DSL, always write `sorting[].direction = "asc" | "desc"`
+- In the public blueprint, always write `sorting[].direction = "asc" | "desc"`
 - Do not write internal persisted shape `query.orders[].order` yourself; backend compatibility logic handles that conversion
 
 Invalid:
@@ -417,13 +417,13 @@ Minimum required post-write readback:
 - `tree.stepParams.chartSettings.configure.query`
 - `tree.stepParams.chartSettings.configure.chart.option`
 - `tree.stepParams.chartSettings.configure.chart.events`
-- if the public DSL used `resource` / `sorting.direction`, readback should show the internal canonical structure:
+- if the public blueprint used `resource` / `sorting.direction`, readback should show the internal canonical structure:
   - `query.collectionPath`
   - `query.orders[].order`
 - for SQL chart, additionally confirm that it has been stably persisted into `flowSql`
 - do not judge success only from `tree.stepParams.chartSettings.configure.query.sql`
 
-On the skill side, persistence should be confirmed against the internal readback structure, not by assuming the public DSL was persisted verbatim.
+On the skill side, persistence should be confirmed against the internal readback structure, not by assuming the public blueprint was persisted verbatim.
 
 ## Boundary Reminders
 

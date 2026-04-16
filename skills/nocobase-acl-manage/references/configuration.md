@@ -1,5 +1,21 @@
 # ACL Configuration
 
+## Table of Contents
+
+- [Configuration standard](#configuration-standard)
+- [1. Create or update the role itself](#1-create-or-update-the-role-itself)
+- [2. Configure system permissions](#2-configure-system-permissions)
+- [3. Set the default role](#3-set-the-default-role)
+- [4. Set the system role mode](#4-set-the-system-role-mode)
+- [5. Configure route permissions](#5-configure-route-permissions)
+- [6. Configure global table permissions](#6-configure-global-table-permissions)
+- [7. Configure table independent permissions](#7-configure-table-independent-permissions)
+- [8. Configure field permissions](#8-configure-field-permissions)
+- [9. Configure row scopes](#9-configure-row-scopes)
+- [Recommended MCP Workflow](#recommended-mcp-workflow)
+- [CRM Example](#crm-example)
+- [Verification MCP Pattern](#verification-mcp-pattern)
+
 ## Configuration standard
 
 When the user asks for a realistic business-role configuration, do not stop after creating roles and adding a few actions.
@@ -19,7 +35,7 @@ General rule:
 - If a layer is intentionally empty, write down the reason.
 - Do not leave global strategy empty, field lists empty, or scope empty by accident.
 - "No scope" is only valid when the business truly wants full-row access for that action.
-- "No field restriction" is only valid when the business truly accepts full-field access for that action.
+- "No field restriction" must be implemented with explicit full field-name lists, not `fields: []`.
 
 ## 1. Create or update the role itself
 
@@ -74,11 +90,11 @@ General rule:
 
 Use the dedicated default-role action when the user wants all new users to receive a specific role automatically.
 
-Do not infer this from the role title or from a role being “basic”.
+Do not infer this from the role title or from a role being "basic".
 
 ## 4. Set the system role mode
 
-Check role mode before debugging “wrong permissions” for multi-role users.
+Check role mode before debugging "wrong permissions" for multi-role users.
 
 - `default`
   - Users operate under one active role.
@@ -152,7 +168,7 @@ Realistic-role guidance:
 
 - Independent permissions should usually include not only action names but also an explicit field strategy for important actions.
 - For business roles, `view`, `create`, `update`, and `export` often need different field lists.
-- If fields are omitted intentionally, confirm that full-field access is acceptable for that action.
+- If full-field access is intended, resolve collection fields and write explicit non-empty field arrays for that action.
 
 ## 8. Configure field permissions
 
@@ -347,15 +363,17 @@ Field guidance for this CRM:
 - For view and export actions, include relation labels only if the action supports field configuration and the UI actually needs them.
 - When create and update actions carry association values, make sure the association fields are not accidentally excluded from the allowed field list.
 
-## Verification API Pattern
+## Verification MCP Pattern
 
-Use the real API shape when auditing results:
+Use MCP tool contracts when auditing results. Do not fallback to direct HTTP `/api/*` calls.
 
-1. `dataSources:list`
-2. `dataSources/{dataSourceKey}/roles:get`
-3. `roles/{roleName}/dataSourcesCollections:list`
-4. `roles/{roleName}/dataSourceResources:get`
-5. `rolesResourcesScopes:get` or `dataSources/{dataSourceKey}/rolesResourcesScopes:get`
+1. `roles_list`
+2. `data_sources_roles_get`
+3. `roles_data_sources_collections_list`
+4. `roles_data_source_resources_get`
+5. `data_sources_roles_resources_scopes_get` or `data_sources_roles_resources_scopes_list`
+
+All checks above should be executed through `tools/call` with runtime tool names from `tools/list`.
 
 For scoped actions, do not rely only on appended `actions.scope` payloads. Prefer:
 
