@@ -10,10 +10,17 @@ blocks:
           - reason
       - leave_type
       - status
+    js_items:
+      - desc: Leave Request Stats Filter Block
+        file: ./js/filter_stats.js
     field_layout:
+      - - '[JS:Leave Request Stats Filter Block]'
       - - employee
         - leave_type
       - - status
+    actions:
+      - submit
+      - reset
   - key: table
     type: table
     coll: nb_hrm_leave_requests

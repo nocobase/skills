@@ -11,11 +11,16 @@ blocks:
           - email
           - position
       - status
-      - department
+    js_items:
+      - desc: Employee Stats Filter Block
+        file: ./js/filter_stats.js
     field_layout:
+      - - '[JS:Employee Stats Filter Block]'
       - - name
         - status
-      - - department
+    actions:
+      - submit
+      - reset
   - key: table
     type: table
     coll: nb_hrm_employees

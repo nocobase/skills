@@ -9,8 +9,15 @@ blocks:
           - name
           - code
           - description
+    js_items:
+      - desc: Department Stats Filter Block
+        file: ./js/filter_stats.js
     field_layout:
+      - - '[JS:Department Stats Filter Block]'
       - - name
+    actions:
+      - submit
+      - reset
   - key: table
     type: table
     coll: nb_hrm_departments
