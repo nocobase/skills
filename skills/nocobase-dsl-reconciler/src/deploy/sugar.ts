@@ -161,13 +161,11 @@ function expandBlockList(
 }
 
 /**
- * Apply default popup templates to fields that match defaults.popups.
- * For table fields that are plain strings (no popup config), if the field's
- * target collection has a default popup template, auto-add `popup:` setting.
+ * Apply default popup templates to m2o fields based on collection metadata.
  *
- * This requires knowing which fields are relation fields. We infer from:
- * - Field names that match collection names (e.g. 'customer' → nb_crm_customers)
- * - Or fields listed in defaults.popups keys
+ * Reads collection YAML to find m2o fields and their targets, then matches
+ * targets against defaults.popups. This is reliable (uses actual target)
+ * unlike field-name guessing (which fails for 'assignee' → 'members').
  */
 function applyFieldDefaults(
   block: Record<string, unknown>,
@@ -180,59 +178,50 @@ function applyFieldDefaults(
   const fields = block.fields as unknown[];
   if (!Array.isArray(fields)) return;
 
-  // Build a lookup: field name patterns → popup template path
-  // defaults.popups is collectionName → templatePath
-  // A field named 'customer' likely points to collection containing 'customer'
   const popupMap = defaults.popups;
+
+  // Build fieldName → targetCollection map from collection YAML
+  const blockColl = (block.coll || '') as string;
+  const m2oTargets = new Map<string, string>(); // fieldName → targetCollection
+  if (blockColl) {
+    const collDir = path.join(projectRoot, 'collections');
+    const collFile = path.join(collDir, `${blockColl}.yaml`);
+    if (fs.existsSync(collFile)) {
+      try {
+        const collDef = loadYaml<Record<string, unknown>>(collFile);
+        const collFields = (collDef?.fields || []) as Record<string, unknown>[];
+        for (const cf of collFields) {
+          if (cf.interface === 'm2o' && cf.target) {
+            m2oTargets.set(cf.name as string, cf.target as string);
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
 
   for (let i = 0; i < fields.length; i++) {
     const f = fields[i];
+    const fieldName = typeof f === 'string' ? f : ((f as Record<string, unknown>)?.field || '') as string;
+    if (!fieldName) continue;
+
     // Skip fields that already have popup config
     if (typeof f === 'object' && f !== null) {
       const fo = f as Record<string, unknown>;
       if (fo.popup || fo.clickToOpen || fo.popupSettings) continue;
-      // Check if field name matches a default
-      const fieldName = (fo.field || fo.fieldPath || '') as string;
-      if (!fieldName) continue;
-      const templatePath = findDefaultPopup(fieldName, popupMap, projectRoot);
-      if (templatePath) {
-        fo.popup = templatePath;
-      }
-    } else if (typeof f === 'string') {
-      // Bare field name — check if it matches a default
-      const templatePath = findDefaultPopup(f, popupMap, projectRoot);
-      if (templatePath) {
+    }
+
+    // Look up m2o target → defaults.popups
+    const target = m2oTargets.get(fieldName);
+    const templatePath = target ? popupMap[target] : null;
+
+    if (templatePath) {
+      if (typeof f === 'string') {
         fields[i] = { field: f, popup: templatePath };
+      } else {
+        (f as Record<string, unknown>).popup = templatePath;
       }
     }
   }
-}
-
-/**
- * Find default popup template for a field name.
- * Matches field name against collection names in defaults.popups.
- * E.g. field 'customer' matches 'nb_crm_customers' or 'customers'.
- */
-function findDefaultPopup(
-  fieldName: string,
-  popupMap: Record<string, string>,
-  projectRoot: string,
-): string | null {
-  const fn = fieldName.toLowerCase();
-  for (const [coll, templatePath] of Object.entries(popupMap)) {
-    const collLower = coll.toLowerCase();
-    // Direct match: field name = collection name
-    if (fn === collLower) return templatePath;
-    // Singular match: 'customer' matches 'nb_crm_customers'
-    if (collLower.endsWith(fn) || collLower.endsWith(`${fn}s`)) return templatePath;
-    // Suffix match: 'lead' matches 'nb_crm_leads'
-    const collParts = collLower.split('_');
-    const lastPart = collParts[collParts.length - 1];
-    if (lastPart === fn || lastPart === `${fn}s`) return templatePath;
-    // Singular of last part: 'nb_crm_leads' → 'lead' matches 'lead'
-    if (lastPart.endsWith('s') && lastPart.slice(0, -1) === fn) return templatePath;
-  }
-  return null;
 }
 
 /**
