@@ -134,40 +134,40 @@ pages:
         target_uid: xbioq63vmuv
         blocks:
           details:
-            uid: oaorgxfmvha
+            uid: x1mc0vzhhw1
             type: details
-            grid_uid: 7ax70a8kxem
+            grid_uid: lrcqji82n5n
             fields:
               name:
-                wrapper: b17otiy1fpr
-                field: 3tqr22rtgmv
+                wrapper: lg3pzjzfnfx
+                field: xlmqxet96xu
               code:
-                wrapper: v4c94oggqj9
-                field: nf29rb4l8d7
+                wrapper: iv12xr292gi
+                field: qiizx818ova
               status:
-                wrapper: q0l1kg1tt93
-                field: vsqnuahqore
+                wrapper: y0yewzqalbc
+                field: d3refjxwljq
               priority:
-                wrapper: aubxd2sxgcg
-                field: ep5ygbp59z0
+                wrapper: ehi4j34bo4r
+                field: lcmy25yobil
               owner:
-                wrapper: wdyjeii1o7y
-                field: g6htrruzktf
+                wrapper: oqfgefoa5co
+                field: n3xjfxtch10
               start_date:
-                wrapper: sb7yp0a1p42
-                field: 9aqa8i6r13j
+                wrapper: 8pkvi9vgrkt
+                field: vtq0dfo4my8
               end_date:
-                wrapper: iifgil7j743
-                field: 4h7co5gwraf
+                wrapper: cf56zedusas
+                field: 8v8192ca7dl
               budget:
-                wrapper: cce60d8o10i
-                field: rk7m9vb2wyh
+                wrapper: 7btxyih6bte
+                field: gplmbvdywa9
               description:
-                wrapper: el13ut8hpk3
-                field: qs1raajdi9m
+                wrapper: 8mirc8qx2a2
+                field: pgeluqjr38p
               createdAt:
-                wrapper: a8ub7v9dpii
-                field: 26i7kio8xpo
+                wrapper: dphhdvcnoqu
+                field: kjp27rbaypw
   tasks:
     route_id: 359285306818560
     page_uid: q7qbqeme12a
@@ -306,37 +306,37 @@ pages:
         target_uid: ctxu4tpwpgi
         blocks:
           details:
-            uid: nbggkmadwqd
+            uid: 0oot7nu6tk6
             type: details
-            grid_uid: 7kjf95qkmrt
+            grid_uid: 7sp72fz3bd8
             fields:
               name:
-                wrapper: if9mgtary48
-                field: fbdg5jvj6mp
+                wrapper: xx8e12jwphd
+                field: bi8odrpmbth
               project:
-                wrapper: h6qskw0vtol
-                field: bcsgso10tx5
+                wrapper: uukjbdms20m
+                field: af6vby8pqar
               assignee:
-                wrapper: g2mfcucai4i
-                field: 05v0iqw0v7q
+                wrapper: y8hsa0ik3om
+                field: gszl3i8w6hl
               status:
-                wrapper: phg7sty9dk2
-                field: pom4akfbpil
+                wrapper: bd9nluqu30c
+                field: 9h82owopt9j
               priority:
-                wrapper: y8t0ybqal18
-                field: e6ll0yfz6be
+                wrapper: yu7cf24xkdd
+                field: x263qvlfugs
               due_date:
-                wrapper: blh4dvfc26x
-                field: axsuw2e8qdn
+                wrapper: nsdgs4hmehb
+                field: uq1r3tz0gvx
               estimated_hours:
-                wrapper: ucsan3uctxo
-                field: p7q40o39yib
+                wrapper: 8hf6ze4ufvx
+                field: iy5z6xofadu
               description:
-                wrapper: 3lu5puahx91
-                field: srczzhuccq0
+                wrapper: kvdkhr7t5zg
+                field: t891mxi3pak
               createdAt:
-                wrapper: imb9u8tch2k
-                field: 91o5l0hsc61
+                wrapper: sddoopoexaw
+                field: poiqesjquci
   members:
     route_id: 359285317304320
     page_uid: pltyiz9vqkx
