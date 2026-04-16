@@ -1,9 +1,6 @@
 name: nb_pm_tasks
 title: Tasks
 fields:
-  - name: id
-    interface: integer
-    title: ID
   - name: name
     interface: input
     title: Name
@@ -28,23 +25,11 @@ fields:
   - name: due_date
     interface: dateOnly
     title: Due Date
-  - name: project_id
-    interface: integer
-    title: Project ID
   - name: project
     interface: m2o
     title: Project
     target: nb_pm_projects
-  - name: assignee_id
-    interface: integer
-    title: Assignee ID
   - name: assignee
     interface: m2o
     title: Assignee
     target: nb_pm_members
-  - name: createdAt
-    interface: createdAt
-    title: Created At
-  - name: updatedAt
-    interface: updatedAt
-    title: Updated At

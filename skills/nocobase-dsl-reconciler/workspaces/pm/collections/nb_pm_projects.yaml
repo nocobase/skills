@@ -1,9 +1,6 @@
 name: nb_pm_projects
 title: Projects
 fields:
-  - name: id
-    interface: integer
-    title: ID
   - name: name
     interface: input
     title: Name
@@ -34,9 +31,6 @@ fields:
   - name: budget
     interface: number
     title: Budget
-  - name: manager_id
-    interface: integer
-    title: Manager ID
   - name: manager
     interface: m2o
     title: Manager
@@ -44,9 +38,3 @@ fields:
   - name: tasks
     interface: o2m
     title: Tasks
-  - name: createdAt
-    interface: createdAt
-    title: Created At
-  - name: updatedAt
-    interface: updatedAt
-    title: Updated At
