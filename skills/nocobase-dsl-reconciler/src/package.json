@@ -1,0 +1,24 @@
+{
+  "name": "@nocobase/dsl-reconciler",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/cli.ts",
+    "deploy": "tsx src/cli/cli.ts deploy",
+    "export": "tsx src/cli/cli.ts export",
+    "verify-sql": "tsx src/cli/cli.ts verify-sql"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

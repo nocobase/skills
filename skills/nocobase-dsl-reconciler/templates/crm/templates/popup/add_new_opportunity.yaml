@@ -1,0 +1,12 @@
+uid: zq14gdeeqvp
+name: Add new opportunity
+type: popup
+collectionName: nb_crm_opportunities
+dataSourceKey: main
+targetUid: x7xircn7ok1
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,0 +1,184 @@
+module: Main
+icon: dashboardoutlined
+pages:
+- page: Overview
+  icon: calendaroutlined
+  blocks:
+  - key: js_a8a5bd
+    type: js
+    file: ./js/js_a8a5bd.js
+  - key: table_63bd12
+    type: table
+    coll: nb_crm_activities
+    fields:
+    - subject
+    - activity_date
+    actions:
+    - filter
+    - refresh
+    - link
+    - addNew
+    - AIEmployeeButton
+    recordActions:
+    - UpdateRecordAction
+    - UpdateRecordAction
+  - key: table_1bd65d
+    type: table
+    coll: nb_crm_leads
+    fields:
+    - name
+    - ai_next_best_action
+    - updatedAt
+    js_columns:
+    - uid: 1b7871f06af
+      title: AI Score
+      file: ./js/table_1bd65d_col_AI_Score.js
+    actions:
+    - filter
+    - refresh
+    - link
+    - AIEmployeeButton
+  - key: js_6d323a
+    type: js
+    file: ./js/js_6d323a.js
+- page: Leads
+  icon: useraddoutlined
+  blocks:
+  - key: table_b3f6e3
+    type: table
+    coll: nb_crm_leads
+    fields:
+    - name
+    - source
+    - status
+    - industry
+    - owner
+    js_columns:
+    - uid: 720cbfa7842
+      title: Lead Name/Company
+      file: ./js/table_b3f6e3_col_Lead_Name_Company.js
+    - uid: d8d8a4a3a80
+      title: Contact
+      file: ./js/table_b3f6e3_col_Contact.js
+    - uid: 7f1891a8535
+      title: AI Score
+      file: ./js/table_b3f6e3_col_AI_Score.js
+    - uid: c70f578bbb4
+      title: Created
+      file: ./js/table_b3f6e3_col_Created.js
+    actions:
+    - filter
+    - refresh
+    - export
+    - import
+    - addNew
+    - AIEmployeeButton
+  - key: filterForm_142c7c
+    type: filterForm
+    fields:
+    - name
+- page: Customers
+  icon: teamoutlined
+  blocks:
+  - key: table_d8498e
+    type: table
+    coll: nb_crm_customers
+    fields:
+    - name
+    - type
+    - region
+    - level
+    - status
+    - owner
+    js_columns:
+    - uid: 5ebbc5a7f21
+      title: Health Score
+      file: ./js/table_d8498e_col_Health_Score.js
+    - uid: 084e3b50100
+      title: Last Activity
+      file: ./js/table_d8498e_col_Last_Activity.js
+    actions:
+    - filter
+    - refresh
+    - addNew
+    - CollectionTriggerWorkflowAction
+    - AIEmployeeButton
+  - key: filterForm_e31595
+    type: filterForm
+    fields:
+    - name
+- page: Opportunities
+  icon: fundoutlined
+  blocks:
+  - key: js_a19ac2
+    type: js
+    file: ./js/js_a19ac2.js
+  - key: js_79de06
+    type: js
+    file: ./js/js_79de06.js
+- page: Orders
+  icon: shoppingcartoutlined
+  blocks:
+  - key: filterForm_89a416
+    type: filterForm
+    fields:
+    - 30d65b9f8f5
+    field_layout:
+    - - 30d65b9f8f5
+- page: Products
+  icon: appstoreoutlined
+  blocks:
+  - key: table_121ad8
+    type: table
+    coll: nb_crm_products
+    fields:
+    - name
+    - product_code
+    - list_price
+    - cost_price
+    - base_currency
+    - unit
+    - specification
+    - category
+    actions:
+    - filter
+    - refresh
+    - addNew
+  - key: js_67558b
+    type: js
+    file: ./js/js_67558b.js
+- page: Analytics
+  icon: areachartoutlined
+  blocks:
+  - key: filterForm_sp0bbl
+    type: filterForm
+    fields:
+    - jiuuge553tz
+    - owner
+    - xp880ob3lz8
+    field_layout:
+    - - jiuuge553tz: 10
+      - owner: 5
+      - xp880ob3lz8: 5
+  - key: chart_hu4haj
+    type: chart
+  - key: chart_efd8l3
+    type: chart
+  - key: chart_fado2j
+    type: chart
+  - key: chart_dvigfl
+    type: chart
+  - key: chart_iay7yv
+    type: chart
+  - key: js_ni91bo
+    type: js
+    file: ./js/js_ni91bo.js
+  - key: js_xgsg79
+    type: js
+    file: ./js/js_xgsg79.js
+  - key: js_q59ehm
+    type: js
+    file: ./js/js_q59ehm.js
+  - key: js_g71gpl
+    type: js
+    file: ./js/js_g71gpl.js

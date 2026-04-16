@@ -1,0 +1,3 @@
+blocks:
+  - js: ./js/customers_merge_jsBlock.js
+    key: jsBlock

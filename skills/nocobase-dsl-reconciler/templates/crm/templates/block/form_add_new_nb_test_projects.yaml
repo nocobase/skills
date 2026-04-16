@@ -1,0 +1,22 @@
+uid: bkv14le27g4
+name: 'Form (Add new): Nb Test Projects'
+type: block
+collectionName: nb_test_projects
+dataSourceKey: main
+targetUid: tje6b7z4j3y
+description: 'Form (Add new): Nb Test Projects'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_test_projects
+  fields:
+    - name
+    - status
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - status
+    - - description
+  actions:
+    - submit

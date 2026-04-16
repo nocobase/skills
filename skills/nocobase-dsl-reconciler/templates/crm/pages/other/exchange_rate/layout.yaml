@@ -1,0 +1,38 @@
+blocks:
+  - key: currencies
+    type: table
+    title: Currencies
+    coll: nb_cbo_currencies
+    fields:
+      - field: name
+        popup:
+          size: medium
+      - field: code
+        width: 100
+      - field: symbol
+        width: 100
+      - current_rate
+    actions:
+      - filter
+      - refresh
+      - addNew
+  - key: exchange_rates
+    type: table
+    title: Exchange Rates
+    coll: nb_crm_exchange_rates
+    fields:
+      - field: currency_code
+        popup:
+          size: medium
+      - currency
+      - field: rate_to_usd
+        width: 100
+      - source
+    actions:
+      - filter
+      - refresh
+      - addNew
+      - bulkDelete
+layout:
+  - - currencies: 11
+    - exchange_rates: 13

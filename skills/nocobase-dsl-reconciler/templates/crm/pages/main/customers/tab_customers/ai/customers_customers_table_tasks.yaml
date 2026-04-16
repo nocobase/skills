@@ -1,0 +1,9 @@
+tasks:
+  - title: Customers Analysis
+    user: Give me an overview of my customer base.
+    system_file: ./ai/customers_customers_table_task0.md
+    autoSend: true
+  - title: Contacts Analysis
+    user: Analyze my contact coverage and quality.
+    system_file: ./ai/customers_customers_table_task1.md
+    autoSend: true

@@ -1,0 +1,14 @@
+target: $SELF.contacts.actions.addNew
+mode: drawer
+blocks:
+  - key: createForm
+    type: createForm
+    coll: nb_crm_contacts
+    resource_binding:
+      associationName: nb_crm_customers.contacts
+      sourceId: '{{ctx.view.inputArgs.sourceId}}'
+    templateRef:
+      templateUid: e2dlzncn3pu
+      templateName: 'Form (Edit): Customers > Contacts (Contacts)'
+      targetUid: 26a1e02dba7
+      mode: reference

@@ -1,0 +1,25 @@
+name: nb_crm_tags
+title: '{{t("Tags")}}'
+fields:
+  - name: updatedAt
+    interface: updatedAt
+  - name: createdBy
+    interface: createdBy
+  - name: id
+    interface: integer
+  - name: tag_type
+    interface: select
+  - name: color
+    interface: input
+  - name: createdById
+    interface: integer
+  - name: label
+    interface: input
+  - name: updatedBy
+    interface: updatedBy
+  - name: description
+    interface: textarea
+  - name: createdAt
+    interface: createdAt
+  - name: updatedById
+    interface: integer

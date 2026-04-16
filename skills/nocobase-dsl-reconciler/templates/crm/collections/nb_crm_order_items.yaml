@@ -1,0 +1,49 @@
+name: nb_crm_order_items
+title: Order Items
+fields:
+  - name: updatedAt
+    interface: updatedAt
+  - name: product_code
+    interface: input
+  - name: quotation_item_id
+    interface: integer
+  - name: order
+    interface: m2o
+  - name: delivered_qty
+    interface: integer
+  - name: sort_order
+    interface: integer
+  - name: product
+    interface: m2o
+  - name: updatedById
+    interface: integer
+  - name: line_amount
+    interface: number
+  - name: createdBy
+    interface: createdBy
+  - name: product_name
+    interface: input
+  - name: unit
+    interface: input
+  - name: id
+    interface: id
+  - name: unit_price
+    interface: number
+  - name: quantity
+    interface: integer
+  - name: createdById
+    interface: integer
+  - name: product_id
+    interface: integer
+  - name: updatedBy
+    interface: updatedBy
+  - name: createdAt
+    interface: createdAt
+  - name: order_id
+    interface: integer
+  - name: is_deleted
+    interface: checkbox
+  - name: specification
+    interface: input
+  - name: description
+    interface: textarea

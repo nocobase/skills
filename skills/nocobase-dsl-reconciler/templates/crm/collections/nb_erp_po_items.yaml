@@ -1,0 +1,25 @@
+name: nb_erp_po_items
+title: PO Items
+fields:
+  - name: createdBy
+    interface: createdBy
+  - name: createdAt
+    interface: createdAt
+  - name: purchase_orderId
+    interface: integer
+  - name: id
+    interface: snowflakeId
+  - name: purchase_order
+    interface: m2o
+  - name: updatedBy
+    interface: updatedBy
+  - name: quantity
+    interface: integer
+  - name: unit_price
+    interface: number
+  - name: product
+    interface: m2o
+  - name: productId
+    interface: integer
+  - name: updatedAt
+    interface: updatedAt

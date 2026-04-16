@@ -1,0 +1,29 @@
+uid: nf1p73see2e
+name: 'Form (Edit): Members'
+type: block
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: 4npuel633ad
+description: 'Form (Edit): Members'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_members
+  fields:
+    - name
+    - email
+    - role
+    - department
+    - phone
+    - status
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - email
+    - - role
+      - department
+    - - status
+    - - phone
+    - '--- Member Info ---'
+  actions:
+    - submit

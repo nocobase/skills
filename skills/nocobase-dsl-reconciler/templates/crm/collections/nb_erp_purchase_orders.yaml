@@ -1,0 +1,17 @@
+name: nb_erp_purchase_orders
+title: Purchase Orders
+fields:
+  - name: supplierId
+    interface: integer
+  - name: items
+    interface: o2m
+  - name: status
+    interface: select
+  - name: code
+    interface: input
+  - name: total_amount
+    interface: number
+  - name: order_date
+    interface: dateOnly
+  - name: supplier
+    interface: m2o

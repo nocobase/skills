@@ -1,0 +1,33 @@
+name: nb_crm_product_categories
+title: Product Categories
+fields:
+  - name: updatedAt
+    interface: updatedAt
+  - name: parentId
+    interface: snowflakeId
+  - name: category_code
+    interface: sequence
+  - name: updatedBy
+    interface: updatedBy
+  - name: updatedById
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: id
+    interface: snowflakeId
+  - name: description
+    interface: textarea
+  - name: products
+    interface: o2m
+  - name: createdAt
+    interface: createdAt
+  - name: parent
+    interface: m2o
+  - name: sort_order
+    interface: integer
+  - name: children
+    interface: o2m
+  - name: createdById
+    interface: integer
+  - name: name
+    interface: input

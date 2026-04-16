@@ -1,0 +1,26 @@
+uid: po6i8mu44e2
+name: 'Detail: Suppliers'
+type: block
+collectionName: nb_erp_suppliers
+dataSourceKey: main
+targetUid: 3l52wzx8lac
+description: 'Detail: Suppliers'
+content:
+  key: details
+  type: details
+  coll: nb_erp_suppliers
+  fields:
+    - name
+    - contact
+    - phone
+    - email
+    - address
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - contact
+    - '--- Contact ---'
+    - - phone
+      - email
+    - - address
+    - '--- Address ---'

@@ -1,0 +1,35 @@
+name: nb_crm_comments
+title: Comments
+fields:
+  - name: updatedBy
+    interface: updatedBy
+  - name: createdBy
+    interface: createdBy
+  - name: updatedById
+    interface: integer
+  - name: updatedAt
+    interface: updatedAt
+  - name: opportunity_id
+    interface: integer
+  - name: customer_id
+    interface: integer
+  - name: createdById
+    interface: integer
+  - name: createdAt
+    interface: createdAt
+  - name: content
+    interface: vditor
+  - name: lead_id
+    interface: integer
+  - name: customer
+    interface: m2o
+  - name: lead
+    interface: m2o
+  - name: opportunity
+    interface: m2o
+  - name: order
+    interface: m2o
+  - name: order_id
+    interface: integer
+  - name: id
+    interface: snowflakeId

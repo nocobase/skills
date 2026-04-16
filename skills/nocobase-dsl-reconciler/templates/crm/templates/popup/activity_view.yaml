@@ -1,0 +1,15 @@
+uid: gn64s38sjki
+name: Activity View
+type: popup
+collectionName: nb_crm_activities
+dataSourceKey: main
+targetUid: ibbbzxrx5p3
+content:
+  blocks:
+    - key: editForm
+      type: editForm
+      coll: nb_crm_activities
+      resource_binding:
+        filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+      actions:
+        - submit

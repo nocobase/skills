@@ -1,0 +1,23 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_crm_opportunities
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - customer.name
+          - customer.account_number
+    js_items:
+      - key: pipeline_stats_filter_block
+        file: ./js/opportunities_table_filterForm_pipeline_stats_filter_block.js
+        desc: Pipeline Stats Filter Block
+    field_layout:
+      - - '[JS:Pipeline Stats Filter Block]'
+      - - name
+  - ref: templates/block/table_opportunities.yaml
+    key: reference
+layout:
+  - - filterForm
+  - - reference

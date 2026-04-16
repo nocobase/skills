@@ -1,0 +1,52 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_po_items
+    fields:
+      - field: product
+        label: Product
+        filterPaths:
+          - product.id
+    field_layout:
+      - - product
+  - key: table
+    type: table
+    coll: nb_erp_po_items
+    fields:
+      - field: product
+        popup: templates/popup/popup_detail_nb_erp_products.yaml
+      - field: purchase_order
+        popup: templates/popup/popup_detail_nb_erp_purchase_orders.yaml
+      - quantity
+      - unit_price
+    recordActions:
+      - type: edit
+        stepParams:
+          buttonSettings:
+            general:
+              title: Edit
+              icon: null
+              type: link
+          popupSettings:
+            openView:
+              mode: drawer
+              size: large
+              pageModelClass: ChildPageModel
+              dataSourceKey: main
+              collectionName: ''
+              uid: ib2n5rs6m9u
+          displayFieldSettings:
+            clickToOpen:
+              clickToOpen: true
+        props:
+          title: Edit
+          icon: null
+          type: link
+        key: edit_edit
+    actions:
+      - filter
+      - refresh
+      - addNew
+layout:
+  - - filterForm
+  - - table

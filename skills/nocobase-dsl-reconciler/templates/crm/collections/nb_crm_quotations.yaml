@@ -1,0 +1,91 @@
+name: nb_crm_quotations
+title: Quotations
+fields:
+  - name: payment_terms
+    interface: textarea
+  - name: approved_by
+    interface: integer
+  - name: opportunity
+    interface: m2o
+  - name: extra
+    interface: json
+  - name: sent_at
+    interface: datetime
+  - name: createdAt
+    interface: createdAt
+  - name: updatedById
+    interface: integer
+  - name: id
+    interface: integer
+  - name: currencyInfo
+    interface: m2o
+  - name: exchange_rate
+    interface: number
+  - name: submitted_at
+    interface: datetime
+  - name: updatedAt
+    interface: updatedAt
+  - name: createdById
+    interface: integer
+  - name: quotation_no
+    interface: sequence
+  - name: tax_amount
+    interface: number
+  - name: updatedBy
+    interface: updatedBy
+  - name: discount_rate
+    interface: percent
+  - name: discount_amount
+    interface: number
+  - name: status
+    interface: input
+  - name: currency_id
+    interface: integer
+  - name: total_amount
+    interface: number
+  - name: customer
+    interface: m2o
+  - name: valid_until
+    interface: date
+  - name: subtotal
+    interface: number
+  - name: contact
+    interface: m2o
+  - name: expired_at
+    interface: datetime
+  - name: name
+    interface: input
+  - name: shipping_handling
+    interface: number
+  - name: approved_at
+    interface: datetime
+  - name: items
+    interface: o2m
+  - name: customer_response_at
+    interface: datetime
+  - name: terms_condition
+    interface: textarea
+  - name: description
+    interface: textarea
+  - name: customer_id
+    interface: integer
+  - name: tax_rate
+    interface: percent
+  - name: total_amount_usd
+    interface: number
+  - name: orders
+    interface: o2m
+  - name: contact_id
+    interface: integer
+  - name: owner_id
+    interface: integer
+  - name: rejected_at
+    interface: datetime
+  - name: opportunity_id
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: version
+    interface: integer
+  - name: address
+    interface: textarea

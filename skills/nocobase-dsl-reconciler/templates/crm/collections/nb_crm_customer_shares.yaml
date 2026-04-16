@@ -1,0 +1,27 @@
+name: nb_crm_customer_shares
+title: Customer Shares
+fields:
+  - name: updatedBy
+    interface: updatedBy
+  - name: shared_at
+    interface: datetime
+  - name: updatedById
+    interface: integer
+  - name: createdAt
+    interface: createdAt
+  - name: customer_id
+    interface: integer
+  - name: shared_with_user_id
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: permission_level
+    interface: select
+  - name: id
+    interface: id
+  - name: shared_by_user_id
+    interface: integer
+  - name: updatedAt
+    interface: updatedAt
+  - name: createdById
+    interface: integer

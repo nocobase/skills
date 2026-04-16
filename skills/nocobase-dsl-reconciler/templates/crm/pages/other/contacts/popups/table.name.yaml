@@ -1,0 +1,22 @@
+target: $SELF.table.fields.name
+mode: drawer
+tabs:
+  - title: Tab0
+    blocks:
+      - key: details
+        type: details
+        coll: nb_crm_contacts
+        resource_binding:
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+        actions:
+          - edit
+  - title: Tab1
+    blocks: []
+  - title: Tab2
+    blocks:
+      - key: recordHistory
+        type: recordHistory
+        coll: nb_crm_contacts
+        actions:
+          - filter
+          - refresh

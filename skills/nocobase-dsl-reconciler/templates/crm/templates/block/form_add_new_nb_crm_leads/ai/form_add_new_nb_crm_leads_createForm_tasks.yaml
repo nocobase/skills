@@ -1,0 +1,13 @@
+tasks:
+  - title: Lead Form Filler
+    user: |-
+      User: Met someone at CES yesterday, here's the card info:
+      David Zhang
+      Director of Innovation, Huachuang Tech Ltd
+      david.zhang@huachuang-tech.com
+      Mobile: +86 138 1234 5678
+      Shenzhen, China
+
+      Chatted for about 15 minutes, they're looking for an enterprise data analytics platform, budget around 100-150K, need to go live by Q2. Very urgent, asked me to send a proposal this week.
+    system_file: ./ai/form_add_new_nb_crm_leads_createForm_task0.md
+    autoSend: true

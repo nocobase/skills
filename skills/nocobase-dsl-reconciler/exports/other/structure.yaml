@@ -1,0 +1,107 @@
+module: Other
+icon: appstoreaddoutlined
+pages:
+- page: Stage Settings
+  icon: apartmentoutlined
+  blocks:
+  - key: table_686093
+    type: table
+    coll: nb_crm_opportunity_stages
+    fields:
+    - color
+    - name
+    - code
+    - win_probability
+    - description
+    - space
+    actions:
+    - filter
+    - refresh
+    - addNew
+- page: Exchange Rate
+  icon: dollaroutlined
+  blocks:
+  - key: table_077d67
+    type: table
+    coll: nb_crm_exchange_rates
+    fields:
+    - currency_code
+    - currency
+    - rate_to_usd
+    - source
+    actions:
+    - filter
+    - refresh
+    - addNew
+    - bulkDelete
+  - key: table_da8e1d
+    type: table
+    coll: nb_cbo_currencies
+    fields:
+    - name
+    - code
+    - symbol
+    - current_rate
+    actions:
+    - filter
+    - refresh
+    - addNew
+- page: Activity
+  icon: orderedlistoutlined
+  blocks:
+  - key: table_169a3e
+    type: table
+    coll: nb_crm_activities
+    fields:
+    - subject
+    - type
+    - activity_date
+    - lead
+    - customer
+    - opportunity
+    - contact
+    - owner
+    actions:
+    - filter
+    - refresh
+    - addNew
+    - AIEmployeeButton
+  - key: filterForm_6c98b1
+    type: filterForm
+    fields:
+    - subject
+- page: Emails
+  icon: mailoutlined
+  blocks: []
+- page: Contacts
+  icon: usergroupaddoutlined
+  blocks:
+  - key: table_88b44f
+    type: table
+    coll: nb_crm_contacts
+    fields:
+    - name
+    - salutation
+    - email
+    - phone
+    - mobile
+    - title
+    actions:
+    - filter
+    - refresh
+    - addNew
+- page: Data Analysis
+  icon: compassoutlined
+  blocks:
+  - key: table_1d67e0
+    type: table
+    coll: nb_crm_data_analysis
+    fields:
+    - name
+    - collection
+    - description
+    actions:
+    - filter
+    - refresh
+    - bulkDelete
+    - addNew

@@ -1,0 +1,17 @@
+uid: vj6vwmysk9t
+name: 'Email table: Mail messages'
+type: block
+collectionName: mailMessages
+dataSourceKey: main
+targetUid: cb09a1ee275
+content:
+  key: mailMessages
+  type: mailMessages
+  coll: mailMessages
+  actions:
+    - filter
+    - refresh
+    - addNew
+    - ai:
+        employee: ellis
+        tasks: ./ai/email_table_mail_messages_mailMessages_tasks.yaml

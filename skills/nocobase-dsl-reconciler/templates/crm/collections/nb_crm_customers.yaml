@@ -1,0 +1,101 @@
+name: nb_crm_customers
+title: Customers
+fields:
+  - name: orders
+    interface: o2m
+  - name: quotations
+    interface: o2m
+  - name: phone
+    interface: input
+  - name: ai_health_grade
+    interface: input
+  - name: ai_health_assessed_at
+    interface: datetime
+  - name: owner
+    interface: m2o
+  - name: ai_tags
+    interface: json
+  - name: contacts
+    interface: o2m
+  - name: is_deleted
+    interface: checkbox
+  - name: account_number
+    interface: sequence
+  - name: ai_churn_risk
+    interface: percent
+  - name: owner_id
+    interface: integer
+  - name: industry
+    interface: select
+  - name: parent_id
+    interface: integer
+  - name: ai_recommendations
+    interface: json
+  - name: parent
+    interface: m2o
+  - name: annual_revenue
+    interface: select
+  - name: contact_mail
+    interface: o2m
+  - name: ai_next_best_action
+    interface: textarea
+  - name: opportunities
+    interface: o2m
+  - name: createdAt
+    interface: createdAt
+  - name: activities
+    interface: o2m
+  - name: region
+    interface: m2o
+  - name: ai_health_score
+    interface: integer
+  - name: updatedById
+    interface: integer
+  - name: ai_churn_risk_level
+    interface: input
+  - name: ai_best_contact_time
+    interface: input
+  - name: updatedAt
+    interface: updatedAt
+  - name: description
+    interface: textarea
+  - name: name
+    interface: input
+  - name: comments
+    interface: o2m
+  - name: updatedBy
+    interface: updatedBy
+  - name: number_of_employees
+    interface: select
+  - name: region_id
+    interface: integer
+  - name: extra
+    interface: json
+  - name: type
+    interface: select
+  - name: preferred_currency
+    interface: select
+  - name: ai_health_dimensions
+    interface: json
+  - name: ai_nba_generated_at
+    interface: datetime
+  - name: id
+    interface: integer
+  - name: level
+    interface: select
+  - name: website
+    interface: textarea
+  - name: source_lead_id
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: createdById
+    interface: integer
+  - name: country
+    interface: input
+  - name: merge_operation_items
+    interface: o2m
+  - name: address
+    interface: textarea
+  - name: status
+    interface: select

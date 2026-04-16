@@ -1,0 +1,41 @@
+name: nb_crm_payments
+title: Payments
+fields:
+  - name: bank_account
+    interface: input
+  - name: order
+    interface: m2o
+  - name: customer
+    interface: m2o
+  - name: currency
+    interface: select
+  - name: amount
+    interface: number
+  - name: updatedBy
+    interface: updatedBy
+  - name: customer_id
+    interface: integer
+  - name: updatedAt
+    interface: updatedAt
+  - name: id
+    interface: id
+  - name: payment_no
+    interface: sequence
+  - name: createdAt
+    interface: createdAt
+  - name: updatedById
+    interface: integer
+  - name: order_id
+    interface: integer
+  - name: payment_method
+    interface: select
+  - name: payment_date
+    interface: dateOnly
+  - name: createdById
+    interface: integer
+  - name: bank_name
+    interface: input
+  - name: createdBy
+    interface: createdBy
+  - name: notes
+    interface: textarea

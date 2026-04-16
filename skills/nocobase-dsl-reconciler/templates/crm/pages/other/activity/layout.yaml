@@ -1,0 +1,46 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_crm_activities
+    fields:
+      - field: subject
+        label: Search
+        filterPaths:
+          - subject
+          - content
+          - type
+          - customer.name
+          - customer.account_number
+          - customer.phone
+          - customer.website
+          - customer.address
+          - opportunity.opportunity_no
+          - opportunity.name
+          - contact.email
+          - contact.phone
+          - contact.mobile
+    field_layout:
+      - - subject
+  - key: table
+    type: table
+    coll: nb_crm_activities
+    fields:
+      - field: subject
+        popup: templates/popup/activity_view.yaml
+      - type
+      - activity_date
+      - lead
+      - customer
+      - opportunity
+      - contact
+      - owner
+    actions:
+      - filter
+      - refresh
+      - addNew
+      - ai:
+          employee: viz
+          tasks: ./ai/activity_table_tasks.yaml
+layout:
+  - - filterForm
+  - - table

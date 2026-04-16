@@ -1,0 +1,23 @@
+uid: coxmuthoi3w
+name: 'Form (Edit): Inventory'
+type: block
+collectionName: nb_erp_inventory
+dataSourceKey: main
+targetUid: rlk3u5bctx0
+description: 'Form (Edit): Inventory'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_erp_inventory
+  fields:
+    - product
+    - warehouse
+    - quantity
+    - last_updated
+  field_layout:
+    - - product
+      - warehouse
+    - - quantity
+      - last_updated
+  actions:
+    - submit

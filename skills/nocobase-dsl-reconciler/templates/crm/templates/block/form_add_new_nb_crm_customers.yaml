@@ -1,0 +1,53 @@
+uid: wq7rth44sim
+name: 'Form (Add new): nb_crm_customers'
+type: block
+collectionName: nb_crm_customers
+dataSourceKey: main
+targetUid: 001b8d6c620
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_customers
+  fields:
+    - account_number
+    - name
+    - owner
+    - type
+    - level
+    - status
+    - parent
+    - phone
+    - website
+    - address
+    - preferred_currency
+    - description
+    - region
+    - number_of_employees
+    - industry
+    - annual_revenue
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - account_number
+      - owner
+    - - type
+      - industry
+      - number_of_employees
+    - - level
+      - status
+      - parent
+    - '--- Contact Info ---'
+    - - phone
+      - region
+    - - website
+      - address
+    - '--- Business Info ---'
+    - - annual_revenue
+      - preferred_currency
+    - '--- Other Info ---'
+    - - description
+  actions:
+    - submit
+    - ai:
+        employee: dex
+        tasks: ./ai/form_add_new_nb_crm_customers_createForm_tasks.yaml

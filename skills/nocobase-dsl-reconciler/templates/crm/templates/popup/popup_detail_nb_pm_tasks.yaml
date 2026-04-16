@@ -1,0 +1,13 @@
+uid: blsojlqyr1f
+name: 'Popup (Detail): Nb Pm Tasks'
+type: popup
+collectionName: nb_pm_tasks
+dataSourceKey: main
+targetUid: fzcvsa19ipy
+description: 'Popup (Detail): Nb Pm Tasks'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

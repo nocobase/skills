@@ -1,0 +1,38 @@
+uid: zcy3145h9jh
+name: 'Form (Edit): Projects'
+type: block
+collectionName: nb_pm_projects
+dataSourceKey: main
+targetUid: bckzrog1y48
+description: 'Form (Edit): Projects'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_projects
+  fields:
+    - name
+    - key
+    - status
+    - priority
+    - start_date
+    - end_date
+    - budget
+    - owner
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+    - - status
+      - priority
+    - - owner
+    - - start_date
+      - end_date
+    - - budget
+    - - description
+    - - key
+    - '--- Project Info ---'
+    - '--- Schedule ---'
+    - '--- Description ---'
+    - '--- Schedule & Budget ---'
+  actions:
+    - submit

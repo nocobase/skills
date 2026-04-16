@@ -1,0 +1,2 @@
+sql_file: ./charts/analytics_chart_5.sql
+render_file: ./charts/analytics_chart_5_render.js

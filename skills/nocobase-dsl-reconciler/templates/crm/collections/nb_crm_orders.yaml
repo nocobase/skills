@@ -1,0 +1,75 @@
+name: nb_crm_orders
+title: Orders
+fields:
+  - name: contact_id
+    interface: integer
+  - name: terms_condition
+    interface: textarea
+  - name: description
+    interface: textarea
+  - name: order_amount
+    interface: number
+  - name: owner
+    interface: m2o
+  - name: createdAt
+    interface: createdAt
+  - name: payments
+    interface: o2m
+  - name: customer
+    interface: m2o
+  - name: createdBy
+    interface: createdBy
+  - name: exchange_rate
+    interface: number
+  - name: items
+    interface: o2m
+  - name: paid_amount
+    interface: number
+  - name: opportunity
+    interface: m2o
+  - name: owner_id
+    interface: integer
+  - name: currency
+    interface: select
+  - name: shipping_address
+    interface: textarea
+  - name: order_no
+    interface: sequence
+  - name: updatedAt
+    interface: updatedAt
+  - name: quotation_id
+    interface: integer
+  - name: updatedById
+    interface: integer
+  - name: quotation
+    interface: m2o
+  - name: delivery_date
+    interface: date
+  - name: order_date
+    interface: date
+  - name: payment_status
+    interface: select
+  - name: unpaid_amount
+    interface: number
+  - name: tracking_no
+    interface: input
+  - name: id
+    interface: integer
+  - name: status
+    interface: input
+  - name: comments
+    interface: o2m
+  - name: updatedBy
+    interface: updatedBy
+  - name: logistics_company
+    interface: input
+  - name: customer_id
+    interface: integer
+  - name: opportunity_id
+    interface: integer
+  - name: actual_delivery_date
+    interface: date
+  - name: extra
+    interface: json
+  - name: createdById
+    interface: integer
