@@ -9,18 +9,9 @@ blocks:
           - name
           - description
       - status
-      - priority
-    js_items:
-      - desc: Project Stats Filter Block
-        file: ./js/filter_stats.js
     field_layout:
-      - - '[JS:Project Stats Filter Block]'
       - - name
         - status
-      - - priority
-    actions:
-      - submit
-      - reset
   - key: table
     type: table
     coll: nb_pm_projects
@@ -28,9 +19,6 @@ blocks:
       - field: name
         popup: true
       - status
-      - priority
-      - start_date
-      - end_date
       - createdAt
     actions:
       - filter

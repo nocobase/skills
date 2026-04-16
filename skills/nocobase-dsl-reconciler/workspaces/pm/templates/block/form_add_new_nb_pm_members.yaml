@@ -8,19 +8,13 @@ content:
   fields:
     - name
     - email
-    - phone
     - role
-    - department
     - status
   field_layout:
     - '--- Basic Info ---'
     - - name
-      - status
-    - '--- Contact ---'
-    - - email
-      - phone
-    - '--- Role ---'
+      - email
     - - role
-      - department
+      - status
   actions:
     - submit

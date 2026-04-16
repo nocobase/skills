@@ -9,29 +9,26 @@ blocks:
           - name
           - description
       - status
+      - priority
       - project
-    js_items:
-      - desc: Task Stats Filter Block
-        file: ./js/filter_stats.js
+      - assignee
     field_layout:
-      - - '[JS:Task Stats Filter Block]'
       - - name
         - status
-      - - project
-    actions:
-      - submit
-      - reset
+      - - priority
+        - project
+      - - assignee
   - key: table
     type: table
     coll: nb_pm_tasks
     fields:
       - field: name
         popup: true
-      - project
-      - assignee
       - status
       - priority
-      - due_date
+      - project
+      - assignee
+      - dueDate
       - createdAt
     actions:
       - filter

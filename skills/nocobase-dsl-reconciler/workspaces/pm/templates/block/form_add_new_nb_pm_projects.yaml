@@ -8,19 +8,11 @@ content:
   fields:
     - name
     - status
-    - priority
-    - start_date
-    - end_date
     - description
   field_layout:
     - '--- Basic Info ---'
     - - name
       - status
-    - - priority
-    - '--- Schedule ---'
-    - - start_date
-      - end_date
-    - '--- Details ---'
     - - description
   actions:
     - submit

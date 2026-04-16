@@ -8,20 +8,12 @@ blocks:
         filterPaths:
           - name
           - email
-          - department
       - role
       - status
-    js_items:
-      - desc: Member Stats Filter Block
-        file: ./js/filter_stats.js
     field_layout:
-      - - '[JS:Member Stats Filter Block]'
       - - name
-        - status
-      - - role
-    actions:
-      - submit
-      - reset
+        - role
+      - - status
   - key: table
     type: table
     coll: nb_pm_members
@@ -30,7 +22,6 @@ blocks:
         popup: true
       - email
       - role
-      - department
       - status
       - createdAt
     actions:

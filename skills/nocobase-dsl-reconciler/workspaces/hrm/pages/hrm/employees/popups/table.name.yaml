@@ -1,2 +1,0 @@
-target: $SELF.table.fields.name
-popup: templates/popup/detail_nb_hrm_employees.yaml

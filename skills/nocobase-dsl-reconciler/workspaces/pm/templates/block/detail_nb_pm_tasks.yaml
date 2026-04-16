@@ -9,22 +9,21 @@ content:
     filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
-    - project
-    - assignee
     - status
     - priority
-    - due_date
     - description
+    - project
+    - assignee
+    - dueDate
   field_layout:
-    - '--- Basic Info ---'
+    - '--- Task Info ---'
     - - name
       - status
+    - - priority
+      - dueDate
     - '--- Assignment ---'
     - - project
       - assignee
-    - '--- Properties ---'
-    - - priority
-      - due_date
     - '--- Details ---'
     - - description
   actions:

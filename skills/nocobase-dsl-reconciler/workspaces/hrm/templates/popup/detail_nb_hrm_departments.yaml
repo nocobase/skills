@@ -1,6 +1,0 @@
-name: 'Popup (Detail): Departments'
-type: popup
-collectionName: nb_hrm_departments
-content:
-  blocks:
-    - ref: templates/block/detail_nb_hrm_departments.yaml

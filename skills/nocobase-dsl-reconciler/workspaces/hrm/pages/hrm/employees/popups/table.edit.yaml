@@ -1,2 +1,0 @@
-target: $SELF.table.recordActions.edit
-popup: templates/popup/edit_nb_hrm_employees.yaml
