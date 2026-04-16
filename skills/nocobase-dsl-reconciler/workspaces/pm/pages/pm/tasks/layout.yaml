@@ -8,10 +8,10 @@ blocks:
         filterPaths:
           - name
           - description
-          - project.name
-          - assignee.name
       - status
       - priority
+      - project
+      - assignee
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
@@ -21,6 +21,8 @@ blocks:
       - - name
         - status
         - priority
+      - - project
+        - assignee
   - key: table
     type: table
     coll: nb_pm_tasks
@@ -29,10 +31,11 @@ blocks:
         popup: true
       - status
       - priority
+      - dueDate
+      - estimatedHours
+      - actualHours
       - project
       - assignee
-      - dueDate
-      - createdAt
     actions:
       - filter
       - refresh

@@ -1,0 +1,17 @@
+name: 'Details: Risks'
+type: block
+collectionName: nb_pm_risks
+content:
+  key: details
+  type: details
+  coll: nb_pm_risks
+  fields:
+    - name
+    - project
+    - probability
+    - impact
+    - status
+    - owner
+    - mitigation
+    - createdAt
+    - updatedAt

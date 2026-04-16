@@ -1,0 +1,30 @@
+blocks:
+  - key: kpi_total_projects
+    js:
+      file: ./js/kpi_total_projects.js
+      desc: Total Projects KPI
+  - key: kpi_active_tasks
+    js:
+      file: ./js/kpi_active_tasks.js
+      desc: Active Tasks KPI
+  - key: kpi_team_members
+    js:
+      file: ./js/kpi_team_members.js
+      desc: Team Members KPI
+  - key: kpi_overdue_tasks
+    js:
+      file: ./js/kpi_overdue_tasks.js
+      desc: Overdue Tasks KPI
+  - key: chart_1
+    type: chart
+    chart_config: ./charts/chart_1.yaml
+  - key: chart_2
+    type: chart
+    chart_config: ./charts/chart_2.yaml
+layout:
+  - - kpi_total_projects
+    - kpi_active_tasks
+    - kpi_team_members
+    - kpi_overdue_tasks
+  - - chart_1: 12
+    - chart_2: 12

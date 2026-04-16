@@ -1,30 +1,19 @@
-name: 'Detail: Tasks'
+name: 'Details: Tasks'
 type: block
 collectionName: nb_pm_tasks
 content:
   key: details
   type: details
   coll: nb_pm_tasks
-  resource_binding:
-    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - status
     - priority
-    - description
+    - dueDate
+    - estimatedHours
+    - actualHours
     - project
     - assignee
-    - dueDate
-  field_layout:
-    - '--- Task Info ---'
-    - - name
-      - status
-    - - priority
-      - dueDate
-    - '--- Assignment ---'
-    - - project
-      - assignee
-    - '--- Details ---'
-    - - description
-  actions:
-    - edit
+    - description
+    - createdAt
+    - updatedAt

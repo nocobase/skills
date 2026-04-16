@@ -1,0 +1,21 @@
+name: 'Form (Edit): Milestones'
+type: block
+collectionName: nb_pm_milestones
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_milestones
+  fields:
+    - name
+    - project
+    - dueDate
+    - status
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - [name, project]
+    - [dueDate, status]
+    - '--- Details ---'
+    - [description]
+  actions:
+    - submit

@@ -1,22 +1,17 @@
-name: 'Detail: Projects'
+name: 'Details: Projects'
 type: block
 collectionName: nb_pm_projects
 content:
   key: details
   type: details
   coll: nb_pm_projects
-  resource_binding:
-    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - status
+    - budget
+    - startDate
+    - endDate
     - manager
     - description
-  field_layout:
-    - '--- Basic Info ---'
-    - - name
-      - status
-    - - manager
-    - - description
-  actions:
-    - edit
+    - createdAt
+    - updatedAt

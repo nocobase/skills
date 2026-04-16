@@ -1,0 +1,6 @@
+name: 'Popup (Add new): Risks'
+type: popup
+collectionName: nb_pm_risks
+content:
+  blocks:
+    - ref: templates/block/form_add_new_nb_pm_risks.yaml

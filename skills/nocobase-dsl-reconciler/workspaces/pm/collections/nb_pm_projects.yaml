@@ -16,6 +16,15 @@ fields:
         label: Completed
       - value: on_hold
         label: On Hold
+  - name: budget
+    interface: number
+    title: Budget
+  - name: startDate
+    interface: dateOnly
+    title: Start Date
+  - name: endDate
+    interface: dateOnly
+    title: End Date
   - name: description
     interface: textarea
     title: Description

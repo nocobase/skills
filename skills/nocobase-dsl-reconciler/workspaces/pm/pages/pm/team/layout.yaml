@@ -1,36 +1,37 @@
 blocks:
   - key: filterForm
     type: filterForm
-    coll: nb_pm_projects
+    coll: nb_pm_members
     fields:
       - field: name
         label: Search
         filterPaths:
           - name
-          - description
+          - email
+      - role
+      - department
       - status
-      - manager
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
-        desc: Project Filter Buttons
+        desc: Team Filter Buttons
     field_layout:
-      - - '[JS:Project Filter Buttons]'
+      - - '[JS:Team Filter Buttons]'
       - - name
-        - status
-        - manager
+        - role
+        - department
+      - - status
   - key: table
     type: table
-    coll: nb_pm_projects
+    coll: nb_pm_members
     fields:
       - field: name
         popup: true
+      - email
+      - phone
+      - role
+      - department
       - status
-      - budget
-      - startDate
-      - endDate
-      - manager
-      - createdAt
     actions:
       - filter
       - refresh

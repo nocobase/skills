@@ -5,26 +5,25 @@ content:
   key: editForm
   type: editForm
   coll: nb_pm_tasks
-  resource_binding:
-    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - status
     - priority
-    - description
+    - dueDate
+    - estimatedHours
+    - actualHours
     - project
     - assignee
-    - dueDate
+    - description
   field_layout:
     - '--- Task Info ---'
-    - - name
-      - status
-    - - priority
-      - dueDate
+    - [name, status]
+    - [priority, dueDate]
+    - '--- Time Tracking ---'
+    - [estimatedHours, actualHours]
     - '--- Assignment ---'
-    - - project
-      - assignee
+    - [project, assignee]
     - '--- Details ---'
-    - - description
+    - [description]
   actions:
     - submit

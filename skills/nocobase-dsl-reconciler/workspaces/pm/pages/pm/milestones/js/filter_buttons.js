@@ -2,8 +2,9 @@ const { Button, Space } = ctx.antd;
 
 const FILTERS = [
   { key: 'all', label: 'All', filter: null },
-  { key: 'active', label: 'Active', filter: { status: { $eq: 'active' } } },
-  { key: 'inactive', label: 'Inactive', filter: { status: { $eq: 'inactive' } } },
+  { key: 'not_started', label: 'Not Started', filter: { status: { $eq: 'not_started' } } },
+  { key: 'in_progress', label: 'In Progress', filter: { status: { $eq: 'in_progress' } } },
+  { key: 'completed', label: 'Completed', filter: { status: { $eq: 'completed' } } },
 ];
 
 function FilterButtons() {

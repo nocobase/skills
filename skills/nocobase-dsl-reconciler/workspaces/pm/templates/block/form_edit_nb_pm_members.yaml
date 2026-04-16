@@ -5,18 +5,19 @@ content:
   key: editForm
   type: editForm
   coll: nb_pm_members
-  resource_binding:
-    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - email
+    - phone
     - role
+    - department
     - status
   field_layout:
-    - '--- Basic Info ---'
-    - - name
-      - email
-    - - role
-      - status
+    - '--- Profile ---'
+    - [name, email]
+    - [phone]
+    - '--- Work ---'
+    - [role, department]
+    - [status]
   actions:
     - submit

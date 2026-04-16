@@ -8,13 +8,20 @@ content:
   fields:
     - name
     - status
+    - budget
+    - startDate
+    - endDate
     - manager
     - description
   field_layout:
     - '--- Basic Info ---'
-    - - name
-      - status
-    - - manager
-    - - description
+    - [name, status]
+    - [budget]
+    - '--- Timeline ---'
+    - [startDate, endDate]
+    - '--- Team ---'
+    - [manager]
+    - '--- Details ---'
+    - [description]
   actions:
     - submit

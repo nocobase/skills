@@ -1,0 +1,15 @@
+name: 'Details: Milestones'
+type: block
+collectionName: nb_pm_milestones
+content:
+  key: details
+  type: details
+  coll: nb_pm_milestones
+  fields:
+    - name
+    - project
+    - dueDate
+    - status
+    - description
+    - createdAt
+    - updatedAt

@@ -9,20 +9,21 @@ content:
     - name
     - status
     - priority
-    - description
+    - dueDate
+    - estimatedHours
+    - actualHours
     - project
     - assignee
-    - dueDate
+    - description
   field_layout:
     - '--- Task Info ---'
-    - - name
-      - status
-    - - priority
-      - dueDate
+    - [name, status]
+    - [priority, dueDate]
+    - '--- Time Tracking ---'
+    - [estimatedHours, actualHours]
     - '--- Assignment ---'
-    - - project
-      - assignee
+    - [project, assignee]
     - '--- Details ---'
-    - - description
+    - [description]
   actions:
     - submit

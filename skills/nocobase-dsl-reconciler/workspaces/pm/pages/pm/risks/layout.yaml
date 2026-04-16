@@ -1,36 +1,41 @@
 blocks:
   - key: filterForm
     type: filterForm
-    coll: nb_pm_projects
+    coll: nb_pm_risks
     fields:
       - field: name
         label: Search
         filterPaths:
           - name
-          - description
+          - mitigation
       - status
-      - manager
+      - probability
+      - impact
+      - project
+      - owner
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
-        desc: Project Filter Buttons
+        desc: Risk Filter Buttons
     field_layout:
-      - - '[JS:Project Filter Buttons]'
+      - - '[JS:Risk Filter Buttons]'
       - - name
         - status
-        - manager
+        - probability
+      - - impact
+        - project
+        - owner
   - key: table
     type: table
-    coll: nb_pm_projects
+    coll: nb_pm_risks
     fields:
       - field: name
         popup: true
+      - project
+      - probability
+      - impact
       - status
-      - budget
-      - startDate
-      - endDate
-      - manager
-      - createdAt
+      - owner
     actions:
       - filter
       - refresh

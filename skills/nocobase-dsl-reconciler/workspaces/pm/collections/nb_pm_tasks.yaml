@@ -26,6 +26,15 @@ fields:
         label: Medium
       - value: high
         label: High
+  - name: dueDate
+    interface: dateOnly
+    title: Due Date
+  - name: estimatedHours
+    interface: number
+    title: Estimated Hours
+  - name: actualHours
+    interface: number
+    title: Actual Hours
   - name: description
     interface: textarea
     title: Description
@@ -45,6 +54,3 @@ fields:
   - name: assigneeId
     interface: integer
     title: Assignee ID
-  - name: dueDate
-    interface: dateOnly
-    title: Due Date

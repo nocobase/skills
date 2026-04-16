@@ -2,9 +2,15 @@
   type: group
   icon: projectoutlined
   children:
+    - title: Dashboard
+      icon: dashboardoutlined
     - title: Projects
       icon: fundprojectscreenoutlined
     - title: Tasks
       icon: checksquareoutlined
-    - title: Members
+    - title: Team
       icon: teamoutlined
+    - title: Milestones
+      icon: flagoutlined
+    - title: Risks
+      icon: warningoutlined

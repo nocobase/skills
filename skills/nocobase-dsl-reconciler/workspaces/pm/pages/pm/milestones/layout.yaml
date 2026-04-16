@@ -1,34 +1,33 @@
 blocks:
   - key: filterForm
     type: filterForm
-    coll: nb_pm_members
+    coll: nb_pm_milestones
     fields:
       - field: name
         label: Search
         filterPaths:
           - name
-          - email
-      - role
+          - description
       - status
+      - project
     js_items:
       - key: filter_buttons
         file: ./js/filter_buttons.js
-        desc: Member Filter Buttons
+        desc: Milestone Filter Buttons
     field_layout:
-      - - '[JS:Member Filter Buttons]'
+      - - '[JS:Milestone Filter Buttons]'
       - - name
-        - role
         - status
+        - project
   - key: table
     type: table
-    coll: nb_pm_members
+    coll: nb_pm_milestones
     fields:
       - field: name
         popup: true
-      - email
-      - role
+      - project
+      - dueDate
       - status
-      - createdAt
     actions:
       - filter
       - refresh
