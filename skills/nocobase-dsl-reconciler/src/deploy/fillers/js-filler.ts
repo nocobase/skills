@@ -43,14 +43,15 @@ export async function deployJsItems(
       continue;
     }
     // Forbidden APIs in NocoBase JS sandbox
+    // window/document ARE available (safe proxy), but only specific methods:
+    //   window: setTimeout, setInterval, console, Math, Date, FormData, Blob, URL, open, location
+    //   document: createElement, querySelector, querySelectorAll
+    // NOT available: URLSearchParams, fetch, XMLHttpRequest, eval
     const forbidden = [
-      { pattern: /\bnew\s+URLSearchParams\b/, name: 'URLSearchParams' },
-      { pattern: /<\w+[\s/>]/, name: 'JSX syntax (use React.createElement instead)' },
+      { pattern: /\bnew\s+URLSearchParams\b/, name: 'URLSearchParams (use regex to parse URL params instead)' },
       { pattern: /\bimport\s+/, name: 'ES module import' },
       { pattern: /\bexport\s+(default\s+)?/, name: 'ES module export' },
       { pattern: /\bfetch\s*\(/, name: 'fetch() (use ctx.request instead)' },
-      { pattern: /\bwindow\./, name: 'window object' },
-      { pattern: /\bdocument\./, name: 'document object' },
     ];
     let hasForbidden = false;
     for (const { pattern, name } of forbidden) {
