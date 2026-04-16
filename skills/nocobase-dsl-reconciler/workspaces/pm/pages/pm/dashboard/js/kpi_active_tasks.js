@@ -1,6 +1,7 @@
 const LABEL = 'Active Tasks';
 const COLOR = '#10b981';
-const SQL = `SELECT count(*) AS value FROM nb_pm_tasks WHERE status IN ('todo', 'in_progress', 'blocked')`;
+const SQL_UID = 'pm_kpi_active_tasks';
+const SQL = `SELECT count(*) AS current_value FROM nb_pm_tasks WHERE status IN ('todo', 'in_progress', 'blocked')`;
 
 const { useState, useEffect } = ctx.React;
 const h = ctx.React.createElement;
@@ -10,8 +11,9 @@ const KpiCard = () => {
   useEffect(() => {
     (async () => {
       try {
-        const rows = await ctx.sql(SQL);
-        setValue(rows?.[0]?.value ?? '-');
+        await ctx.sql.save({ uid: SQL_UID, sql: SQL, dataSourceKey: 'main' });
+        const rows = await ctx.sql.runById(SQL_UID, { type: 'selectRows', dataSourceKey: 'main' });
+        setValue(rows?.[0]?.current_value ?? '-');
       } catch {
         setValue('ERR');
       }

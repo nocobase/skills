@@ -1,6 +1,7 @@
 const LABEL = 'Total Projects';
 const COLOR = '#3b82f6';
-const SQL = `SELECT count(*) AS value FROM nb_pm_projects`;
+const SQL_UID = 'pm_kpi_total_projects';
+const SQL = `SELECT count(*) AS current_value FROM nb_pm_projects`;
 
 const { useState, useEffect } = ctx.React;
 const h = ctx.React.createElement;
@@ -10,8 +11,9 @@ const KpiCard = () => {
   useEffect(() => {
     (async () => {
       try {
-        const rows = await ctx.sql(SQL);
-        setValue(rows?.[0]?.value ?? '-');
+        await ctx.sql.save({ uid: SQL_UID, sql: SQL, dataSourceKey: 'main' });
+        const rows = await ctx.sql.runById(SQL_UID, { type: 'selectRows', dataSourceKey: 'main' });
+        setValue(rows?.[0]?.current_value ?? '-');
       } catch {
         setValue('ERR');
       }
