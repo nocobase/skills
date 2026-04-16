@@ -9,7 +9,12 @@ blocks:
           - name
           - description
       - status
+    js_items:
+      - key: filter_buttons
+        file: ./js/filter_buttons.js
+        desc: Project Filter Buttons
     field_layout:
+      - - '[JS:Project Filter Buttons]'
       - - name
         - status
   - key: table
