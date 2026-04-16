@@ -1111,17 +1111,17 @@ async function deployPagePopups(
   // Write back auto-derived popups to disk so AI can see and edit them next round
   const popupsDir = path.join(pageInfo.dir, 'popups');
   for (const ps of expanded) {
-    // Only write back popups that were auto-derived (not in original list)
-    if (pageInfo.popups.some(orig => orig.target === ps.target)) continue;
-    // Derive filename from target: $SELF.table.recordActions.edit → table.edit.yaml
+    // Skip if original popup has inline content (hand-crafted)
+    const origPopup = pageInfo.popups.find(orig => orig.target === ps.target);
+    if (origPopup && (origPopup.blocks?.length || origPopup.tabs?.length)) continue;
+
     const targetParts = ps.target.replace('$SELF.', '').split('.');
     const fileName = targetParts.filter(p => !['actions', 'recordActions', 'record_actions'].includes(p)).join('.') + '.yaml';
     const filePath = path.join(popupsDir, fileName);
-    if (!fs.existsSync(filePath)) {
-      fs.mkdirSync(popupsDir, { recursive: true });
-      saveYaml(filePath, { target: ps.target, coll: ps.coll, blocks: ps.blocks, ...(ps.mode ? { mode: ps.mode } : {}) });
-      log(`    + auto-derived popup: ${fileName}`);
-    }
+
+    fs.mkdirSync(popupsDir, { recursive: true });
+    saveYaml(filePath, { target: ps.target, coll: ps.coll, blocks: ps.blocks, ...(ps.mode ? { mode: ps.mode } : {}) });
+    log(`    ${origPopup ? '~' : '+'} auto-derived popup: ${fileName}`);
   }
 
   const deferred: typeof expanded = [];

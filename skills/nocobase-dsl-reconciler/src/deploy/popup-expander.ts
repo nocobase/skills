@@ -14,7 +14,11 @@ import type { PopupSpec, BlockSpec } from '../types/spec';
  * Expand popup list: for every addNew popup, auto-derive edit + detail.
  */
 export function expandPopups(popups: PopupSpec[]): PopupSpec[] {
-  const existingTargets = new Set(popups.map(ps => ps.target).filter(Boolean));
+  // Track targets that have INLINE content (hand-crafted, don't overwrite)
+  // Template-reference popups (popup: templates/xxx) CAN be replaced by auto-derive
+  const handCraftedTargets = new Set(
+    popups.filter(ps => ps.blocks?.length || ps.tabs?.length).map(ps => ps.target).filter(Boolean),
+  );
   const result: PopupSpec[] = [];
 
   for (const ps of popups) {
@@ -34,7 +38,7 @@ export function expandPopups(popups: PopupSpec[]): PopupSpec[] {
 
     // ── Derive editForm popup ──
     const editTarget = `${baseRef}.recordActions.edit`;
-    if (!existingTargets.has(editTarget)) {
+    if (!handCraftedTargets.has(editTarget)) {
       const editBlock = structuredClone(srcBlock);
       editBlock.key = 'editForm';
       editBlock.type = 'editForm';
@@ -43,12 +47,12 @@ export function expandPopups(popups: PopupSpec[]): PopupSpec[] {
       editBlock.coll = coll;
 
       result.push({ target: editTarget, coll, blocks: [editBlock] });
-      existingTargets.add(editTarget);
+      handCraftedTargets.add(editTarget);
     }
 
     // ── Derive details popup (field click) ──
     const detailTarget = `${baseRef}.fields.${viewField}`;
-    if (!existingTargets.has(detailTarget)) {
+    if (!handCraftedTargets.has(detailTarget)) {
       const detailBlock = structuredClone(srcBlock);
       detailBlock.key = 'details';
       detailBlock.type = 'details';
@@ -70,7 +74,7 @@ export function expandPopups(popups: PopupSpec[]): PopupSpec[] {
         coll,
         blocks: [detailBlock],
       });
-      existingTargets.add(detailTarget);
+      handCraftedTargets.add(detailTarget);
     }
   }
 
