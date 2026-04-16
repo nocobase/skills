@@ -149,6 +149,9 @@ export interface PopupSpec {
   blocks?: BlockSpec[];
   tabs?: TabSpec[];
   layout?: LayoutRow[];
+  auto?: ('edit' | 'detail')[];  // auto-derive edit/detail from addNew form
+  view_field?: string;           // field name for detail popup clickToOpen (default: 'name')
+  popup?: string;                // sugar: template file path
 }
 
 // ── Tab spec ──

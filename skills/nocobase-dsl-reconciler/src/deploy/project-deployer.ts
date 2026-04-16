@@ -1105,6 +1105,23 @@ async function deployPagePopups(
   if (!pageState.popups) pageState.popups = {};
 
   const expanded = expandPopups(pageInfo.popups);
+
+  // Write back auto-derived popups to disk so AI can see and edit them next round
+  const popupsDir = path.join(pageInfo.dir, 'popups');
+  for (const ps of expanded) {
+    // Only write back popups that were auto-derived (not in original list)
+    if (pageInfo.popups.some(orig => orig.target === ps.target)) continue;
+    // Derive filename from target: $SELF.table.recordActions.edit → table.edit.yaml
+    const targetParts = ps.target.replace('$SELF.', '').split('.');
+    const fileName = targetParts.filter(p => !['actions', 'recordActions', 'record_actions'].includes(p)).join('.') + '.yaml';
+    const filePath = path.join(popupsDir, fileName);
+    if (!fs.existsSync(filePath)) {
+      fs.mkdirSync(popupsDir, { recursive: true });
+      saveYaml(filePath, { target: ps.target, coll: ps.coll, blocks: ps.blocks, ...(ps.mode ? { mode: ps.mode } : {}) });
+      log(`    + auto-derived popup: ${fileName}`);
+    }
+  }
+
   const deferred: typeof expanded = [];
 
   // Pass 1: page-level refs
