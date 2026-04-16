@@ -1,0 +1,69 @@
+name: nb_pm_projects
+title: Projects
+titleField: name
+fields:
+  - name: name
+    interface: input
+    title: Name
+    required: true
+  - name: code
+    interface: input
+    title: Code
+  - name: key
+    interface: input
+    title: Key
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: not_started
+        label: Not started
+      - value: in_progress
+        label: In progress
+      - value: on_hold
+        label: On hold
+      - value: completed
+        label: Completed
+      - value: cancelled
+        label: Cancelled
+    default: not_started
+  - name: priority
+    interface: select
+    title: Priority
+    options:
+      - value: low
+        label: Low
+      - value: medium
+        label: Medium
+      - value: high
+        label: High
+      - value: critical
+        label: Critical
+    default: medium
+  - name: start_date
+    interface: dateOnly
+    title: Start Date
+  - name: end_date
+    interface: dateOnly
+    title: End Date
+  - name: budget
+    interface: number
+    title: Budget
+  - name: owner
+    interface: m2o
+    title: Owner
+    target: nb_pm_members
+  - name: owner_id
+    interface: integer
+    title: Owner ID
+  - name: description
+    interface: textarea
+    title: Description
+  - name: tasks
+    interface: o2m
+    title: Tasks
+    target: nb_pm_tasks
+  - name: milestones
+    interface: o2m
+    title: Milestones
+    target: nb_pm_milestones

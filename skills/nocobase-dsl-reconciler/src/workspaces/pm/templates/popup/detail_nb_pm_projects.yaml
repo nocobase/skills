@@ -1,0 +1,6 @@
+name: 'Popup (Detail): Projects'
+type: popup
+collectionName: nb_pm_projects
+content:
+  blocks:
+    - ref: templates/block/detail_nb_pm_projects.yaml

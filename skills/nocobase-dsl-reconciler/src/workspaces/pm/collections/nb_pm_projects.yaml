@@ -1,0 +1,12 @@
+name: nb_pm_projects
+title: Projects
+fields:
+  - name: name
+    interface: input
+    title: Name
+  - name: status
+    interface: select
+    title: Status
+  - name: description
+    interface: textarea
+    title: Description

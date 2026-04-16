@@ -1,0 +1,18 @@
+name: 'Form (Add new): Members'
+type: block
+collectionName: nb_pm_members
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_members
+  fields:
+    - name
+    - status
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - status
+    - - description
+  actions:
+    - submit

@@ -1,0 +1,32 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_members
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - description
+      - status
+    field_layout:
+      - - name
+        - status
+  - key: table
+    type: table
+    coll: nb_pm_members
+    fields:
+      - field: name
+        popup: true
+      - status
+      - createdAt
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

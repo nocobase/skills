@@ -1,0 +1,6 @@
+name: 'Popup (Edit): Tasks'
+type: popup
+collectionName: nb_pm_tasks
+content:
+  blocks:
+    - ref: templates/block/form_edit_nb_pm_tasks.yaml
