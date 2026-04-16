@@ -6,6 +6,7 @@ content:
   type: createForm
   coll: nb_hrm_leave_requests
   fields:
+    - title
     - employee
     - leave_type
     - start_date
@@ -15,8 +16,9 @@ content:
     - approver
   field_layout:
     - '--- Leave Info ---'
-    - - employee
-      - leave_type
+    - - title
+      - employee
+    - - leave_type
     - - start_date
       - end_date
     - '--- Approval ---'

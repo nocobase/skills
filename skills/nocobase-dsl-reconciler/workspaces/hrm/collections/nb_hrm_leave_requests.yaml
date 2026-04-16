@@ -1,6 +1,9 @@
 name: nb_hrm_leave_requests
 title: Leave Requests
 fields:
+  - name: title
+    interface: input
+    title: Title
   - name: employee
     interface: m2o
     title: Employee

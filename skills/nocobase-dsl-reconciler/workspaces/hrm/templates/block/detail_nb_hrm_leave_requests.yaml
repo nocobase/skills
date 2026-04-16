@@ -8,6 +8,7 @@ content:
   resource_binding:
     filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
+    - title
     - employee
     - leave_type
     - start_date
@@ -17,8 +18,9 @@ content:
     - approver
   field_layout:
     - '--- Leave Info ---'
-    - - employee
-      - leave_type
+    - - title
+      - employee
+    - - leave_type
     - - start_date
       - end_date
     - '--- Approval ---'

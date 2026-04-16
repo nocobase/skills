@@ -3,10 +3,10 @@ blocks:
     type: filterForm
     coll: nb_hrm_leave_requests
     fields:
-      - field: employee
+      - field: title
         label: Search
         filterPaths:
-          - employee.name
+          - title
           - reason
       - leave_type
       - status
@@ -15,9 +15,9 @@ blocks:
         file: ./js/filter_stats.js
     field_layout:
       - - '[JS:Leave Request Stats Filter Block]'
-      - - employee
+      - - title
         - leave_type
-      - - status
+        - status
     actions:
       - submit
       - reset
@@ -25,8 +25,9 @@ blocks:
     type: table
     coll: nb_hrm_leave_requests
     fields:
-      - field: employee
+      - field: title
         popup: true
+      - employee
       - leave_type
       - start_date
       - end_date

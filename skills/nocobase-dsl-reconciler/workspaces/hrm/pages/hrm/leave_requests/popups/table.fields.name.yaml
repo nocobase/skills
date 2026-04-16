@@ -1,0 +1,28 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - employee
+      - leave_type
+      - start_date
+      - end_date
+      - status
+      - reason
+      - approver
+      - createdAt
+    field_layout:
+      - '--- Leave Info ---'
+      - - employee
+        - leave_type
+      - - start_date
+        - end_date
+      - '--- Approval ---'
+      - - status
+        - approver
+      - - reason
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer
