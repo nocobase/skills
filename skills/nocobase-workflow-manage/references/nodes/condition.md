@@ -36,6 +36,9 @@ Deciding whether to continue the process based on whether inventory is sufficien
   - `branchIndex=1`: Condition is true (Yes)
   - `branchIndex=0`: Condition is false (No)
 
+## Test Support
+Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes:test`, because the server-side instruction implements `test()`.
+
 ## Example Configuration
 
 ### `basic` engine

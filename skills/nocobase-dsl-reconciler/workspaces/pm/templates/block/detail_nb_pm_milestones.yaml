@@ -1,4 +1,4 @@
-name: 'Details: Milestones'
+name: 'Detail: Milestones'
 type: block
 collectionName: nb_pm_milestones
 content:
@@ -8,16 +8,19 @@ content:
   fields:
     - name
     - project
-    - dueDate
+    - owner
     - status
+    - due_date
     - description
     - createdAt
-    - updatedAt
   field_layout:
-    - '--- Basic Info ---'
-    - [name, project]
-    - [dueDate, status]
-    - '--- Details ---'
-    - [description]
-    - '--- System ---'
-    - [createdAt, updatedAt]
+    - '--- Milestone Info ---'
+    - - name
+      - project
+    - - owner
+      - status
+    - - due_date
+    - '--- Description ---'
+    - - description
+    - '--- Audit ---'
+    - - createdAt

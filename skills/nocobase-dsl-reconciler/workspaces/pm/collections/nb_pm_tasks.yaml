@@ -1,9 +1,19 @@
 name: nb_pm_tasks
 title: Tasks
+titleField: name
 fields:
   - name: name
     interface: input
     title: Name
+    required: true
+  - name: project
+    interface: m2o
+    title: Project
+    target: nb_pm_projects
+  - name: assignee
+    interface: m2o
+    title: Assignee
+    target: nb_pm_members
   - name: status
     interface: select
     title: Status
@@ -12,10 +22,10 @@ fields:
         label: To Do
       - value: in_progress
         label: In Progress
-      - value: done
-        label: Done
       - value: blocked
         label: Blocked
+      - value: done
+        label: Done
   - name: priority
     interface: select
     title: Priority
@@ -26,31 +36,12 @@ fields:
         label: Medium
       - value: high
         label: High
-  - name: dueDate
+  - name: due_date
     interface: dateOnly
     title: Due Date
-  - name: estimatedHours
+  - name: estimated_hours
     interface: number
     title: Estimated Hours
-  - name: actualHours
-    interface: number
-    title: Actual Hours
   - name: description
     interface: textarea
     title: Description
-  - name: project
-    interface: m2o
-    title: Project
-    target: nb_pm_projects
-    foreignKey: projectId
-  - name: projectId
-    interface: integer
-    title: Project ID
-  - name: assignee
-    interface: m2o
-    title: Assignee
-    target: nb_pm_members
-    foreignKey: assigneeId
-  - name: assigneeId
-    interface: integer
-    title: Assignee ID

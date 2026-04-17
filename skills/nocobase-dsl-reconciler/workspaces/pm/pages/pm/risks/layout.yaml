@@ -7,29 +7,31 @@ blocks:
         label: Search
         filterPaths:
           - name
-          - mitigation
-      - status
+          - mitigation_plan
       - project
+      - severity
     js_items:
-      - key: filter_buttons
-        file: ./js/filter_buttons.js
-        desc: Risk Filter Buttons
+      - key: risk_status_filters
+        file: ./js/risk_status_filters.js
+        desc: Risk Status Filters
     field_layout:
-      - - '[JS:Risk Filter Buttons]'
+      - - '[JS:Risk Status Filters]'
       - - name
-        - status
         - project
+        - severity
   - key: table
     type: table
     coll: nb_pm_risks
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
         popup: true
       - project
-      - probability
-      - impact
+      - severity
       - status
       - owner
+      - createdAt
     actions:
       - filter
       - refresh

@@ -3,10 +3,14 @@ popups:
   nb_pm_tasks: templates/popup/detail_nb_pm_tasks.yaml
   nb_pm_members: templates/popup/detail_nb_pm_members.yaml
   nb_pm_milestones: templates/popup/detail_nb_pm_milestones.yaml
+  nb_pm_time_entries: templates/popup/detail_nb_pm_time_entries.yaml
   nb_pm_risks: templates/popup/detail_nb_pm_risks.yaml
+  nb_pm_team_members: templates/popup/detail_nb_pm_team_members.yaml
 forms:
   nb_pm_projects: templates/block/form_add_new_nb_pm_projects.yaml
   nb_pm_tasks: templates/block/form_add_new_nb_pm_tasks.yaml
   nb_pm_members: templates/block/form_add_new_nb_pm_members.yaml
   nb_pm_milestones: templates/block/form_add_new_nb_pm_milestones.yaml
+  nb_pm_time_entries: templates/block/form_add_new_nb_pm_time_entries.yaml
   nb_pm_risks: templates/block/form_add_new_nb_pm_risks.yaml
+  nb_pm_team_members: templates/block/form_add_new_nb_pm_team_members.yaml

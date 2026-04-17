@@ -8,18 +8,18 @@ content:
   fields:
     - name
     - project
-    - probability
-    - impact
-    - status
     - owner
-    - mitigation
+    - severity
+    - status
+    - mitigation_plan
   field_layout:
     - '--- Risk Info ---'
-    - [name, project]
-    - [probability, impact]
-    - '--- Status ---'
-    - [status, owner]
+    - - name
+      - project
+    - - owner
+      - severity
+    - - status
     - '--- Mitigation ---'
-    - [mitigation]
+    - - mitigation_plan
   actions:
     - submit

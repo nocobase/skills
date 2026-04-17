@@ -39,7 +39,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: deploy, deploy-project, scaffold, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows');
+    console.log('Commands: deploy, deploy-project, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows');
     process.exit(1);
   }
 
@@ -52,6 +52,12 @@ async function main() {
       break;
     case 'scaffold':
       cmdScaffold(args.slice(1));
+      break;
+    case 'seed':
+      await cmdSeed(args.slice(1));
+      break;
+    case 'verify-data':
+      await cmdVerifyData(args.slice(1));
       break;
     case 'verify-sql':
       await cmdVerifySql(args.slice(1));
@@ -534,6 +540,23 @@ function cmdValidateWorkflows(args: string[]) {
 
   console.log(`\n  Result: ${wfDirs.length} workflow(s), ${totalErrors} error(s), ${totalWarnings} warning(s)`);
   if (totalErrors > 0) process.exit(1);
+}
+
+async function cmdVerifyData(args: string[]) {
+  const dir = args[0];
+  if (!dir) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
+  const { verifyData } = await import('./verify-data');
+  const result = await verifyData(path.resolve(dir));
+  if (result.failed > 0) process.exit(1);
+}
+
+async function cmdSeed(args: string[]) {
+  const dir = args[0];
+  if (!dir) { console.log('Usage: seed <project-dir> [--count N]'); process.exit(1); }
+  const countIdx = args.indexOf('--count');
+  const count = countIdx >= 0 ? parseInt(args[countIdx + 1], 10) : 5;
+  const { seedData } = await import('./seed');
+  await seedData(path.resolve(dir), { count });
 }
 
 main().catch(e => { console.error(e.message || e); process.exit(1); });

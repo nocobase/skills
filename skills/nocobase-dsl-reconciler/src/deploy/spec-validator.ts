@@ -273,20 +273,9 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
     }
   }
 
-  // ── Rule 3: filterForm search with filterPaths should combine relation fields ──
-  if (bs.type === 'filterForm') {
-    const fields = bs.fields || [];
-    const searchFields = fields.filter(f => typeof f === 'object' && (f as Record<string, unknown>).filterPaths);
-    const plainFields = fields.filter(f => typeof f === 'string' || (typeof f === 'object' && !(f as Record<string, unknown>).filterPaths && !(f as Record<string, unknown>).label));
-    // If there's a search field AND a plain relation field that could be merged into filterPaths
-    for (const pf of plainFields) {
-      const pfName = typeof pf === 'string' ? pf : (pf as Record<string, unknown>).field as string;
-      // Common relation fields that should be in filterPaths instead of separate filters
-      if (searchFields.length && ['project', 'customer', 'lead', 'contact', 'assignee', 'owner', 'member'].includes(pfName)) {
-        issues.push({ level: 'warn', page: pageTitle, block: key, message: `filterForm has separate "${pfName}" filter — consider adding ${pfName}.name to Search filterPaths instead` });
-      }
-    }
-  }
+  // ── Rule 3: filterForm m2o fields need FK-based filterPaths ──
+  // m2o fields in filterForm are valid (dropdown selector), but filterPaths
+  // must use the FK column (assigneeId) not the relation name (assignee)
 }
 
 function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {

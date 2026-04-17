@@ -8,14 +8,18 @@ content:
   fields:
     - name
     - project
-    - dueDate
+    - owner
     - status
+    - due_date
     - description
   field_layout:
-    - '--- Basic Info ---'
-    - [name, project]
-    - [dueDate, status]
-    - '--- Details ---'
-    - [description]
+    - '--- Milestone Info ---'
+    - - name
+      - project
+    - - owner
+      - status
+    - - due_date
+    - '--- Description ---'
+    - - description
   actions:
     - submit

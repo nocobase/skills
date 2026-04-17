@@ -8,30 +8,32 @@ blocks:
         filterPaths:
           - name
           - description
-      - status
+      - project
       - assignee
     js_items:
-      - key: filter_buttons
-        file: ./js/filter_buttons.js
-        desc: Task Filter Buttons
+      - key: task_status_filters
+        file: ./js/task_status_filters.js
+        desc: Task Status Filters
     field_layout:
-      - - '[JS:Task Filter Buttons]'
+      - - '[JS:Task Status Filters]'
       - - name
-        - status
+        - project
         - assignee
   - key: table
     type: table
     coll: nb_pm_tasks
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
         popup: true
-      - status
-      - priority
-      - dueDate
-      - estimatedHours
-      - actualHours
       - project
       - assignee
+      - status
+      - priority
+      - due_date
+      - estimated_hours
+      - createdAt
     actions:
       - filter
       - refresh

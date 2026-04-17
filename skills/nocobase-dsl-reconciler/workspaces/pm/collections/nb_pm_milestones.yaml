@@ -1,20 +1,15 @@
 name: nb_pm_milestones
 title: Milestones
+titleField: name
 fields:
   - name: name
     interface: input
     title: Name
+    required: true
   - name: project
     interface: m2o
     title: Project
     target: nb_pm_projects
-    foreignKey: projectId
-  - name: projectId
-    interface: integer
-    title: Project ID
-  - name: dueDate
-    interface: dateOnly
-    title: Due Date
   - name: status
     interface: select
     title: Status
@@ -25,6 +20,13 @@ fields:
         label: In Progress
       - value: completed
         label: Completed
+  - name: due_date
+    interface: dateOnly
+    title: Due Date
+  - name: owner
+    interface: m2o
+    title: Owner
+    target: nb_pm_members
   - name: description
     interface: textarea
     title: Description

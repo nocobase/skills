@@ -7,29 +7,32 @@ blocks:
         label: Search
         filterPaths:
           - name
+          - code
           - description
-      - status
-      - manager
+      - owner
+      - priority
     js_items:
-      - key: filter_buttons
-        file: ./js/filter_buttons.js
-        desc: Project Filter Buttons
+      - key: project_status_filters
+        file: ./js/project_status_filters.js
+        desc: Project Status Filters
     field_layout:
-      - - '[JS:Project Filter Buttons]'
+      - - '[JS:Project Status Filters]'
       - - name
-        - status
-        - manager
+        - owner
+        - priority
   - key: table
     type: table
     coll: nb_pm_projects
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
         popup: true
+      - code
       - status
-      - budget
-      - startDate
-      - endDate
-      - manager
+      - priority
+      - owner
+      - end_date
       - createdAt
     actions:
       - filter

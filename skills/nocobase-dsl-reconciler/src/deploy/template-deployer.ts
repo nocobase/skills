@@ -240,7 +240,7 @@ export async function deployTemplates(
   savedTemplateUids?: Record<string, { uid: string; targetUid: string; type: string; collection?: string }>,
 ): Promise<DeployTemplatesResult> {
   const tplDir = path.join(projectDir, 'templates');
-  if (!fs.existsSync(tplDir)) return new Map();
+  if (!fs.existsSync(tplDir)) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
 
   // Build index: prefer _index.yaml, then auto-discover YAML files
   let index: TemplateIndex[];
@@ -250,7 +250,7 @@ export async function deployTemplates(
   } else {
     index = discoverTemplates(tplDir);
   }
-  if (!index.length) return new Map();
+  if (!index.length) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
 
   log('\n  -- Templates --');
 
@@ -417,6 +417,25 @@ export async function deployTemplates(
   }
 
   log(`  templates: ${created} created, ${reused} reused${skipped ? `, ${skipped} deferred/skipped` : ''}`);
+
+  // Post-template: bind m2o popup templates on all block template targets
+  // (template blocks don't go through fillBlock, so enableM2oClickToOpen doesn't run on them)
+  for (const tpl of index) {
+    if (tpl.type !== 'block') continue;
+    const tplFile = path.join(tplDir, tpl.file);
+    if (!fs.existsSync(tplFile)) continue;
+    const tplSpec = loadYaml<Record<string, unknown>>(tplFile);
+    const collName = (tpl.collection || tplSpec.collectionName) as string || '';
+    if (!collName) continue;
+    const stateKey = `${tpl.type}:${tpl.name}`;
+    const deployed = deployedTemplates[stateKey];
+    if (!deployed?.targetUid) continue;
+    try {
+      const { enableM2oClickToOpen } = await import('./block-filler');
+      await enableM2oClickToOpen(nb, deployed.targetUid, collName, path.dirname(tplFile), log);
+    } catch { /* skip */ }
+  }
+
   return { uidMap, pendingPopupTemplates, deployedTemplates };
 }
 

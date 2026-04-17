@@ -30,16 +30,22 @@ List collections, fields, and relationships. Wait for user confirmation before p
 1. Create working directory `/tmp/myapp/`
 2. Write files following the structure in `templates/crm/` (full reference below)
 3. Deploy: `npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force`
-4. Insert test data (see `templates/seed.sh`)
 
 **Warning: routes.yaml `title` must match the pages/ directory name** (lowercase).
 e.g. `title: Projects` → `pages/myapp/projects/layout.yaml`
 
-### Round 2: Popups + Details
+### Round 2: Test Data + Verification
+
+1. Insert test data: `npx tsx cli/cli.ts seed /tmp/myapp`
+   (or manually via API — but use real IDs from GET responses, NOT 1/2/3)
+2. Verify data integrity: `npx tsx cli/cli.ts verify-data /tmp/myapp`
+   Checks: record completeness, FK references, select values
+
+### Round 3: Popups + Details
 
 Edit popup/block templates → `deploy --force`
 
-### Round 3: JS + Charts (optional)
+### Round 4: JS + Charts (optional)
 
 Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
 
@@ -132,6 +138,12 @@ export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:1
 
 # Deploy
 npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force
+
+# Seed test data (handles FK IDs correctly — no more projectId=1 errors)
+npx tsx cli/cli.ts seed /tmp/myapp --count 5
+
+# Verify data integrity (FK references, field completeness)
+npx tsx cli/cli.ts verify-data /tmp/myapp
 
 # Export
 npx tsx cli/cli.ts export-project "MyApp" /tmp/export

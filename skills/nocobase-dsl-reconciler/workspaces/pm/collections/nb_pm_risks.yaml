@@ -1,20 +1,18 @@
 name: nb_pm_risks
 title: Risks
+titleField: name
 fields:
   - name: name
     interface: input
     title: Name
+    required: true
   - name: project
     interface: m2o
     title: Project
     target: nb_pm_projects
-    foreignKey: projectId
-  - name: projectId
-    interface: integer
-    title: Project ID
-  - name: probability
+  - name: severity
     interface: select
-    title: Probability
+    title: Severity
     options:
       - value: low
         label: Low
@@ -22,34 +20,24 @@ fields:
         label: Medium
       - value: high
         label: High
-  - name: impact
-    interface: select
-    title: Impact
-    options:
-      - value: low
-        label: Low
-      - value: medium
-        label: Medium
-      - value: high
-        label: High
+      - value: critical
+        label: Critical
   - name: status
     interface: select
     title: Status
     options:
       - value: open
         label: Open
+      - value: monitoring
+        label: Monitoring
       - value: mitigated
         label: Mitigated
       - value: closed
         label: Closed
-  - name: mitigation
-    interface: textarea
-    title: Mitigation Plan
   - name: owner
     interface: m2o
     title: Owner
     target: nb_pm_members
-    foreignKey: ownerId
-  - name: ownerId
-    interface: integer
-    title: Owner ID
+  - name: mitigation_plan
+    interface: textarea
+    title: Mitigation Plan

@@ -320,6 +320,21 @@ export async function deployProject(
   // Ensure popup template blocks have binding: 'currentRecord' (for edit/detail popups)
   await ensurePopupBindings(nb, state, log);
 
+  // Re-run m2o popup binding on all page blocks (popup templates may not have existed during fillBlock)
+  log(`\n  ── Post-deploy: m2o popup binding ──`);
+  const { enableM2oClickToOpen } = await import('./block-filler');
+  for (const [pageKey, pageState] of Object.entries(state.pages)) {
+    for (const [blockKey, blockInfo] of Object.entries(pageState.blocks || {})) {
+      if (!blockInfo.uid) continue;
+      const pageInfo = pages.find(p => slugify(p.title) === pageKey);
+      if (!pageInfo) continue;
+      const blockColl = pageInfo.layout?.coll as string || '';
+      if (blockColl) {
+        await enableM2oClickToOpen(nb, blockInfo.uid, blockColl, pageInfo.dir, log);
+      }
+    }
+  }
+
   // SQL verify
   const sqlResult = await verifySqlFromPages(nb, pages);
   log(`\n  ── SQL Verification: ${sqlResult.passed} passed, ${sqlResult.failed} failed ──`);
@@ -327,31 +342,9 @@ export async function deployProject(
     if (!r.ok) log(`  ✗ ${r.label}: ${r.error}`);
   }
 
-  // Check test data — every collection must have records with actual field values
-  const dataIssues: string[] = [];
-  for (const [collName, collDef] of Object.entries(collDefs)) {
-    try {
-      const r = await nb.http.get(`${nb.baseUrl}/api/${collName}:list`, { params: { pageSize: 1 } });
-      const rows = r.data?.data || [];
-      if (!rows.length) {
-        dataIssues.push(`${collName}: no records`);
-        continue;
-      }
-      // Check first record has at least one non-null business field
-      const SYSTEM = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
-      const row = rows[0];
-      const bizFields = Object.entries(row).filter(([k, v]) => !SYSTEM.has(k) && v !== null && v !== undefined);
-      if (!bizFields.length) {
-        const fieldNames = collDef.fields.filter(f => !SYSTEM.has(f.name)).map(f => f.name).slice(0, 5).join(', ');
-        dataIssues.push(`${collName}: records exist but ALL fields are empty — re-insert with: {"${fieldNames.split(', ')[0]}":"value", ...}`);
-      }
-    } catch { /* skip */ }
-  }
-  if (dataIssues.length) {
-    const msg = `Test data issues:\n${dataIssues.map(i => `  - ${i}`).join('\n')}`;
-    log(`\n  ✗ ${msg}`);
-    throw new Error(msg);
-  }
+  // Data verification is now a separate step: npx tsx cli/cli.ts verify-data <dir>
+  // Deploy no longer blocks on missing/broken test data — AI inserts data after deploy,
+  // then runs verify-data as a separate validation pass.
 
   // Set menu sortIndex to match routes.yaml declaration order
   await syncMenuOrder(nb, state, routes, log);

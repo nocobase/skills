@@ -73,15 +73,31 @@ export async function configureFilter(
       : [];
     const items = (Array.isArray(gridItems) ? gridItems : []) as Record<string, unknown>[];
 
+    // Build m2o field set from collection metadata (for FK name derivation)
+    const m2oFkMap = new Map<string, string>(); // fieldName → fkName (e.g. assignee → assigneeId)
+    if (coll) {
+      try {
+        const collResp = await nb.http.get(`${nb.baseUrl}/api/collections/${coll}/fields:list`, { params: { paginate: false } });
+        for (const cf of (collResp.data?.data || []) as Record<string, unknown>[]) {
+          if (cf.interface === 'm2o' && cf.foreignKey) {
+            m2oFkMap.set(cf.name as string, cf.foreignKey as string);
+          }
+        }
+      } catch { /* skip */ }
+    }
+
     const fmEntries: Record<string, unknown>[] = [];
     for (const rawF of bs.fields || []) {
-      // Normalize: string fields get auto-filterPaths (select fields filter by their own name)
+      const fieldName = typeof rawF === 'string' ? rawF : (rawF as Record<string, unknown>).field as string;
+      // m2o fields: filterPaths should use FK column (assigneeId), not relation name (assignee)
+      const fkName = m2oFkMap.get(fieldName || '');
+      const defaultPaths = fkName ? [fkName] : fieldName ? [fieldName] : [];
+
       const f = typeof rawF === 'string'
-        ? { field: rawF, filterPaths: [rawF] }
+        ? { field: rawF, filterPaths: defaultPaths }
         : rawF;
       if (!f.filterPaths?.length) {
-        // Auto-derive filterPaths for fields without explicit config
-        if (f.field) f.filterPaths = [f.field];
+        if (f.field) f.filterPaths = defaultPaths.length ? defaultPaths : [f.field];
         else continue;
       }
       const fp = f.field || '';

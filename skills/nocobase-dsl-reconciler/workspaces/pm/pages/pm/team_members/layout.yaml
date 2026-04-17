@@ -1,0 +1,44 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_pm_team_members
+    fields:
+      - field: role_on_project
+        label: Search
+        filterPaths:
+          - role_on_project
+      - project
+      - member
+    js_items:
+      - key: team_member_status_filters
+        file: ./js/team_member_status_filters.js
+        desc: Team Member Status Filters
+    field_layout:
+      - - '[JS:Team Member Status Filters]'
+      - - role_on_project
+        - project
+        - member
+  - key: table
+    type: table
+    coll: nb_pm_team_members
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
+    fields:
+      - field: role_on_project
+        popup: true
+      - project
+      - member
+      - status
+      - allocation_percent
+      - end_date
+      - createdAt
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - edit
+      - delete
+layout:
+  - - filterForm
+  - - table

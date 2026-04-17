@@ -8,26 +8,30 @@ blocks:
         filterPaths:
           - name
           - description
-      - status
       - project
+      - owner
     js_items:
-      - key: filter_buttons
-        file: ./js/filter_buttons.js
-        desc: Milestone Filter Buttons
+      - key: milestone_status_filters
+        file: ./js/milestone_status_filters.js
+        desc: Milestone Status Filters
     field_layout:
-      - - '[JS:Milestone Filter Buttons]'
+      - - '[JS:Milestone Status Filters]'
       - - name
-        - status
         - project
+        - owner
   - key: table
     type: table
     coll: nb_pm_milestones
+    filter:
+      status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
         popup: true
       - project
-      - dueDate
+      - owner
       - status
+      - due_date
+      - createdAt
     actions:
       - filter
       - refresh

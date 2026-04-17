@@ -177,7 +177,7 @@ Returns the newly created node object, including new `id` and `key`.
 
 `POST /api/flow_nodes:test`
 
-Tests if a node configuration is valid (only some node types implement the `test` method, such as `calculation`, `query`, `request`).
+Tests if a node configuration is valid. At the current server implementation, only `calculation`, `condition`, `request`, `notification`, `json-query`, `script`, and `sql` implement `test()`. Other node types return `test method of instruction "<type>" not implemented`.
 
 | Field | Description |
 |---|---|

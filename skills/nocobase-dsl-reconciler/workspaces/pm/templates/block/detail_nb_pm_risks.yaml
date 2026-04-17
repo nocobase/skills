@@ -1,4 +1,4 @@
-name: 'Details: Risks'
+name: 'Detail: Risks'
 type: block
 collectionName: nb_pm_risks
 content:
@@ -8,20 +8,19 @@ content:
   fields:
     - name
     - project
-    - probability
-    - impact
-    - status
     - owner
-    - mitigation
+    - severity
+    - status
+    - mitigation_plan
     - createdAt
-    - updatedAt
   field_layout:
     - '--- Risk Info ---'
-    - [name, project]
-    - [probability, impact]
-    - '--- Status ---'
-    - [status, owner]
+    - - name
+      - project
+    - - owner
+      - severity
+    - - status
     - '--- Mitigation ---'
-    - [mitigation]
-    - '--- System ---'
-    - [createdAt, updatedAt]
+    - - mitigation_plan
+    - '--- Audit ---'
+    - - createdAt

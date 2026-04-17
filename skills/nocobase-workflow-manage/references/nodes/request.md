@@ -37,6 +37,9 @@ Calling HTTP API of external system such as payment or logistics.
 ## Branch Description
 Does not support branches.
 
+## Test Support
+Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes:test`, because the server-side instruction implements `test()`.
+
 ## Example Configuration
 
 ### JSON body example
