@@ -272,10 +272,15 @@ async function expandToRelationTargets(nb: NocoBaseClient, names: Set<string>): 
         const r = await nb.http.get(`${nb.baseUrl}/api/collections/${name}/fields:list`, { params: { paginate: false } });
         const fields = (r.data?.data || []) as Record<string, unknown>[];
         for (const f of fields) {
-          const target = f.target as string;
-          if (target && !names.has(target)) {
-            names.add(target);
-            changed = true;
+          // Follow both target (m2o/o2m/m2m → other side) AND through (m2m
+          // join table). Without `through`, a duplicated module would have
+          // m2m fields pointing at a join table that was never pulled.
+          for (const refKey of ['target', 'through'] as const) {
+            const ref = f[refKey] as string;
+            if (ref && !names.has(ref)) {
+              names.add(ref);
+              changed = true;
+            }
           }
         }
       } catch { /* skip */ }
