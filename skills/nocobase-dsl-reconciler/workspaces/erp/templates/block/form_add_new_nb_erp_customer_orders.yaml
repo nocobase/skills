@@ -1,0 +1,32 @@
+name: 'Form (Add new): Customer Orders'
+type: block
+collectionName: nb_erp_customer_orders
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_customer_orders
+  fields:
+    - order_number
+    - customer
+    - status
+    - payment_status
+    - order_date
+    - required_date
+    - total_amount
+    - shipping_address
+    - notes
+  field_layout:
+    - '--- Order Summary ---'
+    - - order_number
+      - customer
+    - - status
+      - payment_status
+    - '--- Dates & Amount ---'
+    - - order_date
+      - required_date
+    - - total_amount
+    - '--- Fulfillment ---'
+    - - shipping_address
+    - - notes
+  actions:
+    - submit

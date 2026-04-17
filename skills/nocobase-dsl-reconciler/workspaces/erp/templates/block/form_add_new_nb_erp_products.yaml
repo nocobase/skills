@@ -1,0 +1,39 @@
+name: 'Form (Add new): Products'
+type: block
+collectionName: nb_erp_products
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_products
+  fields:
+    - sku
+    - name
+    - category
+    - unit
+    - status
+    - current_stock
+    - reorder_point
+    - safety_stock
+    - standard_cost
+    - sale_price
+    - preferred_supplier
+    - description
+  field_layout:
+    - '--- Product Profile ---'
+    - - sku
+      - name
+    - - category
+      - unit
+    - - status
+      - preferred_supplier
+    - '--- Inventory ---'
+    - - current_stock
+      - reorder_point
+    - - safety_stock
+    - '--- Pricing ---'
+    - - standard_cost
+      - sale_price
+    - '--- Notes ---'
+    - - description
+  actions:
+    - submit

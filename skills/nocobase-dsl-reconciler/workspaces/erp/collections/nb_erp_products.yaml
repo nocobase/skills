@@ -1,0 +1,59 @@
+name: nb_erp_products
+title: Products
+titleField: name
+fields:
+  - name: sku
+    interface: input
+    title: SKU
+    required: true
+  - name: name
+    interface: input
+    title: Product Name
+    required: true
+  - name: category
+    interface: input
+    title: Category
+  - name: unit
+    interface: select
+    title: Unit
+    options:
+      - value: each
+        label: Each
+      - value: box
+        label: Box
+      - value: kg
+        label: Kilogram
+      - value: liter
+        label: Liter
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: active
+        label: Active
+      - value: inactive
+        label: Inactive
+      - value: discontinued
+        label: Discontinued
+  - name: current_stock
+    interface: number
+    title: Current Stock
+  - name: reorder_point
+    interface: number
+    title: Reorder Point
+  - name: safety_stock
+    interface: number
+    title: Safety Stock
+  - name: standard_cost
+    interface: number
+    title: Standard Cost
+  - name: sale_price
+    interface: number
+    title: Sale Price
+  - name: preferred_supplier
+    interface: m2o
+    title: Preferred Supplier
+    target: nb_erp_suppliers
+  - name: description
+    interface: textarea
+    title: Description

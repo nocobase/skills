@@ -1,0 +1,33 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_purchase_orders
+    fields:
+      - field: po_number
+        label: Search
+        filterPaths:
+          - po_number
+          - buyer_name
+          - notes
+      - supplier
+      - status
+    field_layout:
+      - - po_number
+        - supplier
+        - status
+  - key: table
+    type: table
+    coll: nb_erp_purchase_orders
+    fields:
+      - field: po_number
+        clickToOpen: true
+      - supplier
+      - status
+      - order_date
+      - expected_date
+      - total_amount
+      - buyer_name
+      - createdAt
+layout:
+  - - filterForm
+  - - table

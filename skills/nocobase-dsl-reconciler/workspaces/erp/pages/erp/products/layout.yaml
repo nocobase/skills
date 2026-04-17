@@ -1,0 +1,35 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_products
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - sku
+          - name
+          - category
+          - description
+      - status
+      - preferred_supplier
+    field_layout:
+      - - name
+        - status
+        - preferred_supplier
+  - key: table
+    type: table
+    coll: nb_erp_products
+    fields:
+      - field: name
+        clickToOpen: true
+      - sku
+      - status
+      - category
+      - current_stock
+      - reorder_point
+      - preferred_supplier
+      - sale_price
+      - createdAt
+layout:
+  - - filterForm
+  - - table

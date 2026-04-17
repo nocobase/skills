@@ -1,0 +1,52 @@
+name: nb_erp_customers
+title: Customers
+titleField: name
+fields:
+  - name: customer_code
+    interface: input
+    title: Customer Code
+    required: true
+  - name: name
+    interface: input
+    title: Customer Name
+    required: true
+  - name: email
+    interface: email
+    title: Email
+  - name: phone
+    interface: phone
+    title: Phone
+  - name: segment
+    interface: select
+    title: Segment
+    options:
+      - value: wholesale
+        label: Wholesale
+      - value: retail
+        label: Retail
+      - value: distributor
+        label: Distributor
+      - value: online
+        label: Online
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: active
+        label: Active
+      - value: on_hold
+        label: On Hold
+      - value: inactive
+        label: Inactive
+  - name: credit_limit
+    interface: number
+    title: Credit Limit
+  - name: billing_address
+    interface: textarea
+    title: Billing Address
+  - name: shipping_address
+    interface: textarea
+    title: Shipping Address
+  - name: notes
+    interface: textarea
+    title: Notes

@@ -1,0 +1,50 @@
+name: nb_erp_suppliers
+title: Suppliers
+titleField: name
+fields:
+  - name: supplier_code
+    interface: input
+    title: Supplier Code
+    required: true
+  - name: name
+    interface: input
+    title: Supplier Name
+    required: true
+  - name: contact_name
+    interface: input
+    title: Contact Name
+  - name: email
+    interface: email
+    title: Email
+  - name: phone
+    interface: phone
+    title: Phone
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: active
+        label: Active
+      - value: preferred
+        label: Preferred
+      - value: inactive
+        label: Inactive
+  - name: payment_terms
+    interface: select
+    title: Payment Terms
+    options:
+      - value: net_15
+        label: Net 15
+      - value: net_30
+        label: Net 30
+      - value: prepaid
+        label: Prepaid
+  - name: lead_time_days
+    interface: integer
+    title: Lead Time Days
+  - name: address
+    interface: textarea
+    title: Address
+  - name: notes
+    interface: textarea
+    title: Notes

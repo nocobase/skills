@@ -1,0 +1,41 @@
+name: nb_erp_purchase_orders
+title: Purchase Orders
+titleField: po_number
+fields:
+  - name: po_number
+    interface: input
+    title: PO Number
+    required: true
+  - name: supplier
+    interface: m2o
+    title: Supplier
+    target: nb_erp_suppliers
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: draft
+        label: Draft
+      - value: submitted
+        label: Submitted
+      - value: approved
+        label: Approved
+      - value: received
+        label: Received
+      - value: cancelled
+        label: Cancelled
+  - name: order_date
+    interface: dateOnly
+    title: Order Date
+  - name: expected_date
+    interface: dateOnly
+    title: Expected Date
+  - name: total_amount
+    interface: number
+    title: Total Amount
+  - name: buyer_name
+    interface: input
+    title: Buyer Name
+  - name: notes
+    interface: textarea
+    title: Notes

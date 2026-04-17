@@ -1,0 +1,32 @@
+name: 'Form (Add new): Inventory Movements'
+type: block
+collectionName: nb_erp_inventory_movements
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_inventory_movements
+  fields:
+    - reference_number
+    - product
+    - movement_type
+    - quantity
+    - unit_cost
+    - related_order
+    - related_purchase_order
+    - movement_date
+    - notes
+  field_layout:
+    - '--- Movement Summary ---'
+    - - reference_number
+      - product
+    - - movement_type
+      - movement_date
+    - - quantity
+      - unit_cost
+    - '--- Source Documents ---'
+    - - related_order
+      - related_purchase_order
+    - '--- Notes ---'
+    - - notes
+  actions:
+    - submit

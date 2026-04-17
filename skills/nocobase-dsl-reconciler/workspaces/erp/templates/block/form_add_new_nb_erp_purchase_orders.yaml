@@ -1,0 +1,30 @@
+name: 'Form (Add new): Purchase Orders'
+type: block
+collectionName: nb_erp_purchase_orders
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_purchase_orders
+  fields:
+    - po_number
+    - supplier
+    - status
+    - order_date
+    - expected_date
+    - total_amount
+    - buyer_name
+    - notes
+  field_layout:
+    - '--- Purchase Summary ---'
+    - - po_number
+      - supplier
+    - - status
+      - buyer_name
+    - '--- Dates & Amount ---'
+    - - order_date
+      - expected_date
+    - - total_amount
+    - '--- Notes ---'
+    - - notes
+  actions:
+    - submit

@@ -1,0 +1,4 @@
+target: $SELF.table.actions.addNew
+coll: nb_erp_products
+blocks:
+  - ref: templates/block/form_add_new_nb_erp_products.yaml

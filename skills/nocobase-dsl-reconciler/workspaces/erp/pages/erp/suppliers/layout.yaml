@@ -1,0 +1,35 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_suppliers
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - supplier_code
+          - name
+          - contact_name
+          - email
+      - status
+      - payment_terms
+    field_layout:
+      - - name
+        - status
+        - payment_terms
+  - key: table
+    type: table
+    coll: nb_erp_suppliers
+    fields:
+      - field: name
+        clickToOpen: true
+      - supplier_code
+      - contact_name
+      - status
+      - payment_terms
+      - lead_time_days
+      - email
+      - phone
+      - createdAt
+layout:
+  - - filterForm
+  - - table

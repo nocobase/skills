@@ -1,0 +1,7 @@
+forms:
+  nb_erp_products: templates/block/form_add_new_nb_erp_products.yaml
+  nb_erp_customers: templates/block/form_add_new_nb_erp_customers.yaml
+  nb_erp_suppliers: templates/block/form_add_new_nb_erp_suppliers.yaml
+  nb_erp_customer_orders: templates/block/form_add_new_nb_erp_customer_orders.yaml
+  nb_erp_purchase_orders: templates/block/form_add_new_nb_erp_purchase_orders.yaml
+  nb_erp_inventory_movements: templates/block/form_add_new_nb_erp_inventory_movements.yaml

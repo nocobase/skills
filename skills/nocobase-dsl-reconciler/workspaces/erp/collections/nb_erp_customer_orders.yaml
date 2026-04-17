@@ -1,0 +1,55 @@
+name: nb_erp_customer_orders
+title: Customer Orders
+titleField: order_number
+fields:
+  - name: order_number
+    interface: input
+    title: Order Number
+    required: true
+  - name: customer
+    interface: m2o
+    title: Customer
+    target: nb_erp_customers
+  - name: status
+    interface: select
+    title: Status
+    options:
+      - value: draft
+        label: Draft
+      - value: confirmed
+        label: Confirmed
+      - value: picking
+        label: Picking
+      - value: shipped
+        label: Shipped
+      - value: completed
+        label: Completed
+      - value: cancelled
+        label: Cancelled
+  - name: payment_status
+    interface: select
+    title: Payment Status
+    options:
+      - value: unpaid
+        label: Unpaid
+      - value: partial
+        label: Partial
+      - value: paid
+        label: Paid
+      - value: refunded
+        label: Refunded
+  - name: order_date
+    interface: dateOnly
+    title: Order Date
+  - name: required_date
+    interface: dateOnly
+    title: Required Date
+  - name: total_amount
+    interface: number
+    title: Total Amount
+  - name: shipping_address
+    interface: textarea
+    title: Shipping Address
+  - name: notes
+    interface: textarea
+    title: Notes

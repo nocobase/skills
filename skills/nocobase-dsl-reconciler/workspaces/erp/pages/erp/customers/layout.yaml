@@ -1,0 +1,34 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_customers
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - customer_code
+          - name
+          - email
+          - phone
+      - status
+      - segment
+    field_layout:
+      - - name
+        - status
+        - segment
+  - key: table
+    type: table
+    coll: nb_erp_customers
+    fields:
+      - field: name
+        clickToOpen: true
+      - customer_code
+      - status
+      - segment
+      - email
+      - phone
+      - credit_limit
+      - createdAt
+layout:
+  - - filterForm
+  - - table

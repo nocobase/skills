@@ -1,0 +1,33 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_customer_orders
+    fields:
+      - field: order_number
+        label: Search
+        filterPaths:
+          - order_number
+          - shipping_address
+          - notes
+      - customer
+      - status
+    field_layout:
+      - - order_number
+        - customer
+        - status
+  - key: table
+    type: table
+    coll: nb_erp_customer_orders
+    fields:
+      - field: order_number
+        clickToOpen: true
+      - customer
+      - status
+      - payment_status
+      - order_date
+      - required_date
+      - total_amount
+      - createdAt
+layout:
+  - - filterForm
+  - - table

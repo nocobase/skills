@@ -1,0 +1,16 @@
+- title: ERP
+  type: group
+  icon: databaseoutlined
+  children:
+    - title: Products
+      icon: tagsoutlined
+    - title: Customers
+      icon: teamoutlined
+    - title: Suppliers
+      icon: solutionoutlined
+    - title: Orders
+      icon: shoppingcartoutlined
+    - title: Purchase Orders
+      icon: inboxoutlined
+    - title: Inventory Movements
+      icon: swapoutlined

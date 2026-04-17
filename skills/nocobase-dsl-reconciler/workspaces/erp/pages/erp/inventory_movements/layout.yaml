@@ -1,0 +1,33 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_inventory_movements
+    fields:
+      - field: reference_number
+        label: Search
+        filterPaths:
+          - reference_number
+          - notes
+      - product
+      - movement_type
+    field_layout:
+      - - reference_number
+        - product
+        - movement_type
+  - key: table
+    type: table
+    coll: nb_erp_inventory_movements
+    fields:
+      - field: reference_number
+        clickToOpen: true
+      - product
+      - movement_type
+      - quantity
+      - unit_cost
+      - related_order
+      - related_purchase_order
+      - movement_date
+      - createdAt
+layout:
+  - - filterForm
+  - - table

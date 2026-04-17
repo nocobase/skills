@@ -1,0 +1,45 @@
+name: nb_erp_inventory_movements
+title: Inventory Movements
+titleField: reference_number
+fields:
+  - name: reference_number
+    interface: input
+    title: Reference Number
+    required: true
+  - name: product
+    interface: m2o
+    title: Product
+    target: nb_erp_products
+  - name: movement_type
+    interface: select
+    title: Movement Type
+    options:
+      - value: receipt
+        label: Receipt
+      - value: issue
+        label: Issue
+      - value: adjustment
+        label: Adjustment
+      - value: return
+        label: Return
+  - name: quantity
+    interface: number
+    title: Quantity
+    required: true
+  - name: unit_cost
+    interface: number
+    title: Unit Cost
+  - name: related_order
+    interface: m2o
+    title: Related Order
+    target: nb_erp_customer_orders
+  - name: related_purchase_order
+    interface: m2o
+    title: Related Purchase Order
+    target: nb_erp_purchase_orders
+  - name: movement_date
+    interface: dateOnly
+    title: Movement Date
+  - name: notes
+    interface: textarea
+    title: Notes
