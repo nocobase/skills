@@ -1,0 +1,13 @@
+target: $SELF.contacts.recordActions.edit
+coll: ''
+blocks:
+  - key: editForm
+    type: editForm
+    coll: ''
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    templateRef:
+      templateUid: 0lf4xzr059m
+      templateName: 'Form (Edit): Customers > Contacts (Contacts)'
+      targetUid: cwjpekkxvvo
+      mode: reference

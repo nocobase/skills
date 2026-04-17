@@ -1,0 +1,20 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - product
+      - warehouse
+      - quantity
+      - last_updated
+      - createdAt
+    field_layout:
+      - - product
+        - warehouse
+      - - quantity
+        - last_updated
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer

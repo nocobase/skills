@@ -1,0 +1,34 @@
+target: $SELF.table.recordActions.edit
+coll: ''
+blocks:
+  - key: editForm
+    type: editForm
+    coll: ''
+    fields:
+      - subject
+      - type
+      - activity_date
+      - content
+      - customer
+      - opportunity
+      - contact
+      - owner
+      - lead
+    field_layout:
+      - - subject
+      - - type
+        - activity_date
+      - - content
+      - - col:
+            - customer
+            - lead
+          size: 8
+        - col:
+            - opportunity
+            - owner
+          size: 8
+        - contact
+    actions:
+      - submit
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

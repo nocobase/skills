@@ -1,0 +1,37 @@
+target: $SELF.table.recordActions.edit
+coll: ''
+blocks:
+  - key: editForm
+    type: editForm
+    coll: ''
+    fields:
+      - name
+      - product_family
+      - category
+      - description
+      - unit
+      - base_currency
+      - list_price
+      - cost_price
+      - min_price
+      - price_tiers
+      - specification
+    field_layout:
+      - '--- {{t("Basic Info", { ns: "resources.lm-flow-engine" })}} ---'
+      - - name
+      - - category
+        - product_family
+      - - description
+      - '--- Specifications ---'
+      - - specification
+        - unit
+      - '--- Pricing ---'
+      - - base_currency
+      - - list_price
+        - cost_price
+        - min_price
+      - - price_tiers
+    actions:
+      - submit
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

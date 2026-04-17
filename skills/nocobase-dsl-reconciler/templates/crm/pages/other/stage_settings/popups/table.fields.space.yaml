@@ -1,0 +1,3 @@
+target: $SELF.table.fields.space
+blocks: []
+mode: drawer

@@ -1,0 +1,16 @@
+target: $SELF.table.recordActions.edit
+coll: ''
+blocks:
+  - key: editForm
+    type: editForm
+    coll: ''
+    fields:
+      - name
+      - description
+    field_layout:
+      - - name
+      - - description
+    actions:
+      - submit
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

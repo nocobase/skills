@@ -155,8 +155,20 @@ async function syncTemplateContent(
       }
 
       // Deep-copy: recreate entire grid tree under target (node by node)
+      // Track old→new UID mapping for grid layout remapping
+      const copyUidMap = new Map<string, string>();
+      const gridNodesToFix: { newUid: string; rows: Record<string, string[][]>; sizes?: Record<string, number[]> }[] = [];
+
       async function deepCopy(srcNode: any, newParentId: string, subKey: string, subType: string): Promise<void> {
         const newUid = generateUid();
+        if (srcNode.uid) copyUidMap.set(srcNode.uid, newUid);
+
+        // Collect grid nodes that have rows (need UID remapping after full copy)
+        const gs = srcNode.stepParams?.gridSettings?.grid;
+        if (gs?.rows && typeof gs.rows === 'object') {
+          gridNodesToFix.push({ newUid, rows: gs.rows, sizes: gs.sizes });
+        }
+
         await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
           uid: newUid,
           use: srcNode.use,
@@ -186,6 +198,26 @@ async function syncTemplateContent(
       }
 
       await deepCopy(newGrid, targetUid, 'grid', 'object');
+
+      // Remap grid layout UIDs: rows/sizes reference old UIDs → replace with new
+      for (const { newUid: gridUid2, rows, sizes } of gridNodesToFix) {
+        const newRows: Record<string, string[][]> = {};
+        for (const [rowKey, cols] of Object.entries(rows)) {
+          const newRowKey = copyUidMap.get(rowKey) || rowKey;
+          newRows[newRowKey] = cols.map(col => col.map(uid => copyUidMap.get(uid) || uid));
+        }
+        const newSizes: Record<string, number[]> = {};
+        if (sizes) {
+          for (const [key, val] of Object.entries(sizes)) {
+            newSizes[copyUidMap.get(key) || key] = val;
+          }
+        }
+        try {
+          await nb.updateModel(gridUid2, { gridSettings: { grid: { rows: newRows, sizes: sizes ? newSizes : undefined } } });
+        } catch (e) {
+          log(`${indent}! grid layout remap: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+        }
+      }
 
       // Log
       const added = specFields.filter(f => !liveFields.includes(f));
@@ -667,9 +699,13 @@ export async function convertPopupToTemplate(
     if (newTemplateUid) {
       log(`    + popup template: ${name} (${newTemplateUid}, coll: ${collName})`);
 
-      // Step 2: Convert blocks inside popup template to block template references.
-      // Must happen AFTER popup template creation (saveTemplate duplicates the tree,
-      // giving it proper closure table entries that detachParent requires).
+      // Step 2: Fix grid layout UIDs — saveTemplate(convert) duplicates the tree
+      // but doesn't remap gridSettings.rows UIDs to the new item UIDs.
+      if (newTargetUid) {
+        await fixGridLayoutUids(nb, newTargetUid, log);
+      }
+
+      // Step 3: Convert blocks inside popup template to block template references.
       if (newTargetUid) {
         await convertPopupBlocksToTemplates(nb, newTargetUid, collName, log);
       }
@@ -680,6 +716,97 @@ export async function convertPopupToTemplate(
     log(`    . popup template convert: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
   }
   return undefined;
+}
+
+/**
+ * Fix grid layout UIDs after tree duplication (saveTemplate/deepCopy).
+ *
+ * When NocoBase duplicates a tree (saveTemplate convert/duplicate), all nodes get new UIDs
+ * but gridSettings.rows still references the OLD UIDs. This function scans the tree,
+ * finds grid nodes with orphaned row UIDs, and remaps them to actual item UIDs by position.
+ */
+async function fixGridLayoutUids(
+  nb: NocoBaseClient,
+  rootUid: string,
+  log: (msg: string) => void,
+): Promise<void> {
+  let tree: any;
+  try {
+    const data = await nb.get({ uid: rootUid });
+    tree = data.tree;
+  } catch { return; }
+  if (!tree) return;
+
+  // Collect all UIDs in the tree + find grid nodes
+  const allUids = new Set<string>();
+  const gridNodes: { uid: string; rows: Record<string, string[][]>; sizes?: Record<string, number[]>; items: string[] }[] = [];
+
+  function scan(node: any): void {
+    if (!node || typeof node !== 'object') return;
+    if (node.uid) allUids.add(node.uid);
+
+    // Check if this is a grid node with rows
+    const gs = node.stepParams?.gridSettings?.grid;
+    if (gs?.rows && typeof gs.rows === 'object') {
+      // Collect direct child item UIDs (in order)
+      const items = node.subModels?.items;
+      const itemUids = (Array.isArray(items) ? items : []).map((i: any) => i.uid).filter(Boolean) as string[];
+      gridNodes.push({ uid: node.uid, rows: gs.rows, sizes: gs.sizes, items: itemUids });
+    }
+
+    // Recurse
+    const subs = node.subModels;
+    if (subs && typeof subs === 'object') {
+      for (const v of Object.values(subs)) {
+        if (Array.isArray(v)) { for (const item of v) scan(item); }
+        else if (v && typeof v === 'object') scan(v);
+      }
+    }
+  }
+  scan(tree);
+
+  // For each grid: check if row UIDs are orphaned, remap by position
+  for (const gn of gridNodes) {
+    // Flatten all UIDs from rows
+    const rowUids: string[] = [];
+    for (const cols of Object.values(gn.rows)) {
+      for (const col of cols) {
+        for (const uid of col) rowUids.push(uid);
+      }
+    }
+
+    // Check if any are orphaned (not in tree)
+    const orphaned = rowUids.filter(u => !allUids.has(u));
+    if (!orphaned.length) continue;
+
+    // Build position-based mapping: old row UIDs → actual item UIDs (same order)
+    const posMap = new Map<string, string>();
+    for (let i = 0; i < rowUids.length && i < gn.items.length; i++) {
+      if (!allUids.has(rowUids[i])) {
+        posMap.set(rowUids[i], gn.items[i]);
+      }
+    }
+
+    // Remap rows
+    const newRows: Record<string, string[][]> = {};
+    for (const [rowKey, cols] of Object.entries(gn.rows)) {
+      const newRowKey = posMap.get(rowKey) || rowKey;
+      newRows[newRowKey] = cols.map(col => col.map(uid => posMap.get(uid) || uid));
+    }
+    const newSizes: Record<string, number[]> = {};
+    if (gn.sizes) {
+      for (const [key, val] of Object.entries(gn.sizes)) {
+        newSizes[posMap.get(key) || key] = val;
+      }
+    }
+
+    try {
+      await nb.updateModel(gn.uid, { gridSettings: { grid: { rows: newRows, sizes: gn.sizes ? newSizes : undefined } } });
+      log(`      ~ grid layout fixed: ${orphaned.length} UIDs remapped`);
+    } catch (e) {
+      log(`      ! grid layout fix: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+    }
+  }
 }
 
 /**

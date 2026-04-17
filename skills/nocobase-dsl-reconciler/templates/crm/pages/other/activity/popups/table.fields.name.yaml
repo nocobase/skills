@@ -1,0 +1,34 @@
+target: $SELF.table.fields.name
+coll: ''
+blocks:
+  - key: details
+    type: details
+    coll: ''
+    fields:
+      - subject
+      - type
+      - activity_date
+      - content
+      - customer
+      - opportunity
+      - contact
+      - owner
+      - lead
+      - createdAt
+    field_layout:
+      - - subject
+      - - type
+        - activity_date
+      - - content
+      - - col:
+            - customer
+            - lead
+          size: 8
+        - col:
+            - opportunity
+            - owner
+          size: 8
+        - contact
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer
