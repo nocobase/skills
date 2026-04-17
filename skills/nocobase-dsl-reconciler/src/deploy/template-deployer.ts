@@ -619,6 +619,14 @@ export async function deployTemplates(
         uidMap.set(tpl.targetUid, result.targetUid);
       }
       deployedTemplates[stateKey] = { uid: result.templateUid, targetUid: result.targetUid, type: tpl.type, collection: collName };
+      // Apply block-level extras (fieldLinkageRules / fieldValueRules / event_flows)
+      // that compose doesn't carry. Mirrors the syncTemplateContent path so rules
+      // show up on the first deploy, not just on redeploys.
+      if (tpl.type === 'block' && tplSpec.content && result.targetUid) {
+        try {
+          await applyTemplateExtras(nb, result.targetUid, tplSpec.content as Record<string, unknown>, log, '      ');
+        } catch (e) { log(`      ! template extras: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+      }
       // Seed per-run block template cache so later popup conversions reuse
       // this template instead of creating yet another copy for the same
       // (useModel, collection) pair.
