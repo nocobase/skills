@@ -28,7 +28,7 @@ import { ensureAllCollections } from './collection-deployer';
 import { deploySurface, type SurfaceOpts } from './surface-deployer';
 import { deployPopup, type PopupOpts } from './popup-deployer';
 import { expandPopups } from './popup-expander';
-import { deployTemplates, convertPopupToTemplate, resetTemplateCreationTracking, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
+import { deployTemplates, convertPopupToTemplate, resetTemplateCreationTracking, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
 import { resetM2oCache } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
@@ -401,6 +401,12 @@ export async function deployProject(
   if (createdUids.length) {
     (state as any)._last_deploy_created_templates = createdUids;
   }
+
+  // Auto-clean stale flowModelTemplateUsages rows. This is the NocoBase bug
+  // that makes template counts accumulate indefinitely — usage rows don't get
+  // cascade-deleted when their flowModel is destroyed. Cheap operation (no-op
+  // when nothing is stale), so runs unconditionally to keep the DB tidy.
+  await cleanStaleTemplateUsages(nb, log);
 
   // Auto-sync: re-export deployed groups to keep local files in sync with live state.
   // Sync each top-level group (source title → target title via computeTargetTitle).
