@@ -59,10 +59,11 @@ export async function deploySurface(
   };
   for (const bs of blocksSpec) {
     if (NO_ACTION_TYPES.has(bs.type)) { delete bs.actions; delete bs.recordActions; continue; }
-    if (!ctx.copyMode) {
-      if (!bs.actions && DEFAULT_ACTIONS[bs.type]) bs.actions = [...DEFAULT_ACTIONS[bs.type]];
-      if (!bs.recordActions && DEFAULT_RECORD_ACTIONS[bs.type]) bs.recordActions = [...DEFAULT_RECORD_ACTIONS[bs.type]];
-    }
+    // DSL-as-source-of-truth: do NOT inject defaults. If the spec doesn't
+    // declare actions/recordActions, the deployed block has none — preserves
+    // round-trip integrity (export → push → export = no spurious additions).
+    // For casual scaffolding, DEFAULT_ACTIONS/DEFAULT_RECORD_ACTIONS above
+    // document what most blocks would have if you copy them.
   }
 
   // Find grid UID
@@ -204,26 +205,22 @@ export async function deploySurface(
     const missing = specFields.filter(f => !liveFields.has(f));
     if (missing.length) {
       const key = bs.key || bs.type;
-      if (ctx.copyMode) {
-        // Copy mode: auto-remove invalid fields from BOTH .fields and
-        // .field_layout. Otherwise compose 400s on the layout entry even after
-        // we strip the field def, which cascades into "ChildPage not found"
-        // and breaks every nested popup that depends on this block.
-        log(`    ⚠ Block "${key}" references fields not in ${blockColl}: ${missing.join(', ')} — removing invalid fields`);
-        bs.fields = (bs.fields || []).filter(f => {
-          const fp = typeof f === 'string' ? f : (f.field || f.fieldPath || '');
-          return !fp || liveFields.has(fp);
-        });
-        const missingSet = new Set(missing);
-        if (Array.isArray(bs.field_layout)) {
-          bs.field_layout = bs.field_layout.map(row => {
-            if (!Array.isArray(row)) return row;
-            return row.filter(cell => typeof cell !== 'string' || cell.startsWith('[JS:') || cell.startsWith('---') || !missingSet.has(cell));
-          }).filter(row => !Array.isArray(row) || row.length > 0);
-        }
-      } else {
-        // DSL mode: strict — report error, do not silently remove
-        throw new Error(`Block "${key}" references fields not in ${blockColl}: ${missing.join(', ')}`);
+      // Auto-strip invalid fields from BOTH .fields and .field_layout.
+      // Otherwise compose 400s on the layout entry even after we strip the
+      // field def, which cascades into "ChildPage not found" and breaks every
+      // nested popup that depends on this block. Logged as warning — the user
+      // can fix the DSL or the collection.
+      log(`    ⚠ Block "${key}" references fields not in ${blockColl}: ${missing.join(', ')} — removing invalid fields`);
+      bs.fields = (bs.fields || []).filter(f => {
+        const fp = typeof f === 'string' ? f : (f.field || f.fieldPath || '');
+        return !fp || liveFields.has(fp);
+      });
+      const missingSet = new Set(missing);
+      if (Array.isArray(bs.field_layout)) {
+        bs.field_layout = bs.field_layout.map(row => {
+          if (!Array.isArray(row)) return row;
+          return row.filter(cell => typeof cell !== 'string' || cell.startsWith('[JS:') || cell.startsWith('---') || !missingSet.has(cell));
+        }).filter(row => !Array.isArray(row) || row.length > 0);
       }
     }
   }

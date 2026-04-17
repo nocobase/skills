@@ -510,8 +510,11 @@ async function exportPopupsToDir(
     exportedUids.add(ref.field_uid);
 
     try {
-      const data = await nb.get({ uid: ref.field_uid });
-      const tree = data.tree;
+      // Use flowModels:findOne (full stepParams) instead of flowSurfaces:get
+      // (strips referenceSettings.useTemplate on Reference children).
+      const node = await nb.models.findOne(ref.field_uid, true);
+      if (!node) continue;
+      const tree = node as unknown as FlowModelNode;
 
       // Check if popup uses a template — if so, read content from template file
       const openView = ((tree.stepParams as Record<string, unknown>)?.popupSettings as Record<string, unknown>)

@@ -38,20 +38,13 @@ export async function deployPopup(
   const popupTemplate = (popupSpec as unknown as Record<string, unknown>).popupTemplate as { uid: string; name?: string } | undefined;
   if (popupTemplate?.uid) {
     log(`  = popup [${targetRef}] (template: ${popupTemplate.name || popupTemplate.uid})`);
-    if (ctx.copyMode) {
-      try {
-        await nb.updateModel(targetUid, {
-          popupSettings: { openView: { popupTemplateUid: popupTemplate.uid, mode } },
-          displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-        });
-      } catch (e) {
-        log(`    ! popup template set: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      }
-    } else {
+    try {
       await nb.updateModel(targetUid, {
         popupSettings: { openView: { popupTemplateUid: popupTemplate.uid, mode } },
         displayFieldSettings: { clickToOpen: { clickToOpen: true } },
       });
+    } catch (e) {
+      log(`    ! popup template set: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
     }
     return {};
   }
@@ -179,21 +172,14 @@ export async function deployPopup(
   if (needsRecordContext) {
     openViewSettings.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
   }
-  if (ctx.copyMode) {
-    try {
-      await nb.updateModel(targetUid, {
-        popupSettings: { openView: openViewSettings },
-        displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-      });
-    } catch (e) {
-      log(`  ! popup openView set [${targetRef}]: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      return {};
-    }
-  } else {
+  try {
     await nb.updateModel(targetUid, {
       popupSettings: { openView: openViewSettings },
       displayFieldSettings: { clickToOpen: { clickToOpen: true } },
     });
+  } catch (e) {
+    log(`  ! popup openView set [${targetRef}]: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+    return {};
   }
 
   let result: Record<string, BlockState> = {};

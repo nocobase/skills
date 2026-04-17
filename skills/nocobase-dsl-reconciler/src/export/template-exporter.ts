@@ -137,10 +137,16 @@ async function exportTemplateContent(
   prefix: string,
   templateType: 'popup' | 'block',
 ): Promise<Record<string, unknown>> {
+  // Use flowModels:findOne, NOT flowSurfaces:get — the surfaces variant
+  // strips stepParams.referenceSettings.useTemplate (and other internal
+  // surface metadata), which makes ReferenceBlockModel children export as
+  // bare `type: reference` with no templateRef. findOne returns the raw
+  // tree with full stepParams.
   let tree: FlowModelNode;
   try {
-    const d = await nb.get({ uid: targetUid });
-    tree = d.tree;
+    const node = await nb.models.findOne(targetUid, true);
+    if (!node) return {};
+    tree = node as unknown as FlowModelNode;
   } catch {
     return {};
   }

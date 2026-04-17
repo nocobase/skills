@@ -31,13 +31,20 @@ const UID_KEYS = new Set([
   'host_uid',
 ]);
 
-/** UID-shaped value detector. */
+/** UID-shaped value detector.
+ *
+ * NocoBase generateUid produces 11-char base36 strings with at least one digit
+ * (`Math.random().toString(36)` always seeds with a `0.` digit prefix). Field
+ * names like `currency` or `priority` are 8 lowercase letters with NO digits —
+ * we MUST exclude those, otherwise rewriteString would mangle field names
+ * across the project. Require at least one digit to avoid that false positive.
+ */
 function looksLikeUid(value: unknown): boolean {
   if (typeof value !== 'string') return false;
   // Numeric route_id (Postgres bigserial)
   if (/^\d{10,}$/.test(value)) return true;
-  // 8-12 char base36 (NocoBase generateUid output)
-  if (/^[a-z0-9]{8,12}$/.test(value)) return true;
+  // 8-12 char base36, must contain at least one digit (rules out plain words)
+  if (/^[a-z0-9]{8,12}$/.test(value) && /\d/.test(value)) return true;
   return false;
 }
 

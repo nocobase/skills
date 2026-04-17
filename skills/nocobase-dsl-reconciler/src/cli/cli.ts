@@ -370,51 +370,6 @@ async function cmdRollback(args: string[]) {
 }
 
 /**
- * Conservative post-deploy cleanup: delete only popup + block templates
- * that THIS tool created in prior deploys (tracked in
- * state._all_created_templates) and that the CURRENT deploy no longer
- * references (i.e. dropped from state.template_uids).
- *
- * Does NOT touch:
- *   - flowModels (only templates)
- *   - templates user created via UI (we never tracked them)
- *   - templates from other modules / current deploy's active set
- *
- * The cumulative tracking lives in state.yaml — populated by deployTemplates
- * + convertPopupToTemplate via trackCreatedTemplate(). Each new template UID
- * gets appended; superseded UIDs drop out of state.template_uids on the next
- * deploy (because deployTemplates rewrites that map by template name+coll).
- */
-async function cleanupSupersededTemplates(nb: NocoBaseClient, absDir: string): Promise<void> {
-  const stateFile = path.join(absDir, 'state.yaml');
-  if (!fs.existsSync(stateFile)) return;
-  const state = loadYaml<Record<string, unknown>>(stateFile);
-  const all = (state._all_created_templates as string[]) || [];
-  if (!all.length) return;
-
-  const inUse = new Set<string>();
-  const tplUids = state.template_uids as Record<string, { uid: string }> | undefined;
-  if (tplUids) for (const v of Object.values(tplUids)) if (v?.uid) inUse.add(v.uid);
-
-  const orphans = all.filter(uid => !inUse.has(uid));
-  if (!orphans.length) return;
-
-  console.log('\n  ── Cleanup superseded templates ──');
-  let deleted = 0;
-  for (const uid of orphans) {
-    try {
-      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
-      deleted++;
-    } catch { /* template may already be gone or have lingering usages */ }
-  }
-  // Compact the cumulative list — keep only ones still alive (still in use OR
-  // failed to delete this round).
-  state._all_created_templates = all.filter(uid => inUse.has(uid) || !orphans.includes(uid));
-  saveYaml(stateFile, state);
-  console.log(`  deleted ${deleted}/${orphans.length} superseded popup/block templates`);
-}
-
-/**
  * Aggressive cleanup: reachable flowModels from active route trees + template targets
  * are preserved; everything else is deleted. Also cleans stale flowModelTemplateUsages
  * records (NocoBase doesn't cascade-delete them when flowModels disappear, which keeps

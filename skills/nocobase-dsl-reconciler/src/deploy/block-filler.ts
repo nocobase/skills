@@ -150,16 +150,14 @@ export async function fillBlock(
         .find((c: any) => c.use?.includes('TableActionsColumn'));
       if (actCol) actColUid = (actCol as { uid: string }).uid;
 
-      // Copy mode: no recordActions in DSL → remove compose-created actionsColumn (strict)
-      // Build mode: keep compose defaults (edit/delete) even if DSL doesn't declare them
-      if (ctx.copyMode && !bs.recordActions && actColUid) {
+      // DSL-as-source-of-truth: if the spec doesn't declare recordActions
+      // (or declares an empty list), remove any compose-created default action
+      // column. Otherwise the deployed table has [edit, delete] that the DSL
+      // doesn't account for, breaking round-trip diff.
+      if (actColUid && (!bs.recordActions || (Array.isArray(bs.recordActions) && bs.recordActions.length === 0))) {
         await nb.surfaces.removeNode(actColUid);
         actColUid = '';
-        log(`      - action column removed (no recordActions in DSL, copy mode)`);
-      } else if (Array.isArray(bs.recordActions) && bs.recordActions.length === 0 && actColUid) {
-        await nb.surfaces.removeNode(actColUid);
-        actColUid = '';
-        log(`      - action column removed (spec declares empty recordActions)`);
+        log(`      - action column removed (no recordActions in DSL)`);
       }
     } catch { /* skip */ }
   }
@@ -562,15 +560,13 @@ export async function enableM2oClickToOpen(
       const hasClickToOpen = fm.stepParams?.displayFieldSettings?.clickToOpen?.clickToOpen;
       if (!hasClickToOpen) continue;
       // Skip binding if a dedicated popup file already owns this field —
-      // deployPopup will compose its content inline and convertPopupToTemplate
-      // will promote it to a fresh per-deploy template. Auto-binding here
-      // would slot the field into a cross-group template instead.
+      // deployPopup composes its content inline and we don't want to
+      // overwrite it with an auto-discovered template binding.
       if (popupTargetFields?.has(fm.fieldPath)) continue;
-      // Refetch live state — flowSurfaces:get may have returned a stale tree
-      // missing the popupTemplateUid that click-to-open just wrote. Without
-      // this re-check, auto-binding overrides the DSL-declared template
-      // (e.g. `clickToOpen: templates/popup/leads_view.yaml` would be replaced
-      // by whatever live popup template the API listed first for this coll).
+      // Refetch live state — flowSurfaces:get returns a stale tree missing
+      // the popupTemplateUid that click-to-open's flowModels:save just wrote.
+      // Without this re-check, auto-binding overrides the DSL-declared
+      // template (`clickToOpen: templates/popup/X.yaml` → wrong template).
       try {
         const liveResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
         const liveTplUid = liveResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid;
