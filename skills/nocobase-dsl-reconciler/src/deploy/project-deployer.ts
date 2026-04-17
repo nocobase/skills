@@ -364,12 +364,11 @@ export async function deployProject(
   // when nothing is stale), so runs unconditionally to keep the DB tidy.
   await cleanStaleTemplateUsages(nb, log);
 
-  // Auto-sync: re-export deployed groups to keep local files in sync with live state.
-  for (const r of routes) {
-    if (r.type !== 'group') continue;
-    if (opts.group && routeKey(r) !== opts.group) continue;
-    await syncRoutesYaml(nb, root, r, log);
-  }
+  // (removed) Auto-sync routes.yaml from live state. Push is one-way DSL→NB
+  // per PHILOSOPHY.md — overwriting the DSL with mid-deploy state has bitten
+  // us when a push is killed and the partial sync truncates routes.yaml,
+  // making the next push deploy LESS than the previous. Use `cli pull` to
+  // explicitly reconcile from live.
 
   // Rebuild graph + _refs.yaml after sync
   try {

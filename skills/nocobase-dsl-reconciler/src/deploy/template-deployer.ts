@@ -497,6 +497,31 @@ export async function deployTemplates(
       } catch { /* saved UID no longer valid, fall through to name matching */ }
     }
 
+    // Priority 1.5: Match by the DSL-declared uid directly. duplicate-project
+    // mints fresh uids; the first push creates a template with that uid. On a
+    // re-push (state.yaml wiped or absent), state-based Priority 1 misses but
+    // the live template with that uid is still there. Without this check we
+    // would mint a NEW template each push and the count explodes.
+    if (tpl.uid && tpl.uid.length >= 8) {
+      try {
+        const check = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: tpl.uid } });
+        const existingByDslUid = check.data?.data;
+        const foundColl = (existingByDslUid?.collectionName || '') as string;
+        if (existingByDslUid && (!collName || !foundColl || foundColl === collName)) {
+          // Live template with the DSL's uid — reuse it (no remap needed)
+          uidMap.set(tpl.uid, existingByDslUid.uid);
+          if (tpl.targetUid && existingByDslUid.targetUid) uidMap.set(tpl.targetUid, existingByDslUid.targetUid);
+          const tplContent = tplSpec.content as Record<string, unknown>;
+          if (tpl.type === 'block' && existingByDslUid.targetUid && tplContent) {
+            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `); } catch { /* skip */ }
+          }
+          deployedTemplates[stateKey] = { uid: existingByDslUid.uid, targetUid: existingByDslUid.targetUid, type: tpl.type, collection: collName };
+          reused++;
+          continue;
+        }
+      } catch { /* not found — fall through to create */ }
+    }
+
     // Priority 2: Match by name + collection (fallback)
     // In copy mode: skip reuse — always create independent templates
     const matchKey = makeMatchKey(tpl.name, collName);
