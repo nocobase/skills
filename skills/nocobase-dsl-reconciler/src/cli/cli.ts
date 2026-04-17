@@ -39,7 +39,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: deploy, deploy-project, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows');
+    console.log('Commands: deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows');
     process.exit(1);
   }
 
@@ -49,6 +49,9 @@ async function main() {
       break;
     case 'deploy-project':
       await cmdDeployProject(args.slice(1));
+      break;
+    case 'rollback':
+      await cmdRollback(args.slice(1));
       break;
     case 'scaffold':
       cmdScaffold(args.slice(1));
@@ -333,6 +336,32 @@ async function cmdDeployProject(args: string[]) {
   if (isGit && targetGroup) {
     await deploySyncWorktree(absDir, targetGroup, mainBranch);
   }
+}
+
+/**
+ * Rollback — delete templates created by the most recent deploy.
+ *
+ * Reads state.yaml._last_deploy_created_templates (written by deploy-project)
+ * and destroys each UID in NocoBase. Use before `git revert` if you want the
+ * live instance to match the reverted YAML state.
+ */
+async function cmdRollback(args: string[]) {
+  const dir = args[0];
+  if (!dir) { console.error('Usage: cli.ts rollback <project-dir>'); process.exit(1); }
+  const absDir = path.resolve(dir);
+  const stateFile = path.join(absDir, 'state.yaml');
+  if (!fs.existsSync(stateFile)) { console.error(`state.yaml not found in ${absDir}`); process.exit(1); }
+  const state = loadYaml<ModuleState>(stateFile);
+  const uids = (state as any)._last_deploy_created_templates as string[] | undefined;
+  if (!uids?.length) { console.log('Nothing to roll back — no templates were recorded from last deploy.'); return; }
+
+  console.log(`Rolling back ${uids.length} templates created by last deploy…`);
+  const nb = await NocoBaseClient.create();
+  const { deleteTemplatesByUid } = await import('../deploy/template-deployer');
+  await deleteTemplatesByUid(nb, uids, console.log);
+  delete (state as any)._last_deploy_created_templates;
+  saveYaml(stateFile, state);
+  console.log('Rollback done. Templates removed; state.yaml cleared of rollback list.');
 }
 
 // ── Deploy-sync helpers ──

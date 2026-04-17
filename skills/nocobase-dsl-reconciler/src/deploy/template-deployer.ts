@@ -37,30 +37,30 @@ interface TemplateIndex {
   file: string;
 }
 
-// Track template UIDs created during the current deploy run. After deploy, any
-// created UID that still has usageCount===0 is an orphan (something later in the
-// deploy must have superseded it) and gets auto-deleted to prevent the long-term
-// accumulation of 1000+ unreferenced templates observed in practice.
+// Track template UIDs created during the current deploy run.
+// Stored in state.yaml._last_deploy_created_templates so the `rollback` CLI
+// command can remove them later. We do NOT auto-delete — a freshly created
+// template may be 0-usage legitimately (user hand-built a library).
 const _createdThisRun = new Set<string>();
 export function resetTemplateCreationTracking(): void { _createdThisRun.clear(); }
 export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
-export async function cleanupOrphanTemplatesCreatedThisRun(
+export function listCreatedThisRun(): string[] { return Array.from(_createdThisRun); }
+
+/** Delete the given template UIDs from NocoBase. Used by `rollback` CLI. */
+export async function deleteTemplatesByUid(
   nb: NocoBaseClient,
+  uids: string[],
   log: (msg: string) => void,
-): Promise<void> {
-  if (!_createdThisRun.size) return;
-  let deleted = 0;
-  for (const uid of _createdThisRun) {
+): Promise<{ deleted: number; failed: number }> {
+  let deleted = 0, failed = 0;
+  for (const uid of uids) {
     try {
-      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: uid } });
-      const usage = (resp.data?.data?.usageCount as number) || 0;
-      if (usage === 0) {
-        await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
-        deleted++;
-      }
-    } catch { /* ignore */ }
+      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
+      deleted++;
+    } catch { failed++; }
   }
-  if (deleted) log(`  cleanup: removed ${deleted} orphan templates created this run`);
+  log(`  rollback: deleted ${deleted} templates, ${failed} failed`);
+  return { deleted, failed };
 }
 
 interface ExistingTemplate {
