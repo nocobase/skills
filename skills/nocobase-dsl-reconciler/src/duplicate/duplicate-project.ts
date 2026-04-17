@@ -12,12 +12,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { loadYaml, saveYaml, dumpYaml } from '../utils/yaml';
 import { generateUid } from '../utils/uid';
+import { slugify } from '../utils/slugify';
 
 export interface DuplicateOptions {
   source: string;
   target: string;
-  /** Rename group titles in routes.yaml. Format: "OldName:NewName" (repeatable comma-separated). */
-  renameGroup?: string;
+  /** Suffix appended to every route key (and matching page dir name) to keep
+   *  the duplicate isolated from the source in NocoBase. Title is left alone —
+   *  edit routes.yaml manually if you want different display text. */
+  keySuffix?: string;
   /** Wipe the target dir if it exists. Without this, fail on conflict. */
   force?: boolean;
 }
@@ -114,26 +117,46 @@ function rewriteString(s: string, map: Map<string, string>): string {
   return out;
 }
 
-/** Apply --rename-group to routes.yaml top-level entries. */
-function renameGroups(routesObj: unknown, spec: string): unknown {
-  if (!Array.isArray(routesObj)) return routesObj;
-  const renames = new Map<string, string>();
-  for (const pair of spec.split(',')) {
-    const [oldName, newName] = pair.split(':').map(s => s.trim());
-    if (oldName && newName) renames.set(oldName, newName);
-  }
-  if (!renames.size) return routesObj;
+/** Walk routes.yaml and append the suffix to every route key so the
+ *  duplicated module deploys as separate menu entries from the source.
+ *  Returns the old→new key mapping so directory renames can use it. */
+function reassignKeys(routesObj: unknown, suffix: string): Map<string, string> {
+  const keyMap = new Map<string, string>();
+  if (!Array.isArray(routesObj)) return keyMap;
   const walk = (node: unknown): void => {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) { for (const x of node) walk(x); return; }
     const o = node as Record<string, unknown>;
-    if (typeof o.title === 'string' && renames.has(o.title)) {
-      o.title = renames.get(o.title);
+    if (typeof o.title === 'string') {
+      const oldKey = (typeof o.key === 'string' && o.key) || slugify(o.title);
+      const newKey = `${oldKey}${suffix}`;
+      keyMap.set(oldKey, newKey);
+      o.key = newKey;
     }
     if (Array.isArray(o.children)) for (const c of o.children) walk(c);
   };
   for (const r of routesObj) walk(r);
-  return routesObj;
+  return keyMap;
+}
+
+/** Rename `pages/<oldKey>/` → `pages/<newKey>/` (recursively for sub-groups). */
+function renamePageDirs(pagesDir: string, keyMap: Map<string, string>): void {
+  if (!fs.existsSync(pagesDir)) return;
+  // Process two-pass: collect renames first (single level), then apply, then
+  // recurse into the renamed dirs. We do this top-down so deepest renames
+  // don't fight parent renames mid-walk.
+  const entries = fs.readdirSync(pagesDir, { withFileTypes: true });
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const newName = keyMap.get(e.name);
+    if (newName && newName !== e.name) {
+      fs.renameSync(path.join(pagesDir, e.name), path.join(pagesDir, newName));
+    }
+  }
+  // Recurse into all (post-rename) subdirs
+  for (const e of fs.readdirSync(pagesDir, { withFileTypes: true })) {
+    if (e.isDirectory()) renamePageDirs(path.join(pagesDir, e.name), keyMap);
+  }
 }
 
 /** Recursive directory copy that skips .git and existing target files. */
@@ -162,6 +185,8 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
   yamlFiles: number;
   jsFiles: number;
   uidsRemapped: number;
+  keysReassigned: number;
+  dirsRenamed: number;
 }> {
   const src = path.resolve(opts.source);
   const dst = path.resolve(opts.target);
@@ -186,8 +211,19 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     try { collectUids(loadYaml<unknown>(file), uidMap); } catch { /* skip bad yaml */ }
   }
 
-  // 3. Rewrite each YAML file with the new UIDs. state.yaml is wiped (deploy
-  //    will populate fresh from live state).
+  // 3. If --key-suffix, rewrite routes.yaml keys first so we know the
+  //    old→new mapping before page dirs are renamed.
+  let keyMap = new Map<string, string>();
+  const routesFile = path.join(dst, 'routes.yaml');
+  if (opts.keySuffix && fs.existsSync(routesFile)) {
+    const routesObj = loadYaml<unknown>(routesFile);
+    keyMap = reassignKeys(routesObj, opts.keySuffix);
+    saveYaml(routesFile, routesObj);
+  }
+
+  // 4. Rewrite each YAML file with the new UIDs (skip routes.yaml if we just
+  //    rewrote it — UIDs inside routes are still safe to remap, but reassign
+  //    has already saved the file). state.yaml is wiped (deploy will repopulate).
   for (const file of yamlFiles) {
     if (path.basename(file) === 'state.yaml') {
       fs.unlinkSync(file);
@@ -195,15 +231,22 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     }
     try {
       const obj = loadYaml<unknown>(file);
-      let next = rewriteUids(obj, uidMap);
-      if (opts.renameGroup && path.basename(file) === 'routes.yaml') {
-        next = renameGroups(next, opts.renameGroup);
-      }
+      const next = rewriteUids(obj, uidMap);
       saveYaml(file, next);
     } catch { /* skip */ }
   }
 
-  // 4. Rewrite JS files — they often inline UID literals (e.g. const TARGET_BLOCK_UID
+  // 5. Rename page directories so they match the new keys.
+  let dirsRenamed = 0;
+  if (keyMap.size) {
+    const pagesDir = path.join(dst, 'pages');
+    const before = collectDirs(pagesDir);
+    renamePageDirs(pagesDir, keyMap);
+    const after = collectDirs(pagesDir);
+    dirsRenamed = Math.max(0, before.size - new Set([...before].filter(d => after.has(d))).size);
+  }
+
+  // 6. Rewrite JS files — they often inline UID literals (e.g. const TARGET_BLOCK_UID
   //    = 'abc123def456'). Treat as plain text substitution.
   let jsCount = 0;
   walkDir(dst, (f) => {
@@ -219,5 +262,27 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     if (changed) { fs.writeFileSync(f, code); jsCount++; }
   });
 
-  return { yamlFiles: yamlFiles.length, jsFiles: jsCount, uidsRemapped: uidMap.size };
+  return {
+    yamlFiles: yamlFiles.length,
+    jsFiles: jsCount,
+    uidsRemapped: uidMap.size,
+    keysReassigned: keyMap.size,
+    dirsRenamed,
+  };
+}
+
+function collectDirs(root: string): Set<string> {
+  const out = new Set<string>();
+  if (!fs.existsSync(root)) return out;
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        const full = path.join(d, e.name);
+        out.add(full);
+        walk(full);
+      }
+    }
+  };
+  walk(root);
+  return out;
 }

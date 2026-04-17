@@ -58,8 +58,27 @@ export async function exportProject(
   // Get routes (tree structure with children)
   const routes = await nb.routes.list();
 
+  // Preserve any existing route keys from the local routes.yaml so a pull
+  // after a key-suffixed duplicate doesn't lose identity.
+  const existingRoutesFile = path.join(outDir, 'routes.yaml');
+  const existingKeyByTitle = new Map<string, string>();
+  if (fs.existsSync(existingRoutesFile)) {
+    try {
+      const prior = loadYaml<Record<string, unknown>[]>(existingRoutesFile) || [];
+      const collect = (entries: Record<string, unknown>[]) => {
+        for (const e of entries) {
+          if (typeof e?.title === 'string' && typeof e?.key === 'string') {
+            existingKeyByTitle.set(e.title, e.key);
+          }
+          if (Array.isArray(e?.children)) collect(e.children as Record<string, unknown>[]);
+        }
+      };
+      collect(prior);
+    } catch { /* skip */ }
+  }
+
   // Export routes.yaml
-  const routesTree = buildRoutesTree(routes, opts.group);
+  const routesTree = buildRoutesTree(routes, opts.group, existingKeyByTitle);
   fs.writeFileSync(path.join(outDir, 'routes.yaml'), dumpYaml(routesTree));
   console.log(`  + routes.yaml`);
 
@@ -901,12 +920,16 @@ function copyTemplateJsFiles(
 function buildRoutesTree(
   routes: RouteInfo[],
   filterGroup?: string,
+  existingKeyByTitle: Map<string, string> = new Map(),
 ): Record<string, unknown>[] {
   const result: Record<string, unknown>[] = [];
   const seenTitles = new Set<string>();
 
   const buildEntry = (r: RouteInfo): Record<string, unknown> => {
-    const entry: Record<string, unknown> = { title: r.title || r.schemaUid };
+    const entry: Record<string, unknown> = {};
+    const declaredKey = existingKeyByTitle.get(r.title || '');
+    if (declaredKey) entry.key = declaredKey;
+    entry.title = r.title || r.schemaUid;
     if (r.type === 'group') entry.type = 'group'; // flowPage is default, omit
     if (r.icon) entry.icon = r.icon;
     if (r.hidden) entry.hidden = true;

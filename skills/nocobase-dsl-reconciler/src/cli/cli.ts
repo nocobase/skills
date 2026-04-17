@@ -306,7 +306,7 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group X] [--page X]'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X]\n\n  --group <key>  Deploy only the route subtree whose key matches (key = route.key || slugify(title)).'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
@@ -814,18 +814,19 @@ async function cmdDuplicateProject(args: string[]) {
   const src = args[0];
   const dst = args[1];
   if (!src || !dst) {
-    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--rename-group "Old:New[,Old2:New2]"] [--force]');
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--force]\n\n  --key-suffix    Append to every route key so the duplicate deploys as a separate menu entry.\n                  Titles are NOT changed — edit routes.yaml manually for display text.');
     process.exit(1);
   }
-  const renameIdx = args.indexOf('--rename-group');
-  const renameGroup = renameIdx >= 0 ? args[renameIdx + 1] : undefined;
+  const sufIdx = args.indexOf('--key-suffix');
+  const keySuffix = sufIdx >= 0 ? args[sufIdx + 1] : undefined;
   const force = args.includes('--force');
   const { duplicateProject } = await import('../duplicate/duplicate-project');
-  console.log(`\n  Duplicating ${src} → ${dst}${renameGroup ? ` (rename: ${renameGroup})` : ''}`);
-  const r = await duplicateProject({ source: src, target: dst, renameGroup, force });
+  console.log(`\n  Duplicating ${src} → ${dst}${keySuffix ? ` (key suffix: ${keySuffix})` : ''}`);
+  const r = await duplicateProject({ source: src, target: dst, keySuffix, force });
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
+  if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
   console.log(`\n  Next: cd ${dst} && git init && git add -A && git commit -m "duplicate"`);
-  console.log(`  Then: deploy-project ${dst} --force${renameGroup ? ` --group "${renameGroup.split(':')[1].split(',')[0]}"` : ''}`);
+  console.log(`  Then: cli push ${dst} --force`);
 }
 
 function cmdValidateWorkflows(args: string[]) {
