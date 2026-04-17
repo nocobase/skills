@@ -35,8 +35,14 @@ import { stripDefaults } from '../utils/strip-defaults';
 
 interface ExportOptions {
   outDir: string;
-  group?: string;       // only export pages under this group
+  group?: string;       // only export pages under this group (exact or prefix match)
   includeCollections?: boolean;
+}
+
+/** Test if a route title matches the group filter. Exact match, or prefix match
+ * for multi-group copy deployments that produce "<group> - <subgroup>" titles. */
+function groupMatches(routeTitle: string, filter: string): boolean {
+  return routeTitle === filter || routeTitle.startsWith(filter + ' - ');
 }
 
 /**
@@ -76,7 +82,7 @@ export async function exportProject(
   const exportedGroups = new Set<string>();
   for (const route of routes) {
     if (route.type === 'group') {
-      if (opts.group && route.title !== opts.group) continue;
+      if (opts.group && !groupMatches(route.title || '', opts.group)) continue;
       // Skip duplicate groups (same title)
       if (exportedGroups.has(route.title || '')) continue;
       exportedGroups.add(route.title || '');
@@ -97,8 +103,11 @@ export async function exportProject(
           }
         }
       }
-    } else if (route.type === 'flowPage' && !opts.group) {
-      await exportPage(nb, route, pagesDir);
+    } else if (route.type === 'flowPage') {
+      // Top-level flowPage: export when no filter, or when title matches filter/prefix
+      if (!opts.group || groupMatches(route.title || '', opts.group)) {
+        await exportPage(nb, route, pagesDir);
+      }
     }
   }
 
@@ -904,7 +913,7 @@ function buildRoutesTree(
   for (const r of routes) {
     if (r.type === 'tabs') continue;
     // Export all routes for global view; only filter pages (not groups) when filterGroup is set
-    if (filterGroup && r.type === 'group' && r.title !== filterGroup) {
+    if (filterGroup && r.type === 'group' && !(r.title === filterGroup || (r.title || '').startsWith(filterGroup + ' - '))) {
       // Still export non-target groups as stubs (title + type only, no children pages to export)
       if (!seenTitles.has(r.title || '')) {
         seenTitles.add(r.title || '');

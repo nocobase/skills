@@ -58,6 +58,7 @@ export interface TemplateState {
 
 export interface ModuleState {
   group_id?: number;
+  group_ids?: Record<string, number>;  // keyed by SOURCE group title, for multi-group projects
   pages: Record<string, PageState>;
   template_uids?: Record<string, TemplateState>;  // key = "type:name" e.g. "block:Form: Tasks"
 }

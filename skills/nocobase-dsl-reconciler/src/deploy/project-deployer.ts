@@ -222,21 +222,36 @@ export async function deployProject(
   rewriteTemplateUids(pages, templateUidMap, templateNameMap);
 
   // Routes + pages
-  // --group overrides the target group name (e.g. deploy "Main" pages as "CRM Copy")
+  // --group overrides the target title (e.g. deploy "Main" pages as "CRM Copy").
+  // When source has multiple top-level entries, --group becomes a prefix to keep them
+  // uniquely named (e.g. "CRM Copy - Main", "CRM Copy - Other") rather than flattening.
+  // Applied to both groups and top-level flowPages for consistent namespacing.
+  const needsPrefix = routes.length > 1;
+  const computeTargetTitle = (sourceTitle: string): string => {
+    if (!opts.group) return sourceTitle;
+    return needsPrefix ? `${opts.group} - ${sourceTitle}` : opts.group;
+  };
+  state.group_ids = state.group_ids || {};
   const deployedGroups = new Set<string>();
   for (const routeEntry of routes) {
     if (routeEntry.type === 'group') {
       if (deployedGroups.has(routeEntry.title)) continue;
       deployedGroups.add(routeEntry.title);
-      // Override group title if --group is specified
-      const targetEntry = opts.group
-        ? { ...routeEntry, title: opts.group }
-        : routeEntry;
+      const targetTitle = computeTargetTitle(routeEntry.title);
+      const targetEntry = { ...routeEntry, title: targetTitle };
+      // Swap state.group_id to the per-source-group id so deployGroup reuses correct id
+      state.group_id = state.group_ids[routeEntry.title];
       await deployGroup(ctx, targetEntry, pages, state, root, opts.blueprint || false);
-    } else if (routeEntry.type === 'flowPage' && !opts.group) {
+      if (state.group_id) state.group_ids[routeEntry.title] = state.group_id;
+    } else if (routeEntry.type === 'flowPage') {
       const pageInfo = pages.find(p => p.title === routeEntry.title);
       if (pageInfo) {
-        await deployOnePage(ctx, pageInfo, state, null);
+        // Apply prefix to title in copy mode so we get a unique page name
+        const targetTitle = computeTargetTitle(routeEntry.title);
+        const targetPageInfo = targetTitle === pageInfo.title
+          ? pageInfo
+          : { ...pageInfo, title: targetTitle };
+        await deployOnePage(ctx, targetPageInfo, state, null);
       }
     }
   }
@@ -372,12 +387,14 @@ export async function deployProject(
   // then runs verify-data as a separate validation pass.
 
   // Set menu sortIndex to match routes.yaml declaration order
-  await syncMenuOrder(nb, state, routes, log);
+  await syncMenuOrder(nb, state, routes, log, computeTargetTitle);
 
-  // Auto-sync: re-export deployed group to keep local files in sync with live state.
-  const deployedGroupTitle = routes.find(r => r.type === 'group')?.title;
-  if (deployedGroupTitle) {
-    await syncRoutesYaml(nb, root, deployedGroupTitle, log);
+  // Auto-sync: re-export deployed groups to keep local files in sync with live state.
+  // Sync each top-level group (source title → target title via computeTargetTitle).
+  for (const r of routes) {
+    if (r.type !== 'group') continue;
+    const targetTitle = computeTargetTitle(r.title);
+    await syncRoutesYaml(nb, root, r.title, targetTitle, log);
   }
 
   // Rebuild graph + _refs.yaml after sync
@@ -1275,6 +1292,7 @@ async function syncMenuOrder(
   state: ModuleState,
   routes: RouteEntry[],
   log: (msg: string) => void,
+  computeTargetTitle: (sourceTitle: string) => string = (t) => t,
 ): Promise<void> {
   try {
     const groupEntries = routes.filter(r => r.type === 'group');
@@ -1306,7 +1324,8 @@ async function syncMenuOrder(
         }
         return false;
       });
-      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === groupEntry.title);
+      const targetTitle = computeTargetTitle(groupEntry.title);
+      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === targetTitle);
       if (!liveGroup?.children?.length) continue;
 
       const liveChildren = liveGroup.children as { id: number; title: string; type: string; sortIndex?: number; children?: any[] }[];
@@ -1340,18 +1359,21 @@ async function syncMenuOrder(
 async function syncRoutesYaml(
   nb: NocoBaseClient,
   root: string,
-  groupTitle: string,
+  sourceTitle: string,
+  targetTitle: string,
   log: (msg: string) => void,
 ): Promise<void> {
   try {
     nb.routes.clearCache();
     const liveRoutes = await nb.routes.list();
 
-    // Find the deployed group in live routes
-    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === groupTitle);
-    if (!liveGroup) { log('\n  routes.yaml sync: group not found in live'); return; }
+    // Find the deployed group in live routes (matched by deployed/target title)
+    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === targetTitle);
+    if (!liveGroup) { log(`\n  routes.yaml sync: group "${targetTitle}" not found in live`); return; }
 
-    // Build updated entry from live state
+    // Build updated entry from live state — but preserve the original source title
+    // in the YAML file so repeated deploys don't drift (target title is only what
+    // appears in NocoBase, source file must remain canonical).
     const buildEntry = (r: any): Record<string, unknown> => {
       const entry: Record<string, unknown> = { title: r.title };
       if (r.type === 'group') entry.type = 'group';
@@ -1395,7 +1417,9 @@ async function syncRoutesYaml(
     try { existing = loadYaml<Record<string, unknown>[]>(routesFile) || []; } catch { /* fresh */ }
 
     const updatedEntry = buildEntry(liveGroup);
-    const idx = existing.findIndex(e => e.title === groupTitle && e.type === 'group');
+    // Restore source title at top level (target title only lives in NocoBase)
+    updatedEntry.title = sourceTitle;
+    const idx = existing.findIndex(e => e.title === sourceTitle && e.type === 'group');
     if (idx >= 0) {
       existing[idx] = updatedEntry;
     } else {
