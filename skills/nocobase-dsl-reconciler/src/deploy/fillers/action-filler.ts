@@ -167,6 +167,39 @@ export async function deployActions(
       existingGroup[stateActionKey] = { uid };
     }
   }
+
+  // Reorder actions to match DSL declaration order (sortIndex)
+  await reorderActions(nb, blockState, bs, actColUid);
+}
+
+async function reorderActions(
+  nb: NocoBaseClient,
+  blockState: BlockState,
+  bs: BlockSpec,
+  actColUid: string,
+): Promise<void> {
+  // toolbar actions
+  const acts = bs.actions || [];
+  const actState = blockState.actions || {};
+  for (let i = 0; i < acts.length; i++) {
+    const aspec = acts[i];
+    const key = typeof aspec === 'string' ? aspec : (aspec as Record<string, unknown>).key as string || (aspec as Record<string, unknown>).type as string;
+    const uid = actState[key]?.uid;
+    if (uid) {
+      try { await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, { uid, sortIndex: i }); } catch { /* best effort */ }
+    }
+  }
+  // record actions
+  const recActs = bs.recordActions || [];
+  const recState = blockState.record_actions || {};
+  for (let i = 0; i < recActs.length; i++) {
+    const aspec = recActs[i];
+    const key = typeof aspec === 'string' ? aspec : (aspec as Record<string, unknown>).key as string || (aspec as Record<string, unknown>).type as string;
+    const uid = recState[key]?.uid;
+    if (uid) {
+      try { await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, { uid, sortIndex: i }); } catch { /* best effort */ }
+    }
+  }
 }
 
 // ── Compact action format builders ──
