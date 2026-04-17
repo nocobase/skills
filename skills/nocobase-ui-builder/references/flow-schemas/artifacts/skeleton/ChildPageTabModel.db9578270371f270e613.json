@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "db9578270371f270e613",
+  "ownerUses": [
+    "ChildPageTabModel"
+  ],
+  "value": {
+    "uid": "todo-popup-child-page-tab",
+    "use": "ChildPageTabModel",
+    "stepParams": {
+      "pageTabSettings": {
+        "tab": {
+          "title": "Popup"
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "BlockGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/BlockGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "BlockGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/ChildPageTabModel.db9578270371f270e613.json"
+}

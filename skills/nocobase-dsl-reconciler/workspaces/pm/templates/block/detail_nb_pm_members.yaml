@@ -1,0 +1,24 @@
+name: 'Detail: Members'
+type: block
+collectionName: nb_pm_members
+content:
+  key: details
+  type: details
+  coll: nb_pm_members
+  fields:
+    - name
+    - email
+    - role
+    - department
+    - phone
+    - status
+    - createdAt
+  field_layout:
+    - '--- Member Info ---'
+    - - name
+      - email
+    - - role
+      - department
+    - - phone
+      - status
+    - - createdAt

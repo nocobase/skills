@@ -1,0 +1,6 @@
+name: 'Popup (Detail): Tasks'
+type: popup
+collectionName: nb_pm_tasks
+content:
+  blocks:
+    - ref: templates/block/detail_nb_pm_tasks.yaml

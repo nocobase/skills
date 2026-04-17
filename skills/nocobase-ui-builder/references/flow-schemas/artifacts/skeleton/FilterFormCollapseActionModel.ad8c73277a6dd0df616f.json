@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "ad8c73277a6dd0df616f",
+  "ownerUses": [
+    "FilterFormCollapseActionModel"
+  ],
+  "value": {
+    "uid": "todo-filter-collapse-action-uid",
+    "use": "FilterFormCollapseActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "type": "link"
+        }
+      },
+      "collapseSettings": {
+        "toggle": {
+          "collapsedRows": 1
+        },
+        "defaultCollapsed": {
+          "value": false
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/FilterFormCollapseActionModel.ad8c73277a6dd0df616f.json"
+}

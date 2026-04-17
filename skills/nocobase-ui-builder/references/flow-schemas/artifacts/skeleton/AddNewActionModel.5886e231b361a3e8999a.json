@@ -1,0 +1,43 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "5886e231b361a3e8999a",
+  "ownerUses": [
+    "AddNewActionModel"
+  ],
+  "value": {
+    "uid": "todo-add-new-action-uid",
+    "use": "AddNewActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Add new",
+          "type": "default"
+        }
+      },
+      "popupSettings": {
+        "openView": {
+          "mode": "drawer",
+          "size": "medium",
+          "pageModelClass": "ChildPageModel",
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      }
+    },
+    "subModels": {
+      "page": {
+        "xFlowGraphModelRef": {
+          "use": "ChildPageModel",
+          "artifact": "skeleton",
+          "modelRef": "models/ChildPageModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "ChildPageModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/AddNewActionModel.5886e231b361a3e8999a.json"
+}

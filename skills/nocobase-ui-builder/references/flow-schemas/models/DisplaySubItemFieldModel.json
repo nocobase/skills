@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplaySubItemFieldModel",
+  "title": "Display Sub Item Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "d05db360",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplaySubItemFieldModel.7d33965d4d9a557189f5.json",
+      "hash": "7d33965d4d9a557189f5"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplaySubItemFieldModel.6364fe9eb588852816d9.json",
+      "hash": "6364fe9eb588852816d9"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplaySubItemFieldModel.0ee2bff398c30772a68c.json",
+      "hash": "0ee2bff398c30772a68c"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

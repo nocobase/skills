@@ -1,0 +1,462 @@
+{
+  "meta": {
+    "source": "flowModels:schemas",
+    "scope": "current snapshot",
+    "generatedAt": "2026-03-22T14:23:27.340Z",
+    "notes": "checked-in graph reference for nocobase-ui-builder",
+    "format": "flow-schema-graph/v2",
+    "appVersion": "2.1.0-alpha.9",
+    "enabledPlugins": [],
+    "seedUses": [
+      "BlockGridModel",
+      "PageModel"
+    ],
+    "entryUses": [
+      "BlockGridModel",
+      "PageModel",
+      "RootPageModel",
+      "RootPageTabModel",
+      "PageTabModel",
+      "FilterFormBlockModel",
+      "TableBlockModel",
+      "DetailsBlockModel",
+      "CreateFormModel",
+      "EditFormModel",
+      "ActionModel",
+      "JSBlockModel",
+      "JSColumnModel",
+      "JSFieldModel",
+      "JSItemModel",
+      "JSActionModel"
+    ],
+    "useCount": 132,
+    "uses": [
+      "ActionModel",
+      "ActionPanelBlockModel",
+      "ActionPanelScanActionModel",
+      "AddChildActionModel",
+      "AddNewActionModel",
+      "AssignFormGridModel",
+      "AssignFormItemModel",
+      "AssignFormModel",
+      "AttachmentURLFieldModel",
+      "BlockGridModel",
+      "BulkDeleteActionModel",
+      "CascadeSelectFieldModel",
+      "CascadeSelectListFieldModel",
+      "ChartBlockModel",
+      "CheckboxFieldModel",
+      "CheckboxGroupFieldModel",
+      "ChildPageModel",
+      "ChildPageTabModel",
+      "CircleFieldModel",
+      "CodeFieldModel",
+      "CollectionSelectorFieldModel",
+      "ColorFieldModel",
+      "CommentItemModel",
+      "CommentsBlockModel",
+      "CreateFormModel",
+      "DateOnlyFieldModel",
+      "DateOnlyFilterFieldModel",
+      "DateTimeFilterFieldModel",
+      "DateTimeNoTzFieldModel",
+      "DateTimeNoTzFilterFieldModel",
+      "DateTimeTzFieldModel",
+      "DateTimeTzFilterFieldModel",
+      "DeleteActionModel",
+      "DetailsBlockModel",
+      "DetailsGridModel",
+      "DetailsItemModel",
+      "DisplayCheckboxFieldModel",
+      "DisplayCircleFieldModel",
+      "DisplayCodeFieldModel",
+      "DisplayColorFieldModel",
+      "DisplayDateTimeFieldModel",
+      "DisplayEnumFieldModel",
+      "DisplayHtmlFieldModel",
+      "DisplayIconFieldModel",
+      "DisplayJSONFieldModel",
+      "DisplayLineStringFieldModel",
+      "DisplayNumberFieldModel",
+      "DisplayPasswordFieldModel",
+      "DisplayPercentFieldModel",
+      "DisplayPointFieldModel",
+      "DisplayPolygonFieldModel",
+      "DisplayPreviewFieldModel",
+      "DisplaySubItemFieldModel",
+      "DisplaySubListFieldModel",
+      "DisplaySubTableFieldModel",
+      "DisplayTextFieldModel",
+      "DisplayTimeFieldModel",
+      "DisplayURLFieldModel",
+      "DisplayVditorFieldModel",
+      "EditActionModel",
+      "EditFormModel",
+      "ExpandCollapseActionModel",
+      "FilterActionModel",
+      "FilterFormBlockModel",
+      "FilterFormCollapseActionModel",
+      "FilterFormCustomFieldModel",
+      "FilterFormGridModel",
+      "FilterFormItemModel",
+      "FilterFormJSActionModel",
+      "FilterFormRecordSelectFieldModel",
+      "FilterFormResetActionModel",
+      "FilterFormSubmitActionModel",
+      "FormAssociationItemModel",
+      "FormGridModel",
+      "FormItemModel",
+      "FormSubmitActionModel",
+      "FormulaFieldModel",
+      "GridCardBlockModel",
+      "GridCardItemModel",
+      "IconFieldModel",
+      "IframeBlockModel",
+      "InputFieldModel",
+      "JSActionModel",
+      "JSBlockModel",
+      "JSCollectionActionModel",
+      "JSColumnModel",
+      "JSEditableFieldModel",
+      "JSFieldModel",
+      "JSFormActionModel",
+      "JSItemModel",
+      "JsonFieldModel",
+      "JSRecordActionModel",
+      "LineStringFieldModel",
+      "LinkActionModel",
+      "ListBlockModel",
+      "ListItemModel",
+      "MapBlockModel",
+      "MarkdownBlockModel",
+      "NumberFieldModel",
+      "PageModel",
+      "PageTabModel",
+      "PasswordFieldModel",
+      "PercentFieldModel",
+      "PointFieldModel",
+      "PolygonFieldModel",
+      "PopupActionModel",
+      "PopupCollectionActionModel",
+      "PopupSubTableFieldModel",
+      "RadioGroupFieldModel",
+      "RecordPickerFieldModel",
+      "RecordSelectFieldModel",
+      "ReferenceBlockModel",
+      "RefreshActionModel",
+      "RichTextFieldModel",
+      "RootPageModel",
+      "RootPageTabModel",
+      "SelectFieldModel",
+      "SortFieldModel",
+      "SubFormFieldModel",
+      "SubFormListFieldModel",
+      "SubTableColumnModel",
+      "SubTableFieldModel",
+      "TableActionsColumnModel",
+      "TableBlockModel",
+      "TableColumnModel",
+      "TableCustomColumnModel",
+      "TextareaFieldModel",
+      "TimeFieldModel",
+      "UpdateRecordActionModel",
+      "UploadFieldModel",
+      "VditorFieldModel",
+      "ViewActionModel"
+    ]
+  },
+  "modelsByUse": {
+    "ActionModel": "models/ActionModel.json",
+    "ActionPanelBlockModel": "models/ActionPanelBlockModel.json",
+    "ActionPanelScanActionModel": "models/ActionPanelScanActionModel.json",
+    "AddChildActionModel": "models/AddChildActionModel.json",
+    "AddNewActionModel": "models/AddNewActionModel.json",
+    "AssignFormGridModel": "models/AssignFormGridModel.json",
+    "AssignFormItemModel": "models/AssignFormItemModel.json",
+    "AssignFormModel": "models/AssignFormModel.json",
+    "AttachmentURLFieldModel": "models/AttachmentURLFieldModel.json",
+    "BlockGridModel": "models/BlockGridModel.json",
+    "BulkDeleteActionModel": "models/BulkDeleteActionModel.json",
+    "CascadeSelectFieldModel": "models/CascadeSelectFieldModel.json",
+    "CascadeSelectListFieldModel": "models/CascadeSelectListFieldModel.json",
+    "ChartBlockModel": "models/ChartBlockModel.json",
+    "CheckboxFieldModel": "models/CheckboxFieldModel.json",
+    "CheckboxGroupFieldModel": "models/CheckboxGroupFieldModel.json",
+    "ChildPageModel": "models/ChildPageModel.json",
+    "ChildPageTabModel": "models/ChildPageTabModel.json",
+    "CircleFieldModel": "models/CircleFieldModel.json",
+    "CodeFieldModel": "models/CodeFieldModel.json",
+    "CollectionSelectorFieldModel": "models/CollectionSelectorFieldModel.json",
+    "ColorFieldModel": "models/ColorFieldModel.json",
+    "CommentItemModel": "models/CommentItemModel.json",
+    "CommentsBlockModel": "models/CommentsBlockModel.json",
+    "CreateFormModel": "models/CreateFormModel.json",
+    "DateOnlyFieldModel": "models/DateOnlyFieldModel.json",
+    "DateOnlyFilterFieldModel": "models/DateOnlyFilterFieldModel.json",
+    "DateTimeFilterFieldModel": "models/DateTimeFilterFieldModel.json",
+    "DateTimeNoTzFieldModel": "models/DateTimeNoTzFieldModel.json",
+    "DateTimeNoTzFilterFieldModel": "models/DateTimeNoTzFilterFieldModel.json",
+    "DateTimeTzFieldModel": "models/DateTimeTzFieldModel.json",
+    "DateTimeTzFilterFieldModel": "models/DateTimeTzFilterFieldModel.json",
+    "DeleteActionModel": "models/DeleteActionModel.json",
+    "DetailsBlockModel": "models/DetailsBlockModel.json",
+    "DetailsGridModel": "models/DetailsGridModel.json",
+    "DetailsItemModel": "models/DetailsItemModel.json",
+    "DisplayCheckboxFieldModel": "models/DisplayCheckboxFieldModel.json",
+    "DisplayCircleFieldModel": "models/DisplayCircleFieldModel.json",
+    "DisplayCodeFieldModel": "models/DisplayCodeFieldModel.json",
+    "DisplayColorFieldModel": "models/DisplayColorFieldModel.json",
+    "DisplayDateTimeFieldModel": "models/DisplayDateTimeFieldModel.json",
+    "DisplayEnumFieldModel": "models/DisplayEnumFieldModel.json",
+    "DisplayHtmlFieldModel": "models/DisplayHtmlFieldModel.json",
+    "DisplayIconFieldModel": "models/DisplayIconFieldModel.json",
+    "DisplayJSONFieldModel": "models/DisplayJSONFieldModel.json",
+    "DisplayLineStringFieldModel": "models/DisplayLineStringFieldModel.json",
+    "DisplayNumberFieldModel": "models/DisplayNumberFieldModel.json",
+    "DisplayPasswordFieldModel": "models/DisplayPasswordFieldModel.json",
+    "DisplayPercentFieldModel": "models/DisplayPercentFieldModel.json",
+    "DisplayPointFieldModel": "models/DisplayPointFieldModel.json",
+    "DisplayPolygonFieldModel": "models/DisplayPolygonFieldModel.json",
+    "DisplayPreviewFieldModel": "models/DisplayPreviewFieldModel.json",
+    "DisplaySubItemFieldModel": "models/DisplaySubItemFieldModel.json",
+    "DisplaySubListFieldModel": "models/DisplaySubListFieldModel.json",
+    "DisplaySubTableFieldModel": "models/DisplaySubTableFieldModel.json",
+    "DisplayTextFieldModel": "models/DisplayTextFieldModel.json",
+    "DisplayTimeFieldModel": "models/DisplayTimeFieldModel.json",
+    "DisplayURLFieldModel": "models/DisplayURLFieldModel.json",
+    "DisplayVditorFieldModel": "models/DisplayVditorFieldModel.json",
+    "EditActionModel": "models/EditActionModel.json",
+    "EditFormModel": "models/EditFormModel.json",
+    "ExpandCollapseActionModel": "models/ExpandCollapseActionModel.json",
+    "FilterActionModel": "models/FilterActionModel.json",
+    "FilterFormBlockModel": "models/FilterFormBlockModel.json",
+    "FilterFormCollapseActionModel": "models/FilterFormCollapseActionModel.json",
+    "FilterFormCustomFieldModel": "models/FilterFormCustomFieldModel.json",
+    "FilterFormGridModel": "models/FilterFormGridModel.json",
+    "FilterFormItemModel": "models/FilterFormItemModel.json",
+    "FilterFormJSActionModel": "models/FilterFormJSActionModel.json",
+    "FilterFormRecordSelectFieldModel": "models/FilterFormRecordSelectFieldModel.json",
+    "FilterFormResetActionModel": "models/FilterFormResetActionModel.json",
+    "FilterFormSubmitActionModel": "models/FilterFormSubmitActionModel.json",
+    "FormAssociationItemModel": "models/FormAssociationItemModel.json",
+    "FormGridModel": "models/FormGridModel.json",
+    "FormItemModel": "models/FormItemModel.json",
+    "FormSubmitActionModel": "models/FormSubmitActionModel.json",
+    "FormulaFieldModel": "models/FormulaFieldModel.json",
+    "GridCardBlockModel": "models/GridCardBlockModel.json",
+    "GridCardItemModel": "models/GridCardItemModel.json",
+    "IconFieldModel": "models/IconFieldModel.json",
+    "IframeBlockModel": "models/IframeBlockModel.json",
+    "InputFieldModel": "models/InputFieldModel.json",
+    "JSActionModel": "models/JSActionModel.json",
+    "JSBlockModel": "models/JSBlockModel.json",
+    "JSCollectionActionModel": "models/JSCollectionActionModel.json",
+    "JSColumnModel": "models/JSColumnModel.json",
+    "JSEditableFieldModel": "models/JSEditableFieldModel.json",
+    "JSFieldModel": "models/JSFieldModel.json",
+    "JSFormActionModel": "models/JSFormActionModel.json",
+    "JSItemModel": "models/JSItemModel.json",
+    "JsonFieldModel": "models/JsonFieldModel.json",
+    "JSRecordActionModel": "models/JSRecordActionModel.json",
+    "LineStringFieldModel": "models/LineStringFieldModel.json",
+    "LinkActionModel": "models/LinkActionModel.json",
+    "ListBlockModel": "models/ListBlockModel.json",
+    "ListItemModel": "models/ListItemModel.json",
+    "MapBlockModel": "models/MapBlockModel.json",
+    "MarkdownBlockModel": "models/MarkdownBlockModel.json",
+    "NumberFieldModel": "models/NumberFieldModel.json",
+    "PageModel": "models/PageModel.json",
+    "PageTabModel": "models/PageTabModel.json",
+    "PasswordFieldModel": "models/PasswordFieldModel.json",
+    "PercentFieldModel": "models/PercentFieldModel.json",
+    "PointFieldModel": "models/PointFieldModel.json",
+    "PolygonFieldModel": "models/PolygonFieldModel.json",
+    "PopupActionModel": "models/PopupActionModel.json",
+    "PopupCollectionActionModel": "models/PopupCollectionActionModel.json",
+    "PopupSubTableFieldModel": "models/PopupSubTableFieldModel.json",
+    "RadioGroupFieldModel": "models/RadioGroupFieldModel.json",
+    "RecordPickerFieldModel": "models/RecordPickerFieldModel.json",
+    "RecordSelectFieldModel": "models/RecordSelectFieldModel.json",
+    "ReferenceBlockModel": "models/ReferenceBlockModel.json",
+    "RefreshActionModel": "models/RefreshActionModel.json",
+    "RichTextFieldModel": "models/RichTextFieldModel.json",
+    "RootPageModel": "models/RootPageModel.json",
+    "RootPageTabModel": "models/RootPageTabModel.json",
+    "SelectFieldModel": "models/SelectFieldModel.json",
+    "SortFieldModel": "models/SortFieldModel.json",
+    "SubFormFieldModel": "models/SubFormFieldModel.json",
+    "SubFormListFieldModel": "models/SubFormListFieldModel.json",
+    "SubTableColumnModel": "models/SubTableColumnModel.json",
+    "SubTableFieldModel": "models/SubTableFieldModel.json",
+    "TableActionsColumnModel": "models/TableActionsColumnModel.json",
+    "TableBlockModel": "models/TableBlockModel.json",
+    "TableColumnModel": "models/TableColumnModel.json",
+    "TableCustomColumnModel": "models/TableCustomColumnModel.json",
+    "TextareaFieldModel": "models/TextareaFieldModel.json",
+    "TimeFieldModel": "models/TimeFieldModel.json",
+    "UpdateRecordActionModel": "models/UpdateRecordActionModel.json",
+    "UploadFieldModel": "models/UploadFieldModel.json",
+    "VditorFieldModel": "models/VditorFieldModel.json",
+    "ViewActionModel": "models/ViewActionModel.json"
+  },
+  "catalogsByOwner": {
+    "ActionPanelBlockModel": {
+      "actions": "catalogs/ActionPanelBlockModel.actions.json"
+    },
+    "AddNewActionModel": {
+      "page": "catalogs/AddNewActionModel.page.json"
+    },
+    "AssignFormGridModel": {
+      "items": "catalogs/AssignFormGridModel.items.json"
+    },
+    "AssignFormItemModel": {
+      "field": "catalogs/AssignFormItemModel.field.json"
+    },
+    "AssignFormModel": {
+      "grid": "catalogs/AssignFormModel.grid.json"
+    },
+    "BlockGridModel": {
+      "items": "catalogs/BlockGridModel.items.json"
+    },
+    "ChildPageModel": {
+      "tabs": "catalogs/ChildPageModel.tabs.json"
+    },
+    "ChildPageTabModel": {
+      "grid": "catalogs/ChildPageTabModel.grid.json"
+    },
+    "CommentsBlockModel": {
+      "items": "catalogs/CommentsBlockModel.items.json"
+    },
+    "CreateFormModel": {
+      "grid": "catalogs/CreateFormModel.grid.json",
+      "actions": "catalogs/CreateFormModel.actions.json"
+    },
+    "DetailsBlockModel": {
+      "grid": "catalogs/DetailsBlockModel.grid.json",
+      "actions": "catalogs/DetailsBlockModel.actions.json"
+    },
+    "DetailsGridModel": {
+      "items": "catalogs/DetailsGridModel.items.json"
+    },
+    "DetailsItemModel": {
+      "field": "catalogs/DetailsItemModel.field.json"
+    },
+    "EditActionModel": {
+      "page": "catalogs/EditActionModel.page.json"
+    },
+    "EditFormModel": {
+      "grid": "catalogs/EditFormModel.grid.json",
+      "actions": "catalogs/EditFormModel.actions.json"
+    },
+    "FilterFormBlockModel": {
+      "grid": "catalogs/FilterFormBlockModel.grid.json",
+      "actions": "catalogs/FilterFormBlockModel.actions.json"
+    },
+    "FilterFormGridModel": {
+      "items": "catalogs/FilterFormGridModel.items.json"
+    },
+    "FilterFormItemModel": {
+      "field": "catalogs/FilterFormItemModel.field.json"
+    },
+    "FormAssociationItemModel": {
+      "field": "catalogs/FormAssociationItemModel.field.json"
+    },
+    "FormGridModel": {
+      "items": "catalogs/FormGridModel.items.json"
+    },
+    "FormItemModel": {
+      "field": "catalogs/FormItemModel.field.json"
+    },
+    "GridCardBlockModel": {
+      "item": "catalogs/GridCardBlockModel.item.json",
+      "actions": "catalogs/GridCardBlockModel.actions.json"
+    },
+    "GridCardItemModel": {
+      "grid": "catalogs/GridCardItemModel.grid.json"
+    },
+    "ListBlockModel": {
+      "item": "catalogs/ListBlockModel.item.json",
+      "actions": "catalogs/ListBlockModel.actions.json"
+    },
+    "ListItemModel": {
+      "grid": "catalogs/ListItemModel.grid.json"
+    },
+    "MapBlockModel": {
+      "actions": "catalogs/MapBlockModel.actions.json"
+    },
+    "PageModel": {
+      "tabs": "catalogs/PageModel.tabs.json"
+    },
+    "PageTabModel": {
+      "grid": "catalogs/PageTabModel.grid.json"
+    },
+    "PopupActionModel": {
+      "page": "catalogs/PopupActionModel.page.json"
+    },
+    "PopupCollectionActionModel": {
+      "page": "catalogs/PopupCollectionActionModel.page.json"
+    },
+    "RecordPickerFieldModel": {
+      "field": "catalogs/RecordPickerFieldModel.field.json",
+      "grid-block": "catalogs/RecordPickerFieldModel.grid-block.json"
+    },
+    "RecordSelectFieldModel": {
+      "field": "catalogs/RecordSelectFieldModel.field.json"
+    },
+    "RootPageModel": {
+      "tabs": "catalogs/RootPageModel.tabs.json"
+    },
+    "RootPageTabModel": {
+      "grid": "catalogs/RootPageTabModel.grid.json"
+    },
+    "SubFormFieldModel": {
+      "grid": "catalogs/SubFormFieldModel.grid.json"
+    },
+    "SubFormListFieldModel": {
+      "grid": "catalogs/SubFormListFieldModel.grid.json"
+    },
+    "SubTableColumnModel": {
+      "field": "catalogs/SubTableColumnModel.field.json"
+    },
+    "SubTableFieldModel": {
+      "columns": "catalogs/SubTableFieldModel.columns.json"
+    },
+    "TableActionsColumnModel": {
+      "actions": "catalogs/TableActionsColumnModel.actions.json"
+    },
+    "TableBlockModel": {
+      "columns": "catalogs/TableBlockModel.columns.json",
+      "actions": "catalogs/TableBlockModel.actions.json"
+    },
+    "TableColumnModel": {
+      "field": "catalogs/TableColumnModel.field.json"
+    },
+    "UpdateRecordActionModel": {
+      "assignForm": "catalogs/UpdateRecordActionModel.assignForm.json"
+    },
+    "ViewActionModel": {
+      "page": "catalogs/ViewActionModel.page.json"
+    }
+  },
+  "artifacts": {
+    "byKind": {
+      "jsonSchema": {
+        "dir": "artifacts/json-schema",
+        "count": 132
+      },
+      "minimalExample": {
+        "dir": "artifacts/minimal-example",
+        "count": 132
+      },
+      "skeleton": {
+        "dir": "artifacts/skeleton",
+        "count": 132
+      },
+      "examples": {
+        "dir": "artifacts/examples",
+        "count": 1
+      }
+    },
+    "totalCount": 397
+  }
+}

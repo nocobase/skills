@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "GridCardBlockModel",
+  "slot": "item",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "GridCardItemModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "GridCardItemModel",
+      "title": "Grid card item",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/GridCardItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/GridCardItemModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

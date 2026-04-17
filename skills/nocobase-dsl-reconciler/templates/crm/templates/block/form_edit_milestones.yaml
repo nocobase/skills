@@ -1,0 +1,28 @@
+uid: wrn5jpetfr4
+name: 'Form (Edit): Milestones'
+type: block
+collectionName: nb_pm_milestones
+dataSourceKey: main
+targetUid: 5jy93lb090w
+description: 'Form (Edit): Milestones'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_milestones
+  fields:
+    - name
+    - project
+    - status
+    - due_date
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - project
+    - - status
+      - due_date
+    - - description
+    - '--- Milestone Info ---'
+    - '--- Description ---'
+  actions:
+    - submit

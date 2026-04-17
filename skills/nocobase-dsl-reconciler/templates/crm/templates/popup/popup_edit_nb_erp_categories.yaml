@@ -1,0 +1,13 @@
+uid: g72rfnd8100
+name: 'Popup (Edit): Nb Erp Categories'
+type: popup
+collectionName: nb_erp_categories
+dataSourceKey: main
+targetUid: xisdth71s0v
+description: 'Popup (Edit): Nb Erp Categories'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

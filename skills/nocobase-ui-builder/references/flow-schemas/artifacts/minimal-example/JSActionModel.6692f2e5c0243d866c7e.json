@@ -1,0 +1,28 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "6692f2e5c0243d866c7e",
+  "ownerUses": [
+    "JSActionModel"
+  ],
+  "value": {
+    "uid": "todo-js-action-uid",
+    "use": "JSActionModel",
+    "stepParams": {
+      "buttonSettings": {
+        "general": {
+          "title": "Run JS",
+          "type": "default"
+        }
+      },
+      "clickSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": "ctx.message.info('Hello JS action.');"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/JSActionModel.6692f2e5c0243d866c7e.json"
+}

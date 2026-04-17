@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "44ca0d38e52230d0fd92",
+  "ownerUses": [
+    "FormItemModel"
+  ],
+  "value": {
+    "uid": "todo-form-item-uid",
+    "use": "FormItemModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "nickname"
+        }
+      },
+      "editItemSettings": {
+        "showLabel": {
+          "showLabel": true
+        }
+      }
+    },
+    "subModels": {}
+  },
+  "relativePath": "artifacts/skeleton/FormItemModel.44ca0d38e52230d0fd92.json"
+}

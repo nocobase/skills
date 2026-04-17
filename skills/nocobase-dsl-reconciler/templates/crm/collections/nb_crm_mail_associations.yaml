@@ -1,0 +1,37 @@
+name: nb_crm_mail_associations
+title: Mail Associations
+fields:
+  - name: updatedAt
+    interface: updatedAt
+  - name: createdAt
+    interface: createdAt
+  - name: ai_importance
+    interface: integer
+  - name: ai_category
+    interface: select
+  - name: mail_message_id
+    interface: integer
+  - name: customer_id
+    interface: integer
+  - name: updatedById
+    interface: integer
+  - name: lead_id
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: tags
+    interface: json
+  - name: id
+    interface: integer
+  - name: createdById
+    interface: integer
+  - name: ai_sentiment
+    interface: select
+  - name: contact_id
+    interface: integer
+  - name: ai_summary
+    interface: textarea
+  - name: opportunity_id
+    interface: integer
+  - name: updatedBy
+    interface: updatedBy

@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "CreateFormModel",
+  "slot": "grid",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "FormGridModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "FormGridModel",
+      "title": "Form grid",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/FormGridModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FormGridModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

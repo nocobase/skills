@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "LinkActionModel",
+  "title": "Link action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "15896afc",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/LinkActionModel.b5a412401d856e5c8324.json",
+      "hash": "b5a412401d856e5c8324"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/LinkActionModel.af5aae6981a3dba073c6.json",
+      "hash": "af5aae6981a3dba073c6"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/LinkActionModel.40e8f28bf76c4d5c768b.json",
+      "hash": "40e8f28bf76c4d5c768b"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

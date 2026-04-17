@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "af000b23ae2cf579188e",
+  "ownerUses": [
+    "DisplayDateTimeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaydatetimefieldmodel",
+    "use": "DisplayDateTimeFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayDateTimeFieldModel.af000b23ae2cf579188e.json"
+}

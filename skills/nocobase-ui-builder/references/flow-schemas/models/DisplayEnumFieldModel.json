@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayEnumFieldModel",
+  "title": "Display Enum Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "a8f18e6e",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayEnumFieldModel.d6748ff0ab406e6cbb85.json",
+      "hash": "d6748ff0ab406e6cbb85"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayEnumFieldModel.b1c95c19cfc75ea2323b.json",
+      "hash": "b1c95c19cfc75ea2323b"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayEnumFieldModel.232eaf1aa9b2c1728c07.json",
+      "hash": "232eaf1aa9b2c1728c07"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

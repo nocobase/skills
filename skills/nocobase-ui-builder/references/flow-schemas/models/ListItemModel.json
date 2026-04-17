@@ -1,0 +1,145 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ListItemModel",
+  "title": "List item",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "b8b795a0",
+  "dynamicHints": [
+    {
+      "kind": "manual-schema-required",
+      "path": "ListItemModel.subModels.grid",
+      "message": "Per-record details grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListItemModel.subModels.grid.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListItemModel.subModels.grid.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListItemModel.subModels.grid.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListItemModel.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ListItemModel.2c9257176b4616e69086.json",
+      "hash": "2c9257176b4616e69086"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ListItemModel.6a51bb17b0cd9473aaaf.json",
+      "hash": "6a51bb17b0cd9473aaaf"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ListItemModel.c7a2b64dc4eae73963cc.json",
+      "hash": "c7a2b64dc4eae73963cc"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "grid": {
+        "slotRef": "catalogs/ListItemModel.grid.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "grid": [
+      "DetailsGridModel"
+    ]
+  }
+}

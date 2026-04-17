@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "463799b9cb9ce600b551",
+  "ownerUses": [
+    "PopupSubTableFieldModel"
+  ],
+  "value": {
+    "uid": "todo-popupsubtablefieldmodel",
+    "use": "PopupSubTableFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/PopupSubTableFieldModel.463799b9cb9ce600b551.json"
+}

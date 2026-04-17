@@ -1,149 +1,102 @@
-# ACL MCP Tool Shapes
+# ACL CLI Command Shapes
 
-Use this file when ACL mutation fails because tool names or argument structures are uncertain.
+This file keeps the historical filename for compatibility, but the active transport is now CLI.
+
+Use this reference when ACL writes fail because command names or argument shapes are uncertain.
 
 ## Mandatory Contract
 
-1. Execute ACL tools through JSON-RPC method `tools/call`.
-2. Do not call raw methods such as `resource_update` for ACL mutation.
-3. Always validate runtime tool names with `tools/list` first.
+1. Execute ACL operations through skill-local wrapper: `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`.
+2. Prefer ACL-specific runtime commands before generic `resource` commands.
+3. Use `-j` for readback and verification output.
+4. Resolve actual command names from wrapper-executed help.
 
-Canonical envelope:
+## Common ACL Command Shapes
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 10,
-  "method": "tools/call",
-  "params": {
-    "name": "<acl_tool_name>",
-    "arguments": {}
-  }
-}
+### List roles
+
+```bash
+nocobase-ctl acl roles list -j
 ```
 
-## Common ACL Calls
+### Create role
 
-### `roles_list`
-
-```json
-{
-  "name": "roles_list",
-  "arguments": {}
-}
+```bash
+nocobase-ctl acl roles create --name sales_rep --values '{"title":"Sales Rep"}' -j
 ```
 
-### `roles_create`
+### Update role snippets
 
-```json
-{
-  "name": "roles_create",
-  "arguments": {
-    "requestBody": {
-      "name": "sales_rep",
-      "title": "Sales Rep"
-    }
-  }
-}
+```bash
+nocobase-ctl acl roles update --filter-by-tk reader --values '{"snippets":["ui.logs","ui.user"]}' -j
 ```
 
-### `roles_update`
+### List available ACL actions
 
-```json
-{
-  "name": "roles_update",
-  "arguments": {
-    "filterByTk": "reader",
-    "requestBody": {
-      "snippets": ["ui.logs", "ui.user"]
-    }
-  }
-}
+```bash
+nocobase-ctl acl available-actions list -j
 ```
 
-### `available_actions_list`
+### Read data-source role strategy
 
-```json
-{
-  "name": "available_actions_list",
-  "arguments": {}
-}
+```bash
+nocobase-ctl acl data-sources roles get --data-source-key main --filter-by-tk reader -j
 ```
 
-### `data_sources_roles_get`
+### Update data-source role strategy
 
-```json
-{
-  "name": "data_sources_roles_get",
-  "arguments": {
-    "dataSourceKey": "main",
-    "filterByTk": "reader"
-  }
-}
+```bash
+nocobase-ctl acl data-sources roles update --data-source-key main --filter-by-tk reader --values '{"strategy":{"actions":["view"]}}' -j
 ```
 
-### `data_sources_roles_update`
+### List role collections in one data source
 
-```json
-{
-  "name": "data_sources_roles_update",
-  "arguments": {
-    "dataSourceKey": "main",
-    "filterByTk": "reader",
-    "requestBody": {
-      "strategy": {
-        "actions": ["view"]
-      }
-    }
-  }
-}
+```bash
+nocobase-ctl acl roles data-sources collections list --role-name reader --data-source-key main -j
 ```
 
-### `roles_data_sources_collections_list`
+### Get one role collection resource policy
 
-Always include `filter.dataSourceKey`:
-
-```json
-{
-  "name": "roles_data_sources_collections_list",
-  "arguments": {
-    "roleName": "reader",
-    "filter": {
-      "dataSourceKey": "main"
-    },
-    "paginate": false
-  }
-}
+```bash
+nocobase-ctl acl roles data-source-resources get --role-name reader --data-source-key main --name orders -j
 ```
 
-### `roles_data_source_resources_get`
+## Guarded Generic Membership Shape
 
-Always include both `filter.dataSourceKey` and `filter.name`:
+Only when `allow_generic_association_write=true`.
 
-```json
-{
-  "name": "roles_data_source_resources_get",
-  "arguments": {
-    "roleName": "reader",
-    "filter": {
-      "dataSourceKey": "main",
-      "name": "orders"
-    },
-    "appends": ["actions", "actions.scope"]
-  }
-}
+Assign role:
+
+```bash
+nocobase-ctl resource update --resource users --filter-by-tk 1 --values '{"roles":[{"name":"sales_reader"}]}' --update-association-values roles -j
 ```
 
-Field policy reminder for full-field defaults:
+Readback:
 
-- write using technical field names (`field.name`)
-- include system fields returned by metadata (for example `sort`, `createdBy`, `createdById`, `updatedBy`, `updatedById`) unless user explicitly restricts them
+```bash
+nocobase-ctl resource list --resource users.roles --source-id 1 -j
+```
 
 ## Troubleshooting Hints
 
-1. `-32601 Method not found`: check whether you used `tools/call`.
-2. `-32602 Invalid params`: verify `requestBody` nesting and required keys.
-3. `403 No permissions`: current token/role lacks ACL management rights.
-4. `404` on REST fallback endpoints: avoid path guesswork and use MCP tool contracts.
-5. `500` with `Cannot destructure property 'dataSourceKey'` or `Cannot read properties of undefined (reading 'dataSourceKey')`:
-   missing required `filter` keys on `roles_data_sources_collections_list` or `roles_data_source_resources_get`.
+1. `command not found`:
+- Ensure `node` exists and `./scripts/run-ctl.mjs` is present.
+
+2. `unknown command`:
+- Run `node ./scripts/run-ctl.mjs -- --help`, then resolve actual runtime command name.
+
+3. `Invalid JSON`:
+- Validate payload JSON and quote escaping.
+
+4. `401/403/Auth required`:
+- Verify selected env/token; run `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>` and `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`.
+- Ensure `@nocobase/plugin-api-keys` is active, then refresh token env and retry.
+
+5. `swagger:get` or API documentation plugin errors during `env update`:
+- Enable dependency bundle and retry:
+- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- Restart app before rerun.
+
+6. Scope or field readback mismatch:
+- verify non-null `scopeId` for `all|own`
+- verify non-empty explicit field arrays for field-configurable actions

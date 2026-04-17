@@ -1,0 +1,46 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "a17319a1030dad5260e8",
+  "ownerUses": [
+    "FilterFormGridModel"
+  ],
+  "value": {
+    "uid": "filter-form-grid-grid",
+    "use": "FilterFormGridModel",
+    "stepParams": {
+      "gridSettings": {
+        "grid": {
+          "rows": {
+            "rowMain": [
+              [
+                "filter-form-grid-minimal-item-1"
+              ]
+            ]
+          },
+          "sizes": {
+            "rowMain": [
+              24
+            ]
+          },
+          "rowOrder": [
+            "rowMain"
+          ]
+        }
+      }
+    },
+    "subModels": {
+      "items": [
+        {
+          "xFlowGraphModelRef": {
+            "use": "FilterFormItemModel",
+            "artifact": "minimalExample",
+            "modelRef": "models/FilterFormItemModel.json"
+          }
+        }
+      ]
+    }
+  },
+  "relativePath": "artifacts/minimal-example/FilterFormGridModel.a17319a1030dad5260e8.json"
+}

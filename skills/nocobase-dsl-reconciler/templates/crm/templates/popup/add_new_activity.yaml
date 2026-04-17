@@ -1,0 +1,12 @@
+uid: fepx596jfd5
+name: Add new Activity
+type: popup
+collectionName: nb_crm_activities
+dataSourceKey: main
+targetUid: 630ligbb0op
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,0 +1,29 @@
+name: nb_crm_merge_operation_items
+title: Merge Operation Items
+fields:
+  - name: updatedBy
+    interface: updatedBy
+  - name: createdById
+    interface: integer
+  - name: createdAt
+    interface: createdAt
+  - name: updatedById
+    interface: integer
+  - name: merge_operation_id
+    interface: integer
+  - name: main_sort
+    interface: sort
+  - name: merge_operation
+    interface: m2o
+  - name: customer_id
+    interface: integer
+  - name: updatedAt
+    interface: updatedAt
+  - name: createdBy
+    interface: createdBy
+  - name: status
+    interface: select
+  - name: customer
+    interface: m2o
+  - name: id
+    interface: integer

@@ -1,0 +1,15 @@
+target: $SELF.exchange_rates.fields.currency_code
+mode: drawer
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_crm_exchange_rates
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    actions:
+      - submit
+    templateRef:
+      templateUid: ls0z7rdsrs3
+      templateName: 'Form (Add new): Exchange Rates'
+      targetUid: 0da9d0a6105
+      mode: reference

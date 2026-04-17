@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ActionPanelScanActionModel",
+  "title": "Action panel scan action",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "1061cd17",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ActionPanelScanActionModel.a2fcb913380897ae7ed6.json",
+      "hash": "a2fcb913380897ae7ed6"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ActionPanelScanActionModel.7731ff730f484e2f743a.json",
+      "hash": "7731ff730f484e2f743a"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ActionPanelScanActionModel.9e486e319178f63df372.json",
+      "hash": "9e486e319178f63df372"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

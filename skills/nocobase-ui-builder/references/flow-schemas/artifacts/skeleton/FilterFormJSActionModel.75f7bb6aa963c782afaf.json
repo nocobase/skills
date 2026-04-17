@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "75f7bb6aa963c782afaf",
+  "ownerUses": [
+    "FilterFormJSActionModel"
+  ],
+  "value": {
+    "uid": "todo-filter-js-action-uid",
+    "use": "FilterFormJSActionModel",
+    "stepParams": {
+      "clickSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": ""
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/FilterFormJSActionModel.75f7bb6aa963c782afaf.json"
+}

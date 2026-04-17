@@ -1,24 +1,25 @@
 ---
 name: nocobase-env-bootstrap
-description: "Use when users need to prepare a NocoBase environment, install and start an app, deploy in a single environment, bootstrap MCP connectivity, upgrade a single instance, or diagnose environment-level failures."
-argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|deploy|mcp-connect|upgrade|diagnose] [target-dir]"
-allowed-tools: Bash, Read, Write, Grep, Glob, WebFetch
+description: "Use when users need to prepare a NocoBase environment, install and start an app, bootstrap local nocobase-ctl runtime, manage app environments (add/use/current/list), upgrade a single instance, or diagnose environment-level failures."
+argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|upgrade|diagnose|app-manage] [target-dir]"
+allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
-version: 1.3.0
-last-reviewed: 2026-04-12
+version: 1.11.0
+last-reviewed: 2026-04-16
 risk-level: medium
 ---
 
 # Goal
 
-Help users set up NocoBase smoothly from zero to running by handling environment checks, installation, single-environment deployment, MCP connectivity bootstrap, single-instance upgrade, and high-frequency troubleshooting.
+Help users set up NocoBase smoothly from zero to running by handling environment checks, installation, local CLI environment bootstrap, application environment management, single-instance upgrade, and high-frequency troubleshooting.
 
 # Scope
 
 - Detect host environment and required dependencies automatically when possible.
 - Install and initialize NocoBase with Docker, create-nocobase-app, or Git method.
-- Deploy and start NocoBase in one environment (local machine or single server).
-- Bootstrap and verify NocoBase MCP connectivity for downstream development workflows.
+- Start NocoBase in one environment (local machine or single server).
+- After successful install, automatically bootstrap local `nocobase-ctl` environment (`local`) for downstream CLI-first skills.
+- Provide reusable app environment management actions (`add`, `use`, `current`, `list`) through skill-local wrapper script for downstream skills.
 - Run safe single-instance upgrades with explicit pre-check and post-check gates.
 - Diagnose and fix high-frequency setup and runtime failures.
 
@@ -28,29 +29,41 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 - Do not orchestrate migration manager or data promotion between environments.
 - Do not make irreversible destructive changes (drop database, delete data volumes) without explicit user confirmation.
 - Do not hide unknown errors; always show the exact command and captured failure signal.
-- Do not assume built-in external-database compose templates exist; use official docs fallback when external DB is explicitly required.
+- Do not assume built-in external-database compose templates exist; require explicit user-provided DB connection inputs when external DB is needed.
 
 # Input Contract
 
 | Input | Required | Default | Validation | Clarification Question |
 |---|---|---|---|---|
 | `mode` | no | `quick` | one of `quick/standard/rescue` | "Do you want quick mode, standard mode, or rescue mode?" |
-| `task` | yes | inferred from user text | one of `preflight/install/deploy/mcp-connect/upgrade/diagnose` | "Should I run preflight, install, deploy, mcp-connect, upgrade, or diagnose?" |
-| `install_method` | standard mode for install/deploy | `docker` | one of `docker/create-nocobase-app/git` | "Which installation method do you prefer?" |
+| `task` | yes | inferred from user text | one of `preflight/install/upgrade/diagnose/app-manage` | "Should I run preflight, install, upgrade, diagnose, or app-manage?" |
+| `install_method` | install optional, upgrade optional | install: `docker`; upgrade: `auto` | one of `auto/docker/create-nocobase-app/git` | "Which installation method should be used?" |
 | `release_channel` | install or upgrade | `latest` | one of `latest/beta/alpha` | "Which release channel should be used?" |
-| `target_dir` | install/deploy | current directory | writable path | "Where should the project be created or operated?" |
-| `db_mode` | docker install/deploy | `bundled` | one of `bundled/existing` | "Use bundled database or connect existing database?" |
-| `db_dialect` | docker install/deploy | `postgres` | one of `postgres/mysql/mariadb` | "Use PostgreSQL, MySQL, or MariaDB template?" |
+| `target_version` | upgrade optional | none | non-empty version or image tag | "Which target version should be upgraded to?" |
+| `backup_confirmed` | upgrade required | `false` | must be `true` before upgrade | "Have you completed and confirmed database backup?" |
+| `upgrade_confirmed` | upgrade required for non-dry-run | `false` | must be `true` before non-dry-run upgrade | "Please confirm the resolved upgrade method/version/restart plan." |
+| `restart_mode` | upgrade optional | `manual` | one of `manual/dev/start/pm2` | "How should app be restarted after upgrade?" |
+| `clean_retry` | upgrade git optional | `false` | boolean (`true/false`) | "If git upgrade fails, should clean-retry be enabled?" |
+| `allow_dirty` | upgrade git optional | `false` | boolean (`true/false`) | "Allow upgrade on dirty git worktree?" |
+| `target_dir` | install/upgrade | current directory | writable path | "Where should the project be created or operated?" |
+| `db_mode` | install | `bundled` for docker; `existing` for create/git | one of `bundled/existing` | "Use bundled database or connect existing database?" |
+| `db_dialect` | install | `postgres` | one of `postgres/mysql/mariadb` | "Use PostgreSQL, MySQL, or MariaDB?" |
+| `db_host` | when `db_mode=existing` | none | non-empty host | "Which DB host should be used?" |
+| `db_port` | when `db_mode=existing` | by dialect (`5432`/`3306`) | numeric port | "Which DB port should be used?" |
+| `db_database` | when `db_mode=existing` | none | non-empty database name | "Which DB database should be used?" |
+| `db_user` | when `db_mode=existing` | none | non-empty user | "Which DB user should be used?" |
+| `db_password` | when `db_mode=existing` | none | non-empty password | "Please provide DB password." |
+| `db_underscored` | no | `false` | boolean (`true/false`) | "For local DB, should DB_UNDERSCORED be enabled?" |
 | `port` | no | `13000` | integer 1..65535 | "Which app port should be used?" |
 | `network_profile` | no | `online` | one of `online/restricted/offline` | "Can this host access external internet directly?" |
-| `mcp_required` | no | `true` | boolean (`true/false`) | "Should MCP connectivity be validated as a required gate?" |
-| `mcp_auth_mode` | when `mcp_required=true` | `api-key` | one of `api-key/oauth/none` | "Use API key auth, OAuth auth, or no auth probe?" |
-| `mcp_scope` | when `mcp_required=true` | `main` | one of `main/non-main` | "Is MCP served from main app or a non-main app?" |
-| `mcp_app_name` | when `mcp_scope=non-main` | none | non-empty slug | "What is the non-main app name used in MCP endpoint path?" |
-| `mcp_url` | no | inferred from scope/app/port | valid HTTP or HTTPS URL | "Do you want to override the default MCP endpoint URL?" |
-| `mcp_token_env` | when `mcp_auth_mode=api-key` | `NOCOBASE_API_TOKEN` | valid env variable name | "Which env var stores the API key token?" |
-| `mcp_packages` | no | empty | comma-separated package names | "Should exposed MCP packages be limited via x-mcp-packages?" |
-| `mcp_client` | no | `codex` | one of `codex/claude/opencode/vscode/windsurf/cline` | "Which client should be configured for MCP connection commands?" |
+| `cli_env_name` | no | `local` | non-empty slug | "Which local nocobase-ctl env name should be created?" |
+| `cli_auth_mode` | no | `oauth` | one of `oauth/token` | "Use OAuth mode (default) or token mode for CLI env bootstrap?" |
+| `cli_token_env` | no | `NOCOBASE_API_TOKEN` | valid env variable name | "Which env var stores API token when token mode is used?" |
+| `app_env_action` | only when `task=app-manage` | `current` | one of `add/use/current/list` | "Which app environment action should run: add, use, current, or list?" |
+| `app_env_name` | conditional | none | required for `app_env_action=add/use` | "Which environment name should be used?" |
+| `app_base_url` | conditional | none | required for `app_env_action=add`; valid HTTP/HTTPS URL | "Which application URL should be used for env add?" |
+| `app_scope` | no | `project` | one of `project/global` | "Should this env action use project or global scope?" |
+| `app_token` | conditional | none | required when `app_env_action=add` uses token mode with remote URL | "Please provide API token for token-mode remote environment add." |
 
 Default behavior when user says "you decide":
 
@@ -60,22 +73,46 @@ Default behavior when user says "you decide":
 - `release_channel=latest`
 - `db_mode=bundled`
 - `db_dialect=postgres`
+- `db_underscored=false`
 - `port=13000`
 - `network_profile=online`
-- `mcp_required=true`
-- `mcp_auth_mode=api-key`
-- `mcp_scope=main`
-- `mcp_token_env=NOCOBASE_API_TOKEN`
-- `mcp_client=codex`
+- `cli_env_name=local`
+- `cli_auth_mode=oauth`
+- `cli_token_env=NOCOBASE_API_TOKEN`
 
 # Mandatory Clarification Gate
 
 - Max clarification rounds: `2`
 - Max questions per round: `3`
-- Never run mutable actions (`install/deploy/upgrade`) until all required inputs for the selected `task` are resolved.
-- Never run `mcp-connect` until MCP endpoint scope and auth mode are resolved.
-- For API-key mode, token acquisition is automatic by default in `mcp-postcheck` (`nocobase generate-api-key`).
-- Only ask user for manual token when automatic generation/refresh fails and gate emits `action_required: provide_api_token`.
+- Never run mutable actions (`install/upgrade`) until all required inputs for the selected `task` are resolved.
+- Upgrade gate is mandatory:
+- `backup_confirmed` must be `true` before running upgrade commands.
+- For upgrade, `install_method` defaults to `auto`; resolve method from marker/project files when user does not specify.
+- `upgrade_confirmed` must be `true` before non-dry-run upgrade commands.
+- If `target_version` is lower than current version, stop (downgrade is not supported).
+- For `install_method=git`, block dirty worktree unless `allow_dirty=true`.
+- For `task=app-manage`:
+- If `app_env_action=add`, require `app_env_name` and `app_base_url`.
+- DB policy is mandatory for install:
+- `docker` default is `db_mode=bundled`.
+- If user provides DB connection inputs on docker path, switch to `db_mode=existing`.
+- `create-nocobase-app` and `git` always require `db_mode=existing` plus PostgreSQL/MySQL/MariaDB readiness.
+- If DB host is local (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask for `db_underscored` preference; default to `false` when user does not specify.
+- If DB is missing or unreachable for existing mode, stop and provide official install links:
+- PostgreSQL: `https://www.postgresql.org/download/`
+- MySQL install docs: `https://dev.mysql.com/doc/en/installing.html`
+- MySQL downloads: `https://dev.mysql.com/downloads/mysql`
+- MariaDB downloads: `https://mariadb.org/download/`
+- App env auth-mode rule is mandatory:
+- default add mode is `oauth` (unless token args are provided without explicit auth-mode).
+- oauth mode requires dependency bundle `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth` and interactive `env auth`.
+- token mode local URL (strict): host in `localhost`, `127.0.0.1`, `::1`, `*.localhost`, or `host.docker.internal` -> token is mandatory but auto-acquired by `env-manage` (never use placeholder token).
+- token mode remote URL: token must be manually provided by user (`app_token` or token env).
+- For install flows, always run CLI environment bootstrap (`node ./scripts/env-manage.mjs add ...`) as final stage.
+- Before running `env update`, ensure CLI dependency plugins are active by auth mode:
+- oauth: `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
+- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
+- If token mode is used and `cli_token_env` is missing during CLI bootstrap, attempt automatic token generation first; ask user manually only when automatic path fails.
 - If required inputs are missing or ambiguous, stop and ask one short clarification question.
 - If any required path is invalid or not writable, stop and request a valid writable path before continuing.
 
@@ -85,110 +122,84 @@ Default behavior when user says "you decide":
 - If intent is unclear, ask only one short question to select `task`.
 - Keep first round to at most five questions.
 
-2. Run preflight gate before install/deploy/upgrade and before `mcp-connect`.
-- For install/deploy/upgrade preflight, run core checks first and defer MCP endpoint/auth probing to post-start stage (`mcp-postcheck`).
-- Windows: execute `powershell -File scripts/preflight.ps1` (core checks), pass MCP flags only for explicit MCP preflight scenarios.
-- Linux/macOS: execute `bash scripts/preflight.sh` (core checks), pass MCP env flags only for explicit MCP preflight scenarios.
+2. Run preflight gate before install/upgrade.
+- For install/upgrade, run core checks only:
+- Windows: execute `powershell -File scripts/preflight.ps1 -InstallMethod <install_method> -DbMode <db_mode> -DbDialect <db_dialect> -DbHost <db_host> -DbPort <db_port> -DbDatabase <db_database> -DbUser <db_user> -DbPassword <db_password>`.
+- Linux/macOS: execute `bash scripts/preflight.sh <port> <install_method> <db_mode> <db_dialect>` with `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD` in environment.
 - Classify findings into `fail`, `warn`, and `pass`.
-- For install/deploy/upgrade, treat non-MCP findings as preflight blockers; MCP endpoint/auth verification is deferred to startup-complete postcheck as the final stage.
-- For `task=mcp-connect`, if failures are only MCP activation/auth blockers (`MCP-ENDPOINT-*`, `MCP-AUTH-APIKEY-*`), continue to MCP post-start state machine and auto-run fixed sequence first.
-- For the MCP exception path, do not force manual plugin activation before `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck` is attempted.
-- If any non-MCP blocker exists (dependency/runtime/path/network), stop immediately.
+- Treat dependency/runtime/path/network blockers as immediate blockers.
 
 3. Execute by mode.
 - `quick`: Docker-first path with minimal questions.
 - `standard`: user chooses method and database dialect.
 - `rescue`: collect diagnostics (`powershell -File scripts/collect-diagnostics.ps1` on Windows, `bash scripts/collect-diagnostics.sh` on Linux/macOS), map findings to troubleshooting entries, then apply the smallest safe fix first.
-- Docker compose source policy for install/deploy:
-- Use local templates from `assets/docker-templates/` first.
-- If required local template is missing, use WebFetch to official docs only as fallback.
-- Always report whether compose came from `local` or `web-fallback`.
+- Install execution policy:
+- Use local scripts and templates only.
+- Docker path uses `assets/docker-templates/`.
+- create-app/git path uses `assets/install-templates/`.
+- Do not search web pages for install command snippets during execution.
 
 4. Execute task-specific runbook.
-- For install/deploy: follow [Install Runbook](references/install-runbook.md).
-- For `mcp-connect`: follow [MCP Runbook](references/mcp-runbook.md).
-- For upgrade: follow [Upgrade Runbook](references/upgrade-runbook.md).
+- For install: follow [Install Runbook](references/install-runbook.md).
+- For install command execution, use local script:
+- Windows: `powershell -File scripts/install.ps1 --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
+- Linux/macOS: `bash scripts/install.sh --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
+- For upgrade: follow [Upgrade Runbook](references/upgrade-runbook.md) and execute local script:
+- Windows: `powershell -File scripts/upgrade.ps1 --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
+- Linux/macOS: `bash scripts/upgrade.sh --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
 - For diagnose: follow [Troubleshooting KB](references/troubleshooting.md).
+- For app environment management (`task=app-manage`): follow [App Environment Manage](references/app-env-manage.md).
 
-5. Run post-check gate.
+5. Run post-check gate and bootstrap CLI environment.
 - Verify service availability, login path, basic plugin/runtime health, and error logs.
-- For install/deploy, app startup and login readiness complete the core install flow.
-- If `mcp_required=true` (default), automatically continue with startup-complete MCP gate as the final stage after app startup:
-- Windows: execute `powershell -File scripts/mcp-postcheck.ps1` and pass MCP flags.
-- Linux/macOS: execute `bash scripts/mcp-postcheck.sh` and pass MCP env flags.
-- If user explicitly sets `mcp_required=false`, skip MCP stage and mark MCP as intentionally deferred in final report.
-- MCP postcheck must verify protocol chain with correct headers: `initialize -> tools/list -> tools/call`.
-- MCP requests must include `Accept: application/json, text/event-stream`.
-- If MCP gate fails with `action_required: activate_plugin`, do not ask user to manually activate first; run fixed auto sequence first.
-- For MCP plugin activation, MUST use `nocobase-plugin-manage` compact invocation `Use $nocobase-plugin-manage enable <activation_plugin_bundle>` (runtime maps to `pm:enable`).
-- Activation plugin bundle is auth-mode aware:
-- `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
-- `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
-- `none`: `@nocobase/plugin-mcp-server`
-- Do not bypass `nocobase-plugin-manage` with ad-hoc container shell plugin commands.
-- `nocobase-plugin-manage` may auto-select docker CLI internally for local Docker apps.
-- When gate output contains `action_required: activate_plugin`, execute fixed sequence only:
-- 1) enable plugin bundle via `Use $nocobase-plugin-manage enable <activation_plugin_bundle>`
-- 2) restart app immediately
-- 3) rerun `mcp-postcheck`
-- Do not run alternative diagnosis or route-guessing before the fixed sequence above is completed.
-- If plugin-manage returns backend unavailable/unreachable, propagate rich fallback hints directly:
-- include plugin manager URL and API keys URL
-- include concrete manual activation steps and rerun command
-- After MCP plugin activation, if endpoint still returns `404` or `503`, keep restart + postcheck loop until gate is no longer blocked.
-- Token handling policy for `api-key` mode:
-- 1) auto-generate token when env var is missing.
-- 2) auto-refresh token when protocol probe returns `401/403` (expired/invalid token).
-- 3) fallback manual only when automatic generation/refresh fails.
-- Manual plugin activation is fallback-only and allowed only when `nocobase-plugin-manage` runtime action path is unavailable or failed after at least one explicit attempt.
-- Fallback plugin URL: `{{app_url}}/admin/settings/plugin-manager` (enable auth-mode bundle: MCP + API Keys for `api-key`, MCP + IdP: OAuth for `oauth`)
-- Token URL for manual fallback (`action_required: provide_api_token`): `{{app_url}}/admin/settings/api-keys` (click `Add API Key` and create token)
-- Manual fallback flow: ask user to copy token from admin and send token value back, then set `mcp_token_env` and rerun `mcp-postcheck`.
-- Do not continue any MCP-dependent development step until `mcp-postcheck` passes.
-- After `mcp-postcheck` passes, do one lightweight live capability probe (`tools/list`; if required, initialize then list once) and use the returned tool names to generate next-step guidance.
-- Keep this step minimal: no extra large scripts, no heavy diagnostics, no static capability template.
-- Do not claim unsupported capabilities; when live probe fails, explicitly say capability fetch failed and provide conservative generic examples.
-- If `mcp_client` is provided, generate client bootstrap output from fixed templates:
-- Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client <mcp_client> -BaseUrl <app_base_url> -McpAuthMode <mcp_auth_mode> -McpScope <mcp_scope> -McpAppName <mcp_app_name> -TokenEnv <mcp_token_env> -McpPackages <mcp_packages>`
-- Linux/macOS: `bash scripts/render-mcp-client-template.sh <mcp_client> <app_base_url> <mcp_auth_mode> <mcp_scope> <mcp_app_name> <mcp_token_env> <mcp_packages>`
-- For `opencode`, always emit remote config with explicit `Accept: application/json, text/event-stream` and token placeholder format `{env:<TOKEN_ENV>}`.
-- Template-first fallback rule:
-- Try fixed templates first.
-- If client is not covered by fixed templates, or template-based connect still fails after one full retry (`initialize -> tools/list` with valid endpoint/auth), switch to WebFetch lookup.
-- WebFetch lookup must prioritize official sources for that client (official docs site, official GitHub org/repo, release notes) and MCP spec pages; avoid community-only sources unless official docs are unavailable.
-- After web-fallback succeeds, output the validated config and record source links in the final report.
-- Onboarding guidance must include:
-- 1) one short starter sentence.
-- 2) up to 5 concrete next-step examples (model/table, permissions, page/view, workflow/notification, statistics/report), prioritized by discovered tools.
-- 3) safety notes (write permission, destructive-change confirmation, alpha caution).
-- 4) one immediate CTA (offer a 3-minute minimal experience).
-- Summarize done steps, pending steps, and next actions.
+- For install, app startup and login readiness complete core install flow.
+- Ensure CLI dependency plugin bundle is active before CLI runtime refresh:
+- oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
+- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
+- Preferred activation path:
+- oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
+- token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
+- If plugin state changed, restart app before `node ./scripts/run-ctl.mjs -- env update ...`.
+- Always run CLI bootstrap as final stage for install/upgrade:
+- Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName <cli_env_name> -AuthMode <cli_auth_mode> -TokenEnv <cli_token_env> -Scope project -BaseDir <target_dir>`
+- Linux/macOS: `AUTH_MODE=<cli_auth_mode> bash scripts/cli-postcheck.sh <port> <cli_env_name> <cli_token_env> project <target_dir>`
+- CLI bootstrap target command:
+- `node ./scripts/env-manage.mjs add --name <cli_env_name> --url http://localhost:<port>/api --auth-mode <cli_auth_mode> --scope project --base-dir <target_dir>`
+- After env add succeeds, run runtime refresh for downstream command readiness:
+- `node ./scripts/run-ctl.mjs -- env update -e <cli_env_name> -s project`
+- Perform immediate readback (`node ./scripts/env-manage.mjs current --scope project --base-dir <target_dir>`) and include expected vs actual values.
 
 6. Report output.
 - Include command list executed.
 - Include evidence of success/failure from command output.
-- For every write action (for example `.env`, compose file, or runtime config), perform immediate read-after-write readback verification and report expected vs actual values.
-- Include MCP verification evidence when MCP is in scope, including endpoint, auth mode, status, and activation blockers.
-- If MCP verification passed, include mandatory `mcp_capability_onboarding` section and add sampled live tool names when probe succeeds.
-- If there are manual blockers, include clickable/manual action URLs and exact steps.
-- For `install/deploy` success paths, the next action must include first-login credentials:
-- If root credentials were not explicitly customized, show default `admin@nocobase.com` / `admin123` and remind user to change password after first login.
-- If root credentials were customized, show the actual configured login account and password source.
+- For every write action (for example `.env`, compose file, or runtime config), perform immediate read-after-write verification and report expected vs actual values.
+- Include CLI bootstrap evidence:
+- `cli_env_name`
+- `base_url`
+- `scope`
+- `auth_mode`
+- `env_update_status`
+- For `task=app-manage`, include app env operation evidence:
+- `app_env_action`
+- `current_env_name`
+- `current_base_url`
+- `is_local`
+- `auth_mode` (for add)
+- `token_mode` (for add)
+- For `install` success paths, include first-login credentials:
+- if root credentials were not explicitly customized, show default `admin@nocobase.com` / `admin123` and remind user to rotate password.
+- if customized, show configured login account and password source.
 - Include one clear next action.
 
 # Reference Loading Map
 
 | Reference | Use When | Notes |
 |---|---|---|
-| [assets/docker-templates.md](assets/docker-templates.md) | docker install/deploy | local template selector and release-channel mapping |
-| [references/preflight-checklist.md](references/preflight-checklist.md) | before install/deploy/upgrade | dependency, path, network, and port checks |
+| [assets/docker-templates.md](assets/docker-templates.md) | docker install | local template selector and release-channel mapping |
+| [assets/install-templates.md](assets/install-templates.md) | create-app/git install | local command/env template mapping and channel defaults |
+| [references/preflight-checklist.md](references/preflight-checklist.md) | before install/upgrade | dependency, path, network, and port checks |
 | [references/install-runbook.md](references/install-runbook.md) | install and first startup | docker/create-app/git execution guide |
-| [references/mcp-runbook.md](references/mcp-runbook.md) | mcp-connect and post-install MCP bootstrap | endpoint, auth, package scope, and client command guide |
-| [references/mcp-call-examples.md](references/mcp-call-examples.md) | MCP JSON-RPC call formatting | `tools/call` wrapper and request examples |
-| [references/mcp-tool-shapes.md](references/mcp-tool-shapes.md) | MCP tool argument examples | nested `requestBody` and common ACL/data-source calls |
-| [references/mcp-client-templates.md](references/mcp-client-templates.md) | MCP client bootstrap output | fixed templates for codex/claude/opencode/vscode/windsurf/cline |
-| [references/mcp-troubleshooting.md](references/mcp-troubleshooting.md) | MCP error diagnosis | `-32601`, header mismatch, and status triage |
-| [references/mcp-powershell-helpers.md](references/mcp-powershell-helpers.md) | Windows MCP helper snippets | reusable JSON/SSE parsing and call helpers |
+| [references/app-env-manage.md](references/app-env-manage.md) | `task=app-manage` | add/use/current/list contract with oauth/token auth-mode policy |
 | [references/upgrade-runbook.md](references/upgrade-runbook.md) | single-instance upgrade | pre-check, execution, post-check, rollback guidance |
 | [references/troubleshooting.md](references/troubleshooting.md) | diagnose and recovery | high-frequency issue decision table |
 
@@ -205,6 +216,7 @@ Safety rules:
 
 - Require explicit confirmation before any upgrade action.
 - Require backup confirmation before upgrade.
+- Require `--confirm-upgrade true` before non-dry-run upgrade script execution.
 - Never run destructive delete commands automatically.
 - If commands fail, stop and surface exact failure output before next action.
 
@@ -214,44 +226,47 @@ Confirmation template:
 
 # Verification Checklist
 
-- Preflight completed and contains zero unresolved non-MCP blocking failures.
-- Preflight fails when `APP_KEY` is missing, placeholder-like, too short, or whitespace-containing.
+- Preflight completed and contains zero unresolved blocking failures.
+- Preflight fails when `APP_KEY` is weak for existing project files, and defers missing `APP_KEY` only for fresh install targets before local install script generation.
+- Existing DB mode fails when required DB fields are missing or endpoint is unreachable.
+- `create-nocobase-app`/`git` fail preflight when PostgreSQL/MySQL/MariaDB is unavailable.
 - Method and release channel are explicitly confirmed or defaulted.
-- Install/deploy commands are recorded and reproducible.
-- Install/deploy core success is determined by app startup and login readiness before entering MCP final stage.
-- MCP checks include endpoint probe and auth probe when `mcp_required=true`.
-- MCP protocol chain is verified with `initialize`, `tools/list`, and at least one `tools/call` probe when possible.
-- Missing MCP/auth companion activation is handled by fixed auto sequence first (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`); manual plugin activation is fallback only.
-- Missing/invalid API key in API-key mode must go through `mcp-postcheck` auto token flow first (auto-generate when missing, auto-refresh on `401/403`); manual token input is fallback only when automation fails.
-- MCP `activate_plugin` blocker follows fixed sequence: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun mcp-postcheck`.
-- MCP post-start gate (`mcp-postcheck`) is executed for MCP-required flows and passes before downstream MCP-dependent actions.
-- A lightweight live `tools/list` probe is executed after MCP pass, and onboarding examples are derived from live tools when available.
-- If user sets `mcp_required=false`, final output explicitly marks MCP stage as skipped by user choice.
-- When template-first MCP client bootstrap fails and web-fallback is used, final output includes web-fallback evidence and selected official source links.
+- Install commands are recorded and reproducible.
+- Install core success is determined by app startup and login readiness.
+- CLI final stage runs for install/upgrade and successfully creates/updates local env via skill-local env helper (`node ./scripts/env-manage.mjs add ...`).
+- `task=app-manage` supports `add/use/current/list` through `node ./scripts/env-manage.mjs ...`.
+- App env add enforces auth-mode rules correctly (`oauth` default with metadata/auth flow; token mode keeps local-vs-remote token policy).
+- App env add is not considered success unless `env update` connectivity verification succeeds.
+- CLI runtime refresh (`node ./scripts/run-ctl.mjs -- env update ...`) succeeds for the bootstrap env.
+- If runtime refresh fails with `swagger:get` 404 or API documentation disabled, skill applies plugin activation sequence and retries.
+- OAuth path confirms `@nocobase/plugin-idp-oauth` is active before OAuth metadata/auth verification.
+- Token acquisition path confirms `@nocobase/plugin-api-keys` is active before generating/providing token.
+- Readback confirms expected env name/base URL/scope and current env selection.
 - Upgrade path includes backup confirmation.
+- Upgrade path includes script-level confirmation gate (`--confirm-upgrade true`) after plan readback.
 - Post-check verifies app reachability and login page.
 - Troubleshooting output includes root-cause hypothesis and concrete fix steps.
 - Result summary contains completed, pending, and next action items.
-- Every write action includes immediate readback evidence in the output.
+- Every write action includes immediate readback evidence.
 
 # Minimal Test Scenarios
 
-1. Quick install on a clean host with Docker available, then automatic MCP final stage runs by default.
+1. Quick install on a clean host with Docker available, then CLI local env bootstrap runs automatically.
 2. Preflight with missing Docker and missing Node.
 3. Preflight fails on missing or placeholder-like `APP_KEY`, and passes after random key is set.
-4. Install preflight blocks only on non-MCP critical issues, while MCP endpoint/auth verification is deferred to post-start `mcp-postcheck`.
-5. MCP post-start gate auto-generates/auto-refreshes token in API-key mode (missing token and `401/403`).
-6. Upgrade with backup confirmed and successful post-check.
-7. Diagnose `Environment mismatch` and produce actionable steps.
-8. Diagnose startup failure caused by port conflict and provide fix command.
-9. Diagnose startup failure caused by file permission denied (`EACCES`) and provide concrete permission/access fix steps.
-10. Docker install in offline mode succeeds using local compose template without WebFetch.
-11. MCP post-start gate fails with `404`, triggers fixed auto sequence (`Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart -> rerun postcheck`) before any manual fallback.
-12. MCP post-start gate fails with `401/403`, auto-refreshes token and retries; manual token fallback is requested only when auto-refresh fails.
-13. MCP post-start gate passes, live `tools/list` probe returns tools, and onboarding examples are generated from live tool list (not static template).
-14. MCP post-start gate passes but live probe cannot fetch tools; onboarding falls back with explicit warning.
-15. MCP post-start gate fails when request headers miss `application/json, text/event-stream`, then passes after header fix.
-16. Install/deploy with explicit `mcp_required=false` skips MCP final stage and reports `mcp_stage_status=skipped_by_user`.
+4. Install preflight blocks on critical issues.
+5. CLI bootstrap default oauth path fails when `idp-oauth` is missing, then succeeds after dependency auto-enable/login fix.
+6. CLI bootstrap token mode fails when token is missing, then succeeds after auto-generate/manual token fix.
+7. Upgrade with method auto-detected, backup confirmed, upgrade plan confirmed, and successful post-check.
+8. Diagnose `Environment mismatch` and produce actionable steps.
+9. Diagnose startup failure caused by port conflict and provide fix command.
+10. Diagnose startup failure caused by file permission denied (`EACCES`) and provide concrete permission/access fix steps.
+11. Docker install in offline mode succeeds using local compose template without external docs lookup.
+12. Docker install with user-provided DB inputs auto-switches to `db_mode=existing`.
+13. create/git preflight fails when DB is unavailable and returns official PostgreSQL/MySQL/MariaDB install links.
+14. create/git preflight passes when DB endpoint and auth probe succeed.
+15. `task=app-manage` with oauth mode validates metadata/auth flow, runs `env update`, and returns current env info only on full connectivity success.
+16. `task=app-manage` with token mode remote URL + missing token fails with clear token-required error.
 
 # Output Contract
 
@@ -262,15 +277,11 @@ Final response must include:
 - preflight summary (`fail/warn/pass`)
 - actions executed
 - verification result
-- MCP verification (`endpoint`, `auth mode`, `status`, `packages`, `activation blockers`) when `mcp_required=true`
-- sampled live MCP tool names (if probe succeeds)
-- generated MCP client template command/snippet (when `mcp_client` is provided and MCP stage is executed)
-- explicit `mcp_stage_status` (`executed` or `skipped_by_user`)
-- manual action URLs (`plugin manager`, `api-keys page`) when user intervention is required
+- CLI bootstrap result (`cli_env_name`, `base_url`, `scope`, `env_update_status`)
 - unresolved risks
 - recommended next action
 
-For `install/deploy` tasks, `recommended next action` must include:
+For `install` tasks, `recommended next action` must include:
 
 - login URL
 - first-login account and password
@@ -278,21 +289,16 @@ For `install/deploy` tasks, `recommended next action` must include:
 
 # References
 
-- [Usage Guide](references/usage-guide.md): human-readable guide for install, deploy, MCP bootstrap, upgrade, and diagnose workflows.
+- [Usage Guide](references/usage-guide.md): human-readable guide for install, CLI bootstrap, app environment management, upgrade, and diagnose workflows.
 - [Docker Templates](assets/docker-templates.md): local-first compose template selector and release-channel mapping.
+- [Install Templates](assets/install-templates.md): local command templates for create-app/git plus channel mapping overrides.
 - [Preflight Checklist](references/preflight-checklist.md): use before any mutable action.
 - [Install Runbook](references/install-runbook.md): use for install and startup flows.
-- [MCP Runbook](references/mcp-runbook.md): use for MCP endpoint and client connection bootstrap.
-- [MCP Call Examples](references/mcp-call-examples.md): canonical JSON-RPC request envelopes and wrong-vs-right patterns.
-- [MCP Tool Shapes](references/mcp-tool-shapes.md): commonly used MCP tool argument examples.
-- [MCP Client Templates](references/mcp-client-templates.md): fixed client bootstrap templates and script usage for codex/claude/opencode/vscode/windsurf/cline.
-- [MCP Troubleshooting](references/mcp-troubleshooting.md): error-code based MCP diagnosis and fixes.
-- [MCP PowerShell Helpers](references/mcp-powershell-helpers.md): reusable Windows helper functions for JSON/SSE parsing.
+- [App Environment Manage](references/app-env-manage.md): use for app env add/use/current/list operations and oauth/token policy.
 - [Upgrade Runbook](references/upgrade-runbook.md): use for safe single-instance upgrades.
 - [Troubleshooting KB](references/troubleshooting.md): use for high-frequency failures.
-- [NocoBase MCP](https://docs.nocobase.com/cn/ai-employees/mcp/): endpoint, auth mode, and MCP client integration references. [verified: 2026-04-08]
 - [NocoBase Docker Installation](https://docs.nocobase.com/cn/get-started/installation/docker): primary Docker install reference. [verified: 2026-04-08]
-- [NocoBase Production Deployment](https://docs.nocobase.com/cn/get-started/deployment/production): production deployment constraints. [verified: 2026-04-08]
+
 - [NocoBase Docker Upgrading](https://docs.nocobase.com/cn/get-started/upgrading/docker): Docker upgrade constraints and sequence. [verified: 2026-04-08]
 - [NocoBase create-nocobase-app Installation](https://docs.nocobase.com/cn/get-started/installation/create-nocobase-app): create-app bootstrap path. [verified: 2026-04-08]
 - [NocoBase Git Installation](https://docs.nocobase.com/cn/get-started/installation/git): source-code install path. [verified: 2026-04-08]
@@ -301,3 +307,7 @@ For `install/deploy` tasks, `recommended next action` must include:
 - [Node.js Downloads](https://nodejs.org/en/download): Node.js installation reference. [verified: 2026-04-08]
 - [Git Install](https://git-scm.com/install): Git installation reference. [verified: 2026-04-08]
 - [Yarn Classic Install](https://classic.yarnpkg.com/lang/en/docs/install/): Yarn 1.x installation reference. [verified: 2026-04-08]
+- [PostgreSQL Download](https://www.postgresql.org/download/): PostgreSQL installation guide and packages. [verified: 2026-04-15]
+- [MySQL Install Docs](https://dev.mysql.com/doc/en/installing.html): MySQL official installation documentation. [verified: 2026-04-15]
+- [MySQL Downloads](https://dev.mysql.com/downloads/mysql): MySQL official download page. [verified: 2026-04-15]
+- [MariaDB Downloads](https://mariadb.org/download/): MariaDB official download page. [verified: 2026-04-16]

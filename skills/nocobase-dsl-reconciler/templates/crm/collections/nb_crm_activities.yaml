@@ -1,0 +1,61 @@
+name: nb_crm_activities
+title: Activities
+fields:
+  - name: updatedAt
+    interface: updatedAt
+  - name: customer
+    interface: m2o
+  - name: lead
+    interface: m2o
+  - name: owner_id
+    interface: integer
+  - name: is_completed
+    interface: checkbox
+  - name: extra
+    interface: json
+  - name: contact
+    interface: m2o
+  - name: updatedById
+    interface: integer
+  - name: opportunity_id
+    interface: integer
+  - name: owner
+    interface: m2o
+  - name: mail_message_id
+    interface: integer
+  - name: opportunity
+    interface: m2o
+  - name: reminder_at
+    interface: datetime
+  - name: ai_next_action
+    interface: textarea
+  - name: ai_sentiment
+    interface: select
+  - name: customer_id
+    interface: integer
+  - name: subject
+    interface: input
+  - name: createdById
+    interface: integer
+  - name: type
+    interface: select
+  - name: contact_id
+    interface: integer
+  - name: id
+    interface: id
+  - name: ai_summary
+    interface: textarea
+  - name: activity_date
+    interface: datetime
+  - name: duration
+    interface: integer
+  - name: lead_id
+    interface: integer
+  - name: content
+    interface: markdown
+  - name: createdBy
+    interface: createdBy
+  - name: updatedBy
+    interface: updatedBy
+  - name: createdAt
+    interface: createdAt

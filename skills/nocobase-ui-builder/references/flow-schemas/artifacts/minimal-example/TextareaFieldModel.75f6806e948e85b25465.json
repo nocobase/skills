@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "75f6806e948e85b25465",
+  "ownerUses": [
+    "TextareaFieldModel"
+  ],
+  "value": {
+    "uid": "todo-textareafieldmodel",
+    "use": "TextareaFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/TextareaFieldModel.75f6806e948e85b25465.json"
+}

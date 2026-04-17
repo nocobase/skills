@@ -1,0 +1,220 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "ListBlockModel",
+  "title": "List block",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": false
+  },
+  "source": "plugin",
+  "hash": "21ccd041",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "ListBlockModel.subModels.actions",
+      "message": "List actions depend on runtime collection-action registries.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "actions",
+          "type": "array"
+        },
+        "contextRequirements": [
+          "collection action registry"
+        ],
+        "unresolvedReason": "runtime-list-actions"
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "ListBlockModel.subModels.item",
+      "message": "List item layout.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "item",
+          "type": "object",
+          "allowedUses": [
+            "ListItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "manual-schema-required",
+      "path": "ListBlockModel.subModels.item.subModels.grid",
+      "message": "Per-record details grid.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "grid",
+          "type": "object",
+          "allowedUses": [
+            "DetailsGridModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListBlockModel.subModels.item.subModels.grid.subModels.items",
+      "message": "Details grid items are resolved from runtime field model factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        },
+        "contextRequirements": [
+          "details field metadata",
+          "details item factories"
+        ],
+        "unresolvedReason": "runtime-details-grid-items"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListBlockModel.subModels.item.subModels.grid.subModels.items",
+      "message": "Details grid items depend on field metadata and runtime item factories.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "items",
+          "type": "array",
+          "allowedUses": [
+            "DetailsItemModel"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListBlockModel.subModels.item.subModels.grid.subModels.items.subModels.field",
+      "message": "DetailsItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "details field bindings",
+          "collection metadata"
+        ],
+        "unresolvedReason": "runtime-details-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "ListBlockModel.subModels.item.subModels.grid.subModels.items.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "DisplayCheckboxFieldModel",
+            "DisplayDateTimeFieldModel",
+            "DisplayTextFieldModel",
+            "DisplayNumberFieldModel",
+            "DisplayPreviewFieldModel",
+            "DisplayPointFieldModel",
+            "DisplayCircleFieldModel",
+            "DisplayPolygonFieldModel",
+            "DisplayLineStringFieldModel",
+            "DisplayVditorFieldModel",
+            "DisplayCodeFieldModel",
+            "DisplayTimeFieldModel",
+            "DisplayColorFieldModel",
+            "DisplayEnumFieldModel",
+            "DisplayPasswordFieldModel",
+            "DisplayJSONFieldModel",
+            "DisplayHtmlFieldModel",
+            "DisplayIconFieldModel",
+            "DisplayPercentFieldModel",
+            "DisplayURLFieldModel",
+            "DisplaySubItemFieldModel",
+            "DisplaySubListFieldModel",
+            "DisplaySubTableFieldModel",
+            "JSFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [
+    {
+      "title": "Basic list block",
+      "snippet": {
+        "use": "ListBlockModel",
+        "stepParams": {
+          "resourceSettings": {
+            "init": {
+              "dataSourceKey": "main",
+              "collectionName": "users"
+            }
+          },
+          "listSettings": {
+            "pageSize": {
+              "pageSize": 20
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Associated records in popup/new scene",
+      "description": "Use associationName + sourceId when the block should load records through a parent relation.",
+      "snippet": {
+        "use": "ListBlockModel",
+        "stepParams": {
+          "resourceSettings": {
+            "init": {
+              "dataSourceKey": "main",
+              "collectionName": "roles",
+              "associationName": "users.roles",
+              "sourceId": "{{ctx.view.inputArgs.sourceId}}"
+            }
+          },
+          "listSettings": {
+            "pageSize": {
+              "pageSize": 20
+            }
+          }
+        }
+      }
+    }
+  ],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/ListBlockModel.a2c910291223f306ac5f.json",
+      "hash": "a2c910291223f306ac5f"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/ListBlockModel.acd628343ffc52e8fdc7.json",
+      "hash": "acd628343ffc52e8fdc7"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/ListBlockModel.21088a06ed5a0ef74f49.json",
+      "hash": "21088a06ed5a0ef74f49"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "item": {
+        "slotRef": "catalogs/ListBlockModel.item.json"
+      },
+      "actions": {
+        "slotRef": "catalogs/ListBlockModel.actions.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "item": [
+      "ListItemModel"
+    ],
+    "actions": []
+  }
+}

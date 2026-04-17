@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "23a9644250bcf2879e87",
+  "ownerUses": [
+    "DisplayCheckboxFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaycheckboxfieldmodel",
+    "use": "DisplayCheckboxFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayCheckboxFieldModel.23a9644250bcf2879e87.json"
+}

@@ -1,0 +1,13 @@
+uid: qch23vcyvxu
+name: 'Popup (Detail): Nb Erp Inventory'
+type: popup
+collectionName: nb_erp_inventory
+dataSourceKey: main
+targetUid: evwf1l0dkmx
+description: 'Popup (Detail): Nb Erp Inventory'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

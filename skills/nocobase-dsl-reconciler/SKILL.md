@@ -1,187 +1,150 @@
 ---
 name: nocobase-dsl-reconciler
 description: >-
-  Build NocoBase applications from YAML + JS specs.
-  Trigger: user wants to build, create, export, or replicate a NocoBase system/module.
+  Build NocoBase applications from YAML DSL + JS specs.
+  Trigger: user wants to build, create, scaffold, or deploy a NocoBase system/module.
+argument-hint: "[system-name]"
+allowed-tools: shell, local file reads, local file writes
 ---
 
 # NocoBase Application Builder
 
-## How to Respond
-
-| User says | Do this |
-|-----------|---------|
-| "Build me a XXX system" | **Build Mode** → design → confirm → build in rounds |
-| "Modify / add a field" | Edit structure.yaml → `python deployer.py dir/ --force` |
-| "Export pages" | `python exporter.py "Page" outdir/` |
-
-## Build Mode
-
-### Step 1 — Design (show plan, ask to confirm)
-
-```
-Module: Helpdesk
-Pages: Dashboard, Tickets, Users, SLA Configs, Knowledge Base
-
-Collections:
-  nb_helpdesk_tickets: title, description, priority(P0-P3), status, assignee(m2o), ...
-  nb_helpdesk_users: name, email, role(admin/agent/user), ...
-
-Dashboard: 4 KPI cards + 5 charts
-Each page: search filter + table + addNew/edit/detail popups
-
-Shall I start building?
-```
-
-### Step 2 — Build in Rounds
-
-| Round | What | Verify |
-|-------|------|--------|
-| 1 | Write structure.yaml → `python deployer.py dir/` | Pages appear in sidebar |
-| 2 | Insert test data (5-8 records per table) | Tables show data |
-| 3 | Write enhance.yaml → `python deployer.py dir/ --force` | Popups work |
-| 4 | Verify SQL → `python deployer.py --verify-sql dir/` | All 9/9 passed |
-
-Report each round result. Ask before continuing.
-
-### Step 3 — Dashboard KPI + Charts
-
-Dashboard page auto-scaffolds 4 KPI cards + 5 charts. Edit:
-- `js/kpi_*.js` — change CONFIG.label and CONFIG.sql
-- `charts/chart_*.sql` — change SQL query
-- `charts/chart_*_render.js` — change ECharts option
-
-**SQL Rules** (NocoBase uses PostgreSQL, NOT SQLite):
-- Column names must be camelCase in double quotes: `"createdAt"` not `created_at`
-- Date math: `NOW() - '7 days'::interval` not `DATE('now', '-7 days')`
-- Format: `TO_CHAR("createdAt", 'YYYY-MM')` not `strftime('%Y-%m', created_at)`
-- Always run `--verify-sql` after editing SQL to catch errors before users see them
-
-See `templates/kpi_card.js` for KPI template. See `examples/crm/analytics/` for chart examples.
-
-### Optional — Filter Stats Button Group
-
-For pages with select/status fields, add a jsBlock above the table for quick filtering:
-- Copy `templates/filter-stats.js` → `js/filter_<page>.js`
-- Edit CONFIG: `COLLECTION`, `GROUPS` (button labels + filter conditions), `TARGET_BLOCK_UID`
-- Add to structure.yaml as a jsBlock before the table
-
-```yaml
-- key: filter_stats
-  type: jsBlock
-  desc: Quick filter buttons
-  file: ./js/filter_orders.js
-```
-
-## Commands
+## Environment
 
 ```bash
-cd tools
+# All commands run from src/
+cd <skill-dir>/src
 
-# Scaffold new module (Dashboard auto-generated with KPI + charts)
-python deployer.py --new ../myapp "My App" --pages "Dashboard,Orders,Products"
-
-# Deploy
-python deployer.py ../myapp/
-
-# Force update after edits
-python deployer.py ../myapp/ --force
-
-# Preview only
-python deployer.py ../myapp/ --plan
-
-# Verify all SQL against live PostgreSQL (run after deploy)
-python deployer.py --verify-sql ../myapp/
-
-# Export existing page
-python exporter.py "Leads" ../export/leads/
-
-# Export all pages
-python exporter.py --all ../export/
+# Environment variables
+export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
 ```
 
-## structure.yaml Template
+## Build Workflow
 
-```yaml
-module: My Module
-icon: fundoutlined
+### Round 0: Design (must confirm first)
 
-collections:
-  nb_mymod_items:
-    title: Items
-    fields:
-    - name: name
-      interface: input
-      title: Name
-    - name: status
-      interface: select
-      title: Status
-      options: [Active, Inactive]
-    - name: category
-      interface: m2o
-      title: Category
-      target: nb_mymod_categories
+List collections, fields, and relationships. Wait for user confirmation before proceeding. Refer to the `nocobase-data-modeling` skill for data modeling details.
 
-pages:
-- page: Dashboard
-  icon: dashboardoutlined
-  blocks: []  # auto-filled by scaffold
+### Round 1: Create Files + Deploy
 
-- page: Items
-  icon: fileoutlined
-  coll: nb_mymod_items
-  blocks:
-  - key: filterForm
-    type: filterForm
-    coll: nb_mymod_items
-    fields:
-    - field: name
-      filterPaths: [name]
-    - status
-  - key: table
-    type: table
-    coll: nb_mymod_items
-    fields: [name, status, category, createdAt]
-    actions: [filter, refresh, addNew]
-    recordActions: [edit, delete]
-  layout:
-  - - filterForm
-  - - table
+1. Create working directory `/tmp/myapp/`
+2. Write files following the structure in `templates/crm/` (full reference below)
+3. Deploy: `npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force`
+
+**Warning: routes.yaml `title` must match the pages/ directory name** (lowercase).
+e.g. `title: Projects` → `pages/myapp/projects/layout.yaml`
+
+### Round 2: Test Data + Verification
+
+1. Insert test data: `npx tsx cli/cli.ts seed /tmp/myapp`
+   (or manually via API — but use real IDs from GET responses, NOT 1/2/3)
+2. Verify data integrity: `npx tsx cli/cli.ts verify-data /tmp/myapp`
+   Checks: record completeness, FK references, select values
+
+### Round 3: Popups + Details
+
+Edit popup/block templates → `deploy --force`
+
+### Round 4: JS + Charts (optional)
+
+Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
+
+## Reference Files
+
+| What you need | Where to look |
+|---------------|---------------|
+| Full project structure | `templates/crm/` — 20+ page CRM |
+| Collection field syntax | `templates/crm/collections/*.yaml` |
+| Page layout syntax | `templates/crm/pages/main/*/layout.yaml` |
+| Block template syntax | `templates/crm/templates/block/*.yaml` |
+| Popup template syntax | `templates/crm/templates/popup/*.yaml` |
+| routes.yaml | `templates/crm/routes.yaml` |
+| defaults.yaml | `templates/crm/defaults.yaml` |
+| KPI / chart JS | `templates/crm/js/analytics_jsBlock_*.js` |
+| Filter stats JS | `templates/crm/js/customers_filterForm_*.js` |
+| Seed data script | `templates/seed.sh` |
+| Field type reference | "Field Type Reference" section below |
+
+## File Structure
+
+```
+/tmp/myapp/
+├── collections/*.yaml          # Collections
+├── templates/block/*.yaml      # Form/detail templates
+├── templates/popup/*.yaml      # Popup templates
+├── pages/<group>/<page>/
+│   ├── layout.yaml             # Page (blocks + layout)
+│   ├── js/*.js                 # JS blocks
+│   └── popups/*.yaml           # Popup bindings
+├── routes.yaml                 # Menu tree
+├── defaults.yaml               # m2o auto-popups
+└── state.yaml                  # Auto-managed, do not edit manually
 ```
 
-## enhance.yaml Template
+## Field Type Reference
 
-```yaml
-popups:
-- target: $items.table.actions.addNew
-  auto: [edit, detail]
-  view_field: name
-  coll: nb_mymod_items
-  blocks:
-  - key: form
-    type: createForm
-    resource:
-      binding: currentCollection
-    fields: [name, status, category, description]
-    field_layout:
-    - '--- Basic Info ---'
-    - - name
-      - status
-    - - category
-    - - description
-    actions: [submit]
-```
+All supported field interfaces are defined in `src/types/spec.ts` (`FieldInterface` type).
+
+For detailed field capabilities, relation rules, and compact payload guidance, see:
+`../nocobase-data-modeling/references/field-capabilities.md`
+
+Quick reference for common types used in collection YAML:
+
+| interface | Required params |
+|-----------|-----------------|
+| input, textarea, email, phone, url | — |
+| integer, number, percent, checkbox | — |
+| select, multipleSelect, radioGroup | `options: [{value, label}]` |
+| dateOnly, datetime, time | — |
+| markdown, richText, attachment | — |
+| m2o | `target: collection_name` |
+| o2m | `target: collection_name`, `foreignKey: field_name` |
+| m2m | `target: collection_name`, `through: join_table` |
+
+> System columns (`id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`) are auto-created — do NOT define them.
 
 ## Key Rules
 
-1. **Design first** — never build without user confirmation
-2. **filterForm** — max 3 fields: 1 search (with filterPaths) + 1-2 select/date
-3. **auto: [edit, detail]** — auto-derives edit + detail popups from addNew form
-4. **Incremental** — always `--force` update, never destroy + recreate
-5. **Validate** — deployer checks fields, tables, SQL before any API calls
-6. **SQL rules** — NocoBase uses PostgreSQL. Column names must be camelCase in quotes: `"createdAt"` not `created_at`. After deploy, run `--verify-sql` to test all SQL against live DB
-7. **Layout required** — >2 blocks on a page must have `layout:`. >2 fields in a form must have `field_layout:`. Deployer will error if missing
+1. **select must have options** — `options: [{value, label}]`
+2. **collection must have titleField** — auto-set if a `name` field exists
+3. **filterForm search fields must have filterPaths** — `filterPaths: [name]`
+4. **field_layout must have sections** — `'--- Section Name ---'`
+5. **layout must be declared** — required when there is more than 1 block
+6. **actions are auto-populated** — no need to write actions/recordActions
+7. **routes title = directory name** — title lowercased must match pages subdirectory name
+8. **JS: copy from templates** — copy from `templates/crm/js/` and modify
+9. **SQL: two-step pattern** — `ctx.sql.save({uid, sql}) + ctx.sql.runById(uid)`
+10. **Parent tables first** — seed data: insert tables without foreign keys first
+11. **Do NOT define system columns** — never include `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `id` in collection YAML (auto-created by NocoBase)
 
-## Examples
+## Common Errors
 
-See `examples/crm/` — complete 16-page CRM with dashboards, charts, KPI cards, nested popups.
+| Error | Fix |
+|-------|-----|
+| `fields not in collection` | Field names in collection YAML don't match NocoBase |
+| `titleField is missing` | Add `titleField: name` to collection YAML |
+| Only some pages deployed | routes.yaml title doesn't match pages directory name |
+| `filterTargetKey is not defined` | Re-deploy with --force |
+| `Request failed 400` | Check field definitions in collection YAML |
+| Chart SQL failed | Insert test data first; quote field names e.g. `"createdAt"` |
+| `Block references fields not in` | Remove non-existent fields from layout.yaml |
+| `string violation` on create | Collection has wrong field types — remove `createdAt`/`updatedAt` from YAML and re-deploy |
+
+## Command Reference
+
+```bash
+cd <skill-dir>/src
+export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
+
+# Deploy
+npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force
+
+# Seed test data (handles FK IDs correctly — no more projectId=1 errors)
+npx tsx cli/cli.ts seed /tmp/myapp --count 5
+
+# Verify data integrity (FK references, field completeness)
+npx tsx cli/cli.ts verify-data /tmp/myapp
+
+# Export
+npx tsx cli/cli.ts export-project "MyApp" /tmp/export
+```

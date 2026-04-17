@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "f382158a09f5d54a7cef",
+  "ownerUses": [
+    "SortFieldModel"
+  ],
+  "value": {
+    "uid": "todo-sort-field-model",
+    "use": "SortFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/SortFieldModel.f382158a09f5d54a7cef.json"
+}

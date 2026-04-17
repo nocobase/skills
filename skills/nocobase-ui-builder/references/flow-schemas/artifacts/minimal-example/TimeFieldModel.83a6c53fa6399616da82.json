@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "83a6c53fa6399616da82",
+  "ownerUses": [
+    "TimeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-timefieldmodel",
+    "use": "TimeFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/TimeFieldModel.83a6c53fa6399616da82.json"
+}

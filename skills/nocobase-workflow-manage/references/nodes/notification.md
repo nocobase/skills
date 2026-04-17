@@ -53,6 +53,9 @@ Other fields depend on the specific notification channel type.
 ## Branch Description
 Does not support branches.
 
+## Test Support
+Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes:test`, because the server-side instruction implements `test()`.
+
 ## Example Configuration
 
 ### `in-app-message` type

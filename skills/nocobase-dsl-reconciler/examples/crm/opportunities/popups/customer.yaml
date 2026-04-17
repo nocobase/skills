@@ -1,5 +1,0 @@
-target: $opportunities_copy.table.fields.customer
-field: customer
-field_uid: f2051df6aa7
-blocks: []
-mode: drawer

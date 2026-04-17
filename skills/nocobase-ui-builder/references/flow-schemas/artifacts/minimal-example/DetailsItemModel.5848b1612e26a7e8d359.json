@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "5848b1612e26a7e8d359",
+  "ownerUses": [
+    "DetailsItemModel"
+  ],
+  "value": {
+    "uid": "todo-details-item-uid",
+    "use": "DetailsItemModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "nickname"
+        }
+      },
+      "detailItemSettings": {
+        "showLabel": {
+          "showLabel": true
+        }
+      }
+    },
+    "subModels": {}
+  },
+  "relativePath": "artifacts/minimal-example/DetailsItemModel.5848b1612e26a7e8d359.json"
+}

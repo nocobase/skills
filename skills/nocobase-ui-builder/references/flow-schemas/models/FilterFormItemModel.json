@@ -1,0 +1,84 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "FilterFormItemModel",
+  "title": "Filter form item",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "7a92264a",
+  "dynamicHints": [
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormItemModel.subModels.field",
+      "message": "FilterFormItemModel field renderer depends on runtime field bindings and collection metadata.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object"
+        },
+        "contextRequirements": [
+          "filter target block",
+          "filter operator bindings",
+          "field metadata"
+        ],
+        "unresolvedReason": "runtime-filter-form-item-field"
+      }
+    },
+    {
+      "kind": "dynamic-children",
+      "path": "FilterFormItemModel.subModels.field",
+      "message": "Field renderer model is resolved from runtime field bindings.",
+      "x-flow": {
+        "slotRules": {
+          "slotKey": "field",
+          "type": "object",
+          "allowedUses": [
+            "InputFieldModel",
+            "NumberFieldModel",
+            "PercentFieldModel",
+            "TimeFieldModel",
+            "SelectFieldModel",
+            "DateOnlyFilterFieldModel",
+            "DateTimeNoTzFilterFieldModel",
+            "DateTimeTzFilterFieldModel",
+            "FilterFormRecordSelectFieldModel",
+            "DateTimeFilterFieldModel",
+            "CheckboxFieldModel"
+          ]
+        }
+      }
+    }
+  ],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/FilterFormItemModel.04e4ce87267d4521b371.json",
+      "hash": "04e4ce87267d4521b371"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/FilterFormItemModel.1b1fff2fc7a55beb9213.json",
+      "hash": "1b1fff2fc7a55beb9213"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/FilterFormItemModel.138a65460419cbcdcbb7.json",
+      "hash": "138a65460419cbcdcbb7"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {
+      "field": {
+        "slotRef": "catalogs/FilterFormItemModel.field.json"
+      }
+    }
+  },
+  "defaultSubModelUses": {
+    "field": []
+  }
+}

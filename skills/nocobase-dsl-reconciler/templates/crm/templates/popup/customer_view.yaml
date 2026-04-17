@@ -1,0 +1,130 @@
+uid: wew44bhsga9
+name: Customer View
+type: popup
+collectionName: nb_crm_customers
+dataSourceKey: main
+targetUid: wsb6b480gtj
+content:
+  tabs:
+    - title: Tab0
+      blocks:
+        - key: details
+          type: details
+          coll: nb_crm_customers
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - level
+            - type
+            - region
+          js_items:
+            - key: customer_statistics_block
+              file: ./js/customer_view_tab0_details_customer_statistics_block.js
+              desc: Customer Statistics Block
+            - key: item_profile_customer_profile_header
+              file: ./js/customer_view_tab0_details_item_profile_customer_profile_header.js
+              desc: item_profile - Customer Profile Header
+          field_layout:
+            - - '[JS:item_profile - Customer Profile Header]'
+            - - level
+              - region
+              - type
+            - - '[JS:Customer Statistics Block]'
+          actions:
+            - edit
+            - ai:
+                employee: vera
+                tasks: ./ai/customer_view_tab0_details_tasks.yaml
+        - key: details_2
+          type: details
+          coll: nb_crm_customers
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          js_items:
+            - key: ai_smart_profile_block
+              file: ./js/customer_view_tab0_details_2_ai_smart_profile_block.js
+              desc: AI Smart Profile Block
+          field_layout:
+            - - '[JS:AI Smart Profile Block]'
+        - key: contacts
+          type: list
+          title: Contacts
+          coll: nb_crm_contacts
+          resource_binding:
+            associationName: nb_crm_customers.contacts
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - email
+            - phone
+          js_items:
+            - key: contact_row_column_customer_360
+              file: ./js/customer_view_tab0_contacts_contact_row_column_customer_360.js
+              desc: Contact Row Column - Customer 360
+          field_layout:
+            - - '[JS:Contact Row Column - Customer 360]'
+            - - email
+              - phone
+          actions:
+            - filter
+            - refresh
+            - addNew
+        - key: opportunities
+          type: list
+          title: Opportunities
+          coll: nb_crm_opportunities
+          resource_binding:
+            associationName: nb_crm_customers.opportunities
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          js_items:
+            - key: opportunity_row_column_customer_360
+              file: ./js/customer_view_tab0_opportunities_opportunity_row_column_customer_360.js
+              desc: Opportunity Row Column - Customer 360
+          field_layout:
+            - - '[JS:Opportunity Row Column - Customer 360]'
+        - key: comments
+          type: comments
+          coll: nb_crm_comments
+          resource_binding:
+            associationName: nb_crm_customers.comments
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+      layout:
+        - - col:
+              - details
+              - opportunities
+            size: 16
+          - col:
+              - contacts
+              - details_2
+              - comments
+            size: 8
+    - title: Tab1
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_crm_customers
+          actions:
+            - filter
+            - refresh
+    - title: Tab2
+      blocks:
+        - key: mailMessages
+          type: mailMessages
+          coll: mailMessages
+          dataScope:
+            logic: $or
+            items:
+              - path: from
+                operator: contains
+                value: '{{ ctx.popup.record.contacts.email }}'
+              - path: to
+                operator: contains
+                value: '{{ ctx.popup.record.contacts.email }}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+            - ai:
+                employee: ellis
+                tasks: ./ai/customer_view_tab2_mailMessages_tasks.yaml
+      layout:
+        - - mailMessages

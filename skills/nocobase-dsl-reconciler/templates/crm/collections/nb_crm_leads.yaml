@@ -1,0 +1,93 @@
+name: nb_crm_leads
+title: Leads
+fields:
+  - name: mobile_phone
+    interface: input
+  - name: owner_id
+    interface: integer
+  - name: industry
+    interface: select
+  - name: disqualification_reason
+    interface: textarea
+  - name: converted_at
+    interface: datetime
+  - name: converted_contact
+    interface: m2o
+  - name: ai_convert_prob
+    interface: percent
+  - name: createdById
+    interface: integer
+  - name: annual_revenue
+    interface: select
+  - name: converted_contact_id
+    interface: integer
+  - name: createdAt
+    interface: createdAt
+  - name: createdBy
+    interface: createdBy
+  - name: website
+    interface: textarea
+  - name: phone
+    interface: input
+  - name: lead_no
+    interface: sequence
+  - name: owner
+    interface: m2o
+  - name: updatedBy
+    interface: updatedBy
+  - name: ai_score
+    interface: integer
+  - name: converted_opportunity
+    interface: m2o
+  - name: converted_customer
+    interface: m2o
+  - name: status
+    interface: select
+  - name: updatedAt
+    interface: updatedAt
+  - name: converted_customer_id
+    interface: integer
+  - name: updatedById
+    interface: integer
+  - name: company
+    interface: input
+  - name: name
+    interface: input
+  - name: comments
+    interface: o2m
+  - name: ai_best_contact_time
+    interface: input
+  - name: number_of_employees
+    interface: select
+  - name: email
+    interface: input
+  - name: id
+    interface: id
+  - name: is_converted
+    interface: checkbox
+  - name: ai_nba_generated_at
+    interface: datetime
+  - name: ai_scored_at
+    interface: datetime
+  - name: description
+    interface: vditor
+  - name: source
+    interface: select
+  - name: ai_next_best_action
+    interface: textarea
+  - name: converted_opportunity_id
+    interface: integer
+  - name: title
+    interface: input
+  - name: ai_tags
+    interface: json
+  - name: rating
+    interface: select
+  - name: lost_reason
+    interface: textarea
+  - name: extra
+    interface: json
+  - name: activities
+    interface: o2m
+  - name: address
+    interface: textarea

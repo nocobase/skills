@@ -1,0 +1,46 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "a0c97823cac2fae80253",
+  "ownerUses": [
+    "FormGridModel"
+  ],
+  "value": {
+    "uid": "form-grid-grid",
+    "use": "FormGridModel",
+    "stepParams": {
+      "gridSettings": {
+        "grid": {
+          "rows": {
+            "rowMain": [
+              [
+                "form-grid-minimal-item-1"
+              ]
+            ]
+          },
+          "sizes": {
+            "rowMain": [
+              24
+            ]
+          },
+          "rowOrder": [
+            "rowMain"
+          ]
+        }
+      }
+    },
+    "subModels": {
+      "items": [
+        {
+          "xFlowGraphModelRef": {
+            "use": "FormItemModel",
+            "artifact": "minimalExample",
+            "modelRef": "models/FormItemModel.json"
+          }
+        }
+      ]
+    }
+  },
+  "relativePath": "artifacts/minimal-example/FormGridModel.a0c97823cac2fae80253.json"
+}

@@ -1,0 +1,18 @@
+- title: PM
+  type: group
+  icon: projectoutlined
+  children:
+    - title: Projects
+      icon: fundprojectscreenoutlined
+    - title: Tasks
+      icon: checksquareoutlined
+    - title: Members
+      icon: teamoutlined
+    - title: Milestones
+      icon: flagoutlined
+    - title: Time Entries
+      icon: clockcircleoutlined
+    - title: Risks
+      icon: warningoutlined
+    - title: Team Members
+      icon: usergroupaddoutlined

@@ -1,0 +1,486 @@
+/**
+ * Workflow deployer — reads YAML workflow specs and deploys to NocoBase.
+ *
+ * Idempotent: running twice produces the same result.
+ * - New workflows: create shell → create nodes in topological order → enable
+ * - Existing workflows (matched by title): update trigger config + upsert nodes
+ *
+ * See docs/workflow-dsl-design.md §Import (Deploy) Strategy.
+ */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type { NocoBaseClient } from '../client';
+import { loadYaml, saveYaml } from '../utils/yaml';
+import { validateWorkflow, formatValidationResult } from './validator';
+import type {
+  WorkflowSpec,
+  NodeSpec,
+  ApiWorkflow,
+  ApiFlowNode,
+  WorkflowState,
+  WorkflowStateFile,
+} from './types';
+
+// ── Graph parsing ──
+
+/** Branch label → branchIndex */
+const LABEL_TO_INDEX: Record<string, number> = {
+  yes: 1, true: 1,
+  no: 0, false: 0,
+  otherwise: 0, default: 0,
+  body: 0, loop: 0,
+  approved: 2,
+  rejected: -1,
+  returned: 1,
+};
+
+function resolveBranchIndex(label: string): number {
+  const lower = label.toLowerCase();
+  return LABEL_TO_INDEX[lower] ?? Number(label);
+}
+
+interface ParsedEdge {
+  source: string;
+  target: string;
+  branchIndex: number | null;
+}
+
+/**
+ * Parse the graph section into edges with resolved branchIndex.
+ * Returns { edges, chainHead } where chainHead is the first bare name.
+ */
+function parseGraph(graphLines: string[]): { edges: ParsedEdge[]; chainHead: string } {
+  let chainHead = '';
+  const edges: ParsedEdge[] = [];
+
+  for (const line of graphLines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Arrow pattern: source --> [label] target  OR  source --> target
+    const arrowMatch = trimmed.match(/^(\S+)\s*-->\s*(?:\[([^\]]+)\]\s*)?(\S+)$/);
+    if (arrowMatch) {
+      const [, source, label, target] = arrowMatch;
+      const branchIndex = label !== undefined ? resolveBranchIndex(label) : null;
+      edges.push({ source, target, branchIndex });
+    } else if (!trimmed.includes('-->')) {
+      // Bare name — chain head
+      if (!chainHead) {
+        chainHead = trimmed;
+      }
+    }
+  }
+
+  return { edges, chainHead };
+}
+
+/**
+ * Topological sort of node names based on graph edges.
+ * Ensures that every node's upstream is created before it.
+ * Returns names in creation order.
+ */
+function topologicalSort(
+  chainHead: string,
+  edges: ParsedEdge[],
+  nodeNames: string[],
+): string[] {
+  const nameSet = new Set(nodeNames);
+  const order: string[] = [];
+  const visited = new Set<string>();
+
+  // Build adjacency: source → [target]
+  const adj = new Map<string, { target: string; branchIndex: number | null }[]>();
+  for (const e of edges) {
+    let list = adj.get(e.source);
+    if (!list) {
+      list = [];
+      adj.set(e.source, list);
+    }
+    list.push({ target: e.target, branchIndex: e.branchIndex });
+  }
+
+  function visit(name: string): void {
+    if (visited.has(name)) return;
+    visited.add(name);
+    order.push(name);
+
+    // Visit main-chain targets first (branchIndex === null), then branches
+    const children = adj.get(name) ?? [];
+    const mainChain = children.filter(c => c.branchIndex === null);
+    const branches = children.filter(c => c.branchIndex !== null);
+
+    // Branches first so their chains are created before the main-chain downstream
+    for (const b of branches) {
+      visit(b.target);
+    }
+    for (const m of mainChain) {
+      visit(m.target);
+    }
+  }
+
+  // Start from chain head
+  if (chainHead && nameSet.has(chainHead)) {
+    visit(chainHead);
+  }
+
+  // Handle any orphans
+  for (const name of nodeNames) {
+    if (!visited.has(name)) {
+      visit(name);
+    }
+  }
+
+  return order;
+}
+
+// ── Variable rewriting: DSL names → real keys ──
+
+function rewriteVariablesToKeys(
+  value: unknown,
+  nameToKey: Map<string, string>,
+): unknown {
+  if (typeof value === 'string') {
+    let result = value;
+    for (const [dslName, realKey] of nameToKey) {
+      result = result.replaceAll(
+        `$jobsMapByNodeKey.${dslName}`,
+        `$jobsMapByNodeKey.${realKey}`,
+      );
+      result = result.replaceAll(
+        `$scopes.${dslName}`,
+        `$scopes.${realKey}`,
+      );
+    }
+    return result;
+  }
+  if (Array.isArray(value)) {
+    return value.map(v => rewriteVariablesToKeys(v, nameToKey));
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = rewriteVariablesToKeys(v, nameToKey);
+    }
+    return out;
+  }
+  return value;
+}
+
+// ── Config resolution ($ref) ──
+
+function resolveConfig(
+  nodeSpec: NodeSpec,
+  wfDir: string,
+): Record<string, unknown> {
+  const config = nodeSpec.config;
+  if (config && typeof config === 'object' && '$ref' in config) {
+    const refPath = config.$ref as string;
+    const fullPath = path.resolve(wfDir, refPath);
+    if (fs.existsSync(fullPath)) {
+      return loadYaml<Record<string, unknown>>(fullPath);
+    }
+  }
+  return config;
+}
+
+// ── Deploy functions ──
+
+export interface DeployWorkflowsOptions {
+  log?: (msg: string) => void;
+  /** Skip pre-deploy validation (not recommended) */
+  skipValidation?: boolean;
+  /** Collection metadata for field-level validation */
+  collections?: Record<string, { fields: string[] }>;
+}
+
+/**
+ * Deploy all workflows found in projectDir/workflows/ to NocoBase.
+ *
+ * Reads workflow.yaml files, creates/updates workflows and nodes,
+ * writes back workflow-state.yaml for state tracking.
+ */
+export async function deployWorkflows(
+  nb: NocoBaseClient,
+  projectDir: string,
+  opts: DeployWorkflowsOptions = {},
+): Promise<void> {
+  const log = opts.log ?? console.log.bind(console);
+  const wfBaseDir = path.join(projectDir, 'workflows');
+
+  if (!fs.existsSync(wfBaseDir)) {
+    log('  No workflows/ directory found, skipping workflow deploy');
+    return;
+  }
+
+  // Find all workflow.yaml files
+  const entries = fs.readdirSync(wfBaseDir, { withFileTypes: true });
+  const wfDirs = entries
+    .filter(e => e.isDirectory())
+    .map(e => e.name)
+    .filter(name => fs.existsSync(path.join(wfBaseDir, name, 'workflow.yaml')));
+
+  if (!wfDirs.length) {
+    log('  No workflow.yaml files found');
+    return;
+  }
+
+  // Load existing state if any
+  const stateFilePath = path.join(wfBaseDir, 'workflow-state.yaml');
+  let stateFile: WorkflowStateFile = { workflows: {} };
+  if (fs.existsSync(stateFilePath)) {
+    stateFile = loadYaml<WorkflowStateFile>(stateFilePath);
+  }
+
+  // Fetch existing workflows for matching by title
+  const existingResp = await nb.http.get(`${nb.baseUrl}/api/workflows:list`, {
+    params: { filter: { current: true }, paginate: false },
+  });
+  const existingWfs = (existingResp.data?.data ?? []) as ApiWorkflow[];
+  const titleToExisting = new Map<string, ApiWorkflow>();
+  for (const wf of existingWfs) {
+    titleToExisting.set(wf.title, wf);
+  }
+
+  log(`  Deploying ${wfDirs.length} workflow(s)...`);
+
+  // Pre-deploy validation (unless skipped)
+  if (!opts.skipValidation) {
+    let hasErrors = false;
+    for (const slug of wfDirs) {
+      const wfDir = path.join(wfBaseDir, slug);
+      const spec = loadYaml<WorkflowSpec>(path.join(wfDir, 'workflow.yaml'));
+      const result = validateWorkflow(spec, opts.collections);
+
+      if (result.errors.length) {
+        log(formatValidationResult(result, spec.title));
+      }
+      if (!result.valid) {
+        hasErrors = true;
+      }
+    }
+    if (hasErrors) {
+      throw new Error('Workflow validation failed — fix errors above before deploying');
+    }
+  }
+
+  for (const slug of wfDirs) {
+    const wfDir = path.join(wfBaseDir, slug);
+    const spec = loadYaml<WorkflowSpec>(path.join(wfDir, 'workflow.yaml'));
+
+    const state = await deploySingleWorkflow(
+      nb, spec, wfDir, slug, titleToExisting, stateFile.workflows[slug], log,
+    );
+    stateFile.workflows[slug] = state;
+  }
+
+  // Write updated state
+  saveYaml(stateFilePath, stateFile);
+  log(`  + workflow-state.yaml updated`);
+}
+
+/**
+ * Deploy a single workflow spec to NocoBase.
+ * Idempotent: matches existing workflow by title, creates if new.
+ */
+async function deploySingleWorkflow(
+  nb: NocoBaseClient,
+  spec: WorkflowSpec,
+  wfDir: string,
+  slug: string,
+  titleToExisting: Map<string, ApiWorkflow>,
+  existingState: WorkflowState | undefined,
+  log: (msg: string) => void,
+): Promise<WorkflowState> {
+  const existing = titleToExisting.get(spec.title);
+
+  let workflowId: number;
+  let workflowKey: string;
+
+  if (existing) {
+    // Update existing workflow trigger config
+    workflowId = existing.id;
+    workflowKey = existing.key;
+
+    await nb.http.post(`${nb.baseUrl}/api/workflows:update`, {
+      config: spec.trigger,
+      sync: spec.sync ?? false,
+      ...(spec.options ? { options: spec.options } : {}),
+    }, {
+      params: { filterByTk: existing.id },
+    });
+    log(`  ~ ${slug}: updated workflow #${workflowId}`);
+  } else {
+    // Create new workflow (disabled initially)
+    const createResp = await nb.http.post(`${nb.baseUrl}/api/workflows:create`, {
+      title: spec.title,
+      type: spec.type,
+      sync: spec.sync ?? false,
+      enabled: false,
+      config: spec.trigger,
+      ...(spec.description ? { description: spec.description } : {}),
+      ...(spec.options ? { options: spec.options } : {}),
+    });
+    const created = createResp.data?.data;
+    if (!created?.id) {
+      throw new Error(`Failed to create workflow "${spec.title}"`);
+    }
+    workflowId = created.id;
+    workflowKey = created.key;
+    log(`  + ${slug}: created workflow #${workflowId}`);
+  }
+
+  // Parse graph to determine creation order and upstream relationships
+  const { edges, chainHead } = parseGraph(spec.graph);
+  const nodeNames = Object.keys(spec.nodes);
+  const creationOrder = topologicalSort(chainHead, edges, nodeNames);
+
+  // Build upstream/branchIndex info from edges
+  // For each target node, find its edge (source = upstreamId, branchIndex)
+  const nodeUpstream = new Map<string, { upstream: string; branchIndex: number | null }>();
+  for (const e of edges) {
+    // Only set upstream if target doesn't already have one (first edge wins)
+    if (!nodeUpstream.has(e.target)) {
+      nodeUpstream.set(e.target, { upstream: e.source, branchIndex: e.branchIndex });
+    }
+  }
+
+  // Fetch existing nodes if updating
+  let existingNodes: ApiFlowNode[] = [];
+  if (existing) {
+    const nodesResp = await nb.http.get(`${nb.baseUrl}/api/workflows/${workflowId}/nodes:list`, {
+      params: { sort: ['id'], paginate: false },
+    });
+    existingNodes = (nodesResp.data?.data ?? []) as ApiFlowNode[];
+  }
+  const existingNodeByTitle = new Map<string, ApiFlowNode>();
+  for (const n of existingNodes) {
+    existingNodeByTitle.set(n.title, n);
+  }
+
+  // Create/update nodes in topological order
+  const nameToId = new Map<string, number>();
+  const nameToKey = new Map<string, string>();
+
+  // If we have existing state, pre-populate mappings
+  if (existingState?.nodes) {
+    for (const [name, ns] of Object.entries(existingState.nodes)) {
+      nameToId.set(name, ns.id);
+      nameToKey.set(name, ns.key);
+    }
+  }
+
+  for (const name of creationOrder) {
+    const nodeSpec = spec.nodes[name];
+    if (!nodeSpec) continue;
+
+    // Resolve $ref configs
+    const rawConfig = resolveConfig(nodeSpec, wfDir);
+
+    // Rewrite DSL variable names to real keys (for nodes already created)
+    const config = rewriteVariablesToKeys(rawConfig, nameToKey) as Record<string, unknown>;
+
+    // Determine upstream linkage
+    const upInfo = nodeUpstream.get(name);
+    const upstreamId = upInfo ? (nameToId.get(upInfo.upstream) ?? null) : null;
+    const branchIndex = upInfo?.branchIndex ?? null;
+
+    // Check if node already exists (match by title within this workflow)
+    const existingNode = existingNodeByTitle.get(nodeSpec.title ?? name);
+
+    if (existingNode) {
+      // Update existing node config
+      await nb.http.post(`${nb.baseUrl}/api/flow_nodes:update`, {
+        config,
+        title: nodeSpec.title ?? name,
+      }, {
+        params: { filterByTk: existingNode.id },
+      });
+      nameToId.set(name, existingNode.id);
+      nameToKey.set(name, existingNode.key);
+    } else {
+      // Create new node
+      const createBody: Record<string, unknown> = {
+        type: nodeSpec.type,
+        title: nodeSpec.title ?? name,
+        config,
+        workflowId,
+      };
+      if (upstreamId !== null) {
+        createBody.upstreamId = upstreamId;
+      }
+      if (branchIndex !== null) {
+        createBody.branchIndex = branchIndex;
+      }
+
+      const nodeResp = await nb.http.post(
+        `${nb.baseUrl}/api/workflows/${workflowId}/nodes:create`,
+        createBody,
+      );
+      const createdNode = nodeResp.data?.data;
+      if (!createdNode?.id) {
+        throw new Error(`Failed to create node "${name}" in workflow "${spec.title}"`);
+      }
+      nameToId.set(name, createdNode.id);
+      nameToKey.set(name, createdNode.key);
+    }
+  }
+
+  // Second pass: rewrite variables in all node configs now that all keys are known
+  // This handles forward references that couldn't be resolved in the first pass
+  for (const name of creationOrder) {
+    const nodeSpec = spec.nodes[name];
+    if (!nodeSpec) continue;
+    const nodeId = nameToId.get(name);
+    if (!nodeId) continue;
+
+    const rawConfig = resolveConfig(nodeSpec, wfDir);
+    const fullyRewritten = rewriteVariablesToKeys(rawConfig, nameToKey) as Record<string, unknown>;
+
+    // Only update if the config had variable references that might have changed
+    const serialized = JSON.stringify(fullyRewritten);
+    if (serialized.includes('$jobsMapByNodeKey') || serialized.includes('$scopes')) {
+      await nb.http.post(`${nb.baseUrl}/api/flow_nodes:update`, {
+        config: fullyRewritten,
+      }, {
+        params: { filterByTk: nodeId },
+      });
+    }
+  }
+
+  // Enable/disable based on spec
+  const targetEnabled = spec.enabled ?? false;
+  if (existing) {
+    // Only toggle if changed
+    if (existing.enabled !== targetEnabled) {
+      await nb.http.post(`${nb.baseUrl}/api/workflows:update`, {
+        enabled: targetEnabled,
+      }, {
+        params: { filterByTk: workflowId },
+      });
+      log(`  ${targetEnabled ? '>' : '||'} ${slug}: ${targetEnabled ? 'enabled' : 'disabled'}`);
+    }
+  } else if (targetEnabled) {
+    await nb.http.post(`${nb.baseUrl}/api/workflows:update`, {
+      enabled: true,
+    }, {
+      params: { filterByTk: workflowId },
+    });
+    log(`  > ${slug}: enabled`);
+  }
+
+  // Build node state
+  const nodeStates: Record<string, { id: number; key: string }> = {};
+  for (const name of creationOrder) {
+    const id = nameToId.get(name);
+    const key = nameToKey.get(name);
+    if (id !== undefined && key !== undefined) {
+      nodeStates[name] = { id, key };
+    }
+  }
+
+  return {
+    id: workflowId,
+    key: workflowKey,
+    nodes: nodeStates,
+  };
+}

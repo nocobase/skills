@@ -1,0 +1,3 @@
+blocks:
+  - ref: templates/block/email_table_mail_messages.yaml
+    key: reference

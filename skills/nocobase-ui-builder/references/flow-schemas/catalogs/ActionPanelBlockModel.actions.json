@@ -1,0 +1,79 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "ActionPanelBlockModel",
+  "slot": "actions",
+  "slotType": "array",
+  "shape": "items.oneOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "PopupActionModel",
+      "title": "Popup action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.oneOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/PopupActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PopupActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "LinkActionModel",
+      "title": "Link action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.oneOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/LinkActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/LinkActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSActionModel",
+      "title": "JS action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.oneOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/JSActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ActionPanelScanActionModel",
+      "title": "Action panel scan action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.oneOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/ActionPanelScanActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ActionPanelScanActionModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

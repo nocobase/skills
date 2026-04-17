@@ -1,0 +1,34 @@
+name: 'Form (Edit): Projects'
+type: block
+collectionName: nb_pm_projects
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_projects
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - code
+    - status
+    - priority
+    - owner
+    - start_date
+    - end_date
+    - budget
+    - description
+  field_layout:
+    - '--- Project Info ---'
+    - - name
+      - code
+    - - status
+      - priority
+    - - owner
+    - '--- Schedule & Budget ---'
+    - - start_date
+      - end_date
+    - - budget
+    - '--- Description ---'
+    - - description
+  actions:
+    - submit

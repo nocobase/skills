@@ -1,0 +1,31 @@
+name: nb_crm_competitors
+title: Competitors
+fields:
+  - name: updatedBy
+    interface: updatedBy
+  - name: opportunity
+    interface: m2o
+  - name: createdAt
+    interface: createdAt
+  - name: opportunity_id
+    interface: integer
+  - name: strengths
+    interface: textarea
+  - name: id
+    interface: id
+  - name: updatedById
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: name
+    interface: input
+  - name: updatedAt
+    interface: updatedAt
+  - name: website
+    interface: textarea
+  - name: weaknesses
+    interface: textarea
+  - name: createdById
+    interface: integer
+  - name: description
+    interface: textarea

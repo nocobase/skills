@@ -1,0 +1,18 @@
+blocks:
+  - key: table
+    type: table
+    coll: nb_crm_contacts
+    fields:
+      - field: name
+        popup: templates/popup/contacts_view_in_page.yaml
+      - salutation
+      - field: email
+        popup: true
+      - field: phone
+        popup: templates/popup/contacts_view_in_page.yaml
+      - mobile
+      - title
+    actions:
+      - filter
+      - refresh
+      - addNew

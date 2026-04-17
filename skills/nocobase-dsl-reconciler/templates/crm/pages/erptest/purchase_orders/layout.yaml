@@ -1,0 +1,79 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_purchase_orders
+    fields:
+      - field: code
+        label: Search
+        filterPaths:
+          - code
+      - status
+    js_items:
+      - key: stats_filter_block_status_distribution_with_clickable_filter_buttons
+        file: ./js/purchase_orders_filterForm_stats_filter_block_status_distribution_with_clickable_filter_buttons.js
+        desc: Stats Filter Block — status distribution with clickable filter buttons
+    field_layout:
+      - - '[JS:Stats Filter Block — status distribution with clickable filter buttons]'
+      - - code
+        - status
+  - key: table
+    type: table
+    coll: nb_erp_purchase_orders
+    fields:
+      - field: code
+        popup: templates/popup/popup_detail_nb_erp_purchase_orders.yaml
+      - field: supplier
+        popup: templates/popup/popup_detail_suppliers.yaml
+      - order_date
+      - total_amount
+      - status
+    js_columns:
+      - key: status
+        field: status
+        file: ./js/purchase_orders_table_col_status.js
+        title: Status
+        desc: PO Status Tag
+      - key: total_amount
+        field: total_amount
+        file: ./js/purchase_orders_table_col_total_amount.js
+        title: Total Amount
+        desc: Total Amount Currency Column
+    column_order:
+      - code
+      - supplier
+      - order_date
+      - total_amount
+      - status
+      - '[JS:status]'
+      - '[JS:total_amount]'
+    recordActions:
+      - type: edit
+        stepParams:
+          buttonSettings:
+            general:
+              title: Edit
+              icon: null
+              type: link
+          popupSettings:
+            openView:
+              mode: drawer
+              size: large
+              pageModelClass: ChildPageModel
+              dataSourceKey: main
+              collectionName: ''
+              uid: oiv5rdp30gx
+          displayFieldSettings:
+            clickToOpen:
+              clickToOpen: true
+        props:
+          title: Edit
+          icon: null
+          type: link
+        key: edit_edit
+    actions:
+      - filter
+      - refresh
+      - addNew
+layout:
+  - - filterForm
+  - - table

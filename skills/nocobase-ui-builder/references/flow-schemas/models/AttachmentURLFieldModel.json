@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "AttachmentURLFieldModel",
+  "title": "Attachment URL",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "69af3804",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/AttachmentURLFieldModel.3cd90f2b5063d9b7fd82.json",
+      "hash": "3cd90f2b5063d9b7fd82"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/AttachmentURLFieldModel.755d483c6c864c3cb193.json",
+      "hash": "755d483c6c864c3cb193"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/AttachmentURLFieldModel.f6de0be37e9f02002aee.json",
+      "hash": "f6de0be37e9f02002aee"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

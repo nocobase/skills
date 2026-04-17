@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "752c7e43d9fd7af6ff4c",
+  "ownerUses": [
+    "ChildPageModel"
+  ],
+  "value": {
+    "uid": "popup-child-page-page",
+    "use": "ChildPageModel",
+    "stepParams": {
+      "pageSettings": {
+        "general": {
+          "displayTitle": false,
+          "enableTabs": true
+        }
+      }
+    },
+    "subModels": {
+      "tabs": [
+        {
+          "xFlowGraphModelRef": {
+            "use": "ChildPageTabModel",
+            "artifact": "minimalExample",
+            "modelRef": "models/ChildPageTabModel.json"
+          }
+        }
+      ]
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ChildPageModel.752c7e43d9fd7af6ff4c.json"
+}

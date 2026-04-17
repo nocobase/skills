@@ -1,0 +1,25 @@
+uid: mom6aqifosp
+name: Contact View
+type: popup
+collectionName: nb_crm_contacts
+dataSourceKey: main
+targetUid: 43ca21fmix6
+associationName: nb_crm_customers.contacts
+content:
+  tabs:
+    - title: Tab0
+      blocks:
+        - key: reference
+          type: reference
+      layout:
+        - - reference
+    - title: Tab1
+      blocks: []
+    - title: Tab2
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_crm_contacts
+          actions:
+            - filter
+            - refresh

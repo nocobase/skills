@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "TimeFieldModel",
+  "title": "Time Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "b7e8e764",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/TimeFieldModel.edcbffa6e724e0fac019.json",
+      "hash": "edcbffa6e724e0fac019"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/TimeFieldModel.83a6c53fa6399616da82.json",
+      "hash": "83a6c53fa6399616da82"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/TimeFieldModel.2bb4822bd692773f888d.json",
+      "hash": "2bb4822bd692773f888d"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

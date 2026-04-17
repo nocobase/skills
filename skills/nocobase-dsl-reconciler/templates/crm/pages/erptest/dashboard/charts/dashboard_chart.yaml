@@ -1,0 +1,2 @@
+sql_file: ./charts/dashboard_chart.sql
+render_file: ./charts/dashboard_chart_render.js

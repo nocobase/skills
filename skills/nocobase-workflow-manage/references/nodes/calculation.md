@@ -24,6 +24,9 @@ Calculating order amounts, concatenating text, or generating derived fields.
 ## Branch Description
 Does not support branching.
 
+## Test Support
+Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes:test`, because the server-side instruction implements `test()`.
+
 ## Example Configuration
 
 ### `formula.js` engine basic expression

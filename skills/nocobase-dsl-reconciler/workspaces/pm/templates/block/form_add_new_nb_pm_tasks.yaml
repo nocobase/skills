@@ -1,0 +1,30 @@
+name: 'Form (Add new): Tasks'
+type: block
+collectionName: nb_pm_tasks
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_tasks
+  fields:
+    - name
+    - project
+    - assignee
+    - status
+    - priority
+    - due_date
+    - estimated_hours
+    - description
+  field_layout:
+    - '--- Task Info ---'
+    - - name
+    - - description
+    - '--- Assignment ---'
+    - - project
+      - assignee
+    - '--- Planning ---'
+    - - status
+      - priority
+    - - due_date
+      - estimated_hours
+  actions:
+    - submit

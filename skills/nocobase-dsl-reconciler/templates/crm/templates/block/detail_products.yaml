@@ -1,0 +1,28 @@
+uid: w551j2zg2va
+name: 'Detail: Products'
+type: block
+collectionName: nb_erp_products
+dataSourceKey: main
+targetUid: xcfxkxe7ymt
+description: 'Detail: Products'
+content:
+  key: details
+  type: details
+  coll: nb_erp_products
+  fields:
+    - name
+    - sku
+    - price
+    - category
+    - stock_qty
+    - status
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - sku
+    - - category
+      - status
+    - '--- Pricing & Stock ---'
+    - - price
+      - stock_qty
+    - '--- Stock & Pricing ---'

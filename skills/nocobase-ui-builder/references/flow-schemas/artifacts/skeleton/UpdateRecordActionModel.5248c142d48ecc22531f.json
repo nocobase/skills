@@ -1,0 +1,38 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "5248c142d48ecc22531f",
+  "ownerUses": [
+    "UpdateRecordActionModel"
+  ],
+  "value": {
+    "uid": "todo-update-record-action-uid",
+    "use": "UpdateRecordActionModel",
+    "stepParams": {
+      "assignSettings": {
+        "confirm": {
+          "enable": false,
+          "title": "Perform the Update record",
+          "content": "Are you sure you want to perform the Update record action?"
+        },
+        "assignFieldValues": {
+          "assignedValues": {}
+        }
+      }
+    },
+    "subModels": {
+      "assignForm": {
+        "xFlowGraphModelRef": {
+          "use": "AssignFormModel",
+          "artifact": "skeleton",
+          "modelRef": "models/AssignFormModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "AssignFormModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/UpdateRecordActionModel.5248c142d48ecc22531f.json"
+}

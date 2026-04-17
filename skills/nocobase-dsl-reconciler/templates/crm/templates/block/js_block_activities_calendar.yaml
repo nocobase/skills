@@ -1,0 +1,10 @@
+uid: l74nolk778q
+name: '[JS Block]Activities Calendar'
+type: block
+dataSourceKey: main
+targetUid: 05aef6e5ea7
+content:
+  js:
+    file: ./js/js_block_activities_calendar_activity_calendar_block.js
+    desc: Activity Calendar Block
+  key: activity_calendar_block

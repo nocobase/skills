@@ -1,0 +1,21 @@
+name: nb_crm_opportunity_users
+title: Opportunity Users
+fields:
+  - name: updatedById
+    interface: integer
+  - name: updatedAt
+    interface: updatedAt
+  - name: createdById
+    interface: integer
+  - name: user_id
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: createdAt
+    interface: createdAt
+  - name: role
+    interface: select
+  - name: updatedBy
+    interface: updatedBy
+  - name: opportunity_id
+    interface: integer

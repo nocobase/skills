@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplaySubTableFieldModel",
+  "title": "Display Sub Table Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "edd96061",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplaySubTableFieldModel.286dce50aa8251e427bc.json",
+      "hash": "286dce50aa8251e427bc"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplaySubTableFieldModel.cb8c5f605f24910f8c37.json",
+      "hash": "cb8c5f605f24910f8c37"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplaySubTableFieldModel.c44539929c2f1d01ae63.json",
+      "hash": "c44539929c2f1d01ae63"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

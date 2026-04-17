@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "4b3e9460ceb68b2c9a97",
+  "ownerUses": [
+    "JSRecordActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "JSRecordActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/JSRecordActionModel.4b3e9460ceb68b2c9a97.json"
+}

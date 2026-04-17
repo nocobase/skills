@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "4d542d3f69a85a65c59b",
+  "ownerUses": [
+    "CodeFieldModel"
+  ],
+  "value": {
+    "uid": "todo-codefieldmodel",
+    "use": "CodeFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/CodeFieldModel.4d542d3f69a85a65c59b.json"
+}

@@ -1,0 +1,32 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "SubTableFieldModel",
+  "slot": "columns",
+  "slotType": "array",
+  "shape": "items.direct",
+  "defaultUses": [
+    "SubTableColumnModel"
+  ],
+  "schemaBase": {
+    "type": "array"
+  },
+  "candidates": [
+    {
+      "use": "SubTableColumnModel",
+      "title": "Sub Table Column",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/SubTableColumnModel.json",
+      "skeletonRef": {
+        "modelRef": "models/SubTableColumnModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

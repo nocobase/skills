@@ -1,0 +1,5 @@
+target: $SELF.table.recordActions.edit_edit
+mode: drawer
+blocks:
+  - ref: templates/block/form_edit_suppliers.yaml
+    key: reference

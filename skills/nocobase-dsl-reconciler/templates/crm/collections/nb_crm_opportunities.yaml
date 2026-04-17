@@ -1,0 +1,101 @@
+name: nb_crm_opportunities
+title: Opportunities
+fields:
+  - name: id
+    interface: id
+  - name: updatedBy
+    interface: updatedBy
+  - name: stage
+    interface: select
+  - name: ai_confidence
+    interface: percent
+  - name: contact
+    interface: m2o
+  - name: competitors
+    interface: o2m
+  - name: ai_recommendations
+    interface: json
+  - name: updatedAt
+    interface: updatedAt
+  - name: ai_risk_factors
+    interface: json
+  - name: customer
+    interface: m2o
+  - name: exchange_rate
+    interface: number
+  - name: quotations
+    interface: o2m
+  - name: ai_trend
+    interface: input
+  - name: win_probability
+    interface: percent
+  - name: activities
+    interface: o2m
+  - name: createdAt
+    interface: createdAt
+  - name: amount_usd
+    interface: number
+  - name: stagnant_days
+    interface: integer
+  - name: ai_analyzed_at
+    interface: datetime
+  - name: owner
+    interface: m2o
+  - name: ai_win_probability
+    interface: percent
+  - name: contact_id
+    interface: integer
+  - name: currency
+    interface: select
+  - name: createdBy
+    interface: createdBy
+  - name: ai_nba_generated_at
+    interface: datetime
+  - name: name
+    interface: input
+  - name: days_in_stage
+    interface: integer
+  - name: comments
+    interface: o2m
+  - name: expected_revenue
+    interface: number
+  - name: amount
+    interface: number
+  - name: competitor_id
+    interface: integer
+  - name: actual_close_date
+    interface: date
+  - name: description
+    interface: textarea
+  - name: customer_id
+    interface: integer
+  - name: opportunity_no
+    interface: sequence
+  - name: expected_close_date
+    interface: date
+  - name: lead_source
+    interface: select
+  - name: extra
+    interface: json
+  - name: campaign_id
+    interface: integer
+  - name: owner_id
+    interface: integer
+  - name: ai_next_best_action
+    interface: textarea
+  - name: updatedById
+    interface: integer
+  - name: last_activity_at
+    interface: datetime
+  - name: attachments
+    interface: attachment
+  - name: loss_reason
+    interface: textarea
+  - name: createdById
+    interface: integer
+  - name: ai_predicted_close
+    interface: date
+  - name: stage_sort
+    interface: integer
+  - name: stage_entered_at
+    interface: datetime

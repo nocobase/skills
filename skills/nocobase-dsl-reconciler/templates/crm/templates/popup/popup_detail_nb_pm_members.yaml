@@ -1,0 +1,13 @@
+uid: vi528winmf0
+name: 'Popup (Detail): Nb Pm Members'
+type: popup
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: 3untj6lg7c4
+description: 'Popup (Detail): Nb Pm Members'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

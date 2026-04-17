@@ -1,0 +1,1 @@
+git clone __GIT_REPO__ -b __GIT_REF__ --depth=1 __PROJECT_NAME__

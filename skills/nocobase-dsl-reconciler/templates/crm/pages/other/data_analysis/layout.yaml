@@ -1,0 +1,16 @@
+blocks:
+  - key: table
+    type: table
+    coll: nb_crm_data_analysis
+    fields:
+      - field: name
+        popup:
+          size: medium
+      - collection
+      - field: description
+        width: 300
+    actions:
+      - filter
+      - refresh
+      - bulkDelete
+      - addNew

@@ -1,0 +1,27 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2aa23a2ef0a7e7d96384",
+  "ownerUses": [
+    "MapBlockModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "MapBlockModel",
+    "stepParams": {
+      "createMapBlock": {
+        "init": {
+          "mapField": []
+        },
+        "mapZoom": {
+          "zoom": 13
+        }
+      }
+    },
+    "subModels": {
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/MapBlockModel.2aa23a2ef0a7e7d96384.json"
+}

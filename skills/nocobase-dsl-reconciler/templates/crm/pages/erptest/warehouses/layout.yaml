@@ -1,0 +1,51 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_erp_warehouses
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - location
+    field_layout:
+      - - name
+  - key: table
+    type: table
+    coll: nb_erp_warehouses
+    fields:
+      - field: name
+        popup: true
+      - location
+      - capacity
+    recordActions:
+      - type: edit
+        stepParams:
+          buttonSettings:
+            general:
+              title: Edit
+              icon: null
+              type: link
+          popupSettings:
+            openView:
+              mode: drawer
+              size: large
+              pageModelClass: ChildPageModel
+              dataSourceKey: main
+              collectionName: ''
+              uid: v68p3rmw766
+          displayFieldSettings:
+            clickToOpen:
+              clickToOpen: true
+        props:
+          title: Edit
+          icon: null
+          type: link
+        key: edit_edit
+    actions:
+      - filter
+      - refresh
+      - addNew
+layout:
+  - - filterForm
+  - - table

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "47bfc12d489bcf3a9d85",
+  "ownerUses": [
+    "DisplayPreviewFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaypreviewfieldmodel",
+    "use": "DisplayPreviewFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayPreviewFieldModel.47bfc12d489bcf3a9d85.json"
+}

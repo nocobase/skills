@@ -1,0 +1,57 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "0e895ed92060cab233e3",
+  "ownerUses": [
+    "EditFormModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "EditFormModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "formModelSettings": {
+        "layout": {
+          "layout": "vertical",
+          "colon": true
+        },
+        "assignRules": {
+          "value": []
+        }
+      },
+      "eventSettings": {
+        "linkageRules": {
+          "value": []
+        }
+      },
+      "formSettings": {
+        "dataScope": {
+          "filter": {
+            "logic": "$and",
+            "items": []
+          }
+        }
+      }
+    },
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "FormGridModel",
+          "artifact": "skeleton",
+          "modelRef": "models/FormGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "FormGridModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/EditFormModel.0e895ed92060cab233e3.json"
+}

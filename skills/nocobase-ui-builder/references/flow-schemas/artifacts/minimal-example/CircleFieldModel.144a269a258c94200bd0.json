@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "144a269a258c94200bd0",
+  "ownerUses": [
+    "CircleFieldModel"
+  ],
+  "value": {
+    "uid": "todo-circlefieldmodel",
+    "use": "CircleFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/CircleFieldModel.144a269a258c94200bd0.json"
+}

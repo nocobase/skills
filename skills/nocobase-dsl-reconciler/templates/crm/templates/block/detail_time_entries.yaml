@@ -1,0 +1,30 @@
+uid: otisd5s4c26
+name: 'Detail: Time Entries'
+type: block
+collectionName: nb_pm_time_entries
+dataSourceKey: main
+targetUid: 0pb3at31qh0
+description: 'Detail: Time Entries'
+content:
+  key: details
+  type: details
+  coll: nb_pm_time_entries
+  fields:
+    - name
+    - task
+    - member
+    - hours
+    - entry_date
+    - description
+    - createdAt
+  field_layout:
+    - '--- Basic Info ---'
+    - - task
+      - member
+    - - hours
+    - - name
+    - - entry_date
+    - - description
+    - - createdAt
+    - '--- Time Entry ---'
+    - '--- Notes ---'

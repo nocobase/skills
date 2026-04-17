@@ -1,0 +1,143 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "DetailsBlockModel",
+  "slot": "actions",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "AddChildActionModel",
+      "title": "Add child action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/AddChildActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/AddChildActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "DeleteActionModel",
+      "title": "Delete action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/DeleteActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/DeleteActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "EditActionModel",
+      "title": "Edit action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/EditActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/EditActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSRecordActionModel",
+      "title": "JS record action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/JSRecordActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSRecordActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "LinkActionModel",
+      "title": "Link action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 4,
+      "modelRef": "models/LinkActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/LinkActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PopupCollectionActionModel",
+      "title": "Popup collection action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 5,
+      "modelRef": "models/PopupCollectionActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PopupCollectionActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "UpdateRecordActionModel",
+      "title": "Update record action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 6,
+      "modelRef": "models/UpdateRecordActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/UpdateRecordActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ViewActionModel",
+      "title": "View action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 7,
+      "modelRef": "models/ViewActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ViewActionModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

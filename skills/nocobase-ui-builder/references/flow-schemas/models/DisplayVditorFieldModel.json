@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayVditorFieldModel",
+  "title": "Display vditor",
+  "coverage": {
+    "status": "manual",
+    "source": "plugin",
+    "strict": true
+  },
+  "source": "plugin",
+  "hash": "4ccc15b2",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayVditorFieldModel.bb1b3e45d857ac08216e.json",
+      "hash": "bb1b3e45d857ac08216e"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayVditorFieldModel.73b9950aa54449c078ac.json",
+      "hash": "73b9950aa54449c078ac"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayVditorFieldModel.f01c48b52bf2fda1f5e5.json",
+      "hash": "f01c48b52bf2fda1f5e5"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

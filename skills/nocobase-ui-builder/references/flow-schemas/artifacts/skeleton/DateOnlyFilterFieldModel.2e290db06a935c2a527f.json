@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2e290db06a935c2a527f",
+  "ownerUses": [
+    "DateOnlyFilterFieldModel"
+  ],
+  "value": {
+    "uid": "todo-dateonlyfilterfieldmodel",
+    "use": "DateOnlyFilterFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DateOnlyFilterFieldModel.2e290db06a935c2a527f.json"
+}

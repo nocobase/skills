@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "CommentsBlockModel",
+  "slot": "items",
+  "slotType": "array",
+  "shape": "items.direct",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array"
+  },
+  "candidates": [
+    {
+      "use": "CommentItemModel",
+      "title": "Comment item",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/CommentItemModel.json",
+      "skeletonRef": {
+        "modelRef": "models/CommentItemModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

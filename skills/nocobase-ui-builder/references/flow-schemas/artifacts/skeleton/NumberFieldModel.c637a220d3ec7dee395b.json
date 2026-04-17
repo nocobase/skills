@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "c637a220d3ec7dee395b",
+  "ownerUses": [
+    "NumberFieldModel"
+  ],
+  "value": {
+    "uid": "todo-numberfieldmodel",
+    "use": "NumberFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/NumberFieldModel.c637a220d3ec7dee395b.json"
+}

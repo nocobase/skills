@@ -1,0 +1,39 @@
+name: nb_crm_opportunity_stages
+title: Opportunity Stages
+fields:
+  - name: createdById
+    interface: integer
+  - name: is_won
+    interface: checkbox
+  - name: space
+    interface: space
+  - name: id
+    interface: id
+  - name: sort_order
+    interface: integer
+  - name: updatedById
+    interface: integer
+  - name: createdBy
+    interface: createdBy
+  - name: spaceName
+    interface: input
+  - name: description
+    interface: textarea
+  - name: updatedAt
+    interface: updatedAt
+  - name: win_probability
+    interface: integer
+  - name: updatedBy
+    interface: updatedBy
+  - name: color
+    interface: color
+  - name: createdAt
+    interface: createdAt
+  - name: is_lost
+    interface: checkbox
+  - name: is_active
+    interface: checkbox
+  - name: code
+    interface: input
+  - name: name
+    interface: input

@@ -1,0 +1,13 @@
+uid: fcflwbq5lwe
+name: 'Popup (Detail): Nb Erp Purchase Orders'
+type: popup
+collectionName: nb_erp_purchase_orders
+dataSourceKey: main
+targetUid: wke6h0sz3un
+description: 'Popup (Detail): Nb Erp Purchase Orders'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

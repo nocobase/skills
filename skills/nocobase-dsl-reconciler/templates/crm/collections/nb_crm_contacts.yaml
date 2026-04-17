@@ -1,0 +1,75 @@
+name: nb_crm_contacts
+title: Contacts
+fields:
+  - name: contact_no
+    interface: sequence
+  - name: createdById
+    interface: integer
+  - name: createdAt
+    interface: createdAt
+  - name: contact_mail
+    interface: o2m
+  - name: role
+    interface: select
+  - name: updatedBy
+    interface: updatedBy
+  - name: level
+    interface: select
+  - name: reports_to_id
+    interface: integer
+  - name: salutation
+    interface: select
+  - name: owner
+    interface: m2o
+  - name: owner_id
+    interface: integer
+  - name: tags
+    interface: m2m
+  - name: customer
+    interface: m2o
+  - name: updatedAt
+    interface: updatedAt
+  - name: department
+    interface: input
+  - name: description
+    interface: textarea
+  - name: birthday
+    interface: date
+  - name: languages
+    interface: input
+  - name: reports_to
+    interface: m2o
+  - name: name
+    interface: input
+  - name: linkedin
+    interface: input
+  - name: wechat
+    interface: input
+  - name: activities
+    interface: o2m
+  - name: id
+    interface: integer
+  - name: updatedById
+    interface: integer
+  - name: extra
+    interface: json
+  - name: user_id
+    interface: integer
+  - name: email
+    interface: input
+  - name: createdBy
+    interface: createdBy
+  - name: customer_id
+    interface: integer
+  - name: address
+    interface: textarea
+  - name: phone
+    interface: input
+  - name: lead_source
+    interface: select
+  - name: is_primary
+    interface: checkbox
+  - name: title
+    interface: input
+  - name: mobile
+    interface: input

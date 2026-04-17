@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "fe58c7db63684416262d",
+  "ownerUses": [
+    "FilterFormRecordSelectFieldModel"
+  ],
+  "value": {
+    "uid": "todo-filterformrecordselectfieldmodel",
+    "use": "FilterFormRecordSelectFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/FilterFormRecordSelectFieldModel.fe58c7db63684416262d.json"
+}

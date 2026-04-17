@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "1cc8062f02832ab87b01",
+  "ownerUses": [
+    "RichTextFieldModel"
+  ],
+  "value": {
+    "uid": "todo-richtextfieldmodel",
+    "use": "RichTextFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/RichTextFieldModel.1cc8062f02832ab87b01.json"
+}

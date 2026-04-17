@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSRecordActionModel",
+  "title": "JS record action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "ee3ed5cf",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSRecordActionModel.36300abb11b3b255b03b.json",
+      "hash": "36300abb11b3b255b03b"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSRecordActionModel.4b3e9460ceb68b2c9a97.json",
+      "hash": "4b3e9460ceb68b2c9a97"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSRecordActionModel.e2e7391f342315469ffa.json",
+      "hash": "e2e7391f342315469ffa"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "4f773a5e64edad3a1d31",
+  "ownerUses": [
+    "FilterFormCustomFieldModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "FilterFormCustomFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/FilterFormCustomFieldModel.4f773a5e64edad3a1d31.json"
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "4278d2b9e90a95545f82",
+  "ownerUses": [
+    "DateTimeNoTzFilterFieldModel"
+  ],
+  "value": {
+    "uid": "todo-datetimenotzfilterfieldmodel",
+    "use": "DateTimeNoTzFilterFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DateTimeNoTzFilterFieldModel.4278d2b9e90a95545f82.json"
+}

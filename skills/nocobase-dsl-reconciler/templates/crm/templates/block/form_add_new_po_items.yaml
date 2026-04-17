@@ -1,0 +1,23 @@
+uid: 4gzqnv1k1ae
+name: 'Form (Add new): PO Items'
+type: block
+collectionName: nb_erp_po_items
+dataSourceKey: main
+targetUid: 34w8p7ciytm
+description: 'Form (Add new): PO Items'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_po_items
+  fields:
+    - product
+    - purchase_order
+    - quantity
+    - unit_price
+  field_layout:
+    - - product
+      - purchase_order
+    - - quantity
+      - unit_price
+  actions:
+    - submit

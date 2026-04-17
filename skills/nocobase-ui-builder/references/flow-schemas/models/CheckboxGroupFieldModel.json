@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CheckboxGroupFieldModel",
+  "title": "Checkbox Group Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "733b1eb5",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CheckboxGroupFieldModel.612b095320e0feec617a.json",
+      "hash": "612b095320e0feec617a"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CheckboxGroupFieldModel.19ba03495879199b8f77.json",
+      "hash": "19ba03495879199b8f77"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CheckboxGroupFieldModel.f458cde4317cb5305e76.json",
+      "hash": "f458cde4317cb5305e76"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

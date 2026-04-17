@@ -29,6 +29,9 @@ Updating the status and timestamp fields after an order is successfully paid.
 ## Branching
 Does not support branches.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 
 ### usingAssignFormSchema: false

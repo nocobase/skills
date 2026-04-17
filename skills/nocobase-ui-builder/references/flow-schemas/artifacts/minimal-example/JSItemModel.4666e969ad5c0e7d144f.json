@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "4666e969ad5c0e7d144f",
+  "ownerUses": [
+    "JSItemModel"
+  ],
+  "value": {
+    "uid": "js-item-hello",
+    "use": "JSItemModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS item.</div>');"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/JSItemModel.4666e969ad5c0e7d144f.json"
+}

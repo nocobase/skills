@@ -1,0 +1,3 @@
+target: $SELF.lead_owner.actions.popup_send_email
+mode: drawer
+blocks: []

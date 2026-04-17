@@ -1,0 +1,31 @@
+name: nb_cbo_currencies
+title: Currencies
+fields:
+  - name: priceTiers
+    interface: o2m
+  - name: current_rate
+    interface: number
+  - name: createdById
+    interface: integer
+  - name: sort_order
+    interface: integer
+  - name: updatedAt
+    interface: datetime
+  - name: quotations
+    interface: o2m
+  - name: createdAt
+    interface: datetime
+  - name: is_active
+    interface: checkbox
+  - name: symbol
+    interface: input
+  - name: decimal_places
+    interface: integer
+  - name: name
+    interface: input
+  - name: code
+    interface: input
+  - name: id
+    interface: integer
+  - name: updatedById
+    interface: integer

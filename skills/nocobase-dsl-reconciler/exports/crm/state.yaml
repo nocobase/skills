@@ -1,0 +1,279 @@
+group_id: 343361410433024
+pages:
+  overview:
+    route_id: 343361479639040
+    page_uid: ohlak5xbwo1
+    tab_uid: cjdbr34xywn
+    blocks:
+      js_a8a5bd:
+        uid: a8a5bd931dc
+        type: js
+      table_63bd12:
+        uid: 63bd120202a
+        type: table
+        fields:
+          subject:
+            wrapper: a9d393294ae
+            field: 8917f8c4e73
+          activity_date:
+            wrapper: 688742fc95a
+            field: 15492e2e6fc
+        actions:
+          filter:
+            uid: 06c3db12213
+          refresh:
+            uid: a80bf198d55
+          link:
+            uid: 9f0aa9b2468
+          addNew:
+            uid: b59985c215d
+        record_actions:
+          UpdateRecordActionModel:
+            uid: 34bd1cfc636
+      table_1bd65d:
+        uid: 1bd65d69015
+        type: table
+        fields:
+          name:
+            wrapper: 82549a0f520
+            field: ff905812ef7
+          js_AI Score:
+            wrapper: 1b7871f06af
+            field: 1b7871f06af
+          ai_next_best_action:
+            wrapper: 27b61589f4b
+            field: 393c68f4b89
+          updatedAt:
+            wrapper: d007e675b5e
+            field: 9d7445f7534
+        actions:
+          filter:
+            uid: 92bd6939426
+          refresh:
+            uid: 15367f77d1d
+          link:
+            uid: 70420aa0aca
+        record_actions: {}
+      js_6d323a:
+        uid: 6d323a21694
+        type: js
+    grid_uid: 91b10515cc4
+  leads:
+    route_id: 344558692794368
+    page_uid: e9478uhrdve
+    tab_uid: 7nk48m7dme3
+    blocks:
+      table_b3f6e3:
+        uid: b3f6e318381
+        type: table
+        fields:
+          name:
+            wrapper: 7bdd6716390
+            field: 8d0b8114c2f
+          js_Lead Name/Company:
+            wrapper: 720cbfa7842
+            field: 720cbfa7842
+          js_Contact:
+            wrapper: d8d8a4a3a80
+            field: d8d8a4a3a80
+          source:
+            wrapper: 14124ec7ccc
+            field: 0217d2704f0
+          js_AI Score:
+            wrapper: 7f1891a8535
+            field: 7f1891a8535
+          status:
+            wrapper: cbd6f8ae7f6
+            field: f671619b02f
+          industry:
+            wrapper: 92b8d44d3d5
+            field: 1e944e0a725
+          owner:
+            wrapper: e9a79ae3ab4
+            field: 4d1ffea9037
+          js_Created:
+            wrapper: c70f578bbb4
+            field: c70f578bbb4
+        actions:
+          filter:
+            uid: b1b4837d874
+          refresh:
+            uid: f4460fdbbd9
+          export:
+            uid: a7659d37aa5
+          import:
+            uid: 0d422524c28
+          addNew:
+            uid: b5a9771bf0a
+        record_actions: {}
+      filterForm_142c7c:
+        uid: 142c7cbc555
+        type: filterForm
+        fields:
+          name:
+            wrapper: ab098ad9e26
+            field: '88834627963'
+        grid_uid: b1f16c7f041
+    grid_uid: 1c5d022e2be
+  customers:
+    route_id: 344558705377280
+    page_uid: c137kk6hghm
+    tab_uid: e3mxvhgiex5
+    blocks:
+      table_d8498e:
+        uid: d8498eb45ca
+        type: table
+        fields:
+          name:
+            wrapper: fbd6a1555ff
+            field: 95effc54287
+          type:
+            wrapper: a74cc915634
+            field: ac914b2deff
+          region:
+            wrapper: e82dd98ad5b
+            field: 4907cc14d11
+          level:
+            wrapper: 1a5a304747b
+            field: 0e8709544d6
+          status:
+            wrapper: ce102da689e
+            field: 87c8a73e8a1
+          js_Health Score:
+            wrapper: 5ebbc5a7f21
+            field: 5ebbc5a7f21
+          owner:
+            wrapper: 03f82448cd3
+            field: 5f4852c40ad
+          js_Last Activity:
+            wrapper: 084e3b50100
+            field: 084e3b50100
+        actions:
+          filter:
+            uid: 131afeebc9e
+          refresh:
+            uid: 8223c5c2297
+          addNew:
+            uid: fb41c1a1010
+        record_actions: {}
+      filterForm_e31595:
+        uid: e31595cfe5e
+        type: filterForm
+        fields:
+          name:
+            wrapper: 6944d82dd59
+            field: 95fdcd2d19e
+        grid_uid: e35bc668f2e
+    grid_uid: c682835df58
+  opportunities:
+    route_id: 344558736834560
+    page_uid: vga8g2pgnnu
+    tab_uid: p3jlz8cdmym
+    blocks:
+      js_a19ac2:
+        uid: a19ac22b220
+        type: js
+      js_79de06:
+        uid: 79de06ad20d
+        type: js
+    grid_uid: 40317d5f8a6
+  orders:
+    route_id: 344558755708928
+    page_uid: x9u01x7l8wj
+    tab_uid: v2cip6snhwt
+    blocks:
+      filterForm_89a416:
+        uid: 89a416dc6a5
+        type: filterForm
+        fields:
+          order_no:
+            wrapper: 9e2a0b06a0f
+            field: 2e95493c717
+        grid_uid: 32910f00ea1
+    grid_uid: a576535033e
+  products:
+    route_id: 344558866857984
+    page_uid: vwkqr8uivmz
+    tab_uid: 4eblyofx1zx
+    blocks:
+      table_121ad8:
+        uid: 121ad8f2da1
+        type: table
+        fields:
+          name:
+            wrapper: e9117a6d0d6
+            field: 64e29a3db80
+          product_code:
+            wrapper: 886f71536a6
+            field: 43d41aea64c
+          list_price:
+            wrapper: 3214473c4cb
+            field: d422f6d413e
+          cost_price:
+            wrapper: e871edc9cc5
+            field: 068def73323
+          base_currency:
+            wrapper: 4a4ffc6a878
+            field: 1a424fc92ba
+          unit:
+            wrapper: 80fbb7a1df9
+            field: debb9dfab01
+          specification:
+            wrapper: 85f3cda4bf9
+            field: 7b0116e6e44
+          category:
+            wrapper: a26c93fb2d3
+            field: eb658d61424
+        actions:
+          filter:
+            uid: 4a8c4dc9255
+          refresh:
+            uid: c8ec4fcec8c
+          addNew:
+            uid: 01b2cc3c3ea
+        record_actions: {}
+      js_67558b:
+        uid: 67558b719dd
+        type: js
+    grid_uid: 64bd033fcee
+  analytics:
+    route_id: 354901548859392
+    page_uid: z6hewbckw91
+    tab_uid: 5yiuwds815q
+    blocks:
+      filterForm_sp0bbl:
+        uid: sp0bblhcwmj
+        type: filterForm
+        fields:
+          owner:
+            wrapper: 99b8gb9klj1
+            field: jozfexjadbw
+        grid_uid: 1gs38a98nlt
+      chart_hu4haj:
+        uid: hu4haj59bjz
+        type: chart
+      chart_efd8l3:
+        uid: efd8l319buz
+        type: chart
+      chart_fado2j:
+        uid: fado2jfs4bz
+        type: chart
+      chart_dvigfl:
+        uid: dvigfls2dy1
+        type: chart
+      chart_iay7yv:
+        uid: iay7yvf7pt5
+        type: chart
+      js_ni91bo:
+        uid: ni91boznxq4
+        type: js
+      js_xgsg79:
+        uid: xgsg794h134
+        type: js
+      js_q59ehm:
+        uid: q59ehmdd4qp
+        type: js
+      js_g71gpl:
+        uid: g71gplt3v3i
+        type: js
+    grid_uid: 9350c39e749

@@ -1,11 +1,11 @@
 ---
 name: nocobase-plugin-manage
-description: Inspect NocoBase plugin inventory and plugin state from runtime-backed sources, and safely install, enable, or disable plugins for local or remote applications. For local apps, inspect/readback should prefer CLI `pm list` JSON output, while writes should prefer docker-compose CLI or host CLI.
+description: Inspect NocoBase plugin inventory and plugin state from runtime-backed sources, and safely install, enable, or disable plugins for local or remote applications. For local apps, inspect/readback should prefer CLI `pm list` JSON output, while write actions should follow deterministic fallback `docker_cli -> remote_api -> manual`.
 allowed-tools: Bash, Read, Grep, Write
 metadata:
   owner: platform-tools
-  version: 1.2.0
-  last-reviewed: 2026-04-12
+  version: 1.3.0
+  last-reviewed: 2026-04-14
   risk-level: medium
 ---
 
@@ -30,6 +30,7 @@ Provide a deterministic V1 workflow for plugin operations that works for both lo
 - Do not perform destructive removal (`pm remove`) by default.
 - Do not scaffold or develop plugin code.
 - Do not persist secrets in any skill file.
+- Do not use `nocobase-ctl` as execution path for plugin `inspect/install/enable/disable` actions.
 
 # Input Contract
 
@@ -64,11 +65,15 @@ Rules:
 - if `NOCOBASE_BASE_URL` or `APP_BASE_URL` env is set, choose `remote`
 - fallback to `local` with current working directory
 - Resolve `execution_backend=auto` with this priority:
-- if channel is `local` and docker compose is available for `target.app_path`, prefer `docker_cli`
-- if channel is `local` and host CLI is available, use `host_cli`
 - if channel is `remote`, use `remote_api`
-- if channel is `local` and local backends are unavailable, stop and return rich fallback guidance (do not silently switch to `remote_api`)
-- if channel is `remote` and remote prerequisites are unavailable, stop and return rich fallback guidance
+- if channel is `local` and action is `install/enable/disable`, run fast docker eligibility check first:
+- compare `target.base_url` port with `docker compose port <service> 80` mapping in `target.app_path`
+- if port mismatches (for example target `19000` while compose maps `13000`), skip docker write path directly
+- if channel is `local` and action is `inspect`, prefer local CLI (`docker_cli`, then `host_cli`); API inspect is fallback only when local marker extraction fails
+- if channel is `local` and action is `install/enable/disable`, use fallback chain:
+- `docker_cli` first
+- then `remote_api` when docker path is unavailable/failed and `target.base_url` + token are ready
+- then manual fallback guidance when both paths are unavailable/failed
 - If user says "you decide", use defaults in this table.
 
 Invocation payload template:
@@ -111,20 +116,22 @@ Invocation payload template:
 - For install/enable/disable: `plugins` is non-empty.
 - For remote writes in safe mode: auth token is available.
 - For local `docker_cli`: docker compose command is available and target service exists.
-- For local `host_cli`: `yarn nocobase` command is available in target app path.
+- For local write fallback to `remote_api`: `target.base_url` and token are available.
 - If both local and remote candidates exist and confidence is low, ask one concise disambiguation question.
 - If these are not met, stop mutation and report missing prerequisites.
 
 # Workflow
 
 1. Parse input, support compact action form, and resolve execution channel/backend.
-- If input is compact (`Use $nocobase-plugin-manage enable @nocobase/plugin-mcp-server`), normalize into structured payload.
+- If input is compact (`Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc`), normalize into structured payload.
 - Apply `target.mode=auto` resolution rules.
 - Apply `execution_backend=auto` resolution rules.
 - `remote_api`: inspect and mutate through runtime API actions.
 - `docker_cli`: inspect and mutate through `docker compose exec -T <service> yarn nocobase pm ...` (including `pm list`).
-- `host_cli`: inspect and mutate through host `yarn nocobase pm ...` (including `pm list`).
+- `host_cli`: inspect/readback fallback through host `yarn nocobase pm list` when docker inspect path is unavailable.
 - In local channel, `pm list` is the preferred inspect/readback source; API readback is fallback when CLI JSON extraction is unavailable.
+- In local channel for write actions, mutation path is deterministic fallback: `docker_cli -> remote_api -> manual`.
+- Fast discriminator should avoid slow docker retry when target URL is clearly not served by current compose mapping.
 
 2. Resolve runtime evidence source (never docs as source of truth).
 - For local catalog/status, use `yarn nocobase pm list` (or docker compose equivalent) and parse JSON marker block.
@@ -140,15 +147,15 @@ Invocation payload template:
 - remote: query `pm:list` and optionally `pm:listEnabled` lanes.
 - `install`:
 - local `docker_cli`: run `docker compose exec -T <service> yarn nocobase pm add <plugin> [--registry=...] [--version=...] [--auth-token=...]` in `target.app_path`.
-- local `host_cli`: run `yarn nocobase pm add <plugin> [--registry=...] [--version=...] [--auth-token=...]` in `target.app_path`.
+- if local docker write is unavailable/failed, fallback to remote `pm:add` when remote prerequisites are ready.
 - remote: call `pm:add` action with `values.packageName` and optional registry/version/auth token.
 - `enable`:
 - local `docker_cli`: run `docker compose exec -T <service> yarn nocobase pm enable <plugin>` in `target.app_path`.
-- local `host_cli`: run `yarn nocobase pm enable <plugin>` in `target.app_path`.
+- if local docker write is unavailable/failed, fallback to remote `pm:enable` when remote prerequisites are ready.
 - remote: call `pm:enable` with `filterByTk` (single plugin or plugin array).
 - `disable`:
 - local `docker_cli`: run `docker compose exec -T <service> yarn nocobase pm disable <plugin>` in `target.app_path`.
-- local `host_cli`: run `yarn nocobase pm disable <plugin>` in `target.app_path`.
+- if local docker write is unavailable/failed, fallback to remote `pm:disable` when remote prerequisites are ready.
 - remote: call `pm:disable` with `filterByTk`.
 
 4. Verify by readback polling.
@@ -167,7 +174,7 @@ Execution channel matrix:
 
 | Mode | Inspect | Install | Enable | Disable |
 |---|---|---|---|---|
-| `local` | local CLI (`pm list`, parse marker JSON; fallback API if marker parse fails) | local CLI (`pm add`) | local CLI (`pm enable`) | local CLI (`pm disable`) |
+| `local` | local CLI (`pm list`, parse marker JSON; fallback API if marker parse fails) | `docker_cli -> remote_api -> manual` | `docker_cli -> remote_api -> manual` | `docker_cli -> remote_api -> manual` |
 | `remote` | remote API (`pm:list`/`pm:get`) | remote API (`pm:add`) | remote API (`pm:enable`) | remote API (`pm:disable`) |
 
 Execution backend matrix (local):
@@ -175,7 +182,7 @@ Execution backend matrix (local):
 | Backend | Inspect | Install | Enable | Disable | When to prefer |
 |---|---|---|---|---|---|
 | `docker_cli` | `docker compose exec -T <service> yarn nocobase pm list` | `docker compose exec -T <service> yarn nocobase pm add ...` | `docker compose exec -T <service> yarn nocobase pm enable ...` | `docker compose exec -T <service> yarn nocobase pm disable ...` | local Docker app detected |
-| `host_cli` | `yarn nocobase pm list` | `yarn nocobase pm add ...` | `yarn nocobase pm enable ...` | `yarn nocobase pm disable ...` | host runtime app without container CLI |
+| `host_cli` | `yarn nocobase pm list` | inspect/readback only | inspect/readback only | inspect/readback only | local non-docker inspect fallback |
 
 Operational notes:
 
@@ -183,8 +190,9 @@ Operational notes:
 - `pm:add` does not imply `enabled=true`. It adds package availability; enabling is separate.
 - `pm:add`, `pm:enable`, and `pm:disable` in resource actions are asynchronous (`runAsCLI`), so readback polling is mandatory.
 - Remote actions should prefer API-client style URLs (`pm:list`, `pm:get`, `pm:add`, `pm:enable`, `pm:disable`) when available.
-- For local Docker environments, prefer `docker_cli` as primary backend.
-- For local Docker flows in `safe` mode, the expected split is CLI mutate + CLI readback via `pm list`; API readback is fallback.
+- For local Docker environments, prefer `docker_cli` as primary write backend.
+- For local write actions, when docker path fails, attempt one remote API fallback (`pm:add/pm:enable/pm:disable`) before manual fallback guidance.
+- Local inspect/readback still prefers CLI marker parsing; API inspect/readback remains fallback when marker parsing fails.
 - If deterministic local command path is required, set `target.mode=local` and `execution_backend=docker_cli`.
 
 # Reference Loading Map
@@ -218,8 +226,9 @@ Operational notes:
 - failed install side effects: keep record, do not auto-remove unless explicitly requested
 - Backend unavailable rich guidance template:
 - `Local Docker path`: verify `docker compose ps`, verify service name (default `app`), then retry.
+- `Remote API fallback`: if local docker write failed, retry via `pm:add/pm:enable/pm:disable` using `target.base_url` and token env.
 - `UI fallback`: open `{{base_url}}/admin/settings/plugin-manager`, enable target plugin manually.
-- `MCP plugin special case`: enable `@nocobase/plugin-mcp-server` in plugin manager, restart app, rerun MCP postcheck.
+- `CLI runtime dependency special case`: enable `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys`, restart app, then hand off runtime refresh to `nocobase-env-bootstrap` / `nocobase-acl-manage`.
 - `Auth fallback`: if endpoint returns `401/403`, open `{{base_url}}/admin/settings/api-keys`, create/regenerate token, set env var, retry.
 - If `base_url` is unknown, use default `http://127.0.0.1:13000` when generating fallback URLs.
 
@@ -238,6 +247,7 @@ Operational notes:
 - Timeouts are reported as `pending_verification`, not hidden as success.
 - CLI/API commands used are included in output for reproducibility.
 - Token values are redacted; only env var names are shown.
+- For local write failures, output explicitly records fallback attempts in order: `docker_cli` then `remote_api`.
 - Backend unavailable cases return `verification=failed` and include rich `fallback_hints`.
 - Any unresolved risk is listed in `next_steps`.
 
@@ -251,8 +261,8 @@ Operational notes:
 6. Enable happy path: `pm enable` completes and plugin becomes `enabled=true`.
 7. Disable guarded case: attempt to disable critical plugin requires confirmation.
 8. Remote mutation failure: missing token blocks mutation with actionable error.
-9. Backend unavailable path returns rich manual guidance (plugin manager/API keys URLs and concrete next actions).
-10. Auto target with both `app_path` and `base_url` resolves to local; backend remains `docker_cli` or `host_cli` only.
+9. Local write fallback path: docker failure triggers remote API fallback; if both fail, return rich manual guidance.
+10. Auto target with both `app_path` and `base_url` resolves to local; write fallback may still use `remote_api` after docker failure.
 
 # Output Contract
 

@@ -1,0 +1,75 @@
+uid: lvqgjptnoio
+name: 'Details: Quotations'
+type: block
+collectionName: nb_crm_quotations
+dataSourceKey: main
+targetUid: 6c640569c31
+content:
+  key: details
+  type: details
+  coll: nb_crm_quotations
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - quotation_no
+    - version
+    - name
+    - opportunity
+    - customer
+    - contact
+    - items
+    - currencyInfo
+    - exchange_rate
+    - subtotal
+    - discount_rate
+    - discount_amount
+    - shipping_handling
+    - tax_rate
+    - tax_amount
+    - total_amount
+    - total_amount_usd
+    - payment_terms
+    - terms_condition
+    - address
+    - description
+  js_items:
+    - key: price_calculation_formula_tip
+      file: ./js/details_quotations_details_price_calculation_formula_tip.js
+      desc: Price Calculation Formula Tip
+  field_layout:
+    - '--- Basic Info ---'
+    - - quotation_no
+    - - name: 14
+      - version: 10
+    - '--- Relations ---'
+    - - opportunity
+      - customer
+      - contact
+    - '--- Items ---'
+    - - items
+    - '--- Financial Info ---'
+    - - currencyInfo
+      - exchange_rate
+    - '--- Pricing Summary ---'
+    - - '[JS:Price Calculation Formula Tip]'
+      - col:
+          - subtotal
+          - tax_rate
+          - discount_rate
+          - total_amount
+        size: 8
+      - col:
+          - tax_amount
+          - shipping_handling
+          - discount_amount
+          - total_amount_usd
+        size: 8
+    - '--- Terms ---'
+    - - payment_terms
+      - terms_condition
+    - - address
+    - - description
+    - - '---'
+    - - '---'
+  actions:
+    - edit

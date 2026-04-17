@@ -22,12 +22,33 @@ description: "The main workflow table, storing core information such as triggers
 | executed | integer | No | 0 | Legacy count of "execution times for the current version," mainly for historical data compatibility. New statistics use `versionStats.executed`. |
 | allExecuted | integer | No | 0 | Legacy count of "total execution times under the same key," mainly for historical data compatibility. New statistics use `stats.executed`. |
 | current | boolean | No | - | Whether it is the current version for the key; only one `current=true` is allowed per key. Automatically set to true when enabled. |
-| sync | boolean | No | false | Sync/Async mode. Sync mode executes and returns immediately; async mode enters a queue. Some triggers only support one mode, and sync mode cannot use nodes that wait (e.g., manual processing, approval, etc.). |
+| sync | boolean | No | false | Execution mode selector. See [Execution Mode](#execution-mode) for semantics, trigger constraints, and modeling guidance. |
 | revisions | hasMany | No | - | Other versions with the same key (self-association), used for version management. |
 | options | jsonb | No | {} | Engine options. See below for common sub-items. |
 | stats | hasOne | No | - | Associated statistics (`workflowStats`), aggregating execution counts by key. |
 | versionStats | hasOne | No | - | Associated statistics (`workflowVersionStats`), counting execution times by version. |
 | categories | belongsToMany | No | - | Many-to-many relationship with categories (`workflowCategories`). Values can be an array of category IDs. |
+
+### Execution Mode
+
+The `sync` field determines how a workflow runs after it is triggered, and **cannot be changed after creation**.
+
+| Mode | `sync` | Description |
+| --- | --- | --- |
+| Async | `false` | After the trigger fires, the workflow enters a queue and executes in the background. It does not block the current request and is suitable for most scenarios. |
+| Sync | `true` | After the trigger fires, the workflow executes immediately within the current request. Results can be returned directly to the caller, so it is suitable for scenarios that require immediate feedback in the same request. |
+
+#### Capability Constraints
+
+- The final execution behavior is determined jointly by the workflow's `sync` value and the selected trigger's capabilities.
+- Some trigger types only support one execution mode. For example, `schedule` is async-only, while `request-interception` is sync-only. Check the corresponding trigger document for the exact constraint.
+- Sync workflows cannot use nodes that require waiting across requests or long-lived interaction, such as manual-processing or approval-style nodes.
+
+#### Modeling Guidance
+
+- Prefer async mode unless the caller must receive the workflow result in the same request.
+- Use sync mode for request/response style scenarios such as Webhook handling, request interception, or custom actions that must block and return an immediate result.
+- When selecting a trigger, treat trigger documentation as the source of truth for trigger-specific mode restrictions and response behavior.
 
 ### Common options Sub-items
 
@@ -39,8 +60,9 @@ description: "The main workflow table, storing core information such as triggers
 ## Modeling Considerations
 
 - Version Management: Different versions of the same workflow share a `key`, and `current` identifies the currently active version. To create a new version, call `WorkflowRepository.revision`.
+- When listing workflows, filter by `current=true` to get the active versions. Use the `revisions` association to access other versions of the same workflow.
 - Executed versions cannot be modified: Once `versionStats.executed > 0`, modifications to triggers and node configurations are restricted. A new version must be created.
-- Sync/Async: The final execution mode is determined by trigger capabilities and `sync`. Some triggers are forced to be async or sync.
+- Execution Mode: See [Execution Mode](#execution-mode).
 
 ## Example Values
 

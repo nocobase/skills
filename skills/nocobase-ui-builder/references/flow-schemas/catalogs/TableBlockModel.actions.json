@@ -1,0 +1,143 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "TableBlockModel",
+  "slot": "actions",
+  "slotType": "array",
+  "shape": "items.anyOf",
+  "defaultUses": [],
+  "schemaBase": {
+    "type": "array",
+    "items": {}
+  },
+  "candidates": [
+    {
+      "use": "AddNewActionModel",
+      "title": "Add new action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 0,
+      "modelRef": "models/AddNewActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/AddNewActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "BulkDeleteActionModel",
+      "title": "Bulk delete action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 1,
+      "modelRef": "models/BulkDeleteActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/BulkDeleteActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "ExpandCollapseActionModel",
+      "title": "Expand collapse action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 2,
+      "modelRef": "models/ExpandCollapseActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ExpandCollapseActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "FilterActionModel",
+      "title": "Filter action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 3,
+      "modelRef": "models/FilterActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/FilterActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "JSCollectionActionModel",
+      "title": "JS collection action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 4,
+      "modelRef": "models/JSCollectionActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/JSCollectionActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "LinkActionModel",
+      "title": "Link action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 5,
+      "modelRef": "models/LinkActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/LinkActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "PopupCollectionActionModel",
+      "title": "Popup collection action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 6,
+      "modelRef": "models/PopupCollectionActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/PopupCollectionActionModel.json",
+        "artifact": "skeleton"
+      }
+    },
+    {
+      "use": "RefreshActionModel",
+      "title": "Refresh action",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.anyOf",
+        "source": "jsonSchema"
+      },
+      "isDefault": false,
+      "order": 7,
+      "modelRef": "models/RefreshActionModel.json",
+      "skeletonRef": {
+        "modelRef": "models/RefreshActionModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

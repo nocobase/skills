@@ -1,0 +1,21 @@
+blocks:
+  - js: ./js/executive_jsBlock.js
+    key: jsBlock
+  - key: chart
+    type: chart
+    chart_config: ./charts/executive_chart.yaml
+  - key: chart_2
+    type: chart
+    chart_config: ./charts/executive_chart_2.yaml
+  - key: chart_3
+    type: chart
+    chart_config: ./charts/executive_chart_3.yaml
+  - key: chart_4
+    type: chart
+    chart_config: ./charts/executive_chart_4.yaml
+layout:
+  - - jsBlock
+  - - chart
+    - chart_2
+    - chart_3
+  - - chart_4

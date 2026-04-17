@@ -1,0 +1,59 @@
+group_id: 344558803943424
+pages:
+  stage-settings:
+    route_id: 344644331831296
+    page_uid: 4qgkfj71w23
+    tab_uid: hbflaql54y9
+    blocks:
+      table_686093:
+        uid: 686093b0942
+        type: table
+    grid_uid: 06cac4138a4
+  exchange-rate:
+    route_id: 344644789010432
+    page_uid: uba29ch3x3s
+    tab_uid: bt6yooev1id
+    blocks:
+      table_077d67:
+        uid: 077d67f7bd9
+        type: table
+      table_da8e1d:
+        uid: da8e1d8402d
+        type: table
+    grid_uid: a1bc038e933
+  activity:
+    route_id: 344954201374720
+    page_uid: n6bh6s6isej
+    tab_uid: 79t9fodw6br
+    blocks:
+      table_169a3e:
+        uid: 169a3eac929
+        type: table
+      filterForm_6c98b1:
+        uid: 6c98b192c93
+        type: filterForm
+    grid_uid: 788e8d2fc88
+  emails:
+    route_id: 345340557983744
+    page_uid: tilizrzhxep
+    tab_uid: nmx7b851e3a
+    blocks: {}
+    grid_uid: 31bbddc276e
+  contacts:
+    route_id: 345657738330112
+    page_uid: dgvyidc7p8f
+    tab_uid: u9vg6zr3he9
+    blocks:
+      table_88b44f:
+        uid: 88b44f2ad21
+        type: table
+    grid_uid: f53175593c9
+  data-analysis:
+    route_id: 345737505603584
+    page_uid: 0x581nofq1z
+    tab_uid: ipdxb9nxoo2
+    blocks:
+      table_1d67e0:
+        uid: 1d67e08f9e8
+        type: table
+    grid_uid: 35365fca7ba

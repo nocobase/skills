@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "c4cb5fb42a9640c921df",
+  "ownerUses": [
+    "DisplayColorFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaycolorfieldmodel",
+    "use": "DisplayColorFieldModel"
+  },
+  "relativePath": "artifacts/minimal-example/DisplayColorFieldModel.c4cb5fb42a9640c921df.json"
+}

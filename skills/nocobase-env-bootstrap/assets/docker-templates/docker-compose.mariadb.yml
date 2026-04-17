@@ -1,4 +1,4 @@
-﻿networks:
+networks:
   nocobase:
     driver: bridge
 
@@ -18,7 +18,7 @@ services:
       - DB_DATABASE=nocobase
       - DB_USER=root
       - DB_PASSWORD=nocobase
-      - DB_UNDERSCORED=true
+      - DB_UNDERSCORED=${DB_UNDERSCORED:-false}
       - TZ=${TZ:-Asia/Shanghai}
     volumes:
       - ./storage:/app/nocobase/storage
@@ -26,13 +26,13 @@ services:
       - '${APP_PORT:-13000}:80'
 
   mariadb:
-    image: ${NOCOBASE_MARIADB_IMAGE:-registry.cn-shanghai.aliyuncs.com/nocobase/mariadb:11}
+    image: ${NOCOBASE_MARIADB_IMAGE:-mariadb:10}
     restart: always
     environment:
-      MYSQL_DATABASE: nocobase
-      MYSQL_USER: nocobase
-      MYSQL_PASSWORD: nocobase
-      MYSQL_ROOT_PASSWORD: nocobase
+      MARIADB_DATABASE: nocobase
+      MARIADB_USER: nocobase
+      MARIADB_PASSWORD: nocobase
+      MARIADB_ROOT_PASSWORD: nocobase
     volumes:
       - ./storage/db/mariadb:/var/lib/mysql
     networks:

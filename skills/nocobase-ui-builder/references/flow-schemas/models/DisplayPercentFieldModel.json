@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DisplayPercentFieldModel",
+  "title": "Display Percent Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "97c8184e",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DisplayPercentFieldModel.a59f22c1b9939d2fe1e7.json",
+      "hash": "a59f22c1b9939d2fe1e7"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DisplayPercentFieldModel.a0007168e182e955c414.json",
+      "hash": "a0007168e182e955c414"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DisplayPercentFieldModel.d63c875c4dfcf4029c9c.json",
+      "hash": "d63c875c4dfcf4029c9c"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

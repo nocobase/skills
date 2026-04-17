@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "b1aecc0536dddaed3cdc",
+  "ownerUses": [
+    "RootPageModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "RootPageModel",
+    "stepParams": {
+      "pageSettings": {
+        "general": {
+          "title": "Page title",
+          "displayTitle": true,
+          "enableTabs": false
+        }
+      }
+    },
+    "subModels": {
+      "tabs": []
+    }
+  },
+  "relativePath": "artifacts/skeleton/RootPageModel.b1aecc0536dddaed3cdc.json"
+}

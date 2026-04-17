@@ -12,6 +12,7 @@ This repository provides reusable NocoBase skills for coding agent CLIs such as 
 - `nocobase-data-modeling`: runs data modeling operations through MCP tools.
 - `nocobase-workflow-manage`: creates and manages NocoBase workflows through MCP tools.
 - `nocobase-ui-builder`: builds and updates Modern page (v2) UI structures through MCP tools.
+- `nocobase-dsl-reconciler`: builds complete NocoBase applications from YAML DSL specs — collections, pages, forms, popups, charts, and dashboards in one go. Use this when building a new system/module from scratch.
 
 ## Installation
 
@@ -104,9 +105,21 @@ claude
 
 Use your CLI's MCP configuration mechanism with the same NocoBase MCP endpoint and auth mode.
 
-3. Start building with data modeling and business setup.
+3. Build your application.
 
-Ask your agent:
+**Option A: Build a complete system from scratch** (recommended for new projects)
+
+Use `nocobase-dsl-reconciler` — it generates collections, pages, forms, popups, and dashboards from YAML specs:
+
+```text
+Build me a project management system with projects, tasks, and team members.
+```
+
+The agent will design data tables, generate YAML files, deploy to NocoBase, and insert test data — all in one flow.
+
+**Option B: Incremental changes via MCP**
+
+For smaller changes to existing systems (add a field, tweak a page), use MCP-based skills directly:
 
 ```text
 I am building a CRM, design and create collections.

@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "JSCollectionActionModel",
+  "title": "JS collection action",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "eb70449c",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/JSCollectionActionModel.395d1e8a5e285898a8b2.json",
+      "hash": "395d1e8a5e285898a8b2"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/JSCollectionActionModel.0279d27b7281ddf5f214.json",
+      "hash": "0279d27b7281ddf5f214"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/JSCollectionActionModel.cc8f595fd3a196e6cc08.json",
+      "hash": "cc8f595fd3a196e6cc08"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

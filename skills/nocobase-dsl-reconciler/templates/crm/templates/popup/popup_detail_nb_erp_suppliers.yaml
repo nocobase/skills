@@ -1,0 +1,13 @@
+uid: w0ua8jmlyml
+name: 'Popup (Detail): Nb Erp Suppliers'
+type: popup
+collectionName: nb_erp_suppliers
+dataSourceKey: main
+targetUid: bp6iw1b7cfy
+description: 'Popup (Detail): Nb Erp Suppliers'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,0 +1,33 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "ChildPageModel",
+  "slot": "tabs",
+  "slotType": "array",
+  "shape": "items.direct",
+  "defaultUses": [
+    "ChildPageTabModel"
+  ],
+  "schemaBase": {
+    "type": "array",
+    "minItems": 1
+  },
+  "candidates": [
+    {
+      "use": "ChildPageTabModel",
+      "title": "Popup child page tab",
+      "compatibility": {
+        "slotType": "array",
+        "shape": "items.direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/ChildPageTabModel.json",
+      "skeletonRef": {
+        "modelRef": "models/ChildPageTabModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

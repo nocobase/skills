@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "b610bc8051bdb2c0ac88",
+  "ownerUses": [
+    "CheckboxFieldModel"
+  ],
+  "value": {
+    "uid": "todo-checkboxfieldmodel",
+    "use": "CheckboxFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/CheckboxFieldModel.b610bc8051bdb2c0ac88.json"
+}

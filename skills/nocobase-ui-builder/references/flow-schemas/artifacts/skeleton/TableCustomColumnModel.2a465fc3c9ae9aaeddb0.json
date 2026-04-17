@@ -1,0 +1,24 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2a465fc3c9ae9aaeddb0",
+  "ownerUses": [
+    "TableCustomColumnModel"
+  ],
+  "value": {
+    "uid": "todo-custom-column-uid",
+    "use": "TableCustomColumnModel",
+    "stepParams": {
+      "tableColumnSettings": {
+        "title": {
+          "title": "Custom column"
+        },
+        "width": {
+          "width": 150
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/TableCustomColumnModel.2a465fc3c9ae9aaeddb0.json"
+}

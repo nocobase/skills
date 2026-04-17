@@ -1,0 +1,20 @@
+uid: eak7t164qfb
+name: 'Detail: Warehouses'
+type: block
+collectionName: nb_erp_warehouses
+dataSourceKey: main
+targetUid: 7953d65gy2r
+description: 'Detail: Warehouses'
+content:
+  key: details
+  type: details
+  coll: nb_erp_warehouses
+  fields:
+    - name
+    - location
+    - capacity
+  field_layout:
+    - '--- Warehouse Info ---'
+    - - name
+      - location
+    - - capacity

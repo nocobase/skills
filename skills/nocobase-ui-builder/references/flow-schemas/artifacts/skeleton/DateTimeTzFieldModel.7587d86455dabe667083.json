@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "7587d86455dabe667083",
+  "ownerUses": [
+    "DateTimeTzFieldModel"
+  ],
+  "value": {
+    "uid": "todo-datetimetzfieldmodel",
+    "use": "DateTimeTzFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DateTimeTzFieldModel.7587d86455dabe667083.json"
+}

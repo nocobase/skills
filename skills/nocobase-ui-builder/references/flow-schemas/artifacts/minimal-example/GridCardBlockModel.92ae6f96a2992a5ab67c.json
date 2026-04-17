@@ -1,0 +1,46 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "92ae6f96a2992a5ab67c",
+  "ownerUses": [
+    "GridCardBlockModel"
+  ],
+  "value": {
+    "uid": "grid-card-users",
+    "use": "GridCardBlockModel",
+    "stepParams": {
+      "resourceSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users"
+        }
+      },
+      "GridCardSettings": {
+        "columnCount": {
+          "xs": 1,
+          "md": 2,
+          "lg": 3,
+          "xxl": 4
+        },
+        "rowCount": {
+          "rowCount": 3
+        }
+      }
+    },
+    "subModels": {
+      "item": {
+        "xFlowGraphModelRef": {
+          "use": "GridCardItemModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/GridCardItemModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "GridCardItemModel"
+        ]
+      },
+      "actions": []
+    }
+  },
+  "relativePath": "artifacts/minimal-example/GridCardBlockModel.92ae6f96a2992a5ab67c.json"
+}

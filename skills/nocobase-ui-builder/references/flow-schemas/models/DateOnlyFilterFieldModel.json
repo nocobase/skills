@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "DateOnlyFilterFieldModel",
+  "title": "Date Only Filter Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "b5489bff",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/DateOnlyFilterFieldModel.8f8a9586458d4448fe35.json",
+      "hash": "8f8a9586458d4448fe35"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/DateOnlyFilterFieldModel.3772479f568f8f517d75.json",
+      "hash": "3772479f568f8f517d75"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/DateOnlyFilterFieldModel.2e290db06a935c2a527f.json",
+      "hash": "2e290db06a935c2a527f"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

@@ -1,0 +1,12 @@
+name: nb_pm_tasks
+title: Tasks
+fields:
+  - name: name
+    interface: input
+    title: Name
+  - name: status
+    interface: select
+    title: Status
+  - name: description
+    interface: textarea
+    title: Description

@@ -1,0 +1,119 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "jsonSchema",
+  "hash": "27aff5852a09561f0ec6",
+  "ownerUses": [
+    "AssignFormGridModel"
+  ],
+  "value": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "uid": {
+        "type": "string"
+      },
+      "use": {
+        "const": "AssignFormGridModel"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "subKey": {
+        "type": "string"
+      },
+      "subType": {
+        "type": "string",
+        "enum": [
+          "object",
+          "array"
+        ]
+      },
+      "sortIndex": {
+        "type": "number"
+      },
+      "stepParams": {
+        "type": "object",
+        "properties": {
+          "gridSettings": {
+            "type": "object",
+            "properties": {
+              "grid": {
+                "type": "object",
+                "description": "Persisted multi-row, multi-column grid layout.",
+                "properties": {
+                  "rows": {
+                    "type": "object",
+                    "description": "Map of row ids to column definitions. Each row value is a string[][] where every inner array lists the child model UIDs rendered inside one column.",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "sizes": {
+                    "type": "object",
+                    "description": "Map of row ids to column widths. Each width array uses the 24-column grid system, for example [12, 12] or [8, 8, 8].",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "rowOrder": {
+                    "type": "array",
+                    "description": "Optional explicit row order. When omitted, the persisted row key order is used.",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "flowRegistry": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "subModels": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {},
+            "xFlowGraphSlotRef": {
+              "ownerUse": "AssignFormGridModel",
+              "slot": "items",
+              "slotRef": "catalogs/AssignFormGridModel.items.json",
+              "slotType": "array",
+              "shape": "items.anyOf",
+              "defaultUses": [
+                "AssignFormItemModel"
+              ]
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "uid",
+      "use"
+    ],
+    "additionalProperties": true
+  },
+  "relativePath": "artifacts/json-schema/AssignFormGridModel.27aff5852a09561f0ec6.json"
+}

@@ -1,7 +1,0 @@
-target: $contacts_copy.table.fields.email
-field: email
-field_uid: 4253ff0739c
-blocks: []
-layout:
-- - wgt6s2s7
-mode: drawer

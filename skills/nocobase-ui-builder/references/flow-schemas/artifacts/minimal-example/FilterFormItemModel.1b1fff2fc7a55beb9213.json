@@ -1,0 +1,29 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "1b1fff2fc7a55beb9213",
+  "ownerUses": [
+    "FilterFormItemModel"
+  ],
+  "value": {
+    "uid": "todo-filter-form-item-uid",
+    "use": "FilterFormItemModel",
+    "stepParams": {
+      "fieldSettings": {
+        "init": {
+          "dataSourceKey": "main",
+          "collectionName": "users",
+          "fieldPath": "nickname"
+        }
+      },
+      "filterFormItemSettings": {
+        "showLabel": {
+          "showLabel": true
+        }
+      }
+    },
+    "subModels": {}
+  },
+  "relativePath": "artifacts/minimal-example/FilterFormItemModel.1b1fff2fc7a55beb9213.json"
+}

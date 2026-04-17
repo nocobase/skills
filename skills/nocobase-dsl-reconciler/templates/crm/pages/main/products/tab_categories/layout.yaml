@@ -1,0 +1,34 @@
+blocks:
+  - key: table
+    type: table
+    coll: nb_crm_product_categories
+    fields:
+      - field: name
+        popup:
+          mode: dialog
+          size: medium
+      - category_code
+      - description
+    recordActions:
+      - type: addChild
+        stepParams:
+          popupSettings:
+            openView:
+              collectionName: nb_crm_product_categories
+              associationName: nb_crm_product_categories.children
+              dataSourceKey: main
+              mode: dialog
+              size: medium
+              pageModelClass: ChildPageModel
+              uid: c74590160e0
+              filterByTk: '{{ ctx.record.id }}'
+          buttonSettings:
+            general:
+              type: link
+              icon: pluscircleoutlined
+              title: Add child
+        key: addChild_add_child
+    actions:
+      - filter
+      - refresh
+      - addNew

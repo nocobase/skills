@@ -1,0 +1,30 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "slot-catalog",
+  "ownerUse": "PageTabModel",
+  "slot": "grid",
+  "slotType": "object",
+  "shape": "direct",
+  "defaultUses": [
+    "BlockGridModel"
+  ],
+  "schemaBase": {},
+  "candidates": [
+    {
+      "use": "BlockGridModel",
+      "title": "Block grid",
+      "compatibility": {
+        "slotType": "object",
+        "shape": "direct",
+        "source": "jsonSchema"
+      },
+      "isDefault": true,
+      "order": 0,
+      "modelRef": "models/BlockGridModel.json",
+      "skeletonRef": {
+        "modelRef": "models/BlockGridModel.json",
+        "artifact": "skeleton"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "23e4f208c088f0935d41",
+  "ownerUses": [
+    "DisplayNumberFieldModel"
+  ],
+  "value": {
+    "uid": "todo-displaynumberfieldmodel",
+    "use": "DisplayNumberFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/DisplayNumberFieldModel.23e4f208c088f0935d41.json"
+}

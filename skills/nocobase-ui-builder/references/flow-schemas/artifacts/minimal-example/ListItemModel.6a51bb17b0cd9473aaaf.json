@@ -1,0 +1,26 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "6a51bb17b0cd9473aaaf",
+  "ownerUses": [
+    "ListItemModel"
+  ],
+  "value": {
+    "uid": "todo-list-item-uid",
+    "use": "ListItemModel",
+    "subModels": {
+      "grid": {
+        "xFlowGraphModelRef": {
+          "use": "DetailsGridModel",
+          "artifact": "minimalExample",
+          "modelRef": "models/DetailsGridModel.json"
+        },
+        "xFlowGraphDefaultUses": [
+          "DetailsGridModel"
+        ]
+      }
+    }
+  },
+  "relativePath": "artifacts/minimal-example/ListItemModel.6a51bb17b0cd9473aaaf.json"
+}

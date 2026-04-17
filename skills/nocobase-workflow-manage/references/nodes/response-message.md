@@ -23,6 +23,9 @@ Returning an "Operation Successful/Failed" prompt in an intercept-type workflow.
 ## Branch Description
 Does not support branches.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 ```json
 {

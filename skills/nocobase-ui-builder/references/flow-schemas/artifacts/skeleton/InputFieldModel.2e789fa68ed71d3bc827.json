@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "2e789fa68ed71d3bc827",
+  "ownerUses": [
+    "InputFieldModel"
+  ],
+  "value": {
+    "uid": "todo-inputfieldmodel",
+    "use": "InputFieldModel"
+  },
+  "relativePath": "artifacts/skeleton/InputFieldModel.2e789fa68ed71d3bc827.json"
+}

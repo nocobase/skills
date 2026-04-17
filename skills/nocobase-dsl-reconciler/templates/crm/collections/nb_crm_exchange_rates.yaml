@@ -1,0 +1,23 @@
+name: nb_crm_exchange_rates
+title: Exchange Rates
+fields:
+  - name: id
+    interface: id
+  - name: currency
+    interface: obo
+  - name: updatedById
+    interface: integer
+  - name: createdAt
+    interface: datetime
+  - name: effective_date
+    interface: date
+  - name: currency_code
+    interface: input
+  - name: updatedAt
+    interface: datetime
+  - name: rate_to_usd
+    interface: number
+  - name: source
+    interface: input
+  - name: createdById
+    interface: integer

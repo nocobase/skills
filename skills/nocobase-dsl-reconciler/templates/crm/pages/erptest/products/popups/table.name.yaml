@@ -1,0 +1,54 @@
+target: $SELF.table.fields.name
+mode: drawer
+tabs:
+  - title: Tab0
+    blocks:
+      - ref: templates/block/detail_products.yaml
+        key: reference
+    layout:
+      - - reference
+  - title: Tab1
+    blocks:
+      - key: table
+        type: table
+        coll: nb_erp_inventory
+        resource_binding:
+          associationName: nb_erp_products.inventory_records
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        recordActions:
+          - type: edit
+            stepParams:
+              buttonSettings:
+                general:
+                  title: Edit
+                  icon: null
+                  type: link
+              popupSettings:
+                openView:
+                  mode: drawer
+                  size: medium
+                  pageModelClass: ChildPageModel
+                  dataSourceKey: main
+                  collectionName: nb_erp_inventory
+                  associationName: nb_erp_products.inventory_records
+                  sourceId: '{{ctx.view.inputArgs.sourceId}}'
+            props:
+              title: Edit
+              icon: null
+              type: link
+            key: edit_edit
+        actions:
+          - filter
+          - refresh
+          - addNew
+  - title: Tab2
+    blocks:
+      - key: table
+        type: table
+        coll: nb_erp_po_items
+        resource_binding:
+          associationName: nb_erp_products.po_items
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        actions:
+          - filter
+          - refresh

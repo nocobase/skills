@@ -1,0 +1,37 @@
+uid: e9tlm7xcelt
+name: 'Form (Add new): Bugs'
+type: block
+collectionName: nb_pm_bugs
+dataSourceKey: main
+targetUid: i9z9j0pujus
+description: 'Form (Add new): Bugs'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_bugs
+  fields:
+    - title
+    - project
+    - severity
+    - priority
+    - status
+    - assignee
+    - reporter
+    - description
+    - steps_to_reproduce
+  field_layout:
+    - '--- Bug Info ---'
+    - - title
+    - - project
+    - '--- Classification ---'
+    - - severity
+      - priority
+    - - status
+    - '--- People ---'
+    - - assignee
+      - reporter
+    - '--- Details ---'
+    - - description
+    - - steps_to_reproduce
+  actions:
+    - submit

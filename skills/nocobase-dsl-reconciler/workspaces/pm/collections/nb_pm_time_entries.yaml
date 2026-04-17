@@ -1,0 +1,28 @@
+name: nb_pm_time_entries
+title: Time Entries
+titleField: name
+fields:
+  - name: name
+    interface: input
+    title: Summary
+    required: true
+  - name: task
+    interface: m2o
+    title: Task
+    target: nb_pm_tasks
+  - name: member
+    interface: m2o
+    title: Member
+    target: nb_pm_members
+  - name: entry_date
+    interface: dateOnly
+    title: Entry Date
+  - name: hours
+    interface: number
+    title: Hours
+  - name: billable
+    interface: checkbox
+    title: Billable
+  - name: notes
+    interface: textarea
+    title: Notes

@@ -1,0 +1,24 @@
+name: 'Form (Add new): Members'
+type: block
+collectionName: nb_pm_members
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_members
+  fields:
+    - name
+    - email
+    - role
+    - department
+    - phone
+    - status
+  field_layout:
+    - '--- Member Info ---'
+    - - name
+      - email
+    - - role
+      - department
+    - - phone
+      - status
+  actions:
+    - submit

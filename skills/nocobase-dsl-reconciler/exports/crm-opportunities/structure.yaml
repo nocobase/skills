@@ -1,0 +1,21 @@
+pages:
+- blocks:
+  - key: filterForm_0
+    type: filterForm
+    fields:
+    - name
+    js_items:
+    - desc: Pipeline Stats Filter Block
+      file: ./js/opportunities_filterForm_0_pipeline_stats_filter_block.js
+    field_layout:
+    - - '[JS:Pipeline Stats Filter Block]'
+    - - name
+  - key: reference_1
+    type: reference
+    template_uid: m39e2ahdwsf
+    template_name: 'Table: Opportunities'
+    reference_mode: reference
+  layout:
+  - - filterForm_0
+  - - reference_1
+  page: Opportunities

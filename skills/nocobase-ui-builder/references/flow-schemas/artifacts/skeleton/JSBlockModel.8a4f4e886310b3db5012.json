@@ -1,0 +1,22 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "8a4f4e886310b3db5012",
+  "ownerUses": [
+    "JSBlockModel"
+  ],
+  "value": {
+    "uid": "todo-js-block-uid",
+    "use": "JSBlockModel",
+    "stepParams": {
+      "jsSettings": {
+        "runJs": {
+          "version": "v2",
+          "code": "ctx.render('<div>Hello JS block.</div>');"
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/JSBlockModel.8a4f4e886310b3db5012.json"
+}

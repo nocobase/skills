@@ -1,0 +1,20 @@
+name: 'Detail: Tasks'
+type: block
+collectionName: nb_pm_tasks
+content:
+  key: details
+  type: details
+  coll: nb_pm_tasks
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - status
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - status
+    - - description
+  actions:
+    - edit

@@ -1,0 +1,23 @@
+name: nb_crm_v_mail_contact
+title: Mail Contact
+fields:
+  - name: contact_id
+    interface: integer
+  - name: customer
+    interface: m2o
+  - name: sales_user_id
+    interface: integer
+  - name: role
+    interface: input
+  - name: sales_dept_id
+    interface: input
+  - name: contact
+    interface: m2o
+  - name: mail_date
+    interface: datetime
+  - name: mails
+    interface: m2o
+  - name: customer_id
+    interface: integer
+  - name: mail_id
+    interface: integer

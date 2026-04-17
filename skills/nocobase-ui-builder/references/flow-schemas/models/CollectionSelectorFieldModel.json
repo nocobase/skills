@@ -1,0 +1,36 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "model",
+  "use": "CollectionSelectorFieldModel",
+  "title": "Collection Selector Field",
+  "coverage": {
+    "status": "manual",
+    "source": "official",
+    "strict": true
+  },
+  "source": "official",
+  "hash": "99120b94",
+  "dynamicHints": [],
+  "commonPatterns": [],
+  "antiPatterns": [],
+  "refs": {
+    "jsonSchema": {
+      "artifactRef": "artifacts/json-schema/CollectionSelectorFieldModel.660c4150bf4aafabe36e.json",
+      "hash": "660c4150bf4aafabe36e"
+    },
+    "minimalExample": {
+      "artifactRef": "artifacts/minimal-example/CollectionSelectorFieldModel.070242cea9d642a098d1.json",
+      "hash": "070242cea9d642a098d1"
+    },
+    "skeleton": {
+      "artifactRef": "artifacts/skeleton/CollectionSelectorFieldModel.2e592edc6613172b1272.json",
+      "hash": "2e592edc6613172b1272"
+    },
+    "examples": {
+      "artifactRef": "artifacts/examples/ActionModel.cb76d118a664108500ad.json",
+      "hash": "cb76d118a664108500ad"
+    },
+    "slots": {}
+  },
+  "defaultSubModelUses": {}
+}

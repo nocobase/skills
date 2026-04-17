@@ -1,0 +1,19 @@
+name: nb_crm_lead_tags
+title: Lead Tags
+fields:
+  - name: updatedById
+    interface: integer
+  - name: createdAt
+    interface: createdAt
+  - name: updatedAt
+    interface: updatedAt
+  - name: updatedBy
+    interface: updatedBy
+  - name: tag_id
+    interface: integer
+  - name: createdById
+    interface: integer
+  - name: lead_id
+    interface: integer
+  - name: createdBy
+    interface: createdBy

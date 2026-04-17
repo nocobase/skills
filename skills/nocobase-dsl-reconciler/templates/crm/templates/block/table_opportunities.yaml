@@ -1,0 +1,41 @@
+uid: m39e2ahdwsf
+name: 'Table: Opportunities'
+type: block
+collectionName: nb_crm_opportunities
+dataSourceKey: main
+targetUid: 14beb930c5a
+content:
+  key: table
+  type: table
+  coll: nb_crm_opportunities
+  fields:
+    - field: name
+      popup:
+        mode: embed
+    - field: amount
+      width: 100
+    - currency
+    - stage
+    - lead_source
+    - contact
+    - customer
+    - expected_close_date
+    - win_probability
+  actions:
+    - filter
+    - refresh
+    - addNew
+    - ai:
+        employee: viz
+        tasks: ./ai/table_opportunities_table_tasks.yaml
+  event_flows:
+    - event:
+        eventName: beforeRender
+        defaultParams:
+          condition:
+            items: []
+            logic: $and
+      flow_key: 858jqylowfr
+      step_key: vf3lwi5tk73
+      desc: 858jqylowfr
+      file: ./events/table_opportunities_table_event_858jqylowfr_vf3lwi5tk73.js

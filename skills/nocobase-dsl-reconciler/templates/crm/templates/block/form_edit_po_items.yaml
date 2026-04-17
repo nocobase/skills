@@ -1,0 +1,23 @@
+uid: 7x2rqiz7g2w
+name: 'Form (Edit): PO Items'
+type: block
+collectionName: nb_erp_po_items
+dataSourceKey: main
+targetUid: 8dvrvtwanne
+description: 'Form (Edit): PO Items'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_erp_po_items
+  fields:
+    - product
+    - purchase_order
+    - quantity
+    - unit_price
+  field_layout:
+    - - product
+      - purchase_order
+    - - quantity
+      - unit_price
+  actions:
+    - submit

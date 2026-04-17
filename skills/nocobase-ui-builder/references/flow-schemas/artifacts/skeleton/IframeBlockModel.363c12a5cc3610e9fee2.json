@@ -1,0 +1,23 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "skeleton",
+  "hash": "363c12a5cc3610e9fee2",
+  "ownerUses": [
+    "IframeBlockModel"
+  ],
+  "value": {
+    "uid": "todo-iframe-block-uid",
+    "use": "IframeBlockModel",
+    "stepParams": {
+      "iframeBlockSettings": {
+        "editIframe": {
+          "mode": "url",
+          "url": "https://www.nocobase.com",
+          "params": []
+        }
+      }
+    }
+  },
+  "relativePath": "artifacts/skeleton/IframeBlockModel.363c12a5cc3610e9fee2.json"
+}

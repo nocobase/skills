@@ -1,8 +1,8 @@
-# ACL Task Result Format v1
+﻿# ACL Task Result Format v1
 
 Use this template for `nocobase-acl-manage` v2 outputs.
 
-Do not return raw MCP payloads as the primary user message.
+Do not return raw CLI payload dumps as the primary user message.
 
 ## Output Blocks
 
@@ -120,9 +120,9 @@ Preferred boundary wording:
 
 Preferred Chinese wording:
 
-- `该操作受当前能力或治理策略限制，暂时无法直接执行。`
-- `你可以先在 NocoBase 管理后台完成，或在支持时启用受控兜底路径。`
-- `如果你愿意，我可以继续给出精确的页面操作步骤和字段建议。`
+- `璇ユ搷浣滃彈褰撳墠鑳藉姏鎴栨不鐞嗙瓥鐣ラ檺鍒讹紝鏆傛椂鏃犳硶鐩存帴鎵ц銆俙
+- `浣犲彲浠ュ厛鍦?NocoBase 绠＄悊鍚庡彴瀹屾垚锛屾垨鍦ㄦ敮鎸佹椂鍚敤鍙楁帶鍏滃簳璺緞銆俙
+- `濡傛灉浣犳効鎰忥紝鎴戝彲浠ョ户缁粰鍑虹簿纭殑椤甸潰鎿嶄綔姝ラ鍜屽瓧娈靛缓璁€俙
 
 ## Example Success Output
 
@@ -174,3 +174,4 @@ Boundary And Next Action
 1. Enable guarded fallback for this task
 2. Ask me for exact admin UI click-path
 ```
+

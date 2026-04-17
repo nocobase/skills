@@ -1,6 +1,6 @@
 # MCP Troubleshooting
 
-Use this guide when MCP calls fail during install/deploy bootstrap or early tool usage.
+Use this guide when MCP calls fail during install bootstrap or early tool usage.
 
 ## Fast Triage Path
 

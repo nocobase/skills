@@ -1,0 +1,14 @@
+{
+  "format": "flow-schema-graph/v2",
+  "kind": "artifact",
+  "artifactKind": "minimalExample",
+  "hash": "f6d5e5e0cad8d6ecc4c0",
+  "ownerUses": [
+    "BulkDeleteActionModel"
+  ],
+  "value": {
+    "uid": "todo-uid",
+    "use": "BulkDeleteActionModel"
+  },
+  "relativePath": "artifacts/minimal-example/BulkDeleteActionModel.f6d5e5e0cad8d6ecc4c0.json"
+}
