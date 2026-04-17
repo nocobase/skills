@@ -45,11 +45,10 @@ export function lookupTemplateFile(templateUid: string, fromDir: string): string
 }
 
 /**
- * Simplify clickToOpen + popupSettings into popup shorthand.
+ * Simplify clickToOpen + popupSettings into canonical format.
  *
- * - With popup template → popup: templates/popup/xxx.yaml
- * - Default settings (drawer, large) → popup: true
- * - Non-default settings → popup: { mode, size }
+ * - With popup template → clickToOpen: templates/popup/xxx.yaml (explicit path)
+ * - No template → clickToOpen: true (auto-detect)
  */
 export function simplifyPopup(
   fieldSpec: Record<string, unknown>,
@@ -59,67 +58,50 @@ export function simplifyPopup(
 
   const ps = fieldSpec.popupSettings as Record<string, unknown> | undefined;
   const templateUid = ps?.popupTemplateUid as string | undefined;
-
-  // Remove original keys — replace with popup shorthand
-  delete fieldSpec.clickToOpen;
   delete fieldSpec.popupSettings;
 
   if (templateUid && projectDir) {
     const tplFile = lookupTemplateFile(templateUid, projectDir);
     if (tplFile) {
-      fieldSpec.popup = tplFile;
+      fieldSpec.clickToOpen = tplFile;
       return;
     }
   }
 
-  // Check for non-default settings
-  const mode = (ps?.mode as string) || 'drawer';
-  const size = (ps?.size as string) || 'large';
-  const hasNonDefault = mode !== 'drawer' || size !== 'large';
-
-  if (hasNonDefault) {
-    const popupObj: Record<string, unknown> = {};
-    if (mode !== 'drawer') popupObj.mode = mode;
-    if (size !== 'large') popupObj.size = size;
-    fieldSpec.popup = popupObj;
-  } else {
-    fieldSpec.popup = true;
-  }
+  fieldSpec.clickToOpen = true;
 }
 
 /**
- * Simplify a link action from full stepParams into shorthand.
+ * Simplify a link action from full stepParams into canonical format.
+ * Output: { type: link, title, icon, url }
  */
 function simplifyLinkAction(actionSpec: Record<string, unknown>): Record<string, unknown> {
   const sp = actionSpec.stepParams as Record<string, unknown> | undefined;
-  if (!sp) return { link: {} };
+  const result: Record<string, unknown> = { type: 'link' };
+  if (!sp) return result;
 
   const buttonSettings = sp.buttonSettings as Record<string, unknown> | undefined;
   const general = (buttonSettings?.general || {}) as Record<string, unknown>;
   const linkSettings = sp.linkButtonSettings as Record<string, unknown> | undefined;
   const editLink = (linkSettings?.editLink || {}) as Record<string, unknown>;
 
-  const result: Record<string, unknown> = {};
   if (general.title) result.title = general.title;
   if (general.icon) result.icon = general.icon;
   if (editLink.url) result.url = editLink.url;
 
-  return { link: result };
+  return result;
 }
 
 /**
- * Simplify an AI action into shorthand.
- * - Simple: ai: viz
- * - With tasks: ai: { employee: viz, tasks: ./ai/xxx.yaml }
+ * Simplify an AI action into canonical format.
+ * Output: { type: ai, employee: viz, tasks_file: ./ai/xxx.yaml }
  */
 function simplifyAiAction(actionSpec: Record<string, unknown>): Record<string, unknown> {
   const employee = actionSpec.employee as string || '';
   const tasksFile = actionSpec.tasks_file as string | undefined;
-
-  if (!tasksFile) {
-    return { ai: employee };
-  }
-  return { ai: { employee, tasks: tasksFile } };
+  const result: Record<string, unknown> = { type: 'ai', employee };
+  if (tasksFile) result.tasks_file = tasksFile;
+  return result;
 }
 
 /**
@@ -142,20 +124,15 @@ function simplifyReference(spec: Record<string, unknown>, projectDir: string | n
 }
 
 /**
- * Simplify a jsBlock into shorthand.
- * - Simple (no desc): js: ./js/xxx.js
- * - With desc: js: { file: ./js/xxx.js, desc: Description }
+ * Simplify a jsBlock into canonical format.
+ * Output: { type: jsBlock, key, file, desc }
  */
 function simplifyJsBlock(spec: Record<string, unknown>): Record<string, unknown> {
-  const file = spec.file as string | undefined;
-  const desc = spec.desc as string | undefined;
-
-  if (!file) return spec;
-
-  if (!desc) {
-    return { js: file };
-  }
-  return { js: { file, desc } };
+  const result: Record<string, unknown> = { type: 'jsBlock' };
+  if (spec.key) result.key = spec.key;
+  if (spec.file) result.file = spec.file;
+  if (spec.desc) result.desc = spec.desc;
+  return result;
 }
 
 /**
@@ -260,7 +237,7 @@ function simplifyUpdateRecord(actionSpec: Record<string, unknown>): Record<strin
   const confirm = (general.secondConfirmation || general.confirm) as Record<string, unknown> | undefined;
   if (confirm) result.confirm = confirm;
 
-  return { updateRecord: result };
+  return { type: 'updateRecord', ...result };
 }
 
 /**
