@@ -36,10 +36,10 @@ blocks:
       - source
       - owner
     recordActions:
-      - link:
-          title: Detail
-          icon: arrowrightoutlined
-          url: admin/e9478uhrdve/view/8d0b8114c2f/filterbytk/{{ ctx.record.id }}
+      - type: link
+        title: Detail
+        icon: arrowrightoutlined
+        url: admin/e9478uhrdve/view/8d0b8114c2f/filterbytk/{{ ctx.record.id }}
       - link
   - key: all_customers
     type: table
@@ -52,10 +52,10 @@ blocks:
       - status
       - owner
     recordActions:
-      - link:
-          title: Detail
-          icon: arrowrightoutlined
-          url: admin/c137kk6hghm/view/95effc54287/filterbytk/{{ ctx.record.id }}
+      - type: link
+        title: Detail
+        icon: arrowrightoutlined
+        url: admin/c137kk6hghm/view/95effc54287/filterbytk/{{ ctx.record.id }}
       - link
   - key: all_contacts
     type: table
@@ -68,10 +68,10 @@ blocks:
       - department
       - customer
     recordActions:
-      - link:
-          title: Detail
-          icon: arrowrightoutlined
-          url: admin/dgvyidc7p8f/view/a02b2fc948f/filterbytk/{{ ctx.record.id }}
+      - type: link
+        title: Detail
+        icon: arrowrightoutlined
+        url: admin/dgvyidc7p8f/view/a02b2fc948f/filterbytk/{{ ctx.record.id }}
       - link
 layout:
   - - filterForm

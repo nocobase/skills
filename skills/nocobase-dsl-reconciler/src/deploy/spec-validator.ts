@@ -24,14 +24,24 @@ export interface SpecIssue {
 export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIssue[] {
   const issues: SpecIssue[] = [];
 
-  // Build set of known collections from project
+  // Build collection metadata: known names + m2o target map
   const collDir = path.join(projectDir, 'collections');
   const knownColls = new Set<string>();
+  const collM2oTargets = new Map<string, Map<string, string>>(); // coll → { fieldName → targetColl }
+  const collTitleFields = new Map<string, string>(); // coll → titleField name
   if (fs.existsSync(collDir)) {
     for (const f of fs.readdirSync(collDir).filter(f => f.endsWith('.yaml'))) {
       try {
         const c = loadYaml<Record<string, unknown>>(path.join(collDir, f));
-        if (c?.name) knownColls.add(c.name as string);
+        if (!c?.name) continue;
+        const collName = c.name as string;
+        knownColls.add(collName);
+        collTitleFields.set(collName, (c.titleField || 'name') as string);
+        const m2oMap = new Map<string, string>();
+        for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
+          if (fd.interface === 'm2o' && fd.target) m2oMap.set(fd.name as string, fd.target as string);
+        }
+        if (m2oMap.size) collM2oTargets.set(collName, m2oMap);
       } catch { /* skip */ }
     }
   }
@@ -63,16 +73,48 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
       }
 
       // Must have a detail popup (clickToOpen on some field)
+      const blockColl = tb.coll || '';
+      const m2oMap = collM2oTargets.get(blockColl);
       const fields = tb.fields || [];
-      const hasClickToOpen = fields.some(f => {
-        if (typeof f === 'object') {
-          const fo = f as Record<string, unknown>;
-          return fo.clickToOpen || fo.popup;
+      let hasClickToOpen = false;
+      for (const f of fields) {
+        if (typeof f !== 'object') continue;
+        const fo = f as Record<string, unknown>;
+        const fieldName = (fo.field || fo.fieldPath || '') as string;
+
+        // Reject deprecated popup: syntax
+        if ('popup' in fo && !fo.clickToOpen) {
+          issues.push({ level: 'error', page: page.title, block: key, message: `field "${fieldName}": use "clickToOpen: true" instead of "popup:"` });
+          continue;
         }
-        return false;
-      });
+
+        if (!fo.clickToOpen) continue;
+        hasClickToOpen = true;
+
+        // Validate clickToOpen: path — check template collection matches expected
+        const clickPath = (fo._clickToOpenPath || (typeof fo.clickToOpen === 'string' ? fo.clickToOpen : '')) as string;
+        if (clickPath) {
+          const tplPath = path.resolve(projectDir, clickPath);
+          if (!fs.existsSync(tplPath)) {
+            issues.push({ level: 'error', page: page.title, block: key, message: `field "${fieldName}": clickToOpen file not found: ${clickPath}` });
+          } else {
+            try {
+              const tpl = loadYaml<Record<string, unknown>>(tplPath);
+              const content = (tpl.content || tpl) as Record<string, unknown>;
+              const tplColl = (content.coll || tpl.collectionName || '') as string;
+              const isM2o = m2oMap?.has(fieldName);
+              const expectedColl = isM2o ? m2oMap!.get(fieldName)! : blockColl;
+              if (tplColl && expectedColl && tplColl !== expectedColl) {
+                const context = isM2o ? `m2o field → target "${expectedColl}"` : `row field → own "${expectedColl}"`;
+                issues.push({ level: 'error', page: page.title, block: key, message: `field "${fieldName}": clickToOpen template is for "${tplColl}" but field expects ${context}` });
+              }
+            } catch { /* skip parse errors — caught at deploy */ }
+          }
+        }
+      }
       if (!hasClickToOpen) {
-        issues.push({ level: 'error', page: page.title, block: key, message: `table "${key}" has no clickToOpen field — add popup: true to the name/title field` });
+        const titleField = collTitleFields.get(blockColl) || 'name';
+        issues.push({ level: 'error', page: page.title, block: key, message: `table "${key}" has no clickToOpen field — add "clickToOpen: true" to field "${titleField}" (opens ${blockColl} detail)` });
       }
 
       // recordActions should have view + edit
@@ -140,6 +182,12 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
 function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
   const key = bs.key || bs.type;
 
+  // ── Rule: ref: resolution failed ──
+  if ('_refError' in bs) {
+    issues.push({ level: 'error', page: pageTitle, block: key, message: `ref: failed — ${(bs as any)._refError}` });
+    return;
+  }
+
   // ── Rule: block coll must reference an existing collection ──
   if (bs.coll && knownColls?.size && !knownColls.has(bs.coll)) {
     issues.push({ level: 'error', page: pageTitle, block: key, message: `collection "${bs.coll}" not found — create collections/${bs.coll}.yaml first` });
@@ -171,13 +219,13 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
     // ── Rule: filterForm max 3 fields ──
     const filterFields = (bs.fields || []).filter(f => typeof f === 'string' || (typeof f === 'object' && (f as Record<string, unknown>).field));
     if (filterFields.length > 3) {
-      issues.push({ level: 'error', page: pageTitle, block: key, message: `filterForm 最多 3 个筛选字段（当前 ${filterFields.length} 个），多了影响布局` });
+      issues.push({ level: 'error', page: pageTitle, block: key, message: `filterForm has too many filter fields (${filterFields.length}) — max 3 recommended for layout` });
     }
 
     // ── Rule 2: filterForm MUST have JS stats button group ──
     const jsItems = (bs as Record<string, unknown>).js_items as unknown[];
     if (!Array.isArray(jsItems) || !jsItems.length) {
-      issues.push({ level: 'error', page: pageTitle, block: key, message: 'filterForm 必须有 js_items 筛选按钮组，参考 templates/crm/js/customers_filterForm_1_*.js' });
+      issues.push({ level: 'warn', page: pageTitle, block: key, message: 'filterForm has no js_items filter button group — see templates/crm/js/ for examples' });
     } else {
       // Check if JS files are just stubs
       for (const ji of jsItems) {
@@ -189,7 +237,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
             // Try to resolve from project root (passed via context or relative)
             const content = fs.readFileSync(path.resolve(file), 'utf8').trim();
             if (/ctx\.render\s*\(\s*null\s*\)/.test(content) || content.startsWith('// TODO')) {
-              issues.push({ level: 'error', page: pageTitle, block: key, message: `js_items "${file}" 是空占位符，参考 templates/crm/js/ 实现` });
+              issues.push({ level: 'error', page: pageTitle, block: key, message: `js_items "${file}" is a placeholder — see templates/crm/js/ for implementation` });
             }
           } catch { /* file not found — will be caught at deploy time */ }
         }
@@ -201,7 +249,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
         ? firstRow.some(item => typeof item === 'string' && item.startsWith('[JS:'))
         : (typeof firstRow === 'string' && firstRow.startsWith('[JS:'));
       if (!firstRowHasJs) {
-        issues.push({ level: 'warn', page: pageTitle, block: key, message: 'filterForm JS button group should be on the first row of field_layout (独占一行，放在最上面)' });
+        issues.push({ level: 'warn', page: pageTitle, block: key, message: 'filterForm JS button group should be on the first row of field_layout (full-width, topmost row)' });
       }
     }
 
@@ -279,6 +327,11 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
 }
 
 function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
+  // Reject deprecated popup: template path syntax
+  if ('popup' in (ps as Record<string, unknown>)) {
+    issues.push({ level: 'error', page: pageTitle, message: `popup "${ps.target}": use "blocks: [ref: ...]" instead of "popup: <path>"` });
+  }
+
   const blocks = ps.blocks || [];
   const tabs = ps.tabs || [];
 

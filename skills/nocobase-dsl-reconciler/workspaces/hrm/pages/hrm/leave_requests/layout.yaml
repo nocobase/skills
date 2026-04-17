@@ -24,7 +24,7 @@ blocks:
     coll: nb_hrm_leave_requests
     fields:
       - field: request_code
-        popup: true
+        clickToOpen: true
       - employee
       - leave_type
       - start_date

@@ -1,2 +1,3 @@
 target: $SELF.table.recordActions.edit
-popup: templates/popup/edit_nb_hrm_performance_reviews.yaml
+blocks:
+  - ref: templates/block/form_edit_nb_hrm_performance_reviews.yaml

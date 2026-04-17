@@ -6,7 +6,8 @@ blocks:
     coll: nb_crm_activities
     actions:
       - submit
-      - ai: dex
+      - type: ai
+        employee: dex
     templateRef:
       templateUid: fpq7iu2da59
       templateName: 'Form (Add new): Activities'

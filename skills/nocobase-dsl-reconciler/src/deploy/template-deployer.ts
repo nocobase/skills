@@ -83,9 +83,9 @@ function discoverTemplates(tplDir: string): TemplateIndex[] {
  * Incrementally sync a block template's live content with spec.
  *
  * Template target structure (determines sync strategy):
- *   - block 模板 (form/edit/details): target = CreateFormModel/EditFormModel/DetailsBlockModel → has grid.items
- *   - popup 模板: target = DisplayTextFieldModel → no grid, content in deeper ChildPage (skipped here)
- *   - table 模板: target = TableBlockModel → has columns, not grid.items (skipped here)
+ *   - block template (form/edit/details): target = CreateFormModel/EditFormModel/DetailsBlockModel → has grid.items
+ *   - popup template: target = DisplayTextFieldModel → no grid, content in deeper ChildPage (skipped here)
+ *   - table template: target = TableBlockModel → has columns, not grid.items (skipped here)
  *
  * Only block templates with grid.items are synced here. Popup/table templates have
  * different structures that are handled by their own deploy paths.

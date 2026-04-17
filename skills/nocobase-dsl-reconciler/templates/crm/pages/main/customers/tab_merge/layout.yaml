@@ -1,3 +1,4 @@
 blocks:
-  - js: ./js/customers_merge_jsBlock.js
+  - type: jsBlock
     key: jsBlock
+    file: ./js/customers_merge_jsBlock.js

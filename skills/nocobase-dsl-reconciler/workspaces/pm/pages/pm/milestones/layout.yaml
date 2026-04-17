@@ -26,7 +26,7 @@ blocks:
       status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
-        popup: true
+        clickToOpen: true
       - project
       - owner
       - status

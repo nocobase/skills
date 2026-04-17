@@ -4,8 +4,8 @@
  * In YAML, the order of js_items, fields, dividers determines display order.
  * This reads live grid items, builds desired order from spec, then moveNode.
  *
- * DSL 声明什么顺序，页面就呈现什么顺序。部署器不改变顺序。
- * JS 位置由设计阶段（scaffold / AI 写 DSL）决定。
+ * Grid items render in DSL declaration order. The deployer preserves this order.
+ * JS item positions are determined at design time (scaffold / AI-authored DSL).
  */
 import type { BlockSpec } from '../../types/spec';
 import { bestEffort } from '../../utils/error-utils';

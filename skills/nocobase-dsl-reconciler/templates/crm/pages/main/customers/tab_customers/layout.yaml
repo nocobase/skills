@@ -31,7 +31,7 @@ blocks:
               value: '{{ ctx.urlSearchParams.month }}'
     fields:
       - field: name
-        popup: templates/popup/customer_view.yaml
+        clickToOpen: true
       - type
       - region
       - field: level
@@ -77,9 +77,9 @@ blocks:
               title: Customer Merge
               icon: branchesoutlined
         key: workflowTrigger_customer_merge
-      - ai:
-          employee: viz
-          tasks: ./ai/customers_customers_table_tasks.yaml
+      - type: ai
+        employee: viz
+        tasks_file: ./ai/customers_customers_table_tasks.yaml
 layout:
   - - filterForm
   - - table

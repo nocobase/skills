@@ -42,6 +42,32 @@ export async function deploySurface(
   const existing = { ...existingState };
   const blocksState: Record<string, BlockState> = { ...existing };
 
+  // Apply default actions to blocks that don't specify any
+  const NO_ACTION_TYPES = new Set(['chart', 'jsBlock', 'markdown', 'iframe']);
+  const DEFAULT_ACTIONS: Record<string, string[]> = {
+    table: ['filter', 'refresh', 'addNew'],
+    filterForm: ['submit', 'reset'],
+    createForm: ['submit'],
+    editForm: ['submit'],
+  };
+  const DEFAULT_RECORD_ACTIONS: Record<string, string[]> = {
+    table: ['edit', 'delete'],
+    details: ['edit'],
+  };
+  for (const bs of blocksSpec) {
+    if (NO_ACTION_TYPES.has(bs.type)) { delete bs.actions; delete bs.recordActions; continue; }
+    if (!bs.actions && DEFAULT_ACTIONS[bs.type]) bs.actions = [...DEFAULT_ACTIONS[bs.type]];
+    if (!bs.recordActions && DEFAULT_RECORD_ACTIONS[bs.type]) bs.recordActions = [...DEFAULT_RECORD_ACTIONS[bs.type]];
+    // filterForm: strip invalid action types
+    if (bs.type === 'filterForm' && bs.actions) {
+      const valid = new Set(['submit', 'reset', 'collapse', 'ai']);
+      bs.actions = bs.actions.filter(a => {
+        const t = typeof a === 'string' ? a : (a as Record<string, unknown>).type as string;
+        return valid.has(t);
+      });
+    }
+  }
+
   // Find grid UID
   let gridUid = '';
   for (const getter of [

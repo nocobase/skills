@@ -23,7 +23,7 @@ blocks:
     coll: nb_hrm_attendance
     fields:
       - field: entry_code
-        popup: true
+        clickToOpen: true
       - employee
       - attendance_date
       - check_in

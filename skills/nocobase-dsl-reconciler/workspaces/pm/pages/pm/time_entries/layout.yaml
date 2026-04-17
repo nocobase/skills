@@ -26,7 +26,7 @@ blocks:
       billable.$eq: '{{ ctx.urlSearchParams.billable }}'
     fields:
       - field: name
-        popup: true
+        clickToOpen: true
       - task
       - member
       - entry_date

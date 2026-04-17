@@ -1,6 +1,7 @@
 blocks:
-  - js: ./js/overview_jsBlock.js
+  - type: jsBlock
     key: jsBlock
+    file: ./js/overview_jsBlock.js
   - key: high_score_leads
     type: table
     title: High Score Leads
@@ -13,7 +14,7 @@ blocks:
     pageSize: 5
     fields:
       - field: name
-        popup: templates/popup/leads_view.yaml
+        clickToOpen: true
       - field: ai_next_best_action
         width: 300
       - updatedAt
@@ -31,11 +32,12 @@ blocks:
     actions:
       - filter
       - refresh
-      - link:
-          title: View All
-          icon: arrowrightoutlined
-          url: /admin/e9478uhrdve
-      - ai: viz
+      - type: link
+        title: View All
+        icon: arrowrightoutlined
+        url: /admin/e9478uhrdve
+      - type: ai
+        employee: viz
   - key: today_s_tasks
     type: table
     title: Today's Tasks
@@ -47,68 +49,68 @@ blocks:
     pageSize: 5
     fields:
       - field: subject
-        popup: templates/popup/activity_view.yaml
+        clickToOpen: true
       - activity_date
     recordActions:
-      - updateRecord:
-          key: updateRecord_done
-          icon: borderoutlined
-          tooltip: Done
-          style: link
-          assign:
-            is_completed: true
-          linkageRules:
-            value:
-              - title: Linkage rule
-                enable: true
-                condition:
-                  logic: $and
-                  items:
-                    - path: '{{ ctx.record.is_completed }}'
-                      operator: $isTruly
-                      value: true
-                actions:
-                  - name: linkageSetActionProps
-                    params:
-                      value: hidden
-      - updateRecord:
-          key: updateRecord_undone
-          icon: checksquareoutlined
-          tooltip: Undone
-          style: link
-          linkageRules:
-            value:
-              - title: Linkage rule
-                enable: true
-                condition:
-                  logic: $or
-                  items:
-                    - path: '{{ ctx.record.is_completed }}'
-                      operator: $isFalsy
-                      value: true
-                    - path: '{{ ctx.record.is_completed }}'
-                      operator: $empty
-                      value: true
-                actions:
-                  - name: linkageSetActionProps
-                    params:
-                      value: hidden
+      - type: updateRecord
+        key: updateRecord_done
+        icon: borderoutlined
+        tooltip: Done
+        style: link
+        assign:
+          is_completed: true
+        linkageRules:
+          value:
+            - title: Linkage rule
+              enable: true
+              condition:
+                logic: $and
+                items:
+                  - path: '{{ ctx.record.is_completed }}'
+                    operator: $isTruly
+                    value: true
+              actions:
+                - name: linkageSetActionProps
+                  params:
+                    value: hidden
+      - type: updateRecord
+        key: updateRecord_undone
+        icon: checksquareoutlined
+        tooltip: Undone
+        style: link
+        linkageRules:
+          value:
+            - title: Linkage rule
+              enable: true
+              condition:
+                logic: $or
+                items:
+                  - path: '{{ ctx.record.is_completed }}'
+                    operator: $isFalsy
+                    value: true
+                  - path: '{{ ctx.record.is_completed }}'
+                    operator: $empty
+                    value: true
+              actions:
+                - name: linkageSetActionProps
+                  params:
+                    value: hidden
       - updateRecord
     actions:
       - filter
       - refresh
-      - link:
-          title: View All
-          icon: arrowrightoutlined
-          url: /admin/n6bh6s6isej
+      - type: link
+        title: View All
+        icon: arrowrightoutlined
+        url: /admin/n6bh6s6isej
       - addNew
-      - ai:
-          employee: viz
-          tasks: ./ai/overview_today_s_tasks_tasks.yaml
-  - js:
-      file: ./js/overview_activity_calendar_block.js
-      desc: Activity Calendar Block
+      - type: ai
+        employee: viz
+        tasks_file: ./ai/overview_today_s_tasks_tasks.yaml
+  - type: jsBlock
     key: activity_calendar_block
+    file: ./js/overview_activity_calendar_block.js
+    desc: Activity Calendar Block
 layout:
   - - jsBlock
   - - high_score_leads: 16

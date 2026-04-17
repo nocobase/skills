@@ -15,7 +15,7 @@ blocks:
     coll: nb_erp_categories
     fields:
       - field: name
-        popup: true
+        clickToOpen: true
       - description
       - createdAt
     recordActions:

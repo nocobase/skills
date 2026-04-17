@@ -1,2 +1,3 @@
 target: $SELF.table.fields.title
-popup: templates/popup/detail_nb_hrm_positions.yaml
+blocks:
+  - ref: templates/block/detail_nb_hrm_positions.yaml

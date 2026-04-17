@@ -25,9 +25,9 @@ content:
     - filter
     - refresh
     - addNew
-    - ai:
-        employee: viz
-        tasks: ./ai/table_opportunities_table_tasks.yaml
+    - type: ai
+      employee: viz
+      tasks_file: ./ai/table_opportunities_table_tasks.yaml
   event_flows:
     - event:
         eventName: beforeRender

@@ -81,6 +81,43 @@ Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
 └── state.yaml                  # Auto-managed, do not edit manually
 ```
 
+## Popup File Format
+
+Popup files in `popups/` define what opens when a user clicks an action button.
+
+```yaml
+# popups/table.addNew.yaml — opens when clicking "Add New" on table
+target: $SELF.table.actions.addNew
+blocks:
+  - ref: templates/block/form_add_new_nb_pm_projects.yaml
+
+# popups/table.edit.yaml — opens when clicking "Edit" on a row
+target: $SELF.table.recordActions.edit
+blocks:
+  - ref: templates/block/form_edit_nb_pm_projects.yaml
+```
+
+The `ref:` reads the template block file and inlines its content. Template block files use:
+```yaml
+# templates/block/form_add_new_nb_pm_projects.yaml
+content:
+  key: createForm
+  type: createForm
+  coll: nb_pm_projects
+  fields: [name, status, priority, ...]
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - status
+```
+
+For clickToOpen on table fields (e.g., click name to open details):
+```yaml
+fields:
+  - field: name
+    clickToOpen: true    # NOT popup: true (that syntax was removed)
+```
+
 ## Field Type Reference
 
 All supported field interfaces are defined in `src/types/spec.ts` (`FieldInterface` type).

@@ -22,7 +22,7 @@ export interface FieldRef {
   fieldPath?: string;             // @deprecated — use `field` instead
   label?: string;                 // Display label (filterForm fields)
   filterPaths?: string[];         // Target filter paths (filterForm fields)
-  clickToOpen?: boolean;          // Enable click-to-open popup
+  clickToOpen?: boolean | string;  // true = auto-detect popup; "path" = explicit template file
   width?: number;                 // Column width (default: auto/150, only export if non-default)
   ellipsis?: boolean;             // Ellipsis on overflow (default: true, only export if false)
   popupSettings?: {
@@ -128,6 +128,7 @@ export interface BlockSpec {
   event_flows?: EventFlowSpec[];
   resource?: ResourceSpec;
   resource_binding?: ResourceBinding;
+  filter?: Record<string, unknown>;     // Shorthand: { field.$op: value } — deployer converts to dataScope
   dataScope?: Record<string, unknown>;
   pageSize?: number;
   sort?: Record<string, unknown>;
@@ -151,7 +152,6 @@ export interface PopupSpec {
   layout?: LayoutRow[];
   auto?: ('edit' | 'detail')[];  // auto-derive edit/detail from addNew form
   view_field?: string;           // field name for detail popup clickToOpen (default: 'name')
-  popup?: string;                // sugar: template file path
 }
 
 // ── Tab spec ──

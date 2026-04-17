@@ -288,11 +288,10 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-project <dir> [--force] [--plan] [--group X] [--page X] [--blueprint] [--no-sync] [--copy]'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts deploy-project <dir> [--force] [--plan] [--group X] [--page X] [--blueprint] [--copy]'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
-  const skipSync = args.includes('--no-sync');
   const copyMode = args.includes('--copy');
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
@@ -300,73 +299,136 @@ async function cmdDeployProject(args: string[]) {
   const page = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
 
   const absDir = path.resolve(dir);
-  const { execSync } = await import('node:child_process');
 
-  // Check if git repo
-  const isGit = (() => { try { execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' }); return true; } catch { return false; } })();
-
-  // ── Pre-deploy: commit current state ──
-  if (!planOnly && !skipSync && isGit) {
+  // ── Git detection (always — sync is mandatory for git repos) ──
+  let isGit = false;
+  let mainBranch = '';
+  if (!planOnly) {
+    const { execSync } = await import('node:child_process');
     try {
-      execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
-      const status = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
-      if (status) {
-        execSync('git commit -m "pre-deploy snapshot"', { cwd: absDir, stdio: 'pipe' });
-        console.log('  git: pre-deploy commit saved');
-      }
-    } catch { /* skip */ }
+      execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
+      mainBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+      isGit = !!mainBranch;
+    } catch { /* not a git repo — skip all git operations */ }
   }
 
-  // ── Deploy ──
+  // ── Step 1: Pre-deploy snapshot (rollback point) ──
+  if (isGit) {
+    await gitSnapshot(absDir, mainBranch);
+  }
+
+  // ── Step 2: Deploy ──
   await deployProject(absDir, { force, planOnly, group, page, blueprint, copyMode });
+  if (planOnly) return;
 
-  // ── Post-deploy: export to worktree branch for safe comparison ──
-  if (!planOnly && !skipSync && group && isGit) {
-    try {
-      const nb = await NocoBaseClient.create();
-      const branch = 'deploy-sync';
-      const wtDir = absDir + '-worktree';
-
-      // Clean up previous worktree
-      try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-      try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-
-      // Create worktree on new branch from current HEAD
-      execSync(`git worktree add "${wtDir}" -b ${branch}`, { cwd: absDir, stdio: 'pipe' });
-
-      // Export live state into worktree
-      console.log('\n  ── Sync back (worktree) ──');
-      await exportProject(nb, { outDir: wtDir, group });
-
-      // Commit export result in worktree
-      execSync('git add -A', { cwd: wtDir, stdio: 'pipe' });
-      const wtStatus = execSync('git status --porcelain', { cwd: wtDir, stdio: 'pipe' }).toString().trim();
-      if (wtStatus) {
-        execSync('git commit -m "post-deploy export"', { cwd: wtDir, stdio: 'pipe' });
-      }
-
-      // Show diff: main vs deploy-sync
-      const mainBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
-      const diff = execSync(`git diff --stat ${mainBranch}..${branch}`, { cwd: absDir, stdio: 'pipe' }).toString().trim();
-
-      if (diff) {
-        console.log(`\n  Diff (${mainBranch} → ${branch}):`);
-        console.log(diff.split('\n').map(l => '    ' + l).join('\n'));
-        console.log(`\n  To review:  git diff ${mainBranch}..${branch}`);
-        console.log(`  To merge:   git merge ${branch}`);
-        console.log(`  To discard: git branch -D ${branch}`);
-      } else {
-        console.log('  ✓ No diff — DSL matches live state');
-        // Clean up if no changes
-        try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-        try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-      }
-
-      // Always remove worktree (branch stays for review)
-      try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-    } catch (e) {
-      console.log('  ! sync back failed: ' + (e instanceof Error ? e.message.slice(0, 80) : e));
+  // ── Step 3-6: Post-deploy sync (export + diff — mandatory for git repos) ──
+  if (isGit) {
+    // Resolve group: explicit --group, or auto-detect from routes.yaml
+    const targetGroup = group || autoDetectGroup(absDir);
+    if (targetGroup) {
+      await deploySyncWorktree(absDir, targetGroup, mainBranch);
     }
+  }
+}
+
+// ── Deploy-sync helpers ──
+
+/** Auto-detect group title from routes.yaml (first group entry). */
+function autoDetectGroup(projectDir: string): string {
+  try {
+    const { loadYaml } = require('../utils/yaml');
+    const routes = loadYaml(path.join(projectDir, 'routes.yaml'));
+    if (Array.isArray(routes)) {
+      const g = routes.find((r: any) => r.type === 'group' || r.children);
+      return g?.title || '';
+    }
+  } catch { /* skip */ }
+  return '';
+}
+
+/** Step 1: Commit current state as rollback point. */
+async function gitSnapshot(absDir: string, branch: string): Promise<void> {
+  const { execSync } = await import('node:child_process');
+  try {
+    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      execSync(`git commit -m "pre-deploy snapshot (${branch})"`, { cwd: absDir, stdio: 'pipe' });
+      console.log('  git: pre-deploy snapshot saved');
+    }
+  } catch (e) {
+    console.log('  git: snapshot skipped — ' + (e instanceof Error ? e.message.slice(0, 60) : e));
+  }
+}
+
+/**
+ * Steps 3-6: Create worktree → export → diff → cleanup.
+ *
+ * Flow:
+ *   1. git worktree add <dir>-worktree -b deploy-sync
+ *   2. Copy state.yaml (has deployed UIDs)
+ *   3. export-project into worktree
+ *   4. git add + commit in worktree
+ *   5. git diff main..deploy-sync --stat
+ *   6. Remove worktree (branch preserved for review/merge)
+ */
+async function deploySyncWorktree(absDir: string, group: string, mainBranch: string): Promise<void> {
+  const { execSync } = await import('node:child_process');
+  const branch = 'deploy-sync';
+  const wtDir = absDir + '-worktree';
+
+  try {
+    console.log('\n  ── Deploy sync ──');
+
+    // Clean previous worktree/branch
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+
+    // Create worktree on new branch from current HEAD
+    execSync(`git worktree add "${wtDir}" -b ${branch}`, { cwd: absDir, stdio: 'pipe' });
+
+    // Copy state.yaml to worktree (has deployed UIDs for export matching)
+    const stateFile = path.join(absDir, 'state.yaml');
+    if (fs.existsSync(stateFile)) {
+      fs.copyFileSync(stateFile, path.join(wtDir, 'state.yaml'));
+    }
+
+    // Export live NocoBase state into worktree
+    const nb = await NocoBaseClient.create();
+    await exportProject(nb, { outDir: wtDir, group });
+
+    // Commit export result in worktree
+    execSync('git add -A', { cwd: wtDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { cwd: wtDir, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      execSync('git commit -m "post-deploy export"', { cwd: wtDir, stdio: 'pipe' });
+    }
+
+    // Show diff: main..deploy-sync (content files only, exclude metadata)
+    const diff = execSync(
+      `git diff --stat ${mainBranch}..${branch} -- . ":(exclude)**/page.yaml" ":(exclude)**/_refs.yaml" ":(exclude)_graph.yaml"`,
+      { cwd: absDir, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+    ).trim();
+
+    if (diff) {
+      const lines = diff.split('\n');
+      console.log(`\n  Diff (${mainBranch} → ${branch}):`);
+      console.log(lines.map(l => '    ' + l).join('\n'));
+      console.log(`\n  To review:  git diff ${mainBranch}..${branch}`);
+      console.log(`  To merge:   git merge ${branch}`);
+      console.log(`  To discard: git branch -D ${branch}`);
+    } else {
+      console.log('  ✓ No diff — DSL matches live state');
+      // No changes → clean up branch too
+      try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    }
+
+    // Always remove worktree (branch stays if there are changes)
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+  } catch (e) {
+    console.log('  ! deploy-sync failed: ' + (e instanceof Error ? e.message.slice(0, 80) : e));
+    // Best-effort cleanup
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
   }
 }
 

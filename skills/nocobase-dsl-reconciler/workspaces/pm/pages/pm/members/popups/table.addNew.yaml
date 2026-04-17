@@ -1,2 +1,3 @@
 target: $SELF.table.actions.addNew
-popup: templates/popup/add_new_nb_pm_members.yaml
+blocks:
+  - ref: templates/block/form_add_new_nb_pm_members.yaml

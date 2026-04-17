@@ -8,7 +8,6 @@ import * as path from 'node:path';
 import type { PageSpec, BlockSpec, PopupSpec } from '../types/spec';
 import { loadYaml } from '../utils/yaml';
 import { slugify } from '../utils/slugify';
-import { expandPageSugar, expandPopupSugar } from './sugar';
 
 export interface RouteEntry {
   title: string;
@@ -82,6 +81,12 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
     ? loadYaml<Record<string, unknown>>(path.join(pageDir, 'page.yaml'))
     : {};
 
+  // Find project root (where routes.yaml or templates/ lives) for ref: resolution
+  let projRoot = pageDir;
+  for (let d = pageDir; d !== path.dirname(d); d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, 'routes.yaml')) || fs.existsSync(path.join(d, 'templates'))) { projRoot = d; break; }
+  }
+
   const layoutFile = path.join(pageDir, 'layout.yaml');
 
   // Check for multi-tab page (has tab_* subdirs but no layout.yaml)
@@ -107,15 +112,12 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
 
   if (fs.existsSync(layoutFile)) {
     // Single tab page
-    const layoutRaw = expandPageSugar(
-      loadYaml<Record<string, unknown>>(layoutFile),
-      pageDir,
-    );
+    const layoutRaw = loadYaml<Record<string, unknown>>(layoutFile);
     layout = {
       page: title,
       icon: icon || (pageMeta.icon as string) || 'fileoutlined',
       coll: layoutRaw.coll as string || '',
-      blocks: (layoutRaw.blocks || []) as BlockSpec[],
+      blocks: resolveBlockRefs(layoutRaw.blocks as unknown[] || [], projRoot) as BlockSpec[],
       layout: layoutRaw.layout as PageSpec['layout'],
     };
   } else if (tabDirs.length) {
@@ -136,10 +138,7 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
     for (const td of tabDirs) {
       const tabLayout = path.join(pageDir, td, 'layout.yaml');
       if (!fs.existsSync(tabLayout)) continue;
-      const tabRaw = expandPageSugar(
-        loadYaml<Record<string, unknown>>(tabLayout),
-        path.join(pageDir, td),
-      );
+      const tabRaw = loadYaml<Record<string, unknown>>(tabLayout);
       const dirSlug = td.replace('tab_', '');
       const meta = tabMetaMap.get(dirSlug);
       const tabTitle = meta?.title || dirSlug.replace(/_/g, ' ');
@@ -147,7 +146,7 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
       tabs.push({
         title: tabTitle,
         icon: tabIcon,
-        blocks: (tabRaw.blocks || []) as BlockSpec[],
+        blocks: resolveBlockRefs(tabRaw.blocks as unknown[] || [], projRoot) as BlockSpec[],
         layout: tabRaw.layout as PageSpec['layout'],
       });
     }
@@ -169,6 +168,12 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
     return null;
   }
 
+  // Resolve clickToOpen: "path" → clickToOpen: true + inline popup content
+  resolveClickToOpenPaths(layout.blocks, projRoot);
+  if (layout.tabs) {
+    for (const tab of layout.tabs) resolveClickToOpenPaths(tab.blocks || [], projRoot);
+  }
+
   // Read popups (from page dir and all tab dirs)
   const popups: PopupSpec[] = [];
   const popupDirs = [path.join(pageDir, 'popups')];
@@ -180,13 +185,25 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
     for (const f of fs.readdirSync(popupsDir).filter(f => f.endsWith('.yaml')).sort()) {
       try {
         const raw = loadYaml<Record<string, unknown>>(path.join(popupsDir, f));
-        // Use project root (not popupsDir) so ref: templates/... resolves correctly
-        // Walk up from pageDir to find project root (where templates/ lives)
-        let projRoot = pageDir;
-        for (let d = pageDir; d !== path.dirname(d); d = path.dirname(d)) {
-          if (fs.existsSync(path.join(d, 'routes.yaml')) || fs.existsSync(path.join(d, 'templates'))) { projRoot = d; break; }
+
+        // Resolve ref: in popup blocks
+        if (Array.isArray(raw.blocks)) {
+          raw.blocks = resolveBlockRefs(raw.blocks, projRoot);
         }
-        const ps = expandPopupSugar(raw, projRoot) as unknown as PopupSpec;
+        if (Array.isArray(raw.tabs)) {
+          for (const tab of raw.tabs as Record<string, unknown>[]) {
+            if (Array.isArray(tab.blocks)) {
+              tab.blocks = resolveBlockRefs(tab.blocks as unknown[], projRoot);
+            }
+          }
+        }
+
+        // Auto-resolve empty popups: if target exists but no blocks, find matching template
+        if (raw.target && !raw.blocks && !raw.tabs) {
+          autoResolvePopupBlocks(raw, layout.blocks as Record<string, unknown>[], projRoot);
+        }
+
+        const ps = raw as unknown as PopupSpec;
         if (ps.target) popups.push(ps);
       } catch { /* skip malformed popup file */ }
     }
@@ -201,4 +218,109 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
     popups,
     pageMeta,
   };
+}
+
+/**
+ * Resolve clickToOpen: "path" on field specs.
+ * Reads the template file and converts to clickToOpen: true + inline popup content.
+ */
+function resolveClickToOpenPaths(blocks: BlockSpec[], projRoot: string): void {
+  for (const bs of blocks) {
+    if (!Array.isArray(bs.fields)) continue;
+    for (const f of bs.fields) {
+      if (typeof f !== 'object') continue;
+      const fo = f as Record<string, unknown>;
+      if (typeof fo.clickToOpen !== 'string') continue;
+
+      const refPath = fo.clickToOpen as string;
+      const absPath = path.resolve(projRoot, refPath);
+      fo.clickToOpen = true;  // normalize to boolean
+      fo._clickToOpenPath = refPath;  // preserve for validator
+
+      if (!fs.existsSync(absPath)) {
+        fo._clickToOpenError = `Not found: ${refPath}`;
+        continue;
+      }
+      try {
+        const tpl = loadYaml<Record<string, unknown>>(absPath);
+        const content = (tpl.content && typeof tpl.content === 'object')
+          ? tpl.content as Record<string, unknown>
+          : tpl;
+        fo.popup = { blocks: [content] };  // inline popup for click-to-open filler
+      } catch {
+        fo._clickToOpenError = `Failed to parse: ${refPath}`;
+      }
+    }
+  }
+}
+
+/**
+ * Auto-resolve popup blocks when only target is specified.
+ * Looks for matching template block files by collection + action type.
+ *
+ * Example: target=$SELF.table.actions.addNew + table.coll=nb_pm_tasks
+ *   → looks for templates/block/form_add_new_nb_pm_tasks.yaml
+ */
+function autoResolvePopupBlocks(
+  raw: Record<string, unknown>,
+  layoutBlocks: Record<string, unknown>[],
+  projRoot: string,
+): void {
+  const target = raw.target as string;
+  if (!target) return;
+
+  // Parse target: $SELF.<blockKey>.actions.<actionType> or $SELF.<blockKey>.recordActions.<actionType>
+  const m = target.match(/\$SELF\.(\w+)\.(actions|recordActions)\.(\w+)/);
+  if (!m) return;
+  const [, blockKey, , actionType] = m;
+
+  // Find block collection
+  const block = layoutBlocks.find(b => (b.key || b.type) === blockKey);
+  const coll = (block?.coll || '') as string;
+  if (!coll) return;
+
+  // Map action type → template file prefix
+  const prefix = actionType === 'addNew' ? 'form_add_new' : actionType === 'edit' ? 'form_edit' : null;
+  if (!prefix) return;
+
+  const tplFile = path.join(projRoot, `templates/block/${prefix}_${coll}.yaml`);
+  if (!fs.existsSync(tplFile)) return;
+
+  try {
+    const tpl = loadYaml<Record<string, unknown>>(tplFile);
+    const content = (tpl.content && typeof tpl.content === 'object')
+      ? tpl.content as Record<string, unknown>
+      : tpl;
+    raw.blocks = [content];
+  } catch { /* skip */ }
+}
+
+/**
+ * Resolve ref: file references in block arrays.
+ * Reads the referenced YAML file and inlines its block content.
+ * This is a file reference mechanism, not sugar — the file content IS the block spec.
+ */
+function resolveBlockRefs(blocks: unknown[], projectRoot: string): unknown[] {
+  return (blocks || []).map(b => {
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
+    const block = b as Record<string, unknown>;
+    if (!('ref' in block) || 'type' in block) return block;
+
+    const { ref, ...extra } = block;
+    const refPath = ref as string;
+    if (!refPath) return block;
+
+    const absPath = path.resolve(projectRoot, refPath);
+    if (!fs.existsSync(absPath)) return { ...extra, _refError: `Not found: ${refPath}` };
+
+    try {
+      const template = loadYaml<Record<string, unknown>>(absPath);
+      const content = (template.content && typeof template.content === 'object')
+        ? template.content as Record<string, unknown>
+        : template;
+      return { ...content, ...extra };
+    } catch {
+      return { ...extra, _refError: `Failed to parse: ${refPath}` };
+    }
+  });
 }

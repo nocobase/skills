@@ -130,7 +130,8 @@ export async function fillBlock(
 
   // ── Table settings: dataScope + pageSize + sort ──
   const tableUpdates: Record<string, unknown> = {};
-  if (bs.dataScope) tableUpdates.dataScope = { filter: bs.dataScope };
+  const dataScope = bs.dataScope || (bs.filter ? parseFilterShorthand(bs.filter) : undefined);
+  if (dataScope) tableUpdates.dataScope = { filter: dataScope };
   if (bs.pageSize) tableUpdates.pageSize = { pageSize: bs.pageSize };
   if (bs.sort) tableUpdates.sort = bs.sort;
   if (Object.keys(tableUpdates).length) {
@@ -228,9 +229,9 @@ export async function fillBlock(
       if (unfilled?.length) {
         log(`      ✗ JS ${bs.file}: unfilled template params: ${unfilled.join(', ')}`);
       } else if (/ctx\.render\s*\(\s*null\s*\)/.test(code)) {
-        log(`      ✗ JS ${bs.file}: ctx.render(null) 是空占位符，需要实现实际内容`);
+        log(`      ✗ JS ${bs.file}: ctx.render(null) is a placeholder — implement actual content`);
       } else if (/ctx\.sql\s*\(/.test(code) && !/ctx\.sql\.(save|runById)/.test(code)) {
-        log(`      ✗ JS ${bs.file}: ctx.sql() 直接调用不可用，请用 ctx.sql.save() + ctx.sql.runById() 流程`);
+        log(`      ✗ JS ${bs.file}: ctx.sql() direct call not available — use ctx.sql.save() + ctx.sql.runById() pattern`);
       } else {
         code = ensureJsHeader(code, { desc: bs.desc, jsType: 'JSBlockModel', coll });
         code = replaceJsUids(code, allBlocksState);
@@ -420,20 +421,6 @@ export async function enableM2oClickToOpen(
   modDir: string,
   log: (msg: string) => void,
 ): Promise<void> {
-  // Load defaults.yaml (walk up to project root)
-  let popupDefaults: Record<string, string> = {};
-  try {
-    const { loadYaml } = await import('../utils/yaml');
-    for (let dir = modDir; dir !== path.dirname(dir); dir = path.dirname(dir)) {
-      const f = path.join(dir, 'defaults.yaml');
-      if (fs.existsSync(f)) {
-        popupDefaults = (loadYaml<{ popups?: Record<string, string> }>(f))?.popups || {};
-        break;
-      }
-    }
-  } catch { /* skip */ }
-  if (!Object.keys(popupDefaults).length) return;
-
   // Get collection field metadata — m2o fields and their targets
   const m2oTargets = new Map<string, string>(); // fieldPath → targetCollection
   try {
@@ -444,8 +431,7 @@ export async function enableM2oClickToOpen(
   } catch { return; }
   if (!m2oTargets.size) return;
 
-  // Resolve popup template names → live UIDs
-  const { loadYaml } = await import('../utils/yaml');
+  // Query ALL live popup templates — match by collectionName (no defaults.yaml required)
   const templateNameToUid = new Map<string, { templateUid: string; targetUid: string }>();
   let liveTemplates: Record<string, unknown>[] = [];
   try {
@@ -453,11 +439,10 @@ export async function enableM2oClickToOpen(
     liveTemplates = resp.data.data || [];
   } catch { return; }
 
-  // Resolve popup templates by collectionName (more reliable than name matching)
+  // Find popup templates for each needed collection (m2o targets + own collection)
   const neededColls = new Set(m2oTargets.values());
   neededColls.add(coll);
   for (const targetColl of neededColls) {
-    if (!popupDefaults[targetColl]) continue;
     // Find live popup template by collectionName + type=popup, prefer Detail
     const isDetail = (t: Record<string, unknown>) => {
       const name = (t.name || '').toString().toLowerCase();
@@ -579,4 +564,25 @@ export async function enableM2oClickToOpen(
       log(`      . popup bind ${fm.fieldPath}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
     }
   }
+}
+
+/**
+ * Parse filter shorthand: { "field.$op": value } → { logic: '$and', items: [...] }
+ */
+function parseFilterShorthand(filter: Record<string, unknown>): Record<string, unknown> {
+  const items: Record<string, unknown>[] = [];
+  for (const [rawKey, value] of Object.entries(filter)) {
+    const dotIdx = rawKey.indexOf('.$');
+    let fieldPath: string;
+    let operator: string;
+    if (dotIdx !== -1) {
+      fieldPath = rawKey.slice(0, dotIdx);
+      operator = rawKey.slice(dotIdx + 1);
+    } else {
+      fieldPath = rawKey;
+      operator = '$eq';
+    }
+    items.push({ path: fieldPath, operator, value });
+  }
+  return { logic: '$and', items };
 }

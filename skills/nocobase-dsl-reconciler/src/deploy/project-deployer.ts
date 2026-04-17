@@ -16,7 +16,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
+// execSync removed — git operations moved to CLI layer
 import { NocoBaseClient } from '../client';
 import { createDeployContext, type DeployContext } from './deploy-context';
 import type { ModuleState, PageState, BlockState } from '../types/state';
@@ -63,7 +63,7 @@ export async function deployProject(
   function checkIcons(entries: RouteEntry[]) {
     for (const r of entries) {
       if (!r.icon || DEFAULT_ICONS.has(r.icon.toLowerCase())) {
-        log(`  ⚠ 菜单 "${r.title}" 使用默认图标，建议设置有意义的 icon`);
+        log(`  ⚠ menu "${r.title}" uses default icon — consider setting a meaningful icon`);
       }
       if (r.children) checkIcons(r.children);
     }
@@ -132,6 +132,24 @@ export async function deployProject(
     }
   }
   if (hasError) { log('\n  Validation failed'); process.exit(1); }
+
+  // ── Spec validation (runs before connect — pure YAML checks) ──
+  if (!opts.copyMode) {
+    const { validatePageSpecs } = await import('./spec-validator');
+    const specIssues = validatePageSpecs(pages, root);
+    const specErrors = specIssues.filter(i => i.level === 'error');
+    const specWarnings = specIssues.filter(i => i.level === 'warn');
+    if (specErrors.length) {
+      log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
+      for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
+      log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
+      process.exit(1);
+    }
+    if (specWarnings.length) {
+      log('\n  ── Spec Warnings ──');
+      for (const w of specWarnings) log(`  ⚠ [${w.page}${w.block ? '/' + w.block : ''}] ${w.message}`);
+    }
+  }
   log('  ✓ Validation passed');
 
   // ── 2b. Build graph for circular ref detection ──
@@ -172,24 +190,6 @@ export async function deployProject(
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
 
-  // ── Pre-deploy validation ──
-  if (!opts.copyMode) {
-    const { validatePageSpecs } = await import('./spec-validator');
-    const specIssues = validatePageSpecs(pages, root);
-    const specErrors = specIssues.filter(i => i.level === 'error');
-    const specWarnings = specIssues.filter(i => i.level === 'warn');
-    if (specErrors.length) {
-      log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
-      for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
-      log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
-      process.exit(1);
-    }
-    if (specWarnings.length) {
-      log('\n  ── Spec Warnings ──');
-      for (const w of specWarnings) log(`  ⚠ [${w.page}${w.block ? '/' + w.block : ''}] ${w.message}`);
-    }
-  }
-
   // Collections (skip if deploying single page — safety)
   if (!opts.page) {
     await ensureAllCollections(nb, collDefs, log);
@@ -208,7 +208,6 @@ export async function deployProject(
   }
 
   // For pending popup templates: expand their content inline into the first referencing popup
-  // (sugar.ts handles popup: templates/popup/xxx.yaml → inline blocks if template doesn't exist yet)
 
   // Build name→uid map from live templates for ref: blocks without UIDs
   let templateNameMap = new Map<string, string>();
@@ -378,47 +377,7 @@ export async function deployProject(
     log(`  ! Graph rebuild: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
   }
 
-  // ── Post-deploy: re-export to worktree + diff ──
-  const targetGroup = opts.group || routes.find(r => r.type === 'group')?.title || '';
-  if (targetGroup && fs.existsSync(path.join(root, '.git'))) {
-    try {
-      const { exportProject } = await import('../export');
-      log('\n  ── Re-export for diff ──');
-
-      // Create worktree for clean re-export
-      const wtBranch = '_deploy_export';
-      const wtDir = path.join(root, '..', `${path.basename(root)}_export`);
-      try { execSync(`git worktree remove "${wtDir}" --force`, { cwd: root, stdio: 'pipe' }); } catch { /* ok */ }
-      try { execSync(`git branch -D ${wtBranch}`, { cwd: root, stdio: 'pipe' }); } catch { /* ok */ }
-      execSync(`git worktree add "${wtDir}" -b ${wtBranch} HEAD`, { cwd: root, stdio: 'pipe' });
-
-      // Copy state.yaml to worktree (has deployed UIDs)
-      fs.copyFileSync(path.join(root, 'state.yaml'), path.join(wtDir, 'state.yaml'));
-
-      // Re-export into worktree
-      await exportProject(nb, { outDir: wtDir, group: targetGroup });
-
-      // Diff worktree vs baseline (exclude metadata)
-      const diffStat = execSync(
-        `git diff HEAD ${wtBranch} --stat -- pages/ ':(exclude)**/page.yaml' ':(exclude)**/_refs.yaml'`,
-        { cwd: root, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
-      ).trim();
-
-      if (diffStat) {
-        const lines = diffStat.split('\n');
-        log(`\n  ── Deploy diff (${lines.length - 1} files changed) ──`);
-        log(diffStat);
-      } else {
-        log('  ✓ No diff — deploy matches baseline');
-      }
-
-      // Cleanup worktree
-      try { execSync(`git worktree remove "${wtDir}" --force`, { cwd: root, stdio: 'pipe' }); } catch { /* ok */ }
-      try { execSync(`git branch -D ${wtBranch}`, { cwd: root, stdio: 'pipe' }); } catch { /* ok */ }
-    } catch (e) {
-      log(`  ! Re-export failed: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
-    }
-  }
+  // Post-deploy git sync is handled by CLI (cmdDeployProject → deploy-sync worktree)
 }
 
 // ── Block state extraction from live tree ──
@@ -509,8 +468,8 @@ function extractBlockState(
 /**
  * Rewrite old exported template UIDs in page specs to match deployed UIDs.
  * Handles two cases:
- *   1. templateRef.templateUid — block reference specs (from ref: sugar)
- *   2. popupSettings.popupTemplateUid — field popup specs (from popup: sugar)
+ *   1. templateRef.templateUid — block reference specs
+ *   2. popupSettings.popupTemplateUid — field popup specs
  */
 function rewriteTemplateUids(pages: PageInfo[], uidMap: TemplateUidMap, nameMap: Map<string, string> = new Map()): void {
   for (const page of pages) {
@@ -545,7 +504,7 @@ function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<str
         const byName = nameMap.get(block.templateRef.templateName);
         if (byName) block.templateRef.templateUid = byName;
       }
-      // Also try _refName (from sugar expansion)
+      // Also try _refName (legacy)
       if (!block.templateRef.templateUid && block._refName) {
         const byName = nameMap.get(block._refName);
         if (byName) block.templateRef.templateUid = byName;

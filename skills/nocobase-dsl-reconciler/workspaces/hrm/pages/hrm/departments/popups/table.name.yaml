@@ -1,2 +1,3 @@
 target: $SELF.table.fields.name
-popup: templates/popup/detail_nb_hrm_departments.yaml
+blocks:
+  - ref: templates/block/detail_nb_hrm_departments.yaml

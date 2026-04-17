@@ -19,9 +19,9 @@ blocks:
     coll: nb_erp_inventory
     fields:
       - field: product
-        popup: templates/popup/popup_detail_nb_erp_products.yaml
+        clickToOpen: true
       - field: warehouse
-        popup: templates/popup/popup_detail_warehouses.yaml
+        clickToOpen: true
       - quantity
       - last_updated
     recordActions:

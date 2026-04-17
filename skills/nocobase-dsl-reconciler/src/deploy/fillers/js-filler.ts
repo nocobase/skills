@@ -39,7 +39,7 @@ export async function deployJsItems(
       continue;
     }
     if (/ctx\.render\s*\(\s*null\s*\)/.test(code)) {
-      log(`      ✗ JS item ${jsSpec.file}: ctx.render(null) 是空占位符，需要实现实际内容`);
+      log(`      ✗ JS item ${jsSpec.file}: ctx.render(null) is a placeholder — implement actual content`);
       continue;
     }
     // Forbidden APIs in NocoBase JS sandbox
@@ -63,7 +63,7 @@ export async function deployJsItems(
     }
     if (hasForbidden) continue;
     if (/ctx\.sql\s*\(/.test(code) && !/ctx\.sql\.(save|runById)/.test(code)) {
-      log(`      ✗ JS item ${jsSpec.file}: ctx.sql() 直接调用不可用，请用 ctx.sql.save() + ctx.sql.runById()`);
+      log(`      ✗ JS item ${jsSpec.file}: ctx.sql() direct call not available — use ctx.sql.save() + ctx.sql.runById()`);
       continue;
     }
     code = ensureJsHeader(code, { desc: jsSpec.desc, jsType: 'JSItemModel', coll });

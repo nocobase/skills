@@ -21,9 +21,9 @@ blocks:
     coll: nb_erp_purchase_orders
     fields:
       - field: code
-        popup: templates/popup/popup_detail_nb_erp_purchase_orders.yaml
+        clickToOpen: true
       - field: supplier
-        popup: templates/popup/popup_detail_suppliers.yaml
+        clickToOpen: true
       - order_date
       - total_amount
       - status

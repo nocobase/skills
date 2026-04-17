@@ -59,7 +59,7 @@ content:
             sourceId: '{{ctx.view.inputArgs.filterByTk}}'
           fields:
             - field: quotation_no
-              popup: true
+              clickToOpen: true
             - currencyInfo
             - discount_rate
             - status
@@ -96,29 +96,29 @@ content:
                             params:
                               value: hidden
               key: popup_new_order
-            - updateRecord:
-                key: updateRecord_submit_for_approval
-                icon: auditoutlined
-                title: Submit for Approval
-                style: link
-                assign:
-                  status: pending_approval
-                linkageRules:
-                  value:
-                    - key: t9n6p8jgxk0
-                      title: Linkage rule
-                      enable: true
-                      condition:
-                        logic: $or
-                        items:
-                          - path: '{{ ctx.record.status }}'
-                            operator: $ne
-                            value: draft
-                      actions:
-                        - key: 88d7od74xvi
-                          name: linkageSetActionProps
-                          params:
-                            value: hidden
+            - type: updateRecord
+              key: updateRecord_submit_for_approval
+              icon: auditoutlined
+              title: Submit for Approval
+              style: link
+              assign:
+                status: pending_approval
+              linkageRules:
+                value:
+                  - key: t9n6p8jgxk0
+                    title: Linkage rule
+                    enable: true
+                    condition:
+                      logic: $or
+                      items:
+                        - path: '{{ ctx.record.status }}'
+                          operator: $ne
+                          value: draft
+                    actions:
+                      - key: 88d7od74xvi
+                        name: linkageSetActionProps
+                        params:
+                          value: hidden
             - type: duplicate
               stepParams:
                 buttonSettings:
@@ -258,9 +258,9 @@ content:
             - filter
             - refresh
             - addNew
-            - ai:
-                employee: ellis
-                tasks: ./ai/opportunity_view_tab1_mailMessages_tasks.yaml
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/opportunity_view_tab1_mailMessages_tasks.yaml
       layout:
         - - mailMessages
     - title: Tab2

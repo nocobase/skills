@@ -220,8 +220,8 @@ tabs:
           - filter
           - refresh
           - addNew
-          - ai:
-              employee: ellis
-              tasks: ./ai/leads_name_tab2_mailMessages_tasks.yaml
+          - type: ai
+            employee: ellis
+            tasks_file: ./ai/leads_name_tab2_mailMessages_tasks.yaml
     layout:
       - - mailMessages

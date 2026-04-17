@@ -22,11 +22,11 @@ blocks:
     coll: nb_erp_products
     fields:
       - field: name
-        popup: templates/popup/popup_detail_nb_erp_products.yaml
+        clickToOpen: true
       - sku
       - price
       - field: category
-        popup: templates/popup/popup_detail_categories.yaml
+        clickToOpen: true
       - stock_qty
       - status
     js_columns:

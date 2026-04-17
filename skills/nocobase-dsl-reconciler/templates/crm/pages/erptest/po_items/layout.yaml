@@ -14,9 +14,9 @@ blocks:
     coll: nb_erp_po_items
     fields:
       - field: product
-        popup: templates/popup/popup_detail_nb_erp_products.yaml
+        clickToOpen: true
       - field: purchase_order
-        popup: templates/popup/popup_detail_nb_erp_purchase_orders.yaml
+        clickToOpen: true
       - quantity
       - unit_price
     recordActions:

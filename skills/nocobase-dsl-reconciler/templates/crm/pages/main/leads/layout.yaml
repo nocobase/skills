@@ -29,7 +29,7 @@ blocks:
       status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
-        popup: templates/popup/leads_view.yaml
+        clickToOpen: true
       - field: source
         width: 100
       - field: status
@@ -72,9 +72,9 @@ blocks:
       - export
       - import
       - addNew
-      - ai:
-          employee: viz
-          tasks: ./ai/leads_table_tasks.yaml
+      - type: ai
+        employee: viz
+        tasks_file: ./ai/leads_table_tasks.yaml
 layout:
   - - filterForm
   - - table

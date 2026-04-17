@@ -24,7 +24,7 @@ blocks:
     coll: nb_hrm_payroll
     fields:
       - field: payroll_code
-        popup: true
+        clickToOpen: true
       - employee
       - pay_period
       - base_salary

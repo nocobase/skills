@@ -33,9 +33,9 @@ content:
             - filter
             - refresh
             - addNew
-            - ai:
-                employee: ellis
-                tasks: ./ai/contacts_view_in_page_tab1_mailMessages_tasks.yaml
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/contacts_view_in_page_tab1_mailMessages_tasks.yaml
       layout:
         - - mailMessages
     - title: Tab2
