@@ -62,7 +62,7 @@ Copy JS files from a page's `pages/<group>/<page>/js/` directory in the CRM temp
 | defaults.yaml | `templates/crm/defaults.yaml` |
 | KPI / chart JS | `templates/crm/pages/main/analytics/js/analytics_jsBlock*.js` |
 | Filter stats JS | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js` |
-| Seed data script | `templates/seed.sh` |
+| Seed data command | `npx tsx cli/cli.ts seed /tmp/myapp` |
 | Field type reference | "Field Type Reference" section below |
 
 ## File Structure
