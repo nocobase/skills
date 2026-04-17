@@ -771,7 +771,7 @@ export async function convertPopupToTemplate(
  * A popup template's grid lives 3-4 levels deep (field → ChildPage → tab → grid → items),
  * so a single fetch misses all the grids. We must fetch each intermediate node.
  */
-async function fixGridLayoutUids(
+export async function fixGridLayoutUids(
   nb: NocoBaseClient,
   rootUid: string,
   log: (msg: string) => void,
@@ -780,46 +780,68 @@ async function fixGridLayoutUids(
   const gridNodes: { uid: string; rows: Record<string, string[][]>; sizes?: Record<string, number[]>; items: string[] }[] = [];
   const visited = new Set<string>();
 
-  // Fetch direct children via flowModels:list?filter[parentId] — reliable across model types
-  // where flowSurfaces:get returns only partial subModels.
-  async function listChildren(parentUid: string): Promise<any[]> {
-    try {
-      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, {
-        params: { 'filter[parentId]': parentUid, paginate: 'false', pageSize: 200 },
-      });
-      return (resp.data?.data || []) as any[];
-    } catch { return []; }
-  }
+  // flowSurfaces:get supports different query params per model type:
+  //   uid=<x>              — single node (subModels usually shallow or null)
+  //   pageSchemaUid=<x>    — ChildPage under a field + direct subModels.tabs
+  //   tabSchemaUid=<x>     — Tab + its BlockGridModel (grid) + grid.subModels.items
+  // We combine these to reach grids that are 3-4 levels below the template's target UID.
 
-  // Walk the tree starting at uid, fetching each node + its children explicitly.
-  async function walk(uid: string): Promise<void> {
-    if (!uid || visited.has(uid)) return;
-    visited.add(uid);
-    let node: any;
-    try {
-      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: uid } });
-      node = resp.data?.data;
-    } catch { return; }
+  function collectFromNode(node: any): void {
     if (!node) return;
     allUids.add(node.uid);
-
-    // Fetch direct children via list (flowSurfaces:get doesn't always recurse deep enough)
-    const children = await listChildren(node.uid);
-    for (const c of children) if (c?.uid) allUids.add(c.uid);
-
     const gs = node.stepParams?.gridSettings?.grid;
     if (gs?.rows && typeof gs.rows === 'object') {
-      // Grid's items (blocks) are among the direct children, identified by subKey='items'
-      const itemUids = children.filter(c => c.subKey === 'items').map(c => c.uid as string);
+      const items = node.subModels?.items;
+      const itemUids = (Array.isArray(items) ? items : []).map((i: any) => i.uid).filter(Boolean) as string[];
+      for (const u of itemUids) allUids.add(u);
       gridNodes.push({ uid: node.uid, rows: gs.rows, sizes: gs.sizes, items: itemUids });
     }
+    // Also record direct children's UIDs so the orphan check sees them
+    const subs = node.subModels;
+    if (subs && typeof subs === 'object') {
+      for (const v of Object.values(subs)) {
+        if (Array.isArray(v)) { for (const c of v) if (c?.uid) allUids.add(c.uid); }
+        else if (v && typeof v === 'object' && (v as any).uid) allUids.add((v as any).uid);
+      }
+    }
+  }
 
-    // Recurse into all children
-    for (const c of children) await walk(c.uid as string);
+  async function fetchBy(params: Record<string, string>): Promise<any> {
+    try {
+      const data = await nb.get(params);
+      return data?.tree;
+    } catch { return null; }
+  }
 
-    // Also follow popup openView uid (field → popup content root) when it points elsewhere
-    const openUid = node.stepParams?.popupSettings?.openView?.uid;
-    if (openUid && openUid !== node.uid) await walk(openUid);
+  async function walk(uid: string, asPage = false): Promise<void> {
+    if (!uid || visited.has(uid)) return;
+    visited.add(uid);
+    // Fetch the node directly first (to read its stepParams / openView)
+    const self = await fetchBy({ uid });
+    if (self) collectFromNode(self);
+    // For template targets (field models), fetch the popup page + its tabs
+    const page = await fetchBy(asPage ? { pageSchemaUid: uid } : { pageSchemaUid: uid });
+    if (page) {
+      collectFromNode(page);
+      const tabs = Array.isArray(page.subModels?.tabs) ? page.subModels.tabs : [];
+      for (const tab of tabs) {
+        if (!tab?.uid || visited.has(tab.uid)) continue;
+        visited.add(tab.uid);
+        // tabSchemaUid gives tab + BlockGridModel in subModels.grid + grid.subModels.items
+        const fullTab = await fetchBy({ tabSchemaUid: tab.uid });
+        const tabNode = fullTab || tab;
+        collectFromNode(tabNode);
+        const grid = tabNode.subModels?.grid;
+        if (grid) {
+          // Fetch grid directly so subModels.items is populated reliably
+          const fullGrid = await fetchBy({ uid: grid.uid });
+          collectFromNode(fullGrid || grid);
+        }
+      }
+    }
+    // Follow openView.uid when it points somewhere else (rare — usually self-ref)
+    const openUid = self?.stepParams?.popupSettings?.openView?.uid;
+    if (openUid && openUid !== uid) await walk(openUid);
   }
   await walk(rootUid);
 
