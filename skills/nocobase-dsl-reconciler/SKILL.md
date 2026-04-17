@@ -47,7 +47,7 @@ Edit popup/block templates → `deploy --force`
 
 ### Round 4: JS + Charts (optional)
 
-Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
+Copy JS files from a page's `pages/<group>/<page>/js/` directory in the CRM template and modify — do not write from scratch.
 
 ## Reference Files
 
@@ -60,8 +60,8 @@ Copy JS files from `templates/crm/js/` and modify — do not write from scratch.
 | Popup template syntax | `templates/crm/templates/popup/*.yaml` |
 | routes.yaml | `templates/crm/routes.yaml` |
 | defaults.yaml | `templates/crm/defaults.yaml` |
-| KPI / chart JS | `templates/crm/js/analytics_jsBlock_*.js` |
-| Filter stats JS | `templates/crm/js/customers_filterForm_*.js` |
+| KPI / chart JS | `templates/crm/pages/main/analytics/js/analytics_jsBlock*.js` |
+| Filter stats JS | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js` |
 | Seed data script | `templates/seed.sh` |
 | Field type reference | "Field Type Reference" section below |
 
@@ -151,7 +151,7 @@ Quick reference for common types used in collection YAML:
 5. **layout must be declared** — required when there is more than 1 block
 6. **actions are auto-populated** — no need to write actions/recordActions
 7. **routes title = directory name** — title lowercased must match pages subdirectory name
-8. **JS: copy from templates** — copy from `templates/crm/js/` and modify
+8. **JS: copy from templates** — copy from a page's `pages/<group>/<page>/js/` directory in the CRM template and modify
 9. **SQL: two-step pattern** — `ctx.sql.save({uid, sql}) + ctx.sql.runById(uid)`
 10. **Parent tables first** — seed data: insert tables without foreign keys first
 11. **Do NOT define system columns** — never include `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `id` in collection YAML (auto-created by NocoBase)
