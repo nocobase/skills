@@ -117,12 +117,8 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         issues.push({ level: 'error', page: page.title, block: key, message: `table "${key}" has no clickToOpen field — add "clickToOpen: true" to field "${titleField}" (opens ${blockColl} detail)` });
       }
 
-      // recordActions should have view + edit
-      const recActs = tb.recordActions || [];
-      const recTypes = recActs.map(a => typeof a === 'string' ? a : (a as Record<string, unknown>).type as string);
-      if (!recTypes.includes('view') && !recTypes.includes('edit')) {
-        issues.push({ level: 'warn', page: page.title, block: key, message: `table "${key}" has no view/edit recordActions — add recordActions: [view, edit]` });
-      }
+      // recordActions are opt-in — no warning for tables without them
+      // (dashboard tables intentionally have no row-level actions)
     }
 
     // ── Dashboard validation ──
