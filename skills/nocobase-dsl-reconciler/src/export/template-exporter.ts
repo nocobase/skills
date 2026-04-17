@@ -49,20 +49,27 @@ export async function exportAllTemplates(
     return;
   }
 
-  // Dedupe by (type, name, collectionName). The live DB can hold multiple
-  // duplicates from prior copy-mode deploys; we keep the highest-usage one
-  // and let the rollback / manual cleanup remove the rest.
-  const bestByKey = new Map<string, TemplateRecord>();
-  for (const t of allTemplates) {
-    const key = `${t.type}|${t.name}|${t.collectionName || ''}`;
-    const cur = bestByKey.get(key);
-    if (!cur || (t.usageCount || 0) > (cur.usageCount || 0)) {
-      bestByKey.set(key, t);
-    }
+  // No name-based dedupe — each template has a unique uid and is a real
+  // entity (NB allows multiple templates with the same name). Two templates
+  // with the same name + collection may both have active usages pointing at
+  // them, and merging would silently change what users see. We export every
+  // template; collisions on slugified-name get a uid-suffix in the filename.
+  const templates = allTemplates;
+
+  // Pre-compute filenames, disambiguating on slug collisions across same type.
+  const slugCount = new Map<string, number>();  // key = type|slug → count
+  const fileNames = new Map<string, string>();  // tpl.uid → final basename
+  for (const t of templates) {
+    const baseSlug = slugify(t.name || t.uid);
+    const k = `${t.type}|${baseSlug}`;
+    const n = slugCount.get(k) || 0;
+    slugCount.set(k, n + 1);
+    // First occurrence keeps the bare slug; later ones get __<uidPrefix>
+    fileNames.set(t.uid, n === 0 ? baseSlug : `${baseSlug}__${t.uid.slice(0, 6)}`);
   }
-  const templates = Array.from(bestByKey.values());
-  if (templates.length < allTemplates.length) {
-    console.log(`  templates: ${allTemplates.length} live, ${templates.length} unique (skipped ${allTemplates.length - templates.length} duplicates)`);
+  const collisions = Array.from(slugCount.entries()).filter(([, n]) => n > 1);
+  if (collisions.length) {
+    console.log(`  templates: ${templates.length} (${collisions.length} name collisions disambiguated by uid suffix)`);
   }
 
   // Create directories
@@ -74,7 +81,7 @@ export async function exportAllTemplates(
   const index: Record<string, unknown>[] = [];
 
   for (const tpl of templates) {
-    const tplSlug = slugify(tpl.name || tpl.uid);
+    const tplSlug = fileNames.get(tpl.uid)!;
     const typeDir = tpl.type === 'popup' ? popupDir : blockDir;
     const jsDir = path.join(typeDir, tplSlug, 'js');
 
