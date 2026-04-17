@@ -2,44 +2,44 @@
   type: group
   icon: dashboardoutlined
   children:
-  - title: Overview
-    icon: calendaroutlined
-  - title: Leads
-    icon: useraddoutlined
-  - title: Customers
-    icon: teamoutlined
-  - title: Opportunities
-    icon: fundoutlined
-  - title: Orders
-    icon: shoppingcartoutlined
-  - title: Products
-    icon: appstoreoutlined
-  - title: Analytics
-    icon: areachartoutlined
-  - title: More Charts
-    type: group
-    children:
-    - title: SalesManager
-      icon: useroutlined
-    - title: SalesRep
-      icon: solutionoutlined
-    - title: Executive
-      icon: crownoutlined
+    - title: Overview
+      icon: calendaroutlined
+    - title: Leads
+      icon: useraddoutlined
+    - title: Customers
+      icon: teamoutlined
+    - title: Opportunities
+      icon: fundoutlined
+    - title: Orders
+      icon: shoppingcartoutlined
+    - title: Products
+      icon: appstoreoutlined
+    - title: Analytics
+      icon: areachartoutlined
+    - title: More Charts
+      type: group
+      children:
+        - title: SalesManager
+          icon: useroutlined
+        - title: SalesRep
+          icon: solutionoutlined
+        - title: Executive
+          icon: crownoutlined
 - title: Other
   type: group
   icon: appstoreaddoutlined
   children:
-  - title: Stage Settings
-    icon: apartmentoutlined
-  - title: Exchange Rate
-    icon: dollaroutlined
-  - title: Activity
-    icon: orderedlistoutlined
-  - title: Emails
-    icon: mailoutlined
-  - title: Contacts
-    icon: usergroupaddoutlined
-  - title: Data Analysis
-    icon: compassoutlined
+    - title: Stage Settings
+      icon: apartmentoutlined
+    - title: Exchange Rate
+      icon: dollaroutlined
+    - title: Activity
+      icon: orderedlistoutlined
+    - title: Emails
+      icon: mailoutlined
+    - title: Contacts
+      icon: usergroupaddoutlined
+    - title: Data Analysis
+      icon: compassoutlined
 - title: Lookup
   icon: monitoroutlined

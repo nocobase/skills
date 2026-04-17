@@ -639,8 +639,10 @@ export async function convertPopupToTemplate(
           }
         } catch { /* skip */ }
 
-        // Still check if blocks inside need converting to block templates
+        // Re-run grid UID fix (older deploys may have left orphan UIDs in rows).
+        // Also check if blocks inside need converting to block templates.
         if (existingTargetUid) {
+          await fixGridLayoutUids(nb, existingTargetUid, log);
           await convertPopupBlocksToTemplates(nb, existingTargetUid, collName, log, allowedBlockTemplateUids);
         }
         return { templateUid: existingTplUid, targetUid: existingTargetUid };
@@ -761,48 +763,65 @@ export async function convertPopupToTemplate(
  * Fix grid layout UIDs after tree duplication (saveTemplate/deepCopy).
  *
  * When NocoBase duplicates a tree (saveTemplate convert/duplicate), all nodes get new UIDs
- * but gridSettings.rows still references the OLD UIDs. This function scans the tree,
- * finds grid nodes with orphaned row UIDs, and remaps them to actual item UIDs by position.
+ * but gridSettings.rows still references the OLD UIDs. This function walks the tree
+ * (multi-level fetch via flowSurfaces:get per node) and remaps orphan row UIDs to actual
+ * item UIDs by position.
+ *
+ * Why multi-level fetch: flowSurfaces:get?uid=X returns only 1 shallow level of subModels.
+ * A popup template's grid lives 3-4 levels deep (field → ChildPage → tab → grid → items),
+ * so a single fetch misses all the grids. We must fetch each intermediate node.
  */
 async function fixGridLayoutUids(
   nb: NocoBaseClient,
   rootUid: string,
   log: (msg: string) => void,
 ): Promise<void> {
-  let tree: any;
-  try {
-    const data = await nb.get({ uid: rootUid });
-    tree = data.tree;
-  } catch { return; }
-  if (!tree) return;
-
-  // Collect all UIDs in the tree + find grid nodes
   const allUids = new Set<string>();
   const gridNodes: { uid: string; rows: Record<string, string[][]>; sizes?: Record<string, number[]>; items: string[] }[] = [];
+  const visited = new Set<string>();
 
-  function scan(node: any): void {
-    if (!node || typeof node !== 'object') return;
-    if (node.uid) allUids.add(node.uid);
+  // Fetch direct children via flowModels:list?filter[parentId] — reliable across model types
+  // where flowSurfaces:get returns only partial subModels.
+  async function listChildren(parentUid: string): Promise<any[]> {
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, {
+        params: { 'filter[parentId]': parentUid, paginate: 'false', pageSize: 200 },
+      });
+      return (resp.data?.data || []) as any[];
+    } catch { return []; }
+  }
 
-    // Check if this is a grid node with rows
+  // Walk the tree starting at uid, fetching each node + its children explicitly.
+  async function walk(uid: string): Promise<void> {
+    if (!uid || visited.has(uid)) return;
+    visited.add(uid);
+    let node: any;
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: uid } });
+      node = resp.data?.data;
+    } catch { return; }
+    if (!node) return;
+    allUids.add(node.uid);
+
+    // Fetch direct children via list (flowSurfaces:get doesn't always recurse deep enough)
+    const children = await listChildren(node.uid);
+    for (const c of children) if (c?.uid) allUids.add(c.uid);
+
     const gs = node.stepParams?.gridSettings?.grid;
     if (gs?.rows && typeof gs.rows === 'object') {
-      // Collect direct child item UIDs (in order)
-      const items = node.subModels?.items;
-      const itemUids = (Array.isArray(items) ? items : []).map((i: any) => i.uid).filter(Boolean) as string[];
+      // Grid's items (blocks) are among the direct children, identified by subKey='items'
+      const itemUids = children.filter(c => c.subKey === 'items').map(c => c.uid as string);
       gridNodes.push({ uid: node.uid, rows: gs.rows, sizes: gs.sizes, items: itemUids });
     }
 
-    // Recurse
-    const subs = node.subModels;
-    if (subs && typeof subs === 'object') {
-      for (const v of Object.values(subs)) {
-        if (Array.isArray(v)) { for (const item of v) scan(item); }
-        else if (v && typeof v === 'object') scan(v);
-      }
-    }
+    // Recurse into all children
+    for (const c of children) await walk(c.uid as string);
+
+    // Also follow popup openView uid (field → popup content root) when it points elsewhere
+    const openUid = node.stepParams?.popupSettings?.openView?.uid;
+    if (openUid && openUid !== node.uid) await walk(openUid);
   }
-  scan(tree);
+  await walk(rootUid);
 
   // For each grid: check if row UIDs are orphaned, remap by position
   for (const gn of gridNodes) {
@@ -818,11 +837,20 @@ async function fixGridLayoutUids(
     const orphaned = rowUids.filter(u => !allUids.has(u));
     if (!orphaned.length) continue;
 
-    // Build position-based mapping: old row UIDs → actual item UIDs (same order)
+    // Items already referenced by non-orphan rowUids (keep their slots)
+    const keptItems = new Set(rowUids.filter(u => allUids.has(u)));
+    // Items NOT yet referenced — candidates to fill orphan slots, in API return order
+    const unusedItems = gn.items.filter(u => !keptItems.has(u));
+
+    // Walk orphan positions in row order, assign next unused item each time
     const posMap = new Map<string, string>();
-    for (let i = 0; i < rowUids.length && i < gn.items.length; i++) {
-      if (!allUids.has(rowUids[i])) {
-        posMap.set(rowUids[i], gn.items[i]);
+    let u = 0;
+    for (const rowUid of rowUids) {
+      if (!allUids.has(rowUid) && u < unusedItems.length) {
+        if (!posMap.has(rowUid)) {
+          posMap.set(rowUid, unusedItems[u]);
+          u++;
+        }
       }
     }
 
