@@ -175,10 +175,13 @@ export async function fillBlock(
   await deployClickToOpen(ctx, bs, coll, fieldStates, mod, allBlocksState, popupContext, popupTargetFields);
 
   // ── Auto-bind m2o clickToOpen (all block types) ──
-  // TODO: bind popup templates once the popup template creation mechanism is fixed.
-  // For now, just enable clickToOpen on m2o fields → default details popup.
+  // Non-m2o fields that already have a dedicated popup file (popups/{field}.yaml)
+  // must not be auto-bound to a pre-existing template here — the popup file
+  // itself is the source of truth and deployPopup will compose it inline,
+  // which convertPopupToTemplate later promotes to a per-copy template. Binding
+  // them to a borrowed cross-group template lets that template's drift leak in.
   if (coll) {
-    await enableM2oClickToOpen(nb, blockUid, coll, modDir, log);
+    await enableM2oClickToOpen(nb, blockUid, coll, modDir, log, popupTargetFields);
   }
 
   // ── FilterForm custom fields ──
@@ -229,8 +232,13 @@ export async function fillBlock(
     const jsPath = path.join(mod, bs.file);
     if (fs.existsSync(jsPath)) {
       let code = fs.readFileSync(jsPath, 'utf8');
-      // Validate JS code
-      const unfilled = code.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
+      // Validate JS code — strip strings before checking for {{var}} patterns
+      // so we don't false-positive on i18n calls like t('{{count}}m ago', ...).
+      const codeNoStrings = code
+        .replace(/`(?:\\.|[^`\\])*`/g, '""')
+        .replace(/'(?:\\.|[^'\\])*'/g, '""')
+        .replace(/"(?:\\.|[^"\\])*"/g, '""');
+      const unfilled = codeNoStrings.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
       if (unfilled?.length) {
         log(`      ✗ JS ${bs.file}: unfilled template params: ${unfilled.join(', ')}`);
       } else if (/ctx\.render\s*\(\s*null\s*\)/.test(code)) {
@@ -439,6 +447,7 @@ export async function enableM2oClickToOpen(
   coll: string,
   modDir: string,
   log: (msg: string) => void,
+  popupTargetFields?: Set<string>,
 ): Promise<void> {
   const cache = m2oCache();
 
@@ -552,6 +561,21 @@ export async function enableM2oClickToOpen(
     if (!targetColl) {
       const hasClickToOpen = fm.stepParams?.displayFieldSettings?.clickToOpen?.clickToOpen;
       if (!hasClickToOpen) continue;
+      // Skip binding if a dedicated popup file already owns this field —
+      // deployPopup will compose its content inline and convertPopupToTemplate
+      // will promote it to a fresh per-deploy template. Auto-binding here
+      // would slot the field into a cross-group template instead.
+      if (popupTargetFields?.has(fm.fieldPath)) continue;
+      // Refetch live state — flowSurfaces:get may have returned a stale tree
+      // missing the popupTemplateUid that click-to-open just wrote. Without
+      // this re-check, auto-binding overrides the DSL-declared template
+      // (e.g. `clickToOpen: templates/popup/leads_view.yaml` would be replaced
+      // by whatever live popup template the API listed first for this coll).
+      try {
+        const liveResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
+        const liveTplUid = liveResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid;
+        if (liveTplUid) continue;
+      } catch { /* fall through if get fails */ }
     }
 
     // Fallback for m2o without a popup template: deploy default details inline

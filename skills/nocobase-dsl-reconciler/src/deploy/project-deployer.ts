@@ -194,6 +194,22 @@ export async function deployProject(
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
 
+  // In copy mode, state.yaml comes from the SOURCE module's export — its UIDs
+  // refer to the original blocks/fields, not the copy. Resolving popup refs
+  // against those UIDs causes 400s ("flowModels:get <stale-uid> → 200" with
+  // empty body) because we'd be POSTing to non-existent UIDs. Wipe all
+  // identity state so the deploy creates fresh routes/groups/pages/popups.
+  // Keep template_uids — those are tracked separately and survive copies.
+  if (opts.copyMode) {
+    state.pages = {};
+    state.group_id = undefined;
+    state.group_ids = {};
+    // Sub-group keys are dynamic: `_subgroup_<slug>` — strip them too.
+    for (const k of Object.keys(state)) {
+      if (k.startsWith('_subgroup_')) delete (state as Record<string, unknown>)[k];
+    }
+  }
+
   // Collections (skip if deploying single page — safety)
   if (!opts.page) {
     await ensureAllCollections(nb, collDefs, log);
@@ -302,10 +318,22 @@ export async function deployProject(
 
   // Convert all inline popups to popup templates (one by one)
   {
+    // Per-page block→coll map: popup target's collection often differs from
+    // the page's primary collection (e.g. overview's today_s_tasks block is
+    // nb_crm_activities while overview's primary is nb_crm_leads). Without
+    // per-block resolution every popup on the page would be tagged as the
+    // page's coll → cross-collection template contamination.
+    const pageBlockColls = new Map<string, Map<string, string>>();
     const pageCollMap = new Map<string, string>();
     for (const pi of pages) {
       const blocks = (pi.layout as any)?.blocks || [];
-      const firstColl = blocks.find((b: any) => b.coll)?.coll || '';
+      const blockMap = new Map<string, string>();
+      let firstColl = '';
+      for (const b of blocks) {
+        if (b?.key && b?.coll) blockMap.set(b.key, b.coll);
+        if (b?.coll && !firstColl) firstColl = b.coll;
+      }
+      pageBlockColls.set(pi.slug, blockMap);
       if (firstColl) pageCollMap.set(pi.slug, firstColl);
     }
 
@@ -318,6 +346,7 @@ export async function deployProject(
 
     for (const [pageKey, ps] of Object.entries(state.pages)) {
       const pageColl = pageCollMap.get(pageKey) || '';
+      const blockColls = pageBlockColls.get(pageKey) || new Map<string, string>();
       if (!pageColl) continue;
       const popups = ((ps as Record<string, unknown>).popups || {}) as Record<string, Record<string, unknown>>;
       for (const [popupKey, popupState] of Object.entries(popups)) {
@@ -328,15 +357,18 @@ export async function deployProject(
           : popupKey.includes('.recordActions.edit') ? 'Edit'
           : popupKey.includes('.fields.') ? 'Detail' : null;
         if (!popupType) continue;
-        const collTitle = pageColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        // Resolve THIS popup's collection from the source block, not the page.
+        const blockName = popupKey.split('.')[0];
+        const popupColl = blockColls.get(blockName) || pageColl;
+        const collTitle = popupColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         const tplName = `Popup (${popupType}): ${collTitle}`;
         const stateKey = `popup:${tplName}`;
         const savedPopupUid = state.template_uids?.[stateKey]?.uid;
         try {
-          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, pageColl, log, opts.copyMode || false, savedPopupUid, allowedBlockTemplateUids);
+          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, popupColl, log, opts.copyMode || false, savedPopupUid, allowedBlockTemplateUids);
           if (tplResult) {
             if (!state.template_uids) state.template_uids = {};
-            state.template_uids[stateKey] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: pageColl };
+            state.template_uids[stateKey] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: popupColl };
           }
         } catch { /* skip */ }
       }
@@ -403,6 +435,19 @@ export async function deployProject(
   } else {
     delete (state as any)._last_deploy_created_templates;
   }
+
+  // Cumulative tracking — every template UID this tool has ever created in
+  // this project, across all deploys. cleanupSupersededTemplates uses this
+  // to identify templates safe to delete (ours from prior runs that the
+  // current deploy no longer references). Keep it bounded to the union of
+  // (existing list) ∪ (this run's creations); never includes user-created
+  // templates because we don't track those.
+  const allCreated = new Set(((state as any)._all_created_templates as string[]) || []);
+  for (const u of createdUids) allCreated.add(u);
+  for (const v of Object.values(state.template_uids || {})) {
+    if (v?.uid) allCreated.add(v.uid);
+  }
+  (state as any)._all_created_templates = Array.from(allCreated);
   saveYaml(stateFile, state);
 
   // Auto-clean stale flowModelTemplateUsages rows. This is the NocoBase bug

@@ -7,6 +7,7 @@
 export type BlockType =
   | 'table' | 'filterForm' | 'createForm' | 'editForm' | 'details'
   | 'list' | 'gridCard' | 'jsBlock' | 'chart' | 'markdown' | 'iframe'
+  | 'map' | 'actionPanel'
   | 'comments' | 'recordHistory' | 'mailMessages' | 'reference';
 
 export type ActionType =

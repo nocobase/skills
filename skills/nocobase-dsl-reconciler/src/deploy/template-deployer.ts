@@ -26,6 +26,7 @@ import type { NocoBaseClient } from '../client';
 import type { DeployContext } from './deploy-context';
 import { loadYaml } from '../utils/yaml';
 import { generateUid } from '../utils/uid';
+import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 import { toComposeBlock } from './block-composer';
 
 interface TemplateIndex {
@@ -47,13 +48,34 @@ const _createdThisRun = new Set<string>();
 // creates the template; subsequent calls find it here and reuse → no more
 // duplicate "Form (Edit): Customers > Contacts" × N per deploy.
 const _popupTplCacheThisRun = new Map<string, { templateUid: string; targetUid: string }>();
+// Per-run block template cache keyed by (useModel|collection). Tracks block
+// templates created inside popups via convertPopupBlocksToTemplates so later
+// popup conversions in the same deploy can point to the same template
+// instead of recursively duplicating (template explosion through nested refs).
+const _blockTplCacheThisRun = new Map<string, { uid: string; targetUid: string; name: string }>();
 export function resetTemplateCreationTracking(): void {
   _createdThisRun.clear();
   _popupTplCacheThisRun.clear();
+  _blockTplCacheThisRun.clear();
 }
 export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
 export function listCreatedThisRun(): string[] { return Array.from(_createdThisRun); }
+export function cacheBlockTemplate(useModel: string, coll: string, info: { uid: string; targetUid: string; name: string }): void {
+  _blockTplCacheThisRun.set(`${useModel}|${coll}`, info);
+}
+export function lookupBlockTemplateCache(useModel: string, coll: string): { uid: string; targetUid: string; name: string } | undefined {
+  return _blockTplCacheThisRun.get(`${useModel}|${coll}`);
+}
 function cachePopupKey(name: string, coll: string): string { return `${name}|${coll}`; }
+function inferBlockUseModel(blockType: string): string {
+  switch (blockType) {
+    case 'createForm': return 'CreateFormModel';
+    case 'editForm': return 'EditFormModel';
+    case 'details': return 'DetailsBlockModel';
+    case 'table': return 'TableBlockModel';
+    default: return '';
+  }
+}
 
 /** Delete the given template UIDs from NocoBase. Used by `rollback` CLI. */
 export async function deleteTemplatesByUid(
@@ -400,32 +422,41 @@ export async function deployTemplates(
   const tplDir = path.join(projectDir, 'templates');
   if (!fs.existsSync(tplDir)) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
 
-  // Build index: prefer _index.yaml, then auto-discover YAML files
-  let index: TemplateIndex[];
-  const indexFile = path.join(tplDir, '_index.yaml');
-  if (fs.existsSync(indexFile)) {
-    index = loadYaml<TemplateIndex[]>(indexFile) || [];
-  } else {
-    index = discoverTemplates(tplDir);
-  }
+  // Build index by scanning the individual template YAML files.
+  //
+  // We intentionally ignore templates/_index.yaml even when it exists: that file
+  // is a historical export-side convenience that often contains stale UID
+  // duplicates (multiple entries pointing at the same file with different uids).
+  // Each individual YAML is the authoritative source of its own uid — using the
+  // index would mask that, leading to "template does not exist" when popup DSL
+  // references the file's uid while deploy creates the template with the
+  // index's (different) uid.
+  let index: TemplateIndex[] = discoverTemplates(tplDir);
   if (!index.length) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
 
-  // Dedupe _index entries by (type, name, collection). _index.yaml may contain
-  // multiple UIDs for the same template name when the live DB has duplicates
-  // from prior deploys — without dedup, copy mode would create a fresh template
-  // for each duplicate (explosion). Keep the FIRST occurrence of each key.
-  {
-    const seen = new Set<string>();
-    const deduped: TemplateIndex[] = [];
-    let dups = 0;
-    for (const t of index) {
-      const key = `${t.type}|${t.name}|${t.collection || ''}`;
-      if (seen.has(key)) { dups++; continue; }
-      seen.add(key);
-      deduped.push(t);
+  // Filter out templates whose collection isn't part of THIS project. The
+  // export step pulls every flowModelTemplate from the live system, so
+  // templates from unrelated modules (HD, ITAM, etc.) end up in templates/
+  // and would 400 here ("field 'nb_hd_xxx.foo' not found"). The project's
+  // own collections live in <projectDir>/collections/<coll>.yaml, plus a few
+  // built-in NocoBase collections (mailMessages, users) we always allow.
+  const colsDir = path.join(projectDir, 'collections');
+  const projectColls = new Set<string>(['mailMessages', 'users']);
+  if (fs.existsSync(colsDir)) {
+    for (const f of fs.readdirSync(colsDir)) {
+      if (f.endsWith('.yaml')) projectColls.add(f.replace(/\.yaml$/, ''));
     }
-    if (dups) log(`  templates: skipped ${dups} duplicate _index entries`);
-    index = deduped;
+  }
+  if (projectColls.size > 2) {
+    const before = index.length;
+    index = index.filter(t => {
+      const tplFile = path.join(tplDir, t.file);
+      if (!fs.existsSync(tplFile)) return true;
+      const spec = loadYaml<Record<string, unknown>>(tplFile);
+      const c = (t.collection || spec.collectionName) as string || '';
+      return !c || projectColls.has(c);
+    });
+    if (before !== index.length) log(`  skipped ${before - index.length} templates outside project collections`);
   }
 
   log('\n  -- Templates --');
@@ -475,10 +506,14 @@ export async function deployTemplates(
     const stateKey = `${tpl.type}:${tpl.name}`;
     const savedEntry = savedTemplateUids?.[stateKey];
     if (savedEntry?.uid) {
-      // Verify the saved UID still exists in NocoBase
+      // Verify the saved UID still exists in NocoBase AND matches the expected
+      // collection. Without the collection check a stale state.yaml entry could
+      // point at a cross-collection template (e.g. Leads state referencing an
+      // Activity template) and we'd happily reuse the wrong one.
       try {
         const check = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: savedEntry.uid } });
-        if (check.data?.data) {
+        const foundColl = (check.data?.data?.collectionName || '') as string;
+        if (check.data?.data && (!collName || !foundColl || foundColl === collName)) {
           uidMap.set(tpl.uid, savedEntry.uid);
           if (tpl.targetUid && savedEntry.targetUid) uidMap.set(tpl.targetUid, savedEntry.targetUid);
           // Sync content
@@ -487,6 +522,12 @@ export async function deployTemplates(
             try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `); } catch { /* skip */ }
           }
           deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
+          if (tpl.type === 'block') {
+            const useModel = inferBlockUseModel((tplContent?.type as string) || '');
+            if (useModel && collName) {
+              cacheBlockTemplate(useModel, collName, { uid: savedEntry.uid, targetUid: savedEntry.targetUid, name: tpl.name });
+            }
+          }
           reused++;
           continue;
         }
@@ -496,7 +537,13 @@ export async function deployTemplates(
     // Priority 2: Match by name + collection (fallback)
     // In copy mode: skip reuse — always create independent templates
     const matchKey = makeMatchKey(tpl.name, collName);
-    const existingEntry = copyMode ? undefined : (existingByKey.get(matchKey) || existingByName.get(tpl.name));
+    // Use the strict (name+collection) match first; only fall back to name-only
+    // when the name-only hit ALSO belongs to the right collection (prevents
+    // cross-collection pollution when multiple templates share the same name).
+    const nameFallback = existingByName.get(tpl.name);
+    const nameFallbackSafe = nameFallback && (!collName || !nameFallback.collectionName || nameFallback.collectionName === collName)
+      ? nameFallback : undefined;
+    const existingEntry = copyMode ? undefined : (existingByKey.get(matchKey) || nameFallbackSafe);
     if (existingEntry) {
       uidMap.set(tpl.uid, existingEntry.uid);
       if (tpl.targetUid && existingEntry.targetUid) {
@@ -528,6 +575,12 @@ export async function deployTemplates(
         }
       }
       deployedTemplates[stateKey] = { uid: existingEntry.uid, targetUid: existingEntry.targetUid, type: tpl.type, collection: collName };
+      if (tpl.type === 'block') {
+        const useModel = inferBlockUseModel((tplContent?.type as string) || '');
+        if (useModel && collName) {
+          cacheBlockTemplate(useModel, collName, { uid: existingEntry.uid, targetUid: existingEntry.targetUid, name: tpl.name });
+        }
+      }
       reused++;
       continue;
     }
@@ -561,7 +614,9 @@ export async function deployTemplates(
       let result: { templateUid: string; targetUid: string } | undefined;
 
       if (tpl.type === 'block') {
-        result = await createBlockTemplate(nb, tpl.name, content, collName, tplSpec, tplDir, log);
+        // Pass the DSL-declared uid so saveTemplate creates the template with
+        // that exact UID — DSL references stay valid without post-deploy rewrite.
+        result = await createBlockTemplate(nb, tpl.name, content, collName, tplSpec, tplDir, log, tpl.uid);
       } else if (tpl.type === 'popup') {
         // Popup templates are created AFTER page deployment:
         // 1. Sugar expansion inlines the popup content into the first referencing field
@@ -586,10 +641,32 @@ export async function deployTemplates(
         uidMap.set(tpl.targetUid, result.targetUid);
       }
       deployedTemplates[stateKey] = { uid: result.templateUid, targetUid: result.targetUid, type: tpl.type, collection: collName };
+      // Apply block-level extras (fieldLinkageRules / fieldValueRules / event_flows)
+      // that compose doesn't carry. Mirrors the syncTemplateContent path so rules
+      // show up on the first deploy, not just on redeploys.
+      if (tpl.type === 'block' && tplSpec.content && result.targetUid) {
+        try {
+          await applyTemplateExtras(nb, result.targetUid, tplSpec.content as Record<string, unknown>, log, '      ');
+        } catch (e) { log(`      ! template extras: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+      }
+      // Seed per-run block template cache so later popup conversions reuse
+      // this template instead of creating yet another copy for the same
+      // (useModel, collection) pair.
+      if (tpl.type === 'block' && tplSpec.content && typeof tplSpec.content === 'object') {
+        const useModel = inferBlockUseModel((tplSpec.content as Record<string, unknown>).type as string);
+        if (useModel && collName) {
+          cacheBlockTemplate(useModel, collName, { uid: result.templateUid, targetUid: result.targetUid, name: tpl.name });
+        }
+      }
       log(`  + template "${tpl.name}" (${tpl.type}) → ${result.templateUid}`);
       created++;
-    } catch (e) {
-      log(`  ! template ${tpl.name}: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+    } catch (e: any) {
+      // Extract the actual NocoBase error message for visibility — generic
+      // "Request failed with status code 400" doesn't help debug anything.
+      const nbMsg = e?.response?.data?.errors?.[0]?.message
+        || e?.response?.data?.message
+        || (e instanceof Error ? e.message : String(e));
+      log(`  ! template ${tpl.name}: ${String(nbMsg).slice(0, 200)}`);
       skipped++;
     }
   }
@@ -634,6 +711,7 @@ async function createBlockTemplate(
   tplSpec: Record<string, unknown>,
   tplDir: string,
   log: (msg: string) => void,
+  declaredUid?: string,  // DSL-declared template UID — honored by NocoBase's saveTemplate
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
   // Strip resource_binding for template compose — temp page has no record context.
   // The binding will be set when the template is actually used in a popup.
@@ -680,7 +758,24 @@ async function createBlockTemplate(
       }
     }
 
-    // 3. Save as template via flowSurfaces:saveTemplate
+    // 3. If the DSL declares a stable uid AND an existing template at that uid
+    // matches our (collection), reuse it instead of creating another. NB's
+    // saveTemplate API rejects a root-level `uid` field (see service-utils.ts
+    // hasLegacyLocatorFields with allowRootUid:true), so we can't force the
+    // server to pick our uid — we can only opt into reuse when the row happens
+    // to exist at that uid already. All other cases get a server-generated
+    // uid and rely on rewriteTemplateUids to remap DSL references.
+    if (declaredUid) {
+      try {
+        const existing = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: declaredUid } });
+        const row = existing.data?.data;
+        if (row?.collectionName === collName) {
+          log(`    = template: ${name} (reused by declared uid: ${declaredUid.slice(0, 8)})`);
+          return { templateUid: declaredUid, targetUid: row.targetUid as string };
+        }
+      } catch { /* not found — will create with server-generated uid */ }
+    }
+
     const saveResult = await nb.surfaces.saveTemplate({
       target: { uid: blockUid },
       name,
@@ -792,9 +887,85 @@ export async function convertPopupToTemplate(
     const hostResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: hostUid } });
     const existingTplUid = hostResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid as string | undefined;
     if (existingTplUid && typeof existingTplUid === 'string' && existingTplUid.length > 5) {
-      // Verify the template still exists
+      // Copy mode wants isolated, per-group templates. enableM2oClickToOpen often
+      // binds a newly created host field to a pre-existing popup template from a
+      // different group (e.g. CRM's original Leads View) just because it's the
+      // only live match by collection. Reusing that shared template means the
+      // CRM Copy's popup structure drifts with whatever the shared template
+      // happened to contain (often out of sync with DSL, sometimes empty).
+      //
+      // In copy mode: clear the borrowed binding ONLY if the template is
+      // borrowed (different collection or empty target). If the binding points
+      // to a template with matching collection AND non-empty content, the
+      // binding came from DSL `clickToOpen: templates/popup/X.yaml` resolved
+      // by page-discovery — keep it; clearing would lose the DSL-declared
+      // template and create a fresh empty one.
+      if (copyMode) {
+        let keepBinding = false;
+        try {
+          const tplResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: existingTplUid } });
+          const tplData = tplResp.data?.data;
+          const tplColl = String(tplData?.collectionName || '');
+          if (tplColl === collName && tplData?.targetUid) {
+            const tgtResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:findOne`, { params: { uid: tplData.targetUid, includeAsyncNode: true } });
+            const tgt = tgtResp.data?.data;
+            const page = (tgt?.subModels as Record<string, unknown>)?.page as Record<string, unknown> | undefined;
+            const subs = (page?.subModels as Record<string, unknown>) || {};
+            const tabs = subs.tabs;
+            const tabArr = Array.isArray(tabs) ? tabs : tabs ? [tabs] : [];
+            if (tabArr.length > 0) keepBinding = true;
+          }
+        } catch { /* fall through to clear */ }
+        if (keepBinding) {
+          log(`    = popup template: ${name} (DSL-declared, keep binding: ${existingTplUid.slice(0, 8)})`);
+          return { templateUid: existingTplUid, targetUid: hostResp.data?.data?.stepParams?.popupSettings?.openView?.uid as string || '' };
+        }
+        const ov = hostResp.data.data.stepParams.popupSettings.openView;
+        delete ov.popupTemplateUid;
+        delete ov.popupTemplateMode;
+        delete ov.popupTemplateHasFilterByTk;
+        delete ov.popupTemplateHasSourceId;
+        delete ov.uid;
+        ov.collectionName = collName;
+        const d = hostResp.data.data;
+        await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+          uid: hostUid, use: d.use, parentId: d.parentId,
+          subKey: d.subKey, subType: d.subType,
+          sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
+          stepParams: d.stepParams,
+        });
+        log(`    ~ cleared borrowed popupTemplateUid for ${name} (copy mode — will create own)`);
+      } else {
+      // Non-copy mode: verify the template still exists AND matches the expected
+      // collection. Without the collection check, a field whose host had a stale
+      // popupTemplateUid from a prior mis-wired deploy (e.g. Leads.name pointing
+      // at Activity View) would happily reuse that wrong template.
       try {
         const existingTpl = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: existingTplUid } });
+        const existingTplColl = (existingTpl.data?.data?.collectionName || '') as string;
+        if (existingTplColl && existingTplColl !== collName) {
+          // Mismatch — clear the stale reference AND the stale openView.uid so
+          // NocoBase's inferSaveTemplateTarget doesn't resolve the wrong-
+          // collection popup profile from the stale target. We also pin
+          // collectionName explicitly to what we expect, so saveTemplate uses
+          // it directly (openView.collectionName is the first signal it reads).
+          const ov = hostResp.data.data.stepParams.popupSettings.openView;
+          delete ov.popupTemplateUid;
+          delete ov.popupTemplateMode;
+          delete ov.popupTemplateHasFilterByTk;
+          delete ov.popupTemplateHasSourceId;
+          delete ov.uid;  // was pointing at the wrong-collection template's target
+          ov.collectionName = collName;
+          const d = hostResp.data.data;
+          await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+            uid: hostUid, use: d.use, parentId: d.parentId,
+            subKey: d.subKey, subType: d.subType,
+            sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
+            stepParams: d.stepParams,
+          });
+          log(`    ~ cleared stale popupTemplateUid on ${name}: was ${existingTplColl} template, expected ${collName}`);
+          // Fall through to the standard create path below (don't return).
+        } else {
         const existingTargetUid = existingTpl.data?.data?.targetUid || '';
         log(`    = popup template: ${name} (already converted: ${existingTplUid.slice(0, 8)})`);
 
@@ -832,6 +1003,7 @@ export async function convertPopupToTemplate(
         }
         _popupTplCacheThisRun.set(cacheKey, { templateUid: existingTplUid, targetUid: existingTargetUid });
         return { templateUid: existingTplUid, targetUid: existingTargetUid };
+        }  // close else (collection match)
       } catch {
         // Template deleted — clear stale ref so convert can proceed
         const ov = hostResp.data.data.stepParams.popupSettings.openView;
@@ -848,13 +1020,16 @@ export async function convertPopupToTemplate(
         });
         log(`    ~ cleared stale popupTemplateUid on ${name}`);
       }
+      }  // close else (non-copy-mode branch)
     }
 
     // Priority: if state.yaml saved a UID for this popup, try to reuse it first
+    // — but only when the saved template matches the expected collection.
     if (savedPopupUid) {
       try {
         const check = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: savedPopupUid } });
-        if (check.data?.data) {
+        const savedColl = (check.data?.data?.collectionName || '') as string;
+        if (check.data?.data && (!collName || !savedColl || savedColl === collName)) {
           const reuseUid = savedPopupUid;
           const reuseTargetUid = check.data.data.targetUid || '';
           log(`    = popup template: ${name} (reused from state: ${reuseUid.slice(0, 8)})`);
@@ -1122,13 +1297,34 @@ async function convertPopupBlocksToTemplates(
     }
     if (!tree) return;
 
-    // Walk tree to find blocks + their parent grid
-    const blocks: { uid: string; use: string; parentId: string; sortIndex: number }[] = [];
+    // Walk tree to find blocks + their parent grid. Also record each block's OWN
+    // collection/association — a popup may contain association blocks that target
+    // a different collection than the popup's host (e.g. Customer popup with a
+    // Contacts list block → block collection = nb_crm_contacts, association =
+    // nb_crm_customers.contacts). NocoBase's flowModelTemplates carry both
+    // fields, so we must match/create per-block.
+    function blockColl(node: any): string {
+      const init = node.stepParams?.resourceSettings?.init;
+      return (init?.collectionName as string) || '';
+    }
+    function blockAssoc(node: any): string {
+      const init = node.stepParams?.resourceSettings?.init;
+      return (init?.associationName as string) || '';
+    }
+
+    const blocks: { uid: string; use: string; parentId: string; sortIndex: number; coll: string; assoc: string }[] = [];
     function walkTree(node: any, gridUid: string | null) {
       if (!node || typeof node !== 'object') return;
       const curGrid = node.use === 'BlockGridModel' ? node.uid : gridUid;
       if (BLOCK_USES.has(node.use) && curGrid) {
-        blocks.push({ uid: node.uid, use: node.use, parentId: curGrid, sortIndex: node.sortIndex || 0 });
+        blocks.push({
+          uid: node.uid,
+          use: node.use,
+          parentId: curGrid,
+          sortIndex: node.sortIndex || 0,
+          coll: blockColl(node) || collName,
+          assoc: blockAssoc(node),
+        });
       }
       const subs = node.subModels;
       if (subs) for (const v of Object.values(subs)) {
@@ -1139,22 +1335,37 @@ async function convertPopupBlocksToTemplates(
     walkTree(tree, null);
     if (!blocks.length) return;
 
+    // Collect all distinct collections referenced by the blocks — matters when
+    // association blocks target nb_crm_contacts inside a nb_crm_customers popup.
+    const touchedColls = new Set(blocks.map(b => b.coll).filter(Boolean));
+
     // Find existing block templates (by useModel + collectionName) to reuse.
     // In copy mode: restrict to allowedBlockTemplateUids (this group's own templates only).
+    // ALSO seed from _blockTplCacheThisRun so block templates detached by
+    // earlier popup conversions in the SAME deploy are reused instead of
+    // recreated — otherwise nested refs explode with duplicates.
     const allTpls = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
     const existingByUseModel = new Map<string, { uid: string; targetUid: string; name: string }>();
     for (const t of (allTpls.data?.data || []) as Record<string, unknown>[]) {
-      if (t.type !== 'block' || t.collectionName !== collName) continue;
+      if (t.type !== 'block') continue;
+      const tColl = t.collectionName as string;
+      if (!touchedColls.has(tColl)) continue;  // skip templates for unrelated collections
       if (allowedBlockTemplateUids && !allowedBlockTemplateUids.has(t.uid as string)) continue;
-      const key = `${t.useModel}|${t.collectionName}`;
-      // Prefer templates from _index.yaml (longer names with collection prefix)
+      const key = `${t.useModel}|${tColl}`;
       if (!existingByUseModel.has(key) || (t.name as string).length > (existingByUseModel.get(key)!.name.length)) {
         existingByUseModel.set(key, { uid: t.uid as string, targetUid: t.targetUid as string, name: t.name as string });
       }
     }
+    // Overlay per-run cache — keyed by (useModel, eachBlock's OWN coll)
+    for (const use of BLOCK_USES) {
+      for (const c of touchedColls) {
+        const cached = lookupBlockTemplateCache(use, c);
+        if (cached) existingByUseModel.set(`${use}|${c}`, cached);
+      }
+    }
 
     for (const block of blocks) {
-      const key = `${block.use}|${collName}`;
+      const key = `${block.use}|${block.coll}`;
       const existing = existingByUseModel.get(key);
 
       try {
@@ -1186,16 +1397,23 @@ async function convertPopupBlocksToTemplates(
           await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: block.uid } }).catch(() => {});
           log(`      = block ref: ${existing.name} (${existing.uid.slice(0, 8)})`);
         } else {
-          // No existing template — detach this block as new template
-          const collTitle = collName.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          // No existing template — detach this block as new template.
+          // Use the block's OWN collection (+ association), not the popup's,
+          // so an association sub-block (e.g. Customer popup containing a
+          // Contacts details block) gets a correctly-scoped template rather
+          // than one mislabelled as the popup's collection.
+          const blockColl = block.coll;
+          const collTitle = blockColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           const tplName = `${BLOCK_NAMES[block.use] || block.use}: ${collTitle}`;
-          const tplResp = await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:create`, {
+          const createPayload: Record<string, unknown> = {
             name: tplName, description: '',
             targetUid: block.uid, useModel: block.use, type: 'block',
-            dataSourceKey: 'main', collectionName: collName,
+            dataSourceKey: 'main', collectionName: blockColl,
             filterByTk: block.use !== 'CreateFormModel' ? '{{ctx.view.inputArgs.filterByTk}}' : null,
             detachParent: true,
-          });
+          };
+          if (block.assoc) createPayload.associationName = block.assoc;
+          const tplResp = await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:create`, createPayload);
           const blockTplUid = tplResp.data?.data?.uid;
           if (!blockTplUid) continue;
           const refUid = generateUid();
@@ -1208,7 +1426,18 @@ async function convertPopupBlocksToTemplates(
             }},
             sortIndex: block.sortIndex, flowRegistry: {},
           });
-          existingByUseModel.set(key, { uid: blockTplUid, targetUid: block.uid, name: tplName });
+          const info = { uid: blockTplUid, targetUid: block.uid, name: tplName };
+          // NOTE: do NOT cacheBlockTemplate here. Within one popup conversion,
+          // multiple distinct inline blocks (e.g. leads popup has 6 different
+          // DetailsBlockModel entries: details / lead_insights / lead_owner /
+          // company_information / contact_information / details_2) share
+          // (useModel, collectionName) but carry different content. Caching the
+          // first one's template would cause every subsequent sibling to point
+          // at the same empty/wrong template, collapsing their content in the
+          // UI. Each auto-detached block must get its own template.
+          // Also DO NOT overwrite existingByUseModel so siblings skip the
+          // "reuse" branch below.
+          trackCreatedTemplate(blockTplUid);
           log(`      + block template: ${tplName} (${blockTplUid.slice(0, 8)})`);
         }
       } catch (e: any) {
@@ -1218,132 +1447,12 @@ async function convertPopupBlocksToTemplates(
   } catch { /* skip */ }
 }
 
-/**
- * Legacy createPopupTemplate — fallback to manual registration.
- */
-async function createPopupTemplate(
-  nb: NocoBaseClient,
-  name: string,
-  content: Record<string, unknown>,
-  collName: string,
-  tplSpec: Record<string, unknown>,
-  tplDir: string,
-  log: (msg: string) => void,
-): Promise<{ templateUid: string; targetUid: string } | undefined> {
-  // Strategy: create temp page → add table with clickToOpen field →
-  // deploy popup content → saveTemplate on the field → cleanup
-  let tempGroupId: number | null = null;
-  let tempRouteId: number | null = null;
-
-  try {
-    // 1. Create temp hidden menu group + page via blueprint
-    const groupResp = await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:create`, {
-      type: 'group', title: '__tpl_temp__', hidden: true,
-    });
-    tempGroupId = groupResp.data?.data?.id;
-
-    const bpResult = await nb.surfaces.applyBlueprint({
-      version: '1', mode: 'create',
-      navigation: { group: { routeId: tempGroupId }, item: { title: '__popup_tpl__' } },
-      page: { title: '__popup_tpl__' },
-      tabs: [{ key: 'main', title: 'Main', blocks: [
-        { key: 'details', type: 'details', collection: collName },
-      ] }],
-    } as unknown as Record<string, unknown>) as Record<string, unknown>;
-
-    const pageSchemaUid = (bpResult.target as Record<string, unknown>)?.pageSchemaUid as string || '';
-    tempRouteId = (bpResult.target as Record<string, unknown>)?.routeId as number || null;
-    if (!pageSchemaUid) throw new Error('failed to create temp page');
-
-    // 2. Read page → find details block → add field with clickToOpen
-    const pageData = await nb.get({ pageSchemaUid });
-    const tabArr = Array.isArray(pageData.tree.subModels?.tabs) ? pageData.tree.subModels.tabs : [pageData.tree.subModels?.tabs];
-    const gridItems = tabArr[0]?.subModels?.grid?.subModels?.items;
-    const blockUid = (Array.isArray(gridItems) && gridItems.length) ? gridItems[0].uid : '';
-    if (!blockUid) throw new Error('no block in temp page');
-
-    // 3. Add a field with clickToOpen to host the popup
-    const fieldResult = await nb.surfaces.addField(blockUid, 'id') as Record<string, unknown>;
-    const fieldWrapperUid = fieldResult.wrapperUid || fieldResult.uid;
-    if (!fieldWrapperUid) throw new Error('addField failed');
-
-    // Get field model UID
-    const blockData = await nb.get({ uid: fieldWrapperUid as string });
-    const fieldModel = blockData.tree.subModels?.field;
-    const fieldUid = (fieldModel && !Array.isArray(fieldModel)) ? (fieldModel as Record<string, unknown>).uid as string : '';
-    if (!fieldUid) throw new Error('no field UID');
-
-    // 4. Set popupSettings + compose popup content
-    await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-      uid: fieldUid,
-      stepParams: {
-        popupSettings: { openView: { collectionName: collName, dataSourceKey: 'main', mode: 'drawer', size: 'large', pageModelClass: 'ChildPageModel', uid: fieldUid } },
-        displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-      },
-    });
-
-    // Read back to get ChildPage tab UID
-    const fieldData = await nb.get({ uid: fieldUid });
-    let popupTabUid = '';
-    const fieldPage = (fieldData.tree.subModels as Record<string, unknown>)?.page as Record<string, unknown>;
-    if (fieldPage) {
-      const popupTabs = fieldPage.subModels as Record<string, unknown>;
-      const tabList = popupTabs?.tabs;
-      const tabArr = Array.isArray(tabList) ? tabList : tabList ? [tabList] : [];
-      if (tabArr.length) popupTabUid = (tabArr[0] as Record<string, unknown>).uid as string || '';
-    }
-
-    // Compose popup content
-    const tabs = content.tabs as Record<string, unknown>[] | undefined;
-    const blocks = content.blocks as Record<string, unknown>[] | undefined;
-    const firstBlocks = tabs?.length ? (tabs[0].blocks || []) as Record<string, unknown>[] : blocks || [];
-
-    if (popupTabUid && firstBlocks.length) {
-      const composeBlocks = firstBlocks.map(b => toComposeBlock(b as any, collName)).filter(Boolean) as Record<string, unknown>[];
-      if (composeBlocks.length) {
-        await nb.surfaces.compose(popupTabUid, composeBlocks, 'replace');
-      }
-    }
-
-    // 5. saveTemplate on the field
-    const saveResult = await nb.surfaces.saveTemplate({
-      target: { uid: fieldUid },
-      name,
-      description: '',
-      saveMode: 'duplicate',
-    }) as Record<string, unknown>;
-
-    const templateUid = (saveResult.uid || saveResult.templateUid) as string;
-    const targetUid = (saveResult.targetUid) as string || fieldUid;
-    trackCreatedTemplate(templateUid);
-
-    if (templateUid) {
-      log(`    + popup template: ${name} (${templateUid})`);
-      return { templateUid, targetUid };
-    }
-  } catch (e) {
-    log(`    . popup template ${name}: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
-  } finally {
-    // Cleanup temp page + group (children first)
-    try {
-      if (tempGroupId) {
-        const routes = await nb.http.get(`${nb.baseUrl}/api/desktopRoutes:list`, { params: { paginate: 'false', tree: 'true' } });
-        const grp = (routes.data.data || []).find((r: any) => r.id === tempGroupId);
-        if (grp?.children) for (const c of grp.children) {
-          if (c.children) for (const sc of c.children) await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:destroy`, {}, { params: { filterByTk: sc.id } }).catch(() => {});
-          await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:destroy`, {}, { params: { filterByTk: c.id } }).catch(() => {});
-        }
-        await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:destroy`, {}, { params: { filterByTk: tempGroupId } }).catch(() => {});
-      }
-    } catch { /* best effort cleanup */ }
-  }
-
-  // Fallback: register manually
-  return registerTemplateManually(nb, name, 'popup', collName, tplSpec, generateUid());
-}
-
 // ── Fallback: direct model creation for unsupported block types ──
-
+//
+// For legacy blocks that compose API doesn't support (mailMessages, comments,
+// recordHistory, reference), create a standalone block via flowModels:save and
+// register as template directly. No saveTemplate(duplicate) — the standalone
+// block IS the template target.
 async function createBlockTemplateViaModel(
   nb: NocoBaseClient,
   name: string,
@@ -1351,21 +1460,25 @@ async function createBlockTemplateViaModel(
   collName: string,
   tplSpec: Record<string, unknown>,
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
-  const hostUid = generateUid();
+  const btype = (content.type as string) || '';
+  const useModel = BLOCK_TYPE_TO_MODEL[btype];
+  if (!useModel) return undefined;
 
-  const composeBlock = toComposeBlock(content as any, collName);
-  if (!composeBlock) return undefined;
-
-  // Create a temporary grid to compose into
-  await nb.models.save({
-    uid: hostUid,
-    use: 'BlockGridModel',
-    stepParams: {},
-    flowRegistry: {},
-  });
-
-  const result = await nb.surfaces.compose(hostUid, [composeBlock], 'replace');
-  const blockUid = result.blocks?.[0]?.uid || hostUid;
+  const blockUid = generateUid();
+  const resourceSettings: Record<string, unknown> = {
+    init: { dataSourceKey: (tplSpec.dataSourceKey as string) || 'main', collectionName: collName },
+  };
+  try {
+    await nb.models.save({
+      uid: blockUid,
+      name: blockUid,
+      use: useModel,
+      stepParams: { resourceSettings },
+      flowRegistry: {},
+    });
+  } catch {
+    return undefined;
+  }
 
   return registerTemplateManually(nb, name, 'block', collName, tplSpec, blockUid);
 }
@@ -1380,16 +1493,16 @@ async function registerTemplateManually(
   tplSpec: Record<string, unknown>,
   targetUid: string,
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
+  // flowModelTemplates:create expects FLAT body — wrapping in `values` returns
+  // 200 OK with errors:["name cannot be null", "targetUid cannot be null"].
   const newUid = generateUid();
   const resp = await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:create`, {
-    values: {
-      uid: newUid,
-      name,
-      type,
-      collectionName: collName,
-      dataSourceKey: (tplSpec.dataSourceKey as string) || 'main',
-      targetUid,
-    },
+    uid: newUid,
+    name,
+    type,
+    collectionName: collName,
+    dataSourceKey: (tplSpec.dataSourceKey as string) || 'main',
+    targetUid,
   });
 
   const createdUid = resp.data?.data?.uid as string;
@@ -1469,21 +1582,3 @@ function makeMatchKey(name: string, collection: string): string {
 
 // ── Template usage registration ──
 
-/**
- * Register a template usage (field/block references a template).
- */
-export async function registerTemplateUsage(
-  nb: NocoBaseClient,
-  templateUid: string,
-  modelUid: string,
-): Promise<void> {
-  try {
-    await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:create`, {
-      values: {
-        uid: generateUid(),
-        templateUid,
-        modelUid,
-      },
-    });
-  } catch { /* skip if already exists */ }
-}

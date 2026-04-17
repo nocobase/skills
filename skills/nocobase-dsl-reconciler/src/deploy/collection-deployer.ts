@@ -85,7 +85,7 @@ export async function ensureCollection(
       ...(titleField ? { titleField } : {}),
     });
     if (!titleField) {
-      log(`  ✗ collection ${name}: no titleField (add a name/title field, or set titleField explicitly)`);
+      log(`  ⚠ collection ${name}: no titleField (add a name/title field, or set titleField explicitly)`);
     }
     log(`  = collection: ${name}${titleField ? ` (titleField: ${titleField})` : ''}`);
   } catch (e) {
@@ -126,7 +126,7 @@ async function ensureCollectionLegacy(
       log(`  = collection: ${name} (titleField: ${tf})`);
     } catch { /* best effort */ }
   } else {
-    log(`  ✗ collection ${name}: no titleField (add a name or title field, or set titleField in YAML)`);
+    log(`  ⚠ collection ${name}: no titleField (add a name or title field, or set titleField in YAML)`);
   }
 
   for (const fd of def.fields) {

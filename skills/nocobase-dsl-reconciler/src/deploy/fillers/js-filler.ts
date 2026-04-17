@@ -33,7 +33,15 @@ export async function deployJsItems(
     if (!fs.existsSync(jsPath)) continue;
 
     let code = fs.readFileSync(jsPath, 'utf8');
-    const unfilled = code.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
+    // Strip string literals before checking for unfilled DSL template params.
+    // i18n calls like t('{{count}}m ago', { count }) use the SAME {{var}} syntax
+    // and are valid runtime templates — only flag {{var}} patterns appearing as
+    // bare JS expressions (e.g. const x = {{maxRows}}; — leftover from scaffold).
+    const codeNoStrings = code
+      .replace(/`(?:\\.|[^`\\])*`/g, '""')
+      .replace(/'(?:\\.|[^'\\])*'/g, '""')
+      .replace(/"(?:\\.|[^"\\])*"/g, '""');
+    const unfilled = codeNoStrings.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
     if (unfilled?.length) {
       log(`      ✗ JS item ${jsSpec.file}: unfilled template params: ${unfilled.join(', ')}`);
       continue;
@@ -47,11 +55,15 @@ export async function deployJsItems(
     //   window: setTimeout, setInterval, console, Math, Date, FormData, Blob, URL, open, location
     //   document: createElement, querySelector, querySelectorAll
     // NOT available: URLSearchParams, fetch, XMLHttpRequest, eval
+    // Skip fetch() check when the file declares its own local `fetch` (common
+    // pattern in NocoBase JS blocks: `const fetch = async () => {...}` —
+    // shadows the global, calls inside refer to the local).
+    const hasLocalFetch = /\b(?:const|let|var|function)\s+fetch\b/.test(codeNoStrings);
     const forbidden = [
       { pattern: /\bnew\s+URLSearchParams\b/, name: 'URLSearchParams (use regex to parse URL params instead)' },
       { pattern: /\bimport\s+/, name: 'ES module import' },
       { pattern: /\bexport\s+(default\s+)?/, name: 'ES module export' },
-      { pattern: /\bfetch\s*\(/, name: 'fetch() (use ctx.request instead)' },
+      ...(hasLocalFetch ? [] : [{ pattern: /\bfetch\s*\(/, name: 'fetch() (use ctx.request instead)' }]),
     ];
     let hasForbidden = false;
     for (const { pattern, name } of forbidden) {
