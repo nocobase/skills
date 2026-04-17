@@ -95,7 +95,6 @@ blocks:
                 - name: linkageSetActionProps
                   params:
                     value: hidden
-      - updateRecord
     actions:
       - filter
       - refresh
