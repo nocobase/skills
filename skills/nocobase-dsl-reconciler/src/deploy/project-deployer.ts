@@ -50,6 +50,12 @@ export async function deployProject(
   if (!fs.existsSync(routesFile)) throw new Error(`routes.yaml not found in ${root}`);
   const routes = loadYaml<RouteEntry[]>(routesFile);
 
+  // Pollution guard: if templates/ is wildly larger than pages/, the source
+  // was probably an unscoped pull from a multi-project NocoBase. Pushing
+  // would mass-create unrelated templates. Warn loudly.
+  const { warnIfPolluted } = await import('../duplicate/duplicate-project');
+  warnIfPolluted(root, log);
+
   // Normalize: default type = flowPage (group if has children)
   const normalizeRoutes = (entries: RouteEntry[]) => {
     for (const r of entries) {

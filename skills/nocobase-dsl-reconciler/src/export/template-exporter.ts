@@ -36,6 +36,8 @@ interface TemplateRecord {
 export async function exportAllTemplates(
   nb: NocoBaseClient,
   outDir: string,
+  keepUids?: Set<string>,
+  keepColls?: Set<string>,
 ): Promise<void> {
   const tplDir = path.join(outDir, 'templates');
 
@@ -49,12 +51,19 @@ export async function exportAllTemplates(
     return;
   }
 
-  // No name-based dedupe — each template has a unique uid and is a real
-  // entity (NB allows multiple templates with the same name). Two templates
-  // with the same name + collection may both have active usages pointing at
-  // them, and merging would silently change what users see. We export every
-  // template; collisions on slugified-name get a uid-suffix in the filename.
-  const templates = allTemplates;
+  // Two-criterion scope when called from `cli pull --group`:
+  //   keepUids: templates explicitly referenced by templateUid in scoped pages
+  //   keepColls: templates whose collectionName matches a scoped collection
+  // The union covers both DSL-authored references AND auto-templates that
+  // NocoBase creates on first compose of a collection block (which aren't
+  // referenced via templateUid anywhere — only via the collection name).
+  // Without scope, every template is exported as before.
+  const templates = (keepUids || keepColls)
+    ? allTemplates.filter(t =>
+        (keepUids && keepUids.has(t.uid)) ||
+        (keepColls && t.collectionName && keepColls.has(t.collectionName))
+      )
+    : allTemplates;
 
   // Pre-compute filenames, disambiguating on slug collisions across same type.
   const slugCount = new Map<string, number>();  // key = type|slug → count
@@ -297,11 +306,15 @@ function extractTemplateGridLayout(
 export async function exportTemplateUsages(
   nb: NocoBaseClient,
   outDir: string,
+  keepTemplateUids?: Set<string>,
 ): Promise<void> {
   const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
     params: { paginate: false },
   });
-  const usages = (resp.data?.data || []) as { uid: string; templateUid: string; modelUid: string }[];
+  const all = (resp.data?.data || []) as { uid: string; templateUid: string; modelUid: string }[];
+  const usages = keepTemplateUids
+    ? all.filter(u => keepTemplateUids.has(u.templateUid))
+    : all;
   if (!usages.length) return;
 
   fs.writeFileSync(

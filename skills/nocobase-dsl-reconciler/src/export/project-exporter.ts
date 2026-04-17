@@ -35,14 +35,23 @@ import { stripDefaults } from '../utils/strip-defaults';
 
 interface ExportOptions {
   outDir: string;
-  group?: string;       // only export pages under this group (exact or prefix match)
+  group?: string;       // route key OR title (exact or prefix match) to scope export
   includeCollections?: boolean;
 }
 
-/** Test if a route title matches the group filter. Exact match, or prefix match
- * for multi-group copy deployments that produce "<group> - <subgroup>" titles. */
-function groupMatches(routeTitle: string, filter: string): boolean {
-  return routeTitle === filter || routeTitle.startsWith(filter + ' - ');
+/** Match a route against the group filter. Tries (in order): route key (when
+ *  available — pulled from existing routes.yaml), exact title, title prefix.
+ *  This lets `--group hr_approval` (key) and `--group "人事审批"` (title) both
+ *  work. */
+function makeGroupMatcher(filter: string, keyByTitle: Map<string, string>) {
+  return (routeTitle: string): boolean => {
+    if (!routeTitle) return false;
+    if (routeTitle === filter) return true;
+    if (routeTitle.startsWith(filter + ' - ')) return true;
+    const key = keyByTitle.get(routeTitle);
+    if (key === filter) return true;
+    return false;
+  };
 }
 
 /**
@@ -77,32 +86,30 @@ export async function exportProject(
     } catch { /* skip */ }
   }
 
-  // Export routes.yaml
+  // Build the matcher (knows about route keys, falls back to title).
+  const groupMatches = opts.group ? makeGroupMatcher(opts.group, existingKeyByTitle) : null;
+
+  // Export routes.yaml (already supports group filter via title/prefix).
   const routesTree = buildRoutesTree(routes, opts.group, existingKeyByTitle);
   fs.writeFileSync(path.join(outDir, 'routes.yaml'), dumpYaml(routesTree));
   console.log(`  + routes.yaml`);
 
-  // Export collections
-  if (opts.includeCollections !== false) {
-    await exportCollections(nb, outDir);
-  }
-
-  // Export V2 templates (popup + block)
-  await exportAllTemplates(nb, outDir);
-  await exportTemplateUsages(nb, outDir);
-
-  // Generate defaults.yaml from high-usage popup templates
-  await exportDefaults(nb, outDir);
-
-  // Export pages by traversing route tree
+  // Export pages FIRST when group-scoped, so we can collect the set of
+  // referenced collections + flowModel UIDs and pass them to the template /
+  // collection exporters as a filter. Without this, a small project that
+  // shares a NocoBase instance with a large one would pull every unrelated
+  // template/collection, defeating the point of `--group`.
   const pagesDir = path.join(outDir, 'pages');
   fs.mkdirSync(pagesDir, { recursive: true });
+
+  const usedColls = new Set<string>();
+  const usedFlowModelUids = new Set<string>();
+  const trackPage = (uid: string | undefined) => { if (uid) usedFlowModelUids.add(uid); };
 
   const exportedGroups = new Set<string>();
   for (const route of routes) {
     if (route.type === 'group') {
-      if (opts.group && !groupMatches(route.title || '', opts.group)) continue;
-      // Skip duplicate groups (same title)
+      if (groupMatches && !groupMatches(route.title || '')) continue;
       if (exportedGroups.has(route.title || '')) continue;
       exportedGroups.add(route.title || '');
       const groupSlug = slugify(route.title || 'group');
@@ -111,26 +118,232 @@ export async function exportProject(
 
       for (const child of route.children || []) {
         if (child.type === 'flowPage') {
+          trackPage(child.schemaUid);
           await exportPage(nb, child, groupDir);
         } else if (child.type === 'group') {
           const subDir = path.join(groupDir, slugify(child.title || 'sub'));
           fs.mkdirSync(subDir, { recursive: true });
           for (const sc of child.children || []) {
             if (sc.type === 'flowPage') {
+              trackPage(sc.schemaUid);
               await exportPage(nb, sc, subDir);
             }
           }
         }
       }
     } else if (route.type === 'flowPage') {
-      // Top-level flowPage: export when no filter, or when title matches filter/prefix
-      if (!opts.group || groupMatches(route.title || '', opts.group)) {
+      if (!groupMatches || groupMatches(route.title || '')) {
+        trackPage(route.schemaUid);
         await exportPage(nb, route, pagesDir);
       }
     }
   }
 
+  // Walk the just-written page YAML to harvest referenced collection names.
+  if (groupMatches) {
+    collectCollNamesFromDir(pagesDir, usedColls);
+    // Expand to relation targets so a child o2m/m2o block has its target
+    // collection's templates pulled too.
+    await expandToRelationTargets(nb, usedColls);
+  }
+
+  // Resolve which template UIDs the scoped pages reference by scanning the
+  // just-written page YAML for `templateUid:` and `popupTemplateUid:` values.
+  // This is local-first (no API call needed) and catches every reference the
+  // page actually carries — including popup blocks that aren't nested under
+  // the page in the parentId tree.
+  let usedTemplateUids: Set<string> | undefined;
+  if (groupMatches) {
+    usedTemplateUids = collectTemplateUidsFromDir(pagesDir);
+  }
+
+  // Export V2 templates first when scoped. Filter by templateUid (explicit
+  // refs) AND collectionName (auto-templates NB creates on compose). Loop
+  // until the kept set stops growing — each newly-pulled template can
+  // surface additional templateUids and collection names that the previous
+  // pass missed (e.g. a popup template referencing another popup template,
+  // or a child block in a popup mentioning a sibling collection).
+  if (groupMatches) {
+    const tplDir = path.join(outDir, 'templates');
+    let prevTplCount = -1;
+    let prevCollCount = -1;
+    let pass = 0;
+    while ((usedTemplateUids?.size ?? 0) !== prevTplCount || usedColls.size !== prevCollCount) {
+      prevTplCount = usedTemplateUids?.size ?? 0;
+      prevCollCount = usedColls.size;
+      await exportAllTemplates(nb, outDir, usedTemplateUids ?? new Set(), usedColls);
+      // Refresh sets from what got written
+      const moreUids = collectTemplateUidsFromDir(tplDir);
+      for (const u of moreUids) usedTemplateUids?.add(u);
+      collectCollNamesFromDir(tplDir, usedColls);
+      pass++;
+      if (pass > 5) break;  // safety: prevent runaway
+    }
+  } else {
+    await exportAllTemplates(nb, outDir);
+  }
+  await exportTemplateUsages(nb, outDir, groupMatches ? (usedTemplateUids ?? new Set()) : undefined);
+
+  if (groupMatches) {
+    collectCollNamesFromDir(path.join(outDir, 'templates'), usedColls);
+  }
+
+  // Export collections (filtered when scoped). When --group is given the
+  // filter is the gathered usedColls set (possibly empty — that's intentional,
+  // an empty set means "no pages matched, so no collections needed").
+  if (opts.includeCollections !== false) {
+    await exportCollections(nb, outDir, groupMatches ? usedColls : undefined);
+  }
+
+  // Generate defaults.yaml from high-usage popup templates
+  await exportDefaults(nb, outDir);
+
   console.log(`\n  Exported to ${outDir}`);
+}
+
+/** Expand a set of collection names to include their relation targets
+ *  (m2o/o2m/m2m). A scoped pull that pulls leave_requests but not
+ *  leave_approvals would leave the o2m references dangling. We fetch fields
+ *  per collection on demand because the bulk list endpoint returns them as
+ *  empty arrays. Loops until stable so transitive relations are followed. */
+async function expandToRelationTargets(nb: NocoBaseClient, names: Set<string>): Promise<void> {
+  const seen = new Set<string>();
+  let changed = true;
+  let safety = 0;
+  while (changed && safety < 10) {
+    changed = false;
+    safety++;
+    for (const name of Array.from(names)) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      try {
+        const r = await nb.http.get(`${nb.baseUrl}/api/collections/${name}/fields:list`, { params: { paginate: false } });
+        const fields = (r.data?.data || []) as Record<string, unknown>[];
+        for (const f of fields) {
+          const target = f.target as string;
+          if (target && !names.has(target)) {
+            names.add(target);
+            changed = true;
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+}
+
+/** Walk a directory of YAML files and collect every `coll: <name>` value into
+ *  the given set. Used to discover which collections a scoped page set
+ *  actually references, so we don't drag the whole NocoBase collection list. */
+function collectCollNamesFromDir(dir: string, into: Set<string>): void {
+  if (!fs.existsSync(dir)) return;
+  const COLL_RE = /(?:^|\n)\s*coll:\s*([a-zA-Z0-9_]+)/g;
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile() && (e.name.endsWith('.yaml') || e.name.endsWith('.yml'))) {
+        try {
+          const text = fs.readFileSync(p, 'utf8');
+          let m;
+          while ((m = COLL_RE.exec(text))) into.add(m[1]);
+        } catch { /* skip */ }
+      }
+    }
+  };
+  walk(dir);
+}
+
+/** Walk a directory of YAML files and collect every `templateUid:` /
+ *  `popupTemplateUid:` value into a set. The page exporter has already
+ *  inlined the references it needs, so scanning the written files captures
+ *  the exact set of templates the scoped pages consume — including popup
+ *  blocks that don't appear as descendants of the page in NocoBase's
+ *  parentId tree. */
+function collectTemplateUidsFromDir(dir: string): Set<string> {
+  const out = new Set<string>();
+  if (!fs.existsSync(dir)) return out;
+  const RE = /(?:templateUid|popupTemplateUid):\s*([a-z0-9]{8,12})\b/g;
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile() && (e.name.endsWith('.yaml') || e.name.endsWith('.yml'))) {
+        try {
+          const text = fs.readFileSync(p, 'utf8');
+          let m;
+          while ((m = RE.exec(text))) out.add(m[1]);
+        } catch { /* skip */ }
+      }
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+/** [legacy, unused — kept for reference] For each scoped page root flowModel
+ *  uid, descend via parentId chains and collect uids; then look up template
+ *  usages. Doesn't catch popup blocks (which aren't parented under pages). */
+async function _resolveScopedTemplateUidsViaApi(
+  nb: NocoBaseClient,
+  pageRootUids: Set<string>,
+): Promise<Set<string>> {
+  const allDescendants = new Set<string>();
+  // Cheap path: list ALL flowModels once and walk parentId chains. With a
+  // moderate-size NB this is one network call and pure local work.
+  let allModels: Record<string, unknown>[] = [];
+  try {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, { params: { paginate: 'false' } });
+    allModels = (r.data?.data || []) as Record<string, unknown>[];
+  } catch { return new Set(); }
+  // Build child → parent map from the flat list (parentId carried per row).
+  const parentByChild = new Map<string, string>();
+  const uidToModel = new Map<string, Record<string, unknown>>();
+  for (const m of allModels) {
+    const uid = m.uid as string;
+    if (!uid) continue;
+    uidToModel.set(uid, m);
+    const pid = m.parentId as string | undefined;
+    if (pid) parentByChild.set(uid, pid);
+  }
+  // For each model, walk up to root; if any ancestor is in pageRootUids, the
+  // model is in scope.
+  for (const m of allModels) {
+    const uid = m.uid as string;
+    if (!uid) continue;
+    let cursor: string | undefined = uid;
+    let depth = 0;
+    while (cursor && depth < 30) {
+      if (pageRootUids.has(cursor)) { allDescendants.add(uid); break; }
+      cursor = parentByChild.get(cursor);
+      depth++;
+    }
+  }
+  // Also include the pageRootUids themselves
+  for (const u of pageRootUids) allDescendants.add(u);
+
+  // Look up template usages for any modelUid in scope.
+  const tplUids = new Set<string>();
+  try {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, { params: { paginate: 'false' } });
+    const usages = (r.data?.data || []) as { templateUid?: string; modelUid?: string }[];
+    for (const u of usages) {
+      if (u.modelUid && allDescendants.has(u.modelUid) && u.templateUid) tplUids.add(u.templateUid);
+    }
+  } catch { /* skip */ }
+
+  // ALSO: any block referencing a template via stepParams.referenceSettings
+  // shows up as a usage row, but if a template was deployed without a usage
+  // row (e.g., legacy), we'd miss it. Belt + suspenders: sweep stepParams.
+  const REF_RE = /"templateUid"\s*:\s*"([a-z0-9]{8,12})"/g;
+  for (const m of allModels) {
+    const uid = m.uid as string;
+    if (!uid || !allDescendants.has(uid)) continue;
+    const sp = m.stepParams ? JSON.stringify(m.stepParams) : '';
+    if (!sp) continue;
+    let mt;
+    while ((mt = REF_RE.exec(sp))) tplUids.add(mt[1]);
+  }
+  return tplUids;
 }
 
 /**
@@ -1033,17 +1246,57 @@ async function exportDefaults(nb: NocoBaseClient, outDir: string): Promise<void>
   } catch { /* best effort */ }
 }
 
-async function exportCollections(nb: NocoBaseClient, outDir: string): Promise<void> {
+async function exportCollections(
+  nb: NocoBaseClient,
+  outDir: string,
+  keepNames?: Set<string>,
+): Promise<void> {
   const collDir = path.join(outDir, 'collections');
   fs.mkdirSync(collDir, { recursive: true });
 
   const resp = await nb.http.get(`${nb.baseUrl}/api/collections:list`, { params: { paginate: 'false' } });
   const colls = (resp.data.data || []) as Record<string, unknown>[];
 
+  // When scoped, expand the keep set to include relation targets (m2o, o2m,
+  // m2m). Otherwise a child block referencing the o2m would resolve to a
+  // collection we never exported, leaving the duplicate broken. We fetch
+  // fields per collection on demand because /api/collections:list returns
+  // them as an empty array.
+  const expandedKeep = keepNames ? new Set(keepNames) : null;
+  if (expandedKeep) {
+    const fieldsCache = new Map<string, Record<string, unknown>[]>();
+    const fetchFields = async (name: string) => {
+      if (fieldsCache.has(name)) return fieldsCache.get(name)!;
+      try {
+        const r = await nb.http.get(`${nb.baseUrl}/api/collections/${name}/fields:list`, { params: { paginate: false } });
+        const f = (r.data?.data || []) as Record<string, unknown>[];
+        fieldsCache.set(name, f);
+        return f;
+      } catch { fieldsCache.set(name, []); return []; }
+    };
+    let changed = true;
+    let safety = 0;
+    while (changed && safety < 10) {
+      changed = false;
+      safety++;
+      for (const name of Array.from(expandedKeep)) {
+        const fields = await fetchFields(name);
+        for (const f of fields) {
+          const target = f.target as string;
+          if (target && !expandedKeep.has(target)) {
+            expandedKeep.add(target);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
   let count = 0;
   for (const c of colls) {
     const name = c.name as string;
-    if (!name || name.startsWith('_') || !name.startsWith('nb_')) continue;
+    if (!name || name.startsWith('_') || (!name.startsWith('nb_') && !expandedKeep?.has(name))) continue;
+    if (expandedKeep && !expandedKeep.has(name)) continue;
 
     // Fetch full field definitions (not just interface) for rich export
     let fields: Record<string, unknown>[];

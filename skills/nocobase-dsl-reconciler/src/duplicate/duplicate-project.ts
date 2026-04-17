@@ -187,6 +187,46 @@ function copyDirectory(src: string, dst: string): void {
   }
 }
 
+/** Count templates vs page leaf dirs and warn if grossly imbalanced. */
+export function warnIfPolluted(dir: string, log: (msg: string) => void = (m) => console.warn(m)): void {
+  const tplDir = path.join(dir, 'templates');
+  let tplFiles = 0;
+  if (fs.existsSync(tplDir)) {
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        if (e.isDirectory()) walk(path.join(d, e.name));
+        else if (e.isFile() && (e.name.endsWith('.yaml') || e.name.endsWith('.yml')) && !e.name.startsWith('_')) tplFiles++;
+      }
+    };
+    walk(tplDir);
+  }
+  const pagesDir = path.join(dir, 'pages');
+  let pageDirs = 0;
+  if (fs.existsSync(pagesDir)) {
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const p = path.join(d, e.name);
+        if (fs.existsSync(path.join(p, 'layout.yaml')) || fs.existsSync(path.join(p, 'page.yaml'))) {
+          pageDirs++;
+        }
+        walk(p);
+      }
+    };
+    walk(pagesDir);
+  }
+  // Heuristic: > 4 templates per page is suspicious for a hand-built small
+  // project. CRM averages ~5 templates per page so this is intentionally
+  // generous; we mostly want to flag the "100 templates / 2 pages" case.
+  if (pageDirs > 0 && tplFiles > pageDirs * 6 && tplFiles > 20) {
+    log(`  ⚠ ${tplFiles} templates vs ${pageDirs} pages — looks polluted.`);
+    log(`     Most likely cause: this dir was created by an unscoped 'cli pull <dir>'`);
+    log(`     against a multi-project NocoBase. Templates from unrelated systems got dragged in.`);
+    log(`     Re-pull with: cli pull <dir> --group <route-key>`);
+    log(`     Continuing anyway — but a clean re-pull is recommended.`);
+  }
+}
+
 /** Walk every file in a directory tree. */
 function walkDir(dir: string, fn: (file: string) => void): void {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -212,6 +252,13 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     if (!opts.force) throw new Error(`target already exists: ${dst} (use --force)`);
     fs.rmSync(dst, { recursive: true, force: true });
   }
+
+  // Pollution heuristic: count templates/* files vs page directories. A
+  // small project should have ~1-2 templates per page; if the ratio explodes
+  // (typically because the source was pulled from a multi-project NocoBase
+  // without `--group`), warn the user before duplicating, since we'd then
+  // copy every unrelated template and push would deploy them all.
+  warnIfPolluted(src);
 
   // 1. Copy the whole tree.
   copyDirectory(src, dst);
