@@ -1051,6 +1051,8 @@ function exportActions(
   for (const subKey of ['actions', 'recordActions'] as const) {
     const raw = item.subModels?.[subKey];
     const arr = (Array.isArray(raw) ? raw : []) as FlowModelNode[];
+    // Sort by sortIndex to preserve DSL declaration order
+    arr.sort((a, b) => ((a as any).sortIndex || 0) - ((b as any).sortIndex || 0));
     const target = subKey === 'actions' ? actions : recordActions;
 
     for (const act of arr) {
@@ -1164,6 +1166,7 @@ function exportActions(
         if (!col.use?.includes('TableActionsColumn')) continue;
         const colActs = col.subModels?.actions;
         const colActArr = (Array.isArray(colActs) ? colActs : []) as FlowModelNode[];
+        colActArr.sort((a, b) => ((a as any).sortIndex || 0) - ((b as any).sortIndex || 0));
         for (const act of colActArr) {
           const atype = ACTION_TYPE_MAP[act.use || ''];
           if (!atype) continue;
