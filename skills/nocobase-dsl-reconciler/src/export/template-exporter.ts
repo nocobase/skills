@@ -43,10 +43,26 @@ export async function exportAllTemplates(
   const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
     params: { paginate: false },
   });
-  const templates = (resp.data?.data || []) as TemplateRecord[];
-  if (!templates.length) {
+  const allTemplates = (resp.data?.data || []) as TemplateRecord[];
+  if (!allTemplates.length) {
     console.log('  No templates found');
     return;
+  }
+
+  // Dedupe by (type, name, collectionName). The live DB can hold multiple
+  // duplicates from prior copy-mode deploys; we keep the highest-usage one
+  // and let the rollback / manual cleanup remove the rest.
+  const bestByKey = new Map<string, TemplateRecord>();
+  for (const t of allTemplates) {
+    const key = `${t.type}|${t.name}|${t.collectionName || ''}`;
+    const cur = bestByKey.get(key);
+    if (!cur || (t.usageCount || 0) > (cur.usageCount || 0)) {
+      bestByKey.set(key, t);
+    }
+  }
+  const templates = Array.from(bestByKey.values());
+  if (templates.length < allTemplates.length) {
+    console.log(`  templates: ${allTemplates.length} live, ${templates.length} unique (skipped ${allTemplates.length - templates.length} duplicates)`);
   }
 
   // Create directories

@@ -347,6 +347,24 @@ export async function deployTemplates(
   }
   if (!index.length) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
 
+  // Dedupe _index entries by (type, name, collection). _index.yaml may contain
+  // multiple UIDs for the same template name when the live DB has duplicates
+  // from prior deploys — without dedup, copy mode would create a fresh template
+  // for each duplicate (explosion). Keep the FIRST occurrence of each key.
+  {
+    const seen = new Set<string>();
+    const deduped: TemplateIndex[] = [];
+    let dups = 0;
+    for (const t of index) {
+      const key = `${t.type}|${t.name}|${t.collection || ''}`;
+      if (seen.has(key)) { dups++; continue; }
+      seen.add(key);
+      deduped.push(t);
+    }
+    if (dups) log(`  templates: skipped ${dups} duplicate _index entries`);
+    index = deduped;
+  }
+
   log('\n  -- Templates --');
 
   // Fetch existing templates to avoid duplicates
