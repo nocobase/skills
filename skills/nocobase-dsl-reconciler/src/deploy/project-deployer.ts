@@ -435,6 +435,19 @@ export async function deployProject(
   } else {
     delete (state as any)._last_deploy_created_templates;
   }
+
+  // Cumulative tracking — every template UID this tool has ever created in
+  // this project, across all deploys. cleanupSupersededTemplates uses this
+  // to identify templates safe to delete (ours from prior runs that the
+  // current deploy no longer references). Keep it bounded to the union of
+  // (existing list) ∪ (this run's creations); never includes user-created
+  // templates because we don't track those.
+  const allCreated = new Set(((state as any)._all_created_templates as string[]) || []);
+  for (const u of createdUids) allCreated.add(u);
+  for (const v of Object.values(state.template_uids || {})) {
+    if (v?.uid) allCreated.add(v.uid);
+  }
+  (state as any)._all_created_templates = Array.from(allCreated);
   saveYaml(stateFile, state);
 
   // Auto-clean stale flowModelTemplateUsages rows. This is the NocoBase bug
