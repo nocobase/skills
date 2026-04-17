@@ -566,6 +566,16 @@ export async function enableM2oClickToOpen(
       // will promote it to a fresh per-deploy template. Auto-binding here
       // would slot the field into a cross-group template instead.
       if (popupTargetFields?.has(fm.fieldPath)) continue;
+      // Refetch live state — flowSurfaces:get may have returned a stale tree
+      // missing the popupTemplateUid that click-to-open just wrote. Without
+      // this re-check, auto-binding overrides the DSL-declared template
+      // (e.g. `clickToOpen: templates/popup/leads_view.yaml` would be replaced
+      // by whatever live popup template the API listed first for this coll).
+      try {
+        const liveResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
+        const liveTplUid = liveResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid;
+        if (liveTplUid) continue;
+      } catch { /* fall through if get fails */ }
     }
 
     // Fallback for m2o without a popup template: deploy default details inline

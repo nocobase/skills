@@ -894,10 +894,32 @@ export async function convertPopupToTemplate(
       // CRM Copy's popup structure drifts with whatever the shared template
       // happened to contain (often out of sync with DSL, sometimes empty).
       //
-      // In copy mode: always clear the borrowed binding and fall through to
-      // create a fresh template for this copy. The per-run cache above still
-      // lets multiple hosts in the SAME copy deploy share one template.
+      // In copy mode: clear the borrowed binding ONLY if the template is
+      // borrowed (different collection or empty target). If the binding points
+      // to a template with matching collection AND non-empty content, the
+      // binding came from DSL `clickToOpen: templates/popup/X.yaml` resolved
+      // by page-discovery — keep it; clearing would lose the DSL-declared
+      // template and create a fresh empty one.
       if (copyMode) {
+        let keepBinding = false;
+        try {
+          const tplResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: existingTplUid } });
+          const tplData = tplResp.data?.data;
+          const tplColl = String(tplData?.collectionName || '');
+          if (tplColl === collName && tplData?.targetUid) {
+            const tgtResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:findOne`, { params: { uid: tplData.targetUid, includeAsyncNode: true } });
+            const tgt = tgtResp.data?.data;
+            const page = (tgt?.subModels as Record<string, unknown>)?.page as Record<string, unknown> | undefined;
+            const subs = (page?.subModels as Record<string, unknown>) || {};
+            const tabs = subs.tabs;
+            const tabArr = Array.isArray(tabs) ? tabs : tabs ? [tabs] : [];
+            if (tabArr.length > 0) keepBinding = true;
+          }
+        } catch { /* fall through to clear */ }
+        if (keepBinding) {
+          log(`    = popup template: ${name} (DSL-declared, keep binding: ${existingTplUid.slice(0, 8)})`);
+          return { templateUid: existingTplUid, targetUid: hostResp.data?.data?.stepParams?.popupSettings?.openView?.uid as string || '' };
+        }
         const ov = hostResp.data.data.stepParams.popupSettings.openView;
         delete ov.popupTemplateUid;
         delete ov.popupTemplateMode;
