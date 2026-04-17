@@ -1,13 +1,15 @@
 ---
 name: nocobase-workflow-manage
-description: Use when users need to inspect, create, revise, enable, or diagnose NocoBase workflows through the CLI or MCP, including trigger selection, node-chain changes, version safety checks, and execution troubleshooting.
-argument-hint: "[action: inspect|create|update|enable|diagnose|delete-node|delete-branch] [target: workflow|node|execution] [workflow-id|workflow-key|title] [options]"
-allowed-tools: "shell, Read(local skill references only), MCP(workflows:list|get|create|update|revision|execute, workflows/<workflowId>/nodes:create, flow_nodes:update|destroy|destroyBranch|move|duplicate|test, executions:list|get, jobs:get)"
+description: Use when users need to inspect, create, revise, enable, or diagnose NocoBase workflows through the CLI or MCP, including trigger selection, node-chain changes, version safety checks, execution troubleshooting, and approval-bound workflow UI surfaces.
+argument-hint: "[action: inspect|create|update|enable|diagnose|delete-node|delete-branch|build-approval-ui] [target: workflow|node|execution|approval-surface] [workflow-id|workflow-key|node-id|title] [options]"
+allowed-tools: "shell, Read(local skill references only), MCP(workflows:list|get|create|update|revision|execute, workflows/<workflowId>/nodes:create, flow_nodes:get|update|destroy|destroyBranch|move|duplicate|test, executions:list|get, jobs:get, flowSurfaces:get|catalog|applyApprovalBlueprint|addBlock|addField|addAction|compose|configure|setLayout)"
 ---
 
 # Goal
 
 Use the available NocoBase workflow management surface to orchestrate workflows end-to-end: design trigger logic, build node chains, manage versions, and inspect execution results.
+
+This skill also covers approval initiator, approver, and task-card surfaces that are bound to workflow or approval-node config.
 
 Prefer the transport in this order:
 
@@ -24,7 +26,7 @@ Transport-selection rules:
 3. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI instead of switching to MCP.
 4. Only fall back to MCP or another transport when the CLI itself is unavailable.
 5. Before using a `nocobase-ctl` CLI command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples.
-6. If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
+6. If MCP is not configured, guide the user to use `nocobase-proxy-manage`.
 7. If MCP tools return authentication errors such as `Auth required`, stop and ask the user to complete MCP authentication or refresh the MCP connection before continuing.
 
 # Scope
@@ -34,14 +36,17 @@ Transport-selection rules:
 - Handle: update existing workflows by creating a new revision first when the current version is frozen.
 - Handle: enable workflows, move/duplicate/delete nodes or branches, and execute workflows only after explicit high-risk confirmation.
 - Handle: diagnose failed executions and identify the failed job, node, or configuration mismatch.
+- Handle: approval initiator, approver, and task-card UI authoring through `flowSurfaces` when the UI is bound to workflow or approval-node config.
 
 # Non-Goals
 
-- Do not handle MCP installation, login, or token recovery. Hand off to `nocobase-mcp-setup`.
+- Do not handle MCP installation, login, or token recovery. Hand off to `nocobase-proxy-manage`.
 - Do not design data models, collections, or field schemas from scratch. Hand off to `nocobase-data-modeling`.
+- Do not handle ordinary Modern page, tab, popup, or route-backed surface authoring. Hand off to `nocobase-ui-builder`.
 - Do not invent filter syntax, evaluator functions, node types, trigger types, collection names, field names, or node keys.
 - Do not bypass workflow-specific CLI or MCP interfaces with generic CRUD or local source edits.
 - Do not delete whole workflows in this skill. If a user explicitly wants workflow deletion, stop and request a separately reviewed path.
+- Do not treat approval schema wiring as part of this skill's v1 approval UI flow.
 
 # Execution Preconditions
 
@@ -70,9 +75,10 @@ Transport-selection rules:
   - For `create`, the trigger type and initial node chain are confirmed.
   - For `update`, `delete-node`, and `delete-branch`, the exact target node or branch and intended end state are confirmed.
   - If the existing workflow version has `versionStats.executed > 0`, a new revision is created before any node or trigger mutation.
+  - For approval UI edits, the exact owner (`workflowId`, `nodeId`, or existing root `uid`) and whether the task is first-time / replace or localized edit are confirmed.
 - Do not guess fields that behave like immutable or hard-to-reverse create-time decisions. Examples include workflow (trigger) `type`, and collection-bound trigger `config.collection` such as data collection event triggers.
 - If uncertainty is limited to later-editable details, proceed with the best-supported choice and verify after mutation.
-- If a required create-time commitment or destructive target is still unresolved, stop and report exactly what is missing instead of guessing.
+- If a required create-time commitment, destructive target, or approval UI owner/edit mode is still unresolved, stop and report exactly what is missing instead of guessing.
 
 ## Collection Resolution Gate
 
@@ -94,6 +100,7 @@ Use only this final workflow operation surface. When the transport is CLI-based,
 - Create a new revision: `workflow workflows revision`
 - Execute a workflow manually: `workflow workflows execute`
 - Create a node under a workflow: `workflow workflows nodes create`
+- Inspect one node: `workflow flow-nodes get`
 - Update a node configuration: `workflow flow-nodes update`
 - Delete a node: `workflow flow-nodes destroy`
 - Delete a branch: `workflow flow-nodes destroy-branch`
@@ -103,6 +110,10 @@ Use only this final workflow operation surface. When the transport is CLI-based,
 - List executions: `workflow executions list`
 - Inspect one execution (with jobs): `workflow executions get`
 - Inspect a node job: `workflow jobs get`
+- Inspect an approval surface: `flowSurfaces get`
+- Discover approval capabilities: `flowSurfaces catalog`
+- Bootstrap or replace an approval surface: `flowSurfaces applyApprovalBlueprint`
+- Localized approval edits: `flowSurfaces addBlock`, `flowSurfaces addField`, `flowSurfaces addAction`, `flowSurfaces compose`, `flowSurfaces configure`, `flowSurfaces setLayout`
 
 When the transport is CLI-based, prefer learning exact flags from help:
 
@@ -121,6 +132,17 @@ Use [Workflow CLI index](references/cli/index.md) as the stable CLI family map a
 
 When the transport is MCP or HTTP API, consult [Workflow HTTP API index](references/http-api/index.md) for the exact endpoint and parameter shapes.
 
+# Approval UI Entry
+
+- Approval initiator, approver, and task-card surfaces are not ordinary route-backed pages. They are bound to workflow or approval-node config.
+- Page-like approval grids may host approval blocks plus the fixed generic blocks currently exposed by the approval runtime catalog: `markdown` and `jsBlock`.
+- Task-card remains `fields + layout` on the blueprint route and still has no standalone block-authoring path.
+- When switching an approval relation field component, read the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum` instead of guessing from ordinary page semantics.
+- First-time setup or whole-surface replacement uses `flowSurfaces applyApprovalBlueprint`.
+- Localized approval edits require resolving the bound `approvalUid` or `taskCardUid` first, then using the localized `flowSurfaces` operations.
+- Ordinary Modern page, tab, popup, and route-backed surface work still belongs to `nocobase-ui-builder`.
+- Full route selection, payload, and verification guidance lives in [Approval UI authoring index](references/ui-config/approval/index.md).
+
 # Hard Rules
 
 1. **Never create a workflow with `enabled: true`** — always create with `enabled: false`, complete all trigger and node configuration, then enable.
@@ -133,6 +155,8 @@ When the transport is MCP or HTTP API, consult [Workflow HTTP API index](referen
 8. **Always verify after mutation** — after creating, updating, or deleting a workflow or node, read back the result to confirm the change took effect.
 9. **Do not auto-enable without user confirmation** — always ask the user before setting `enabled: true`.
 10. **Resolve collection names by inspection, not guesswork** — follow the [Collection Resolution Gate](#collection-resolution-gate) for any collection-bound trigger or node config that requires `collection`.
+11. **Use `applyApprovalBlueprint` for first-time or whole-surface approval setup** — do not bootstrap a brand-new approval surface with `compose`.
+12. **Do not invent `approvalUid` or `taskCardUid`** — for localized approval edits, resolve the bound root from workflow or node config first.
 
 # Orchestration Process
 
@@ -149,6 +173,12 @@ If the workflow still depends on an unresolved `collection` after this clarifica
 Summarize the complete plan in natural language and confirm with the user before making any CLI or API calls.
 
 Then map the requested action to the corresponding operation in the [Final Command Surface](#final-command-surface) to understand which calls will be needed. Consult [Endpoint Reference](references/http-api/index.md) when using MCP or API fallback.
+
+For approval UI requests, first decide whether the task is:
+- first-time setup or whole-surface replacement
+- a localized edit on an existing bound approval surface
+
+Then follow [Approval UI authoring index](references/ui-config/approval/index.md) for owner resolution, route selection, and verification.
 
 ## Creating a New Workflow
 
@@ -206,9 +236,11 @@ After completing any workflow operation, verify:
 5. Filter conditions are non-empty where required (update, destroy nodes)
 6. `enabled` status matches the intended state
 7. For edits on frozen versions: the new revision `id` is being used, not the old one
+8. For approval UI edits: the bound workflow or node config points at the expected `approvalUid` or `taskCardUid`, and the FlowModel readback matches the intended route
 
 # References
 
+- [Approval UI authoring index](references/ui-config/approval/index.md): use when the task is about approval initiator, approver, or task-card surfaces bound to workflow or approval-node config.
 - [Workflow architecture and data model](references/modeling/index.md): use when understanding the overall model structure, revision rules, status codes, or variable groups.
 - [Workflow data model - workflows](references/modeling/workflows.md): use when deciding sync mode, workflow field semantics, or workflow-level execution constraints.
 - [Workflow conventions](references/conventions/index.md): use when building `collection`, `filter`, `appends`, and variable expressions.
