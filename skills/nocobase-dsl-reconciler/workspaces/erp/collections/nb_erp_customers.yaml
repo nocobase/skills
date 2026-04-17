@@ -16,6 +16,11 @@ fields:
   - name: phone
     interface: phone
     title: Phone
+  - name: orders
+    interface: o2m
+    title: Orders
+    target: nb_erp_customer_orders
+    foreignKey: customerId
   - name: segment
     interface: select
     title: Segment

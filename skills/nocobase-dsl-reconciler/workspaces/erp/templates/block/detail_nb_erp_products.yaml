@@ -1,0 +1,46 @@
+name: 'Detail: Products'
+type: block
+collectionName: nb_erp_products
+content:
+  key: details
+  type: details
+  coll: nb_erp_products
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - sku
+    - name
+    - category
+    - unit
+    - status
+    - inventory_status
+    - current_stock
+    - reorder_point
+    - safety_stock
+    - standard_cost
+    - sale_price
+    - last_restock_date
+    - preferred_supplier
+    - description
+    - createdAt
+  field_layout:
+    - '--- Product Profile ---'
+    - - sku
+      - name
+    - - category
+      - unit
+    - - status
+      - inventory_status
+    - '--- Inventory Controls ---'
+    - - current_stock
+      - reorder_point
+    - - safety_stock
+      - last_restock_date
+    - '--- Commercial ---'
+    - - standard_cost
+      - sale_price
+    - - preferred_supplier
+    - '--- Notes ---'
+    - - description
+    - '--- Audit ---'
+    - - createdAt

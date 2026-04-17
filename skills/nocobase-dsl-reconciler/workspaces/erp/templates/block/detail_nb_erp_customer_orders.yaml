@@ -1,0 +1,37 @@
+name: 'Detail: Customer Orders'
+type: block
+collectionName: nb_erp_customer_orders
+content:
+  key: details
+  type: details
+  coll: nb_erp_customer_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - order_number
+    - customer
+    - status
+    - payment_status
+    - order_date
+    - required_date
+    - total_amount
+    - shipping_address
+    - notes
+    - createdAt
+  field_layout:
+    - '--- Order Header ---'
+    - - order_number
+      - customer
+    - - status
+      - payment_status
+    - '--- Schedule ---'
+    - - order_date
+      - required_date
+    - '--- Commercial ---'
+    - - total_amount
+    - '--- Fulfillment ---'
+    - - shipping_address
+    - '--- Notes ---'
+    - - notes
+    - '--- Audit ---'
+    - - createdAt

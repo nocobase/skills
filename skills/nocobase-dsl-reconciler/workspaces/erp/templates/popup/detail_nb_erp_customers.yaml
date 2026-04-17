@@ -1,0 +1,59 @@
+name: 'Popup (Detail): Customers'
+type: popup
+collectionName: nb_erp_customers
+content:
+  tabs:
+    - title: Summary
+      blocks:
+        - ref: templates/block/detail_nb_erp_customers.yaml
+    - title: Orders
+      blocks:
+        - key: orders
+          type: table
+          title: Customer Orders
+          coll: nb_erp_customer_orders
+          resource_binding:
+            associationName: nb_erp_customers.orders
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - order_number
+            - status
+            - payment_status
+            - order_date
+            - required_date
+            - total_amount
+          actions:
+            - filter
+            - refresh
+          recordActions:
+            - edit
+    - title: Payment History
+      blocks:
+        - key: payment_history
+          type: table
+          title: Payment History
+          coll: nb_erp_customer_orders
+          resource_binding:
+            associationName: nb_erp_customers.orders
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          dataScope:
+            logic: $or
+            items:
+              - path: payment_status
+                operator: eq
+                value: paid
+              - path: payment_status
+                operator: eq
+                value: partial
+              - path: payment_status
+                operator: eq
+                value: refunded
+          fields:
+            - order_number
+            - order_date
+            - status
+            - payment_status
+            - total_amount
+          actions:
+            - filter
+            - refresh

@@ -1,0 +1,38 @@
+name: 'Detail: Customers'
+type: block
+collectionName: nb_erp_customers
+content:
+  key: details
+  type: details
+  coll: nb_erp_customers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - customer_code
+    - name
+    - email
+    - phone
+    - segment
+    - status
+    - credit_limit
+    - billing_address
+    - shipping_address
+    - notes
+    - createdAt
+  field_layout:
+    - '--- Customer Profile ---'
+    - - customer_code
+      - name
+    - - email
+      - phone
+    - - segment
+      - status
+    - '--- Commercial Terms ---'
+    - - credit_limit
+    - '--- Addresses ---'
+    - - billing_address
+    - - shipping_address
+    - '--- Notes ---'
+    - - notes
+    - '--- Audit ---'
+    - - createdAt

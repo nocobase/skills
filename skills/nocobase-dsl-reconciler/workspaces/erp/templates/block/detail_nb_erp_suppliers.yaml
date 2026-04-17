@@ -1,0 +1,38 @@
+name: 'Detail: Suppliers'
+type: block
+collectionName: nb_erp_suppliers
+content:
+  key: details
+  type: details
+  coll: nb_erp_suppliers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - supplier_code
+    - name
+    - contact_name
+    - email
+    - phone
+    - status
+    - payment_terms
+    - lead_time_days
+    - address
+    - notes
+    - createdAt
+  field_layout:
+    - '--- Supplier Profile ---'
+    - - supplier_code
+      - name
+    - - contact_name
+      - status
+    - - email
+      - phone
+    - '--- Purchasing Terms ---'
+    - - payment_terms
+      - lead_time_days
+    - '--- Address ---'
+    - - address
+    - '--- Notes ---'
+    - - notes
+    - '--- Audit ---'
+    - - createdAt

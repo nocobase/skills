@@ -1,0 +1,34 @@
+name: 'Detail: Purchase Orders'
+type: block
+collectionName: nb_erp_purchase_orders
+content:
+  key: details
+  type: details
+  coll: nb_erp_purchase_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - po_number
+    - supplier
+    - status
+    - buyer_name
+    - order_date
+    - expected_date
+    - total_amount
+    - notes
+    - createdAt
+  field_layout:
+    - '--- Purchase Header ---'
+    - - po_number
+      - supplier
+    - - status
+      - buyer_name
+    - '--- Schedule ---'
+    - - order_date
+      - expected_date
+    - '--- Commercial ---'
+    - - total_amount
+    - '--- Notes ---'
+    - - notes
+    - '--- Audit ---'
+    - - createdAt

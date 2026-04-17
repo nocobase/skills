@@ -67,6 +67,22 @@ fields:
     interface: m2o
     title: Preferred Supplier
     target: nb_erp_suppliers
+    foreignKey: preferred_supplierId
+  - name: inventory_movements
+    interface: o2m
+    title: Inventory Movements
+    target: nb_erp_inventory_movements
+    foreignKey: productId
+  - name: purchase_order_lines
+    interface: o2m
+    title: Purchase Order Lines
+    target: nb_erp_purchase_order_lines
+    foreignKey: productId
+  - name: sales_order_lines
+    interface: o2m
+    title: Sales Order Lines
+    target: nb_erp_order_lines
+    foreignKey: productId
   - name: description
     interface: textarea
     title: Description

@@ -19,6 +19,16 @@ fields:
   - name: phone
     interface: phone
     title: Phone
+  - name: products_supplied
+    interface: o2m
+    title: Products Supplied
+    target: nb_erp_products
+    foreignKey: preferred_supplierId
+  - name: purchase_orders
+    interface: o2m
+    title: Purchase Orders
+    target: nb_erp_purchase_orders
+    foreignKey: supplierId
   - name: status
     interface: select
     title: Status

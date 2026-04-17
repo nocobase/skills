@@ -1,0 +1,59 @@
+name: 'Popup (Detail): Purchase Orders'
+type: popup
+collectionName: nb_erp_purchase_orders
+content:
+  tabs:
+    - title: Summary
+      blocks:
+        - ref: templates/block/detail_nb_erp_purchase_orders.yaml
+        - key: line_items
+          type: table
+          title: Purchase Order Lines
+          coll: nb_erp_purchase_order_lines
+          resource_binding:
+            associationName: nb_erp_purchase_orders.purchase_order_lines
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - line_label
+            - product
+            - quantity
+            - unit_cost
+            - received_quantity
+            - line_total
+            - line_status
+          actions:
+            - filter
+            - refresh
+            - addNew
+          recordActions:
+            - edit
+            - delete
+        - key: receipts
+          type: list
+          title: Related Receipts
+          coll: nb_erp_inventory_movements
+          resource_binding:
+            associationName: nb_erp_purchase_orders.inventory_movements
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - reference_number
+            - movement_type
+            - quantity
+            - movement_date
+          field_layout:
+            - - reference_number
+              - movement_type
+            - - quantity
+              - movement_date
+          actions:
+            - filter
+            - refresh
+      layout:
+        - - details: 10
+          - line_items: 14
+        - - receipts
+    - title: History
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_erp_purchase_orders

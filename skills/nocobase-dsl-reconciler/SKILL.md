@@ -52,20 +52,44 @@ Edit popup/block templates → `deploy --force`
 
 ### Round 4: JS + Charts (optional)
 
-Copy JS files from a page's `pages/<group>/<page>/js/` directory in the CRM template and modify — do not write from scratch.
+**MANDATORY: start by copying the CRM reference file, then modify. Do NOT write a JS block from scratch.**
+
+```bash
+# KPI cards
+cp templates/crm/pages/main/analytics/js/analytics_jsBlock.js <app>/pages/<group>/<page>/js/kpi_<name>.js
+
+# Chart (pie / bar / line) — pick the closest CRM analytics_jsBlock_N.js
+cp templates/crm/pages/main/analytics/js/analytics_jsBlock_2.js <app>/pages/<group>/<page>/js/<name>.js
+
+# Filter-form shortcut buttons
+cp templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js <app>/pages/<group>/<page>/js/<name>.js
+```
+
+Then edit only: `SQL_UID`, `SQL`, `ctx.t(...)` labels, color palette, i18n namespace.
+Keep the whole card structure intact: **trend pill, bg SVG chart, hover animation, click-to-open handler, `ctx.render(...)` at file end.**
+
+**Self-check before deploy** (run in your head):
+- [ ] Uses `ctx.sql.save({uid, sql, dataSourceKey})` + `ctx.sql.runById(uid, {...})`, not `fetch()`
+- [ ] Last statement is `ctx.render(ctx.React.createElement(...))`
+- [ ] KPI card has: label, value, trend pill, bg chart element, hover class
+- [ ] i18n via `ctx.t(key, { ns: '<app_namespace>' })` — not hardcoded English
+
+Writing a KPI "just with label + value + ctx.render" produces a visually degraded card that the user will reject. Always start from the CRM template.
 
 ## Reference Files
 
 | What you need | Where to look |
 |---------------|---------------|
-| Full project structure | `templates/crm/` — 20+ page CRM |
+| Full project structure | `templates/crm/` — 20+ page CRM (primary reference for all patterns below) |
+| Secondary references | `workspaces/pm/`, `workspaces/hrm/` — smaller working apps |
 | Collection field syntax | `templates/crm/collections/*.yaml` |
 | Page layout syntax | `templates/crm/pages/main/*/layout.yaml` |
 | Block template syntax | `templates/crm/templates/block/*.yaml` |
 | Popup template syntax | `templates/crm/templates/popup/*.yaml` |
 | routes.yaml | `templates/crm/routes.yaml` |
 | defaults.yaml | `templates/crm/defaults.yaml` |
-| KPI / chart JS | `templates/crm/pages/main/analytics/js/analytics_jsBlock*.js` |
+| KPI card (copy-then-modify) | `templates/crm/pages/main/analytics/js/analytics_jsBlock.js` — MUST be the starting point, do not write KPIs from scratch |
+| Chart variants (pie/bar/line) | `templates/crm/pages/main/analytics/js/analytics_jsBlock_{2,3,4}.js` |
 | Filter stats JS | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js` |
 | Seed data command | `npx tsx cli/cli.ts seed /tmp/myapp` |
 | Field type reference | "Field Type Reference" section below |
