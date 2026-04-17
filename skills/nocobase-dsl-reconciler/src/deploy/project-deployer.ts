@@ -333,13 +333,29 @@ export async function deployProject(
   log(`\n  ── Post-deploy: m2o popup binding ──`);
   const { enableM2oClickToOpen } = await import('./block-filler');
   for (const [pageKey, pageState] of Object.entries(state.pages)) {
-    for (const [blockKey, blockInfo] of Object.entries(pageState.blocks || {})) {
+    const pageInfo = pages.find(p => slugify(p.title) === pageKey);
+    if (!pageInfo) continue;
+    const blockColl = pageInfo.layout?.coll as string || '';
+
+    // Main page blocks
+    for (const [, blockInfo] of Object.entries(pageState.blocks || {})) {
       if (!blockInfo.uid) continue;
-      const pageInfo = pages.find(p => slugify(p.title) === pageKey);
-      if (!pageInfo) continue;
-      const blockColl = pageInfo.layout?.coll as string || '';
       if (blockColl) {
         await enableM2oClickToOpen(nb, blockInfo.uid, blockColl, pageInfo.dir, log);
+      }
+    }
+
+    // Popup blocks (nested m2o fields need their own binding — e.g., the `table`
+    // m2o field inside a reservation detail popup needs clickToOpen too)
+    for (const [, popupInfo] of Object.entries((pageState as any).popups || {})) {
+      for (const [, popupBlock] of Object.entries((popupInfo as any).blocks || {})) {
+        const pbInfo = popupBlock as { uid?: string; type?: string };
+        if (!pbInfo.uid) continue;
+        // Use the popup's coll (fallback to page coll for self-referencing details)
+        const popupColl = ((popupInfo as any).coll as string) || blockColl;
+        if (popupColl) {
+          await enableM2oClickToOpen(nb, pbInfo.uid, popupColl, pageInfo.dir, log);
+        }
       }
     }
   }
