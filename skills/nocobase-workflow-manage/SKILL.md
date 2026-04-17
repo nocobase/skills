@@ -43,7 +43,9 @@ Transport-selection rules:
 - Do not bypass workflow-specific CLI or MCP interfaces with generic CRUD or local source edits.
 - Do not delete whole workflows in this skill. If a user explicitly wants workflow deletion, stop and request a separately reviewed path.
 
-# Mandatory Gates
+# Execution Preconditions
+
+## Environment and Tooling
 
 1. CLI or MCP must be available and authenticated to perform workflow operations.
    - If `nocobase-ctl` CLI is available, that should be the chosen transport.
@@ -51,12 +53,16 @@ Transport-selection rules:
    - If the chosen transport is `nocobase-ctl` CLI, guide the user to restore CLI authentication rather than switching transports.
 2. Before using a `nocobase-ctl` CLI workflow command you have not used yet in the current task, run `nocobase-ctl workflow workflows --help`, `nocobase-ctl workflow flow-nodes --help`, or the matching `nocobase-ctl workflow <topic> <subcommand> --help` once and follow the generated help text.
 3. When configuring `expression` fields in Calculation, Condition, or Multi-condition nodes, consult `nocobase-utils` for the authoritative function list of each engine. **Never fabricate function names** — verify against [formula.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](references/nodes/../../../../../skills/skills/nocobase-utils/references/evaluators/mathjs.md).
-4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`. Data modeling skill may be used to understand related collections and fields when configuring workflow triggers and nodes.
+4. Related helper skills: `nocobase-data-modeling`, `nocobase-utils`.
+   - Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) according to the [Collection Resolution Gate](#collection-resolution-gate) whenever a workflow trigger or node configuration depends on `collection`.
 
-# Mandatory Clarification Gate
+## Clarification and Mutation Preconditions
 
 - Max clarification rounds: `2`
 - Max questions per round: `3`
+- Default execution bias:
+  - If the intended action path is at least `70%` confident and the remaining uncertainty is in fields that can be safely revised after creation, proceed without asking.
+  - Ask the user only when the unresolved choice affects a create-time commitment or another field that should not be guessed, or when the action is destructive/high-risk.
 - Mutation preconditions:
   - CLI or MCP is reachable and authenticated.
   - The requested action is confirmed.
@@ -64,7 +70,18 @@ Transport-selection rules:
   - For `create`, the trigger type and initial node chain are confirmed.
   - For `update`, `delete-node`, and `delete-branch`, the exact target node or branch and intended end state are confirmed.
   - If the existing workflow version has `versionStats.executed > 0`, a new revision is created before any node or trigger mutation.
-- If any precondition is missing or ambiguous, stop and report what is missing instead of guessing.
+- Do not guess fields that behave like immutable or hard-to-reverse create-time decisions. Examples include workflow (trigger) `type`, and collection-bound trigger `config.collection` such as data collection event triggers.
+- If uncertainty is limited to later-editable details, proceed with the best-supported choice and verify after mutation.
+- If a required create-time commitment or destructive target is still unresolved, stop and report exactly what is missing instead of guessing.
+
+## Collection Resolution Gate
+
+When a requested workflow depends on `collection` and the correct existing collection is not explicit from the user request or current context:
+
+1. Use [`nocobase-data-modeling`](../nocobase-data-modeling/SKILL.md) to inspect existing collections first and inspect fields when needed.
+2. Apply this gate to collection triggers and collection-bound operation triggers such as `collection`, `action`, `request-interception`, `approval`, `custom-action` with a bound collection, and `schedule` in collection time-field mode, as well as nodes whose config requires `collection`.
+3. If an existing collection matches the business requirement with at least `70%` confidence, continue with that collection instead of asking the user.
+4. Only ask the user how to proceed when no existing collection reaches that confidence threshold or when the unresolved collection choice is a create-time commitment that should not be guessed. Offer concrete next steps such as letting the user specify the collection, create it manually, or hand off collection creation to `nocobase-data-modeling`.
 
 # Final Command Surface
 
@@ -115,6 +132,7 @@ When the transport is MCP or HTTP API, consult [Workflow HTTP API index](referen
 7. **Always reference node results by `key`, not `id`** — use `{{$jobsMapByNodeKey.<nodeKey>.<path>}}` where `nodeKey` is the node's `key` property (a short random string). Never use the numeric `id`, never invent a key — always read the actual `key` from the node record after creating it. See [Common Conventions - Variable Expressions](references/conventions/index.md#variable-expressions).
 8. **Always verify after mutation** — after creating, updating, or deleting a workflow or node, read back the result to confirm the change took effect.
 9. **Do not auto-enable without user confirmation** — always ask the user before setting `enabled: true`.
+10. **Resolve collection names by inspection, not guesswork** — follow the [Collection Resolution Gate](#collection-resolution-gate) for any collection-bound trigger or node config that requires `collection`.
 
 # Orchestration Process
 
@@ -123,8 +141,10 @@ When the transport is MCP or HTTP API, consult [Workflow HTTP API index](referen
 Before making any CLI or API calls, clarify with the user:
 1. **Trigger type** — what event starts the workflow? → see [Trigger Reference](references/triggers/index.md)
 2. **Node chain** — what processing steps are needed? → see [Node Reference](references/nodes/index.md)
-3. **Execution mode** — synchronous or async? See [sync vs async](references/modeling/index.md#synchronous-vs-asynchronous-mode)
+3. **Execution mode** — synchronous or async? See [workflow execution mode](references/modeling/workflows.md#execution-mode)
 4. **Key parameters** — collection names, filter conditions, field mappings, variable expressions
+
+If the workflow still depends on an unresolved `collection` after this clarification, follow the [Collection Resolution Gate](#collection-resolution-gate) before asking the user to decide.
 
 Summarize the complete plan in natural language and confirm with the user before making any CLI or API calls.
 
@@ -132,6 +152,7 @@ Then map the requested action to the corresponding operation in the [Final Comma
 
 ## Creating a New Workflow
 
+0. **Resolve collection dependencies first** — follow the [Collection Resolution Gate](#collection-resolution-gate) before creating the workflow whenever any trigger or node config still has an unresolved `collection`.
 1. **Create workflow** — `workflow workflows create` with `type`, `title`, `sync`, `enabled: false`
 2. **Configure trigger** — `workflow workflows update` with `config`
 3. **Add nodes in order** — `workflow workflows nodes create` for each node, chaining via `upstreamId`; wait for each node to be fully created before creating the next
@@ -188,7 +209,8 @@ After completing any workflow operation, verify:
 
 # References
 
-- [Workflow architecture and data model](references/modeling/index.md): use when deciding sync mode, revision rules, status codes, or variable groups.
+- [Workflow architecture and data model](references/modeling/index.md): use when understanding the overall model structure, revision rules, status codes, or variable groups.
+- [Workflow data model - workflows](references/modeling/workflows.md): use when deciding sync mode, workflow field semantics, or workflow-level execution constraints.
 - [Workflow conventions](references/conventions/index.md): use when building `collection`, `filter`, `appends`, and variable expressions.
 - [Workflow CLI index](references/cli/index.md): use when running through `nocobase-ctl` — maps workflow tasks to canonical command families, argument placement, and body shapes.
 - [Workflow HTTP API index](references/http-api/index.md): use when using MCP or API fallback — maps operations to endpoints and parameter shapes.
@@ -196,5 +218,6 @@ After completing any workflow operation, verify:
 - [Workflow nodes](references/nodes/index.md): use when selecting node types, branching behavior, or node-specific config files.
 - [NocoBase filter condition format](../nocobase-utils/references/filter/index.md): use when writing workflow filters or trigger conditions.
 - [NocoBase evaluator references](../nocobase-utils/references/evaluators/index.md): use when configuring formula or math expressions.
+- [NocoBase data modeling skill](../nocobase-data-modeling/SKILL.md): use together with the [Collection Resolution Gate](#collection-resolution-gate) when a workflow needs a collection but the correct existing collection is unclear.
 - [Official handbook - Workflow](https://docs.nocobase.com/handbook/workflow): use when local references do not fully cover current product semantics. [verified: 2026-04-09]
 - [Official handbook - Workflow revisions](https://docs.nocobase.com/handbook/workflow/advanced/revisions): use when confirming frozen-version revision behavior. [verified: 2026-04-09]

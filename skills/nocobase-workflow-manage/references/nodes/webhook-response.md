@@ -25,6 +25,9 @@ Directly returning validation results or processing status within a Webhook flow
 ## Branching
 Does not support branches (terminal node).
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 ```json
 {

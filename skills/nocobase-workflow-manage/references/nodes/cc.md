@@ -27,6 +27,9 @@ Sending a CC to relevant stakeholders for information after an approval is compl
 ## Branch Description
 Does not support branching.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 ```json
 {

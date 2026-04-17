@@ -220,7 +220,7 @@ Constraints:
 
 `nocobase-ctl workflow flow-nodes test`
 
-Validate whether a node configuration is executable. Only some node types implement this operation.
+Validate whether a node configuration is executable. At the current server implementation, only `calculation`, `condition`, `request`, `notification`, `json-query`, `script`, and `sql` implement this operation. Other node types return `test method of instruction "<type>" not implemented`.
 
 | Field | CLI placement | Description |
 |---|---|---|

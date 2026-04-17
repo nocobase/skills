@@ -27,6 +27,9 @@ Add an order log or related record after an order is submitted.
 
 Branches are not supported.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 
 ```json
