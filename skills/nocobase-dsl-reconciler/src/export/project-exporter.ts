@@ -89,8 +89,12 @@ export async function exportProject(
   // Build the matcher (knows about route keys, falls back to title).
   const groupMatches = opts.group ? makeGroupMatcher(opts.group, existingKeyByTitle) : null;
 
-  // Export routes.yaml (already supports group filter via title/prefix).
-  const routesTree = buildRoutesTree(routes, opts.group, existingKeyByTitle);
+  // Export routes.yaml. When --group is set, keep only the matching subtree
+  // (top-level groups whose title or key matches). Without scope, everything.
+  const scopedRoutes = groupMatches
+    ? routes.filter(r => groupMatches(r.title || ''))
+    : routes;
+  const routesTree = buildRoutesTree(scopedRoutes, opts.group, existingKeyByTitle);
   fs.writeFileSync(path.join(outDir, 'routes.yaml'), dumpYaml(routesTree));
   console.log(`  + routes.yaml`);
 
@@ -197,6 +201,54 @@ export async function exportProject(
 
   // Generate defaults.yaml from high-usage popup templates
   await exportDefaults(nb, outDir);
+
+  // Workflows are part of "everything pullable" — the symmetric pair to push.
+  // When --group is set, filter workflows whose trigger collection is in the
+  // scoped collection set; otherwise pull all.
+  try {
+    const { exportWorkflows } = await import('../workflow/workflow-exporter');
+    const wfDir = path.join(outDir, 'workflows');
+    const wfFilter = groupMatches && usedColls.size
+      ? { titlePattern: undefined as string | undefined }
+      : undefined;
+    await exportWorkflows(nb, { outDir: wfDir, filter: wfFilter, log: () => {} });
+    // Post-filter: when scoped, drop workflows whose trigger.collection is
+    // not in usedColls. exportWorkflows itself doesn't have a collection
+    // filter so we prune the directory after it writes.
+    if (groupMatches && fs.existsSync(wfDir)) {
+      let kept = 0; let dropped = 0;
+      for (const e of fs.readdirSync(wfDir, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const wfFile = path.join(wfDir, e.name, 'workflow.yaml');
+        if (!fs.existsSync(wfFile)) continue;
+        try {
+          const wf = loadYaml<Record<string, unknown>>(wfFile);
+          const trig = (wf.trigger || {}) as Record<string, unknown>;
+          const coll = trig.collection as string | undefined;
+          if (coll && !usedColls.has(coll)) {
+            fs.rmSync(path.join(wfDir, e.name), { recursive: true, force: true });
+            dropped++;
+          } else { kept++; }
+        } catch { /* skip */ }
+      }
+      // Also rewrite workflow-state.yaml to keep only kept workflows
+      const stateFile = path.join(wfDir, 'workflow-state.yaml');
+      if (fs.existsSync(stateFile)) {
+        try {
+          const st = loadYaml<Record<string, unknown>>(stateFile) || {};
+          const ws = (st.workflows || {}) as Record<string, unknown>;
+          for (const slug of Object.keys(ws)) {
+            if (!fs.existsSync(path.join(wfDir, slug))) delete ws[slug];
+          }
+          st.workflows = ws;
+          fs.writeFileSync(stateFile, dumpYaml(st));
+        } catch { /* skip */ }
+      }
+      if (dropped) console.log(`  + ${kept} workflows (dropped ${dropped} out-of-scope)`);
+    }
+  } catch (e) {
+    console.log(`  ! workflows: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
+  }
 
   console.log(`\n  Exported to ${outDir}`);
 }

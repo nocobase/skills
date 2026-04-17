@@ -374,6 +374,20 @@ export async function deployProject(
   // when nothing is stale), so runs unconditionally to keep the DB tidy.
   await cleanStaleTemplateUsages(nb, log);
 
+  // Workflows are part of "everything pushable" per PHILOSOPHY (push is the
+  // full DSL→NB sync). Without this, users had to remember to run a separate
+  // `cli deploy-workflows` after every push, and forgetting silently dropped
+  // the workflow side of a duplicated module.
+  if (fs.existsSync(path.join(root, 'workflows'))) {
+    try {
+      const { deployWorkflows } = await import('../workflow/workflow-deployer');
+      log('\n  ── Workflows ──');
+      await deployWorkflows(nb, root, { log });
+    } catch (e) {
+      log(`  ! workflows: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+    }
+  }
+
   // (removed) Auto-sync routes.yaml from live state. Push is one-way DSL→NB
   // per PHILOSOPHY.md — overwriting the DSL with mid-deploy state has bitten
   // us when a push is killed and the partial sync truncates routes.yaml,
