@@ -1,6 +1,0 @@
-name: 'Popup (Add new): Employees'
-type: popup
-collectionName: nb_hrm_employees
-content:
-  blocks:
-    - ref: templates/block/form_add_new_nb_hrm_employees.yaml

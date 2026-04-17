@@ -1,0 +1,51 @@
+uid: jrf8orju3cj
+name: 'Form (Add new): nb_crm_customers'
+type: block
+collectionName: nb_crm_customers_copy
+dataSourceKey: main
+targetUid: xf1uogin1ji
+description: 'Form (Add new): nb_crm_customers'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_customers_copy
+  fields:
+    - account_number
+    - name
+    - owner
+    - type
+    - level
+    - status
+    - parent
+    - phone
+    - website
+    - address
+    - preferred_currency
+    - description
+    - region
+    - number_of_employees
+    - industry
+    - annual_revenue
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - account_number
+      - owner
+    - - type
+      - industry
+      - number_of_employees
+    - - level
+      - status
+      - parent
+    - '--- Contact Info ---'
+    - - phone
+      - region
+    - - website
+      - address
+    - '--- Business Info ---'
+    - - annual_revenue
+      - preferred_currency
+    - '--- Other Info ---'
+    - - description
+  actions:
+    - submit

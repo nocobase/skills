@@ -1,0 +1,7 @@
+name: nb_crm_lead_tags_copy
+title: Lead Tags
+fields:
+  - name: lead_id
+    interface: integer
+  - name: tag_id
+    interface: integer

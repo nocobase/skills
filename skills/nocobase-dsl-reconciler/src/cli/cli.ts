@@ -32,6 +32,32 @@ import type { ModuleState, PageState } from '../types/state';
 import type { EnhanceSpec } from '../types/spec';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const WORKSPACE_ROOT = path.resolve(
+  process.env.NB_WORKSPACE_ROOT || path.join(__dirname, '..', '..', 'workspaces'),
+);
+
+/**
+ * Resolve a project-dir argument. Relative paths attach to WORKSPACE_ROOT.
+ * Absolute paths must already be inside WORKSPACE_ROOT.
+ * Throws if the resolved path escapes the root.
+ */
+function resolveWorkspacePath(arg: string): string {
+  const abs = path.isAbsolute(arg) ? path.resolve(arg) : path.resolve(WORKSPACE_ROOT, arg);
+  const rel = path.relative(WORKSPACE_ROOT, abs);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(
+      `Path "${arg}" is outside workspace root.\n`
+      + `  Workspace: ${WORKSPACE_ROOT}\n`
+      + `  Resolved:  ${abs}\n`
+      + `Set NB_WORKSPACE_ROOT to override, or pass a path inside the workspace.`,
+    );
+  }
+  return abs;
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -39,7 +65,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
+    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, scaffold, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
     process.exit(1);
   }
 
@@ -55,9 +81,6 @@ async function main() {
       break;
     case 'scaffold':
       cmdScaffold(args.slice(1));
-      break;
-    case 'seed':
-      await cmdSeed(args.slice(1));
       break;
     case 'verify-data':
       await cmdVerifyData(args.slice(1));
@@ -114,8 +137,9 @@ async function main() {
 }
 
 async function cmdDeploy(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts deploy <dir> [--force] [--plan]'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts deploy <dir> [--force] [--plan]'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
 
@@ -147,7 +171,7 @@ async function cmdDeploy(args: string[]) {
   await ensureAllCollections(nb, structure.collections || {});
 
   // State
-  const mod = path.resolve(modDir);
+  const mod = modDir;
   const stateFile = path.join(mod, 'state.yaml');
   const state: ModuleState = fs.existsSync(stateFile)
     ? loadYaml<ModuleState>(stateFile)
@@ -244,8 +268,9 @@ async function cmdDeploy(args: string[]) {
 }
 
 async function cmdVerifySql(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts verify-sql <dir>'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts verify-sql <dir>'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
 
   const nb = await NocoBaseClient.create();
   const result = await verifySql(modDir, nb);
@@ -261,8 +286,9 @@ async function cmdVerifySql(args: string[]) {
 
 async function cmdExport(args: string[]) {
   const pageTitle = args[0];
-  const outDir = args[1];
-  if (!pageTitle || !outDir) { console.error('Usage: cli.ts export <page-title> <outdir>'); process.exit(1); }
+  const outDirArg = args[1];
+  if (!pageTitle || !outDirArg) { console.error('Usage: cli.ts export <page-title> <outdir>'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
 
   const nb = await NocoBaseClient.create();
   const routes = await nb.routes.list();
@@ -315,7 +341,7 @@ async function cmdDeployProject(args: string[]) {
   const pageIdx = args.indexOf('--page');
   const page = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
 
-  const absDir = path.resolve(dir);
+  const absDir = resolveWorkspacePath(dir);
 
   // Optional pre-deploy git snapshot (rollback point) — only if it's a git
   // repo. We deliberately do NOT auto-export the live state, do NOT create
@@ -344,7 +370,7 @@ async function cmdRollback(args: string[]) {
   const dir = args[0];
   const clean = args.includes('--clean');  // also prune orphan flowModels + stale usage records
   if (!dir) { console.error('Usage: cli.ts rollback <project-dir> [--clean]'); process.exit(1); }
-  const absDir = path.resolve(dir);
+  const absDir = resolveWorkspacePath(dir);
   const stateFile = path.join(absDir, 'state.yaml');
   if (!fs.existsSync(stateFile)) { console.error(`state.yaml not found in ${absDir}`); process.exit(1); }
   const state = loadYaml<ModuleState>(stateFile);
@@ -670,8 +696,9 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
 }
 
 async function cmdGraph(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts graph <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts graph <project-dir>'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
 
   const { buildGraph } = await import('../graph/graph-builder');
   const { saveYaml } = await import('../utils/yaml');
@@ -707,9 +734,9 @@ async function cmdGraph(args: string[]) {
 }
 
 function cmdScaffold(args: string[]) {
-  const dir = args[0];
+  const dirArg = args[0];
   const name = args[1];
-  if (!dir || !name) {
+  if (!dirArg || !name) {
     console.error('Usage: cli.ts scaffold <dir> <module-name> [--pages P1,P2,...] [--collections C1,C2,...]');
     console.error('\nOptions:');
     console.error('  --pages        Comma-separated page names (default: Dashboard,Main)');
@@ -737,15 +764,17 @@ function cmdScaffold(args: string[]) {
   } else {
     pages = ['Dashboard', 'Main'];
   }
+  const dir = resolveWorkspacePath(dirArg);
   scaffold(dir, name, pages, collections);
 }
 
 async function cmdExportProject(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) {
+  const outDirArg = args[0];
+  if (!outDirArg) {
     console.error('Usage: cli.ts pull <outdir> [--group <key-or-title>]\n\n  --group <key>  Scope the pull to one route subtree. Without it, pull dumps\n                 every collection / template / page from NocoBase — fine for a\n                 fresh export, dangerous when you want a small project copy\n                 (templates from unrelated systems will get pulled too).');
     process.exit(1);
   }
+  const outDir = resolveWorkspacePath(outDirArg);
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
@@ -753,8 +782,9 @@ async function cmdExportProject(args: string[]) {
 }
 
 async function cmdSync(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts sync <dir> [--page <name>]'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts sync <dir> [--page <name>]'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
   const pageIdx = args.indexOf('--page');
   const pageFilter = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
@@ -762,8 +792,9 @@ async function cmdSync(args: string[]) {
 }
 
 async function cmdExportAcl(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-acl <outdir> [--roles role1,role2]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) { console.error('Usage: cli.ts export-acl <outdir> [--roles role1,role2]'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
   const rolesIdx = args.indexOf('--roles');
   const roles = rolesIdx >= 0 && args[rolesIdx + 1] ? args[rolesIdx + 1].split(',').map(s => s.trim()) : undefined;
   const nb = await NocoBaseClient.create();
@@ -771,16 +802,18 @@ async function cmdExportAcl(args: string[]) {
 }
 
 async function cmdDeployAcl(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-acl <project-dir> [--dry-run]'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts deploy-acl <project-dir> [--dry-run]'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
   const dryRun = args.includes('--dry-run');
   const nb = await NocoBaseClient.create();
   await deployAcl(nb, dir, console.log, { dryRun });
 }
 
 async function cmdExportWorkflows(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-workflows <outdir> [--enabled] [--type X] [--title-pattern X]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) { console.error('Usage: cli.ts export-workflows <outdir> [--enabled] [--type X] [--title-pattern X]'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
   const nb = await NocoBaseClient.create();
   const filter: Record<string, unknown> = {};
   if (args.includes('--enabled')) filter.enabled = true;
@@ -792,21 +825,24 @@ async function cmdExportWorkflows(args: string[]) {
 }
 
 async function cmdDeployWorkflows(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-workflows <project-dir> [--copy]'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts deploy-workflows <project-dir> [--copy]'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
   const copyMode = args.includes('--copy');
   const nb = await NocoBaseClient.create();
   await deployWorkflows(nb, dir, { copyMode });
 }
 
 async function cmdCompare(args: string[]) {
-  const left = args[0];
-  const right = args[1];
-  if (!left || !right) { console.error('Usage: cli.ts compare <source-dir> <live-dir> [--copy-group <slug>]'); process.exit(1); }
+  const leftArg = args[0];
+  const rightArg = args[1];
+  if (!leftArg || !rightArg) { console.error('Usage: cli.ts compare <source-dir> <live-dir> [--copy-group <slug>]'); process.exit(1); }
+  const left = resolveWorkspacePath(leftArg);
+  const right = resolveWorkspacePath(rightArg);
   const slugIdx = args.indexOf('--copy-group');
   const copyGroupSlug = slugIdx >= 0 ? args[slugIdx + 1] : undefined;
   const { compareProjects, printCompareResult } = await import('../diff/compare');
-  const result = compareProjects(path.resolve(left), path.resolve(right), copyGroupSlug);
+  const result = compareProjects(left, right, copyGroupSlug);
   printCompareResult(result);
   if (result.differing.length || result.onlyInLeft.length || result.onlyInRight.length) {
     process.exit(2);
@@ -814,12 +850,14 @@ async function cmdCompare(args: string[]) {
 }
 
 async function cmdDuplicateProject(args: string[]) {
-  const src = args[0];
-  const dst = args[1];
-  if (!src || !dst) {
+  const srcArg = args[0];
+  const dstArg = args[1];
+  if (!srcArg || !dstArg) {
     console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--collection-suffix _v2] [--force]\n\n  --key-suffix         Append to every route key so the duplicate is a separate identity.\n  --title-prefix       Prepend to every top-level title so push won\'t adopt a same-titled live group.\n  --collection-suffix  Rename every collection (and trigger SQL refs) — produces TRULY independent\n                       data. Without it, v2 shares the source\'s tables.\n\n  Recommended for isolated duplicate: all three.');
     process.exit(1);
   }
+  const src = resolveWorkspacePath(srcArg);
+  const dst = resolveWorkspacePath(dstArg);
   const sufIdx = args.indexOf('--key-suffix');
   const keySuffix = sufIdx >= 0 ? args[sufIdx + 1] : undefined;
   const tpIdx = args.indexOf('--title-prefix');
@@ -842,8 +880,9 @@ async function cmdDuplicateProject(args: string[]) {
 }
 
 function cmdValidateWorkflows(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts validate-workflows <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts validate-workflows <project-dir>'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
 
   const wfBaseDir = path.join(dir, 'workflows');
   if (!fs.existsSync(wfBaseDir)) {
@@ -887,20 +926,11 @@ function cmdValidateWorkflows(args: string[]) {
 }
 
 async function cmdVerifyData(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
   const { verifyData } = await import('./verify-data');
-  const result = await verifyData(path.resolve(dir));
+  const result = await verifyData(resolveWorkspacePath(dirArg));
   if (result.failed > 0) process.exit(1);
-}
-
-async function cmdSeed(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.log('Usage: seed <project-dir> [--count N]'); process.exit(1); }
-  const countIdx = args.indexOf('--count');
-  const count = countIdx >= 0 ? parseInt(args[countIdx + 1], 10) : 5;
-  const { seedData } = await import('./seed');
-  await seedData(path.resolve(dir), { count });
 }
 
 main().catch(e => { console.error(e.message || e); process.exit(1); });

@@ -1,0 +1,30 @@
+uid: nykn04s2sjy
+name: 'Form (Edit): Time Entries'
+type: block
+collectionName: nb_pm_time_entries
+dataSourceKey: main
+targetUid: idontlv9sil
+description: 'Form (Edit): Time Entries'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_time_entries
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - task
+    - member
+    - hours
+    - date
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+    - - task
+      - member
+    - - hours
+      - date
+    - - description
+  actions:
+    - submit

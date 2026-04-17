@@ -1,0 +1,34 @@
+uid: oazvco17o10
+name: 'Form (Add new): Leave Requests'
+type: block
+collectionName: leave_requests
+dataSourceKey: main
+targetUid: kqte3icz4vw
+description: 'Form (Add new): Leave Requests'
+content:
+  key: createForm
+  type: createForm
+  coll: leave_requests
+  fields:
+    - title
+    - applicant
+    - type
+    - start_date
+    - end_date
+    - days
+    - reason
+    - status
+  field_layout:
+    - '--- 基本信息 ---'
+    - - title
+    - - applicant
+      - type
+    - - start_date
+      - end_date
+      - days
+    - '--- 请假理由 ---'
+    - - reason
+    - '--- 状态 ---'
+    - - status
+  actions:
+    - submit

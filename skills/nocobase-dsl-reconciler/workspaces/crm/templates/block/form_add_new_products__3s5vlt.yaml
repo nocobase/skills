@@ -1,0 +1,27 @@
+uid: 3s5vltu3v9s
+name: 'Form (Add new): Products'
+type: block
+collectionName: products_v2
+dataSourceKey: main
+targetUid: 321f90n2rq4
+description: 'Form (Add new): Products'
+content:
+  key: createForm
+  type: createForm
+  coll: products_v2
+  fields:
+    - name
+    - category
+    - unit
+    - unit_price
+    - stock_count
+  field_layout:
+    - '--- 基本信息 ---'
+    - - name
+    - - category
+      - unit
+    - '--- 价格与库存 ---'
+    - - unit_price
+      - stock_count
+  actions:
+    - submit

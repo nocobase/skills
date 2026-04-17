@@ -1,0 +1,10 @@
+uid: fcntr3x8f69
+name: JS block
+type: block
+dataSourceKey: main
+targetUid: ftc52f54pqj
+description: JS block
+content:
+  type: jsBlock
+  key: jsBlock
+  file: ./js/js_block__fcntr3_jsBlock.js

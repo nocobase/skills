@@ -1,0 +1,13 @@
+name: nb_erp_purchase_orders_copy
+title: Purchase Orders
+fields:
+  - name: status
+    interface: select
+  - name: code
+    interface: input
+  - name: total_amount
+    interface: number
+  - name: supplierId
+    interface: integer
+  - name: order_date
+    interface: dateOnly

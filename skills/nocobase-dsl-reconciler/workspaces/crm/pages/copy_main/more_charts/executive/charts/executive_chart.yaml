@@ -1,0 +1,2 @@
+sql_file: ./charts/executive_chart.sql
+render_file: ./charts/executive_chart_render.js

@@ -1,0 +1,13 @@
+target: $SELF.exchange_rates.fields.currency
+mode: drawer
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_cbo_currencies_copy
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+      associationName: nb_crm_exchange_rates.currency
+      sourceId: '{{ctx.view.inputArgs.sourceId}}'
+    actions:
+      - submit
+      - submit

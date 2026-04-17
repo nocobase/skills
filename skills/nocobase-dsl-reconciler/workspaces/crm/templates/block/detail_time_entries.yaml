@@ -1,0 +1,28 @@
+uid: ksdej6zqq7y
+name: 'Detail: Time Entries'
+type: block
+collectionName: nb_pm_time_entries
+dataSourceKey: main
+targetUid: o4zctul9zgm
+description: 'Detail: Time Entries'
+content:
+  key: details
+  type: details
+  coll: nb_pm_time_entries
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - task
+    - member
+    - hours
+    - date
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+    - - task
+      - member
+    - - hours
+      - date
+    - - description

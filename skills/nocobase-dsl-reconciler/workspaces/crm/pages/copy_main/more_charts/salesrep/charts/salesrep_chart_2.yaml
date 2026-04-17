@@ -1,0 +1,2 @@
+sql_file: ./charts/salesrep_chart_2.sql
+render_file: ./charts/salesrep_chart_2_render.js

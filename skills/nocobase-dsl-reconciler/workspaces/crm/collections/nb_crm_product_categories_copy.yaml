@@ -1,0 +1,18 @@
+name: nb_crm_product_categories_copy
+title: Product Categories
+titleField: name
+fields:
+  - name: sort_order
+    interface: integer
+  - name: products
+    interface: o2m
+    target: nb_crm_products_copy
+    foreignKey: category_id
+  - name: category_code
+    interface: sequence
+  - name: parentId
+    interface: snowflakeId
+  - name: description
+    interface: textarea
+  - name: name
+    interface: input

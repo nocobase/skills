@@ -1,6 +1,0 @@
-name: 'Popup (Edit): Leave Requests'
-type: popup
-collectionName: nb_hrm_leave_requests
-content:
-  blocks:
-    - ref: templates/block/form_edit_nb_hrm_leave_requests.yaml

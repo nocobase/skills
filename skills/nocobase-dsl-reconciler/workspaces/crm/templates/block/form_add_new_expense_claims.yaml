@@ -1,0 +1,34 @@
+uid: 53n4dmtwx9o
+name: 'Form (Add new): expense_claims'
+type: block
+collectionName: expense_claims
+dataSourceKey: main
+targetUid: 2ufjuh6h2yv
+description: 'Form (Add new): expense_claims'
+content:
+  key: createForm
+  type: createForm
+  coll: expense_claims
+  fields:
+    - claim_date
+    - type
+    - amount
+    - description
+    - attachments
+    - supervisor
+    - dept_manager
+    - cfo
+  field_layout:
+    - '--- 基本信息 ---'
+    - - claim_date
+      - type
+    - - amount
+    - - description
+    - '--- 附件 ---'
+    - - attachments
+    - '--- 审批人配置 ---'
+    - - supervisor
+      - dept_manager
+    - - cfo
+  actions:
+    - submit

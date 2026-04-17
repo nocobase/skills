@@ -1,0 +1,112 @@
+name: nb_crm_quotations_copy
+title: Quotations
+titleField: name
+fields:
+  - name: submitted_at
+    interface: datetime
+  - name: currencyInfo
+    interface: m2o
+    target: nb_cbo_currencies_copy
+    foreignKey: currency_id
+  - name: items
+    interface: o2m
+    target: nb_crm_quotation_items_copy
+    foreignKey: quotation_id
+  - name: opportunity
+    interface: m2o
+    target: nb_crm_opportunities_copy
+    foreignKey: opportunity_id
+  - name: total_amount_usd
+    interface: number
+  - name: terms_condition
+    interface: textarea
+  - name: approved_by
+    interface: integer
+  - name: quotation_no
+    interface: sequence
+  - name: contact
+    interface: m2o
+    target: nb_crm_contacts_copy
+    foreignKey: contact_id
+  - name: description
+    interface: textarea
+  - name: discount_amount
+    interface: number
+  - name: extra
+    interface: json
+  - name: customer_id
+    interface: integer
+  - name: shipping_handling
+    interface: number
+  - name: name
+    interface: input
+  - name: version
+    interface: integer
+  - name: customer_response_at
+    interface: datetime
+  - name: valid_until
+    interface: dateOnly
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers_copy
+    foreignKey: customer_id
+  - name: expired_at
+    interface: datetime
+  - name: tax_amount
+    interface: number
+  - name: contact_id
+    interface: integer
+  - name: currency_id
+    interface: integer
+  - name: tax_rate
+    interface: percent
+  - name: discount_rate
+    interface: percent
+  - name: orders
+    interface: o2m
+    target: nb_crm_orders_copy
+    foreignKey: quotation_id
+  - name: status
+    interface: input
+    options:
+      - value: draft
+        label: Draft
+        color: default
+      - value: pending_approval
+        label: Pending Approval
+        color: orange
+      - value: approved
+        label: Approved
+        color: blue
+      - value: sent
+        label: Sent
+        color: cyan
+      - value: accepted
+        label: Accepted
+        color: green
+      - value: rejected
+        label: Rejected
+        color: red
+      - value: expired
+        label: Expired
+        color: default
+  - name: approved_at
+    interface: datetime
+  - name: exchange_rate
+    interface: number
+  - name: payment_terms
+    interface: textarea
+  - name: sent_at
+    interface: datetime
+  - name: subtotal
+    interface: number
+  - name: opportunity_id
+    interface: integer
+  - name: total_amount
+    interface: number
+  - name: rejected_at
+    interface: datetime
+  - name: address
+    interface: textarea
+  - name: owner_id
+    interface: integer

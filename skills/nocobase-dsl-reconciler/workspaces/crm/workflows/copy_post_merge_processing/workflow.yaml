@@ -1,0 +1,435 @@
+title: '[Copy] Post-Merge Processing'
+type: collection
+enabled: false
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  mode: 3
+  appends:
+    - merge_operation_items.customer
+    - merge_operation_items
+    - operator
+  changed: []
+  condition:
+    $and:
+      - status:
+          $eq: merged
+  collection: nb_crm_merge_operations
+graph:
+  - query_record_merge_items
+  - query_record_merge_items --> iterate_over_merge_operation_items
+  - iterate_over_merge_operation_items --> [body] this_is_not_the_master
+  - this_is_not_the_master --> [yes] bulk_update_nb_crm_opportunities
+  - bulk_update_nb_crm_opportunities --> bulk_update_nb_crm_contacts
+  - bulk_update_nb_crm_contacts --> bulk_update_nb_crm_activities
+  - bulk_update_nb_crm_activities --> bulk_update_nb_crm_comments
+  - bulk_update_nb_crm_comments --> bulk_update_nb_crm_orders
+  - bulk_update_nb_crm_orders --> bulk_update_nb_crm_quotations
+  - bulk_update_nb_crm_quotations --> bulk_update_nb_crm_customer_shares
+  - bulk_update_nb_crm_customer_shares --> disable_non_master_customer
+nodes:
+  query_record_merge_items:
+    type: query
+    title: 'Query record: Merge Items'
+    config:
+      multiple: true
+      collection: nb_crm_merge_operation_items
+      params:
+        filter:
+          $and:
+            - merge_operation_id:
+                $eq: '{{$context.data.id}}'
+        sort: []
+        page: 1
+        pageSize: 100
+        appends: []
+  iterate_over_merge_operation_items:
+    type: loop
+    title: iterate over merge_operation_items
+    config:
+      target: '{{$jobsMapByNodeKey.query_record_merge_items}}'
+      condition: false
+      exit: 0
+  this_is_not_the_master:
+    type: condition
+    title: This is not the master
+    config:
+      rejectOnFalse: false
+      engine: basic
+      calculation:
+        group:
+          type: and
+          calculations:
+            - operands:
+                - '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+                - '{{$context.data.customer_id}}'
+              calculator: notEqual
+  bulk_update_nb_crm_opportunities:
+    type: update
+    title: '[Bulk Update] nb_crm_opportunities'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_opportunities
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_opportunities:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_opportunities
+            properties:
+              c_nb_crm_opportunities:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_opportunities
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_opportunities.customer_id
+      collection: nb_crm_opportunities
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  bulk_update_nb_crm_contacts:
+    type: update
+    title: '[Bulk Update] nb_crm_contacts'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_contacts
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_contacts:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_contacts
+            properties:
+              c_nb_crm_contacts:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_contacts
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_contacts.customer_id
+      collection: nb_crm_contacts
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  bulk_update_nb_crm_activities:
+    type: update
+    title: '[Bulk Update] nb_crm_activities'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_activities
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_activities:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_activities
+            properties:
+              c_nb_crm_activities:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_activities
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_activities.customer_id
+      collection: nb_crm_activities
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  bulk_update_nb_crm_comments:
+    type: update
+    title: '[Bulk Update] nb_crm_comments'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_comments
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_comments:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_comments
+            properties:
+              c_nb_crm_comments:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_comments
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_comments.customer_id
+      collection: nb_crm_comments
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  bulk_update_nb_crm_orders:
+    type: update
+    title: '[Bulk Update] nb_crm_orders'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_orders
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_orders:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_orders
+            properties:
+              c_nb_crm_orders:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_orders
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_orders.customer_id
+      collection: nb_crm_orders
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  bulk_update_nb_crm_quotations:
+    type: update
+    title: '[Bulk Update] nb_crm_quotations'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_quotations
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_quotations:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_quotations
+            properties:
+              c_nb_crm_quotations:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_quotations
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_quotations.customer_id
+      collection: nb_crm_quotations
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  bulk_update_nb_crm_customer_shares:
+    type: update
+    title: '[Bulk Update] nb_crm_customer_shares'
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_nb_crm_customer_shares
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_nb_crm_customer_shares:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_nb_crm_customer_shares
+            properties:
+              c_nb_crm_customer_shares:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_nb_crm_customer_shares
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_customer_shares.customer_id
+      collection: nb_crm_customer_shares
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - customer_id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          customer_id: '{{$context.data.customer_id}}'
+  disable_non_master_customer:
+    type: update
+    title: Disable non-master customer
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: s_disable
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          r_disable:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            name: r_disable
+            properties:
+              c_disable:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                name: c_disable
+                properties:
+                  status:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: status
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_customers.status
+      collection: nb_crm_customers
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - id:
+                $eq: '{{$scopes.iterate_over_merge_operation_items.item.customer_id}}'
+        values:
+          status: disabled

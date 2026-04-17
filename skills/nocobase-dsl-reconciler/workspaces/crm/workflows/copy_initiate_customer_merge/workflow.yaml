@@ -1,0 +1,67 @@
+title: '[Copy] Initiate Customer Merge'
+type: custom-action
+enabled: false
+sync: true
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  type: 2
+  appends: []
+  collection: nb_crm_customers
+graph:
+  - count_selected_customers
+  - count_selected_customers --> selected_count_2
+  - selected_count_2 --> [yes] create_merge_operations
+  - create_merge_operations --> loop
+  - loop --> [body] create_merge_operation_items
+  - selected_count_2 --> [no] response_message
+  - response_message --> end_process
+nodes:
+  count_selected_customers:
+    type: calculation
+    title: Count selected customers
+    config:
+      engine: math.js
+      expression: count({{$context.data}})
+  selected_count_2:
+    type: condition
+    title: Selected Count >= 2
+    config:
+      rejectOnFalse: false
+      engine: basic
+      calculation:
+        group:
+          type: and
+          calculations:
+            - calculator: gte
+              operands:
+                - '{{$jobsMapByNodeKey.count_selected_customers}}'
+                - '2'
+  create_merge_operations:
+    type: create
+    title: Create merge_operations
+    config:
+      $ref: components/create_merge_operations.yaml
+  loop:
+    type: loop
+    title: Loop
+    config:
+      target: '{{$context.data}}'
+      condition: false
+      exit: 0
+  create_merge_operation_items:
+    type: create
+    title: Create merge_operation_items
+    config:
+      $ref: components/create_merge_operation_items.yaml
+  response_message:
+    type: response-message
+    title: Response message
+    config:
+      message: Please select at least 2 customers to merge.
+  end_process:
+    type: end
+    title: End process
+    config:
+      endStatus: -1

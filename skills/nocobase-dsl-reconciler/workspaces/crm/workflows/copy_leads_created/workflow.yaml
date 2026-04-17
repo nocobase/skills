@@ -1,0 +1,35 @@
+title: '[Copy] Leads Created'
+type: collection
+enabled: false
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  mode: 1
+  appends:
+    - owner
+    - comments
+    - activities
+  condition:
+    $and: []
+  collection: nb_crm_leads
+graph:
+  - llm
+  - llm --> json_variable_mapping
+  - json_variable_mapping --> update_record
+nodes:
+  llm:
+    type: llm
+    title: LLM
+    config:
+      $ref: components/llm.yaml
+  json_variable_mapping:
+    type: json-variable-mapping
+    title: JSON variable mapping
+    config:
+      $ref: components/json_variable_mapping.yaml
+  update_record:
+    type: update
+    title: Update record
+    config:
+      $ref: components/update_record.yaml

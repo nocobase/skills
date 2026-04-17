@@ -1,0 +1,12 @@
+name: nb_crm_tags_copy
+title: '{{t("Tags")}}'
+titleField: color
+fields:
+  - name: description
+    interface: textarea
+  - name: tag_type
+    interface: select
+  - name: color
+    interface: input
+  - name: label
+    interface: input

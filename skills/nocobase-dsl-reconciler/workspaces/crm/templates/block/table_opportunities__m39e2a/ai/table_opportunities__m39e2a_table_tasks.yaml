@@ -1,0 +1,9 @@
+tasks:
+  - title: Opportunities Analysis
+    user: How's my pipeline? Will I hit my target?
+    system_file: ./ai/table_opportunities__m39e2a_table_task0.md
+    autoSend: true
+  - title: Quotations Analysis
+    user: How are my quotes converting? Any expiring soon?
+    system_file: ./ai/table_opportunities__m39e2a_table_task1.md
+    autoSend: true

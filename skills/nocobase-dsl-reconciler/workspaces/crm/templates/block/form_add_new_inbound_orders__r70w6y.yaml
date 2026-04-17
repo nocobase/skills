@@ -1,0 +1,27 @@
+uid: r70w6yo3cgt
+name: 'Form (Add new): Inbound Orders'
+type: block
+collectionName: inbound_orders
+dataSourceKey: main
+targetUid: h78wtbf4mtd
+description: 'Form (Add new): Inbound Orders'
+content:
+  key: createForm
+  type: createForm
+  coll: inbound_orders
+  fields:
+    - date
+    - product
+    - quantity
+    - supplier
+    - notes
+  field_layout:
+    - '--- 入库信息 ---'
+    - - date
+      - product
+    - - quantity
+      - supplier
+    - '--- 备注 ---'
+    - - notes
+  actions:
+    - submit

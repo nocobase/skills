@@ -1,0 +1,594 @@
+uid: tycmhtkqgja
+name: 'Details: Customers > Contacts (Contacts)'
+type: block
+collectionName: nb_crm_contacts_copy
+dataSourceKey: main
+targetUid: uy317sezelj
+description: 'Details: Customers > Contacts (Contacts)'
+content:
+  key: details
+  type: details
+  coll: nb_crm_contacts_copy
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - email
+    - phone
+    - salutation
+    - mobile
+    - title
+    - department
+    - wechat
+    - linkedin
+    - lead_source
+    - birthday
+    - address
+    - role
+    - level
+    - reports_to
+    - is_primary
+    - languages
+    - customer
+    - description
+    - type: markdown
+      key: _md_18
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_19
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_20
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_21
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_22
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_23
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_24
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_25
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_26
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_27
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_28
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_29
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_30
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_31
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_32
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_33
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_34
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_35
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_36
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_37
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_38
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_39
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_40
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_41
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_42
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_43
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_44
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_45
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_46
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_47
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_48
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_49
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_50
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_51
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_52
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_53
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_54
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_55
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_56
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_57
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_58
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_59
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_60
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_61
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_62
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_63
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_64
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_65
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_66
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_67
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_68
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_69
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_70
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_71
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_72
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_73
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_74
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_75
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_76
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_77
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_78
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_79
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_80
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_81
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_82
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_83
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_84
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_85
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_86
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_87
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_88
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_89
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_90
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_91
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_92
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_93
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_94
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_95
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_96
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_97
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_98
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_99
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_100
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_101
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_102
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_103
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_104
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_105
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_106
+      content: |+
+        ##  {{ ctx.record.name }}
+
+    - type: markdown
+      key: _md_107
+      content: |+
+        ##  {{ ctx.record.name }}
+
+  field_layout:
+    - - '[MD:_md_18]'
+    - - title
+      - salutation
+    - - customer
+      - department
+    - '--- Contact Details ---'
+    - - email
+    - - phone
+      - mobile
+    - - wechat
+      - linkedin
+    - - address
+    - '--- Role & Relationship ---'
+    - - role
+      - level
+    - - reports_to
+      - is_primary
+    - - birthday
+      - languages
+    - - lead_source
+    - '--- Other ---'
+    - - description
+    - - '[MD:_md_19]'
+    - - '[MD:_md_20]'
+    - - '[MD:_md_21]'
+    - - '[MD:_md_22]'
+    - - '[MD:_md_23]'
+    - - '[MD:_md_24]'
+    - - '[MD:_md_25]'
+    - - '[MD:_md_26]'
+    - - '[MD:_md_27]'
+    - - '[MD:_md_28]'
+    - - '[MD:_md_29]'
+    - - '[MD:_md_30]'
+    - - '[MD:_md_31]'
+    - - '[MD:_md_32]'
+    - - '[MD:_md_33]'
+    - - '[MD:_md_34]'
+    - - '[MD:_md_35]'
+    - - '[MD:_md_36]'
+    - - '[MD:_md_37]'
+    - - '[MD:_md_38]'
+    - - '[MD:_md_39]'
+    - - '[MD:_md_40]'
+    - - '[MD:_md_41]'
+    - - '[MD:_md_42]'
+    - - '[MD:_md_43]'
+    - - '[MD:_md_44]'
+    - - '[MD:_md_45]'
+    - - '[MD:_md_46]'
+    - - '[MD:_md_47]'
+    - - '[MD:_md_48]'
+    - - '[MD:_md_49]'
+    - - '[MD:_md_50]'
+    - - '[MD:_md_51]'
+    - - '[MD:_md_52]'
+    - - '[MD:_md_53]'
+    - - '[MD:_md_54]'
+    - - '[MD:_md_55]'
+    - - '[MD:_md_56]'
+    - - '[MD:_md_57]'
+    - - '[MD:_md_58]'
+    - - '[MD:_md_59]'
+    - - '[MD:_md_60]'
+    - - '[MD:_md_61]'
+    - - '[MD:_md_62]'
+    - - '[MD:_md_63]'
+    - - '[MD:_md_64]'
+    - - '[MD:_md_65]'
+    - - '[MD:_md_66]'
+    - - '[MD:_md_67]'
+    - - '[MD:_md_68]'
+    - - '[MD:_md_69]'
+    - - '[MD:_md_70]'
+    - - '[MD:_md_71]'
+    - - '[MD:_md_72]'
+    - - '[MD:_md_73]'
+    - - '[MD:_md_74]'
+    - - '[MD:_md_75]'
+    - - '[MD:_md_76]'
+    - - '[MD:_md_77]'
+    - - '[MD:_md_78]'
+    - - '[MD:_md_79]'
+    - - '[MD:_md_80]'
+    - - '[MD:_md_81]'
+    - - '[MD:_md_82]'
+    - - '[MD:_md_83]'
+    - - '[MD:_md_84]'
+    - - '[MD:_md_85]'
+    - - '[MD:_md_86]'
+    - - '[MD:_md_87]'
+    - - '[MD:_md_88]'
+    - - '[MD:_md_89]'
+    - - '[MD:_md_90]'
+    - - '[MD:_md_91]'
+    - - '[MD:_md_92]'
+    - - '[MD:_md_93]'
+    - - '[MD:_md_94]'
+    - - '[MD:_md_95]'
+    - - '[MD:_md_96]'
+    - - '[MD:_md_97]'
+    - - '[MD:_md_98]'
+    - - '[MD:_md_99]'
+    - - '[MD:_md_100]'
+    - - '[MD:_md_101]'
+    - - '[MD:_md_102]'
+    - - '[MD:_md_103]'
+    - - '[MD:_md_104]'
+    - - '[MD:_md_105]'
+    - - '[MD:_md_106]'
+    - - '[MD:_md_107]'

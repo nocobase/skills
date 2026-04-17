@@ -1,0 +1,17 @@
+target: $SELF.exchange_rates.fields.currency
+mode: drawer
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_cbo_currencies
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+      associationName: nb_crm_exchange_rates.currency
+      sourceId: '{{ctx.view.inputArgs.sourceId}}'
+    templateRef:
+      templateUid: fggawimkpeo
+      templateName: 'Form (Add new): Currencies'
+      targetUid: c0547bc25a4
+      mode: reference
+    actions:
+      - submit

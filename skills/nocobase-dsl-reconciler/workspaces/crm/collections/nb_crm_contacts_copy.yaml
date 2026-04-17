@@ -1,0 +1,133 @@
+name: nb_crm_contacts_copy
+title: Contacts
+titleField: name
+fields:
+  - name: contact_no
+    interface: sequence
+  - name: email
+    interface: input
+  - name: languages
+    interface: input
+  - name: title
+    interface: input
+  - name: contact_mail
+    interface: o2m
+    target: nb_crm_v_mail_contact_copy
+    foreignKey: contact_id
+  - name: birthday
+    interface: dateOnly
+  - name: mobile
+    interface: input
+  - name: role
+    interface: select
+    options:
+      - value: decision_maker
+        label: Decision Maker
+        color: red
+      - value: influencer
+        label: Influencer
+        color: orange
+      - value: user
+        label: User
+        color: blue
+      - value: buyer
+        label: Buyer
+        color: green
+      - value: gatekeeper
+        label: Gatekeeper
+        color: default
+  - name: name
+    interface: input
+  - name: reports_to
+    interface: m2o
+    target: nb_crm_contacts_copy
+    foreignKey: reports_to_id
+  - name: level
+    interface: select
+    options:
+      - value: A
+        label: A - Key
+        color: red
+      - value: B
+        label: B - Important
+        color: orange
+      - value: C
+        label: C - Normal
+        color: default
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers_copy
+    foreignKey: customer_id
+  - name: department
+    interface: input
+  - name: reports_to_id
+    interface: integer
+  - name: phone
+    interface: input
+  - name: extra
+    interface: json
+  - name: lead_source
+    interface: select
+    options:
+      - value: website
+        label: Website
+        color: blue
+      - value: ads
+        label: Advertising
+        color: purple
+      - value: referral
+        label: Referral
+        color: green
+      - value: exhibition
+        label: Exhibition
+        color: orange
+      - value: telemarketing
+        label: Telemarketing
+        color: cyan
+      - value: email
+        label: Email
+        color: geekblue
+  - name: owner_id
+    interface: integer
+  - name: is_primary
+    interface: checkbox
+  - name: customer_id
+    interface: integer
+  - name: user_id
+    interface: integer
+  - name: tags
+    interface: m2m
+    target: nb_crm_tags_copy
+    foreignKey: contact_id
+    through: nb_crm_contact_tags_copy
+  - name: address
+    interface: textarea
+  - name: activities
+    interface: o2m
+    target: nb_crm_activities_copy
+    foreignKey: contact_id
+  - name: owner
+    interface: m2o
+    target: users
+    foreignKey: owner_id
+  - name: salutation
+    interface: select
+    options:
+      - value: Mr.
+        label: Mr.
+        color: blue
+      - value: Mrs.
+        label: Mrs.
+        color: purple
+      - value: Ms.
+        label: Ms.
+        color: cyan
+      - value: Dr.
+        label: Dr.
+        color: green
+  - name: linkedin
+    interface: input
+  - name: description
+    interface: textarea
+  - name: wechat
+    interface: input

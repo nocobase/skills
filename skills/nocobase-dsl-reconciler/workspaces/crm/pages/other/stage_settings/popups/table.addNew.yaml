@@ -1,0 +1,10 @@
+target: $SELF.table.actions.addNew
+mode: drawer
+blocks:
+  - key: reference
+    type: reference
+    templateRef:
+      templateUid: afkt6evyern
+      templateName: 'Form (Add new): nb_crm_opportunity_stages'
+      targetUid: 064a59ddf9a
+      mode: reference

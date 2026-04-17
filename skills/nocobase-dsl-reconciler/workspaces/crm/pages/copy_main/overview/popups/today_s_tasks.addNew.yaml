@@ -1,0 +1,17 @@
+target: $SELF.today_s_tasks.actions.addNew
+mode: drawer
+blocks:
+  - key: createForm
+    type: createForm
+    coll: nb_crm_activities_copy
+    templateRef:
+      templateUid: in4jdxcs8y7
+      templateName: 'Form (Add new): Activities'
+      targetUid: 11oizuofbi9
+      mode: reference
+    actions:
+      - submit
+      - submit
+      - type: ai
+        employee: dex
+        tasks_file: ./ai/overview_addNew_createForm_tasks.yaml

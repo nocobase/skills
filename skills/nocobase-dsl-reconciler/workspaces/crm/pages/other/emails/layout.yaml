@@ -1,0 +1,8 @@
+blocks:
+  - key: reference
+    type: reference
+    templateRef:
+      templateUid: vj6vwmysk9t
+      templateName: 'Email table: Mail messages'
+      targetUid: cb09a1ee275
+      mode: reference

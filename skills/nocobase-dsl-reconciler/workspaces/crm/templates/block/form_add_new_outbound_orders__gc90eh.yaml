@@ -1,0 +1,27 @@
+uid: gc90ehya8op
+name: 'Form (Add new): Outbound Orders'
+type: block
+collectionName: outbound_orders_v2
+dataSourceKey: main
+targetUid: y85231w74j9
+description: 'Form (Add new): Outbound Orders'
+content:
+  key: createForm
+  type: createForm
+  coll: outbound_orders_v2
+  fields:
+    - date
+    - product
+    - quantity
+    - purpose
+    - notes
+  field_layout:
+    - '--- 出库信息 ---'
+    - - date
+      - product
+    - - quantity
+      - purpose
+    - '--- 备注 ---'
+    - - notes
+  actions:
+    - submit

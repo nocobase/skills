@@ -1,0 +1,15 @@
+uid: c5hqlgonnxu
+name: 'Form (Edit): Customers'
+type: block
+collectionName: nb_crm_customers_copy
+dataSourceKey: main
+targetUid: ruuxwuzwwgh
+description: 'Form (Edit): Customers'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_crm_customers_copy
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  actions:
+    - submit

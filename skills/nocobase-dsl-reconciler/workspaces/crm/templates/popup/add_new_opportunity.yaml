@@ -1,0 +1,17 @@
+uid: zq14gdeeqvp
+name: Add new opportunity
+type: popup
+collectionName: nb_crm_opportunities
+dataSourceKey: main
+targetUid: x7xircn7ok1
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: 5tpe5cpsnuf
+        templateName: 'Form (Add new): Opportunities'
+        targetUid: d7e295047ff
+        mode: reference
+  layout:
+    - - reference

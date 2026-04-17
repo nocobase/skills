@@ -1,0 +1,37 @@
+uid: in4jdxcs8y7
+name: 'Form (Add new): Activities'
+type: block
+collectionName: nb_crm_activities_copy
+dataSourceKey: main
+targetUid: 11oizuofbi9
+description: 'Form (Add new): Activities'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_activities_copy
+  fields:
+    - subject
+    - type
+    - activity_date
+    - content
+    - customer
+    - opportunity
+    - contact
+    - owner
+    - lead
+  field_layout:
+    - - subject
+    - - type
+      - activity_date
+    - - content
+    - - col:
+          - customer
+          - lead
+        size: 8
+      - col:
+          - opportunity
+          - owner
+        size: 8
+      - contact
+  actions:
+    - submit

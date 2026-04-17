@@ -1,0 +1,14 @@
+target: $SELF.table.actions.addNew
+mode: drawer
+blocks:
+  - key: createForm
+    type: createForm
+    coll: nb_crm_contacts_copy
+    templateRef:
+      templateUid: kqpobblfpoi
+      templateName: 'Form (Edit): Customers > Contacts (Contacts)'
+      targetUid: v0jnkus434g
+      mode: reference
+    actions:
+      - submit
+      - submit

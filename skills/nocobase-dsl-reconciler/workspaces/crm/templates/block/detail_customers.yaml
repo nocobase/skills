@@ -1,0 +1,21 @@
+uid: tu8wdhl1ydm
+name: 'Detail: Customers'
+type: block
+collectionName: nb_crm_customers_copy
+dataSourceKey: main
+targetUid: j877k4n2lp8
+description: 'Detail: Customers'
+content:
+  key: details
+  type: details
+  coll: nb_crm_customers_copy
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - level
+    - type
+    - region
+  field_layout:
+    - - level
+      - region
+      - type

@@ -1,0 +1,15 @@
+uid: ausdlm3w64p
+name: 'Form (Edit): Currencies'
+type: block
+collectionName: nb_cbo_currencies_copy
+dataSourceKey: main
+targetUid: a0wp7madbmq
+description: 'Form (Edit): Currencies'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_cbo_currencies_copy
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  actions:
+    - submit

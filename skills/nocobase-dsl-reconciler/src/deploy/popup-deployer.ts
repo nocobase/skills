@@ -31,8 +31,17 @@ export async function deployPopup(
   const { nb, log } = ctx;
   const { modDir, popupPath = '', existingPopupBlocks = {} } = opts;
   const mode = popupSpec.mode || 'drawer';
-  const coll = popupSpec.coll || '';
   const tabsSpec = popupSpec.tabs;
+  // popupSpec.coll is rarely set explicitly; fall back to the first block's coll
+  // (covers both flat blocks[] and tabs[].blocks[]). Without this the openView
+  // ends up with collectionName='' and the popup renders broken.
+  const coll = popupSpec.coll
+    || popupSpec.blocks?.[0]?.coll
+    || tabsSpec?.[0]?.blocks?.[0]?.coll
+    || '';
+  if (!coll) {
+    log(`  ⚠ popup [${targetRef}] has no coll — openView.collectionName will be empty`);
+  }
 
   // If popup uses a template reference, just set it — no compose needed
   const popupTemplate = (popupSpec as unknown as Record<string, unknown>).popupTemplate as { uid: string; name?: string } | undefined;

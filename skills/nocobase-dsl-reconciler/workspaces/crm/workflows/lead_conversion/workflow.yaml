@@ -1,0 +1,71 @@
+title: Lead Conversion
+type: action
+enabled: true
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  global: false
+  appends: []
+  collection: nb_crm_leads
+graph:
+  - update_comments
+  - update_comments --> update_contacts
+  - update_contacts --> update_opportunity
+nodes:
+  update_comments:
+    type: update
+    title: Update Comments
+    config:
+      $ref: components/update_comments.yaml
+  update_contacts:
+    type: update
+    title: Update Contacts
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: p3yogxifs4r
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          6oln1i89u41:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            properties:
+              on0z7ivbru4:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                properties:
+                  customer_id:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: customer_id
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_contacts.customer_id
+                name: on0z7ivbru4
+            name: 6oln1i89u41
+      collection: nb_crm_contacts
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.converted_contact_id}}'
+        values:
+          customer_id: '{{$context.data.converted_customer_id}}'
+  update_opportunity:
+    type: update
+    title: Update Opportunity
+    config:
+      $ref: components/update_opportunity.yaml

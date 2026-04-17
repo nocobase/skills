@@ -1,0 +1,25 @@
+uid: btdde3bwbb6
+name: 'Form (Add new): nb_crm_opportunity_stages'
+type: block
+collectionName: nb_crm_opportunity_stages_copy
+dataSourceKey: main
+targetUid: gyj44cv8fx4
+description: 'Form (Add new): nb_crm_opportunity_stages'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_opportunity_stages_copy
+  fields:
+    - name
+    - win_probability
+    - color
+    - description
+    - code
+  field_layout:
+    - - name
+      - code
+    - - win_probability
+    - - color
+    - - description
+  actions:
+    - submit

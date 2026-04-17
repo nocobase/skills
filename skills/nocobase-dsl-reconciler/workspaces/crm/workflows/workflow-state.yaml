@@ -1,0 +1,321 @@
+workflows:
+  follow_up_reminder:
+    id: 344805720064000
+    key: gw5cx9s9ax4
+    nodes:
+      condition:
+        id: 344806231769088
+        key: df6lgqnw7s8
+      notification:
+        id: 344806592479232
+        key: 6hj44tstai2
+  lead_scoring:
+    id: 344808658173952
+    key: 0x8w1zroaje
+    nodes:
+      llm:
+        id: 344809362817024
+        key: ap5s1rg100g
+      json_variable_mapping:
+        id: 344809683681280
+        key: 0d66y4pnxog
+      update_record:
+        id: 344809742401536
+        key: e4zimub2wk5
+  lead_assignment:
+    id: 344817268424704
+    key: 8nb9lii02dh
+    nodes:
+      auto_assignment:
+        id: 345496028708864
+        key: xzcxchuw5d2
+      notification:
+        id: 345533435609088
+        key: wytxjfdivwi
+      query_record:
+        id: 345535264325632
+        key: i2w8q28806q
+  lead_conversion:
+    id: 345651631423488
+    key: l8kv19go8hd
+    nodes:
+      update_comments:
+        id: 345653418196992
+        key: llx3gixzmvk
+      update_contacts:
+        id: 345654141714432
+        key: lt0tc0n4lnl
+      update_opportunity:
+        id: 345654248669184
+        key: cuz20gu2906
+  crm_system_demo_date_shift:
+    id: 345714038472704
+    key: ent9831jh17
+    nodes:
+      sql_action:
+        id: 345714082512896
+        key: ulzhcwqh6iv
+  crm_overall_analytics:
+    id: 345737629335552
+    key: 6bqwy3eq73f
+    nodes:
+      query_record:
+        id: 345880215748608
+        key: pveyzb3gjli
+      sql_action:
+        id: 345880251400192
+        key: ys7tsj4o4p9
+  leads_created:
+    id: 345904693706752
+    key: 4jpfeyz0yp7
+    nodes:
+      llm:
+        id: 346067470778368
+        key: ziuj6h2jys0
+      json_variable_mapping:
+        id: 346069765062656
+        key: net4hn1alaa
+      update_record:
+        id: 346069813297152
+        key: yqhx2j7ztvo
+  initiate_customer_merge:
+    id: 354776533106688
+    key: ykqda4g2xie
+    nodes:
+      count_selected_customers:
+        id: 354776608604160
+        key: 6ro6lb8txdl
+      selected_count_2:
+        id: 354776633769984
+        key: 6la09f5p6a3
+      create_merge_operations:
+        id: 354776684101632
+        key: 73o0ppqyr52
+      loop:
+        id: 354776694587392
+        key: cwc5c0qqnbx
+      create_merge_operation_items:
+        id: 354776698781696
+        key: u7kzwhgcbk7
+      response_message:
+        id: 354776705073152
+        key: ydnidt4fu05
+      end_process:
+        id: 354776715558912
+        key: zevrg328lbi
+  post_merge_processing:
+    id: 354777111920640
+    key: xiydwkxu43m
+    nodes:
+      query_record_merge_items:
+        id: 354777317441536
+        key: 2d1dqvj4t0x
+      iterate_over_merge_operation_items:
+        id: 354777508282368
+        key: wkvo6mr49l1
+      this_is_not_the_master:
+        id: 354777606848512
+        key: k69a3rh6y4r
+      bulk_update_nb_crm_opportunities:
+        id: 354781757112320
+        key: 0ql0gavwlr3
+      bulk_update_nb_crm_contacts:
+        id: 354781757112321
+        key: h0h5qt0tksq
+      bulk_update_nb_crm_activities:
+        id: 354781757112322
+        key: e9ewdl8lj37
+      bulk_update_nb_crm_comments:
+        id: 354781757112323
+        key: igqh4yorjod
+      bulk_update_nb_crm_orders:
+        id: 354781757112324
+        key: vk6z7qejgr7
+      bulk_update_nb_crm_quotations:
+        id: 354781757112325
+        key: 3dq6vqf7ga3
+      bulk_update_nb_crm_customer_shares:
+        id: 354781757112326
+        key: mwjj82k0seo
+      disable_non_master_customer:
+        id: 354781757112327
+        key: pxi1p7hrv7u
+  new_quotation:
+    id: 355521738637312
+    key: h2txyim33ra
+    nodes:
+      manager_approval:
+        id: 355521738637313
+        key: x0vaubsf0b9
+      pending_approval:
+        id: 355521740734464
+        key: 20sry4o92s2
+      draft:
+        id: 355521740734465
+        key: k4jrsbpccyx
+      draft_2:
+        id: 355521740734466
+        key: pn4et9ybcmh
+      update_record:
+        id: 355521740734467
+        key: iig2i8qfagh
+  copy_crm_overall_analytics:
+    id: 359196893184000
+    key: zfgg5st4qpw
+    nodes:
+      query_record:
+        id: 359196893184001
+        key: pizqjvs9fmh
+      sql_action:
+        id: 359196893184002
+        key: pbfyl6b603v
+  copy_crm_system_demo_date_shift:
+    id: 359196893184003
+    key: jmuunew5w1y
+    nodes:
+      sql_action:
+        id: 359196893184004
+        key: 1uhnhtuurfe
+  copy_follow_up_reminder:
+    id: 359196893184005
+    key: azfgu507wtx
+    nodes:
+      condition:
+        id: 359196893184006
+        key: opm3fiz8r93
+      notification:
+        id: 359196893184007
+        key: fsltwbenw3h
+  copy_initiate_customer_merge:
+    id: 359196893184008
+    key: 4x5o9lb44wy
+    nodes:
+      count_selected_customers:
+        id: 359196893184009
+        key: 2uu1e5we218
+      selected_count_2:
+        id: 359196893184010
+        key: q8gxncwwun1
+      create_merge_operations:
+        id: 359196893184011
+        key: bxa27r9scs6
+      loop:
+        id: 359196893184012
+        key: xgkuc3goal5
+      create_merge_operation_items:
+        id: 359196893184013
+        key: ao6erreyxt9
+      response_message:
+        id: 359196893184014
+        key: 334v9mw0ia0
+      end_process:
+        id: 359196893184015
+        key: kxn37itbtud
+  copy_lead_assignment:
+    id: 359196893184016
+    key: lxj7wejwshj
+    nodes:
+      auto_assignment:
+        id: 359196893184017
+        key: q00212g3pzg
+      query_record:
+        id: 359196893184018
+        key: 5gs5t7tgtaa
+      notification:
+        id: 359196893184019
+        key: 5pcf6691590
+  copy_lead_conversion:
+    id: 359196893184020
+    key: bek7kamf9s3
+    nodes:
+      update_comments:
+        id: 359196893184021
+        key: fl206xha35e
+      update_contacts:
+        id: 359196893184022
+        key: gytvwdrswuh
+      update_opportunity:
+        id: 359196893184023
+        key: hj6k3qvmfdd
+  copy_lead_scoring:
+    id: 359196893184024
+    key: mjr5gkvblt4
+    nodes:
+      llm:
+        id: 359196893184025
+        key: arjfyuuh328
+      json_variable_mapping:
+        id: 359196893184026
+        key: zd5vtrdslxm
+      update_record:
+        id: 359196893184027
+        key: sv3jwfe0qil
+  copy_leads_created:
+    id: 359196893184028
+    key: 8ga5qtj4mm7
+    nodes:
+      llm:
+        id: 359196893184029
+        key: 25gh0yzmp6c
+      json_variable_mapping:
+        id: 359196893184030
+        key: 1dvlsa00y4m
+      update_record:
+        id: 359196893184031
+        key: zz0ar49am87
+  copy_new_quotation:
+    id: 359196895281152
+    key: 3fk2gteaugn
+    nodes:
+      pending_approval:
+        id: 359196895281153
+        key: vct8c3yx6so
+      manager_approval:
+        id: 359196895281154
+        key: u35p4t5b9id
+      update_record:
+        id: 359196895281155
+        key: xkr6t2vq9sn
+      draft:
+        id: 359196895281156
+        key: wamiiut0f46
+      draft_2:
+        id: 359196895281157
+        key: ilrmqyu21sd
+  copy_post_merge_processing:
+    id: 359196895281158
+    key: sqzw6p6qsxz
+    nodes:
+      query_record_merge_items:
+        id: 359196895281159
+        key: 70otckcr9v5
+      iterate_over_merge_operation_items:
+        id: 359196895281160
+        key: fd7owf0fi9l
+      this_is_not_the_master:
+        id: 359196895281161
+        key: 9wio6l6ojz8
+      bulk_update_nb_crm_opportunities:
+        id: 359196895281162
+        key: bzvre602p4n
+      bulk_update_nb_crm_contacts:
+        id: 359196895281163
+        key: 9y1n6j5gs14
+      bulk_update_nb_crm_activities:
+        id: 359196895281164
+        key: uyvu747z0i0
+      bulk_update_nb_crm_comments:
+        id: 359196895281165
+        key: 28lbtqv8p73
+      bulk_update_nb_crm_orders:
+        id: 359196895281166
+        key: uxosgmyile7
+      bulk_update_nb_crm_quotations:
+        id: 359196895281167
+        key: 6uanw7dr2ul
+      bulk_update_nb_crm_customer_shares:
+        id: 359196895281168
+        key: pb1b4n9m8a5
+      disable_non_master_customer:
+        id: 359196895281169
+        key: k6v44oa18lu

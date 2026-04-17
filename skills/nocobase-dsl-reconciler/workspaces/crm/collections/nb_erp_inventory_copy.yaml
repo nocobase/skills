@@ -1,0 +1,11 @@
+name: nb_erp_inventory_copy
+title: Inventory
+fields:
+  - name: productId
+    interface: integer
+  - name: quantity
+    interface: integer
+  - name: last_updated
+    interface: dateOnly
+  - name: warehouseId
+    interface: integer

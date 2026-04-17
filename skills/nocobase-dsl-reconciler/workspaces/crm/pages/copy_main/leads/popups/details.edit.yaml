@@ -1,0 +1,16 @@
+target: $SELF.details.actions.edit
+mode: drawer
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_crm_leads_copy
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    templateRef:
+      templateUid: 7fkp36nf406
+      templateName: 'Form (Add new): nb_crm_leads'
+      targetUid: cxzk5q4l4w3
+      mode: reference
+    actions:
+      - submit
+      - submit

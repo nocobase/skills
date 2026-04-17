@@ -1,0 +1,36 @@
+name: nb_crm_price_tiers
+title: Price Tiers
+titleField: tier_description
+fields:
+  - name: discount_rate
+    interface: percent
+  - name: product
+    interface: m2o
+    target: nb_crm_products
+    foreignKey: product_id
+  - name: effective_from
+    interface: date
+  - name: min_quantity
+    interface: integer
+  - name: quotationItems
+    interface: o2m
+    target: nb_crm_quotation_items
+    foreignKey: tier_applied
+  - name: effective_to
+    interface: date
+  - name: currencyInfo
+    interface: m2o
+    target: nb_cbo_currencies
+    foreignKey: currency_id
+  - name: currency_id
+    interface: integer
+  - name: requires_approval
+    interface: checkbox
+  - name: tier_description
+    interface: input
+  - name: product_id
+    interface: integer
+  - name: unit_price
+    interface: number
+  - name: max_quantity
+    interface: integer

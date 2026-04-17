@@ -1,0 +1,159 @@
+name: nb_crm_opportunities_copy
+title: Opportunities
+titleField: name
+fields:
+  - name: attachments
+    interface: attachment
+    target: attachments
+    foreignKey: f_un8av3d2a96
+    through: t_ginwgue6f69
+  - name: lead_source
+    interface: select
+    options:
+      - value: website
+        label: Website
+        color: blue
+      - value: ads
+        label: Advertising
+        color: purple
+      - value: referral
+        label: Referral
+        color: green
+      - value: exhibition
+        label: Exhibition
+        color: orange
+      - value: telemarketing
+        label: Telemarketing
+        color: cyan
+      - value: email
+        label: Email
+        color: geekblue
+  - name: ai_recommendations
+    interface: json
+  - name: ai_analyzed_at
+    interface: datetime
+  - name: stage_sort
+    interface: integer
+  - name: amount_usd
+    interface: number
+  - name: exchange_rate
+    interface: number
+  - name: last_activity_at
+    interface: datetime
+  - name: name
+    interface: input
+  - name: ai_win_probability
+    interface: percent
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers_copy
+    foreignKey: customer_id
+  - name: days_in_stage
+    interface: integer
+  - name: owner
+    interface: m2o
+    target: users
+    foreignKey: owner_id
+  - name: expected_close_date
+    interface: dateOnly
+  - name: ai_trend
+    interface: input
+  - name: stage_entered_at
+    interface: datetime
+  - name: competitors
+    interface: o2m
+    target: nb_crm_competitors_copy
+    foreignKey: opportunity_id
+  - name: ai_predicted_close
+    interface: dateOnly
+  - name: stagnant_days
+    interface: integer
+  - name: ai_confidence
+    interface: percent
+  - name: competitor_id
+    interface: integer
+  - name: ai_risk_factors
+    interface: json
+  - name: extra
+    interface: json
+  - name: ai_next_best_action
+    interface: textarea
+  - name: ai_nba_generated_at
+    interface: datetime
+  - name: expected_revenue
+    interface: number
+  - name: campaign_id
+    interface: integer
+  - name: customer_id
+    interface: integer
+  - name: contact_id
+    interface: integer
+  - name: activities
+    interface: o2m
+    target: nb_crm_activities_copy
+    foreignKey: opportunity_id
+  - name: owner_id
+    interface: integer
+  - name: contact
+    interface: m2o
+    target: nb_crm_contacts_copy
+    foreignKey: contact_id
+  - name: currency
+    interface: select
+    options:
+      - value: CNY
+        label: CNY ¥
+        color: red
+      - value: USD
+        label: USD $
+        color: green
+      - value: EUR
+        label: EUR €
+        color: blue
+      - value: GBP
+        label: GBP £
+        color: purple
+      - value: JPY
+        label: JPY ¥
+        color: orange
+  - name: comments
+    interface: o2m
+    target: nb_crm_comments_copy
+    foreignKey: opportunity_id
+  - name: win_probability
+    interface: percent
+  - name: amount
+    interface: number
+  - name: actual_close_date
+    interface: dateOnly
+  - name: stage
+    interface: select
+    options:
+      - value: prospecting
+        label: Initial Contact
+        color: blue
+      - value: analysis
+        label: Needs Analysis
+        color: cyan
+      - value: proposal
+        label: Proposal
+        color: orange
+      - value: negotiation
+        label: Negotiation
+        color: purple
+      - value: won
+        label: Won
+        color: green
+      - value: lost
+        label: Lost
+        color: red
+  - name: loss_reason
+    interface: textarea
+  - name: description
+    interface: textarea
+  - name: quotations
+    interface: o2m
+    target: nb_crm_quotations_copy
+    foreignKey: opportunity_id
+  - name: opportunity_no
+    interface: sequence

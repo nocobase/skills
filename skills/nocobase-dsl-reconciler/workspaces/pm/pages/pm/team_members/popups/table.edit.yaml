@@ -1,3 +1,0 @@
-target: $SELF.table.recordActions.edit
-blocks:
-  - ref: templates/block/form_edit_nb_pm_team_members.yaml

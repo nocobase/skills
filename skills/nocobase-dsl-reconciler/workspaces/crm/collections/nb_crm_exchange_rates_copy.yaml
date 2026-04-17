@@ -1,0 +1,27 @@
+name: nb_crm_exchange_rates_copy
+title: Exchange Rates
+titleField: currency_code
+fields:
+  - name: currency
+    interface: obo
+  - name: currency_code
+    interface: input
+  - name: rate_to_usd
+    interface: number
+  - name: effective_date
+    interface: date
+  - name: source
+    interface: input
+    options:
+      - value: manual
+        label: Manual
+        color: blue
+      - value: api
+        label: API
+        color: green
+      - value: import
+        label: Import
+        color: orange
+      - value: system
+        label: System
+        color: default

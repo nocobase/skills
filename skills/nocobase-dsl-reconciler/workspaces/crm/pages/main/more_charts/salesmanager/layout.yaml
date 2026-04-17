@@ -1,0 +1,22 @@
+blocks:
+  - type: jsBlock
+    key: jsBlock
+    file: ./js/salesmanager_jsBlock.js
+  - key: chart
+    type: chart
+    chart_config: ./charts/salesmanager_chart.yaml
+  - key: chart_2
+    type: chart
+    chart_config: ./charts/salesmanager_chart_2.yaml
+  - key: chart_3
+    type: chart
+    chart_config: ./charts/salesmanager_chart_3.yaml
+  - key: chart_4
+    type: chart
+    chart_config: ./charts/salesmanager_chart_4.yaml
+layout:
+  - - jsBlock
+  - - chart
+  - - chart_2: 11
+    - chart_3: 7
+    - chart_4: 6

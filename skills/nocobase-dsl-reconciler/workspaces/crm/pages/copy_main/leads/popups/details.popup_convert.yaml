@@ -1,0 +1,47 @@
+target: $SELF.details.actions.popup_convert
+mode: dialog
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_crm_leads_copy
+    resource_binding:
+      filterByTk: '{{ ctx.record.id }}'
+    fields:
+      - converted_customer
+      - converted_contact
+      - converted_opportunity
+      - status
+    field_layout:
+      - - converted_customer
+      - - converted_contact
+      - - converted_opportunity
+      - - status
+    actions:
+      - submit
+    fieldLinkageRules:
+      - key: a0asbp75z5w
+        title: Linkage rule
+        enable: true
+        condition:
+          logic: $and
+          items: []
+        actions:
+          - key: hvbhuxm0i49
+            name: linkageAssignField
+            params:
+              value:
+                - key: a0asbp75z5w-action-1-item-1
+                  enable: true
+                  targetPath: status
+                  mode: assign
+                  condition:
+                    logic: $and
+                    items: []
+                  value: qualified
+          - key: sllj5o0a4rk
+            name: linkageSetFieldProps
+            params:
+              value:
+                fields:
+                  - status
+                state: hiddenReservedValue

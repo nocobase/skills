@@ -1,0 +1,25 @@
+uid: 0wjafee6xr7
+name: 'Form (Add new): Currencies'
+type: block
+collectionName: nb_cbo_currencies_copy
+dataSourceKey: main
+targetUid: qvk755wsc0u
+description: 'Form (Add new): Currencies'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_cbo_currencies_copy
+  fields:
+    - name
+    - code
+    - current_rate
+    - symbol
+  field_layout:
+    - - name
+    - - col:
+          - code
+          - symbol
+        size: 24
+    - - current_rate
+  actions:
+    - submit

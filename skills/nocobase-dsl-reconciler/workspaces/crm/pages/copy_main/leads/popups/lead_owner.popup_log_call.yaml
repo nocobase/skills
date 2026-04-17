@@ -1,0 +1,12 @@
+target: $SELF.lead_owner.actions.popup_log_call
+mode: drawer
+blocks:
+  - key: createForm
+    type: createForm
+    coll: nb_crm_activities_copy
+    resource_binding:
+      associationName: nb_crm_leads.activities
+      sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+    actions:
+      - submit
+      - submit

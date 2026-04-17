@@ -1,0 +1,24 @@
+uid: 9sa8z6s4kub
+name: 'Detail: Members'
+type: block
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: wophnkgz6xx
+description: 'Detail: Members'
+content:
+  key: details
+  type: details
+  coll: nb_pm_members
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - email
+    - phone
+    - role
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - role
+    - - email
+      - phone

@@ -1,0 +1,14 @@
+name: nb_erp_suppliers_copy
+title: Suppliers
+titleField: name
+fields:
+  - name: contact
+    interface: input
+  - name: phone
+    interface: phone
+  - name: email
+    interface: email
+  - name: address
+    interface: textarea
+  - name: name
+    interface: input

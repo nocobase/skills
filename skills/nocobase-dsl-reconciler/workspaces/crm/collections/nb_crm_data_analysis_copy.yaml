@@ -1,0 +1,12 @@
+name: nb_crm_data_analysis_copy
+title: Data Analysis
+titleField: name
+fields:
+  - name: name
+    interface: input
+  - name: sql
+    interface: textarea
+  - name: collection
+    interface: collection
+  - name: description
+    interface: textarea

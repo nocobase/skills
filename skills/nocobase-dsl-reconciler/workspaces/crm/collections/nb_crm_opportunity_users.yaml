@@ -1,0 +1,19 @@
+name: nb_crm_opportunity_users
+title: Opportunity Users
+fields:
+  - name: user_id
+    interface: integer
+  - name: role
+    interface: select
+    options:
+      - value: owner
+        label: Owner
+        color: red
+      - value: collaborator
+        label: Collaborator
+        color: blue
+      - value: viewer
+        label: Viewer
+        color: default
+  - name: opportunity_id
+    interface: integer

@@ -1,3 +1,0 @@
-target: $SELF.table.fields.role_on_project
-blocks:
-  - ref: templates/block/detail_nb_pm_team_members.yaml

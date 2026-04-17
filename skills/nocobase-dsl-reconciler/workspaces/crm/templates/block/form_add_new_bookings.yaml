@@ -1,0 +1,29 @@
+uid: o1o9yf5vrr5
+name: 'Form (Add new): bookings'
+type: block
+collectionName: bookings
+dataSourceKey: main
+targetUid: ijqwutd9r8q
+description: 'Form (Add new): bookings'
+content:
+  key: createForm
+  type: createForm
+  coll: bookings
+  fields:
+    - room
+    - applicant
+    - start_time
+    - end_time
+    - purpose
+    - participants
+  field_layout:
+    - '--- 预订信息 ---'
+    - - room
+      - applicant
+    - - start_time
+      - end_time
+    - '--- 详情 ---'
+    - - purpose
+    - - participants
+  actions:
+    - submit

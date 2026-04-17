@@ -1,0 +1,79 @@
+name: nb_crm_products_copy
+title: Products
+titleField: name
+fields:
+  - name: min_price
+    interface: number
+  - name: product_family
+    interface: input
+  - name: base_currency
+    interface: select
+    options:
+      - value: CNY
+        label: CNY ¥
+        color: red
+      - value: USD
+        label: USD $
+        color: green
+      - value: EUR
+        label: EUR €
+        color: blue
+      - value: GBP
+        label: GBP £
+        color: purple
+      - value: JPY
+        label: JPY ¥
+        color: orange
+  - name: unit
+    interface: input
+  - name: product_code
+    interface: sequence
+  - name: has_tiered_pricing
+    interface: checkbox
+  - name: description
+    interface: textarea
+  - name: cost_price
+    interface: number
+  - name: specification
+    interface: select
+    options:
+      - value: standard
+        label: Standard
+        color: default
+      - value: professional
+        label: Professional
+        color: blue
+      - value: enterprise
+        label: Enterprise
+        color: purple
+      - value: basic
+        label: Basic
+        color: default
+      - value: premium
+        label: Premium
+        color: gold
+      - value: lite
+        label: Lite
+        color: cyan
+  - name: name
+    interface: input
+  - name: stock_qty
+    interface: integer
+  - name: category_id
+    interface: integer
+  - name: extra
+    interface: json
+  - name: active
+    interface: checkbox
+  - name: price_tiers
+    interface: o2m
+    target: nb_crm_price_tiers_copy
+    foreignKey: product_id
+  - name: category
+    interface: m2o
+    target: nb_crm_product_categories_copy
+    foreignKey: category_id
+  - name: is_archived
+    interface: checkbox
+  - name: list_price
+    interface: number

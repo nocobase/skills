@@ -1,0 +1,12 @@
+uid: a5j1vxf1b5s
+name: 'Email table: Mail messages'
+type: block
+collectionName: mailMessages
+dataSourceKey: main
+targetUid: acyqyqxbduk
+content:
+  key: mailMessages
+  type: mailMessages
+  coll: mailMessages
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

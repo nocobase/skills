@@ -1,0 +1,27 @@
+uid: 4j372g4eb4z
+name: 'Form (Add new): Inbound Orders'
+type: block
+collectionName: inbound_orders_test
+dataSourceKey: main
+targetUid: tvo9347fa4a
+description: 'Form (Add new): Inbound Orders'
+content:
+  key: createForm
+  type: createForm
+  coll: inbound_orders_test
+  fields:
+    - date
+    - product
+    - quantity
+    - supplier
+    - notes
+  field_layout:
+    - '--- 入库信息 ---'
+    - - date
+      - product
+    - - quantity
+      - supplier
+    - '--- 备注 ---'
+    - - notes
+  actions:
+    - submit

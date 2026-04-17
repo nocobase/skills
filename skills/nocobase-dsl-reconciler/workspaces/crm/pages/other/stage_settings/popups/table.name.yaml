@@ -1,0 +1,15 @@
+target: $SELF.table.fields.name
+mode: drawer
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_crm_opportunity_stages
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    templateRef:
+      templateUid: afkt6evyern
+      templateName: 'Form (Add new): nb_crm_opportunity_stages'
+      targetUid: 064a59ddf9a
+      mode: reference
+    actions:
+      - submit

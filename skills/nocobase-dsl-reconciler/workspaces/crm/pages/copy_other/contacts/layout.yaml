@@ -1,0 +1,18 @@
+blocks:
+  - key: table
+    type: table
+    coll: nb_crm_contacts_copy
+    fields:
+      - field: name
+        clickToOpen: true
+      - salutation
+      - field: email
+        clickToOpen: true
+      - field: phone
+        clickToOpen: true
+      - mobile
+      - title
+    actions:
+      - filter
+      - refresh
+      - addNew

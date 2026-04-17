@@ -1,0 +1,23 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_crm_opportunities_copy
+    fields:
+      - name
+    js_items:
+      - key: pipeline_stats_filter_block
+        file: ./js/opportunities_table_filterForm_pipeline_stats_filter_block.js
+        desc: Pipeline Stats Filter Block
+    field_layout:
+      - - '[JS:Pipeline Stats Filter Block]'
+      - - name
+  - key: reference
+    type: reference
+    templateRef:
+      templateUid: aafythrdeme
+      templateName: 'Table: Opportunities'
+      targetUid: qxmg9cfkaig
+      mode: reference
+layout:
+  - - filterForm
+  - - reference

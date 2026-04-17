@@ -1,3 +1,0 @@
-target: $SELF.table.actions.addNew
-blocks:
-  - ref: templates/block/form_add_new_nb_hrm_performance_reviews.yaml

@@ -1,0 +1,38 @@
+title: '[Copy] CRM Overall Analytics'
+type: ai-employee
+enabled: false
+sync: true
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  parameters:
+    - name: collection_name
+      type: string
+      required: true
+      description: Name of data table
+graph:
+  - query_record
+  - query_record --> sql_action
+nodes:
+  query_record:
+    type: query
+    title: Query record
+    config:
+      multiple: false
+      collection: nb_crm_data_analysis
+      params:
+        filter:
+          $and:
+            - collection:
+                $eq: '{{$context.collection_name}}'
+        sort: []
+        page: 1
+        pageSize: 20
+        appends: []
+  sql_action:
+    type: sql
+    title: SQL action
+    config:
+      dataSource: main
+      sql: '{{$jobsMapByNodeKey.query_record.sql}}'

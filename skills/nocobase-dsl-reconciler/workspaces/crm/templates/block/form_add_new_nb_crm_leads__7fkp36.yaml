@@ -1,0 +1,65 @@
+uid: 7fkp36nf406
+name: 'Form (Add new): nb_crm_leads'
+type: block
+collectionName: nb_crm_leads_copy
+dataSourceKey: main
+targetUid: cxzk5q4l4w3
+description: 'Form (Add new): nb_crm_leads'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_leads_copy
+  fields:
+    - title
+    - rating
+    - website
+    - address
+    - industry
+    - owner
+    - description
+    - name
+    - company
+    - email
+    - mobile_phone
+    - phone
+    - status
+    - annual_revenue
+    - number_of_employees
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - company
+      - title
+    - - rating
+    - - status
+    - '--- Contact Info ---'
+    - - email
+      - phone
+      - mobile_phone
+    - - website: 8
+      - address: 16
+    - '--- Company Info ---'
+    - - industry
+      - annual_revenue
+      - number_of_employees
+    - '--- Other Info ---'
+    - - description
+    - - owner
+  actions:
+    - submit
+  fieldLinkageRules:
+    - key: 2iku5gs0k4o
+      title: Linkage rule
+      enable: true
+      condition:
+        logic: $and
+        items: []
+      actions:
+        - key: dqytz7lb1qz
+          name: linkageSetFieldProps
+          params:
+            value:
+              fields:
+                - status
+                - owner
+              state: hiddenReservedValue

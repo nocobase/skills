@@ -1,0 +1,10 @@
+name: nb_erp_warehouses_copy
+title: Warehouses
+titleField: name
+fields:
+  - name: name
+    interface: input
+  - name: location
+    interface: input
+  - name: capacity
+    interface: integer

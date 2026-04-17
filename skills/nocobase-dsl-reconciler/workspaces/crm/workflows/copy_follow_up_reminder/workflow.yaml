@@ -1,0 +1,52 @@
+title: '[Copy] Follow-up Reminder'
+type: schedule
+enabled: false
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  mode: 1
+  appends: []
+  startsOn:
+    field: reminder_at
+  collection: nb_crm_activities
+graph:
+  - condition
+  - condition --> [yes] notification
+nodes:
+  condition:
+    type: condition
+    title: Condition
+    config:
+      rejectOnFalse: false
+      engine: basic
+      calculation:
+        group:
+          type: and
+          calculations:
+            - not: false
+              group:
+                type: or
+                calculations:
+                  - calculator: equal
+                    operands:
+                      - '{{$context.data.is_completed}}'
+                      - false
+                  - calculator: equal
+                    operands:
+                      - '{{$context.data.is_completed}}'
+                      - null
+  notification:
+    type: notification
+    title: Notification
+    config:
+      channelName: s_w5ok0kc1wr9
+      receivers:
+        - filter:
+            $and:
+              - id:
+                  $eq: '{{$context.data.owner_id}}'
+      options:
+        duration: 5
+      title: 'Starting Soon: {{$context.data.subject}}'
+      content: Your {{{$context.data.type}}} starts in less than 1 hour. Please prepare.

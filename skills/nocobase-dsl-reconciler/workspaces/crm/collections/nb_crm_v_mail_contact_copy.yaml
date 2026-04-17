@@ -1,0 +1,25 @@
+name: nb_crm_v_mail_contact_copy
+title: Mail Contact
+fields:
+  - name: contact
+    interface: m2o
+    target: nb_crm_contacts_copy
+    foreignKey: contact_id
+  - name: sales_user_id
+    interface: integer
+  - name: mail_id
+    interface: integer
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers_copy
+    foreignKey: customer_id
+  - name: customer_id
+    interface: integer
+  - name: contact_id
+    interface: integer
+  - name: mails
+    interface: m2o
+    target: mailMessages
+    foreignKey: mail_id
+  - name: mail_date
+    interface: datetime

@@ -1,0 +1,67 @@
+uid: txcmuvdocqt
+name: 'Details: Quotations'
+type: block
+collectionName: nb_crm_quotations_copy
+dataSourceKey: main
+targetUid: d372lyrqq0l
+description: 'Details: Quotations'
+content:
+  key: details
+  type: details
+  coll: nb_crm_quotations_copy
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - quotation_no
+    - version
+    - name
+    - opportunity
+    - customer
+    - contact
+    - items
+    - currencyInfo
+    - exchange_rate
+    - subtotal
+    - discount_rate
+    - discount_amount
+    - shipping_handling
+    - tax_rate
+    - tax_amount
+    - total_amount
+    - total_amount_usd
+    - payment_terms
+    - terms_condition
+    - address
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - quotation_no
+    - - name: 14
+      - version: 10
+    - '--- Relations ---'
+    - - opportunity
+      - customer
+      - contact
+    - '--- Items ---'
+    - - items
+    - '--- Financial Info ---'
+    - - currencyInfo
+      - exchange_rate
+    - '--- Pricing Summary ---'
+    - - col:
+          - subtotal
+          - tax_rate
+          - discount_rate
+          - total_amount
+        size: 8
+      - col:
+          - tax_amount
+          - shipping_handling
+          - discount_amount
+          - total_amount_usd
+        size: 8
+    - '--- Terms ---'
+    - - payment_terms
+      - terms_condition
+    - - address
+    - - description
