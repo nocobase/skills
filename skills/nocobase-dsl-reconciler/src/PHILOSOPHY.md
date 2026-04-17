@@ -1,7 +1,8 @@
 # 设计理念 — DSL Reconciler
 
 > 这份文档说明这套工具**为什么这样设计**。具体怎么用看 `SKILL.md`，
-> 怎么改看 `DEVELOPER.md`，常见坑看 `PITFALLS.md`。
+> 怎么改看 `DEVELOPER.md`，常见坑看 `PITFALLS.md`，最近会话沉淀看
+> [CHANGELOG.md](./CHANGELOG.md)。
 
 ## 一句话
 
