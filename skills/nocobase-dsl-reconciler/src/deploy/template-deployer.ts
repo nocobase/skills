@@ -860,12 +860,18 @@ export async function convertPopupToTemplate(
         const existingTpl = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: existingTplUid } });
         const existingTplColl = (existingTpl.data?.data?.collectionName || '') as string;
         if (existingTplColl && existingTplColl !== collName) {
-          // Mismatch — clear the stale reference and fall through to the create path.
+          // Mismatch — clear the stale reference AND the stale openView.uid so
+          // NocoBase's inferSaveTemplateTarget doesn't resolve the wrong-
+          // collection popup profile from the stale target. We also pin
+          // collectionName explicitly to what we expect, so saveTemplate uses
+          // it directly (openView.collectionName is the first signal it reads).
           const ov = hostResp.data.data.stepParams.popupSettings.openView;
           delete ov.popupTemplateUid;
           delete ov.popupTemplateMode;
           delete ov.popupTemplateHasFilterByTk;
           delete ov.popupTemplateHasSourceId;
+          delete ov.uid;  // was pointing at the wrong-collection template's target
+          ov.collectionName = collName;
           const d = hostResp.data.data;
           await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
             uid: hostUid, use: d.use, parentId: d.parentId,
