@@ -1342,8 +1342,16 @@ async function convertPopupBlocksToTemplates(
             sortIndex: block.sortIndex, flowRegistry: {},
           });
           const info = { uid: blockTplUid, targetUid: block.uid, name: tplName };
-          existingByUseModel.set(key, info);
-          cacheBlockTemplate(block.use, blockColl, info);
+          // NOTE: do NOT cacheBlockTemplate here. Within one popup conversion,
+          // multiple distinct inline blocks (e.g. leads popup has 6 different
+          // DetailsBlockModel entries: details / lead_insights / lead_owner /
+          // company_information / contact_information / details_2) share
+          // (useModel, collectionName) but carry different content. Caching the
+          // first one's template would cause every subsequent sibling to point
+          // at the same empty/wrong template, collapsing their content in the
+          // UI. Each auto-detached block must get its own template.
+          // Also DO NOT overwrite existingByUseModel so siblings skip the
+          // "reuse" branch below.
           trackCreatedTemplate(blockTplUid);
           log(`      + block template: ${tplName} (${blockTplUid.slice(0, 8)})`);
         }
