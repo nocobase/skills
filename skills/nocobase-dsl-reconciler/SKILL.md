@@ -263,7 +263,30 @@ Quick reference for common types used in collection YAML:
 
 > System columns (`id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`) are auto-created — do NOT define them.
 
-> **m2o foreign key columns** are auto-created. If you declare `category` (m2o → nb_pos_categories), NocoBase creates `category_id` automatically. **Do NOT** define `category_id` as a separate integer field — it duplicates the auto-FK and corrupts seed data.
+### ⛔ The auto-FK trap (most common collection-YAML mistake)
+
+**Don't declare both an m2o field AND its `_id` integer twin.** NocoBase
+creates the `_id` column automatically when you declare an m2o.
+
+```yaml
+# WRONG — `applicant_id` is created twice; seed data writes to one and reads
+# the other, leaving every row with applicant=null
+- name: applicant_id
+  interface: integer
+- name: applicant
+  interface: m2o
+  target: users
+
+# RIGHT — just declare the m2o; NocoBase mints the `_id` column
+- name: applicant
+  interface: m2o
+  target: users
+```
+
+Same rule for `o2m` (parent owns the relation; child gets the FK column auto)
+and `m2m` (both sides; the join table is auto). The `_id` column does exist
+on the live table — you just don't write it in the DSL because doing so
+shadows the real FK.
 
 ## Key Rules
 

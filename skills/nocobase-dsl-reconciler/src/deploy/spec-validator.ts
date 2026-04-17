@@ -75,6 +75,28 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
     // Check popups
     for (const ps of page.popups) {
       validatePopup(ps, page.title, issues, projectDir, knownColls);
+      // Catch dead popup files: target=$SELF.<block>.fields.<field> where the
+      // block doesn't declare that field. The deploy would log "ref not found
+      // — popup NOT created" buried in the post-deploy errors. Surface it
+      // pre-deploy so the user can either remove the popup file or add the
+      // missing field. This was a recurring kimi-build trap (writing
+      // table.fields.name.yaml when the table has no `name` field).
+      const tgt = ps.target || '';
+      const fieldsMatch = tgt.match(/\$(?:SELF|[a-z0-9_]+)\.([a-z0-9_]+)\.fields\.([a-z0-9_]+)/i);
+      if (fieldsMatch) {
+        const [, blockKey, fieldName] = fieldsMatch;
+        const block = allBlocks.find(b => (b.key || b.type) === blockKey);
+        if (block) {
+          const blockFields = (block.fields || []).map(f => typeof f === 'string' ? f : (f.field || ''));
+          if (blockFields.length && !blockFields.includes(fieldName)) {
+            issues.push({
+              level: 'warn',
+              page: page.title,
+              message: `popup "${tgt}" targets field "${fieldName}" but block "${blockKey}" doesn't declare it. Either add the field, or delete the popup file.`,
+            });
+          }
+        }
+      }
     }
 
     // Must have at least addNew popup + detail popup template for main table
