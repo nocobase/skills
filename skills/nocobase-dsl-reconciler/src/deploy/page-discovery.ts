@@ -243,6 +243,15 @@ function resolveClickToOpenPaths(blocks: BlockSpec[], projRoot: string): void {
       }
       try {
         const tpl = loadYaml<Record<string, unknown>>(absPath);
+        // If the file is a POPUP template (type: popup with uid), bind by
+        // popupTemplateUid instead of inlining its content. Inlining loses the
+        // template's tab structure (tabs gets wrapped as a single block) and
+        // creates a duplicate template on every deploy.
+        if (tpl.type === 'popup' && tpl.uid) {
+          fo.popupSettings = fo.popupSettings || {};
+          (fo.popupSettings as Record<string, unknown>).popupTemplateUid = tpl.uid;
+          continue;
+        }
         const content = (tpl.content && typeof tpl.content === 'object')
           ? tpl.content as Record<string, unknown>
           : tpl;

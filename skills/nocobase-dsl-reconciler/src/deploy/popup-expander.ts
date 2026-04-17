@@ -16,7 +16,9 @@ import type { PopupSpec, BlockSpec } from '../types/spec';
 export function expandPopups(popups: PopupSpec[], layoutBlocks: BlockSpec[] = []): PopupSpec[] {
   // Build map: blockKey → field name with clickToOpen (for detail popup derivation)
   const clickToOpenByBlock = new Map<string, string>();
+  const blocksByKey = new Map<string, BlockSpec>();
   for (const bs of layoutBlocks) {
+    blocksByKey.set(bs.key || bs.type, bs);
     if (!Array.isArray(bs.fields)) continue;
     for (const f of bs.fields) {
       if (typeof f !== 'object') continue;
@@ -56,8 +58,18 @@ export function expandPopups(popups: PopupSpec[], layoutBlocks: BlockSpec[] = []
     if (!srcBlock) continue;
 
     // ── Derive editForm popup ──
+    // Only if the source block will have recordActions.edit. If the block is
+    // a table/details that doesn't declare recordActions in the DSL (typical
+    // for copy-mode exports where empty record_actions got dropped), skip —
+    // otherwise we emit a popup for a non-existent action and the resolver
+    // warns on every deploy.
     const editTarget = `${baseRef}.recordActions.edit`;
-    if (!handCraftedTargets.has(editTarget)) {
+    const srcBlockSpec = blocksByKey.get(blockKey);
+    const hasEditRecordAction = !!srcBlockSpec?.recordActions?.some(a => {
+      const t = typeof a === 'string' ? a : (a as Record<string, unknown>).type as string;
+      return t === 'edit';
+    });
+    if (hasEditRecordAction && !handCraftedTargets.has(editTarget)) {
       const editBlock = structuredClone(srcBlock);
       editBlock.key = 'editForm';
       editBlock.type = 'editForm';

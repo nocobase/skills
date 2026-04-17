@@ -26,6 +26,7 @@ import type { NocoBaseClient } from '../client';
 import type { DeployContext } from './deploy-context';
 import { loadYaml } from '../utils/yaml';
 import { generateUid } from '../utils/uid';
+import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 import { toComposeBlock } from './block-composer';
 
 interface TemplateIndex {
@@ -430,8 +431,33 @@ export async function deployTemplates(
   // index would mask that, leading to "template does not exist" when popup DSL
   // references the file's uid while deploy creates the template with the
   // index's (different) uid.
-  const index: TemplateIndex[] = discoverTemplates(tplDir);
+  let index: TemplateIndex[] = discoverTemplates(tplDir);
   if (!index.length) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
+
+  // Filter out templates whose collection isn't part of THIS project. The
+  // export step pulls every flowModelTemplate from the live system, so
+  // templates from unrelated modules (HD, ITAM, etc.) end up in templates/
+  // and would 400 here ("field 'nb_hd_xxx.foo' not found"). The project's
+  // own collections live in <projectDir>/collections/<coll>.yaml, plus a few
+  // built-in NocoBase collections (mailMessages, users) we always allow.
+  const colsDir = path.join(projectDir, 'collections');
+  const projectColls = new Set<string>(['mailMessages', 'users']);
+  if (fs.existsSync(colsDir)) {
+    for (const f of fs.readdirSync(colsDir)) {
+      if (f.endsWith('.yaml')) projectColls.add(f.replace(/\.yaml$/, ''));
+    }
+  }
+  if (projectColls.size > 2) {
+    const before = index.length;
+    index = index.filter(t => {
+      const tplFile = path.join(tplDir, t.file);
+      if (!fs.existsSync(tplFile)) return true;
+      const spec = loadYaml<Record<string, unknown>>(tplFile);
+      const c = (t.collection || spec.collectionName) as string || '';
+      return !c || projectColls.has(c);
+    });
+    if (before !== index.length) log(`  skipped ${before - index.length} templates outside project collections`);
+  }
 
   log('\n  -- Templates --');
 
@@ -1400,7 +1426,11 @@ async function convertPopupBlocksToTemplates(
 }
 
 // ── Fallback: direct model creation for unsupported block types ──
-
+//
+// For legacy blocks that compose API doesn't support (mailMessages, comments,
+// recordHistory, reference), create a standalone block via flowModels:save and
+// register as template directly. No saveTemplate(duplicate) — the standalone
+// block IS the template target.
 async function createBlockTemplateViaModel(
   nb: NocoBaseClient,
   name: string,
@@ -1408,21 +1438,25 @@ async function createBlockTemplateViaModel(
   collName: string,
   tplSpec: Record<string, unknown>,
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
-  const hostUid = generateUid();
+  const btype = (content.type as string) || '';
+  const useModel = BLOCK_TYPE_TO_MODEL[btype];
+  if (!useModel) return undefined;
 
-  const composeBlock = toComposeBlock(content as any, collName);
-  if (!composeBlock) return undefined;
-
-  // Create a temporary grid to compose into
-  await nb.models.save({
-    uid: hostUid,
-    use: 'BlockGridModel',
-    stepParams: {},
-    flowRegistry: {},
-  });
-
-  const result = await nb.surfaces.compose(hostUid, [composeBlock], 'replace');
-  const blockUid = result.blocks?.[0]?.uid || hostUid;
+  const blockUid = generateUid();
+  const resourceSettings: Record<string, unknown> = {
+    init: { dataSourceKey: (tplSpec.dataSourceKey as string) || 'main', collectionName: collName },
+  };
+  try {
+    await nb.models.save({
+      uid: blockUid,
+      name: blockUid,
+      use: useModel,
+      stepParams: { resourceSettings },
+      flowRegistry: {},
+    });
+  } catch {
+    return undefined;
+  }
 
   return registerTemplateManually(nb, name, 'block', collName, tplSpec, blockUid);
 }
@@ -1437,16 +1471,16 @@ async function registerTemplateManually(
   tplSpec: Record<string, unknown>,
   targetUid: string,
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
+  // flowModelTemplates:create expects FLAT body — wrapping in `values` returns
+  // 200 OK with errors:["name cannot be null", "targetUid cannot be null"].
   const newUid = generateUid();
   const resp = await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:create`, {
-    values: {
-      uid: newUid,
-      name,
-      type,
-      collectionName: collName,
-      dataSourceKey: (tplSpec.dataSourceKey as string) || 'main',
-      targetUid,
-    },
+    uid: newUid,
+    name,
+    type,
+    collectionName: collName,
+    dataSourceKey: (tplSpec.dataSourceKey as string) || 'main',
+    targetUid,
   });
 
   const createdUid = resp.data?.data?.uid as string;

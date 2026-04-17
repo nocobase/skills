@@ -232,8 +232,13 @@ export async function fillBlock(
     const jsPath = path.join(mod, bs.file);
     if (fs.existsSync(jsPath)) {
       let code = fs.readFileSync(jsPath, 'utf8');
-      // Validate JS code
-      const unfilled = code.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
+      // Validate JS code — strip strings before checking for {{var}} patterns
+      // so we don't false-positive on i18n calls like t('{{count}}m ago', ...).
+      const codeNoStrings = code
+        .replace(/`(?:\\.|[^`\\])*`/g, '""')
+        .replace(/'(?:\\.|[^'\\])*'/g, '""')
+        .replace(/"(?:\\.|[^"\\])*"/g, '""');
+      const unfilled = codeNoStrings.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
       if (unfilled?.length) {
         log(`      ✗ JS ${bs.file}: unfilled template params: ${unfilled.join(', ')}`);
       } else if (/ctx\.render\s*\(\s*null\s*\)/.test(code)) {

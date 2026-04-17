@@ -39,7 +39,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows');
+    console.log('Commands: deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
     process.exit(1);
   }
 
@@ -91,6 +91,9 @@ async function main() {
       break;
     case 'validate-workflows':
       cmdValidateWorkflows(args.slice(1));
+      break;
+    case 'compare':
+      await cmdCompare(args.slice(1));
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -335,6 +338,18 @@ async function cmdDeployProject(args: string[]) {
   // ── Step 3: Post-deploy sync (export + diff — mandatory for git repos) ──
   if (isGit && targetGroup) {
     await deploySyncWorktree(absDir, targetGroup, mainBranch);
+  }
+
+  // ── Step 4: Auto-cleanup orphans (avoid template explosion across iterations) ──
+  // Each iteration creates new template UIDs; old ones with usageCount=0 stay
+  // forever unless cleaned. Without this, the templates table grows ~700
+  // entries per redeploy in copy mode.
+  if (!planOnly) {
+    try {
+      const nb = await NocoBaseClient.create();
+      console.log('\n  ── Cleanup orphan templates ──');
+      await deepCleanTemplates(nb);
+    } catch (e) { console.log('  ! cleanup: ' + (e instanceof Error ? e.message.slice(0, 80) : e)); }
   }
 }
 
@@ -611,11 +626,20 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
     // Create worktree on new branch from current HEAD
     execSync(`git worktree add "${wtDir}" -b ${branch}`, { cwd: absDir, stdio: 'pipe' });
 
-    // Copy state.yaml to worktree (has deployed UIDs for export matching)
+    // Clear all worktree files before export. Without this the worktree
+    // inherits the source DSL (from HEAD) and the export only ADDS
+    // group-prefixed copy paths — the leftover source files then masquerade
+    // as "live" entries during compare, hiding cases where the deploy didn't
+    // recreate a popup/template at all. Keep state.yaml as input for the
+    // exporter (UID matching).
     const stateFile = path.join(absDir, 'state.yaml');
-    if (fs.existsSync(stateFile)) {
-      fs.copyFileSync(stateFile, path.join(wtDir, 'state.yaml'));
+    let savedState: Buffer | null = null;
+    if (fs.existsSync(stateFile)) savedState = fs.readFileSync(stateFile);
+    for (const entry of fs.readdirSync(wtDir)) {
+      if (entry === '.git') continue;
+      fs.rmSync(path.join(wtDir, entry), { recursive: true, force: true });
     }
+    if (savedState) fs.writeFileSync(path.join(wtDir, 'state.yaml'), savedState);
 
     // Export live NocoBase state into worktree
     const nb = await NocoBaseClient.create();
@@ -646,6 +670,15 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
       // No changes → clean up branch too
       try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
     }
+
+    // Normalized structural diff (UID-aware) — surfaces real content drift
+    // even when raw text diff is huge from deep-copy UID/path noise.
+    try {
+      const { compareProjects, printCompareResult } = await import('../diff/compare');
+      const copyGroupSlug = group.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const result = compareProjects(absDir, wtDir, copyGroupSlug);
+      printCompareResult(result);
+    } catch (e) { console.log('  ! normalized-diff: ' + (e instanceof Error ? e.message.slice(0, 80) : e)); }
 
     // Always remove worktree (branch stays if there are changes)
     try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
@@ -781,6 +814,20 @@ async function cmdDeployWorkflows(args: string[]) {
   const copyMode = args.includes('--copy');
   const nb = await NocoBaseClient.create();
   await deployWorkflows(nb, dir, { copyMode });
+}
+
+async function cmdCompare(args: string[]) {
+  const left = args[0];
+  const right = args[1];
+  if (!left || !right) { console.error('Usage: cli.ts compare <source-dir> <live-dir> [--copy-group <slug>]'); process.exit(1); }
+  const slugIdx = args.indexOf('--copy-group');
+  const copyGroupSlug = slugIdx >= 0 ? args[slugIdx + 1] : undefined;
+  const { compareProjects, printCompareResult } = await import('../diff/compare');
+  const result = compareProjects(path.resolve(left), path.resolve(right), copyGroupSlug);
+  printCompareResult(result);
+  if (result.differing.length || result.onlyInLeft.length || result.onlyInRight.length) {
+    process.exit(2);
+  }
 }
 
 function cmdValidateWorkflows(args: string[]) {

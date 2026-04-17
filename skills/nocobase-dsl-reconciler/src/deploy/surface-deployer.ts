@@ -205,12 +205,22 @@ export async function deploySurface(
     if (missing.length) {
       const key = bs.key || bs.type;
       if (ctx.copyMode) {
-        // Copy mode: auto-remove invalid fields and continue
-        log(`    ✗ Block "${key}" references fields not in ${blockColl}: ${missing.join(', ')} — removing invalid fields`);
+        // Copy mode: auto-remove invalid fields from BOTH .fields and
+        // .field_layout. Otherwise compose 400s on the layout entry even after
+        // we strip the field def, which cascades into "ChildPage not found"
+        // and breaks every nested popup that depends on this block.
+        log(`    ⚠ Block "${key}" references fields not in ${blockColl}: ${missing.join(', ')} — removing invalid fields`);
         bs.fields = (bs.fields || []).filter(f => {
           const fp = typeof f === 'string' ? f : (f.field || f.fieldPath || '');
           return !fp || liveFields.has(fp);
         });
+        const missingSet = new Set(missing);
+        if (Array.isArray(bs.field_layout)) {
+          bs.field_layout = bs.field_layout.map(row => {
+            if (!Array.isArray(row)) return row;
+            return row.filter(cell => typeof cell !== 'string' || cell.startsWith('[JS:') || cell.startsWith('---') || !missingSet.has(cell));
+          }).filter(row => !Array.isArray(row) || row.length > 0);
+        }
       } else {
         // DSL mode: strict — report error, do not silently remove
         throw new Error(`Block "${key}" references fields not in ${blockColl}: ${missing.join(', ')}`);
@@ -355,6 +365,35 @@ export async function deploySurface(
   }
 
   // ── Step 1b: Create blocks that compose can't handle (legacy types + popup associations) ──
+  // Re-discover gridUid: when targetUid was a field UID with no ChildPage, the
+  // initial lookup at the top of this function returned empty; the compose
+  // call above just created the ChildPage scaffold, so its grid is now
+  // reachable via the field's subModels. Without this re-read, step 1b sees
+  // gridUid = '' and silently skips every non-composable block (mailMessages,
+  // comments, list-with-popup-binding, recordHistory).
+  if (!gridUid) {
+    try {
+      const data = await nb.get({ uid: tabUid });
+      const tree = data.tree;
+      let pp = tree.subModels?.page;
+      if ((!pp || Array.isArray(pp)) && tree.subModels?.field) {
+        const field = tree.subModels.field;
+        if (field && !Array.isArray(field)) {
+          pp = ((field as unknown as Record<string, unknown>).subModels as Record<string, unknown>)?.page as typeof pp;
+        }
+      }
+      if (pp && !Array.isArray(pp)) {
+        const tabs = (pp as { subModels?: Record<string, unknown> }).subModels?.tabs;
+        const tabArr = Array.isArray(tabs) ? tabs : tabs ? [tabs] : [];
+        if (tabArr.length) {
+          const pgGrid = (tabArr[0] as Record<string, unknown>).subModels as Record<string, unknown>;
+          const g = pgGrid?.grid as Record<string, unknown>;
+          if (g?.uid) gridUid = g.uid as string;
+        }
+      }
+    } catch { /* skip */ }
+  }
+
   // First, check what already exists in the grid to avoid duplicates
   const existingModelTypes = new Set<string>();
   try {

@@ -225,14 +225,72 @@ async function deploySimplePopup(
     if (tabUid) composeTarget = tabUid;
   } catch { /* proceed with targetUid */ }
 
+  // If every block in the popup will be skipped by surfaces.compose — either
+  // because the type is not composable (mailMessages, comments, recordHistory,
+  // reference) or because it carries a popup association binding (sourceId
+  // with template var + associationName), then nothing triggers ChildPage
+  // creation and the popup ends up empty. Pre-create the ChildPage scaffold
+  // so step 1b's save_model has a grid to attach into.
+  const blocks = popupSpec.blocks || [];
+  const willCompose = (b: unknown): boolean => {
+    const bo = b as { type?: string; resource_binding?: Record<string, unknown> };
+    const t = bo.type;
+    const legacy = !t || t === 'mailMessages' || t === 'comments' || t === 'recordHistory' || t === 'reference';
+    if (legacy) return false;
+    const rb = bo.resource_binding || {};
+    const sid = rb.sourceId as string | undefined;
+    return !(sid && sid.includes('{{') && rb.associationName);
+  };
+  const allSkipped = blocks.length > 0 && !(blocks as unknown[]).some(willCompose);
+  if (allSkipped && composeTarget === targetUid) {
+    composeTarget = await ensureChildPageScaffold(ctx, targetUid) || targetUid;
+  }
+
   const spec = {
     coll,
-    blocks: popupSpec.blocks || [],
+    blocks,
     layout: popupSpec.layout,
   };
   const blocksState = await deploySurface(ctx, composeTarget, spec as any, { modDir });
   log(`  + popup [${targetRef}]: ${Object.keys(blocksState).length} blocks`);
   return blocksState;
+}
+
+/**
+ * Manually create ChildPage → ChildPageTab → BlockGrid scaffold under a popup
+ * host. Returns the tab UID (compose target) so subsequent block deploys can
+ * attach into the new grid. Returns undefined on failure (caller falls back to
+ * the host UID and the deploy degrades gracefully).
+ */
+async function ensureChildPageScaffold(
+  ctx: DeployContext,
+  hostUid: string,
+): Promise<string | undefined> {
+  const { nb } = ctx;
+  try {
+    const { generateUid } = await import('../utils/uid');
+    const pageUid = generateUid();
+    const tabUid = generateUid();
+    const gridUid = generateUid();
+    await nb.models.save({
+      uid: pageUid, use: 'ChildPageModel',
+      parentId: hostUid, subKey: 'page', subType: 'object',
+      sortIndex: 0, stepParams: {}, flowRegistry: {},
+    });
+    await nb.models.save({
+      uid: tabUid, use: 'ChildPageTabModel',
+      parentId: pageUid, subKey: 'tabs', subType: 'array',
+      sortIndex: 0, stepParams: {}, flowRegistry: {},
+    });
+    await nb.models.save({
+      uid: gridUid, use: 'BlockGridModel',
+      parentId: tabUid, subKey: 'grid', subType: 'object',
+      sortIndex: 0, stepParams: {}, flowRegistry: {},
+    });
+    return tabUid;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
