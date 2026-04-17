@@ -400,7 +400,10 @@ export async function deployProject(
   const createdUids = listCreatedThisRun();
   if (createdUids.length) {
     (state as any)._last_deploy_created_templates = createdUids;
+  } else {
+    delete (state as any)._last_deploy_created_templates;
   }
+  saveYaml(stateFile, state);
 
   // Auto-clean stale flowModelTemplateUsages rows. This is the NocoBase bug
   // that makes template counts accumulate indefinitely — usage rows don't get

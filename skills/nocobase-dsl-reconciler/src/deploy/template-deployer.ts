@@ -42,9 +42,18 @@ interface TemplateIndex {
 // command can remove them later. We do NOT auto-delete — a freshly created
 // template may be 0-usage legitimately (user hand-built a library).
 const _createdThisRun = new Set<string>();
-export function resetTemplateCreationTracking(): void { _createdThisRun.clear(); }
+// Per-run popup template cache keyed by (name|collection). When copy mode
+// converts many fields pointing to the same logical popup, first conversion
+// creates the template; subsequent calls find it here and reuse → no more
+// duplicate "Form (Edit): Customers > Contacts" × N per deploy.
+const _popupTplCacheThisRun = new Map<string, { templateUid: string; targetUid: string }>();
+export function resetTemplateCreationTracking(): void {
+  _createdThisRun.clear();
+  _popupTplCacheThisRun.clear();
+}
 export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
 export function listCreatedThisRun(): string[] { return Array.from(_createdThisRun); }
+function cachePopupKey(name: string, coll: string): string { return `${name}|${coll}`; }
 
 /** Delete the given template UIDs from NocoBase. Used by `rollback` CLI. */
 export async function deleteTemplatesByUid(
@@ -729,6 +738,12 @@ export async function convertPopupToTemplate(
   allowedBlockTemplateUids?: Set<string>,  // in copy mode, restricts nested block template reuse
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
   try {
+    // Per-run cache: if we already built this popup template in this deploy,
+    // bind the current host to the cached template and skip the expensive
+    // saveTemplate(convert) path. Prevents N-fields-one-popup duplication.
+    const cacheKey = cachePopupKey(name, collName);
+    const cached = _popupTplCacheThisRun.get(cacheKey);
+
     // Find the actual host field/action model (might be wrapped in a column)
     let hostUid = targetUid;
     try {
@@ -738,6 +753,40 @@ export async function convertPopupToTemplate(
         hostUid = (field as Record<string, unknown>).uid as string || targetUid;
       }
     } catch { /* use targetUid as-is */ }
+
+    if (cached) {
+      // Rebind host to the cached template
+      try {
+        const hostResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: hostUid } });
+        const hd = hostResp.data?.data;
+        if (hd) {
+          const sp = hd.stepParams || {};
+          sp.popupSettings = sp.popupSettings || {};
+          sp.popupSettings.openView = sp.popupSettings.openView || {};
+          sp.popupSettings.openView.popupTemplateUid = cached.templateUid;
+          sp.popupSettings.openView.uid = cached.targetUid;
+          sp.popupSettings.openView.collectionName = collName;
+          sp.popupSettings.openView.popupTemplateHasFilterByTk = true;
+          sp.popupSettings.openView.popupTemplateHasSourceId = false;
+          await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+            uid: hostUid, use: hd.use, parentId: hd.parentId,
+            subKey: hd.subKey, subType: hd.subType,
+            sortIndex: hd.sortIndex || 0, flowRegistry: hd.flowRegistry || {},
+            stepParams: sp,
+          });
+          // Clear stale inline popup under the host if any
+          try {
+            const tree = await nb.get({ uid: hostUid });
+            const page = tree.tree.subModels?.page;
+            if (page && !Array.isArray(page) && (page as Record<string, unknown>).uid) {
+              await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: (page as Record<string, unknown>).uid } }).catch(() => {});
+            }
+          } catch { /* skip */ }
+          log(`    = popup template: ${name} (per-run reuse: ${cached.templateUid.slice(0, 8)})`);
+        }
+      } catch { /* fall through to normal path if rebind fails */ }
+      return cached;
+    }
 
     // Check if host already has a popup template
     const hostResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: hostUid } });
@@ -781,6 +830,7 @@ export async function convertPopupToTemplate(
           await fixGridLayoutUids(nb, existingTargetUid, log);
           await convertPopupBlocksToTemplates(nb, existingTargetUid, collName, log, allowedBlockTemplateUids);
         }
+        _popupTplCacheThisRun.set(cacheKey, { templateUid: existingTplUid, targetUid: existingTargetUid });
         return { templateUid: existingTplUid, targetUid: existingTargetUid };
       } catch {
         // Template deleted — clear stale ref so convert can proceed
@@ -827,6 +877,7 @@ export async function convertPopupToTemplate(
             const page = tree.tree.subModels?.page;
             if (page?.uid) await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: page.uid } }).catch(() => {});
           } catch { /* skip */ }
+          _popupTplCacheThisRun.set(cacheKey, { templateUid: reuseUid, targetUid: reuseTargetUid });
           return { templateUid: reuseUid, targetUid: reuseTargetUid };
         }
       } catch { /* saved UID invalid, fall through */ }
@@ -857,7 +908,9 @@ export async function convertPopupToTemplate(
           sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
           stepParams: sp,
         });
-        return { templateUid: reuseUid, targetUid: (reuse.targetUid || '') as string };
+        const reuseTargetUidFinal = (reuse.targetUid || '') as string;
+        _popupTplCacheThisRun.set(cacheKey, { templateUid: reuseUid, targetUid: reuseTargetUidFinal });
+        return { templateUid: reuseUid, targetUid: reuseTargetUidFinal };
       }
     } catch { /* proceed to create */ }
 
@@ -888,6 +941,7 @@ export async function convertPopupToTemplate(
         await convertPopupBlocksToTemplates(nb, newTargetUid, collName, log, allowedBlockTemplateUids);
       }
 
+      _popupTplCacheThisRun.set(cacheKey, { templateUid: newTemplateUid, targetUid: newTargetUid });
       return { templateUid: newTemplateUid, targetUid: newTargetUid };
     }
   } catch (e) {
