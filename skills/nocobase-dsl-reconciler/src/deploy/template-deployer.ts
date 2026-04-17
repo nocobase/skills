@@ -282,6 +282,43 @@ async function syncTemplateContent(
       }
     }
   }
+
+  // Apply block-level extras that neither compose nor deep-copy carry:
+  // fieldLinkageRules, fieldValueRules, event_flows — they must be set
+  // explicitly so copied form templates show/hide/compute fields correctly.
+  await applyTemplateExtras(nb, targetUid, content, log, indent);
+}
+
+async function applyTemplateExtras(
+  nb: NocoBaseClient,
+  targetUid: string,
+  content: Record<string, unknown>,
+  log: (msg: string) => void,
+  indent: string,
+): Promise<void> {
+  const linkageRules = content.fieldLinkageRules as Record<string, unknown>[] | undefined;
+  if (Array.isArray(linkageRules) && linkageRules.length) {
+    try {
+      await nb.surfaces.setFieldLinkageRules(targetUid, linkageRules);
+      log(`${indent}~ fieldLinkageRules: ${linkageRules.length} rules`);
+    } catch (e) { log(`${indent}! fieldLinkageRules: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+  }
+  const valueRules = content.fieldValueRules as Record<string, unknown>[] | undefined;
+  if (Array.isArray(valueRules) && valueRules.length) {
+    try {
+      await nb.surfaces.setFieldValueRules(targetUid, valueRules);
+      log(`${indent}~ fieldValueRules: ${valueRules.length} rules`);
+    } catch (e) { log(`${indent}! fieldValueRules: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+  }
+  const eventFlows = content.event_flows as Record<string, unknown>[] | undefined;
+  if (Array.isArray(eventFlows) && eventFlows.length) {
+    try {
+      const { deployEventFlows } = await import('./fillers/event-flow-filler');
+      const fCtx: DeployContext = { nb, log, force: false, copyMode: false };
+      await deployEventFlows(fCtx, targetUid, { event_flows: eventFlows } as any, '');
+      log(`${indent}~ event_flows: ${eventFlows.length} flows`);
+    } catch (e) { log(`${indent}! event_flows: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+  }
 }
 
 /**
