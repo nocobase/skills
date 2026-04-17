@@ -13,7 +13,22 @@ import type { PopupSpec, BlockSpec } from '../types/spec';
 /**
  * Expand popup list: for every addNew popup, auto-derive edit + detail.
  */
-export function expandPopups(popups: PopupSpec[]): PopupSpec[] {
+export function expandPopups(popups: PopupSpec[], layoutBlocks: BlockSpec[] = []): PopupSpec[] {
+  // Build map: blockKey → field name with clickToOpen (for detail popup derivation)
+  const clickToOpenByBlock = new Map<string, string>();
+  for (const bs of layoutBlocks) {
+    if (!Array.isArray(bs.fields)) continue;
+    for (const f of bs.fields) {
+      if (typeof f !== 'object') continue;
+      const fo = f as Record<string, unknown>;
+      if (fo.clickToOpen) {
+        const name = (fo.field || fo.fieldPath || '') as string;
+        if (name) clickToOpenByBlock.set(bs.key || bs.type, name);
+        break;
+      }
+    }
+  }
+
   // Track targets that have INLINE content (hand-crafted, don't overwrite)
   // Template-reference popups (popup: templates/xxx) CAN be replaced by auto-derive
   const handCraftedTargets = new Set(
@@ -31,8 +46,12 @@ export function expandPopups(popups: PopupSpec[]): PopupSpec[] {
     const baseRef = extractBaseRef(target);
     const srcBlock = ps.blocks?.[0];
     const coll = ps.coll || '';
-    // view_field: which field gets clickToOpen detail popup (default: 'name')
-    const viewField = (ps as Record<string, unknown>).view_field as string || 'name';
+    // view_field: which field gets clickToOpen detail popup
+    // Priority: ps.view_field > clickToOpen field on the block > 'name' default
+    const blockKey = baseRef.replace(/^\$SELF\./, '').split('.')[0];
+    const viewField = ((ps as Record<string, unknown>).view_field as string)
+      || clickToOpenByBlock.get(blockKey)
+      || 'name';
 
     if (!srcBlock) continue;
 

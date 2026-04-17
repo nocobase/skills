@@ -466,7 +466,8 @@ export async function enableM2oClickToOpen(
       templateNameToUid.set(targetColl, { templateUid: (live as Record<string, unknown>).uid as string, targetUid: ((live as Record<string, unknown>).targetUid as string) || '' });
     }
   }
-  if (!templateNameToUid.size) return;
+  // Note: continue even if no templates exist — we may still need to deploy
+  // inline default details for m2o fields pointing to collections without pages.
 
   // Scan block tree — collect field models with m2o fieldPath (deduplicated by UID)
   let blockData: any;
@@ -524,13 +525,57 @@ export async function enableM2oClickToOpen(
     const targetColl = m2oTargets.get(fm.fieldPath);  // m2o → target collection
     const popupColl = targetColl || coll;              // non-m2o → own collection
     const tplInfo = templateNameToUid.get(popupColl);
-    if (!tplInfo) continue;
 
     // For non-m2o: only bind if field already has clickToOpen enabled
     if (!targetColl) {
       const hasClickToOpen = fm.stepParams?.displayFieldSettings?.clickToOpen?.clickToOpen;
       if (!hasClickToOpen) continue;
     }
+
+    // Fallback for m2o without a popup template: deploy default details inline
+    // (m2o target collection has no page → no auto-created popup template)
+    if (!tplInfo && targetColl) {
+      try {
+        const meta = await nb.collections.fieldMeta(targetColl);
+        const defaultFields = Object.keys(meta)
+          .filter(k => !['id', 'createdById', 'updatedById', 'createdAt', 'updatedAt'].includes(k))
+          .slice(0, 8)
+          .map(k => ({ fieldPath: k }));
+        if (defaultFields.length) {
+          await nb.surfaces.compose(fm.uid, [{
+            key: 'details', type: 'details',
+            resource: { collectionName: targetColl, dataSourceKey: 'main', binding: 'currentRecord' },
+            fields: defaultFields,
+          }], 'replace');
+          // Set popupSettings so clickToOpen navigates to this inline popup
+          const sp = fm.stepParams || {};
+          sp.displayFieldSettings = { clickToOpen: { clickToOpen: true } };
+          sp.popupSettings = {
+            openView: {
+              collectionName: targetColl, dataSourceKey: 'main',
+              mode: 'drawer', size: 'large',
+              pageModelClass: 'ChildPageModel', uid: fm.uid,
+              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+            },
+          };
+          const fdResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
+          const fd = fdResp.data.data;
+          if (fd) {
+            await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+              uid: fm.uid, use: fd.use, parentId: fd.parentId,
+              subKey: fd.subKey, subType: fd.subType,
+              stepParams: sp, sortIndex: fd.sortIndex || 0, flowRegistry: fd.flowRegistry || {},
+            });
+            log(`      ~ m2o fallback: ${fm.fieldPath} → inline default details (no popup template for ${targetColl})`);
+          }
+        }
+      } catch (e) {
+        log(`      . m2o fallback ${fm.fieldPath}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+      }
+      continue;
+    }
+
+    if (!tplInfo) continue;
 
     // ── Validation: verify template's collectionName matches expected ──
     try {

@@ -1088,7 +1088,7 @@ async function deployPagePopups(
   if (!pageState) return;
   if (!pageState.popups) pageState.popups = {};
 
-  const expanded = expandPopups(pageInfo.popups);
+  const expanded = expandPopups(pageInfo.popups, pageInfo.layout.blocks || []);
 
   // Write back auto-derived popups to disk so AI can see and edit them next round
   const popupsDir = path.join(pageInfo.dir, 'popups');
