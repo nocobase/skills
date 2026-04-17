@@ -15,6 +15,7 @@ import { fillBlock } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { slugify } from '../utils/slugify';
 import { BLOCK_TYPE_TO_MODEL as BLOCK_TYPES, COMPOSE_ACTION_TYPES } from '../utils/block-types';
+import { hashBlockSpec } from '../utils/spec-hash';
 
 // Layout engine (imported separately)
 import { parseLayoutSpec, applyLayout } from '../layout/layout-engine';
@@ -102,11 +103,21 @@ export async function deploySurface(
   if (allExist) {
     // All blocks exist — sync content to match spec
     log(`    = ${Object.keys(existing).length} blocks exist (sync)`);
+    let skippedCount = 0;
     for (const bs of blocksSpec) {
       const key = bs.key || bs.type;
       if (!blocksState[key]?.uid) continue;
       const blockUid = blocksState[key].uid;
       const blockGrid = blocksState[key].grid_uid || '';
+
+      // Hash skip: if spec matches what we recorded last deploy, nothing to do.
+      // Forced redeploy via ctx.force bypasses skipping.
+      const newHash = hashBlockSpec(bs as unknown as Record<string, unknown>, modDir);
+      if (!ctx.force && blocksState[key].spec_hash === newHash) {
+        skippedCount++;
+        continue;
+      }
+      blocksState[key].spec_hash = newHash;
 
       // Add missing fields
       if (['table', 'filterForm', 'createForm', 'editForm', 'details'].includes(bs.type)) {
@@ -152,17 +163,20 @@ export async function deploySurface(
         }
       }
     }
+    if (skippedCount) log(`    = ${skippedCount} blocks unchanged (spec_hash match)`);
 
-    // Always apply layout
-    const layoutSpec = (spec as { layout?: LayoutRow[] }).layout;
-    if (layoutSpec && gridUid) {
-      const uidMap: Record<string, string> = {};
-      for (const [k, v] of Object.entries(blocksState)) {
-        if (v.uid) uidMap[k] = v.uid;
+    // Skip layout reapply if everything was unchanged
+    if (skippedCount < blocksSpec.length || ctx.force) {
+      const layoutSpec = (spec as { layout?: LayoutRow[] }).layout;
+      if (layoutSpec && gridUid) {
+        const uidMap: Record<string, string> = {};
+        for (const [k, v] of Object.entries(blocksState)) {
+          if (v.uid) uidMap[k] = v.uid;
+        }
+        const layout = parseLayoutSpec(layoutSpec, Object.keys(uidMap));
+        await applyLayout(nb, gridUid, layout, uidMap);
+        log(`    layout: ${layoutSpec.map(r => Array.isArray(r) ? `[${r.map(c => typeof c === 'string' ? c : Object.entries(c).map(([k, v]) => `${k}:${v}`).join(',')).join(', ')}]` : String(r)).join(' | ')}`);
       }
-      const layout = parseLayoutSpec(layoutSpec, Object.keys(uidMap));
-      await applyLayout(nb, gridUid, layout, uidMap);
-      log(`    layout: ${layoutSpec.map(r => Array.isArray(r) ? `[${r.map(c => typeof c === 'string' ? c : Object.entries(c).map(([k, v]) => `${k}:${v}`).join(',')).join(', ')}]` : String(r)).join(' | ')}`);
     }
 
     return blocksState;
@@ -267,6 +281,7 @@ export async function deploySurface(
         if (key in existing) continue;
         if (!blocksState[key]) continue;
         await fillBlock(ctx, blocksState[key].uid, blocksState[key].grid_uid || '', bs, coll, { modDir, blockState: blocksState[key], allBlocksState: blocksState, pageGridUid: gridUid, popupTargetFields });
+        blocksState[key].spec_hash = hashBlockSpec(bs as unknown as Record<string, unknown>, modDir);
       }
 
       // ── Step 2b: Also fill EXISTING blocks when force (sync content) ──
@@ -276,6 +291,7 @@ export async function deploySurface(
           if (!(key in existing)) continue;
           if (!blocksState[key]?.uid) continue;
           await fillBlock(ctx, blocksState[key].uid, blocksState[key].grid_uid || '', bs, coll, { modDir, blockState: blocksState[key], allBlocksState: blocksState, pageGridUid: gridUid, popupTargetFields });
+          blocksState[key].spec_hash = hashBlockSpec(bs as unknown as Record<string, unknown>, modDir);
         }
       }
     } catch (e: any) {
@@ -422,6 +438,7 @@ export async function deploySurface(
 
       // Fill content (non-compose actions, JS, field_layout, etc.)
       await fillBlock(ctx, newUid, blocksState[key].grid_uid || '', bs, coll, { modDir, blockState: blocksState[key], allBlocksState: blocksState, pageGridUid: gridUid, popupTargetFields });
+      blocksState[key].spec_hash = hashBlockSpec(bs as unknown as Record<string, unknown>, modDir);
     } catch (e) {
       log(`    ! save_model ${key}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
     }

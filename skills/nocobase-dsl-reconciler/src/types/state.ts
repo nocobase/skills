@@ -27,6 +27,7 @@ export interface BlockState {
   record_actions?: Record<string, ActionState>;
   js_items?: Record<string, JsState>;
   js_columns?: Record<string, JsState>;
+  spec_hash?: string;  // hash of the block's declared DSL spec; when hash matches on redeploy, skip processing
 }
 
 export interface TabState {
