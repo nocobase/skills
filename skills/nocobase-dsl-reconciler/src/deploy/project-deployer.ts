@@ -28,7 +28,7 @@ import { ensureAllCollections } from './collection-deployer';
 import { deploySurface, type SurfaceOpts } from './surface-deployer';
 import { deployPopup, type PopupOpts } from './popup-deployer';
 import { expandPopups } from './popup-expander';
-import { deployTemplates, convertPopupToTemplate, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
+import { deployTemplates, convertPopupToTemplate, resetTemplateCreationTracking, cleanupOrphanTemplatesCreatedThisRun, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
 import { resetM2oCache } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
@@ -183,8 +183,9 @@ export async function deployProject(
   // ── 3. Connect + deploy ──
   const nb = await NocoBaseClient.create();
   const ctx = createDeployContext(nb, opts, log);
-  // Reset per-deploy caches (template list, failed fallback collections)
+  // Reset per-deploy caches (template list, failed fallback collections, created UIDs)
   resetM2oCache();
+  resetTemplateCreationTracking();
   log(`\n  Connected to ${nb.baseUrl}`);
 
   // State
@@ -391,6 +392,11 @@ export async function deployProject(
 
   // Set menu sortIndex to match routes.yaml declaration order
   await syncMenuOrder(nb, state, routes, log, computeTargetTitle);
+
+  // Clean up any templates this deploy created but that ended up unreferenced
+  // (0-usage). Prevents long-term accumulation of orphan templates from repeated
+  // fresh deploys with wiped state.yaml.
+  await cleanupOrphanTemplatesCreatedThisRun(nb, log);
 
   // Auto-sync: re-export deployed groups to keep local files in sync with live state.
   // Sync each top-level group (source title → target title via computeTargetTitle).

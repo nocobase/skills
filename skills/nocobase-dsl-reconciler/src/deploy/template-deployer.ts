@@ -37,6 +37,32 @@ interface TemplateIndex {
   file: string;
 }
 
+// Track template UIDs created during the current deploy run. After deploy, any
+// created UID that still has usageCount===0 is an orphan (something later in the
+// deploy must have superseded it) and gets auto-deleted to prevent the long-term
+// accumulation of 1000+ unreferenced templates observed in practice.
+const _createdThisRun = new Set<string>();
+export function resetTemplateCreationTracking(): void { _createdThisRun.clear(); }
+export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
+export async function cleanupOrphanTemplatesCreatedThisRun(
+  nb: NocoBaseClient,
+  log: (msg: string) => void,
+): Promise<void> {
+  if (!_createdThisRun.size) return;
+  let deleted = 0;
+  for (const uid of _createdThisRun) {
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: uid } });
+      const usage = (resp.data?.data?.usageCount as number) || 0;
+      if (usage === 0) {
+        await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
+        deleted++;
+      }
+    } catch { /* ignore */ }
+  }
+  if (deleted) log(`  cleanup: removed ${deleted} orphan templates created this run`);
+}
+
 interface ExistingTemplate {
   uid: string;
   name: string;
@@ -549,6 +575,7 @@ async function createBlockTemplate(
 
     const templateUid = (saveResult.uid || saveResult.templateUid) as string;
     const targetUid = (saveResult.targetUid) as string || blockUid;
+    trackCreatedTemplate(templateUid);
 
     if (!templateUid) {
       // Fallback: saveTemplate didn't return expected format — register manually
@@ -736,6 +763,7 @@ export async function convertPopupToTemplate(
 
     const newTemplateUid = (result.uid || result.templateUid) as string;
     const newTargetUid = (result.targetUid) as string;
+    trackCreatedTemplate(newTemplateUid);
 
     if (newTemplateUid) {
       log(`    + popup template: ${name} (${newTemplateUid}, coll: ${collName})`);
@@ -1124,6 +1152,7 @@ async function createPopupTemplate(
 
     const templateUid = (saveResult.uid || saveResult.templateUid) as string;
     const targetUid = (saveResult.targetUid) as string || fieldUid;
+    trackCreatedTemplate(templateUid);
 
     if (templateUid) {
       log(`    + popup template: ${name} (${templateUid})`);
