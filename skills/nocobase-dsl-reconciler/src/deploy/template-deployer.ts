@@ -842,9 +842,30 @@ export async function convertPopupToTemplate(
     const hostResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: hostUid } });
     const existingTplUid = hostResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid as string | undefined;
     if (existingTplUid && typeof existingTplUid === 'string' && existingTplUid.length > 5) {
-      // Verify the template still exists
+      // Verify the template still exists AND matches the expected collection.
+      // Without the collection check, a field whose host had a stale popupTemplateUid
+      // from a prior mis-wired deploy (e.g. Leads.name pointing at Activity View) would
+      // happily reuse that wrong template and the popup stays broken forever.
       try {
         const existingTpl = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: existingTplUid } });
+        const existingTplColl = (existingTpl.data?.data?.collectionName || '') as string;
+        if (existingTplColl && existingTplColl !== collName) {
+          // Mismatch — clear the stale reference and fall through to the create path.
+          const ov = hostResp.data.data.stepParams.popupSettings.openView;
+          delete ov.popupTemplateUid;
+          delete ov.popupTemplateMode;
+          delete ov.popupTemplateHasFilterByTk;
+          delete ov.popupTemplateHasSourceId;
+          const d = hostResp.data.data;
+          await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+            uid: hostUid, use: d.use, parentId: d.parentId,
+            subKey: d.subKey, subType: d.subType,
+            sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
+            stepParams: d.stepParams,
+          });
+          log(`    ~ cleared stale popupTemplateUid on ${name}: was ${existingTplColl} template, expected ${collName}`);
+          // Fall through to the standard create path below (don't return).
+        } else {
         const existingTargetUid = existingTpl.data?.data?.targetUid || '';
         log(`    = popup template: ${name} (already converted: ${existingTplUid.slice(0, 8)})`);
 
@@ -882,6 +903,7 @@ export async function convertPopupToTemplate(
         }
         _popupTplCacheThisRun.set(cacheKey, { templateUid: existingTplUid, targetUid: existingTargetUid });
         return { templateUid: existingTplUid, targetUid: existingTargetUid };
+        }  // close else (collection match)
       } catch {
         // Template deleted — clear stale ref so convert can proceed
         const ov = hostResp.data.data.stepParams.popupSettings.openView;
