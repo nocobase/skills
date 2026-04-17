@@ -1,7 +1,0 @@
-target: $SELF.line_items.actions.addNew
-mode: drawer
-blocks:
-  - ref: templates/block/form_add_new_nb_erp_order_lines.yaml
-    resource_binding:
-      associationName: nb_erp_customer_orders.order_lines
-      sourceId: '{{ctx.view.inputArgs.sourceId}}'

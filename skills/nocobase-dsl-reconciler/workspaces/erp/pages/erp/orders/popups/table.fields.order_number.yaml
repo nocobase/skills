@@ -85,6 +85,3 @@ tabs:
       - key: recordHistory
         type: recordHistory
         coll: nb_erp_customer_orders
-        actions:
-          - filter
-          - refresh

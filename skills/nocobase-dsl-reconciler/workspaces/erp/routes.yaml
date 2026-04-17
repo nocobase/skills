@@ -2,8 +2,6 @@
   type: group
   icon: databaseoutlined
   children:
-    - title: Dashboard
-      icon: dashboardoutlined
     - title: Products
       icon: tagsoutlined
     - title: Customers
@@ -16,6 +14,8 @@
       icon: inboxoutlined
     - title: Inventory Movements
       icon: swapoutlined
+    - title: Dashboard
+      icon: dashboardoutlined
     - title: Low Stock Alerts
       icon: alertoutlined
     - title: Sales Analytics
