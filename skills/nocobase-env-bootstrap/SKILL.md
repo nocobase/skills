@@ -38,7 +38,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `mode` | no | `quick` | one of `quick/standard/rescue` | "Do you want quick mode, standard mode, or rescue mode?" |
 | `task` | yes | inferred from user text | one of `preflight/install/upgrade/diagnose/app-manage` | "Should I run preflight, install, upgrade, diagnose, or app-manage?" |
 | `install_method` | install optional, upgrade optional | install: `docker`; upgrade: `auto` | one of `auto/docker/create-nocobase-app/git` | "Which installation method should be used?" |
-| `release_channel` | install or upgrade | `latest` | one of `latest/beta/alpha` | "Which release channel should be used (`alpha` recommended for docker install when setup capabilities are required)?" |
+| `release_channel` | install or upgrade | `latest` | one of `latest/beta/alpha` | "Which release channel should be used (`alpha` is recommended when AI build capabilities are needed in docker install)?" |
 | `target_version` | upgrade optional | none | non-empty version or image tag | "Which target version should be upgraded to?" |
 | `backup_confirmed` | upgrade required | `false` | must be `true` before upgrade | "Have you completed and confirmed database backup?" |
 | `upgrade_confirmed` | upgrade required for non-dry-run | `false` | must be `true` before non-dry-run upgrade | "Please confirm the resolved upgrade method/version/restart plan." |
@@ -89,7 +89,7 @@ Default behavior when user says "you decide":
 - Never run mutable actions (`install/upgrade`) until all required inputs for the selected `task` are resolved.
 - Docker release-channel clarification gate is mandatory for install:
 - when `task=install` and `install_method=docker`, if user did not explicitly specify `release_channel`, ask one short question before install:
-- "Docker default is `latest`, but current setup capabilities are primarily available in `alpha`. Install `alpha` now?"
+- "Docker default is `latest`, but current AI build capabilities are more complete in `alpha`. Install `alpha` now?"
 - accepted values: `alpha` / `latest` / `beta`.
 - if user explicitly indicates stability or production preference, select `latest`.
 - record channel decision source as `user_explicit`, `clarified`, or `default_fallback`.

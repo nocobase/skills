@@ -17,7 +17,7 @@ interface:
     create-nocobase-app and git always require existing DB (postgres/mysql/mariadb) with DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD.
     Docker release-channel clarification is mandatory for install:
     when install method is docker and user did not explicitly provide release channel, ask one short question before execution:
-    "Docker default is latest, but current setup capabilities are primarily in alpha. Install alpha now?"
+    "Docker default is latest, but current AI build capabilities are more complete in alpha. Install alpha now?"
     Accept only alpha/latest/beta; if user emphasizes stability/production preference, choose latest.
     Track channel source as one of user_explicit/clarified/default_fallback.
     For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask DB_UNDERSCORED preference; default is false.

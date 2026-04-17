@@ -76,7 +76,7 @@ For `task=install` with `install_method=docker`:
 
 1. If user explicitly provides `release_channel`, keep it and do not re-ask.
 2. If user does not provide channel, ask one short clarification question before install:
-- "Docker default is `latest`, but current setup capabilities are primarily available in `alpha`. Install `alpha` now?"
+- "Docker default is `latest`, but current AI build capabilities are more complete in `alpha`. Install `alpha` now?"
 3. Accept only `alpha`, `latest`, or `beta`.
 4. If user emphasizes stability/production preference, choose `latest`.
 5. Record `release_channel_source` as `user_explicit`, `clarified`, or `default_fallback`.
@@ -111,7 +111,7 @@ $env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
 export APP_KEY="$(openssl rand -hex 32)"
 ```
 
-Core command pattern (Docker, recommended when setup capabilities are needed):
+Core command pattern (Docker, recommended when AI build capabilities are needed):
 
 ```bash
 bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase

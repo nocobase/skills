@@ -30,7 +30,7 @@ If users do not specify details, default behavior is:
 
 The default flow does **not** ask whether MCP should be connected.
 
-For docker install, when user does not explicitly provide `release_channel`, the skill must ask one short clarification first and recommend `alpha` because current setup capabilities are primarily available in alpha.
+For docker install, when user does not explicitly provide `release_channel`, the skill must ask one short clarification first and recommend `alpha` because current AI build capabilities are more complete in alpha.
 
 ## Docker Local-First Rule
 
@@ -113,7 +113,7 @@ $env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
 export APP_KEY="$(openssl rand -hex 32)"
 ```
 
-Docker install script example (recommended when setup capabilities are needed):
+Docker install script example (recommended when AI build capabilities are needed):
 
 ```bash
 bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
