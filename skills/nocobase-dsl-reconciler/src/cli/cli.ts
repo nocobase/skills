@@ -347,21 +347,138 @@ async function cmdDeployProject(args: string[]) {
  */
 async function cmdRollback(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts rollback <project-dir>'); process.exit(1); }
+  const clean = args.includes('--clean');  // also prune orphan flowModels + stale usage records
+  if (!dir) { console.error('Usage: cli.ts rollback <project-dir> [--clean]'); process.exit(1); }
   const absDir = path.resolve(dir);
   const stateFile = path.join(absDir, 'state.yaml');
   if (!fs.existsSync(stateFile)) { console.error(`state.yaml not found in ${absDir}`); process.exit(1); }
   const state = loadYaml<ModuleState>(stateFile);
   const uids = (state as any)._last_deploy_created_templates as string[] | undefined;
-  if (!uids?.length) { console.log('Nothing to roll back — no templates were recorded from last deploy.'); return; }
-
-  console.log(`Rolling back ${uids.length} templates created by last deploy…`);
   const nb = await NocoBaseClient.create();
-  const { deleteTemplatesByUid } = await import('../deploy/template-deployer');
-  await deleteTemplatesByUid(nb, uids, console.log);
-  delete (state as any)._last_deploy_created_templates;
-  saveYaml(stateFile, state);
-  console.log('Rollback done. Templates removed; state.yaml cleared of rollback list.');
+
+  if (uids?.length) {
+    console.log(`Rolling back ${uids.length} templates created by last deploy…`);
+    const { deleteTemplatesByUid } = await import('../deploy/template-deployer');
+    await deleteTemplatesByUid(nb, uids, console.log);
+    delete (state as any)._last_deploy_created_templates;
+    saveYaml(stateFile, state);
+  } else {
+    console.log('No templates recorded from last deploy.');
+  }
+
+  if (clean) {
+    console.log('\nDeep cleanup (--clean):');
+    await deepCleanTemplates(nb);
+  }
+
+  console.log('Rollback done.');
+}
+
+/**
+ * Aggressive cleanup: reachable flowModels from active route trees + template targets
+ * are preserved; everything else is deleted. Also cleans stale flowModelTemplateUsages
+ * records (NocoBase doesn't cascade-delete them when flowModels disappear, which keeps
+ * usageCount artificially high and blocks template deletion).
+ */
+async function deepCleanTemplates(nb: NocoBaseClient): Promise<void> {
+  // 1. Collect reachable flowModel UIDs
+  const routesResp = await nb.http.get(`${nb.baseUrl}/api/desktopRoutes:list`, { params: { paginate: false, tree: true } });
+  const topRoutes = (routesResp.data.data || []) as any[];
+  const rootUids = new Set<string>();
+  function walkRoute(r: any) {
+    if (r.schemaUid) rootUids.add(r.schemaUid);
+    for (const c of (r.children || [])) walkRoute(c);
+  }
+  for (const r of topRoutes) walkRoute(r);
+
+  const allFm: any[] = [];
+  for (let p = 1; p <= 10; p++) {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, { params: { pageSize: 5000, page: p } });
+    const d = r.data.data || [];
+    allFm.push(...d);
+    if (d.length < 5000) break;
+  }
+  const childrenIdx = new Map<string, any[]>();
+  for (const n of allFm) {
+    const p = n.parentId || '__root__';
+    if (!childrenIdx.has(p)) childrenIdx.set(p, []);
+    childrenIdx.get(p)!.push(n);
+  }
+  const reachable = new Set<string>(rootUids);
+  const queue: string[] = Array.from(rootUids);
+  while (queue.length) {
+    const u = queue.shift()!;
+    for (const k of (childrenIdx.get(u) || [])) {
+      if (!reachable.has(k.uid)) { reachable.add(k.uid); queue.push(k.uid); }
+    }
+  }
+
+  // 2. Also preserve template target trees
+  const tResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 1000 } });
+  const templates = (tResp.data.data || []) as any[];
+  for (const t of templates) {
+    if (!t.targetUid || reachable.has(t.targetUid)) continue;
+    reachable.add(t.targetUid);
+    queue.push(t.targetUid);
+  }
+  while (queue.length) {
+    const u = queue.shift()!;
+    for (const k of (childrenIdx.get(u) || [])) {
+      if (!reachable.has(k.uid)) { reachable.add(k.uid); queue.push(k.uid); }
+    }
+  }
+
+  const orphans = allFm.filter(n => !reachable.has(n.uid));
+  console.log(`  flowModels: ${allFm.length} total, ${reachable.size} reachable, ${orphans.length} orphan`);
+
+  // 3. Batch delete orphans (20 parallel)
+  let delFm = 0;
+  for (let i = 0; i < orphans.length; i += 20) {
+    const batch = orphans.slice(i, i + 20);
+    const results = await Promise.allSettled(batch.map(o =>
+      nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: o.uid } })
+    ));
+    for (const r of results) if (r.status === 'fulfilled') delFm++;
+  }
+  console.log(`  deleted ${delFm} orphan flowModels`);
+
+  // 4. Clean stale usage records (modelUid no longer exists)
+  const usages: any[] = [];
+  for (let p = 1; p <= 5; p++) {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, { params: { pageSize: 1000, page: p } });
+    const d = r.data.data || [];
+    usages.push(...d);
+    if (d.length < 1000) break;
+  }
+  const liveUids = new Set(allFm.filter(n => reachable.has(n.uid)).map(n => n.uid));
+  const staleUsages = usages.filter(u => !liveUids.has(u.modelUid));
+  let delU = 0;
+  for (const u of staleUsages) {
+    try {
+      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:destroy`, {}, { params: { filterByTk: u.uid } });
+      delU++;
+    } catch { /* skip */ }
+  }
+  console.log(`  deleted ${delU}/${staleUsages.length} stale usage records`);
+
+  // 5. Delete templates whose usageCount dropped to 0
+  const fresh: any[] = [];
+  for (let p = 1; p <= 3; p++) {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 1000, page: p } });
+    const d = r.data.data || [];
+    fresh.push(...d);
+    if (d.length < 1000) break;
+  }
+  const zeroUse = fresh.filter(t => ((t.usageCount as number) || 0) === 0);
+  let delT = 0;
+  for (const t of zeroUse) {
+    try {
+      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: t.uid as string } });
+      delT++;
+    } catch { /* skip */ }
+  }
+  console.log(`  deleted ${delT}/${zeroUse.length} zero-usage templates`);
+  console.log(`  templates remaining: ${fresh.length - delT}`);
 }
 
 // ── Deploy-sync helpers ──
