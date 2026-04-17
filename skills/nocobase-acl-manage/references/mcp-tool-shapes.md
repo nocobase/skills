@@ -22,13 +22,13 @@ nocobase-ctl acl roles list -j
 ### Create role
 
 ```bash
-nocobase-ctl acl roles create --name sales_rep --values '{"title":"Sales Rep"}' -j
+nocobase-ctl acl roles create --body '{"name":"sales_rep","title":"Sales Rep"}' -j
 ```
 
 ### Update role snippets
 
 ```bash
-nocobase-ctl acl roles update --filter-by-tk reader --values '{"snippets":["ui.logs","ui.user"]}' -j
+nocobase-ctl acl roles update --filter-by-tk reader --body '{"snippets":["ui.logs","ui.user"]}' -j
 ```
 
 ### List available ACL actions
@@ -46,19 +46,28 @@ nocobase-ctl acl data-sources roles get --data-source-key main --filter-by-tk re
 ### Update data-source role strategy
 
 ```bash
-nocobase-ctl acl data-sources roles update --data-source-key main --filter-by-tk reader --values '{"strategy":{"actions":["view"]}}' -j
+nocobase-ctl acl data-sources roles update --data-source-key main --filter-by-tk reader --body '{"strategy":{"actions":["view"]}}' -j
 ```
 
 ### List role collections in one data source
 
 ```bash
-nocobase-ctl acl roles data-sources collections list --role-name reader --data-source-key main -j
+nocobase-ctl acl roles data-sources-collections list --role-name reader --filter '{"dataSourceKey":"main"}' -j
 ```
 
 ### Get one role collection resource policy
 
 ```bash
-nocobase-ctl acl roles data-source-resources get --role-name reader --data-source-key main --name orders -j
+nocobase-ctl acl roles data-source-resources get --role-name reader --data-source-key main --collection-name orders -j
+```
+
+### Set one role collection independent policy (single complete write)
+
+Use one complete body. Do not stage writes into separate calls for `usingActionsConfig`, `actions`, and `fields`.
+Do not use ad-hoc flags like `--using-actions-config`; pass all settings in `--body`.
+
+```bash
+nocobase-ctl acl roles data-source-resources update --role-name reader --data-source-key main --collection-name orders --filter-by-tk 123 --body '{"usingActionsConfig":true,"actions":[{"name":"view","scopeId":1,"fields":["id","createdAt","updatedAt"]},{"name":"update","scopeId":1,"fields":["status","notes"]}]}' -j
 ```
 
 ## Guarded Generic Membership Shape
