@@ -150,12 +150,12 @@ export async function fillBlock(
         .find((c: any) => c.use?.includes('TableActionsColumn'));
       if (actCol) actColUid = (actCol as { uid: string }).uid;
 
-      // No recordActions in DSL → remove compose-created actionsColumn
-      // DSL must explicitly declare recordActions to keep row-level buttons.
-      if (!bs.recordActions && actColUid) {
+      // Copy mode: no recordActions in DSL → remove compose-created actionsColumn (strict)
+      // Build mode: keep compose defaults (edit/delete) even if DSL doesn't declare them
+      if (ctx.copyMode && !bs.recordActions && actColUid) {
         await nb.surfaces.removeNode(actColUid);
         actColUid = '';
-        log(`      - action column removed (no recordActions in DSL)`);
+        log(`      - action column removed (no recordActions in DSL, copy mode)`);
       } else if (Array.isArray(bs.recordActions) && bs.recordActions.length === 0 && actColUid) {
         await nb.surfaces.removeNode(actColUid);
         actColUid = '';

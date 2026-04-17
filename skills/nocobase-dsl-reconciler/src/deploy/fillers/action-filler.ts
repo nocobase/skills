@@ -199,9 +199,12 @@ function buildUpdateRecordStepParams(spec: Record<string, unknown>): Record<stri
   else general.title = '';
   if (tooltip) general.tooltip = tooltip;
 
-  const linkageRules = buildLinkageRules(hiddenWhen, disabledWhen);
+  // Build linkageRules: from hiddenWhen/disabledWhen shorthand, or pass through raw linkageRules
+  const builtRules = buildLinkageRules(hiddenWhen, disabledWhen);
+  const rawRules = spec.linkageRules as Record<string, unknown> | undefined;
+  const finalRules = builtRules || rawRules || null;
   const stepParams: Record<string, unknown> = {
-    buttonSettings: { general, ...(linkageRules ? { linkageRules } : {}) },
+    buttonSettings: { general, ...(finalRules ? { linkageRules: finalRules } : {}) },
   };
   if (assign && Object.keys(assign).length) {
     stepParams.assignSettings = { assignFieldValues: { assignedValues: assign } };
