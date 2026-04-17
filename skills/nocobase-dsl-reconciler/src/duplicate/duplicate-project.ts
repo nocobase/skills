@@ -1,0 +1,216 @@
+/**
+ * Duplicate a DSL project: clone the entire directory tree, regenerate every
+ * UID, and (optionally) rename groups/pages. The output is a fresh, isolated
+ * module — `deploy-project --force` deploys it without any runtime conversion
+ * magic.
+ *
+ * Replaces the brittle `--copy` mode pattern (deploy-time
+ * convertPopupToTemplate). DSL is the source of truth; if you want isolated
+ * templates, your DSL files must have unique UIDs. This tool generates them.
+ */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { loadYaml, saveYaml, dumpYaml } from '../utils/yaml';
+import { generateUid } from '../utils/uid';
+
+export interface DuplicateOptions {
+  source: string;
+  target: string;
+  /** Rename group titles in routes.yaml. Format: "OldName:NewName" (repeatable comma-separated). */
+  renameGroup?: string;
+  /** Wipe the target dir if it exists. Without this, fail on conflict. */
+  force?: boolean;
+}
+
+/** Field names whose values are flowModel UIDs that must be remapped. */
+const UID_KEYS = new Set([
+  'uid', 'targetUid', 'popupTemplateUid', 'templateUid',
+  'route_id', 'page_uid', 'tab_uid', 'grid_uid', 'schema_uid',
+  'popup_grid', 'popup_page', 'popup_tab', 'parent_uid',
+  'wrapper', 'field', 'modelUid', 'group_id', 'block_uid',
+  'host_uid',
+]);
+
+/** UID-shaped value detector. */
+function looksLikeUid(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  // Numeric route_id (Postgres bigserial)
+  if (/^\d{10,}$/.test(value)) return true;
+  // 8-12 char base36 (NocoBase generateUid output)
+  if (/^[a-z0-9]{8,12}$/.test(value)) return true;
+  return false;
+}
+
+/** Collect all UIDs that appear as values of UID_KEYS, mint new UIDs. */
+function collectUids(obj: unknown, map: Map<string, string>): void {
+  if (obj === null || obj === undefined) return;
+  if (Array.isArray(obj)) {
+    for (const x of obj) collectUids(x, map);
+    return;
+  }
+  if (typeof obj === 'object') {
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (UID_KEYS.has(k) && looksLikeUid(v)) {
+        const oldUid = String(v);
+        if (!map.has(oldUid)) map.set(oldUid, mintUid(oldUid));
+      }
+      collectUids(v, map);
+    }
+  }
+}
+
+/** Mint a new UID that matches the shape of the old one. */
+function mintUid(oldUid: string): string {
+  if (/^\d+$/.test(oldUid)) {
+    // Numeric route_id — generate a numeric pseudo-id with similar length.
+    // Real route IDs come from NB's auto-increment; here we use timestamp + random
+    // and let deploy overwrite via the create-route path.
+    return String(Date.now()) + Math.floor(Math.random() * 1000);
+  }
+  return generateUid();
+}
+
+/** Rewrite the tree, replacing UIDs in known keys via the map. Strings inside
+ *  string values (e.g. JS UID placeholders, /admin/<uid> URLs) are also
+ *  rewritten — they often embed UIDs as plain substrings. */
+function rewriteUids(obj: unknown, map: Map<string, string>): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') return rewriteString(obj, map);
+  if (Array.isArray(obj)) return obj.map(x => rewriteUids(x, map));
+  if (typeof obj === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (UID_KEYS.has(k) && typeof v === 'string' && map.has(v)) {
+        out[k] = map.get(v);
+      } else if (UID_KEYS.has(k) && typeof v === 'number' && map.has(String(v))) {
+        // Numeric route_id stored as number
+        out[k] = Number(map.get(String(v)));
+      } else {
+        out[k] = rewriteUids(v, map);
+      }
+    }
+    return out;
+  }
+  return obj;
+}
+
+/** Replace UID substrings inside arbitrary string values. Skips template
+ *  expressions ({{...}}) and well-known semantic prefixes. */
+function rewriteString(s: string, map: Map<string, string>): string {
+  if (!s) return s;
+  // Don't touch i18n / template-var strings — they don't carry UIDs.
+  if (s.includes('{{')) return s;
+  let out = s;
+  for (const [oldUid, newUid] of map) {
+    if (out.includes(oldUid)) out = out.split(oldUid).join(newUid);
+  }
+  return out;
+}
+
+/** Apply --rename-group to routes.yaml top-level entries. */
+function renameGroups(routesObj: unknown, spec: string): unknown {
+  if (!Array.isArray(routesObj)) return routesObj;
+  const renames = new Map<string, string>();
+  for (const pair of spec.split(',')) {
+    const [oldName, newName] = pair.split(':').map(s => s.trim());
+    if (oldName && newName) renames.set(oldName, newName);
+  }
+  if (!renames.size) return routesObj;
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { for (const x of node) walk(x); return; }
+    const o = node as Record<string, unknown>;
+    if (typeof o.title === 'string' && renames.has(o.title)) {
+      o.title = renames.get(o.title);
+    }
+    if (Array.isArray(o.children)) for (const c of o.children) walk(c);
+  };
+  for (const r of routesObj) walk(r);
+  return routesObj;
+}
+
+/** Recursive directory copy that skips .git and existing target files. */
+function copyDirectory(src: string, dst: string): void {
+  fs.mkdirSync(dst, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (entry.name === '.git' || entry.name === 'node_modules') continue;
+    const s = path.join(src, entry.name);
+    const d = path.join(dst, entry.name);
+    if (entry.isDirectory()) copyDirectory(s, d);
+    else if (entry.isFile()) fs.copyFileSync(s, d);
+  }
+}
+
+/** Walk every file in a directory tree. */
+function walkDir(dir: string, fn: (file: string) => void): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '.git' || entry.name === 'node_modules') continue;
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkDir(p, fn);
+    else if (entry.isFile()) fn(p);
+  }
+}
+
+export async function duplicateProject(opts: DuplicateOptions): Promise<{
+  yamlFiles: number;
+  jsFiles: number;
+  uidsRemapped: number;
+}> {
+  const src = path.resolve(opts.source);
+  const dst = path.resolve(opts.target);
+
+  if (!fs.existsSync(src)) throw new Error(`source not found: ${src}`);
+  if (fs.existsSync(dst)) {
+    if (!opts.force) throw new Error(`target already exists: ${dst} (use --force)`);
+    fs.rmSync(dst, { recursive: true, force: true });
+  }
+
+  // 1. Copy the whole tree.
+  copyDirectory(src, dst);
+
+  // 2. Collect every UID across all YAML files (skipping state.yaml — it's
+  //    regenerated per deploy and would add stale entries to the map).
+  const yamlFiles: string[] = [];
+  walkDir(dst, (f) => { if (f.endsWith('.yaml') || f.endsWith('.yml')) yamlFiles.push(f); });
+
+  const uidMap = new Map<string, string>();
+  for (const file of yamlFiles) {
+    if (path.basename(file) === 'state.yaml') continue;
+    try { collectUids(loadYaml<unknown>(file), uidMap); } catch { /* skip bad yaml */ }
+  }
+
+  // 3. Rewrite each YAML file with the new UIDs. state.yaml is wiped (deploy
+  //    will populate fresh from live state).
+  for (const file of yamlFiles) {
+    if (path.basename(file) === 'state.yaml') {
+      fs.unlinkSync(file);
+      continue;
+    }
+    try {
+      const obj = loadYaml<unknown>(file);
+      let next = rewriteUids(obj, uidMap);
+      if (opts.renameGroup && path.basename(file) === 'routes.yaml') {
+        next = renameGroups(next, opts.renameGroup);
+      }
+      saveYaml(file, next);
+    } catch { /* skip */ }
+  }
+
+  // 4. Rewrite JS files — they often inline UID literals (e.g. const TARGET_BLOCK_UID
+  //    = 'abc123def456'). Treat as plain text substitution.
+  let jsCount = 0;
+  walkDir(dst, (f) => {
+    if (!f.endsWith('.js')) return;
+    let code = fs.readFileSync(f, 'utf8');
+    let changed = false;
+    for (const [oldUid, newUid] of uidMap) {
+      if (code.includes(oldUid)) {
+        code = code.split(oldUid).join(newUid);
+        changed = true;
+      }
+    }
+    if (changed) { fs.writeFileSync(f, code); jsCount++; }
+  });
+
+  return { yamlFiles: yamlFiles.length, jsFiles: jsCount, uidsRemapped: uidMap.size };
+}

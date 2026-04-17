@@ -11,19 +11,20 @@ export interface DeployContext {
   nb: NocoBaseClient;
   log: LogFn;
   force: boolean;
+  /** @deprecated kept temporarily for callers that haven't been updated; always false. */
   copyMode: boolean;
 }
 
 /** Create context from CLI opts. */
 export function createDeployContext(
   nb: NocoBaseClient,
-  opts: { force?: boolean; copyMode?: boolean } = {},
+  opts: { force?: boolean } = {},
   log: LogFn = console.log,
 ): DeployContext {
   return {
     nb,
     log,
     force: opts.force ?? false,
-    copyMode: opts.copyMode ?? false,
+    copyMode: false,
   };
 }

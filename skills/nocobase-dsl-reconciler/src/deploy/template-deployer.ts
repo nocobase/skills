@@ -416,7 +416,6 @@ export async function deployTemplates(
   nb: NocoBaseClient,
   projectDir: string,
   log: (msg: string) => void = console.log,
-  copyMode = false,
   savedTemplateUids?: Record<string, { uid: string; targetUid: string; type: string; collection?: string }>,
 ): Promise<DeployTemplatesResult> {
   const tplDir = path.join(projectDir, 'templates');
@@ -543,7 +542,12 @@ export async function deployTemplates(
     const nameFallback = existingByName.get(tpl.name);
     const nameFallbackSafe = nameFallback && (!collName || !nameFallback.collectionName || nameFallback.collectionName === collName)
       ? nameFallback : undefined;
-    const existingEntry = copyMode ? undefined : (existingByKey.get(matchKey) || nameFallbackSafe);
+    // Reuse an existing live template if its (name, collection) matches the
+    // DSL — but only when the DSL didn't declare a uid. With a DSL-declared
+    // uid (the duplicate-project workflow), we always use that uid so each
+    // project owns isolated templates.
+    const dslHasUid = !!(tpl.uid && tpl.uid.length >= 8);
+    const existingEntry = dslHasUid ? undefined : (existingByKey.get(matchKey) || nameFallbackSafe);
     if (existingEntry) {
       uidMap.set(tpl.uid, existingEntry.uid);
       if (tpl.targetUid && existingEntry.targetUid) {

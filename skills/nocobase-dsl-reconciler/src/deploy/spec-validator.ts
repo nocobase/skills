@@ -47,9 +47,12 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
           }
         }
         // Rule: don't redefine auto-created FK columns (e.g. category_id alongside category m2o)
+        // Downgraded to warning — NocoBase tolerates the duplicate column (the
+        // m2o relation continues to work via its own FK), and existing CRM
+        // exports include both forms. Blocking deploy on this is too strict.
         for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
           if (fks.has(fd.name as string) && fd.interface !== 'm2o') {
-            issues.push({ level: 'error', page: `collection "${collName}"`, message: `field "${fd.name}" conflicts with m2o's foreignKey — remove it (the FK column is auto-created by NocoBase)` });
+            issues.push({ level: 'warn', page: `collection "${collName}"`, message: `field "${fd.name}" conflicts with m2o's foreignKey — safe to remove (FK is auto-created by NocoBase)` });
           }
         }
         if (m2oMap.size) collM2oTargets.set(collName, m2oMap);

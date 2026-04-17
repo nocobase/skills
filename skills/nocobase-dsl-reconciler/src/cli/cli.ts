@@ -39,7 +39,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
+    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
     process.exit(1);
   }
 
@@ -93,6 +93,18 @@ async function main() {
       cmdValidateWorkflows(args.slice(1));
       break;
     case 'compare':
+      await cmdCompare(args.slice(1));
+      break;
+    case 'duplicate-project':
+      await cmdDuplicateProject(args.slice(1));
+      break;
+    case 'push':
+      await cmdDeployProject(args.slice(1));
+      break;
+    case 'pull':
+      await cmdExportProject(args.slice(1));
+      break;
+    case 'diff':
       await cmdCompare(args.slice(1));
       break;
     default:
@@ -294,11 +306,10 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-project <dir> [--force] [--plan] [--group X] [--page X] [--blueprint] [--copy]'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group X] [--page X]'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
-  const copyMode = args.includes('--copy');
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const pageIdx = args.indexOf('--page');
@@ -306,50 +317,20 @@ async function cmdDeployProject(args: string[]) {
 
   const absDir = path.resolve(dir);
 
-  // ── Git detection (always — sync is mandatory for git repos) ──
-  let isGit = false;
-  let mainBranch = '';
+  // Optional pre-deploy git snapshot (rollback point) — only if it's a git
+  // repo. We deliberately do NOT auto-export the live state, do NOT create
+  // worktrees, do NOT auto-cleanup templates. Push deploys; pull (separate
+  // command) re-imports; user runs `git diff` to see what changed.
   if (!planOnly) {
     const { execSync } = await import('node:child_process');
     try {
       execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
-      mainBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
-      isGit = !!mainBranch;
-    } catch { /* not a git repo — skip all git operations */ }
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+      if (branch) await gitSnapshot(absDir, branch);
+    } catch { /* not a git repo — skip */ }
   }
 
-  const targetGroup = group || autoDetectGroup(absDir);
-
-  // ── Step 1: Pre-deploy ──
-  if (isGit) {
-    if (targetGroup && fs.existsSync(path.join(absDir, 'state.yaml'))) {
-      // Incremental deploy: export live state first (capture UI changes)
-      await preDeployExport(absDir, targetGroup, mainBranch);
-    } else {
-      // First deploy: just snapshot local YAML
-      await gitSnapshot(absDir, mainBranch);
-    }
-  }
-
-  // ── Step 2: Deploy ──
-  await deployProject(absDir, { force, planOnly, group, page, blueprint, copyMode });
-  if (planOnly) return;
-
-  // ── Step 3: Post-deploy sync (export + diff — mandatory for git repos) ──
-  if (isGit && targetGroup) {
-    await deploySyncWorktree(absDir, targetGroup, mainBranch);
-  }
-
-  // ── Step 4: Conservative cleanup — ONLY popup + block templates that
-  // PRIOR deploys created (tracked in state) but the CURRENT deploy no
-  // longer references. Does NOT touch flowModels, user-created templates,
-  // or anything outside this tool's tracking scope.
-  if (!planOnly) {
-    try {
-      const nb = await NocoBaseClient.create();
-      await cleanupSupersededTemplates(nb, absDir);
-    } catch (e) { console.log('  ! cleanup: ' + (e instanceof Error ? e.message.slice(0, 80) : e)); }
-  }
+  await deployProject(absDir, { force, planOnly, group, page, blueprint });
 }
 
 /**
@@ -872,6 +853,24 @@ async function cmdCompare(args: string[]) {
   if (result.differing.length || result.onlyInLeft.length || result.onlyInRight.length) {
     process.exit(2);
   }
+}
+
+async function cmdDuplicateProject(args: string[]) {
+  const src = args[0];
+  const dst = args[1];
+  if (!src || !dst) {
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--rename-group "Old:New[,Old2:New2]"] [--force]');
+    process.exit(1);
+  }
+  const renameIdx = args.indexOf('--rename-group');
+  const renameGroup = renameIdx >= 0 ? args[renameIdx + 1] : undefined;
+  const force = args.includes('--force');
+  const { duplicateProject } = await import('../duplicate/duplicate-project');
+  console.log(`\n  Duplicating ${src} → ${dst}${renameGroup ? ` (rename: ${renameGroup})` : ''}`);
+  const r = await duplicateProject({ source: src, target: dst, renameGroup, force });
+  console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
+  console.log(`\n  Next: cd ${dst} && git init && git add -A && git commit -m "duplicate"`);
+  console.log(`  Then: deploy-project ${dst} --force${renameGroup ? ` --group "${renameGroup.split(':')[1].split(',')[0]}"` : ''}`);
 }
 
 function cmdValidateWorkflows(args: string[]) {

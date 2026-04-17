@@ -40,7 +40,7 @@ import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 
 export async function deployProject(
   projectDir: string,
-  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean; copyMode?: boolean } = {},
+  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean } = {},
   log: (msg: string) => void = console.log,
 ): Promise<void> {
   const root = path.resolve(projectDir);
@@ -135,7 +135,7 @@ export async function deployProject(
   if (hasError) { log('\n  Validation failed'); process.exit(1); }
 
   // ── Spec validation (runs before connect — pure YAML checks) ──
-  if (!opts.copyMode) {
+  {
     const { validatePageSpecs } = await import('./spec-validator');
     const specIssues = validatePageSpecs(pages, root);
     const specErrors = specIssues.filter(i => i.level === 'error');
@@ -194,21 +194,9 @@ export async function deployProject(
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
 
-  // In copy mode, state.yaml comes from the SOURCE module's export — its UIDs
-  // refer to the original blocks/fields, not the copy. Resolving popup refs
-  // against those UIDs causes 400s ("flowModels:get <stale-uid> → 200" with
-  // empty body) because we'd be POSTing to non-existent UIDs. Wipe all
-  // identity state so the deploy creates fresh routes/groups/pages/popups.
-  // Keep template_uids — those are tracked separately and survive copies.
-  if (opts.copyMode) {
-    state.pages = {};
-    state.group_id = undefined;
-    state.group_ids = {};
-    // Sub-group keys are dynamic: `_subgroup_<slug>` — strip them too.
-    for (const k of Object.keys(state)) {
-      if (k.startsWith('_subgroup_')) delete (state as Record<string, unknown>)[k];
-    }
-  }
+  // (removed) copy-mode state reset. Use `cli duplicate-project` to produce
+  // a DSL with fresh UIDs + no state.yaml; deploy then creates everything
+  // from scratch without any runtime state-rewriting.
 
   // Collections (skip if deploying single page — safety)
   if (!opts.page) {
@@ -219,7 +207,7 @@ export async function deployProject(
   let templateUidMap: TemplateUidMap = new Map();
   let pendingPopups: PendingPopupTemplate[] = [];
   if (!opts.page) {
-    const tplResult = await deployTemplates(nb, root, log, ctx.copyMode, state.template_uids);
+    const tplResult = await deployTemplates(nb, root, log, state.template_uids);
     templateUidMap = tplResult.uidMap;
     pendingPopups = tplResult.pendingPopupTemplates;
     // Persist template UIDs to state for next deploy
@@ -316,66 +304,12 @@ export async function deployProject(
     for (const w of pv.warnings) log(`  💡 ${w}`);
   }
 
-  // Convert all inline popups to popup templates (one by one)
-  {
-    // Per-page block→coll map: popup target's collection often differs from
-    // the page's primary collection (e.g. overview's today_s_tasks block is
-    // nb_crm_activities while overview's primary is nb_crm_leads). Without
-    // per-block resolution every popup on the page would be tagged as the
-    // page's coll → cross-collection template contamination.
-    const pageBlockColls = new Map<string, Map<string, string>>();
-    const pageCollMap = new Map<string, string>();
-    for (const pi of pages) {
-      const blocks = (pi.layout as any)?.blocks || [];
-      const blockMap = new Map<string, string>();
-      let firstColl = '';
-      for (const b of blocks) {
-        if (b?.key && b?.coll) blockMap.set(b.key, b.coll);
-        if (b?.coll && !firstColl) firstColl = b.coll;
-      }
-      pageBlockColls.set(pi.slug, blockMap);
-      if (firstColl) pageCollMap.set(pi.slug, firstColl);
-    }
-
-    // In copy mode: build the set of block template UIDs this project owns.
-    // Only these may be used for nested ReferenceBlockModel bindings inside popups,
-    // preventing cross-group coupling (CRM Copy reusing Main's block templates).
-    const allowedBlockTemplateUids: Set<string> | undefined = opts.copyMode
-      ? new Set(Object.values(state.template_uids || {}).filter(t => t.type === 'block').map(t => t.uid))
-      : undefined;
-
-    for (const [pageKey, ps] of Object.entries(state.pages)) {
-      const pageColl = pageCollMap.get(pageKey) || '';
-      const blockColls = pageBlockColls.get(pageKey) || new Map<string, string>();
-      if (!pageColl) continue;
-      const popups = ((ps as Record<string, unknown>).popups || {}) as Record<string, Record<string, unknown>>;
-      for (const [popupKey, popupState] of Object.entries(popups)) {
-        const targetUid = popupState.target_uid as string;
-        if (!targetUid) continue;
-        // Derive template name from popup key
-        const popupType = popupKey.includes('.actions.addNew') ? 'Add new'
-          : popupKey.includes('.recordActions.edit') ? 'Edit'
-          : popupKey.includes('.fields.') ? 'Detail' : null;
-        if (!popupType) continue;
-        // Resolve THIS popup's collection from the source block, not the page.
-        const blockName = popupKey.split('.')[0];
-        const popupColl = blockColls.get(blockName) || pageColl;
-        const collTitle = popupColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        const tplName = `Popup (${popupType}): ${collTitle}`;
-        const stateKey = `popup:${tplName}`;
-        const savedPopupUid = state.template_uids?.[stateKey]?.uid;
-        try {
-          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, popupColl, log, opts.copyMode || false, savedPopupUid, allowedBlockTemplateUids);
-          if (tplResult) {
-            if (!state.template_uids) state.template_uids = {};
-            state.template_uids[stateKey] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: popupColl };
-          }
-        } catch { /* skip */ }
-      }
-    }
-    // Persist popup template UIDs to state.yaml for next re-deploy
-    saveYaml(stateFile, state);
-  }
+  // (removed) Runtime convertPopupToTemplate loop. Was used in --copy mode to
+  // auto-promote inline popups into shared templates with per-deploy UIDs.
+  // Replaced by explicit DSL transformation: use `cli duplicate-project` to
+  // produce an isolated DSL with new UIDs, then `cli push` deploys it as-is.
+  // Inline popups stay inline; templated popups stay templated; conversion
+  // (when needed) is an offline DSL operation, not runtime magic.
 
   // Ensure popup template blocks have binding: 'currentRecord' (for edit/detail popups)
   await ensurePopupBindings(nb, state, log);
