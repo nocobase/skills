@@ -261,7 +261,7 @@ async function exportSingleTab(
   const allPopupRefs: PopupRef[] = [];
 
   for (let i = 0; i < items.length; i++) {
-    const exported = exportBlock(items[i], jsDir, prefix, i, usedKeys, outDir);
+    const exported = await exportBlock(items[i], jsDir, prefix, i, usedKeys, outDir, nb);
     if (!exported) continue;
 
     const spec = { ...exported.spec };
@@ -621,7 +621,7 @@ async function exportGridBlocks(
   const blockUidToKey = new Map<string, string>();
 
   for (let i = 0; i < items.length; i++) {
-    const exported = exportBlock(items[i], jsDir, prefix, i, usedKeys, projectDir);
+    const exported = await exportBlock(items[i], jsDir, prefix, i, usedKeys, projectDir, nb);
     if (!exported) continue;
     const spec = { ...exported.spec };
     delete spec._popups;

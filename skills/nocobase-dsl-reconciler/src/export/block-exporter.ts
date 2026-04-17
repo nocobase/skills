@@ -305,14 +305,15 @@ export interface ExportedBlock {
  * @param projectDir - Project root directory for template lookups (optional).
  *                     When provided, enables popup/reference shorthand with template file paths.
  */
-export function exportBlock(
+export async function exportBlock(
   item: FlowModelNode,
   jsDir: string | null,
   prefix: string,
   index: number,
   usedKeys: Set<string>,
   projectDir: string | null = null,
-): ExportedBlock | null {
+  nb: NocoBaseClient | null = null,
+): Promise<ExportedBlock | null> {
   const use = item.use || '';
   const uid = item.uid;
   const sp = (item.stepParams || {}) as Record<string, unknown>;
@@ -520,7 +521,7 @@ export function exportBlock(
   }
 
   // ── Actions ──
-  const { actions, recordActions, actionPopups } = exportActions(item, key, jsDir, prefix);
+  const { actions, recordActions, actionPopups } = await exportActions(item, key, jsDir, prefix, nb);
   if (actions.length) spec.actions = actions;
   // Merge block-level recordActions with actCol recordActions (from table export)
   // Deduplicate: if actCol already has a type with config, skip the simplified block-level version
@@ -1038,21 +1039,31 @@ function extractGridLayout(
 // ── Actions ──
 // ACTION_TYPE_MAP is imported from utils/block-types (MODEL_TO_ACTION_TYPE)
 
-function exportActions(
+async function exportActions(
   item: FlowModelNode,
   blockKey: string,
   jsDir: string | null = null,
   prefix = '',
-): { actions: unknown[]; recordActions: unknown[]; actionPopups: PopupRef[] } {
+  nb: NocoBaseClient | null = null,
+): Promise<{ actions: unknown[]; recordActions: unknown[]; actionPopups: PopupRef[] }> {
   const actions: unknown[] = [];
   const recordActions: unknown[] = [];
   const actionPopups: PopupRef[] = [];
 
   for (const subKey of ['actions', 'recordActions'] as const) {
     const raw = item.subModels?.[subKey];
-    const arr = (Array.isArray(raw) ? raw : []) as FlowModelNode[];
-    // Sort by sortIndex to preserve DSL declaration order
-    arr.sort((a, b) => ((a as any).sortIndex || 0) - ((b as any).sortIndex || 0));
+    let arr = (Array.isArray(raw) ? raw : []) as FlowModelNode[];
+    // flowSurfaces:get tree caches compose-time sortIndex which may be stale.
+    // Re-fetch real sortIndex from DB for each action, then sort.
+    if (arr.length > 1 && nb) {
+      try {
+        for (const act of arr) {
+          const fd = await nb.http.get(nb.baseUrl + '/api/flowModels:get', { params: { filterByTk: act.uid } });
+          if (fd.data?.data?.sortIndex !== undefined) (act as any).sortIndex = fd.data.data.sortIndex;
+        }
+        arr.sort((a, b) => ((a as any).sortIndex ?? 999) - ((b as any).sortIndex ?? 999));
+      } catch { /* fallback to tree order */ }
+    }
     const target = subKey === 'actions' ? actions : recordActions;
 
     for (const act of arr) {
@@ -1166,7 +1177,16 @@ function exportActions(
         if (!col.use?.includes('TableActionsColumn')) continue;
         const colActs = col.subModels?.actions;
         const colActArr = (Array.isArray(colActs) ? colActs : []) as FlowModelNode[];
-        colActArr.sort((a, b) => ((a as any).sortIndex || 0) - ((b as any).sortIndex || 0));
+        // Re-fetch real sortIndex for actionsColumn items too
+        if (colActArr.length > 1 && nb) {
+          try {
+            for (const act of colActArr) {
+              const fd = await nb.http.get(nb.baseUrl + '/api/flowModels:get', { params: { filterByTk: act.uid } });
+              if (fd.data?.data?.sortIndex !== undefined) (act as any).sortIndex = fd.data.data.sortIndex;
+            }
+            colActArr.sort((a, b) => ((a as any).sortIndex ?? 999) - ((b as any).sortIndex ?? 999));
+          } catch { /* fallback */ }
+        }
         for (const act of colActArr) {
           const atype = ACTION_TYPE_MAP[act.use || ''];
           if (!atype) continue;

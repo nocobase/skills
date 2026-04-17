@@ -143,7 +143,7 @@ async function exportTemplateContent(
   } else {
     // Block template: targetUid → the actual block model (form/table/details/etc.)
     const usedKeys = new Set<string>();
-    const exported = exportBlock(tree, jsDir, prefix, 0, usedKeys);
+    const exported = await exportBlock(tree, jsDir, prefix, 0, usedKeys);
     if (!exported) return {};
     const spec = { ...exported.spec };
     delete spec._popups;
@@ -164,7 +164,7 @@ async function exportChildPageContent(
     const tabGrid = tabs.length ? tabs[0].subModels?.grid : null;
     if (!tabGrid || Array.isArray(tabGrid)) return { content: { blocks: [] } };
 
-    const { blocks, layout } = exportGridItems(tabGrid as FlowModelNode, jsDir, prefix);
+    const { blocks, layout } = await exportGridItems(tabGrid as FlowModelNode, jsDir, prefix);
     const content: Record<string, unknown> = { blocks };
     if (layout.length) content.layout = layout;
     return { content };
@@ -179,7 +179,7 @@ async function exportChildPageContent(
     const tabTitle = (title?.title as string) || `Tab${i}`;
     const tabGrid = tab.subModels?.grid;
     if (tabGrid && !Array.isArray(tabGrid)) {
-      const { blocks, layout } = exportGridItems(tabGrid as FlowModelNode, jsDir, `${prefix}_tab${i}`);
+      const { blocks, layout } = await exportGridItems(tabGrid as FlowModelNode, jsDir, `${prefix}_tab${i}`);
       const tabEntry: Record<string, unknown> = { title: tabTitle, blocks };
       if (layout.length) tabEntry.layout = layout;
       tabSpecs.push(tabEntry);
@@ -190,11 +190,11 @@ async function exportChildPageContent(
   return { content: { tabs: tabSpecs } };
 }
 
-function exportGridItems(
+async function exportGridItems(
   grid: FlowModelNode,
   jsDir: string,
   prefix: string,
-): { blocks: Record<string, unknown>[]; layout: unknown[] } {
+): Promise<{ blocks: Record<string, unknown>[]; layout: unknown[] }> {
   const rawItems = grid.subModels?.items;
   const items = (Array.isArray(rawItems) ? rawItems : []) as FlowModelNode[];
   const usedKeys = new Set<string>();
@@ -202,7 +202,7 @@ function exportGridItems(
   const blockUidToKey = new Map<string, string>();
 
   for (let i = 0; i < items.length; i++) {
-    const exported = exportBlock(items[i], jsDir, prefix, i, usedKeys);
+    const exported = await exportBlock(items[i], jsDir, prefix, i, usedKeys);
     if (exported) {
       const spec = { ...exported.spec };
       delete spec._popups;
