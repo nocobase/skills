@@ -287,17 +287,46 @@ export async function deploySurface(
         // Pick defaultTargetUid = first table/reference block UID available
         const existingTargetUid = Object.values(blocksState)
           .find(b => (b.type === 'table' || b.type === 'reference') && b.uid)?.uid;
-        if (existingTargetUid) {
-          for (const ff of filterForms) {
-            const fields = (ff.spec.fields as Array<Record<string, unknown>> | undefined) || [];
-            for (const f of fields) f.defaultTargetUid = existingTargetUid;
-          }
+
+        // Strip fields from spec and remember them — compose the shell first,
+        // then add fields one-by-one with explicit defaultTargetUid.
+        type DeferredField = { fieldPath: string; defaultTargetUid?: string };
+        const deferredFields: Array<{ key: string; fields: DeferredField[] }> = [];
+        for (const ff of filterForms) {
+          const raw = ((ff.spec.fields as Array<Record<string, unknown>> | undefined) || []);
+          const pulled: DeferredField[] = raw.map(f => ({
+            fieldPath: (f.fieldPath as string) || (f.field as string) || (f.name as string) || '',
+          })).filter(f => f.fieldPath);
+          deferredFields.push({ key: ff.key, fields: pulled });
+          ff.spec.fields = [];
         }
+
         log(`    composing ${filterForms.length} filterForm(s) (mode: ${modeForFirst})${existingTargetUid ? `, default target=${existingTargetUid.slice(0, 6)}` : ''}`);
         const result2 = await nb.surfaces.compose(tabUid, filterForms.map(f => f.spec), modeForFirst);
         const composed2 = result2.blocks || [];
         log(`    composed ${composed2.length} filterForm shells: ${composed2.map((b: any) => b.key + '=' + b.uid?.slice(0, 6)).join(', ')}`);
         absorbResult(composed2, filterForms.map(f => f.key));
+
+        // Add fields to each composed filterForm with defaultTargetUid context
+        for (const { key, fields } of deferredFields) {
+          const ffUid = blocksState[key]?.uid;
+          if (!ffUid || !fields.length) continue;
+          blocksState[key].fields = blocksState[key].fields || {};
+          for (const f of fields) {
+            try {
+              const res = await (nb.http.post(`${nb.baseUrl}/api/flowSurfaces:addField`, {
+                target: { uid: ffUid },
+                fieldPath: f.fieldPath,
+                defaultTargetUid: existingTargetUid,
+              })).then(r => r.data?.data || r.data);
+              const wrapperUid = (res?.wrapperUid || res?.uid || '') as string;
+              const fieldUid = (res?.fieldUid || '') as string;
+              if (wrapperUid) blocksState[key].fields![f.fieldPath] = { wrapper: wrapperUid, field: fieldUid };
+            } catch (e: any) {
+              log(`      ! filterForm addField ${f.fieldPath}: ${e?.response?.data?.errors?.[0]?.message || e.message}`);
+            }
+          }
+        }
       }
 
       // ── Step 2: Fill each NEW composable block with content ──
