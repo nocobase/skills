@@ -2,6 +2,9 @@
 
 TypeScript "NocoBase as Code" engine. Bidirectional sync between YAML/JS spec files and live NocoBase instances.
 
+> **Read [PHILOSOPHY.md](./PHILOSOPHY.md) first** — it explains *why* the
+> design is what it is. This file documents *how* the code is laid out.
+
 ## Project Layout
 
 ```
