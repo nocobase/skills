@@ -29,6 +29,7 @@ import { deploySurface, type SurfaceOpts } from './surface-deployer';
 import { deployPopup, type PopupOpts } from './popup-deployer';
 import { expandPopups } from './popup-expander';
 import { deployTemplates, convertPopupToTemplate, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
+import { resetM2oCache } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { verifySqlFromPages } from './sql-verifier';
@@ -182,6 +183,8 @@ export async function deployProject(
   // ── 3. Connect + deploy ──
   const nb = await NocoBaseClient.create();
   const ctx = createDeployContext(nb, opts, log);
+  // Reset per-deploy caches (template list, failed fallback collections)
+  resetM2oCache();
   log(`\n  Connected to ${nb.baseUrl}`);
 
   // State

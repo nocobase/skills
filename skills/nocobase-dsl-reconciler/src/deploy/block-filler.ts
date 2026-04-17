@@ -419,6 +419,20 @@ async function autoFillRecordActionPopups(
  * Checks defaults.yaml for a matching popup template and binds it.
  * Works for table columns, detail items, form items, list items, etc.
  */
+// Cache shared across a single deploy run — avoids re-fetching 1000+ popup templates
+// and re-attempting m2o fallbacks for collections without popup support.
+interface M2oCache {
+  templates?: Record<string, unknown>[];
+  fieldsByColl: Map<string, Map<string, string>>;  // coll → (fieldPath → m2o target)
+  failedFallbackColls: Set<string>;                 // target colls whose fallback compose is known to 400
+}
+let _m2oCache: M2oCache | null = null;
+export function resetM2oCache(): void { _m2oCache = null; }
+function m2oCache(): M2oCache {
+  if (!_m2oCache) _m2oCache = { fieldsByColl: new Map(), failedFallbackColls: new Set() };
+  return _m2oCache;
+}
+
 export async function enableM2oClickToOpen(
   nb: NocoBaseClient,
   blockUid: string,
@@ -426,23 +440,31 @@ export async function enableM2oClickToOpen(
   modDir: string,
   log: (msg: string) => void,
 ): Promise<void> {
-  // Get collection field metadata — m2o fields and their targets
-  const m2oTargets = new Map<string, string>(); // fieldPath → targetCollection
-  try {
-    const resp = await nb.http.get(`${nb.baseUrl}/api/collections/${coll}/fields:list`, { params: { paginate: false } });
-    for (const f of (resp.data.data || []) as Record<string, unknown>[]) {
-      if (f.interface === 'm2o' && f.target) m2oTargets.set(f.name as string, f.target as string);
-    }
-  } catch { return; }
+  const cache = m2oCache();
+
+  // Get collection field metadata — m2o fields and their targets (cached per deploy run)
+  let m2oTargets = cache.fieldsByColl.get(coll);
+  if (!m2oTargets) {
+    m2oTargets = new Map<string, string>();
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/collections/${coll}/fields:list`, { params: { paginate: false } });
+      for (const f of (resp.data.data || []) as Record<string, unknown>[]) {
+        if (f.interface === 'm2o' && f.target) m2oTargets.set(f.name as string, f.target as string);
+      }
+    } catch { return; }
+    cache.fieldsByColl.set(coll, m2oTargets);
+  }
   if (!m2oTargets.size) return;
 
-  // Query ALL live popup templates — match by collectionName (no defaults.yaml required)
+  // Query ALL live popup templates (cached per deploy run — the list is stable within one deploy)
   const templateNameToUid = new Map<string, { templateUid: string; targetUid: string }>();
-  let liveTemplates: Record<string, unknown>[] = [];
-  try {
-    const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
-    liveTemplates = resp.data.data || [];
-  } catch { return; }
+  if (!cache.templates) {
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
+      cache.templates = resp.data.data || [];
+    } catch { return; }
+  }
+  const liveTemplates = cache.templates!;
 
   // Find popup templates for each needed collection (m2o targets + own collection)
   const neededColls = new Set(m2oTargets.values());
@@ -535,6 +557,10 @@ export async function enableM2oClickToOpen(
     // Fallback for m2o without a popup template: deploy default details inline
     // (m2o target collection has no page → no auto-created popup template)
     if (!tplInfo && targetColl) {
+      // Skip targets that already failed compose in this deploy run — the failure is
+      // per-collection (users / regions / quotations etc. NocoBase rejects) and retrying
+      // wastes hundreds of API round-trips.
+      if (cache.failedFallbackColls.has(targetColl)) continue;
       try {
         const meta = await nb.collections.fieldMeta(targetColl);
         const defaultFields = Object.keys(meta)
@@ -570,7 +596,8 @@ export async function enableM2oClickToOpen(
           }
         }
       } catch (e) {
-        log(`      . m2o fallback ${fm.fieldPath}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+        cache.failedFallbackColls.add(targetColl);
+        log(`      . m2o fallback ${fm.fieldPath} → ${targetColl}: ${e instanceof Error ? e.message.slice(0, 60) : e} (will skip this target for rest of deploy)`);
       }
       continue;
     }
