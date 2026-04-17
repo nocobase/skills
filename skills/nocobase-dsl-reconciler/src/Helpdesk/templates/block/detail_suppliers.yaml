@@ -1,0 +1,28 @@
+uid: 2xj5g8i6ei0
+name: 'Detail: Suppliers'
+type: block
+collectionName: nb_erp_suppliers
+dataSourceKey: main
+targetUid: r7rh7d2tvcm
+description: 'Detail: Suppliers'
+content:
+  key: details
+  type: details
+  coll: nb_erp_suppliers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - contact
+    - phone
+    - email
+    - address
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - contact
+    - '--- Contact ---'
+    - - phone
+      - email
+    - - address
+    - '--- Address ---'

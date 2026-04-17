@@ -1,0 +1,13 @@
+uid: cjbc4richr4
+name: 'Popup (Add new): Categories'
+type: popup
+collectionName: nb_hd_categories
+dataSourceKey: main
+targetUid: ugn65622sqw
+description: 'Popup (Add new): Categories'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - 8wris5zb

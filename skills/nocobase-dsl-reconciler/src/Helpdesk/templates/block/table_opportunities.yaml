@@ -1,0 +1,29 @@
+uid: 8xbu4mjx2le
+name: 'Table: Opportunities'
+type: block
+collectionName: nb_crm_opportunities
+dataSourceKey: main
+targetUid: rh4v4k5lflm
+description: 'Table: Opportunities'
+content:
+  key: table
+  type: table
+  coll: nb_crm_opportunities
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - amount
+    - currency
+    - stage
+    - lead_source
+    - field: contact
+      clickToOpen: true
+    - field: customer
+      clickToOpen: true
+    - expected_close_date
+    - win_probability
+  actions:
+    - filter
+    - refresh
+    - addNew

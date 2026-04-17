@@ -1,0 +1,29 @@
+uid: 203dyjllv98
+name: 'Form (Edit): Suppliers'
+type: block
+collectionName: nb_erp_suppliers
+dataSourceKey: main
+targetUid: 0uukq77piqm
+description: 'Form (Edit): Suppliers'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_erp_suppliers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - contact
+    - phone
+    - email
+    - address
+  field_layout:
+    - '--- Contact Info ---'
+    - - name
+      - contact
+    - - phone
+      - email
+    - '--- Address ---'
+    - - address
+  actions:
+    - submit

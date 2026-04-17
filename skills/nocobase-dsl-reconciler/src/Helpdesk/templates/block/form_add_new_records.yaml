@@ -1,0 +1,32 @@
+uid: sl8etitbku8
+name: 'Form (Add new): Records'
+type: block
+collectionName: nb_itam_maintenance_records
+dataSourceKey: main
+targetUid: ao3ii9mamze
+content:
+  key: createForm
+  type: createForm
+  coll: nb_itam_maintenance_records
+  fields:
+    - type
+    - cost
+    - vendor
+    - description
+    - status
+    - performed_by
+    - asset
+  field_layout:
+    - '--- Maintenance Info ---'
+    - - asset
+    - - type
+      - status
+    - '--- Vendor & Cost ---'
+    - - vendor
+      - performed_by
+    - - cost
+    - '--- Description ---'
+    - - description
+  actions:
+    - submit
+    - submit

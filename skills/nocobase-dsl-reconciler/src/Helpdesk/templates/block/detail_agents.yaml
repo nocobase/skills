@@ -1,0 +1,33 @@
+uid: lzmaekwp6r8
+name: 'Detail: Agents'
+type: block
+collectionName: nb_hd_agents
+dataSourceKey: main
+targetUid: o0khjtqy1nt
+content:
+  key: details
+  type: details
+  coll: nb_hd_agents
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - agent_code
+    - name
+    - email
+    - phone
+    - role
+    - department
+    - status
+    - createdAt
+  field_layout:
+    - '--- Agent Info ---'
+    - - agent_code
+      - name
+    - - email
+      - phone
+    - - role
+      - status
+    - - department
+    - - createdAt
+  actions:
+    - edit

@@ -1,0 +1,13 @@
+uid: 8fvnzrvigbw
+name: 'Popup (Detail): Slas'
+type: popup
+collectionName: nb_hd_slas
+dataSourceKey: main
+targetUid: cgdkkw2c2sw
+description: 'Popup (Detail): Slas'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - 30fgl9k9

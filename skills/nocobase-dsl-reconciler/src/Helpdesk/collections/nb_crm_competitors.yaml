@@ -1,0 +1,20 @@
+name: nb_crm_competitors
+title: Competitors
+titleField: name
+fields:
+  - name: opportunity
+    interface: m2o
+    target: nb_crm_opportunities
+    foreignKey: opportunity_id
+  - name: opportunity_id
+    interface: integer
+  - name: strengths
+    interface: textarea
+  - name: name
+    interface: input
+  - name: website
+    interface: textarea
+  - name: weaknesses
+    interface: textarea
+  - name: description
+    interface: textarea

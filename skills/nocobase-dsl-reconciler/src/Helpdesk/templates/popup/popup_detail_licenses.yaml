@@ -1,0 +1,13 @@
+uid: 9641wtxc2e9
+name: 'Popup (Detail): Licenses'
+type: popup
+collectionName: nb_itam_software_licenses
+dataSourceKey: main
+targetUid: e8dr3j934y0
+description: 'Popup (Detail): Licenses'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - cdjsp1mq

@@ -1,0 +1,39 @@
+uid: z7rdevcswyp
+name: 'Form (Add new): Assets'
+type: block
+collectionName: nb_itam_assets
+dataSourceKey: main
+targetUid: ytuv9tgupew
+content:
+  key: add_category
+  type: createForm
+  title: Add Category
+  coll: nb_itam_assets
+  fields:
+    - name
+    - asset_tag
+    - serial_number
+    - status
+    - purchase_cost
+    - vendor
+    - model
+    - location
+    - description
+    - category
+  field_layout:
+    - - y69ssz1q
+    - - name
+      - asset_tag
+    - - serial_number
+      - category
+    - - model
+      - vendor
+    - - kmblni32
+    - - status
+      - location
+    - - fgpn0e94
+    - - purchase_cost
+    - - description
+  actions:
+    - submit
+    - submit

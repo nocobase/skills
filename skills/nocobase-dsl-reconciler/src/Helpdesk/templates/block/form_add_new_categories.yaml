@@ -1,0 +1,27 @@
+uid: at48zn9uxzs
+name: 'Form (Add new): Categories'
+type: block
+collectionName: nb_hd_categories
+dataSourceKey: main
+targetUid: 8wris5zbd4g
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hd_categories
+  fields:
+    - name
+    - description
+    - default_priority
+    - parent_category
+    - parent_categoryId
+  field_layout:
+    - '--- Category Info ---'
+    - - name
+      - default_priority
+    - - parent_category
+    - '--- Description ---'
+    - - description
+    - - parent_categoryId
+  actions:
+    - submit
+    - submit

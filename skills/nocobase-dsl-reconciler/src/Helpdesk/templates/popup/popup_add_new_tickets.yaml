@@ -1,0 +1,13 @@
+uid: usc8b8zhw89
+name: 'Popup (Add new): Tickets'
+type: popup
+collectionName: nb_hd_tickets
+dataSourceKey: main
+targetUid: plownbjyzls
+description: 'Popup (Add new): Tickets'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - n217sc3q

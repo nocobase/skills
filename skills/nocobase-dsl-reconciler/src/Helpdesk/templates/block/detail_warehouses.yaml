@@ -1,0 +1,22 @@
+uid: 5nxct4abjgw
+name: 'Detail: Warehouses'
+type: block
+collectionName: nb_erp_warehouses
+dataSourceKey: main
+targetUid: 8us6thnfbct
+description: 'Detail: Warehouses'
+content:
+  key: details
+  type: details
+  coll: nb_erp_warehouses
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - location
+    - capacity
+  field_layout:
+    - '--- Warehouse Info ---'
+    - - name
+      - location
+    - - capacity

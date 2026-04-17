@@ -1,0 +1,15 @@
+uid: eqv8a81qy3x
+name: 'Popup (Detail): Products'
+type: popup
+collectionName: nb_crm_products
+dataSourceKey: main
+targetUid: i0pbkrn5n6o
+description: 'Popup (Detail): Products'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      actions:
+        - submit
+  layout:
+    - - reference

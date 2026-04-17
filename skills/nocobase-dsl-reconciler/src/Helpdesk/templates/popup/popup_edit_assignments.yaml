@@ -1,0 +1,13 @@
+uid: hjln4qmsqd4
+name: 'Popup (Edit): Assignments'
+type: popup
+collectionName: nb_itam_asset_assignments
+dataSourceKey: main
+targetUid: 5y8pd1n0zyz
+description: 'Popup (Edit): Assignments'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - uuodcl19

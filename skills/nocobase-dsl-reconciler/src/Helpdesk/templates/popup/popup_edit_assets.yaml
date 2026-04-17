@@ -1,0 +1,13 @@
+uid: e1ptlsu3s3m
+name: 'Popup (Edit): Assets'
+type: popup
+collectionName: nb_itam_assets
+dataSourceKey: main
+targetUid: rjoxnw07oy0
+description: 'Popup (Edit): Assets'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - paicyzbh

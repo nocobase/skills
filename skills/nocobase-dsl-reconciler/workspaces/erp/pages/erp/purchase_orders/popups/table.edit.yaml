@@ -1,0 +1,32 @@
+target: $SELF.table.recordActions.edit
+coll: nb_erp_purchase_orders
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_erp_purchase_orders
+    fields:
+      - po_number
+      - supplier
+      - status
+      - order_date
+      - expected_date
+      - total_amount
+      - buyer_name
+      - notes
+    field_layout:
+      - '--- Purchase Summary ---'
+      - - po_number
+        - supplier
+      - - status
+        - buyer_name
+      - '--- Dates & Amount ---'
+      - - order_date
+        - expected_date
+      - - total_amount
+      - '--- Notes ---'
+      - - notes
+    actions:
+      - submit
+    _fromRef: templates/block/form_add_new_nb_erp_purchase_orders.yaml
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

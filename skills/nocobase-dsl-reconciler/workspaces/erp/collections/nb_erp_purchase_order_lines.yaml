@@ -1,0 +1,46 @@
+name: nb_erp_purchase_order_lines
+title: Purchase Order Lines
+titleField: line_label
+fields:
+  - name: line_label
+    interface: input
+    title: Line Label
+    required: true
+  - name: purchase_order
+    interface: m2o
+    title: Purchase Order
+    target: nb_erp_purchase_orders
+    foreignKey: purchaseOrderId
+  - name: product
+    interface: m2o
+    title: Product
+    target: nb_erp_products
+    foreignKey: productId
+  - name: quantity
+    interface: number
+    title: Quantity
+    required: true
+  - name: unit_cost
+    interface: number
+    title: Unit Cost
+  - name: received_quantity
+    interface: number
+    title: Received Quantity
+  - name: line_total
+    interface: number
+    title: Line Total
+  - name: line_status
+    interface: select
+    title: Line Status
+    options:
+      - value: open
+        label: Open
+      - value: partial
+        label: Partial
+      - value: received
+        label: Received
+      - value: cancelled
+        label: Cancelled
+  - name: notes
+    interface: textarea
+    title: Notes

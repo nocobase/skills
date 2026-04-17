@@ -1,0 +1,13 @@
+uid: m9et3tmgfua
+name: 'Popup (Edit): Records'
+type: popup
+collectionName: nb_itam_maintenance_records
+dataSourceKey: main
+targetUid: gj9tdmc7taa
+description: 'Popup (Edit): Records'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - slm4it2u

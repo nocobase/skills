@@ -1,0 +1,30 @@
+uid: q14gf8zugnh
+name: 'Form (Edit): Customers'
+type: block
+collectionName: nb_hd_customers
+dataSourceKey: main
+targetUid: ysmshftiddt
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hd_customers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - customer_code
+    - name
+    - email
+    - phone
+    - company
+    - status
+  field_layout:
+    - '--- Customer Info ---'
+    - - customer_code
+      - name
+    - - email
+      - phone
+    - - company
+      - status
+  actions:
+    - submit
+    - submit

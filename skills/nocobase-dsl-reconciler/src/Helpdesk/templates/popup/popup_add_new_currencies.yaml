@@ -1,0 +1,13 @@
+uid: sdjw6dnte0b
+name: 'Popup (Add new): Currencies'
+type: popup
+collectionName: nb_cbo_currencies
+dataSourceKey: main
+targetUid: mtew4n9604d
+description: 'Popup (Add new): Currencies'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

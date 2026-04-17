@@ -1,0 +1,13 @@
+uid: ux4eqpdt4nz
+name: 'Popup (Add new): Records'
+type: popup
+collectionName: nb_itam_maintenance_records
+dataSourceKey: main
+targetUid: 74ipe6rigza
+description: 'Popup (Add new): Records'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - ao3ii9ma

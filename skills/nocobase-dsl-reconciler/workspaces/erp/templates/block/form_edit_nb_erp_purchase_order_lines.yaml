@@ -1,0 +1,34 @@
+name: 'Form (Edit): Purchase Order Lines'
+type: block
+collectionName: nb_erp_purchase_order_lines
+content:
+  key: editForm
+  type: editForm
+  coll: nb_erp_purchase_order_lines
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - line_label
+    - purchase_order
+    - product
+    - quantity
+    - unit_cost
+    - received_quantity
+    - line_total
+    - line_status
+    - notes
+  field_layout:
+    - '--- Line Summary ---'
+    - - line_label
+      - product
+    - - purchase_order
+      - line_status
+    - '--- Receiving ---'
+    - - quantity
+      - received_quantity
+    - - unit_cost
+      - line_total
+    - '--- Notes ---'
+    - - notes
+  actions:
+    - submit

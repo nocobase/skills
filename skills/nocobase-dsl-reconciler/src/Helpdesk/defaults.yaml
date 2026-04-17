@@ -1,0 +1,34 @@
+popups:
+  nb_cbo_currencies: templates/popup/popup_detail_currencies.yaml
+  nb_crm_activities: templates/popup/activity_view.yaml
+  nb_crm_data_analysis: templates/popup/popup_add_new_analysis.yaml
+  nb_crm_leads: templates/popup/leads_email.yaml
+  nb_crm_opportunities: templates/popup/opportunity_view.yaml
+  nb_crm_opportunity_stages: templates/popup/popup_detail_stages.yaml
+  nb_crm_products: templates/popup/popup_detail_products.yaml
+  nb_hd_agents: templates/popup/popup_edit_agents.yaml
+  nb_hd_categories: templates/popup/popup_add_new_categories.yaml
+  nb_hd_customers: templates/popup/popup_edit_customers.yaml
+  nb_hd_slas: templates/popup/popup_edit_slas.yaml
+  nb_hd_tickets: templates/popup/popup_detail_tickets.yaml
+  nb_itam_asset_assignments: templates/popup/popup_edit_assignments.yaml
+  nb_itam_assets: templates/popup/popup_add_new_assets.yaml
+  nb_itam_software_licenses: templates/popup/popup_detail_licenses.yaml
+forms:
+  nb_cbo_currencies: templates/block/form_add_new_currencies.yaml
+  nb_crm_activities: templates/block/form_add_new_activities.yaml
+  nb_crm_contacts: templates/block/form_add_new_contacts.yaml
+  nb_crm_data_analysis: templates/block/form_add_new_analysis.yaml
+  nb_crm_leads: templates/block/form_add_new_nb_crm_leads.yaml
+  nb_crm_opportunities: templates/block/form_add_new_opportunities.yaml
+  nb_crm_opportunity_stages: templates/block/form_add_new_nb_crm_opportunity_stages.yaml
+  nb_crm_orders: templates/block/form_add_new_new_orders_from_quotations.yaml
+  nb_erp_categories: templates/block/form_add_new_categories.yaml
+  nb_erp_suppliers: templates/block/form_add_new_suppliers.yaml
+  nb_erp_warehouses: templates/block/form_add_new_warehouses.yaml
+  nb_hd_categories: templates/block/form_add_new_categories.yaml
+  nb_hd_customers: templates/block/form_add_new_customers.yaml
+  nb_hd_tickets: templates/block/form_add_new_tickets.yaml
+  nb_itam_asset_assignments: templates/block/form_add_new_assignments.yaml
+  nb_itam_employees: templates/block/form_add_new_employees.yaml
+  nb_itam_software_licenses: templates/block/form_add_new_licenses.yaml

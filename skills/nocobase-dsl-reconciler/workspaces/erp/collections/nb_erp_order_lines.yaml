@@ -1,0 +1,46 @@
+name: nb_erp_order_lines
+title: Order Lines
+titleField: line_label
+fields:
+  - name: line_label
+    interface: input
+    title: Line Label
+    required: true
+  - name: order
+    interface: m2o
+    title: Order
+    target: nb_erp_customer_orders
+    foreignKey: orderId
+  - name: product
+    interface: m2o
+    title: Product
+    target: nb_erp_products
+    foreignKey: productId
+  - name: quantity
+    interface: number
+    title: Quantity
+    required: true
+  - name: unit_price
+    interface: number
+    title: Unit Price
+  - name: discount_amount
+    interface: number
+    title: Discount Amount
+  - name: line_total
+    interface: number
+    title: Line Total
+  - name: fulfill_status
+    interface: select
+    title: Fulfill Status
+    options:
+      - value: pending
+        label: Pending
+      - value: allocated
+        label: Allocated
+      - value: shipped
+        label: Shipped
+      - value: backordered
+        label: Backordered
+  - name: notes
+    interface: textarea
+    title: Notes

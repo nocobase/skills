@@ -1,0 +1,14 @@
+uid: jjrc0sv7v25
+name: 'Form (Edit): Leads'
+type: block
+collectionName: nb_crm_leads
+dataSourceKey: main
+targetUid: ije8a251cxg
+content:
+  key: editForm
+  type: editForm
+  coll: nb_crm_activities
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  actions:
+    - submit

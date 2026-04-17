@@ -1,0 +1,13 @@
+uid: gctvm092k70
+name: 'Popup (Add new): Slas'
+type: popup
+collectionName: nb_hd_slas
+dataSourceKey: main
+targetUid: j4k0tulq9ez
+description: 'Popup (Add new): Slas'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - hq0gf9j8

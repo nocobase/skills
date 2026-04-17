@@ -1,0 +1,121 @@
+name: nb_crm_orders
+title: Orders
+titleField: order_no
+fields:
+  - name: contact_id
+    interface: integer
+  - name: terms_condition
+    interface: textarea
+  - name: description
+    interface: textarea
+  - name: order_amount
+    interface: number
+  - name: owner
+    interface: m2o
+    target: users
+    foreignKey: owner_id
+  - name: payments
+    interface: o2m
+    target: nb_crm_payments
+    foreignKey: order_id
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers
+    foreignKey: customer_id
+  - name: exchange_rate
+    interface: number
+  - name: items
+    interface: o2m
+    target: nb_crm_order_items
+    foreignKey: order_id
+  - name: paid_amount
+    interface: number
+  - name: opportunity
+    interface: m2o
+    target: nb_crm_opportunities
+    foreignKey: opportunity_id
+  - name: owner_id
+    interface: integer
+  - name: currency
+    interface: select
+    options:
+      - value: CNY
+        label: CNY ¥
+        color: red
+      - value: USD
+        label: USD $
+        color: green
+      - value: EUR
+        label: EUR €
+        color: blue
+      - value: GBP
+        label: GBP £
+        color: purple
+      - value: JPY
+        label: JPY ¥
+        color: orange
+  - name: shipping_address
+    interface: textarea
+  - name: order_no
+    interface: sequence
+  - name: quotation_id
+    interface: integer
+  - name: quotation
+    interface: m2o
+    target: nb_crm_quotations
+    foreignKey: quotation_id
+  - name: delivery_date
+    interface: dateOnly
+  - name: order_date
+    interface: dateOnly
+  - name: payment_status
+    interface: select
+    options:
+      - value: unpaid
+        label: Unpaid
+        color: red
+      - value: partial
+        label: Partial
+        color: orange
+      - value: paid
+        label: Paid
+        color: green
+  - name: unpaid_amount
+    interface: number
+  - name: tracking_no
+    interface: input
+  - name: status
+    interface: input
+    options:
+      - value: pending
+        label: Pending
+        color: default
+      - value: confirmed
+        label: Confirmed
+        color: blue
+      - value: processing
+        label: Processing
+        color: orange
+      - value: shipped
+        label: Shipped
+        color: cyan
+      - value: completed
+        label: Completed
+        color: green
+      - value: cancelled
+        label: Cancelled
+        color: red
+  - name: comments
+    interface: o2m
+    target: nb_crm_comments
+    foreignKey: order_id
+  - name: logistics_company
+    interface: input
+  - name: customer_id
+    interface: integer
+  - name: opportunity_id
+    interface: integer
+  - name: actual_delivery_date
+    interface: dateOnly
+  - name: extra
+    interface: json

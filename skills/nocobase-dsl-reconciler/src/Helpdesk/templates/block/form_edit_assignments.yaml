@@ -1,0 +1,30 @@
+uid: j2v63n0yhe7
+name: 'Form (Edit): Assignments'
+type: block
+collectionName: nb_itam_asset_assignments
+dataSourceKey: main
+targetUid: uuodcl19c5u
+content:
+  key: editForm
+  type: editForm
+  coll: nb_itam_asset_assignments
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - assigned_at
+    - returned_at
+    - condition_notes
+    - asset
+    - employee
+    - assigned_by
+  field_layout:
+    - '--- Assignment ---'
+    - - asset
+      - employee
+    - - assigned_at
+      - returned_at
+    - - condition_notes
+    - - assigned_by
+  actions:
+    - submit
+    - submit

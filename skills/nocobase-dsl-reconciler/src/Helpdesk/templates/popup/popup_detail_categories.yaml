@@ -1,0 +1,13 @@
+uid: o7mnwf90qf1
+name: 'Popup (Detail): Categories'
+type: popup
+collectionName: nb_hd_categories
+dataSourceKey: main
+targetUid: 7ykfvcd30z2
+description: 'Popup (Detail): Categories'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - 6jvxztle

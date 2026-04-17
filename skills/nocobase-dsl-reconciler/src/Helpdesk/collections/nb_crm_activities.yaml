@@ -1,0 +1,87 @@
+name: nb_crm_activities
+title: Activities
+titleField: subject
+fields:
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers
+    foreignKey: customer_id
+  - name: lead
+    interface: m2o
+    target: nb_crm_leads
+    foreignKey: lead_id
+  - name: owner_id
+    interface: integer
+  - name: is_completed
+    interface: checkbox
+  - name: extra
+    interface: json
+  - name: contact
+    interface: m2o
+    target: nb_crm_contacts
+    foreignKey: contact_id
+  - name: opportunity_id
+    interface: integer
+  - name: owner
+    interface: m2o
+    target: users
+    foreignKey: owner_id
+  - name: mail_message_id
+    interface: integer
+  - name: opportunity
+    interface: m2o
+    target: nb_crm_opportunities
+    foreignKey: opportunity_id
+  - name: reminder_at
+    interface: datetime
+  - name: ai_next_action
+    interface: textarea
+  - name: ai_sentiment
+    interface: select
+    options:
+      - value: positive
+        label: Positive
+        color: green
+      - value: neutral
+        label: Neutral
+        color: default
+      - value: negative
+        label: Negative
+        color: red
+  - name: customer_id
+    interface: integer
+  - name: subject
+    interface: input
+  - name: type
+    interface: select
+    options:
+      - value: call
+        label: Call
+        color: blue
+      - value: email
+        label: Email
+        color: geekblue
+      - value: meeting
+        label: Meeting
+        color: purple
+      - value: visit
+        label: Visit
+        color: orange
+      - value: note
+        label: Note
+        color: default
+      - value: task
+        label: Task
+        color: cyan
+  - name: contact_id
+    interface: integer
+  - name: ai_summary
+    interface: textarea
+  - name: activity_date
+    interface: datetime
+  - name: duration
+    interface: integer
+  - name: lead_id
+    interface: integer
+  - name: content
+    interface: markdown

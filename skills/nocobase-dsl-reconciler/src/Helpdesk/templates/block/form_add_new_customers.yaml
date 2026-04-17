@@ -1,0 +1,28 @@
+uid: hdbzf6tt17w
+name: 'Form (Add new): Customers'
+type: block
+collectionName: nb_hd_customers
+dataSourceKey: main
+targetUid: dht4sseok2w
+description: 'Form (Add new): Customers'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hd_customers
+  fields:
+    - customer_code
+    - name
+    - email
+    - phone
+    - company
+    - status
+  field_layout:
+    - '--- Customer Info ---'
+    - - customer_code
+      - name
+    - - email
+      - phone
+    - - company
+      - status
+  actions:
+    - submit

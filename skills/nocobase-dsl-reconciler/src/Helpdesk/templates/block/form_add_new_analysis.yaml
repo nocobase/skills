@@ -1,0 +1,23 @@
+uid: 12b7orq1k57
+name: 'Form (Add new): Analysis'
+type: block
+collectionName: nb_crm_data_analysis
+dataSourceKey: main
+targetUid: 5e171ti5cmb
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_data_analysis
+  fields:
+    - sql
+    - description
+    - collection
+    - name
+  field_layout:
+    - - name
+    - - collection
+    - - description
+    - - sql
+  actions:
+    - submit
+    - submit

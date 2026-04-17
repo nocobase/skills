@@ -1,0 +1,13 @@
+uid: 1x672e768rk
+name: 'Popup (Edit): Customers'
+type: popup
+collectionName: nb_hd_customers
+dataSourceKey: main
+targetUid: 83zw90plgx9
+description: 'Popup (Edit): Customers'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - ysmshfti

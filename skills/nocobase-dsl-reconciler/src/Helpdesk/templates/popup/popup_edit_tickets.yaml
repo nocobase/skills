@@ -1,0 +1,13 @@
+uid: ewsf7oyhjdu
+name: 'Popup (Edit): Tickets'
+type: popup
+collectionName: nb_hd_tickets
+dataSourceKey: main
+targetUid: yy6vek9yoz7
+description: 'Popup (Edit): Tickets'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - ipha5nhw

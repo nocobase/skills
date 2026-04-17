@@ -1,0 +1,25 @@
+uid: 1acl7amzjzo
+name: 'Form (Edit): Analysis'
+type: block
+collectionName: nb_crm_data_analysis
+dataSourceKey: main
+targetUid: g0mi8kfwwah
+description: 'Form (Edit): Analysis'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_crm_data_analysis
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - collection
+    - description
+    - sql
+  field_layout:
+    - - name
+    - - collection
+    - - description
+    - - sql
+  actions:
+    - submit

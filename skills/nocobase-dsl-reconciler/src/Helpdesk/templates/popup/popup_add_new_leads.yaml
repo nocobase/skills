@@ -1,0 +1,13 @@
+uid: 96a7zz0bm0o
+name: 'Popup (Add new): Leads'
+type: popup
+collectionName: nb_crm_activities
+dataSourceKey: main
+targetUid: 57dclwnl5sq
+description: 'Popup (Add new): Leads'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - dgn64hvh

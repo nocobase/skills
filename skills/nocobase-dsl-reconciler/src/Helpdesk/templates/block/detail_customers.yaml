@@ -1,0 +1,31 @@
+uid: ebunz9hwh0t
+name: 'Detail: Customers'
+type: block
+collectionName: nb_hd_customers
+dataSourceKey: main
+targetUid: ihm6wh5mklc
+content:
+  key: details
+  type: details
+  coll: nb_hd_customers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - customer_code
+    - name
+    - email
+    - phone
+    - company
+    - status
+    - createdAt
+  field_layout:
+    - '--- Customer Info ---'
+    - - customer_code
+      - name
+    - - email
+      - phone
+    - - company
+      - status
+    - - createdAt
+  actions:
+    - edit

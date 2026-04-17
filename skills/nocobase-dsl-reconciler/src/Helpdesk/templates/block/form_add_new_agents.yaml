@@ -1,0 +1,30 @@
+uid: lpo4nzc4ofy
+name: 'Form (Add new): Agents'
+type: block
+collectionName: nb_hd_agents
+dataSourceKey: main
+targetUid: 92e36hff38w
+description: 'Form (Add new): Agents'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hd_agents
+  fields:
+    - agent_code
+    - name
+    - email
+    - phone
+    - role
+    - department
+    - status
+  field_layout:
+    - '--- Agent Info ---'
+    - - agent_code
+      - name
+    - - email
+      - phone
+    - - role
+      - status
+    - - department
+  actions:
+    - submit

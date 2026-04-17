@@ -1,0 +1,40 @@
+uid: 8zgb2267wtn
+name: 'Form (Edit): Assets'
+type: block
+collectionName: nb_itam_assets
+dataSourceKey: main
+targetUid: paicyzbhmv6
+content:
+  key: editForm
+  type: editForm
+  coll: nb_itam_assets
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - asset_tag
+    - serial_number
+    - status
+    - purchase_cost
+    - vendor
+    - model
+    - location
+    - description
+    - category
+  field_layout:
+    - '--- Asset Info ---'
+    - - name
+      - asset_tag
+    - - serial_number
+      - category
+    - - model
+      - vendor
+    - '--- Status & Dates ---'
+    - - status
+      - location
+    - '--- Cost & Notes ---'
+    - - purchase_cost
+    - - description
+  actions:
+    - submit
+    - submit

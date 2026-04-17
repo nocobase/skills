@@ -1,0 +1,21 @@
+uid: axqzaldjuw7
+name: 'Form (Add new): Warehouses'
+type: block
+collectionName: nb_erp_warehouses
+dataSourceKey: main
+targetUid: mf6orharmpj
+description: 'Form (Add new): Warehouses'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_warehouses
+  fields:
+    - name
+    - location
+    - capacity
+  field_layout:
+    - - name
+      - location
+    - - capacity
+  actions:
+    - submit

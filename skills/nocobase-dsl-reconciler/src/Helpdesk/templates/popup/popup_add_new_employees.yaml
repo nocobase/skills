@@ -1,0 +1,13 @@
+uid: svytthtyd8k
+name: 'Popup (Add new): Employees'
+type: popup
+collectionName: nb_itam_employees
+dataSourceKey: main
+targetUid: na4jts6tc3i
+description: 'Popup (Add new): Employees'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - sya1f1mz

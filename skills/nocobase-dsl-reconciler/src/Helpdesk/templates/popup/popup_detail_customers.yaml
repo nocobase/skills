@@ -1,0 +1,13 @@
+uid: km095sxiexp
+name: 'Popup (Detail): Customers'
+type: popup
+collectionName: nb_hd_customers
+dataSourceKey: main
+targetUid: r023ce9qxr0
+description: 'Popup (Detail): Customers'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - ihm6wh5m

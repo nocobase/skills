@@ -10,6 +10,17 @@ fields:
     interface: m2o
     title: Supplier
     target: nb_erp_suppliers
+    foreignKey: supplierId
+  - name: purchase_order_lines
+    interface: o2m
+    title: Purchase Order Lines
+    target: nb_erp_purchase_order_lines
+    foreignKey: purchaseOrderId
+  - name: inventory_movements
+    interface: o2m
+    title: Inventory Movements
+    target: nb_erp_inventory_movements
+    foreignKey: related_purchase_orderId
   - name: status
     interface: select
     title: Status

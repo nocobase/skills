@@ -1,0 +1,35 @@
+uid: o9zmk2vad1o
+name: 'Form (Edit): Employees'
+type: block
+collectionName: nb_itam_employees
+dataSourceKey: main
+targetUid: 1joimuivpao
+content:
+  key: editForm
+  type: editForm
+  coll: nb_itam_employees
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - email
+    - employee_id
+    - department
+    - job_title
+    - phone
+    - status
+    - location
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - employee_id
+    - - email
+      - phone
+    - - department
+      - job_title
+    - '--- Status & Location ---'
+    - - status
+      - location
+  actions:
+    - submit
+    - submit

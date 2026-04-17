@@ -14,9 +14,14 @@ allowed-tools: shell, local file reads, local file writes
 ```bash
 # All commands run from src/
 cd <skill-dir>/src
+```
 
-# Environment variables
-export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
+**Before doing anything, confirm which NocoBase instance to target.**
+Never assume a port — multiple NocoBase instances may be running (13000, 14000, 14001, …). Ask the user which instance this build is for, or honor `$NB_URL` if already exported in the shell. Only fall back to a placeholder like `http://localhost:13000` for documentation examples; do not silently deploy there.
+
+```bash
+# Example (replace port with the instance confirmed with the user)
+export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:13000
 ```
 
 ## Build Workflow
@@ -173,7 +178,8 @@ Quick reference for common types used in collection YAML:
 
 ```bash
 cd <skill-dir>/src
-export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
+# Replace 13000 with the instance confirmed with the user. Do not hardcode.
+export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:13000
 
 # Deploy
 npx tsx cli/cli.ts deploy-project /tmp/myapp --group "MyApp" --force

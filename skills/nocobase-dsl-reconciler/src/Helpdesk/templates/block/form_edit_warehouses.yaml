@@ -1,0 +1,23 @@
+uid: 4im13vmyp0n
+name: 'Form (Edit): Warehouses'
+type: block
+collectionName: nb_erp_warehouses
+dataSourceKey: main
+targetUid: p8f8kwxxz8u
+description: 'Form (Edit): Warehouses'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_erp_warehouses
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - location
+    - capacity
+  field_layout:
+    - - name
+      - location
+    - - capacity
+  actions:
+    - submit

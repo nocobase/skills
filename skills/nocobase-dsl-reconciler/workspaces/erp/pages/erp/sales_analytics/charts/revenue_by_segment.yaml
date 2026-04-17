@@ -1,0 +1,2 @@
+sql_file: ./charts/revenue_by_segment.sql
+render_file: ./charts/bar_render.js

@@ -1,0 +1,2 @@
+sql_file: ./charts/purchase_status.sql
+render_file: ./charts/pie_render.js

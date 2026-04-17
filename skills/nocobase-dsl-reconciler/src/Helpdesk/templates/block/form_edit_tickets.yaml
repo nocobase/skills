@@ -1,0 +1,48 @@
+uid: l60e0pyljpn
+name: 'Form (Edit): Tickets'
+type: block
+collectionName: nb_hd_tickets
+dataSourceKey: main
+targetUid: ipha5nhwueo
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hd_tickets
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - ticket_number
+    - subject
+    - description
+    - status
+    - priority
+    - source
+    - due_date
+    - first_responded_at
+    - resolved_at
+    - satisfaction_score
+    - category
+    - customer
+    - assigned_agent
+    - assigned_agentId
+  field_layout:
+    - '--- Ticket Details ---'
+    - - ticket_number
+      - subject
+    - - status
+      - priority
+    - - category
+      - source
+    - - customer
+      - assigned_agent
+    - - due_date
+    - '--- Description ---'
+    - - description
+    - '--- Resolution ---'
+    - - first_responded_at
+      - resolved_at
+    - - satisfaction_score
+    - - assigned_agentId
+  actions:
+    - submit
+    - submit

@@ -1,0 +1,13 @@
+uid: ri4ssto4a24
+name: 'Popup (Add new): Activities'
+type: popup
+collectionName: nb_crm_activities
+dataSourceKey: main
+targetUid: cdwo02strt1
+description: 'Popup (Add new): Activities'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -35,6 +35,16 @@ fields:
         label: Inactive
       - value: discontinued
         label: Discontinued
+  - name: inventory_status
+    interface: select
+    title: Inventory Status
+    options:
+      - value: healthy
+        label: Healthy
+      - value: low_stock
+        label: Low Stock
+      - value: out_of_stock
+        label: Out Of Stock
   - name: current_stock
     interface: number
     title: Current Stock
@@ -50,6 +60,9 @@ fields:
   - name: sale_price
     interface: number
     title: Sale Price
+  - name: last_restock_date
+    interface: dateOnly
+    title: Last Restock Date
   - name: preferred_supplier
     interface: m2o
     title: Preferred Supplier

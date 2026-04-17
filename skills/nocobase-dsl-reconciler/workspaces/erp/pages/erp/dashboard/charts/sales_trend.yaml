@@ -1,0 +1,2 @@
+sql_file: ./charts/sales_trend.sql
+render_file: ./charts/line_render.js

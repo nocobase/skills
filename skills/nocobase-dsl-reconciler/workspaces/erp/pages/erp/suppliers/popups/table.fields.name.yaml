@@ -1,0 +1,36 @@
+target: $SELF.table.fields.name
+coll: nb_erp_suppliers
+blocks:
+  - key: details
+    type: details
+    coll: nb_erp_suppliers
+    fields:
+      - supplier_code
+      - name
+      - contact_name
+      - email
+      - phone
+      - status
+      - payment_terms
+      - lead_time_days
+      - address
+      - notes
+      - createdAt
+    field_layout:
+      - '--- Supplier Profile ---'
+      - - supplier_code
+        - name
+      - - contact_name
+        - email
+      - - phone
+        - status
+      - '--- Purchasing ---'
+      - - payment_terms
+        - lead_time_days
+      - '--- Address & Notes ---'
+      - - address
+      - - notes
+    _fromRef: templates/block/form_add_new_nb_erp_suppliers.yaml
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+mode: drawer

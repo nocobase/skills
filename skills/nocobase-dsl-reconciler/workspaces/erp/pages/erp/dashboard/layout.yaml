@@ -1,0 +1,43 @@
+blocks:
+  - key: total_sales_kpi
+    type: jsBlock
+    file: ./js/kpi_total_sales.js
+  - key: total_inventory_value_kpi
+    type: jsBlock
+    file: ./js/kpi_inventory_value.js
+  - key: open_orders_kpi
+    type: jsBlock
+    file: ./js/kpi_open_orders.js
+  - key: low_stock_kpi
+    type: jsBlock
+    file: ./js/kpi_low_stock.js
+  - key: sales_trend
+    type: chart
+    title: Monthly Sales Trend
+    chart_config: ./charts/sales_trend.yaml
+  - key: order_status_mix
+    type: chart
+    title: Order Status Mix
+    chart_config: ./charts/order_status_mix.yaml
+  - key: inventory_by_category
+    type: chart
+    title: Inventory Value By Category
+    chart_config: ./charts/inventory_by_category.yaml
+  - key: purchase_status
+    type: chart
+    title: Purchase Order Status
+    chart_config: ./charts/purchase_status.yaml
+  - key: low_stock_by_supplier
+    type: chart
+    title: Low Stock By Supplier
+    chart_config: ./charts/low_stock_by_supplier.yaml
+layout:
+  - - total_sales_kpi: 6
+    - total_inventory_value_kpi: 6
+    - open_orders_kpi: 6
+    - low_stock_kpi: 6
+  - - sales_trend: 15
+    - order_status_mix: 9
+  - - inventory_by_category
+  - - purchase_status: 12
+    - low_stock_by_supplier: 12

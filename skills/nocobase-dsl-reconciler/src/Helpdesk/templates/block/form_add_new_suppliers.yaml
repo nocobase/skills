@@ -1,0 +1,27 @@
+uid: 1lnbodal9kl
+name: 'Form (Add new): Suppliers'
+type: block
+collectionName: nb_erp_suppliers
+dataSourceKey: main
+targetUid: 6kmcnu6cuyu
+description: 'Form (Add new): Suppliers'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_erp_suppliers
+  fields:
+    - name
+    - contact
+    - phone
+    - email
+    - address
+  field_layout:
+    - '--- Contact Info ---'
+    - - name
+      - contact
+    - - phone
+      - email
+    - '--- Address ---'
+    - - address
+  actions:
+    - submit

@@ -1,0 +1,36 @@
+uid: r3kge2uorfn
+name: 'Form (Edit): Licenses'
+type: block
+collectionName: nb_itam_software_licenses
+dataSourceKey: main
+targetUid: mk1g8fx05sk
+content:
+  key: editForm
+  type: editForm
+  coll: nb_itam_software_licenses
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - license_key
+    - software_vendor
+    - seats_total
+    - seats_used
+    - cost
+    - status
+    - description
+  field_layout:
+    - '--- License Info ---'
+    - - name
+      - license_key
+    - - software_vendor
+      - status
+    - '--- Seats & Dates ---'
+    - - seats_total
+      - seats_used
+    - '--- Cost & Notes ---'
+    - - cost
+    - - description
+  actions:
+    - submit
+    - submit

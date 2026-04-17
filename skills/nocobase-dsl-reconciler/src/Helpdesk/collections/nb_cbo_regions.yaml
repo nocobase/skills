@@ -1,0 +1,16 @@
+name: nb_cbo_regions
+title: Countries & Regions
+titleField: name
+fields:
+  - name: code_numeric
+    interface: input
+  - name: name
+    interface: input
+  - name: code_alpha2
+    interface: input
+  - name: sort_order
+    interface: integer
+  - name: is_active
+    interface: checkbox
+  - name: code_alpha3
+    interface: input

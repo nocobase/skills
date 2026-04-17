@@ -1,0 +1,26 @@
+uid: nvrojmjy1yr
+name: 'Form (Add new): Ticket Comments'
+type: block
+collectionName: nb_hd_ticket_comments
+dataSourceKey: main
+targetUid: pw8zhfvap24
+description: 'Form (Add new): Ticket Comments'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hd_ticket_comments
+  fields:
+    - ticket
+    - author_type
+    - author_name
+    - content
+    - is_internal
+  field_layout:
+    - '--- Comment ---'
+    - - ticket
+      - author_type
+    - - author_name
+      - is_internal
+    - - content
+  actions:
+    - submit

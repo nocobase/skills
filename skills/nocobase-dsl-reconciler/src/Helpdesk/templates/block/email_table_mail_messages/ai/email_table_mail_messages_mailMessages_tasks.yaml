@@ -1,0 +1,5 @@
+tasks:
+  - title: Customer & History Summary
+    user: Ellis, summarize the customer’s background and communication history.
+    system_file: ./ai/email_table_mail_messages_mailMessages_task0.md
+    autoSend: true

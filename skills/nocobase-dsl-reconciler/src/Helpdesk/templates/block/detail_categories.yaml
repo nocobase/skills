@@ -1,0 +1,28 @@
+uid: peehdcxterq
+name: 'Detail: Categories'
+type: block
+collectionName: nb_hd_categories
+dataSourceKey: main
+targetUid: 6jvxztlemek
+content:
+  key: details
+  type: details
+  coll: nb_hd_categories
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - description
+    - parent_category
+    - default_priority
+    - createdAt
+  field_layout:
+    - '--- Category Info ---'
+    - - name
+      - default_priority
+    - - parent_category
+    - '--- Description ---'
+    - - description
+    - - createdAt
+  actions:
+    - edit

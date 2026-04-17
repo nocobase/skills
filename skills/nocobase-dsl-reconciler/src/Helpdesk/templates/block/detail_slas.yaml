@@ -1,0 +1,34 @@
+uid: 1fguaymvkwh
+name: 'Detail: Slas'
+type: block
+collectionName: nb_hd_slas
+dataSourceKey: main
+targetUid: 30fgl9k9sdl
+content:
+  key: details
+  type: details
+  coll: nb_hd_slas
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - category
+    - priority
+    - response_time_hours
+    - resolution_time_hours
+    - description
+    - status
+    - createdAt
+  field_layout:
+    - '--- SLA Policy ---'
+    - - name
+      - status
+    - - category
+      - priority
+    - - response_time_hours
+      - resolution_time_hours
+    - '--- Description ---'
+    - - description
+    - - createdAt
+  actions:
+    - edit

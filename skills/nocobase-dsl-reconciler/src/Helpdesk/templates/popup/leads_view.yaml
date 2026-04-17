@@ -1,0 +1,73 @@
+uid: z3ah4m1jm20
+name: Leads View
+type: popup
+collectionName: nb_crm_leads
+dataSourceKey: main
+targetUid: 4tqukehsmqm
+content:
+  tabs:
+    - title: Tab0
+      blocks:
+        - key: comments
+          type: comments
+          coll: nb_crm_comments
+          resource_binding:
+            associationName: nb_crm_leads.comments
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        - key: reference
+          type: reference
+        - key: reference_2
+          type: reference
+        - key: reference_3
+          type: reference
+        - key: reference_4
+          type: reference
+        - key: reference_5
+          type: reference
+        - key: reference_6
+          type: reference
+      layout:
+        - - col:
+              - reference
+              - reference_2
+              - reference_3
+              - reference_4
+            size: 16
+          - col:
+              - reference_5
+              - reference_6
+              - comments
+            size: 8
+    - title: Tab1
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_crm_leads
+          actions:
+            - filter
+            - refresh
+            - historyExpand
+            - historyCollapse
+    - title: Tab2
+      blocks:
+        - key: mailMessages
+          type: mailMessages
+          coll: mailMessages
+          dataScope:
+            logic: $or
+            items:
+              - path: from
+                operator: contains
+                value: '{{ ctx.popup.record.email }}'
+              - path: to
+                operator: contains
+                value: '{{ ctx.popup.record.email }}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/leads_view_tab2_mailMessages_tasks.yaml
+      layout:
+        - - mailMessages

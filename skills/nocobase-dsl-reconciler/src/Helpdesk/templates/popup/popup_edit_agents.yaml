@@ -1,0 +1,13 @@
+uid: 2mspdpswpyw
+name: 'Popup (Edit): Agents'
+type: popup
+collectionName: nb_hd_agents
+dataSourceKey: main
+targetUid: hrdq95dvhws
+description: 'Popup (Edit): Agents'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - n2myjz81

@@ -1,0 +1,43 @@
+blocks:
+  - key: revenue_kpi
+    type: jsBlock
+    file: ./js/kpi_revenue.js
+  - key: avg_order_value_kpi
+    type: jsBlock
+    file: ./js/kpi_avg_order_value.js
+  - key: units_sold_kpi
+    type: jsBlock
+    file: ./js/kpi_units_sold.js
+  - key: paid_orders_kpi
+    type: jsBlock
+    file: ./js/kpi_paid_orders.js
+  - key: revenue_trend
+    type: chart
+    title: Revenue Trend
+    chart_config: ./charts/revenue_trend.yaml
+  - key: top_customers
+    type: chart
+    title: Top Customers By Revenue
+    chart_config: ./charts/top_customers.yaml
+  - key: top_products
+    type: chart
+    title: Top Products By Quantity
+    chart_config: ./charts/top_products.yaml
+  - key: payment_mix
+    type: chart
+    title: Payment Status Mix
+    chart_config: ./charts/payment_mix.yaml
+  - key: revenue_by_segment
+    type: chart
+    title: Revenue By Customer Segment
+    chart_config: ./charts/revenue_by_segment.yaml
+layout:
+  - - revenue_kpi: 6
+    - avg_order_value_kpi: 6
+    - units_sold_kpi: 6
+    - paid_orders_kpi: 6
+  - - revenue_trend: 15
+    - payment_mix: 9
+  - - top_customers: 12
+    - top_products: 12
+  - - revenue_by_segment

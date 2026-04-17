@@ -1,0 +1,4 @@
+tasks:
+  - title: Reseach the company
+    user: This is my client. Please help me research information about this company for my reference.
+    autoSend: true

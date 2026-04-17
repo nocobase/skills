@@ -10,11 +10,11 @@ blocks:
           - name
           - category
           - description
-      - status
+      - inventory_status
       - preferred_supplier
     field_layout:
       - - name
-        - status
+        - inventory_status
         - preferred_supplier
   - key: table
     type: table
@@ -24,11 +24,13 @@ blocks:
         clickToOpen: true
       - sku
       - status
-      - category
+      - inventory_status
       - current_stock
       - reorder_point
+      - safety_stock
       - preferred_supplier
       - sale_price
+      - last_restock_date
       - createdAt
 layout:
   - - filterForm

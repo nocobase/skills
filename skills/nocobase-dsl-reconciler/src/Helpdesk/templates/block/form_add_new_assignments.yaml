@@ -1,0 +1,28 @@
+uid: fc9quf10ipj
+name: 'Form (Add new): Assignments'
+type: block
+collectionName: nb_itam_asset_assignments
+dataSourceKey: main
+targetUid: 62a90oq1azw
+content:
+  key: createForm
+  type: createForm
+  coll: nb_itam_asset_assignments
+  fields:
+    - assigned_at
+    - returned_at
+    - condition_notes
+    - asset
+    - employee
+    - assigned_by
+  field_layout:
+    - '--- License Assignment ---'
+    - - employee
+    - - assigned_at
+    - - returned_at
+    - - condition_notes
+    - - asset
+    - - assigned_by
+  actions:
+    - submit
+    - submit

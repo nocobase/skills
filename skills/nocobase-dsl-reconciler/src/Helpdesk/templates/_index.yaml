@@ -1,0 +1,763 @@
+- uid: ae4edoa58ch
+  name: 'Detail: Leads'
+  type: block
+  collection: nb_crm_leads
+  targetUid: tzcplga05l5
+  file: block/detail_leads.yaml
+  usageCount: 6
+- uid: 0bkxxc41jd4
+  name: 'Form (Edit): Categories'
+  type: block
+  collection: nb_erp_categories
+  targetUid: jgg5njzw933
+  file: block/form_edit_categories.yaml
+  usageCount: 0
+- uid: 0ny1m3kna5a
+  name: 'Form (Edit): Leads'
+  type: block
+  collection: nb_crm_activities
+  targetUid: kj1plv3kfgl
+  file: block/form_edit_leads.yaml
+  usageCount: 0
+- uid: fggawimkpeo
+  name: 'Form (Add new): Currencies'
+  type: block
+  collection: nb_cbo_currencies
+  targetUid: c0547bc25a4
+  file: block/form_add_new_currencies.yaml
+  usageCount: 5
+- uid: 0v3qfd4rawc
+  name: 'Form (Add new): Categories'
+  type: block
+  collection: nb_erp_categories
+  targetUid: jn7lja6l0u1
+  file: block/form_add_new_categories.yaml
+  usageCount: 0
+- uid: e2dlzncn3pu
+  name: 'Form (Edit): Customers > Contacts (Contacts)'
+  type: block
+  collection: nb_crm_contacts
+  targetUid: 26a1e02dba7
+  file: block/form_edit_customers_contacts_contacts.yaml
+  usageCount: 8
+- uid: yjwjoi4erle
+  name: 'Table: Orders'
+  type: block
+  collection: nb_crm_orders
+  targetUid: 4326c50faf8
+  file: block/table_orders.yaml
+  usageCount: 2
+- uid: 12b7orq1k57
+  name: 'Form (Add new): Analysis'
+  type: block
+  collection: nb_crm_data_analysis
+  targetUid: 5e171ti5cmb
+  file: block/form_add_new_analysis.yaml
+  usageCount: 1
+- uid: 1acl7amzjzo
+  name: 'Form (Edit): Analysis'
+  type: block
+  collection: nb_crm_data_analysis
+  targetUid: g0mi8kfwwah
+  file: block/form_edit_analysis.yaml
+  usageCount: 1
+- uid: 8xbu4mjx2le
+  name: 'Table: Opportunities'
+  type: block
+  collection: nb_crm_opportunities
+  targetUid: rh4v4k5lflm
+  file: block/table_opportunities.yaml
+  usageCount: 1
+- uid: wq7rth44sim
+  name: 'Form (Add new): nb_crm_customers'
+  type: block
+  collection: nb_crm_customers
+  targetUid: 001b8d6c620
+  file: block/form_add_new_nb_crm_customers.yaml
+  usageCount: 3
+- uid: 1fguaymvkwh
+  name: 'Detail: Slas'
+  type: block
+  collection: nb_hd_slas
+  targetUid: 30fgl9k9sdl
+  file: block/detail_slas.yaml
+  usageCount: 1
+- uid: 1lnbodal9kl
+  name: 'Form (Add new): Suppliers'
+  type: block
+  collection: nb_erp_suppliers
+  targetUid: 6kmcnu6cuyu
+  file: block/form_add_new_suppliers.yaml
+  usageCount: 0
+- uid: 1p0n9gdwxy0
+  name: 'Detail: Categories'
+  type: block
+  collection: nb_erp_categories
+  targetUid: oqc87wx3692
+  file: block/detail_categories.yaml
+  usageCount: 0
+- uid: 3d77445kyzp
+  name: 'Form (Add new): nb_crm_leads'
+  type: block
+  collection: nb_crm_leads
+  targetUid: bd7f0823f37
+  file: block/form_add_new_nb_crm_leads.yaml
+  usageCount: 3
+- uid: 1sfqs5mkxs0
+  name: 'Form (Add new): Contacts'
+  type: block
+  collection: nb_crm_contacts
+  targetUid: ite8m1hk65s
+  file: block/form_add_new_contacts.yaml
+  usageCount: 1
+- uid: 1x672e768rk
+  name: 'Popup (Edit): Customers'
+  type: popup
+  collection: nb_hd_customers
+  targetUid: 83zw90plgx9
+  file: popup/popup_edit_customers.yaml
+  usageCount: 0
+- uid: afkt6evyern
+  name: 'Form (Add new): nb_crm_opportunity_stages'
+  type: block
+  collection: nb_crm_opportunity_stages
+  targetUid: 064a59ddf9a
+  file: block/form_add_new_nb_crm_opportunity_stages.yaml
+  usageCount: 4
+- uid: 203dyjllv98
+  name: 'Form (Edit): Suppliers'
+  type: block
+  collection: nb_erp_suppliers
+  targetUid: 0uukq77piqm
+  file: block/form_edit_suppliers.yaml
+  usageCount: 0
+- uid: 23blzzx7iuv
+  name: 'Popup (Detail): Leads'
+  type: popup
+  collection: nb_crm_activities
+  targetUid: 05b4uad16sr
+  file: popup/popup_detail_leads.yaml
+  usageCount: 2
+- uid: 7onnz9tcbi2
+  name: 'Popup (Add new): Analysis'
+  type: popup
+  collection: nb_crm_data_analysis
+  targetUid: 73c806dr44k
+  file: popup/popup_add_new_analysis.yaml
+  usageCount: 1
+- uid: 2mspdpswpyw
+  name: 'Popup (Edit): Agents'
+  type: popup
+  collection: nb_hd_agents
+  targetUid: hrdq95dvhws
+  file: popup/popup_edit_agents.yaml
+  usageCount: 0
+- uid: 2q3m88kk6ml
+  name: 'Popup (Add new): Customers'
+  type: popup
+  collection: nb_hd_customers
+  targetUid: asq5h1s0wtb
+  file: popup/popup_add_new_customers.yaml
+  usageCount: 0
+- uid: 2ufybtokgud
+  name: Opportunity View
+  type: popup
+  collection: nb_crm_opportunities
+  targetUid: xzuvlcsgar6
+  file: popup/opportunity_view.yaml
+  usageCount: 51
+- uid: 2xj5g8i6ei0
+  name: 'Detail: Suppliers'
+  type: block
+  collection: nb_erp_suppliers
+  targetUid: r7rh7d2tvcm
+  file: block/detail_suppliers.yaml
+  usageCount: 0
+- uid: mgta22jqdq7
+  name: 'Detail: Customers'
+  type: block
+  collection: nb_crm_customers
+  targetUid: myq6i3g2jiu
+  file: block/detail_customers.yaml
+  usageCount: 3
+- uid: 39c4908magj
+  name: 'Form (Edit): Agents'
+  type: block
+  collection: nb_hd_agents
+  targetUid: n2myjz81cfe
+  file: block/form_edit_agents.yaml
+  usageCount: 2
+- uid: odc3k4if9n5
+  name: 'Form (Add new): Opportunities > Quotations (Quotations)'
+  type: block
+  collection: nb_crm_quotations
+  targetUid: 005986ec9fd
+  file: block/form_add_new_opportunities_quotations_quotations.yaml
+  usageCount: 7
+- uid: llog4slwm27
+  name: 'Details: Customers > Contacts (Contacts)'
+  type: block
+  collection: nb_crm_contacts
+  targetUid: thd2lhmr5v3
+  file: block/details_customers_contacts_contacts.yaml
+  usageCount: 3
+- uid: fxdn2r26ms7
+  name: 'Popup (Detail): Analysis'
+  type: popup
+  collection: nb_crm_data_analysis
+  targetUid: pzfo13q44zp
+  file: popup/popup_detail_analysis.yaml
+  usageCount: 1
+- uid: gu87q52q2tg
+  name: 'Form (Add new): New Orders from Quotations'
+  type: block
+  collection: nb_crm_orders
+  targetUid: c0141648ed2
+  file: block/form_add_new_new_orders_from_quotations.yaml
+  usageCount: 1
+- uid: 4im13vmyp0n
+  name: 'Form (Edit): Warehouses'
+  type: block
+  collection: nb_erp_warehouses
+  targetUid: p8f8kwxxz8u
+  file: block/form_edit_warehouses.yaml
+  usageCount: 0
+- uid: 96a7zz0bm0o
+  name: 'Popup (Add new): Leads'
+  type: popup
+  collection: nb_crm_activities
+  targetUid: 57dclwnl5sq
+  file: popup/popup_add_new_leads.yaml
+  usageCount: 2
+- uid: 4ut93p5rwjh
+  name: 'Popup (Add new): Assets'
+  type: popup
+  collection: nb_itam_assets
+  targetUid: k620btb63hm
+  file: popup/popup_add_new_assets.yaml
+  usageCount: 0
+- uid: 53hvsa4ggul
+  name: Leads Email
+  type: popup
+  collection: nb_crm_leads
+  targetUid: 6im0lrahx9q
+  file: popup/leads_email.yaml
+  usageCount: 2
+- uid: 5tpe5cpsnuf
+  name: 'Form (Add new): Opportunities'
+  type: block
+  collection: nb_crm_opportunities
+  targetUid: d7e295047ff
+  file: block/form_add_new_opportunities.yaml
+  usageCount: 4
+- uid: 5i83ar7j7uy
+  name: 'Popup (Detail): Tickets'
+  type: popup
+  collection: nb_hd_tickets
+  targetUid: wf6zrxmfifi
+  file: popup/popup_detail_tickets.yaml
+  usageCount: 0
+- uid: sdjw6dnte0b
+  name: 'Popup (Add new): Currencies'
+  type: popup
+  collection: nb_cbo_currencies
+  targetUid: mtew4n9604d
+  file: popup/popup_add_new_currencies.yaml
+  usageCount: 2
+- uid: yla0guixwkc
+  name: 'Popup (Add new): Products'
+  type: popup
+  collection: nb_crm_products
+  targetUid: 3k7g088fuef
+  file: popup/popup_add_new_products.yaml
+  usageCount: 1
+- uid: 5nxct4abjgw
+  name: 'Detail: Warehouses'
+  type: block
+  collection: nb_erp_warehouses
+  targetUid: 8us6thnfbct
+  file: block/detail_warehouses.yaml
+  usageCount: 0
+- uid: fpq7iu2da59
+  name: 'Form (Add new): Activities'
+  type: block
+  collection: nb_crm_activities
+  targetUid: b9e42f19aab
+  file: block/form_add_new_activities.yaml
+  usageCount: 5
+- uid: ri4ssto4a24
+  name: 'Popup (Add new): Activities'
+  type: popup
+  collection: nb_crm_activities
+  targetUid: cdwo02strt1
+  file: popup/popup_add_new_activities.yaml
+  usageCount: 1
+- uid: 8fnwg40t95y
+  name: 'Popup (Edit): Slas'
+  type: popup
+  collection: nb_hd_slas
+  targetUid: tzg9tbnzkok
+  file: popup/popup_edit_slas.yaml
+  usageCount: 0
+- uid: 8fvnzrvigbw
+  name: 'Popup (Detail): Slas'
+  type: popup
+  collection: nb_hd_slas
+  targetUid: cgdkkw2c2sw
+  file: popup/popup_detail_slas.yaml
+  usageCount: 0
+- uid: wutkljuh1tj
+  name: 'Form (Add new): nb_crm_products'
+  type: block
+  collection: nb_crm_products
+  targetUid: e2c05329a23
+  file: block/form_add_new_nb_crm_products.yaml
+  usageCount: 3
+- uid: 8zgb2267wtn
+  name: 'Form (Edit): Assets'
+  type: block
+  collection: nb_itam_assets
+  targetUid: paicyzbhmv6
+  file: block/form_edit_assets.yaml
+  usageCount: 2
+- uid: b8l9a4q1gk0
+  name: 'Popup (Detail): Currencies'
+  type: popup
+  collection: nb_cbo_currencies
+  targetUid: plskzqx0zgq
+  file: popup/popup_detail_currencies.yaml
+  usageCount: 12
+- uid: 9641wtxc2e9
+  name: 'Popup (Detail): Licenses'
+  type: popup
+  collection: nb_itam_software_licenses
+  targetUid: e8dr3j934y0
+  file: popup/popup_detail_licenses.yaml
+  usageCount: 0
+- uid: 9nyancikdnz
+  name: 'Popup (Edit): Licenses'
+  type: popup
+  collection: nb_itam_software_licenses
+  targetUid: 86te4cpmv5q
+  file: popup/popup_edit_licenses.yaml
+  usageCount: 0
+- uid: ls0z7rdsrs3
+  name: 'Form (Add new): Exchange Rates'
+  type: block
+  collection: nb_crm_exchange_rates
+  targetUid: 0da9d0a6105
+  file: block/form_add_new_exchange_rates.yaml
+  usageCount: 2
+- uid: akz05dxty77
+  name: 'Form (Add new): Employees'
+  type: block
+  collection: nb_itam_employees
+  targetUid: sya1f1mzu6r
+  file: block/form_add_new_employees.yaml
+  usageCount: 1
+- uid: at48zn9uxzs
+  name: 'Form (Add new): Categories'
+  type: block
+  collection: nb_hd_categories
+  targetUid: 8wris5zbd4g
+  file: block/form_add_new_categories.yaml
+  usageCount: 1
+- uid: axqzaldjuw7
+  name: 'Form (Add new): Warehouses'
+  type: block
+  collection: nb_erp_warehouses
+  targetUid: mf6orharmpj
+  file: block/form_add_new_warehouses.yaml
+  usageCount: 0
+- uid: cy6ahqkgbcn
+  name: 'Popup (Detail): Stages'
+  type: popup
+  collection: nb_crm_opportunity_stages
+  targetUid: g81s7h9sxsc
+  file: popup/popup_detail_stages.yaml
+  usageCount: 1
+- uid: lvqgjptnoio
+  name: 'Details: Quotations'
+  type: block
+  collection: nb_crm_quotations
+  targetUid: 6c640569c31
+  file: block/details_quotations.yaml
+  usageCount: 2
+- uid: cjbc4richr4
+  name: 'Popup (Add new): Categories'
+  type: popup
+  collection: nb_hd_categories
+  targetUid: ugn65622sqw
+  file: popup/popup_add_new_categories.yaml
+  usageCount: 0
+- uid: d5ss0ofnltx
+  name: 'Form (Add new): Tickets'
+  type: block
+  collection: nb_hd_tickets
+  targetUid: 7vrqjkhnzix
+  file: block/form_add_new_tickets.yaml
+  usageCount: 1
+- uid: mdamli82ny2
+  name: 'Popup (Add new): Customers'
+  type: popup
+  collection: nb_crm_customers
+  targetUid: 41um8ky1uqi
+  file: popup/popup_add_new_customers.yaml
+  usageCount: 1
+- uid: e1ptlsu3s3m
+  name: 'Popup (Edit): Assets'
+  type: popup
+  collection: nb_itam_assets
+  targetUid: rjoxnw07oy0
+  file: popup/popup_edit_assets.yaml
+  usageCount: 0
+- uid: ebunz9hwh0t
+  name: 'Detail: Customers'
+  type: block
+  collection: nb_hd_customers
+  targetUid: ihm6wh5mklc
+  file: block/detail_customers.yaml
+  usageCount: 1
+- uid: eqv8a81qy3x
+  name: 'Popup (Detail): Products'
+  type: popup
+  collection: nb_crm_products
+  targetUid: i0pbkrn5n6o
+  file: popup/popup_detail_products.yaml
+  usageCount: 1
+- uid: ewsf7oyhjdu
+  name: 'Popup (Edit): Tickets'
+  type: popup
+  collection: nb_hd_tickets
+  targetUid: yy6vek9yoz7
+  file: popup/popup_edit_tickets.yaml
+  usageCount: 0
+- uid: fc9quf10ipj
+  name: 'Form (Add new): Assignments'
+  type: block
+  collection: nb_itam_asset_assignments
+  targetUid: 62a90oq1azw
+  file: block/form_add_new_assignments.yaml
+  usageCount: 1
+- uid: fepx596jfd5
+  name: Add new Activity
+  type: popup
+  collection: nb_crm_activities
+  targetUid: 630ligbb0op
+  file: popup/add_new_activity.yaml
+  usageCount: 1
+- uid: ihsti55b0gh
+  name: 'Form (Edit): Customers'
+  type: block
+  collection: nb_crm_customers
+  targetUid: wzgohft0gd9
+  file: block/form_edit_customers.yaml
+  usageCount: 1
+- uid: fq4zhskmuuz
+  name: 'Form (Add new): Licenses'
+  type: block
+  collection: nb_itam_software_licenses
+  targetUid: s62q6himzpl
+  file: block/form_add_new_licenses.yaml
+  usageCount: 1
+- uid: gctvm092k70
+  name: 'Popup (Add new): Slas'
+  type: popup
+  collection: nb_hd_slas
+  targetUid: j4k0tulq9ez
+  file: popup/popup_add_new_slas.yaml
+  usageCount: 0
+- uid: gn64s38sjki
+  name: Activity View
+  type: popup
+  collection: nb_crm_activities
+  targetUid: ibbbzxrx5p3
+  file: popup/activity_view.yaml
+  usageCount: 3
+- uid: hdbzf6tt17w
+  name: 'Form (Add new): Customers'
+  type: block
+  collection: nb_hd_customers
+  targetUid: dht4sseok2w
+  file: block/form_add_new_customers.yaml
+  usageCount: 1
+- uid: yzuoiyi8aks
+  name: 'Popup (Add new): Contacts'
+  type: popup
+  collection: nb_crm_contacts
+  targetUid: s3om2zhbm59
+  file: popup/popup_add_new_contacts.yaml
+  usageCount: 1
+- uid: hjln4qmsqd4
+  name: 'Popup (Edit): Assignments'
+  type: popup
+  collection: nb_itam_asset_assignments
+  targetUid: 5y8pd1n0zyz
+  file: popup/popup_edit_assignments.yaml
+  usageCount: 0
+- uid: hw8pm6cfvu7
+  name: 'Popup (Add new): Stages'
+  type: popup
+  collection: nb_crm_opportunity_stages
+  targetUid: 4ui3aj6wq6d
+  file: popup/popup_add_new_stages.yaml
+  usageCount: 1
+- uid: if6rr8vgtgw
+  name: 'Popup (Detail): Assets'
+  type: popup
+  collection: nb_itam_assets
+  targetUid: 3ask19ksp6m
+  file: popup/popup_detail_assets.yaml
+  usageCount: 0
+- uid: j2v63n0yhe7
+  name: 'Form (Edit): Assignments'
+  type: block
+  collection: nb_itam_asset_assignments
+  targetUid: uuodcl19c5u
+  file: block/form_edit_assignments.yaml
+  usageCount: 1
+- uid: j8oz6fsp44x
+  name: 'Popup (Add new): Assignments'
+  type: popup
+  collection: nb_itam_asset_assignments
+  targetUid: xf3igt0qkt1
+  file: popup/popup_add_new_assignments.yaml
+  usageCount: 0
+- uid: jjoo5johqgr
+  name: 'Form (Edit): Slas'
+  type: block
+  collection: nb_hd_slas
+  targetUid: cxygwf95rm3
+  file: block/form_edit_slas.yaml
+  usageCount: 2
+- uid: jjrc0sv7v25
+  name: 'Form (Edit): Leads'
+  type: block
+  collection: nb_crm_leads
+  targetUid: ije8a251cxg
+  file: block/form_edit_leads.yaml
+  usageCount: 1
+- uid: km095sxiexp
+  name: 'Popup (Detail): Customers'
+  type: popup
+  collection: nb_hd_customers
+  targetUid: r023ce9qxr0
+  file: popup/popup_detail_customers.yaml
+  usageCount: 0
+- uid: l60e0pyljpn
+  name: 'Form (Edit): Tickets'
+  type: block
+  collection: nb_hd_tickets
+  targetUid: ipha5nhwueo
+  file: block/form_edit_tickets.yaml
+  usageCount: 2
+- uid: lpo4nzc4ofy
+  name: 'Form (Add new): Agents'
+  type: block
+  collection: nb_hd_agents
+  targetUid: 92e36hff38w
+  file: block/form_add_new_agents.yaml
+  usageCount: 1
+- uid: lt1u4d1pq6a
+  name: 'Form (Edit): Categories'
+  type: block
+  collection: nb_hd_categories
+  targetUid: adokuac95mt
+  file: block/form_edit_categories.yaml
+  usageCount: 2
+- uid: lzmaekwp6r8
+  name: 'Detail: Agents'
+  type: block
+  collection: nb_hd_agents
+  targetUid: o0khjtqy1nt
+  file: block/detail_agents.yaml
+  usageCount: 1
+- uid: m9et3tmgfua
+  name: 'Popup (Edit): Records'
+  type: popup
+  collection: nb_itam_maintenance_records
+  targetUid: gj9tdmc7taa
+  file: popup/popup_edit_records.yaml
+  usageCount: 0
+- uid: maislyfmow9
+  name: 'Detail: Licenses'
+  type: block
+  collection: nb_itam_software_licenses
+  targetUid: cdjsp1mqb5z
+  file: block/detail_licenses.yaml
+  usageCount: 1
+- uid: mom6aqifosp
+  name: Contact View
+  type: popup
+  collection: nb_crm_contacts
+  targetUid: 43ca21fmix6
+  file: popup/contact_view.yaml
+  usageCount: 95
+- uid: n5ib94jfbhb
+  name: 'Popup (Edit): Employees'
+  type: popup
+  collection: nb_itam_employees
+  targetUid: 4ezp8obvfhs
+  file: popup/popup_edit_employees.yaml
+  usageCount: 0
+- uid: nqmkoqwng8u
+  name: 'Detail: Tickets'
+  type: block
+  collection: nb_hd_tickets
+  targetUid: d1408tdbhp7
+  file: block/detail_tickets.yaml
+  usageCount: 1
+- uid: nvrojmjy1yr
+  name: 'Form (Add new): Ticket Comments'
+  type: block
+  collection: nb_hd_ticket_comments
+  targetUid: pw8zhfvap24
+  file: block/form_add_new_ticket_comments.yaml
+  usageCount: 0
+- uid: o2e4fga2u8v
+  name: 'Popup (Add new): Licenses'
+  type: popup
+  collection: nb_itam_software_licenses
+  targetUid: 7ewabh5fpcp
+  file: popup/popup_add_new_licenses.yaml
+  usageCount: 0
+- uid: o7mnwf90qf1
+  name: 'Popup (Detail): Categories'
+  type: popup
+  collection: nb_hd_categories
+  targetUid: 7ykfvcd30z2
+  file: popup/popup_detail_categories.yaml
+  usageCount: 0
+- uid: o9zmk2vad1o
+  name: 'Form (Edit): Employees'
+  type: block
+  collection: nb_itam_employees
+  targetUid: 1joimuivpao
+  file: block/form_edit_employees.yaml
+  usageCount: 1
+- uid: ot8qip2lbnq
+  name: 'Popup (Add new): Agents'
+  type: popup
+  collection: nb_hd_agents
+  targetUid: g9he14ud0ro
+  file: popup/popup_add_new_agents.yaml
+  usageCount: 0
+- uid: peehdcxterq
+  name: 'Detail: Categories'
+  type: block
+  collection: nb_hd_categories
+  targetUid: 6jvxztlemek
+  file: block/detail_categories.yaml
+  usageCount: 1
+- uid: q14gf8zugnh
+  name: 'Form (Edit): Customers'
+  type: block
+  collection: nb_hd_customers
+  targetUid: ysmshftiddt
+  file: block/form_edit_customers.yaml
+  usageCount: 2
+- uid: qpx51uqbirs
+  name: 'Form (Edit): Records'
+  type: block
+  collection: nb_itam_maintenance_records
+  targetUid: slm4it2ul7y
+  file: block/form_edit_records.yaml
+  usageCount: 1
+- uid: r3kge2uorfn
+  name: 'Form (Edit): Licenses'
+  type: block
+  collection: nb_itam_software_licenses
+  targetUid: mk1g8fx05sk
+  file: block/form_edit_licenses.yaml
+  usageCount: 2
+- uid: r925vjzkksp
+  name: 'Form (Add new): SLAs'
+  type: block
+  collection: nb_hd_slas
+  targetUid: c248w7cchyi
+  file: block/form_add_new_slas.yaml
+  usageCount: 1
+- uid: rjfuuyt9mu4
+  name: 'Popup (Edit): Categories'
+  type: popup
+  collection: nb_hd_categories
+  targetUid: har8vgu69ac
+  file: popup/popup_edit_categories.yaml
+  usageCount: 0
+- uid: sl8etitbku8
+  name: 'Form (Add new): Records'
+  type: block
+  collection: nb_itam_maintenance_records
+  targetUid: ao3ii9mamze
+  file: block/form_add_new_records.yaml
+  usageCount: 1
+- uid: sqw522ocqwx
+  name: Contacts View in Page
+  type: popup
+  collection: nb_crm_contacts
+  targetUid: zxsog8ixwmu
+  file: popup/contacts_view_in_page.yaml
+  usageCount: 5
+- uid: svytthtyd8k
+  name: 'Popup (Add new): Employees'
+  type: popup
+  collection: nb_itam_employees
+  targetUid: na4jts6tc3i
+  file: popup/popup_add_new_employees.yaml
+  usageCount: 0
+- uid: usc8b8zhw89
+  name: 'Popup (Add new): Tickets'
+  type: popup
+  collection: nb_hd_tickets
+  targetUid: plownbjyzls
+  file: popup/popup_add_new_tickets.yaml
+  usageCount: 0
+- uid: utm65ybzokr
+  name: 'Popup (Detail): Agents'
+  type: popup
+  collection: nb_hd_agents
+  targetUid: k1bn2nswx2b
+  file: popup/popup_detail_agents.yaml
+  usageCount: 0
+- uid: ux4eqpdt4nz
+  name: 'Popup (Add new): Records'
+  type: popup
+  collection: nb_itam_maintenance_records
+  targetUid: 74ipe6rigza
+  file: popup/popup_add_new_records.yaml
+  usageCount: 0
+- uid: vj6vwmysk9t
+  name: 'Email table: Mail messages'
+  type: block
+  collection: mailMessages
+  targetUid: cb09a1ee275
+  file: block/email_table_mail_messages.yaml
+  usageCount: 2
+- uid: wew44bhsga9
+  name: Customer View
+  type: popup
+  collection: nb_crm_customers
+  targetUid: wsb6b480gtj
+  file: popup/customer_view.yaml
+  usageCount: 127
+- uid: z3ah4m1jm20
+  name: Leads View
+  type: popup
+  collection: nb_crm_leads
+  targetUid: 4tqukehsmqm
+  file: popup/leads_view.yaml
+  usageCount: 15
+- uid: z7rdevcswyp
+  name: 'Form (Add new): Assets'
+  type: block
+  collection: nb_itam_assets
+  targetUid: ytuv9tgupew
+  file: block/form_add_new_assets.yaml
+  usageCount: 1
+- uid: zq14gdeeqvp
+  name: Add new opportunity
+  type: popup
+  collection: nb_crm_opportunities
+  targetUid: x7xircn7ok1
+  file: popup/add_new_opportunity.yaml
+  usageCount: 2

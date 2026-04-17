@@ -1,0 +1,34 @@
+name: 'Form (Edit): Order Lines'
+type: block
+collectionName: nb_erp_order_lines
+content:
+  key: editForm
+  type: editForm
+  coll: nb_erp_order_lines
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - line_label
+    - order
+    - product
+    - quantity
+    - unit_price
+    - discount_amount
+    - line_total
+    - fulfill_status
+    - notes
+  field_layout:
+    - '--- Line Summary ---'
+    - - line_label
+      - product
+    - - order
+      - fulfill_status
+    - '--- Pricing ---'
+    - - quantity
+      - unit_price
+    - - discount_amount
+      - line_total
+    - '--- Notes ---'
+    - - notes
+  actions:
+    - submit

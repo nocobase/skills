@@ -1,0 +1,13 @@
+uid: 9nyancikdnz
+name: 'Popup (Edit): Licenses'
+type: popup
+collectionName: nb_itam_software_licenses
+dataSourceKey: main
+targetUid: 86te4cpmv5q
+description: 'Popup (Edit): Licenses'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - mk1g8fx0

@@ -1,0 +1,96 @@
+uid: wew44bhsga9
+name: Customer View
+type: popup
+collectionName: nb_crm_customers
+dataSourceKey: main
+targetUid: wsb6b480gtj
+content:
+  tabs:
+    - title: Tab0
+      blocks:
+        - key: contacts
+          type: list
+          title: Contacts
+          coll: nb_crm_contacts
+          resource_binding:
+            associationName: nb_crm_customers.contacts
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - email
+            - phone
+          js_items:
+            - key: contact_row_column_customer_360
+              file: ./js/customer_view_tab0_contacts_contact_row_column_customer_360.js
+              desc: Contact Row Column - Customer 360
+          field_layout:
+            - - '[JS:Contact Row Column - Customer 360]'
+            - - email
+              - phone
+          actions:
+            - filter
+            - refresh
+            - addNew
+        - key: opportunities
+          type: list
+          title: Opportunities
+          coll: nb_crm_opportunities
+          resource_binding:
+            associationName: nb_crm_customers.opportunities
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          js_items:
+            - key: opportunity_row_column_customer_360
+              file: ./js/customer_view_tab0_opportunities_opportunity_row_column_customer_360.js
+              desc: Opportunity Row Column - Customer 360
+          field_layout:
+            - - '[JS:Opportunity Row Column - Customer 360]'
+        - key: comments
+          type: comments
+          coll: nb_crm_comments
+          resource_binding:
+            associationName: nb_crm_customers.comments
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        - key: reference
+          type: reference
+        - key: reference_2
+          type: reference
+      layout:
+        - - col:
+              - reference
+              - opportunities
+            size: 16
+          - col:
+              - contacts
+              - reference_2
+              - comments
+            size: 8
+    - title: Tab1
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_crm_customers
+          actions:
+            - filter
+            - refresh
+    - title: Tab2
+      blocks:
+        - key: mailMessages
+          type: mailMessages
+          coll: mailMessages
+          dataScope:
+            logic: $or
+            items:
+              - path: from
+                operator: contains
+                value: '{{ ctx.popup.record.contacts.email }}'
+              - path: to
+                operator: contains
+                value: '{{ ctx.popup.record.contacts.email }}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/customer_view_tab2_mailMessages_tasks.yaml
+      layout:
+        - - mailMessages

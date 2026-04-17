@@ -1,0 +1,112 @@
+name: nb_crm_quotations
+title: Quotations
+titleField: name
+fields:
+  - name: payment_terms
+    interface: textarea
+  - name: approved_by
+    interface: integer
+  - name: opportunity
+    interface: m2o
+    target: nb_crm_opportunities
+    foreignKey: opportunity_id
+  - name: extra
+    interface: json
+  - name: sent_at
+    interface: datetime
+  - name: currencyInfo
+    interface: m2o
+    target: nb_cbo_currencies
+    foreignKey: currency_id
+  - name: exchange_rate
+    interface: number
+  - name: submitted_at
+    interface: datetime
+  - name: quotation_no
+    interface: sequence
+  - name: tax_amount
+    interface: number
+  - name: discount_rate
+    interface: percent
+  - name: discount_amount
+    interface: number
+  - name: status
+    interface: input
+    options:
+      - value: draft
+        label: Draft
+        color: default
+      - value: pending_approval
+        label: Pending Approval
+        color: orange
+      - value: approved
+        label: Approved
+        color: blue
+      - value: sent
+        label: Sent
+        color: cyan
+      - value: accepted
+        label: Accepted
+        color: green
+      - value: rejected
+        label: Rejected
+        color: red
+      - value: expired
+        label: Expired
+        color: default
+  - name: currency_id
+    interface: integer
+  - name: total_amount
+    interface: number
+  - name: customer
+    interface: m2o
+    target: nb_crm_customers
+    foreignKey: customer_id
+  - name: valid_until
+    interface: dateOnly
+  - name: subtotal
+    interface: number
+  - name: contact
+    interface: m2o
+    target: nb_crm_contacts
+    foreignKey: contact_id
+  - name: expired_at
+    interface: datetime
+  - name: name
+    interface: input
+  - name: shipping_handling
+    interface: number
+  - name: approved_at
+    interface: datetime
+  - name: items
+    interface: o2m
+    target: nb_crm_quotation_items
+    foreignKey: quotation_id
+  - name: customer_response_at
+    interface: datetime
+  - name: terms_condition
+    interface: textarea
+  - name: description
+    interface: textarea
+  - name: customer_id
+    interface: integer
+  - name: tax_rate
+    interface: percent
+  - name: total_amount_usd
+    interface: number
+  - name: orders
+    interface: o2m
+    target: nb_crm_orders
+    foreignKey: quotation_id
+  - name: contact_id
+    interface: integer
+  - name: owner_id
+    interface: integer
+  - name: rejected_at
+    interface: datetime
+  - name: opportunity_id
+    interface: integer
+  - name: version
+    interface: integer
+  - name: address
+    interface: textarea

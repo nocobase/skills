@@ -1,0 +1,34 @@
+target: $SELF.table.recordActions.edit
+coll: nb_erp_customer_orders
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_erp_customer_orders
+    fields:
+      - order_number
+      - customer
+      - status
+      - payment_status
+      - order_date
+      - required_date
+      - total_amount
+      - shipping_address
+      - notes
+    field_layout:
+      - '--- Order Summary ---'
+      - - order_number
+        - customer
+      - - status
+        - payment_status
+      - '--- Dates & Amount ---'
+      - - order_date
+        - required_date
+      - - total_amount
+      - '--- Fulfillment ---'
+      - - shipping_address
+      - - notes
+    actions:
+      - submit
+    _fromRef: templates/block/form_add_new_nb_erp_customer_orders.yaml
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

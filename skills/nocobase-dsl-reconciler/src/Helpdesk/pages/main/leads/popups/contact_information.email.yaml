@@ -1,0 +1,22 @@
+target: $SELF.contact_information.fields.email
+mode: drawer
+blocks:
+  - key: mailMessages
+    type: mailMessages
+    coll: mailMessages
+    dataScope:
+      logic: $or
+      items:
+        - path: from
+          operator: contains
+          value: '{{ ctx.popup.record.email }}'
+        - path: to
+          operator: contains
+          value: '{{ ctx.popup.record.email }}'
+    actions:
+      - filter
+      - refresh
+      - addNew
+      - type: ai
+        employee: ellis
+        tasks_file: ./ai/leads_name_email_mailMessages_tasks.yaml

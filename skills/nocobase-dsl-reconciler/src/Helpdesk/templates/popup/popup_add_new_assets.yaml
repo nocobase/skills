@@ -1,0 +1,13 @@
+uid: 4ut93p5rwjh
+name: 'Popup (Add new): Assets'
+type: popup
+collectionName: nb_itam_assets
+dataSourceKey: main
+targetUid: k620btb63hm
+description: 'Popup (Add new): Assets'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - ytuv9tgu

@@ -1,0 +1,12 @@
+blocks:
+  - type: jsBlock
+    key: pipeline_header_block
+    file: ./js/opportunities_pipeline_pipeline_header_block.js
+    desc: Pipeline Header Block
+  - type: jsBlock
+    key: kanban_board_block_resource_based
+    file: ./js/opportunities_pipeline_kanban_board_block_resource_based.js
+    desc: Kanban Board Block (Resource-based)
+layout:
+  - - pipeline_header_block
+  - - kanban_board_block_resource_based

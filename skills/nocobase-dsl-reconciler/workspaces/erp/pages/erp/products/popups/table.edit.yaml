@@ -1,0 +1,44 @@
+target: $SELF.table.recordActions.edit
+coll: nb_erp_products
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_erp_products
+    fields:
+      - sku
+      - name
+      - category
+      - unit
+      - status
+      - inventory_status
+      - current_stock
+      - reorder_point
+      - safety_stock
+      - standard_cost
+      - sale_price
+      - last_restock_date
+      - preferred_supplier
+      - description
+    field_layout:
+      - '--- Product Profile ---'
+      - - sku
+        - name
+      - - category
+        - unit
+      - - status
+        - inventory_status
+        - preferred_supplier
+      - '--- Inventory ---'
+      - - current_stock
+        - reorder_point
+      - - safety_stock
+      - '--- Pricing ---'
+      - - standard_cost
+        - sale_price
+      - - last_restock_date
+      - '--- Notes ---'
+      - - description
+    actions:
+      - submit
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

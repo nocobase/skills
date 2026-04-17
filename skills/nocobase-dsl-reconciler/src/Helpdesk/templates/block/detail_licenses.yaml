@@ -1,0 +1,41 @@
+uid: maislyfmow9
+name: 'Detail: Licenses'
+type: block
+collectionName: nb_itam_software_licenses
+dataSourceKey: main
+targetUid: cdjsp1mqb5z
+content:
+  key: details
+  type: details
+  coll: nb_itam_software_licenses
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - license_key
+    - software_vendor
+    - seats_total
+    - seats_used
+    - purchase_date
+    - expiry_date
+    - cost
+    - status
+    - description
+    - createdAt
+  field_layout:
+    - '--- License Info ---'
+    - - name
+      - license_key
+    - - software_vendor
+      - status
+    - '--- Seats & Dates ---'
+    - - seats_total
+      - seats_used
+    - - purchase_date
+      - expiry_date
+    - '--- Cost & Notes ---'
+    - - cost
+    - - description
+    - - createdAt
+  actions:
+    - edit

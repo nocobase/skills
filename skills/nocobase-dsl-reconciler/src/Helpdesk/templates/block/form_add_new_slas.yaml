@@ -1,0 +1,31 @@
+uid: r925vjzkksp
+name: 'Form (Add new): SLAs'
+type: block
+collectionName: nb_hd_slas
+dataSourceKey: main
+targetUid: c248w7cchyi
+description: 'Form (Add new): SLAs'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hd_slas
+  fields:
+    - name
+    - category
+    - priority
+    - response_time_hours
+    - resolution_time_hours
+    - description
+    - status
+  field_layout:
+    - '--- SLA Policy ---'
+    - - name
+      - status
+    - - category
+      - priority
+    - - response_time_hours
+      - resolution_time_hours
+    - '--- Description ---'
+    - - description
+  actions:
+    - submit

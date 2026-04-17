@@ -1,0 +1,13 @@
+uid: n5ib94jfbhb
+name: 'Popup (Edit): Employees'
+type: popup
+collectionName: nb_itam_employees
+dataSourceKey: main
+targetUid: 4ezp8obvfhs
+description: 'Popup (Edit): Employees'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - 1joimuiv

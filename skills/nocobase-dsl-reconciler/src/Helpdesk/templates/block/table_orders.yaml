@@ -1,0 +1,55 @@
+uid: yjwjoi4erle
+name: 'Table: Orders'
+type: block
+collectionName: nb_crm_orders
+dataSourceKey: main
+targetUid: 4326c50faf8
+content:
+  key: table
+  type: table
+  coll: nb_crm_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  filter:
+    order_date.$dateBetween: '{{ ctx.urlSearchParams.month }}'
+  fields:
+    - field: order_no
+      clickToOpen: true
+    - field: customer
+      width: 200
+    - order_amount
+    - payment_status
+    - owner
+    - createdAt
+  js_columns:
+    - key: order_progress
+      field: ''
+      file: ./js/table_orders_table_col_order_progress.js
+      title: Order Progress
+      desc: Order Progress Column
+  column_order:
+    - order_no
+    - customer
+    - order_amount
+    - '[JS:order_progress]'
+    - payment_status
+    - owner
+    - createdAt
+  actions:
+    - filter
+    - refresh
+    - addNew
+    - type: ai
+      employee: viz
+      tasks_file: ./ai/table_orders_table_tasks.yaml
+  event_flows:
+    - event:
+        eventName: beforeRender
+        defaultParams:
+          condition:
+            items: []
+            logic: $and
+      flow_key: hclqnhu563i
+      step_key: csgv61i1xv9
+      desc: hclqnhu563i
+      file: ./events/table_orders_table_event_hclqnhu563i_csgv61i1xv9.js

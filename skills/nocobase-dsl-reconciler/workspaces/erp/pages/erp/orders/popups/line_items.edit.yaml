@@ -1,0 +1,6 @@
+target: $SELF.line_items.recordActions.edit
+mode: drawer
+blocks:
+  - ref: templates/block/form_edit_nb_erp_order_lines.yaml
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

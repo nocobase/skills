@@ -1,0 +1,13 @@
+uid: ot8qip2lbnq
+name: 'Popup (Add new): Agents'
+type: popup
+collectionName: nb_hd_agents
+dataSourceKey: main
+targetUid: g9he14ud0ro
+description: 'Popup (Add new): Agents'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - pwt3n1ne

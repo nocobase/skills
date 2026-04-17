@@ -1,0 +1,34 @@
+uid: fq4zhskmuuz
+name: 'Form (Add new): Licenses'
+type: block
+collectionName: nb_itam_software_licenses
+dataSourceKey: main
+targetUid: s62q6himzpl
+content:
+  key: createForm
+  type: createForm
+  coll: nb_itam_software_licenses
+  fields:
+    - name
+    - license_key
+    - software_vendor
+    - seats_total
+    - seats_used
+    - cost
+    - status
+    - description
+  field_layout:
+    - '--- License Info ---'
+    - - name
+      - license_key
+    - - software_vendor
+      - status
+    - '--- Seats & Dates ---'
+    - - seats_total
+      - seats_used
+    - '--- Cost & Notes ---'
+    - - cost
+    - - description
+  actions:
+    - submit
+    - submit

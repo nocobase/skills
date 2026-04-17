@@ -1,0 +1,13 @@
+uid: o2e4fga2u8v
+name: 'Popup (Add new): Licenses'
+type: popup
+collectionName: nb_itam_software_licenses
+dataSourceKey: main
+targetUid: 7ewabh5fpcp
+description: 'Popup (Add new): Licenses'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - s62q6him

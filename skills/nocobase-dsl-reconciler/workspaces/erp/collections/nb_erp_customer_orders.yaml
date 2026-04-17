@@ -10,6 +10,17 @@ fields:
     interface: m2o
     title: Customer
     target: nb_erp_customers
+    foreignKey: customerId
+  - name: order_lines
+    interface: o2m
+    title: Order Lines
+    target: nb_erp_order_lines
+    foreignKey: orderId
+  - name: inventory_movements
+    interface: o2m
+    title: Inventory Movements
+    target: nb_erp_inventory_movements
+    foreignKey: related_orderId
   - name: status
     interface: select
     title: Status

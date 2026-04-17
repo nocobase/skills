@@ -1,0 +1,33 @@
+uid: jjoo5johqgr
+name: 'Form (Edit): Slas'
+type: block
+collectionName: nb_hd_slas
+dataSourceKey: main
+targetUid: cxygwf95rm3
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hd_slas
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - priority
+    - response_time_hours
+    - resolution_time_hours
+    - description
+    - status
+    - category
+  field_layout:
+    - '--- SLA Policy ---'
+    - - name
+      - status
+    - - category
+      - priority
+    - - response_time_hours
+      - resolution_time_hours
+    - '--- Description ---'
+    - - description
+  actions:
+    - submit
+    - submit

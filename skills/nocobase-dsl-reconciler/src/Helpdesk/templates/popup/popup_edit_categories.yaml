@@ -1,0 +1,13 @@
+uid: rjfuuyt9mu4
+name: 'Popup (Edit): Categories'
+type: popup
+collectionName: nb_hd_categories
+dataSourceKey: main
+targetUid: har8vgu69ac
+description: 'Popup (Edit): Categories'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - adokuac9

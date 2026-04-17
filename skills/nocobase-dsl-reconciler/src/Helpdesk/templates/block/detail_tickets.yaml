@@ -1,0 +1,47 @@
+uid: nqmkoqwng8u
+name: 'Detail: Tickets'
+type: block
+collectionName: nb_hd_tickets
+dataSourceKey: main
+targetUid: d1408tdbhp7
+content:
+  key: details
+  type: details
+  coll: nb_hd_tickets
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - ticket_number
+    - subject
+    - description
+    - status
+    - priority
+    - category
+    - customer
+    - assigned_agent
+    - source
+    - due_date
+    - first_responded_at
+    - resolved_at
+    - satisfaction_score
+    - createdAt
+  field_layout:
+    - '--- Ticket Details ---'
+    - - ticket_number
+      - subject
+    - - status
+      - priority
+    - - category
+      - source
+    - - customer
+      - assigned_agent
+    - - due_date
+    - '--- Description ---'
+    - - description
+    - '--- Resolution ---'
+    - - first_responded_at
+      - resolved_at
+    - - satisfaction_score
+    - - createdAt
+  actions:
+    - edit

@@ -1,0 +1,25 @@
+blocks:
+  - key: table
+    type: table
+    title: Low Stock Products
+    coll: nb_erp_products
+    filter:
+      inventory_status.$in:
+        - low_stock
+        - out_of_stock
+    fields:
+      - field: name
+        clickToOpen: true
+      - sku
+      - inventory_status
+      - current_stock
+      - reorder_point
+      - safety_stock
+      - preferred_supplier
+      - last_restock_date
+    actions:
+      - filter
+      - refresh
+    recordActions: []
+layout:
+  - - table

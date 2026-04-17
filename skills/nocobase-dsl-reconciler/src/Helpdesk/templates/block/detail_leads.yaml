@@ -1,0 +1,13 @@
+uid: ae4edoa58ch
+name: 'Detail: Leads'
+type: block
+collectionName: nb_crm_leads
+dataSourceKey: main
+targetUid: tzcplga05l5
+description: 'Detail: Leads'
+content:
+  key: details
+  type: details
+  coll: nb_crm_leads
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'

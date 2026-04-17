@@ -1,0 +1,37 @@
+uid: d5ss0ofnltx
+name: 'Form (Add new): Tickets'
+type: block
+collectionName: nb_hd_tickets
+dataSourceKey: main
+targetUid: 7vrqjkhnzix
+description: 'Form (Add new): Tickets'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hd_tickets
+  fields:
+    - ticket_number
+    - subject
+    - description
+    - status
+    - priority
+    - category
+    - customer
+    - assigned_agent
+    - source
+    - due_date
+  field_layout:
+    - '--- Ticket Details ---'
+    - - ticket_number
+      - subject
+    - - status
+      - priority
+    - - category
+      - source
+    - - customer
+      - assigned_agent
+    - - due_date
+    - '--- Description ---'
+    - - description
+  actions:
+    - submit

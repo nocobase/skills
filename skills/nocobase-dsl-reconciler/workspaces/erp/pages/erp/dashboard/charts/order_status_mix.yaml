@@ -1,0 +1,2 @@
+sql_file: ./charts/order_status_mix.sql
+render_file: ./charts/pie_render.js

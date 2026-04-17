@@ -1,0 +1,274 @@
+uid: 2ufybtokgud
+name: Opportunity View
+type: popup
+collectionName: nb_crm_opportunities
+dataSourceKey: main
+targetUid: xzuvlcsgar6
+content:
+  tabs:
+    - title: Tab0
+      blocks:
+        - key: details
+          type: details
+          coll: nb_crm_opportunities
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - type: markdown
+              key: _md_0
+              content: |+
+                {{ ctx.record.opportunity_no }}
+
+                #  {{ ctx.popup.record.name }}
+
+            - customer
+            - contact
+            - owner
+            - createdAt
+          js_items:
+            - key: opportunity_key_stats_block
+              file: ./js/opportunity_view_tab0_details_opportunity_key_stats_block.js
+              desc: Opportunity Key Stats Block
+          field_layout:
+            - - '[MD:_md_0]'
+            - - customer
+              - contact
+            - - owner
+              - createdAt
+            - - '[JS:Opportunity Key Stats Block]'
+          actions:
+            - edit
+        - key: ai_smart_analysis
+          type: details
+          title: AI Smart Analysis
+          coll: nb_crm_opportunities
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          js_items:
+            - key: ai_risk_analysis
+              file: ./js/opportunity_view_tab0_ai_smart_analysis_ai_risk_analysis.js
+              desc: AI Risk Analysis
+          field_layout:
+            - - '[JS:AI Risk Analysis]'
+        - key: quotations
+          type: table
+          title: Quotations
+          coll: nb_crm_quotations
+          resource_binding:
+            associationName: nb_crm_opportunities.quotations
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - field: quotation_no
+              clickToOpen: true
+            - currencyInfo
+            - discount_rate
+            - status
+            - total_amount_usd
+            - total_amount
+            - field: version
+              width: 100
+            - createdAt
+          recordActions:
+            - type: popup
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: nb_crm_quotations
+                    associationName: nb_crm_opportunities.quotations
+                    dataSourceKey: main
+                buttonSettings:
+                  general:
+                    type: link
+                    icon: plussquareoutlined
+                    title: New Order
+                  linkageRules:
+                    value:
+                      - title: Linkage rule
+                        enable: true
+                        condition:
+                          logic: $and
+                          items:
+                            - path: '{{ ctx.record.status }}'
+                              operator: $ne
+                              value: accepted
+                        actions:
+                          - name: linkageSetActionProps
+                            params:
+                              value: hidden
+              key: popup_new_order
+            - type: updateRecord
+              key: updateRecord_submit_for_approval
+              icon: auditoutlined
+              title: Submit for Approval
+              style: link
+              assign:
+                status: pending_approval
+              linkageRules:
+                value:
+                  - key: t9n6p8jgxk0
+                    title: Linkage rule
+                    enable: true
+                    condition:
+                      logic: $or
+                      items:
+                        - path: '{{ ctx.record.status }}'
+                          operator: $ne
+                          value: draft
+                    actions:
+                      - key: 88d7od74xvi
+                        name: linkageSetActionProps
+                        params:
+                          value: hidden
+            - type: duplicate
+              stepParams:
+                buttonSettings:
+                  general:
+                    type: link
+                    icon: copyoutlined
+                    title: Duplicate
+                    duplicateFields: []
+                duplicateModeSettings:
+                  duplicateMode:
+                    duplicateMode: continueduplicate
+                    collection: nb_crm_quotations
+                    duplicateFields:
+                      checked:
+                        - name
+                        - exchange_rate
+                        - subtotal
+                        - discount_rate
+                        - contact
+                        - currencyInfo
+                        - customer
+                        - opportunity
+                        - discount_amount
+                        - shipping_handling
+                        - tax_rate
+                        - tax_amount
+                        - total_amount
+                        - total_amount_usd
+                        - valid_until
+                        - payment_terms
+                        - terms_condition
+                        - address
+                        - description
+                        - extra
+                        - orders
+                        - currency_id
+                        - items
+                        - items.product
+                        - items.quotation
+                        - items.tierInfo
+                        - items.description
+                        - items.quantity
+                        - items.product_name
+                        - items.product_code
+                        - items.specification
+                        - items.unit
+                        - items.list_price
+                        - items.unit_price
+                        - items.tier_applied
+                        - items.discount_rate
+                        - items.line_amount
+                        - items.service_date
+                        - items.sort_order
+                      halfChecked: []
+                popupSettings:
+                  openView:
+                    mode: drawer
+                    size: large
+                    pageModelClass: ChildPageModel
+                    uid: 0f6dbdb2197
+                    filterByTk: '{{ ctx.record.id }}'
+                    dataSourceKey: main
+                    collectionName: nb_crm_quotations
+              key: duplicate_duplicate
+          actions:
+            - filter
+            - refresh
+            - addNew
+        - key: comments
+          type: comments
+          coll: nb_crm_comments
+          resource_binding:
+            associationName: nb_crm_opportunities.comments
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        - key: attachments
+          type: details
+          title: Attachments
+          coll: nb_crm_opportunities
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          fields:
+            - attachments
+          field_layout:
+            - - attachments
+          actions:
+            - edit
+        - key: details_2
+          type: details
+          coll: nb_crm_opportunities
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          js_items:
+            - key: opportunity_stage_flow_block
+              file: ./js/opportunity_view_tab0_details_2_opportunity_stage_flow_block.js
+              desc: Opportunity Stage Flow Block
+          field_layout:
+            - - '[JS:Opportunity Stage Flow Block]'
+        - key: details_3
+          type: details
+          coll: nb_crm_opportunities
+          resource_binding:
+            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          js_items:
+            - key: quote_status_flow_block
+              file: ./js/opportunity_view_tab0_details_3_quote_status_flow_block.js
+              desc: Quote Status Flow Block
+          field_layout:
+            - - '[JS:Quote Status Flow Block]'
+      layout:
+        - - col:
+              - details
+              - details_2
+              - ai_smart_analysis
+              - quotations
+              - details_3
+            size: 17
+          - col:
+              - attachments
+              - comments
+            size: 7
+    - title: Tab1
+      blocks:
+        - key: mailMessages
+          type: mailMessages
+          coll: mailMessages
+          dataScope:
+            logic: $or
+            items:
+              - path: from
+                operator: contains
+                value: '{{ ctx.popup.record.contact.email }}'
+              - path: to
+                operator: contains
+                value: '{{ ctx.popup.record.contact.email }}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/opportunity_view_tab1_mailMessages_tasks.yaml
+      layout:
+        - - mailMessages
+    - title: Tab2
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_crm_opportunities
+          actions:
+            - filter
+            - refresh
+            - historyExpand
+            - historyCollapse

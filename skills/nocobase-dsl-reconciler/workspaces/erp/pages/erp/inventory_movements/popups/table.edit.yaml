@@ -1,0 +1,34 @@
+target: $SELF.table.recordActions.edit
+coll: nb_erp_inventory_movements
+blocks:
+  - key: editForm
+    type: editForm
+    coll: nb_erp_inventory_movements
+    fields:
+      - reference_number
+      - product
+      - movement_type
+      - quantity
+      - unit_cost
+      - related_order
+      - related_purchase_order
+      - movement_date
+      - notes
+    field_layout:
+      - '--- Movement Summary ---'
+      - - reference_number
+        - product
+      - - movement_type
+        - movement_date
+      - - quantity
+        - unit_cost
+      - '--- Source Documents ---'
+      - - related_order
+        - related_purchase_order
+      - '--- Notes ---'
+      - - notes
+    actions:
+      - submit
+    _fromRef: templates/block/form_add_new_nb_erp_inventory_movements.yaml
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
