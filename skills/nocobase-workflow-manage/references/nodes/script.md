@@ -8,7 +8,6 @@ description: "Run custom JavaScript code in a workflow node, could use arguments
 ## Node Type
 
 `script`
-Please use the `type` value above to create the node; do not use the documentation filename as the type.
 
 ## Node Description
 Executes a piece of JavaScript code in an isolated Node.js sandbox environment (Worker Thread) and returns the result. Suitable for complex logic that cannot be handled by built-in expression engines.
