@@ -78,7 +78,7 @@ For pure layout editing of an existing task-card/details surface:
 
 - Approval form fields keep `PatternFormItemModel -> PatternFormFieldModel`.
 - The actual field component use is stored in `stepParams.fieldBinding.use`.
-- Relation-field component switching must follow `catalog.node.configureOptions.fieldComponent.enum` on the live wrapper node.
+- Association-field component switching must follow `catalog.node.configureOptions.fieldComponent.enum` on the live wrapper node.
 - Current approval form relation component parity:
   - single-value relation -> `RecordSelectFieldModel`, `RecordPickerFieldModel`, `SubFormFieldModel`
   - multi-value relation -> `RecordSelectFieldModel`, `RecordPickerFieldModel`, `SubFormListFieldModel`, `PatternSubTableFieldModel`
@@ -95,6 +95,6 @@ For pure layout editing of an existing task-card/details surface:
 
 - The user wants to add one more block, field, or action.
 - The user wants to update one approval action setting.
-- The user wants to switch an existing approval relation field to another supported component exposed by the live wrapper contract.
+- The user wants to switch an existing approval association field to another supported component exposed by the live wrapper contract.
 - The user wants to reorder or re-layout an existing task-card/details surface without replacing it.
 - The approval root already exists, or can be resolved from workflow/node config, and only a localized change is needed.

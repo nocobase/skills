@@ -99,7 +99,7 @@ Implications:
 - Real field component use lives in `stepParams.fieldBinding.use`
 - `addField` and `configure(fieldComponent)` must preserve this shape
 - Standalone `jsItem` is not supported under approval forms
-- For relation fields, `configure(fieldComponent)` must use the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum`
+- For association fields, `configure(fieldComponent)` must use the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum`
 - Current public relation component set:
   - single-value relation -> `RecordSelectFieldModel`, `RecordPickerFieldModel`, `SubFormFieldModel`
   - multi-value relation -> `RecordSelectFieldModel`, `RecordPickerFieldModel`, `SubFormListFieldModel`, `PatternSubTableFieldModel`
@@ -109,7 +109,7 @@ Implications:
 
 - Wrappers stay in their approval-specific details item family
 - They inherit details semantics, but do not collapse to generic page wrappers
-- For relation fields, `configure(fieldComponent)` must use the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum`
+- For association fields, `configure(fieldComponent)` must use the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum`
 - Current public relation display set:
   - single-value relation -> `DisplayTextFieldModel`, `DisplaySubItemFieldModel`
   - multi-value relation -> `DisplayTextFieldModel`, `DisplaySubListFieldModel`, `DisplaySubTableFieldModel`

@@ -13,8 +13,8 @@ Read [primitives.md](primitives.md) first. Then choose the closest recipe and ke
 
 Use when the user says things like:
 
-- "给 workflow 123 配一个审批发起表单"
-- "重新搭一下这个审批流程的发起界面"
+- "Build an approval initiator form for workflow 123"
+- "Rebuild the initiator surface for this approval workflow"
 
 ### Input
 
@@ -44,8 +44,8 @@ Use when the user says things like:
 
 Use when the user says things like:
 
-- "给审批节点 45 配一个处理界面"
-- "重做这个审批节点的审批表单"
+- "Build a processing surface for approval node 45"
+- "Rebuild the approval form for this approval node"
 
 ### Input
 
@@ -75,9 +75,9 @@ Use when the user says things like:
 
 Use when the user says things like:
 
-- "给节点 45 的审批界面再加一个退回动作"
-- "把节点 45 的审批界面加一个信息区块"
-- "修改节点 45 上 delegate / return 的配置"
+- "Add a return action to the approval surface for node 45"
+- "Add an information block to the approval surface for node 45"
+- "Change the delegate / return configuration on node 45"
 
 ### Input
 
@@ -110,8 +110,8 @@ Use when the user says things like:
 
 Use when the user says things like:
 
-- "给这个审批流程配置申请单卡片"
-- "给这个审批节点配置待办卡片详情"
+- "Configure an application card for this approval workflow"
+- "Configure task-card details for this approval node"
 
 ### Input
 
@@ -140,9 +140,9 @@ Use when the user says things like:
 
 Use when the user says things like:
 
-- "把这个审批卡片的字段顺序调整一下"
-- "把这个 task-card 改成两列布局"
-- "不要重建，只改现有 details 的排版"
+- "Reorder the fields on this approval card"
+- "Change this task-card to a two-column layout"
+- "Do not rebuild it; only change the existing details layout"
 
 ### Input
 
@@ -168,13 +168,13 @@ Use when the user says things like:
 - Do not guess grid item UIDs; always read them from the live surface first.
 - Do not use `catalog` as the primary discovery step when the task only reorders existing task-card/details items.
 
-## Recipe 6: Switch an approval relation field to another supported component
+## Recipe 6: Switch an approval association field to another supported component
 
 Use when the user says things like:
 
-- "把这个审批表单里的关系字段切成子表单"
-- "把审批详情里的关联字段改成子表格展示"
-- "把 task-card 上这个关系字段改回文本显示"
+- "Switch the association field in this approval form to a subform"
+- "Display the association field in approval details as a subtable"
+- "Change this association field on the task-card back to text display"
 
 ### Input
 

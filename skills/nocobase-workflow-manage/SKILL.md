@@ -26,7 +26,7 @@ Transport-selection rules:
 3. If the CLI is available but not authenticated for the target app, stop and guide the user to authenticate the CLI instead of switching to MCP.
 4. Only fall back to MCP or another transport when the CLI itself is unavailable.
 5. Before using a `nocobase-ctl` CLI command you have not used yet in the current task, run its `--help` once and follow the generated help text for flags and examples.
-6. If MCP is not configured, guide the user to use `nocobase-proxy-manage`.
+6. If MCP is not configured, guide the user to use `nocobase-mcp-setup`.
 7. If MCP tools return authentication errors such as `Auth required`, stop and ask the user to complete MCP authentication or refresh the MCP connection before continuing.
 
 # Scope
@@ -40,7 +40,7 @@ Transport-selection rules:
 
 # Non-Goals
 
-- Do not handle MCP installation, login, or token recovery. Hand off to `nocobase-proxy-manage`.
+- Do not handle MCP installation, login, or token recovery. Hand off to `nocobase-mcp-setup`.
 - Do not design data models, collections, or field schemas from scratch. Hand off to `nocobase-data-modeling`.
 - Do not handle ordinary Modern page, tab, popup, or route-backed surface authoring. Hand off to `nocobase-ui-builder`.
 - Do not invent filter syntax, evaluator functions, node types, trigger types, collection names, field names, or node keys.
@@ -137,7 +137,7 @@ When the transport is MCP or HTTP API, consult [Workflow HTTP API index](referen
 - Approval initiator, approver, and task-card surfaces are not ordinary route-backed pages. They are bound to workflow or approval-node config.
 - Page-like approval grids may host approval blocks plus the fixed generic blocks currently exposed by the approval runtime catalog: `markdown` and `jsBlock`.
 - Task-card remains `fields + layout` on the blueprint route and still has no standalone block-authoring path.
-- When switching an approval relation field component, read the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum` instead of guessing from ordinary page semantics.
+- When switching an approval association field component, read the live wrapper contract from `catalog.node.configureOptions.fieldComponent.enum` instead of guessing from ordinary page semantics.
 - First-time setup or whole-surface replacement uses `flowSurfaces applyApprovalBlueprint`.
 - Localized approval edits require resolving the bound `approvalUid` or `taskCardUid` first, then using the localized `flowSurfaces` operations.
 - Ordinary Modern page, tab, popup, and route-backed surface work still belongs to `nocobase-ui-builder`.

@@ -16,7 +16,7 @@ After any approval UI write, verify both the FlowModel tree and the bound workfl
 - Existing task-card/details layout edits should keep the same root binding and update only the details-grid layout.
 - `approvalInitiator` should still own one `ApplyFormSubmitModel` unless the user explicitly removed or replaced that legacy subtree.
 - Approval forms should preserve `PatternFormFieldModel` inner nodes.
-- Approval relation field switches should update `stepParams.fieldBinding.use` to the selected live-supported component.
+- Approval association field switches should update `stepParams.fieldBinding.use` to the selected live-supported component.
 - Approval details wrappers should stay in their approval details item model family.
 
 ## Runtime Config Readback
