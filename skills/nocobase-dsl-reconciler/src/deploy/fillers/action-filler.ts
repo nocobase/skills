@@ -178,28 +178,24 @@ async function reorderActions(
   bs: BlockSpec,
   actColUid: string,
 ): Promise<void> {
-  // toolbar actions
-  const acts = bs.actions || [];
-  const actState = blockState.actions || {};
-  for (let i = 0; i < acts.length; i++) {
-    const aspec = acts[i];
-    const key = typeof aspec === 'string' ? aspec : (aspec as Record<string, unknown>).key as string || (aspec as Record<string, unknown>).type as string;
-    const uid = actState[key]?.uid;
-    if (uid) {
-      try { await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, { uid, sortIndex: i }); } catch { /* best effort */ }
+  const reorder = async (specs: (string | Record<string, unknown>)[], stateGroup: Record<string, { uid: string }>) => {
+    // Build key→uid from state, then match by DSL order
+    const usedKeys = new Set<string>();
+    for (let i = 0; i < specs.length; i++) {
+      const aspec = specs[i];
+      const stateKey = deduplicateKey(
+        (typeof aspec === 'object' ? (aspec as Record<string, unknown>).key as string : undefined) || genActionKey(aspec),
+        usedKeys,
+      );
+      const uid = stateGroup[stateKey]?.uid;
+      if (uid) {
+        try { await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, { uid, sortIndex: i }); } catch { /* best effort */ }
+      }
     }
-  }
-  // record actions
-  const recActs = bs.recordActions || [];
-  const recState = blockState.record_actions || {};
-  for (let i = 0; i < recActs.length; i++) {
-    const aspec = recActs[i];
-    const key = typeof aspec === 'string' ? aspec : (aspec as Record<string, unknown>).key as string || (aspec as Record<string, unknown>).type as string;
-    const uid = recState[key]?.uid;
-    if (uid) {
-      try { await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, { uid, sortIndex: i }); } catch { /* best effort */ }
-    }
-  }
+  };
+
+  if (bs.actions?.length) await reorder(bs.actions as any[], blockState.actions || {});
+  if (bs.recordActions?.length) await reorder(bs.recordActions as any[], blockState.record_actions || {});
 }
 
 // ── Compact action format builders ──
