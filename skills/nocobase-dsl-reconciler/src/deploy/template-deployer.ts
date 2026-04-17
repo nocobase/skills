@@ -496,10 +496,14 @@ export async function deployTemplates(
     const stateKey = `${tpl.type}:${tpl.name}`;
     const savedEntry = savedTemplateUids?.[stateKey];
     if (savedEntry?.uid) {
-      // Verify the saved UID still exists in NocoBase
+      // Verify the saved UID still exists in NocoBase AND matches the expected
+      // collection. Without the collection check a stale state.yaml entry could
+      // point at a cross-collection template (e.g. Leads state referencing an
+      // Activity template) and we'd happily reuse the wrong one.
       try {
         const check = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: savedEntry.uid } });
-        if (check.data?.data) {
+        const foundColl = (check.data?.data?.collectionName || '') as string;
+        if (check.data?.data && (!collName || !foundColl || foundColl === collName)) {
           uidMap.set(tpl.uid, savedEntry.uid);
           if (tpl.targetUid && savedEntry.targetUid) uidMap.set(tpl.targetUid, savedEntry.targetUid);
           // Sync content
@@ -523,7 +527,13 @@ export async function deployTemplates(
     // Priority 2: Match by name + collection (fallback)
     // In copy mode: skip reuse — always create independent templates
     const matchKey = makeMatchKey(tpl.name, collName);
-    const existingEntry = copyMode ? undefined : (existingByKey.get(matchKey) || existingByName.get(tpl.name));
+    // Use the strict (name+collection) match first; only fall back to name-only
+    // when the name-only hit ALSO belongs to the right collection (prevents
+    // cross-collection pollution when multiple templates share the same name).
+    const nameFallback = existingByName.get(tpl.name);
+    const nameFallbackSafe = nameFallback && (!collName || !nameFallback.collectionName || nameFallback.collectionName === collName)
+      ? nameFallback : undefined;
+    const existingEntry = copyMode ? undefined : (existingByKey.get(matchKey) || nameFallbackSafe);
     if (existingEntry) {
       uidMap.set(tpl.uid, existingEntry.uid);
       if (tpl.targetUid && existingEntry.targetUid) {
@@ -923,10 +933,12 @@ export async function convertPopupToTemplate(
     }
 
     // Priority: if state.yaml saved a UID for this popup, try to reuse it first
+    // — but only when the saved template matches the expected collection.
     if (savedPopupUid) {
       try {
         const check = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: savedPopupUid } });
-        if (check.data?.data) {
+        const savedColl = (check.data?.data?.collectionName || '') as string;
+        if (check.data?.data && (!collName || !savedColl || savedColl === collName)) {
           const reuseUid = savedPopupUid;
           const reuseTargetUid = check.data.data.targetUid || '';
           log(`    = popup template: ${name} (reused from state: ${reuseUid.slice(0, 8)})`);
