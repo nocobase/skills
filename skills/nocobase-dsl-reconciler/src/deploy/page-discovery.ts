@@ -315,6 +315,23 @@ function resolveBlockRefs(blocks: unknown[], projectRoot: string): unknown[] {
 
     try {
       const template = loadYaml<Record<string, unknown>>(absPath);
+
+      // When the ref'd file is a template definition (has uid + type: block/popup at top
+      // level) AND the block declared key === 'reference', produce a templateRef instead
+      // of inlining the content. Inlining a template that was originally exported from a
+      // popup context (binding: currentRecord) into a regular page tab causes NocoBase
+      // to 400 on compose ("resource.binding only works on popup collection blocks").
+      const extraKey = (extra as Record<string, unknown>).key;
+      if (extraKey === 'reference' && template.uid && template.type === 'block') {
+        return {
+          type: 'reference',
+          key: 'reference',
+          templateRef: { templateUid: template.uid, mode: 'reference' },
+          coll: (template.collectionName as string) || undefined,
+          _fromRef: refPath,
+        };
+      }
+
       const content = (template.content && typeof template.content === 'object')
         ? template.content as Record<string, unknown>
         : template;
