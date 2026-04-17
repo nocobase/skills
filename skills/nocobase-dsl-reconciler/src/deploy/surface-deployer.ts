@@ -219,60 +219,85 @@ export async function deploySurface(
   }
 
   // ── Step 1: Compose missing block shells ──
-  const composeBlocks: Record<string, unknown>[] = [];
+  // Two-pass compose: NocoBase's filterForm requires defaultTargetUid for each
+  // field when the page has multiple candidate target blocks (tables/references).
+  // Pass 1 composes non-filterForm shells; pass 2 composes filterForms once we
+  // know the table UIDs and can pin each filter field to a default target.
+  const composeByKey = new Map<string, { bs: BlockSpec; spec: Record<string, unknown> }>();
   for (const bs of blocksSpec) {
     const key = bs.key || bs.type;
     if (key in existing) continue;  // already exists — skip compose (force handles via fillBlock)
     const cb = toComposeBlock(bs, coll);
-    if (cb) composeBlocks.push(cb);
+    if (cb) composeByKey.set(key, { bs, spec: cb });
   }
 
-  if (composeBlocks.length) {
-    try {
-      const mode = Object.keys(existing).length ? 'append' : 'replace';
-      log(`    composing ${composeBlocks.length} blocks (mode: ${mode}): ${composeBlocks.map((b: any) => b.key).join(', ')}`);
-      const result = await nb.surfaces.compose(tabUid, composeBlocks, mode as 'replace' | 'append');
-      const composed = result.blocks || [];
-      log(`    composed ${composed.length} block shells: ${composed.map((b: any) => b.key + '=' + b.uid?.slice(0, 6)).join(', ')}`);
-
-      // Map compose results to spec keys (must match compose input: skip existing)
-      let composeIdx = 0;
-      for (const bs of blocksSpec) {
-        const key = bs.key || bs.type;
-        if (key in existing) continue;  // existing blocks were NOT sent to compose
-        const cb = toComposeBlock(bs, coll);
-        if (!cb) continue;
-        if (composeIdx < composed.length) {
-          const cr = composed[composeIdx];
-          const entry: BlockState = {
-            uid: cr.uid,
-            type: cr.type,
-            grid_uid: cr.gridUid || '',
+  const absorbResult = (composed: any[], keys: string[]) => {
+    for (let i = 0; i < composed.length && i < keys.length; i++) {
+      const cr = composed[i];
+      const key = keys[i];
+      const entry: BlockState = {
+        uid: cr.uid,
+        type: cr.type,
+        grid_uid: cr.gridUid || '',
+      };
+      if (cr.fields?.length) {
+        entry.fields = {};
+        for (const f of cr.fields) {
+          entry.fields[f.fieldPath || f.key] = {
+            wrapper: f.wrapperUid || f.uid,
+            field: f.fieldUid || '',
           };
-          // Track field UIDs
-          if (cr.fields?.length) {
-            entry.fields = {};
-            for (const f of cr.fields) {
-              entry.fields[f.fieldPath || f.key] = {
-                wrapper: f.wrapperUid || f.uid,
-                field: f.fieldUid || '',
-              };
-            }
-          }
-          // Track action UIDs
-          for (const ak of ['actions', 'recordActions'] as const) {
-            const crActs = cr[ak];
-            if (crActs?.length) {
-              const stateKey = ak === 'recordActions' ? 'record_actions' : 'actions';
-              (entry as unknown as Record<string, unknown>)[stateKey] = {};
-              for (const a of crActs) {
-                ((entry as unknown as Record<string, unknown>)[stateKey] as Record<string, { uid: string }>)[a.key || a.type] = { uid: a.uid };
-              }
-            }
-          }
-          blocksState[key] = entry;
-          composeIdx++;
         }
+      }
+      for (const ak of ['actions', 'recordActions'] as const) {
+        const crActs = cr[ak];
+        if (crActs?.length) {
+          const stateKey = ak === 'recordActions' ? 'record_actions' : 'actions';
+          (entry as unknown as Record<string, unknown>)[stateKey] = {};
+          for (const a of crActs) {
+            ((entry as unknown as Record<string, unknown>)[stateKey] as Record<string, { uid: string }>)[a.key || a.type] = { uid: a.uid };
+          }
+        }
+      }
+      blocksState[key] = entry;
+    }
+  };
+
+  if (composeByKey.size) {
+    try {
+      // Split: filterForms composed LAST (need table UIDs for defaultTargetUid)
+      const firstPass: Array<{ key: string; spec: Record<string, unknown> }> = [];
+      const filterForms: Array<{ key: string; bs: BlockSpec; spec: Record<string, unknown> }> = [];
+      for (const [key, entry] of composeByKey) {
+        if (entry.bs.type === 'filterForm') filterForms.push({ key, ...entry });
+        else firstPass.push({ key, spec: entry.spec });
+      }
+
+      let modeForFirst: 'replace' | 'append' = Object.keys(existing).length ? 'append' : 'replace';
+      if (firstPass.length) {
+        log(`    composing ${firstPass.length} blocks (mode: ${modeForFirst}): ${firstPass.map(b => (b.spec as any).key).join(', ')}`);
+        const result = await nb.surfaces.compose(tabUid, firstPass.map(b => b.spec), modeForFirst);
+        const composed = result.blocks || [];
+        log(`    composed ${composed.length} block shells: ${composed.map((b: any) => b.key + '=' + b.uid?.slice(0, 6)).join(', ')}`);
+        absorbResult(composed, firstPass.map(b => b.key));
+        modeForFirst = 'append';  // subsequent calls must append
+      }
+
+      if (filterForms.length) {
+        // Pick defaultTargetUid = first table/reference block UID available
+        const existingTargetUid = Object.values(blocksState)
+          .find(b => (b.type === 'table' || b.type === 'reference') && b.uid)?.uid;
+        if (existingTargetUid) {
+          for (const ff of filterForms) {
+            const fields = (ff.spec.fields as Array<Record<string, unknown>> | undefined) || [];
+            for (const f of fields) f.defaultTargetUid = existingTargetUid;
+          }
+        }
+        log(`    composing ${filterForms.length} filterForm(s) (mode: ${modeForFirst})${existingTargetUid ? `, default target=${existingTargetUid.slice(0, 6)}` : ''}`);
+        const result2 = await nb.surfaces.compose(tabUid, filterForms.map(f => f.spec), modeForFirst);
+        const composed2 = result2.blocks || [];
+        log(`    composed ${composed2.length} filterForm shells: ${composed2.map((b: any) => b.key + '=' + b.uid?.slice(0, 6)).join(', ')}`);
+        absorbResult(composed2, filterForms.map(f => f.key));
       }
 
       // ── Step 2: Fill each NEW composable block with content ──
