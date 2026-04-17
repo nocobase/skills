@@ -25,6 +25,25 @@ export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:1
 
 List collections, fields, and relationships. Wait for user confirmation before proceeding. Refer to the `nocobase-data-modeling` skill for data modeling details.
 
+### Round 0.5: Session setup (for whoever launches the agent)
+
+If you are spawning a sub-agent (kimi TUI, Claude Code subprocess, etc.) to
+run this skill, the agent's process CWD becomes its default file write
+target. Set that BEFORE launching:
+
+```bash
+mkdir -p <user-workdir>          # idempotent
+cd <user-workdir>                # session inherits this
+kimi --yolo                      # or claude, codex, etc.
+```
+
+If you skip the cd, the agent inherits whatever CWD the launcher had
+(often a parent project root) and starts creating files / running
+`npx create-*-app` there — the wrong place. **The agent itself can't
+recover from this** because by the time it reads the prompt, its CWD is
+already wrong; it'll either pollute the parent or get confused trying to
+`cd` mid-session.
+
 ### Round 1: Create Files + Deploy
 
 1. **Working directory**: use the **path the user gave you**. If they didn't
