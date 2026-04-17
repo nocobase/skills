@@ -814,15 +814,18 @@ async function cmdDuplicateProject(args: string[]) {
   const src = args[0];
   const dst = args[1];
   if (!src || !dst) {
-    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--force]\n\n  --key-suffix    Append to every route key so the duplicate deploys as a separate menu entry.\n                  Titles are NOT changed — edit routes.yaml manually for display text.');
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--force]\n\n  --key-suffix    Append to every route key so the duplicate is a separate identity.\n  --title-prefix  Prepend to every top-level title so push won\'t adopt a same-titled live group.\n                  Use BOTH for a clean isolated duplicate (recommended).');
     process.exit(1);
   }
   const sufIdx = args.indexOf('--key-suffix');
   const keySuffix = sufIdx >= 0 ? args[sufIdx + 1] : undefined;
+  const tpIdx = args.indexOf('--title-prefix');
+  const titlePrefix = tpIdx >= 0 ? args[tpIdx + 1] : undefined;
   const force = args.includes('--force');
   const { duplicateProject } = await import('../duplicate/duplicate-project');
-  console.log(`\n  Duplicating ${src} → ${dst}${keySuffix ? ` (key suffix: ${keySuffix})` : ''}`);
-  const r = await duplicateProject({ source: src, target: dst, keySuffix, force });
+  const tags = [keySuffix && `key suffix: ${keySuffix}`, titlePrefix && `title prefix: ${titlePrefix}`].filter(Boolean).join(', ');
+  console.log(`\n  Duplicating ${src} → ${dst}${tags ? ` (${tags})` : ''}`);
+  const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, force });
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
   if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
   console.log(`\n  Next: cd ${dst} && git init && git add -A && git commit -m "duplicate"`);

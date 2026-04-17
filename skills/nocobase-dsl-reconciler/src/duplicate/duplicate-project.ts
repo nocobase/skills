@@ -18,9 +18,14 @@ export interface DuplicateOptions {
   source: string;
   target: string;
   /** Suffix appended to every route key (and matching page dir name) to keep
-   *  the duplicate isolated from the source in NocoBase. Title is left alone —
-   *  edit routes.yaml manually if you want different display text. */
+   *  the duplicate isolated from the source in NocoBase. */
   keySuffix?: string;
+  /** Prefix prepended to every route title. Use this to avoid the "邻居寄生"
+   *  problem: when state.yaml is empty (fresh duplicate) and a live group
+   *  shares the same title as a source route, push will adopt that live
+   *  group instead of creating a new one. A unique title prefix forces
+   *  creation of a separate group tree. */
+  titlePrefix?: string;
   /** Wipe the target dir if it exists. Without this, fail on conflict. */
   force?: boolean;
 }
@@ -117,25 +122,36 @@ function rewriteString(s: string, map: Map<string, string>): string {
   return out;
 }
 
-/** Walk routes.yaml and append the suffix to every route key so the
- *  duplicated module deploys as separate menu entries from the source.
- *  Returns the old→new key mapping so directory renames can use it. */
-function reassignKeys(routesObj: unknown, suffix: string): Map<string, string> {
+/** Walk routes.yaml and rewrite every route's identity. Returns the
+ *  old→new key mapping so directory renames can use it. Title prefix is
+ *  applied per-route (not nested) so "Main" → "CCD - Main" but a child
+ *  "Overview" stays "Overview" — title hierarchy mirrors menu hierarchy
+ *  rather than getting "CCD - CCD - " stacked. */
+function reassignIdentity(
+  routesObj: unknown,
+  keySuffix?: string,
+  titlePrefix?: string,
+): Map<string, string> {
   const keyMap = new Map<string, string>();
   if (!Array.isArray(routesObj)) return keyMap;
-  const walk = (node: unknown): void => {
+  const walk = (node: unknown, depth: number): void => {
     if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) { for (const x of node) walk(x); return; }
+    if (Array.isArray(node)) { for (const x of node) walk(x, depth); return; }
     const o = node as Record<string, unknown>;
     if (typeof o.title === 'string') {
-      const oldKey = (typeof o.key === 'string' && o.key) || slugify(o.title);
-      const newKey = `${oldKey}${suffix}`;
-      keyMap.set(oldKey, newKey);
-      o.key = newKey;
+      if (keySuffix) {
+        const oldKey = (typeof o.key === 'string' && o.key) || slugify(o.title);
+        const newKey = `${oldKey}${keySuffix}`;
+        keyMap.set(oldKey, newKey);
+        o.key = newKey;
+      }
+      // Only prefix top-level titles. Children inherit uniqueness from being
+      // nested under the prefixed parent group.
+      if (titlePrefix && depth === 0) o.title = `${titlePrefix}${o.title}`;
     }
-    if (Array.isArray(o.children)) for (const c of o.children) walk(c);
+    if (Array.isArray(o.children)) for (const c of o.children) walk(c, depth + 1);
   };
-  for (const r of routesObj) walk(r);
+  for (const r of routesObj) walk(r, 0);
   return keyMap;
 }
 
@@ -211,13 +227,13 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     try { collectUids(loadYaml<unknown>(file), uidMap); } catch { /* skip bad yaml */ }
   }
 
-  // 3. If --key-suffix, rewrite routes.yaml keys first so we know the
-  //    old→new mapping before page dirs are renamed.
+  // 3. If --key-suffix or --title-prefix, rewrite routes.yaml first so we
+  //    know the old→new key mapping before page dirs are renamed.
   let keyMap = new Map<string, string>();
   const routesFile = path.join(dst, 'routes.yaml');
-  if (opts.keySuffix && fs.existsSync(routesFile)) {
+  if ((opts.keySuffix || opts.titlePrefix) && fs.existsSync(routesFile)) {
     const routesObj = loadYaml<unknown>(routesFile);
-    keyMap = reassignKeys(routesObj, opts.keySuffix);
+    keyMap = reassignIdentity(routesObj, opts.keySuffix, opts.titlePrefix);
     saveYaml(routesFile, routesObj);
   }
 
