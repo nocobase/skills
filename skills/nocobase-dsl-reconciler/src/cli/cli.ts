@@ -312,22 +312,26 @@ async function cmdDeployProject(args: string[]) {
     } catch { /* not a git repo — skip all git operations */ }
   }
 
-  // ── Step 1: Pre-deploy snapshot (rollback point) ──
+  const targetGroup = group || autoDetectGroup(absDir);
+
+  // ── Step 1: Pre-deploy ──
   if (isGit) {
-    await gitSnapshot(absDir, mainBranch);
+    if (targetGroup && fs.existsSync(path.join(absDir, 'state.yaml'))) {
+      // Incremental deploy: export live state first (capture UI changes)
+      await preDeployExport(absDir, targetGroup, mainBranch);
+    } else {
+      // First deploy: just snapshot local YAML
+      await gitSnapshot(absDir, mainBranch);
+    }
   }
 
   // ── Step 2: Deploy ──
   await deployProject(absDir, { force, planOnly, group, page, blueprint, copyMode });
   if (planOnly) return;
 
-  // ── Step 3-6: Post-deploy sync (export + diff — mandatory for git repos) ──
-  if (isGit) {
-    // Resolve group: explicit --group, or auto-detect from routes.yaml
-    const targetGroup = group || autoDetectGroup(absDir);
-    if (targetGroup) {
-      await deploySyncWorktree(absDir, targetGroup, mainBranch);
-    }
+  // ── Step 3: Post-deploy sync (export + diff — mandatory for git repos) ──
+  if (isGit && targetGroup) {
+    await deploySyncWorktree(absDir, targetGroup, mainBranch);
   }
 }
 
@@ -344,6 +348,80 @@ function autoDetectGroup(projectDir: string): string {
     }
   } catch { /* skip */ }
   return '';
+}
+
+/**
+ * Pre-deploy: export live NocoBase state to a worktree BEFORE deploying.
+ *
+ * If user modified pages in the NocoBase UI since last deploy, those changes
+ * are captured in the pre-deploy-live branch. The deploy still runs from the
+ * main branch YAML, but the user can compare/merge the live state afterwards.
+ *
+ * Flow:
+ *   1. Commit local YAML changes (rollback point)
+ *   2. Export live state to worktree (pre-deploy-live branch)
+ *   3. Show diff: local YAML vs live NocoBase
+ *   4. Proceed with deploy from local YAML
+ */
+async function preDeployExport(absDir: string, group: string, mainBranch: string): Promise<void> {
+  const { execSync } = await import('node:child_process');
+
+  // Skip for first deploy (no state.yaml = nothing deployed yet)
+  if (!fs.existsSync(path.join(absDir, 'state.yaml'))) return;
+
+  try {
+    // Commit any pending local changes first (rollback point)
+    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
+    const localStatus = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    if (localStatus) {
+      execSync('git commit -m "pre-deploy snapshot"', { cwd: absDir, stdio: 'pipe' });
+      console.log('  git: pre-deploy snapshot saved');
+    }
+
+    // Export live state to worktree
+    const liveBranch = 'pre-deploy-live';
+    const wtDir = absDir + '-live';
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    execSync(`git worktree add "${wtDir}" -b ${liveBranch}`, { cwd: absDir, stdio: 'pipe' });
+
+    // Copy state.yaml so export can match UIDs
+    const stateFile = path.join(absDir, 'state.yaml');
+    if (fs.existsSync(stateFile)) fs.copyFileSync(stateFile, path.join(wtDir, 'state.yaml'));
+
+    const nb = await NocoBaseClient.create();
+    await exportProject(nb, { outDir: wtDir, group });
+
+    execSync('git add -A', { cwd: wtDir, stdio: 'pipe' });
+    const liveStatus = execSync('git status --porcelain', { cwd: wtDir, stdio: 'pipe' }).toString().trim();
+    if (liveStatus) {
+      execSync('git commit -m "pre-deploy: live state"', { cwd: wtDir, stdio: 'pipe' });
+    }
+
+    // Show diff: local YAML vs live NocoBase
+    const diff = execSync(
+      `git diff --stat ${mainBranch}..${liveBranch} -- pages/ ":(exclude)**/page.yaml" ":(exclude)**/_refs.yaml"`,
+      { cwd: absDir, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+    ).trim();
+
+    if (diff) {
+      const lines = diff.split('\n');
+      console.log(`\n  ⚠ Live state differs from local DSL (${lines.length - 1} files):`);
+      console.log(lines.slice(0, 10).map(l => '    ' + l).join('\n'));
+      if (lines.length > 11) console.log(`    ... and ${lines.length - 11} more`);
+      console.log(`  To review:  git diff ${mainBranch}..${liveBranch}`);
+      console.log(`  To adopt:   git merge ${liveBranch}`);
+      console.log('  Proceeding with deploy from local DSL...\n');
+    }
+
+    // Cleanup worktree (branch preserved)
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    if (!diff) {
+      try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    }
+  } catch (e) {
+    console.log('  ! pre-deploy sync: ' + (e instanceof Error ? e.message.slice(0, 60) : e));
+  }
 }
 
 /** Step 1: Commit current state as rollback point. */
