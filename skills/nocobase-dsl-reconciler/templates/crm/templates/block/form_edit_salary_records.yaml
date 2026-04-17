@@ -1,0 +1,37 @@
+uid: r7pc2o30x03
+name: 'Form (Edit): Salary Records'
+type: block
+collectionName: nb_hrm_salary_records
+dataSourceKey: main
+targetUid: 0tip5wcysos
+description: 'Form (Edit): Salary Records'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_hrm_salary_records
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - employee
+    - salary_month
+    - base_salary
+    - bonus
+    - deduction
+    - total_salary
+    - status
+    - paid_at
+    - remark
+  field_layout:
+    - '--- Salary Info ---'
+    - - employee
+      - salary_month
+    - - base_salary
+      - bonus
+    - - deduction
+      - total_salary
+    - - status
+      - paid_at
+    - '--- Remark ---'
+    - - remark
+  actions:
+    - submit

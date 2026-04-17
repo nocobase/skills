@@ -1,44 +1,56 @@
 popups:
-  nb_crm_leads: templates/popup/leads_view.yaml
-  nb_crm_activities: templates/popup/activity_view.yaml
-  nb_erp_products: templates/popup/popup_detail_nb_erp_products.yaml
-  nb_crm_customers: templates/popup/customer_view.yaml
-  nb_pm_members: templates/popup/popup_detail_nb_pm_members.yaml
-  nb_pm_projects: templates/popup/popup_detail_nb_pm_projects.yaml
-  nb_erp_purchase_orders: templates/popup/popup_detail_nb_erp_purchase_orders.yaml
-  nb_erp_warehouses: templates/popup/popup_detail_warehouses.yaml
-  nb_pm_tasks: templates/popup/popup_detail_nb_pm_tasks.yaml
-  nb_erp_categories: templates/popup/popup_detail_categories.yaml
-  nb_crm_contacts: templates/popup/contacts_view_in_page.yaml
   nb_crm_opportunities: templates/popup/opportunity_view.yaml
-  nb_erp_suppliers: templates/popup/popup_detail_suppliers.yaml
-  nb_pm_milestones: templates/popup/popup_detail_nb_pm_milestones.yaml
-  nb_pm_time_entries: templates/popup/popup_detail_nb_pm_time_entries.yaml
-  nb_erp_inventory: templates/popup/popup_detail_nb_erp_inventory.yaml
-  nb_erp_po_items: templates/popup/popup_detail_nb_erp_po_items.yaml
+  nb_pm_projects: templates/popup/popup_detail_projects.yaml
+  nb_pm_members: templates/popup/popup_detail_members.yaml
+  nb_crm_contacts: templates/popup/popup_add_new_contacts.yaml
+  nb_crm_customers: templates/popup/popup_add_new_customers.yaml
+  nb_cbo_currencies: templates/popup/popup_detail_currencies.yaml
+  nb_pm_tasks: templates/popup/popup_detail_tasks.yaml
+  nb_crm_leads: templates/popup/popup_add_new_leads.yaml
+  nb_crm_products: templates/popup/popup_detail_products.yaml
+  nb_crm_data_analysis: templates/popup/popup_add_new_analysis.yaml
+  nb_crm_activities: templates/popup/popup_add_new_activities.yaml
+  nb_crm_opportunity_stages: templates/popup/popup_add_new_stages.yaml
+  nb_erp_warehouses: templates/popup/popup_add_new_warehouses.yaml
+  nb_erp_suppliers: templates/popup/popup_add_new_suppliers.yaml
+  nb_pm_milestones: templates/popup/popup_edit_milestones.yaml
+  nb_pm_time_entries: templates/popup/popup_edit_entries.yaml
+  nb_hrm_attendance: templates/popup/popup_add_new_attendance.yaml
+  nb_pm_risks: templates/popup/popup_add_new_risks.yaml
+  nb_hrm_performance_reviews: templates/popup/popup_add_new_reviews.yaml
+  nb_hrm_employees: templates/popup/popup_edit_employees.yaml
+  nb_hrm_departments: templates/popup/popup_edit_departments.yaml
+  nb_hrm_payroll: templates/popup/popup_detail_payroll.yaml
+  nb_lt_tasks: templates/popup/popup_edit_tasks.yaml
+  nb_crm_exchange_rates: templates/popup/popup_detail_currencies.yaml
+  nb_pm_team_members: templates/popup/popup_add_new_members.yaml
+  nb_erp_purchase_orders: templates/popup/popup_edit_orders.yaml
+  nb_erp_categories: templates/popup/popup_edit_categories.yaml
 forms:
-  nb_crm_activities: templates/block/form_add_new_activities.yaml
-  nb_crm_products: templates/block/form_add_new_nb_crm_products.yaml
   nb_crm_leads: templates/block/form_add_new_nb_crm_leads.yaml
-  nb_crm_customers: templates/block/form_add_new_nb_crm_customers.yaml
-  nb_crm_quotations: templates/block/form_add_new_opportunities_quotations_quotations.yaml
   nb_crm_opportunities: templates/block/form_add_new_opportunities.yaml
-  nb_crm_orders: templates/block/form_add_new_new_orders_from_quotations.yaml
   nb_crm_opportunity_stages: templates/block/form_add_new_nb_crm_opportunity_stages.yaml
-  nb_cbo_currencies: templates/block/form_add_new_currencies.yaml
-  nb_pm_members: templates/block/form_add_new_members.yaml
-  nb_pm_tasks: templates/block/form_add_new_tasks.yaml
-  nb_crm_exchange_rates: templates/block/form_add_new_exchange_rates.yaml
-  nb_pm_milestones: templates/block/form_add_new_milestones.yaml
-  nb_pm_time_entries: templates/block/form_add_new_time_entries.yaml
-  nb_erp_products: templates/block/form_add_new_products.yaml
   nb_pm_projects: templates/block/form_add_new_projects.yaml
-  nb_erp_po_items: templates/block/form_add_new_po_items.yaml
-  nb_erp_inventory: templates/block/form_add_new_inventory.yaml
-  nb_erp_purchase_orders: templates/block/form_add_new_purchase_orders.yaml
+  nb_pm_members: templates/block/form_add_new_team_members.yaml
+  nb_crm_contacts: templates/block/form_add_new_contacts.yaml
+  nb_cbo_currencies: templates/block/form_add_new_currencies.yaml
+  nb_pm_milestones: templates/block/form_add_new_milestones.yaml
+  nb_crm_customers: templates/block/form_add_new_nb_crm_customers.yaml
+  nb_crm_products: templates/block/form_add_new_nb_crm_products.yaml
+  nb_hrm_leave_requests: templates/block/form_add_new_leave_requests.yaml
+  nb_pm_risks: templates/block/form_add_new_risks.yaml
+  nb_pm_team_members: templates/block/form_add_new_members.yaml
+  nb_crm_exchange_rates: templates/block/form_add_new_exchange_rates.yaml
   nb_erp_suppliers: templates/block/form_add_new_suppliers.yaml
-  nb_erp_categories: templates/block/form_add_new_categories.yaml
   nb_erp_warehouses: templates/block/form_add_new_warehouses.yaml
+  nb_crm_data_analysis: templates/block/form_add_new_analysis.yaml
+  nb_erp_products: templates/block/form_add_new_products.yaml
+  nb_erp_categories: templates/block/form_add_new_categories.yaml
+  nb_pm2_tasks: templates/block/form_add_new_tasks.yaml
+  nb_crm_activities: templates/block/form_add_new_activities.yaml
   nb_test_tasks: templates/block/form_add_new_nb_test_tasks.yaml
+  nb_hrm_salary_records: templates/block/form_add_new_salary_records.yaml
+  nb_erp_purchase_orders: templates/block/form_add_new_orders.yaml
+  nb_pm2_projects: templates/block/form_add_new_projects.yaml
   nb_test_projects: templates/block/form_add_new_nb_test_projects.yaml
-  nb_pm_bugs: templates/block/form_add_new_bugs.yaml
+  nb_crm_orders: templates/block/form_add_new_new_orders_from_quotations.yaml

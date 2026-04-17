@@ -1,0 +1,13 @@
+uid: wmmcy2qzoxx
+name: 'Popup (Edit): Analysis'
+type: popup
+collectionName: nb_crm_data_analysis
+dataSourceKey: main
+targetUid: wrjodn7ntb5
+description: 'Popup (Edit): Analysis'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

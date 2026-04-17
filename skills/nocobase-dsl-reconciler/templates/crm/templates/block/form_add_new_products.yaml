@@ -1,29 +1,48 @@
-uid: syf8jo7to5f
+uid: rnh8x7w0la8
 name: 'Form (Add new): Products'
 type: block
 collectionName: nb_erp_products
 dataSourceKey: main
-targetUid: e00evvwrxyg
-description: 'Form (Add new): Products'
+targetUid: fj30aucbiur
 content:
   key: createForm
   type: createForm
-  coll: nb_erp_products
+  coll: nb_crm_products
   fields:
-    - name
-    - sku
-    - price
-    - category
+    - specification
+    - unit
+    - has_tiered_pricing
+    - active
+    - is_archived
     - stock_qty
-    - status
+    - description
+    - product_family
+    - list_price
+    - min_price
+    - extra
+    - name
+    - cost_price
+    - base_currency
+    - category
   field_layout:
-    - '--- Basic Info ---'
+    - '--- {{t("Basic Info", { ns: "resources.lm-flow-engine" })}} ---'
     - - name
-      - sku
     - - category
-      - status
-    - '--- Stock & Price ---'
-    - - price
-      - stock_qty
+      - product_family
+    - - description
+    - '--- Specifications ---'
+    - - specification
+      - unit
+    - '--- Pricing ---'
+    - - base_currency
+    - - list_price
+      - cost_price
+      - min_price
+    - - has_tiered_pricing
+    - - active
+    - - is_archived
+    - - stock_qty
+    - - extra
   actions:
+    - submit
     - submit

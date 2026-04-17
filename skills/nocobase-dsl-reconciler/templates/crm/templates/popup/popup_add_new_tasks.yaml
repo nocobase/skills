@@ -1,0 +1,13 @@
+uid: zm6s8pkq10z
+name: 'Popup (Add new): Tasks'
+type: popup
+collectionName: nb_pm2_tasks
+dataSourceKey: main
+targetUid: w8iekzspv5g
+description: 'Popup (Add new): Tasks'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

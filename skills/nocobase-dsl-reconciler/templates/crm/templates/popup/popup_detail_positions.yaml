@@ -1,0 +1,13 @@
+uid: zgc0x4hiopm
+name: 'Popup (Detail): Positions'
+type: popup
+collectionName: nb_hrm_positions
+dataSourceKey: main
+targetUid: j63g036mcv6
+description: 'Popup (Detail): Positions'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

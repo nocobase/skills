@@ -1,19 +1,20 @@
-uid: yak2gvfn8gc
+uid: nahehx62yn5
 name: 'Form (Edit): Tasks'
 type: block
 collectionName: nb_pm_tasks
 dataSourceKey: main
-targetUid: h16z4cpfkbf
+targetUid: 7pax6bupfpl
 description: 'Form (Edit): Tasks'
 content:
   key: editForm
   type: editForm
   coll: nb_pm_tasks
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - project
     - assignee
-    - milestone
     - status
     - priority
     - due_date
@@ -25,12 +26,10 @@ content:
     - - description
     - '--- Assignment ---'
     - - project
-      - milestone
-    - - assignee
-    - '--- Status ---'
+      - assignee
+    - '--- Planning ---'
     - - status
       - priority
-    - '--- Planning ---'
     - - due_date
       - estimated_hours
   actions:

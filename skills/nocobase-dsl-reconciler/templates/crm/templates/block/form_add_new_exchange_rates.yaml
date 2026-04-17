@@ -1,9 +1,10 @@
-uid: ls0z7rdsrs3
+uid: ynhg0k2i633
 name: 'Form (Add new): Exchange Rates'
 type: block
 collectionName: nb_crm_exchange_rates
 dataSourceKey: main
-targetUid: 0da9d0a6105
+targetUid: g1hvk9ugwy9
+description: 'Form (Add new): Exchange Rates'
 content:
   key: createForm
   type: createForm

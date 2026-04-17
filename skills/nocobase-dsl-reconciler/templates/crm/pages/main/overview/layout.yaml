@@ -14,7 +14,7 @@ blocks:
     pageSize: 5
     fields:
       - field: name
-        clickToOpen: true
+        clickToOpen: templates/popup/leads_view.yaml
       - field: ai_next_best_action
         width: 300
       - updatedAt
@@ -49,7 +49,7 @@ blocks:
     pageSize: 5
     fields:
       - field: subject
-        clickToOpen: true
+        clickToOpen: templates/popup/activity_view.yaml
       - activity_date
     recordActions:
       - type: updateRecord

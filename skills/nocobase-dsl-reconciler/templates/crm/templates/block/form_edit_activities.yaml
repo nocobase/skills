@@ -1,0 +1,55 @@
+uid: h8a4f6f5h0g
+name: 'Form (Edit): Activities'
+type: block
+collectionName: nb_crm_activities
+dataSourceKey: main
+targetUid: k8ab7gcyh8x
+content:
+  key: editForm
+  type: editForm
+  coll: nb_crm_activities
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - mail_message_id
+    - subject
+    - type
+    - content
+    - activity_date
+    - duration
+    - extra
+    - ai_summary
+    - ai_next_action
+    - reminder_at
+    - ai_sentiment
+    - is_completed
+    - lead
+    - customer
+    - opportunity
+    - owner
+    - contact
+  field_layout:
+    - - subject
+    - - type
+      - activity_date
+    - - content
+    - - col:
+          - customer
+          - lead
+        size: 8
+      - col:
+          - opportunity
+          - owner
+        size: 8
+      - contact
+    - - mail_message_id
+    - - duration
+    - - extra
+    - - ai_summary
+    - - ai_next_action
+    - - reminder_at
+    - - ai_sentiment
+    - - is_completed
+  actions:
+    - submit
+    - submit

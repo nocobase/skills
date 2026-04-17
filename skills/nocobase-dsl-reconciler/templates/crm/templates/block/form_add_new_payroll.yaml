@@ -1,0 +1,36 @@
+uid: rggnwjh1xmq
+name: 'Form (Add new): Payroll'
+type: block
+collectionName: nb_hrm_payroll
+dataSourceKey: main
+targetUid: p1x7mkmdbwx
+description: 'Form (Add new): Payroll'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hrm_payroll
+  fields:
+    - payroll_code
+    - employee
+    - pay_period
+    - base_salary
+    - allowance
+    - bonus
+    - deduction
+    - net_pay
+    - payment_status
+    - payment_date
+  field_layout:
+    - '--- Payroll Run ---'
+    - - payroll_code
+      - employee
+    - - pay_period
+      - payment_status
+    - - base_salary
+      - allowance
+    - - bonus
+      - deduction
+    - - net_pay
+      - payment_date
+  actions:
+    - submit

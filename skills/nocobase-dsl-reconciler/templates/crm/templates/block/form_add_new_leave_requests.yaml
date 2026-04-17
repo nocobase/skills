@@ -1,0 +1,34 @@
+uid: a19mb3ukwqi
+name: 'Form (Add new): Leave Requests'
+type: block
+collectionName: nb_hrm_leave_requests
+dataSourceKey: main
+targetUid: 9g66n96o7jz
+description: 'Form (Add new): Leave Requests'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hrm_leave_requests
+  fields:
+    - request_code
+    - employee
+    - leave_type
+    - start_date
+    - end_date
+    - days_requested
+    - status
+    - approver_name
+    - reason
+  field_layout:
+    - '--- Leave Request ---'
+    - - request_code
+      - employee
+    - - leave_type
+      - status
+    - - start_date
+      - end_date
+    - - days_requested
+      - approver_name
+    - - reason
+  actions:
+    - submit

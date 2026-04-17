@@ -1,0 +1,31 @@
+uid: ya7uis13opc
+name: 'Form (Edit): Risks'
+type: block
+collectionName: nb_pm_risks
+dataSourceKey: main
+targetUid: m1p65rxmtvb
+description: 'Form (Edit): Risks'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_risks
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - project
+    - owner
+    - severity
+    - status
+    - mitigation_plan
+  field_layout:
+    - '--- Risk Info ---'
+    - - name
+      - project
+    - - owner
+      - severity
+    - - status
+    - '--- Mitigation ---'
+    - - mitigation_plan
+  actions:
+    - submit

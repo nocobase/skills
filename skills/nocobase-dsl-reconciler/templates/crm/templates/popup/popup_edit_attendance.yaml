@@ -1,0 +1,13 @@
+uid: rdymk6fzhsd
+name: 'Popup (Edit): Attendance'
+type: popup
+collectionName: nb_hrm_attendance
+dataSourceKey: main
+targetUid: vltdazwxw1s
+description: 'Popup (Edit): Attendance'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,0 +1,13 @@
+uid: twnrszy5ios
+name: 'Popup (Add new): Currencies'
+type: popup
+collectionName: nb_crm_exchange_rates
+dataSourceKey: main
+targetUid: 5rl1y6i68yx
+description: 'Popup (Add new): Currencies'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

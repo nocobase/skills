@@ -64,12 +64,17 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
     }
 
     // Must have at least addNew popup + detail popup template for main table
-    const tableBlocks = allBlocks.filter(b => b.type === 'table');
+    // Skip ref-derived blocks (popups live on the template, not the page)
+    const tableBlocks = allBlocks.filter(b => b.type === 'table' && !(b as Record<string, unknown>)._fromRef);
     for (const tb of tableBlocks) {
       const key = tb.key || 'table';
-      const hasAddNew = page.popups.some(p => p.target?.includes(`${key}.actions.addNew`));
-      if (!hasAddNew) {
-        issues.push({ level: 'error', page: page.title, block: key, message: `table block "${key}" has no addNew popup — create popups/${key}.addNew.yaml` });
+      // Opt-in: only require addNew popup if the DSL declares addNew in actions
+      const hasAddNewAction = (tb.actions || []).some(a =>
+        (typeof a === 'string' ? a : (a as Record<string, unknown>).type) === 'addNew',
+      );
+      const hasAddNewPopup = page.popups.some(p => p.target?.includes(`${key}.actions.addNew`));
+      if (hasAddNewAction && !hasAddNewPopup) {
+        issues.push({ level: 'error', page: page.title, block: key, message: `table "${key}" has addNew action but no addNew popup — create popups/${key}.addNew.yaml` });
       }
 
       // Must have a detail popup (clickToOpen on some field)
@@ -112,9 +117,12 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
           }
         }
       }
-      if (!hasClickToOpen) {
+      // Only require clickToOpen if the table has no other record-level nav (no recordActions at all).
+      // Tables with explicit recordActions (e.g. `type: link` custom detail buttons) don't need clickToOpen.
+      const hasRecordActions = Array.isArray(tb.recordActions) && tb.recordActions.length > 0;
+      if (!hasClickToOpen && !hasRecordActions) {
         const titleField = collTitleFields.get(blockColl) || 'name';
-        issues.push({ level: 'error', page: page.title, block: key, message: `table "${key}" has no clickToOpen field — add "clickToOpen: true" to field "${titleField}" (opens ${blockColl} detail)` });
+        issues.push({ level: 'error', page: page.title, block: key, message: `table "${key}" has no clickToOpen field and no recordActions — add "clickToOpen: true" to field "${titleField}" (opens ${blockColl} detail)` });
       }
 
       // recordActions are opt-in — no warning for tables without them
@@ -185,8 +193,10 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
   }
 
   // ── Rule: block coll must reference an existing collection ──
+  // Warn (not error) — collection might be plugin-provided (e.g., mailMessages) or
+  // an SQL view created outside DSL. Deploy will catch it if truly missing.
   if (bs.coll && knownColls?.size && !knownColls.has(bs.coll)) {
-    issues.push({ level: 'error', page: pageTitle, block: key, message: `collection "${bs.coll}" not found — create collections/${bs.coll}.yaml first` });
+    issues.push({ level: 'warn', page: pageTitle, block: key, message: `collection "${bs.coll}" not in local YAML — create collections/${bs.coll}.yaml if DSL should manage it` });
   }
 
   // ── Rule 1: filterForm MUST have field_layout (grid) ──
@@ -288,15 +298,17 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
   // SQL validation is done post-deploy by verifySqlFromPages (actual execution against DB)
   // No need for pattern matching here
 
-  // ── Rule 4: createForm/editForm/details MUST have field_layout with sections ──
+  // ── Rule 4: createForm/editForm/details should have field_layout with sections ──
+  // Quality rule — warn if missing (AI-authored DSL) but don't block (exported content
+  // or legacy forms may lack sections; deploy still works).
   if (['createForm', 'editForm', 'details'].includes(bs.type)) {
     if (!bs.field_layout || !bs.field_layout.length) {
-      issues.push({ level: 'error', page: pageTitle, block: key, message: `${bs.type} MUST have field_layout with sections (--- Title ---) and grid layout` });
+      issues.push({ level: 'warn', page: pageTitle, block: key, message: `${bs.type} should have field_layout with sections (--- Title ---) and grid layout` });
     } else {
-      // Check: must have at least one section divider
+      // Check: should have at least one section divider
       const hasDivider = bs.field_layout.some(row => typeof row === 'string' && row.startsWith('---'));
       if (!hasDivider) {
-        issues.push({ level: 'error', page: pageTitle, block: key, message: `${bs.type} field_layout must have at least one section divider (--- Section Name ---)` });
+        issues.push({ level: 'warn', page: pageTitle, block: key, message: `${bs.type} field_layout should have at least one section divider (--- Section Name ---)` });
       }
       // Check: no more than 4 fields per row
       for (const row of bs.field_layout) {

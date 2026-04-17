@@ -1,0 +1,13 @@
+uid: saghyavja8i
+name: 'Form (Add new): Contacts'
+type: block
+collectionName: nb_crm_contacts
+dataSourceKey: main
+targetUid: a89kz7xjkeh
+content:
+  key: createForm
+  type: createForm
+  coll: nb_crm_contacts
+  actions:
+    - submit
+    - submit

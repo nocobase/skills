@@ -1,23 +1,18 @@
 name: nb_erp_products
 title: Products
+titleField: name
 fields:
   - name: category_id
     interface: integer
-  - name: inventory_records
-    interface: o2m
   - name: name
     interface: input
-  - name: po_items
-    interface: o2m
-  - name: category
-    interface: m2o
-  - name: categoryId
-    interface: integer
   - name: price
     interface: number
-  - name: status
-    interface: select
   - name: sku
     interface: input
   - name: stock_qty
     interface: integer
+  - name: categoryId
+    interface: integer
+  - name: status
+    interface: select

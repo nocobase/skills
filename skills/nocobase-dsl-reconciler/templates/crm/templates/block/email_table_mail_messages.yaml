@@ -8,6 +8,8 @@ content:
   key: mailMessages
   type: mailMessages
   coll: mailMessages
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   actions:
     - filter
     - refresh

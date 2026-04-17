@@ -1,0 +1,34 @@
+uid: kcfq23dkhfn
+name: 'Detail: Team Members'
+type: block
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: 4jxorit4fnj
+description: 'Detail: Team Members'
+content:
+  key: details
+  type: details
+  coll: nb_pm_members
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - project
+    - member
+    - role_on_project
+    - status
+    - allocation_percent
+    - start_date
+    - end_date
+    - createdAt
+  field_layout:
+    - '--- Assignment ---'
+    - - project
+      - member
+    - - role_on_project
+      - status
+    - '--- Allocation ---'
+    - - allocation_percent
+    - - start_date
+      - end_date
+    - '--- Audit ---'
+    - - createdAt

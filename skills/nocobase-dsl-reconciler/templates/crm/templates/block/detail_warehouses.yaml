@@ -1,14 +1,16 @@
-uid: eak7t164qfb
+uid: jhwz2iab9o1
 name: 'Detail: Warehouses'
 type: block
 collectionName: nb_erp_warehouses
 dataSourceKey: main
-targetUid: 7953d65gy2r
+targetUid: hdisydamzh3
 description: 'Detail: Warehouses'
 content:
   key: details
   type: details
   coll: nb_erp_warehouses
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - location

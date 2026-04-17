@@ -1,0 +1,13 @@
+uid: l30dppvlbk2
+name: 'Popup (Add new): Orders'
+type: popup
+collectionName: nb_erp_purchase_orders
+dataSourceKey: main
+targetUid: 1162hnhvcp8
+description: 'Popup (Add new): Orders'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,0 +1,13 @@
+uid: 0p6pec1ycsi
+name: 'Popup (Detail): Payroll'
+type: popup
+collectionName: nb_hrm_payroll
+dataSourceKey: main
+targetUid: 5i6rjv5cuor
+description: 'Popup (Detail): Payroll'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

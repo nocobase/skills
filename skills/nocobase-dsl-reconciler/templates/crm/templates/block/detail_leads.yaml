@@ -1,0 +1,76 @@
+uid: 70elnp6m3oe
+name: 'Detail: Leads'
+type: block
+collectionName: nb_crm_leads
+dataSourceKey: main
+targetUid: 12btq8xjp5i
+content:
+  key: details
+  type: details
+  coll: nb_crm_leads
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - type: markdown
+      key: _md_0
+      content: |+
+        {{ ctx.popup.record.lead_no }}
+
+        ##  {{ ctx.popup.record.name }}
+
+    - company
+    - title
+    - owner
+    - createdAt
+  js_items:
+    - key: lead_key_stats_block
+      file: ./js/detail_leads_details_lead_key_stats_block.js
+      desc: Lead Key Stats Block
+    - key: lead_badges_row_component
+      file: ./js/detail_leads_details_lead_badges_row_component.js
+      desc: Lead Badges Row Component
+  field_layout:
+    - - '[MD:_md_0]'
+    - - company
+      - title
+      - owner
+      - createdAt
+    - - '[JS:Lead Badges Row Component]'
+    - - '[JS:Lead Key Stats Block]'
+  actions:
+    - edit
+    - type: popup
+      stepParams:
+        popupSettings:
+          openView:
+            collectionName: nb_crm_leads
+            dataSourceKey: main
+            mode: dialog
+            size: medium
+            pageModelClass: ChildPageModel
+            uid: zkg33iwjk97
+            filterByTk: '{{ ctx.record.id }}'
+        buttonSettings:
+          general:
+            type: default
+            title: convert
+            icon: swapoutlined
+      key: popup_convert
+    - type: popup
+      stepParams:
+        popupSettings:
+          openView:
+            collectionName: nb_crm_leads
+            dataSourceKey: main
+            mode: dialog
+            size: medium
+            pageModelClass: ChildPageModel
+            uid: 1pen5o69vsc
+            filterByTk: '{{ ctx.record.id }}'
+        buttonSettings:
+          general:
+            type: default
+            title: Lost
+            icon: frownoutlined
+      key: popup_lost
+    - edit

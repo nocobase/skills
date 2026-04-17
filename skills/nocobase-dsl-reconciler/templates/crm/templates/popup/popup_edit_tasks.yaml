@@ -1,0 +1,13 @@
+uid: zx114842x3v
+name: 'Popup (Edit): Tasks'
+type: popup
+collectionName: nb_pm2_tasks
+dataSourceKey: main
+targetUid: odghk9shao8
+description: 'Popup (Edit): Tasks'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

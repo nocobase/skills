@@ -318,7 +318,8 @@ function resolveBlockRefs(blocks: unknown[], projectRoot: string): unknown[] {
       const content = (template.content && typeof template.content === 'object')
         ? template.content as Record<string, unknown>
         : template;
-      return { ...content, ...extra };
+      // Mark as ref-derived — validator skips per-page popup checks (popups live on template)
+      return { ...content, ...extra, _fromRef: refPath };
     } catch {
       return { ...extra, _refError: `Failed to parse: ${refPath}` };
     }

@@ -1,0 +1,33 @@
+uid: uvfimp264z3
+name: 'Form (Edit): Team Members'
+type: block
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: w2p53vhc4z0
+description: 'Form (Edit): Team Members'
+content:
+  key: editForm
+  type: editForm
+  coll: nb_pm_members
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - project
+    - member
+    - role_on_project
+    - status
+    - allocation_percent
+    - start_date
+    - end_date
+  field_layout:
+    - '--- Assignment ---'
+    - - project
+      - member
+    - - role_on_project
+      - status
+    - '--- Allocation ---'
+    - - allocation_percent
+    - - start_date
+      - end_date
+  actions:
+    - submit

@@ -11,7 +11,6 @@ tabs:
         fields:
           - level
           - type
-          - scale
           - region
         js_items:
           - key: customer_statistics_block
@@ -23,7 +22,6 @@ tabs:
         field_layout:
           - - '[JS:item_profile - Customer Profile Header]'
           - - level
-            - scale
             - region
             - type
           - - '[JS:Customer Statistics Block]'

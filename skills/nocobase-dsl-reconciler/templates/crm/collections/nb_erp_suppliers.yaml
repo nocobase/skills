@@ -1,15 +1,14 @@
 name: nb_erp_suppliers
 title: Suppliers
+titleField: name
 fields:
-  - name: contact
-    interface: input
   - name: name
     interface: input
-  - name: purchase_orders
-    interface: o2m
+  - name: address
+    interface: textarea
+  - name: contact
+    interface: input
   - name: phone
     interface: phone
   - name: email
     interface: email
-  - name: address
-    interface: textarea

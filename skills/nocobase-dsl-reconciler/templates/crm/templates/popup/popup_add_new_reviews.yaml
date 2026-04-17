@@ -1,0 +1,13 @@
+uid: 26ubo3liik4
+name: 'Popup (Add new): Reviews'
+type: popup
+collectionName: nb_hrm_performance_reviews
+dataSourceKey: main
+targetUid: 1xdyj4dbfh7
+description: 'Popup (Add new): Reviews'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

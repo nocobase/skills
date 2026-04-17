@@ -1,14 +1,16 @@
-uid: ge6ip6akzv3
+uid: wzbnssl33fe
 name: 'Form (Edit): Warehouses'
 type: block
 collectionName: nb_erp_warehouses
 dataSourceKey: main
-targetUid: 5wcgr4kf8wk
+targetUid: xufp9u1vaw5
 description: 'Form (Edit): Warehouses'
 content:
   key: editForm
   type: editForm
   coll: nb_erp_warehouses
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - location

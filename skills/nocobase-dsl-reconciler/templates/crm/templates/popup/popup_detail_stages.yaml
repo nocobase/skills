@@ -1,0 +1,15 @@
+uid: wmhssxx1h3e
+name: 'Popup (Detail): Stages'
+type: popup
+collectionName: nb_crm_opportunity_stages
+dataSourceKey: main
+targetUid: b1wslbp2r97
+description: 'Popup (Detail): Stages'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      actions:
+        - submit
+  layout:
+    - - reference

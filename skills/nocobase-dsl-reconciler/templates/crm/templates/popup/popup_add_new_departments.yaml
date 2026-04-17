@@ -1,0 +1,13 @@
+uid: qwij4jolqn7
+name: 'Popup (Add new): Departments'
+type: popup
+collectionName: nb_hrm_departments
+dataSourceKey: main
+targetUid: m1yyhas9lyj
+description: 'Popup (Add new): Departments'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,53 +1,79 @@
 name: nb_crm_products
 title: Products
+titleField: name
 fields:
   - name: category_id
     interface: integer
   - name: specification
     interface: select
-  - name: updatedAt
-    interface: updatedAt
+    options:
+      - value: standard
+        label: Standard
+        color: default
+      - value: professional
+        label: Professional
+        color: blue
+      - value: enterprise
+        label: Enterprise
+        color: purple
+      - value: basic
+        label: Basic
+        color: default
+      - value: premium
+        label: Premium
+        color: gold
+      - value: lite
+        label: Lite
+        color: cyan
   - name: unit
     interface: input
   - name: has_tiered_pricing
     interface: checkbox
   - name: cost_price
     interface: number
-  - name: createdBy
-    interface: createdBy
   - name: category
     interface: m2o
+    target: nb_crm_product_categories
+    foreignKey: category_id
   - name: min_price
     interface: number
-  - name: createdAt
-    interface: createdAt
   - name: extra
     interface: json
   - name: price_tiers
     interface: o2m
-  - name: id
-    interface: integer
+    target: nb_crm_price_tiers
+    foreignKey: product_id
   - name: description
     interface: textarea
   - name: list_price
     interface: number
   - name: active
     interface: checkbox
-  - name: updatedBy
-    interface: updatedBy
   - name: product_code
     interface: sequence
-  - name: createdById
-    interface: integer
   - name: stock_qty
     interface: integer
   - name: is_archived
     interface: checkbox
   - name: product_family
     interface: input
-  - name: updatedById
-    interface: integer
   - name: name
     interface: input
   - name: base_currency
     interface: select
+    options:
+      - value: CNY
+        label: CNY ¥
+        color: red
+      - value: USD
+        label: USD $
+        color: green
+      - value: EUR
+        label: EUR €
+        color: blue
+      - value: GBP
+        label: GBP £
+        color: purple
+      - value: JPY
+        label: JPY ¥
+        color: orange

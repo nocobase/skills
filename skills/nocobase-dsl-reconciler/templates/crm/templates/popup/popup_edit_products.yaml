@@ -1,0 +1,13 @@
+uid: riaqy8i93b7
+name: 'Popup (Edit): Products'
+type: popup
+collectionName: nb_crm_products
+dataSourceKey: main
+targetUid: cbkiioqo8fl
+description: 'Popup (Edit): Products'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - y2nf2nrz

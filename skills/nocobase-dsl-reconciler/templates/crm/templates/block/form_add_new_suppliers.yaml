@@ -1,9 +1,9 @@
-uid: fukw9kdlhlj
+uid: unsktvvriam
 name: 'Form (Add new): Suppliers'
 type: block
 collectionName: nb_erp_suppliers
 dataSourceKey: main
-targetUid: 8umdcszaf6m
+targetUid: nib0csojs1t
 description: 'Form (Add new): Suppliers'
 content:
   key: createForm

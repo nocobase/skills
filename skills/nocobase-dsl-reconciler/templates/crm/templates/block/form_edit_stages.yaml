@@ -1,0 +1,37 @@
+uid: viuc3024fjq
+name: 'Form (Edit): Stages'
+type: block
+collectionName: nb_crm_opportunity_stages
+dataSourceKey: main
+targetUid: 7anh70reuq4
+content:
+  key: editForm
+  type: editForm
+  coll: nb_crm_opportunity_stages
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - code
+    - sort_order
+    - is_won
+    - win_probability
+    - is_lost
+    - color
+    - description
+    - is_active
+    - space
+  field_layout:
+    - - name
+      - code
+    - - win_probability
+    - - color
+    - - description
+    - - sort_order
+    - - is_won
+    - - is_lost
+    - - is_active
+    - - space
+  actions:
+    - submit
+    - submit

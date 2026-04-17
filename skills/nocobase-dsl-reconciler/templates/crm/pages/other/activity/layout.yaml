@@ -26,7 +26,7 @@ blocks:
     coll: nb_crm_activities
     fields:
       - field: subject
-        clickToOpen: true
+        clickToOpen: templates/popup/activity_view.yaml
       - type
       - activity_date
       - lead

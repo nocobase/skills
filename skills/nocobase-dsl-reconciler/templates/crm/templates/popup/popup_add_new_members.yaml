@@ -1,0 +1,13 @@
+uid: xdhl8dodm40
+name: 'Popup (Add new): Members'
+type: popup
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: i23df4548od
+description: 'Popup (Add new): Members'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

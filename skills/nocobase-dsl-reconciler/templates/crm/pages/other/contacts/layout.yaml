@@ -4,12 +4,12 @@ blocks:
     coll: nb_crm_contacts
     fields:
       - field: name
-        clickToOpen: true
+        clickToOpen: templates/popup/contacts_view_in_page.yaml
       - salutation
       - field: email
         clickToOpen: true
       - field: phone
-        clickToOpen: true
+        clickToOpen: templates/popup/contacts_view_in_page.yaml
       - mobile
       - title
     actions:

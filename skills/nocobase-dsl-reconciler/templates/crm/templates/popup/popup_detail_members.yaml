@@ -1,0 +1,13 @@
+uid: xpb4j0299pe
+name: 'Popup (Detail): Members'
+type: popup
+collectionName: nb_pm_members
+dataSourceKey: main
+targetUid: 0mywxh2ecz6
+description: 'Popup (Detail): Members'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

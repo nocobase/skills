@@ -1,0 +1,67 @@
+uid: r408e2kjzdj
+name: 'Popup (Detail): Employees'
+type: popup
+collectionName: nb_hrm_employees
+dataSourceKey: main
+targetUid: 52bjkmbz8am
+description: 'Popup (Detail): Employees'
+content:
+  tabs:
+    - title: Tab0
+      blocks:
+        - key: reference
+          type: reference
+      layout:
+        - - reference
+    - title: Tab1
+      blocks:
+        - key: attendance
+          type: list
+          title: Attendance
+          coll: nb_hrm_attendance
+          resource_binding:
+            associationName: nb_hrm_employees.attendances
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+      layout:
+        - - attendance
+    - title: Tab2
+      blocks:
+        - key: leave_requests
+          type: list
+          title: Leave Requests
+          coll: nb_hrm_leave_requests
+          resource_binding:
+            associationName: nb_hrm_employees.leave_requests
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+      layout:
+        - - leave_requests
+    - title: Tab3
+      blocks:
+        - key: salary_records
+          type: list
+          title: Salary Records
+          coll: nb_hrm_salary_records
+          resource_binding:
+            associationName: nb_hrm_employees.salary_records
+            sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+          actions:
+            - filter
+            - refresh
+            - addNew
+      layout:
+        - - salary_records
+    - title: Tab4
+      blocks:
+        - key: recordHistory
+          type: recordHistory
+          coll: nb_hrm_employees
+      layout:
+        - - recordHistory

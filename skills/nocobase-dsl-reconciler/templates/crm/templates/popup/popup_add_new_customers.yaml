@@ -1,0 +1,13 @@
+uid: ns246g6qafp
+name: 'Popup (Add new): Customers'
+type: popup
+collectionName: nb_crm_customers
+dataSourceKey: main
+targetUid: ht2qxjhjr2z
+description: 'Popup (Add new): Customers'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

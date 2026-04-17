@@ -1,0 +1,34 @@
+uid: s6asotyride
+name: 'Form (Add new): Attendance'
+type: block
+collectionName: nb_hrm_attendance
+dataSourceKey: main
+targetUid: cid5xccaycp
+description: 'Form (Add new): Attendance'
+content:
+  key: createForm
+  type: createForm
+  coll: nb_hrm_attendance
+  fields:
+    - entry_code
+    - employee
+    - attendance_date
+    - check_in
+    - check_out
+    - attendance_status
+    - work_hours
+    - overtime_hours
+    - notes
+  field_layout:
+    - '--- Attendance Record ---'
+    - - entry_code
+      - employee
+    - - attendance_date
+      - attendance_status
+    - - check_in
+      - check_out
+    - - work_hours
+      - overtime_hours
+    - - notes
+  actions:
+    - submit

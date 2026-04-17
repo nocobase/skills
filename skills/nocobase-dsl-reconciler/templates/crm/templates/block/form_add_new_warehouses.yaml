@@ -1,9 +1,9 @@
-uid: zhrjluez5e0
+uid: oal5a015fmc
 name: 'Form (Add new): Warehouses'
 type: block
 collectionName: nb_erp_warehouses
 dataSourceKey: main
-targetUid: rh81px8oe6o
+targetUid: b1v2jomwok4
 description: 'Form (Add new): Warehouses'
 content:
   key: createForm

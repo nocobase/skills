@@ -1,0 +1,13 @@
+uid: v58o6u81le1
+name: 'Popup (Add new): Contacts'
+type: popup
+collectionName: nb_crm_contacts
+dataSourceKey: main
+targetUid: emxhd8alun2
+description: 'Popup (Add new): Contacts'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

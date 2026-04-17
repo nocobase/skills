@@ -8,198 +8,34 @@ content:
   tabs:
     - title: Tab0
       blocks:
-        - key: details
-          type: details
-          coll: nb_crm_leads
-          resource_binding:
-            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-          fields:
-            - type: markdown
-              key: _md_0
-              content: |+
-                {{ ctx.popup.record.lead_no }}
-
-                ##  {{ ctx.popup.record.name }}
-
-            - company
-            - title
-            - owner
-            - createdAt
-          js_items:
-            - key: lead_key_stats_block
-              file: ./js/leads_view_tab0_details_lead_key_stats_block.js
-              desc: Lead Key Stats Block
-            - key: lead_badges_row_component
-              file: ./js/leads_view_tab0_details_lead_badges_row_component.js
-              desc: Lead Badges Row Component
-          field_layout:
-            - - '[MD:_md_0]'
-            - - company
-              - title
-              - owner
-              - createdAt
-            - - '[JS:Lead Badges Row Component]'
-            - - '[JS:Lead Key Stats Block]'
-          actions:
-            - edit
-            - type: popup
-              stepParams:
-                popupSettings:
-                  openView:
-                    collectionName: nb_crm_leads
-                    dataSourceKey: main
-                    mode: dialog
-                    size: medium
-                    pageModelClass: ChildPageModel
-                    uid: zkg33iwjk97
-                    filterByTk: '{{ ctx.record.id }}'
-                buttonSettings:
-                  general:
-                    type: default
-                    title: convert
-                    icon: swapoutlined
-              key: popup_convert
-            - type: popup
-              stepParams:
-                popupSettings:
-                  openView:
-                    collectionName: nb_crm_leads
-                    dataSourceKey: main
-                    mode: dialog
-                    size: medium
-                    pageModelClass: ChildPageModel
-                    uid: 1pen5o69vsc
-                    filterByTk: '{{ ctx.record.id }}'
-                buttonSettings:
-                  general:
-                    type: default
-                    title: Lost
-                    icon: frownoutlined
-              key: popup_lost
-            - edit
-        - key: lead_insights
-          type: details
-          title: Lead Insights
-          coll: nb_crm_leads
-          resource_binding:
-            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-          js_items:
-            - key: lead_ai_insights_block
-              file: ./js/leads_view_tab0_lead_insights_lead_ai_insights_block.js
-              desc: Lead AI Insights Block
-          field_layout:
-            - - '[JS:Lead AI Insights Block]'
-        - key: lead_owner
-          type: details
-          title: Lead Owner
-          coll: nb_crm_leads
-          resource_binding:
-            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-          js_items:
-            - key: lead_profile_header_block
-              file: ./js/leads_view_tab0_lead_owner_lead_profile_header_block.js
-              desc: Lead Profile Header Block
-          field_layout:
-            - - '---'
-            - - '[JS:Lead Profile Header Block]'
-          actions:
-            - type: popup
-              stepParams:
-                popupSettings:
-                  openView:
-                    collectionName: nb_crm_leads
-                    dataSourceKey: main
-                buttonSettings:
-                  general:
-                    type: default
-                    title: Log Call
-                    icon: phoneoutlined
-              key: popup_log_call
-            - type: popup
-              stepParams:
-                popupSettings:
-                  openView:
-                    collectionName: nb_crm_leads
-                    dataSourceKey: main
-                buttonSettings:
-                  general:
-                    type: default
-                    title: Send Email
-                    icon: mailoutlined
-              key: popup_send_email
-            - type: popup
-              stepParams:
-                popupSettings:
-                  openView:
-                    collectionName: nb_crm_leads
-                    dataSourceKey: main
-                buttonSettings:
-                  general:
-                    type: default
-                    title: Schedule
-                    icon: calendaroutlined
-              key: popup_schedule
-        - key: company_information
-          type: details
-          title: Company Information
-          coll: nb_crm_leads
-          resource_binding:
-            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-          fields:
-            - industry
-            - annual_revenue
-            - number_of_employees
-            - company
-          field_layout:
-            - - company
-              - industry
-              - annual_revenue
-            - - number_of_employees
-        - key: contact_information
-          type: details
-          title: Contact Information
-          coll: nb_crm_leads
-          resource_binding:
-            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-          fields:
-            - email
-            - phone
-            - mobile_phone
-            - website
-            - address
-          field_layout:
-            - - email
-              - phone
-              - mobile_phone
-            - - website: 8
-              - address: 16
-        - key: details_2
-          type: details
-          coll: nb_crm_leads
-          resource_binding:
-            filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-          js_items:
-            - key: lead_stage_flow_block
-              file: ./js/leads_view_tab0_details_2_lead_stage_flow_block.js
-              desc: Lead Stage Flow Block
-          field_layout:
-            - - '[JS:Lead Stage Flow Block]'
         - key: comments
           type: comments
           coll: nb_crm_comments
           resource_binding:
             associationName: nb_crm_leads.comments
             sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        - key: reference
+          type: reference
+        - key: reference_2
+          type: reference
+        - key: reference_3
+          type: reference
+        - key: reference_4
+          type: reference
+        - key: reference_5
+          type: reference
+        - key: reference_6
+          type: reference
       layout:
         - - col:
-              - details
-              - details_2
-              - contact_information
-              - company_information
+              - comments
+              - reference
+              - reference_2
+              - reference_3
             size: 16
           - col:
-              - lead_owner
-              - lead_insights
+              - reference_4
+              - reference_5
               - comments
             size: 8
     - title: Tab1

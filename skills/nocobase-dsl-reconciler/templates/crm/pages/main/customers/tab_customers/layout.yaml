@@ -31,7 +31,7 @@ blocks:
               value: '{{ ctx.urlSearchParams.month }}'
     fields:
       - field: name
-        clickToOpen: true
+        clickToOpen: templates/popup/customer_view.yaml
       - type
       - region
       - field: level

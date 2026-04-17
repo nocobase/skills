@@ -1,0 +1,13 @@
+uid: cr4u6c9ohuv
+name: 'Popup (Add new): Employees'
+type: popup
+collectionName: nb_hrm_employees
+dataSourceKey: main
+targetUid: w86tztnnfcm
+description: 'Popup (Add new): Employees'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

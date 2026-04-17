@@ -5,18 +5,20 @@ fields:
     interface: integer
   - name: customer
     interface: m2o
+    target: nb_crm_customers
+    foreignKey: customer_id
   - name: sales_user_id
     interface: integer
-  - name: role
-    interface: input
-  - name: sales_dept_id
-    interface: input
   - name: contact
     interface: m2o
+    target: nb_crm_contacts
+    foreignKey: contact_id
   - name: mail_date
     interface: datetime
   - name: mails
     interface: m2o
+    target: mailMessages
+    foreignKey: mail_id
   - name: customer_id
     interface: integer
   - name: mail_id

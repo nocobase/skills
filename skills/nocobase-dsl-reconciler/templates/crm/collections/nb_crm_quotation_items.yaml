@@ -1,32 +1,29 @@
 name: nb_crm_quotation_items
 title: Quotation Items
+titleField: product_code
 fields:
   - name: service_date
-    interface: date
-  - name: createdAt
-    interface: createdAt
+    interface: dateOnly
   - name: description
     interface: textarea
   - name: product_id
     interface: integer
-  - name: updatedBy
-    interface: updatedBy
   - name: quotation
     interface: m2o
-  - name: createdBy
-    interface: createdBy
+    target: nb_crm_quotations
+    foreignKey: quotation_id
   - name: product
     interface: m2o
+    target: nb_crm_products
+    foreignKey: product_id
   - name: quotation_id
     interface: integer
   - name: tierInfo
     interface: m2o
-  - name: updatedById
-    interface: integer
+    target: nb_crm_price_tiers
+    foreignKey: tier_applied
   - name: sort_order
     interface: integer
-  - name: updatedAt
-    interface: updatedAt
   - name: product_code
     interface: input
   - name: product_name
@@ -47,9 +44,5 @@ fields:
     interface: number
   - name: quantity
     interface: integer
-  - name: id
-    interface: id
   - name: line_amount
     interface: number
-  - name: createdById
-    interface: integer

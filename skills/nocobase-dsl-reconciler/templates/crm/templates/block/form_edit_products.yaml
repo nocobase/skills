@@ -1,29 +1,50 @@
-uid: 8ttehiu82b5
+uid: 6ix4a0ntj6t
 name: 'Form (Edit): Products'
 type: block
 collectionName: nb_erp_products
 dataSourceKey: main
-targetUid: 6c77o4a35y8
-description: 'Form (Edit): Products'
+targetUid: gwrpp5ep87x
 content:
   key: editForm
   type: editForm
-  coll: nb_erp_products
+  coll: nb_crm_products
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
-    - name
-    - sku
-    - price
-    - category
+    - specification
+    - unit
+    - has_tiered_pricing
+    - active
+    - is_archived
     - stock_qty
-    - status
+    - description
+    - product_family
+    - base_currency
+    - list_price
+    - cost_price
+    - min_price
+    - extra
+    - name
+    - category
   field_layout:
-    - '--- Basic Info ---'
+    - '--- {{t("Basic Info", { ns: "resources.lm-flow-engine" })}} ---'
     - - name
-      - sku
     - - category
-      - status
-    - '--- Stock & Price ---'
-    - - price
-      - stock_qty
+      - product_family
+    - - description
+    - '--- Specifications ---'
+    - - specification
+      - unit
+    - '--- Pricing ---'
+    - - base_currency
+    - - list_price
+      - cost_price
+      - min_price
+    - - has_tiered_pricing
+    - - active
+    - - is_archived
+    - - stock_qty
+    - - extra
   actions:
+    - submit
     - submit

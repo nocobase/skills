@@ -1,3 +1,3 @@
 target: $SELF.mailMessages.actions.addNew
-blocks: []
 mode: drawer
+blocks: []

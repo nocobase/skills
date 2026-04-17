@@ -1,14 +1,16 @@
-uid: 6kj9586my99
+uid: vwwettdlqya
 name: 'Form (Edit): Suppliers'
 type: block
 collectionName: nb_erp_suppliers
 dataSourceKey: main
-targetUid: pvmyuwjrugw
+targetUid: j8lw2kuhqtu
 description: 'Form (Edit): Suppliers'
 content:
   key: editForm
   type: editForm
   coll: nb_erp_suppliers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - contact

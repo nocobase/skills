@@ -1,0 +1,13 @@
+uid: t93ccwzxu5w
+name: 'Popup (Edit): Contacts'
+type: popup
+collectionName: nb_crm_contacts
+dataSourceKey: main
+targetUid: z62nuntosbl
+description: 'Popup (Edit): Contacts'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

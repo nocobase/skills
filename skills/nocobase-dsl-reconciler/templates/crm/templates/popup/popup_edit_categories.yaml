@@ -1,0 +1,13 @@
+uid: j5oy6p72w4n
+name: 'Popup (Edit): Categories'
+type: popup
+collectionName: nb_erp_categories
+dataSourceKey: main
+targetUid: tmwzmkql55u
+description: 'Popup (Edit): Categories'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

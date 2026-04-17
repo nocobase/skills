@@ -10,20 +10,10 @@ blocks:
           - name
           - phone
           - website
-      - field: industry
-        filterPaths:
-          - industry
-      - field: createdAt
-        filterPaths:
-          - createdAt
     field_layout:
       - - name
-        - industry
-        - createdAt
     actions:
       - submit
-      - reset
-      - collapse
   - key: all_leads
     type: table
     title: All Leads
@@ -40,7 +30,6 @@ blocks:
         title: Detail
         icon: arrowrightoutlined
         url: admin/e9478uhrdve/view/8d0b8114c2f/filterbytk/{{ ctx.record.id }}
-      - link
   - key: all_customers
     type: table
     title: All Customers
@@ -56,7 +45,6 @@ blocks:
         title: Detail
         icon: arrowrightoutlined
         url: admin/c137kk6hghm/view/95effc54287/filterbytk/{{ ctx.record.id }}
-      - link
   - key: all_contacts
     type: table
     title: All Contacts
@@ -72,7 +60,6 @@ blocks:
         title: Detail
         icon: arrowrightoutlined
         url: admin/dgvyidc7p8f/view/a02b2fc948f/filterbytk/{{ ctx.record.id }}
-      - link
 layout:
   - - filterForm
   - - all_leads

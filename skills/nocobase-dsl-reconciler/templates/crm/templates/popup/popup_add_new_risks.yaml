@@ -1,0 +1,13 @@
+uid: 0r2jrw5164h
+name: 'Popup (Add new): Risks'
+type: popup
+collectionName: nb_pm_risks
+dataSourceKey: main
+targetUid: z6ct6u49hys
+description: 'Popup (Add new): Risks'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

@@ -1,14 +1,16 @@
-uid: nhwq3li7p1i
+uid: hydb1nnco9x
 name: 'Detail: Categories'
 type: block
 collectionName: nb_erp_categories
 dataSourceKey: main
-targetUid: gf7ru4l9ll7
+targetUid: y0g17obvdyy
 description: 'Detail: Categories'
 content:
   key: details
   type: details
   coll: nb_erp_categories
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - description

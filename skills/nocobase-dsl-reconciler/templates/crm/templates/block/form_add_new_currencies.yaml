@@ -1,9 +1,10 @@
-uid: fggawimkpeo
+uid: zbkk8kfdwei
 name: 'Form (Add new): Currencies'
 type: block
 collectionName: nb_cbo_currencies
 dataSourceKey: main
-targetUid: c0547bc25a4
+targetUid: blbbk2601fw
+description: 'Form (Add new): Currencies'
 content:
   key: createForm
   type: createForm

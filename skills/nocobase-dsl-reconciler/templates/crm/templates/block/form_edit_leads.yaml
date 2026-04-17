@@ -1,0 +1,102 @@
+uid: vk3x99igg78
+name: 'Form (Edit): Leads'
+type: block
+collectionName: nb_crm_leads
+dataSourceKey: main
+targetUid: jgwzpo1jcen
+content:
+  key: editForm
+  type: editForm
+  coll: nb_crm_leads
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - rating
+    - industry
+    - name
+    - ai_best_contact_time
+    - source
+    - ai_score
+    - ai_convert_prob
+    - ai_tags
+    - is_converted
+    - converted_at
+    - lost_reason
+    - description
+    - disqualification_reason
+    - company
+    - email
+    - website
+    - phone
+    - mobile_phone
+    - extra
+    - address
+    - title
+    - number_of_employees
+    - status
+    - annual_revenue
+    - ai_scored_at
+    - ai_next_best_action
+    - ai_nba_generated_at
+    - owner
+    - converted_contact
+    - converted_opportunity
+    - converted_customer
+  field_layout:
+    - '--- Basic Info ---'
+    - - name
+      - company
+      - title
+    - - rating
+    - - status
+    - '--- Contact Info ---'
+    - - email
+      - phone
+      - mobile_phone
+    - - website: 8
+      - address: 16
+    - '--- Company Info ---'
+    - - industry
+      - annual_revenue
+      - number_of_employees
+    - '--- Other Info ---'
+    - - description
+    - - owner
+    - - ai_best_contact_time
+    - - source
+    - - ai_score
+    - - ai_convert_prob
+    - - ai_tags
+    - - is_converted
+    - - converted_at
+    - - lost_reason
+    - - disqualification_reason
+    - - extra
+    - - ai_scored_at
+    - - ai_next_best_action
+    - - ai_nba_generated_at
+    - - converted_contact
+    - - converted_opportunity
+    - - converted_customer
+  actions:
+    - submit
+    - submit
+    - type: ai
+      employee: dex
+      tasks_file: ./ai/form_edit_leads_editForm_tasks.yaml
+  fieldLinkageRules:
+    - key: 2iku5gs0k4o
+      title: Linkage rule
+      enable: true
+      condition:
+        logic: $and
+        items: []
+      actions:
+        - key: dqytz7lb1qz
+          name: linkageSetFieldProps
+          params:
+            value:
+              fields:
+                - status
+                - owner
+              state: hiddenReservedValue

@@ -1,14 +1,16 @@
-uid: po6i8mu44e2
+uid: vzxfikwyp4i
 name: 'Detail: Suppliers'
 type: block
 collectionName: nb_erp_suppliers
 dataSourceKey: main
-targetUid: 3l52wzx8lac
+targetUid: 6azv67dnd24
 description: 'Detail: Suppliers'
 content:
   key: details
   type: details
   coll: nb_erp_suppliers
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - contact

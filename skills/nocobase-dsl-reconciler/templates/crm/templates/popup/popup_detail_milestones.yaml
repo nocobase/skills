@@ -1,0 +1,13 @@
+uid: zwwrb5a593c
+name: 'Popup (Detail): Milestones'
+type: popup
+collectionName: nb_pm2_milestones
+dataSourceKey: main
+targetUid: gfaosraiy2y
+description: 'Popup (Detail): Milestones'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

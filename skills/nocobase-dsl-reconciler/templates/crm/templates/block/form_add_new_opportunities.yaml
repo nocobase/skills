@@ -1,9 +1,10 @@
-uid: 5tpe5cpsnuf
+uid: mct8ra6rzb7
 name: 'Form (Add new): Opportunities'
 type: block
 collectionName: nb_crm_opportunities
 dataSourceKey: main
-targetUid: d7e295047ff
+targetUid: pz8npcvneoj
+description: 'Form (Add new): Opportunities'
 content:
   key: createForm
   type: createForm
@@ -43,6 +44,3 @@ content:
       - contact
   actions:
     - submit
-    - type: ai
-      employee: dex
-      tasks_file: ./ai/form_add_new_opportunities_createForm_tasks.yaml

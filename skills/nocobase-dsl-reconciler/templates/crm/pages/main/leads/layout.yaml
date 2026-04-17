@@ -69,12 +69,12 @@ blocks:
     actions:
       - filter
       - refresh
-      - export
-      - import
       - addNew
       - type: ai
         employee: viz
         tasks_file: ./ai/leads_table_tasks.yaml
+      - export
+      - import
 layout:
   - - filterForm
   - - table

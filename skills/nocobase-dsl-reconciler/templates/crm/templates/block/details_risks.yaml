@@ -1,0 +1,37 @@
+uid: 3raavczhfhl
+name: 'Details: Risks'
+type: block
+collectionName: nb_pm_risks
+dataSourceKey: main
+targetUid: qp9du5e02eu
+description: 'Details: Risks'
+content:
+  key: details
+  type: details
+  coll: nb_pm_risks
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+  fields:
+    - name
+    - project
+    - probability
+    - impact
+    - status
+    - owner
+    - mitigation
+    - createdAt
+    - updatedAt
+  field_layout:
+    - '--- Risk Info ---'
+    - - name
+      - project
+    - - probability
+      - impact
+    - '--- Status ---'
+    - - status
+      - owner
+    - '--- Mitigation ---'
+    - - mitigation
+    - '--- System ---'
+    - - createdAt
+      - updatedAt

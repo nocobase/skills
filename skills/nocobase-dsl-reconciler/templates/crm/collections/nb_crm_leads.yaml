@@ -1,5 +1,6 @@
 name: nb_crm_leads
 title: Leads
+titleField: name
 fields:
   - name: mobile_phone
     interface: input
@@ -7,24 +8,82 @@ fields:
     interface: integer
   - name: industry
     interface: select
+    options:
+      - value: technology
+        label: Technology
+        color: blue
+      - value: finance
+        label: Finance
+        color: gold
+      - value: healthcare
+        label: Healthcare
+        color: green
+      - value: manufacturing
+        label: Manufacturing
+        color: orange
+      - value: retail
+        label: Retail
+        color: purple
+      - value: education
+        label: Education
+        color: cyan
+      - value: real_estate
+        label: Real Estate
+        color: magenta
+      - value: consulting
+        label: Consulting
+        color: geekblue
+      - value: logistics
+        label: Logistics
+        color: volcano
+      - value: energy
+        label: Energy
+        color: lime
+      - value: other
+        label: Other
+        color: default
   - name: disqualification_reason
     interface: textarea
   - name: converted_at
     interface: datetime
   - name: converted_contact
     interface: m2o
+    target: nb_crm_contacts
+    foreignKey: converted_contact_id
   - name: ai_convert_prob
     interface: percent
-  - name: createdById
-    interface: integer
   - name: annual_revenue
     interface: select
+    options:
+      - value: <1M
+        label: < $1M
+        color: default
+      - value: 1M-10M
+        label: $1M - $10M
+        color: blue
+      - value: 10M-50M
+        label: $10M - $50M
+        color: cyan
+      - value: 50M-100M
+        label: $50M - $100M
+        color: green
+      - value: 100M-500M
+        label: $100M - $500M
+        color: lime
+      - value: 500M-1B
+        label: $500M - $1B
+        color: orange
+      - value: 1B-10B
+        label: $1B - $10B
+        color: gold
+      - value: 10B-100B
+        label: $10B - $100B
+        color: red
+      - value: '>100B'
+        label: '> $100B'
+        color: magenta
   - name: converted_contact_id
     interface: integer
-  - name: createdAt
-    interface: createdAt
-  - name: createdBy
-    interface: createdBy
   - name: website
     interface: textarea
   - name: phone
@@ -33,21 +92,34 @@ fields:
     interface: sequence
   - name: owner
     interface: m2o
-  - name: updatedBy
-    interface: updatedBy
+    target: users
+    foreignKey: owner_id
   - name: ai_score
     interface: integer
   - name: converted_opportunity
     interface: m2o
+    target: nb_crm_opportunities
+    foreignKey: converted_opportunity_id
   - name: converted_customer
     interface: m2o
+    target: nb_crm_customers
+    foreignKey: converted_customer_id
   - name: status
     interface: select
-  - name: updatedAt
-    interface: updatedAt
+    options:
+      - value: new
+        label: New
+        color: blue
+      - value: working
+        label: Working
+        color: orange
+      - value: qualified
+        label: Qualified
+        color: green
+      - value: unqualified
+        label: Unqualified
+        color: default
   - name: converted_customer_id
-    interface: integer
-  - name: updatedById
     interface: integer
   - name: company
     interface: input
@@ -55,14 +127,29 @@ fields:
     interface: input
   - name: comments
     interface: o2m
+    target: nb_crm_comments
+    foreignKey: lead_id
   - name: ai_best_contact_time
     interface: input
   - name: number_of_employees
     interface: select
+    options:
+      - value: 1-10
+        label: 1-10
+      - value: 11-50
+        label: 11-50
+      - value: 51-200
+        label: 51-200
+      - value: 201-500
+        label: 201-500
+      - value: 501-1000
+        label: 501-1000
+      - value: 1001-5000
+        label: 1001-5000
+      - value: 5000+
+        label: 5000+
   - name: email
     interface: input
-  - name: id
-    interface: id
   - name: is_converted
     interface: checkbox
   - name: ai_nba_generated_at
@@ -73,6 +160,25 @@ fields:
     interface: vditor
   - name: source
     interface: select
+    options:
+      - value: website
+        label: Website
+        color: blue
+      - value: ads
+        label: Advertising
+        color: purple
+      - value: referral
+        label: Referral
+        color: green
+      - value: exhibition
+        label: Exhibition
+        color: orange
+      - value: telemarketing
+        label: Telemarketing
+        color: cyan
+      - value: email
+        label: Email
+        color: geekblue
   - name: ai_next_best_action
     interface: textarea
   - name: converted_opportunity_id
@@ -83,11 +189,23 @@ fields:
     interface: json
   - name: rating
     interface: select
+    options:
+      - value: hot
+        label: Hot
+        color: red
+      - value: warm
+        label: Warm
+        color: orange
+      - value: cold
+        label: Cold
+        color: blue
   - name: lost_reason
     interface: textarea
   - name: extra
     interface: json
   - name: activities
     interface: o2m
+    target: nb_crm_activities
+    foreignKey: lead_id
   - name: address
     interface: textarea

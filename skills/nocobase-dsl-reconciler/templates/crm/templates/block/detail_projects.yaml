@@ -1,36 +1,26 @@
-uid: napxc35pfag
+uid: qdooe3ec298
 name: 'Detail: Projects'
 type: block
-collectionName: nb_pm_projects
+collectionName: nb_pm2_projects
 dataSourceKey: main
-targetUid: 2x240ws6pbd
-description: 'Detail: Projects'
+targetUid: kwyx39ywzuj
 content:
   key: details
   type: details
-  coll: nb_pm_projects
+  coll: nb_pm2_projects
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
-    - code
     - status
-    - priority
-    - start_date
-    - end_date
-    - budget
-    - owner
     - description
     - createdAt
   field_layout:
-    - '--- Basic Info ---'
+    - '--- Project Info ---'
     - - name
-      - code
-    - - status
-      - priority
-    - - owner
-    - - start_date
-      - end_date
-    - - budget
+      - status
+    - '--- Details ---'
     - - description
     - - createdAt
-    - '--- Schedule & Budget ---'
-    - '--- Description ---'
+  actions:
+    - edit

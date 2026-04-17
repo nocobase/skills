@@ -1,28 +1,30 @@
-uid: 3jg6ftb9p0d
+uid: qjjq5pwpxlq
 name: 'Detail: Milestones'
 type: block
 collectionName: nb_pm_milestones
 dataSourceKey: main
-targetUid: yi2yctc0goz
+targetUid: unolyvmalp3
 description: 'Detail: Milestones'
 content:
   key: details
   type: details
   coll: nb_pm_milestones
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - project
+    - target_date
     - status
-    - due_date
     - description
     - createdAt
   field_layout:
-    - '--- Basic Info ---'
+    - '--- Milestone Info ---'
     - - name
       - project
-    - - status
-      - due_date
-    - - description
-    - - createdAt
-    - '--- Milestone Info ---'
+    - - target_date
+      - status
     - '--- Description ---'
+    - - description
+    - '--- Audit ---'
+    - - createdAt

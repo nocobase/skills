@@ -1,0 +1,13 @@
+uid: fpb5yozrjw6
+name: 'Popup (Edit): Leads'
+type: popup
+collectionName: nb_crm_leads
+dataSourceKey: main
+targetUid: bjn771s6pej
+description: 'Popup (Edit): Leads'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

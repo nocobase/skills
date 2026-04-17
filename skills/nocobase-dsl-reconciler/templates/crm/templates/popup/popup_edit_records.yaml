@@ -1,0 +1,13 @@
+uid: gcnaq15zjw6
+name: 'Popup (Edit): Records'
+type: popup
+collectionName: nb_hrm_salary_records
+dataSourceKey: main
+targetUid: 8ugv5g9jpmg
+description: 'Popup (Edit): Records'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - reference

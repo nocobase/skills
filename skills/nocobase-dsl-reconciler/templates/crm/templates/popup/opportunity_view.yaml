@@ -183,7 +183,6 @@ content:
                     dataSourceKey: main
                     collectionName: nb_crm_quotations
               key: duplicate_duplicate
-            - updateRecord
           actions:
             - filter
             - refresh

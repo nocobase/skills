@@ -8,6 +8,8 @@ content:
   key: table
   type: table
   coll: nb_crm_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   filter:
     order_date.$dateBetween: '{{ ctx.urlSearchParams.month }}'
   fields:

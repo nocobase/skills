@@ -1,0 +1,13 @@
+uid: gw7rs38civx
+name: 'Popup (Add new): Suppliers'
+type: popup
+collectionName: nb_erp_suppliers
+dataSourceKey: main
+targetUid: 2fuyie72y13
+description: 'Popup (Add new): Suppliers'
+content:
+  blocks:
+    - key: reference
+      type: reference
+  layout:
+    - - 5olsvwk5
