@@ -861,10 +861,37 @@ export async function convertPopupToTemplate(
     const hostResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: hostUid } });
     const existingTplUid = hostResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid as string | undefined;
     if (existingTplUid && typeof existingTplUid === 'string' && existingTplUid.length > 5) {
-      // Verify the template still exists AND matches the expected collection.
-      // Without the collection check, a field whose host had a stale popupTemplateUid
-      // from a prior mis-wired deploy (e.g. Leads.name pointing at Activity View) would
-      // happily reuse that wrong template and the popup stays broken forever.
+      // Copy mode wants isolated, per-group templates. enableM2oClickToOpen often
+      // binds a newly created host field to a pre-existing popup template from a
+      // different group (e.g. CRM's original Leads View) just because it's the
+      // only live match by collection. Reusing that shared template means the
+      // CRM Copy's popup structure drifts with whatever the shared template
+      // happened to contain (often out of sync with DSL, sometimes empty).
+      //
+      // In copy mode: always clear the borrowed binding and fall through to
+      // create a fresh template for this copy. The per-run cache above still
+      // lets multiple hosts in the SAME copy deploy share one template.
+      if (copyMode) {
+        const ov = hostResp.data.data.stepParams.popupSettings.openView;
+        delete ov.popupTemplateUid;
+        delete ov.popupTemplateMode;
+        delete ov.popupTemplateHasFilterByTk;
+        delete ov.popupTemplateHasSourceId;
+        delete ov.uid;
+        ov.collectionName = collName;
+        const d = hostResp.data.data;
+        await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+          uid: hostUid, use: d.use, parentId: d.parentId,
+          subKey: d.subKey, subType: d.subType,
+          sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
+          stepParams: d.stepParams,
+        });
+        log(`    ~ cleared borrowed popupTemplateUid for ${name} (copy mode — will create own)`);
+      } else {
+      // Non-copy mode: verify the template still exists AND matches the expected
+      // collection. Without the collection check, a field whose host had a stale
+      // popupTemplateUid from a prior mis-wired deploy (e.g. Leads.name pointing
+      // at Activity View) would happily reuse that wrong template.
       try {
         const existingTpl = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: existingTplUid } });
         const existingTplColl = (existingTpl.data?.data?.collectionName || '') as string;
@@ -945,6 +972,7 @@ export async function convertPopupToTemplate(
         });
         log(`    ~ cleared stale popupTemplateUid on ${name}`);
       }
+      }  // close else (non-copy-mode branch)
     }
 
     // Priority: if state.yaml saved a UID for this popup, try to reuse it first
