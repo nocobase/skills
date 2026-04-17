@@ -991,10 +991,17 @@ async function exportDefaults(nb: NocoBaseClient, outDir: string): Promise<void>
       }
     }
 
+    // Sort keys alphabetically for stable diffs
+    const sortKeys = (m: Record<string, string>): Record<string, string> => {
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(m).sort()) out[k] = m[k];
+      return out;
+    };
+
     if (Object.keys(popups).length || Object.keys(forms).length) {
       const defaults: Record<string, unknown> = {};
-      if (Object.keys(popups).length) defaults.popups = popups;
-      if (Object.keys(forms).length) defaults.forms = forms;
+      if (Object.keys(popups).length) defaults.popups = sortKeys(popups);
+      if (Object.keys(forms).length) defaults.forms = sortKeys(forms);
       fs.writeFileSync(path.join(outDir, 'defaults.yaml'), dumpYaml(defaults));
     }
   } catch { /* best effort */ }
