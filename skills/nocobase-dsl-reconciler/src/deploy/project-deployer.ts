@@ -217,17 +217,21 @@ export async function deployProject(
 
   // For pending popup templates: expand their content inline into the first referencing popup
 
-  // Build name→uid map from live templates for ref: blocks without UIDs
-  let templateNameMap = new Map<string, string>();
+  // Build name→{uid,targetUid} map from live templates so DSL `ref:` blocks
+  // that omit `uid`/`targetUid` (freshly authored templates with only `name`)
+  // can still be wired up to the right live template at deploy time.
+  const templateNameMap = new Map<string, string>();
+  const templateNameToTarget = new Map<string, string>();
   try {
     const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 200 } });
     for (const t of resp.data?.data || []) {
       if (t.name && t.uid) templateNameMap.set(t.name, t.uid);
+      if (t.name && t.targetUid) templateNameToTarget.set(t.name, t.targetUid);
     }
   } catch { /* skip */ }
 
   // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
-  rewriteTemplateUids(pages, templateUidMap, templateNameMap);
+  rewriteTemplateUids(pages, templateUidMap, templateNameMap, templateNameToTarget);
 
   // Routes + pages.
   // DSL is the source of truth — title controls display, key controls identity.
@@ -487,26 +491,36 @@ function extractBlockState(
  *   1. templateRef.templateUid — block reference specs
  *   2. popupSettings.popupTemplateUid — field popup specs
  */
-function rewriteTemplateUids(pages: PageInfo[], uidMap: TemplateUidMap, nameMap: Map<string, string> = new Map()): void {
+function rewriteTemplateUids(
+  pages: PageInfo[],
+  uidMap: TemplateUidMap,
+  nameMap: Map<string, string> = new Map(),
+  nameToTarget: Map<string, string> = new Map(),
+): void {
   for (const page of pages) {
-    rewriteInBlocks(page.layout.blocks || [], uidMap, nameMap);
+    rewriteInBlocks(page.layout.blocks || [], uidMap, nameMap, nameToTarget);
     if (page.layout.tabs) {
       for (const tab of page.layout.tabs) {
-        rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap);
+        rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
       }
     }
     for (const popup of page.popups) {
-      rewriteInBlocks((popup as any).blocks || [], uidMap, nameMap);
+      rewriteInBlocks((popup as any).blocks || [], uidMap, nameMap, nameToTarget);
       if ((popup as any).tabs) {
         for (const tab of (popup as any).tabs) {
-          rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap);
+          rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
         }
       }
     }
   }
 }
 
-function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<string, string> = new Map()): void {
+function rewriteInBlocks(
+  blocks: any[],
+  uidMap: TemplateUidMap,
+  nameMap: Map<string, string> = new Map(),
+  nameToTarget: Map<string, string> = new Map(),
+): void {
   for (const block of blocks) {
     // Case 1: templateRef (reference blocks)
     if (block.templateRef) {
@@ -525,10 +539,18 @@ function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<str
         const byName = nameMap.get(block._refName);
         if (byName) block.templateRef.templateUid = byName;
       }
-      // Rewrite targetUid
+      // Rewrite targetUid (DSL-declared)
       if (block.templateRef.targetUid) {
         const newTarget = uidMap.get(block.templateRef.targetUid);
         if (newTarget) block.templateRef.targetUid = newTarget;
+      }
+      // If targetUid still missing but we know the templateName, fill it from
+      // the live template. Required for fresh ref blocks (no uid in DSL): the
+      // reference block needs a targetUid to mirror, otherwise NocoBase shows
+      // an empty card.
+      if (!block.templateRef.targetUid && block.templateRef.templateName) {
+        const byName = nameToTarget.get(block.templateRef.templateName);
+        if (byName) block.templateRef.targetUid = byName;
       }
       delete block._refName;
       delete block._refColl;
@@ -554,7 +576,7 @@ function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<str
 
     // Recurse into nested blocks (tabs, popups)
     if (Array.isArray(block.blocks)) {
-      rewriteInBlocks(block.blocks, uidMap);
+      rewriteInBlocks(block.blocks, uidMap, nameMap, nameToTarget);
     }
     if (Array.isArray(block.tabs)) {
       for (const tab of block.tabs) {

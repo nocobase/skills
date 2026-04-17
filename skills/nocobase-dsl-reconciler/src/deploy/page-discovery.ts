@@ -349,17 +349,29 @@ function resolveBlockRefs(blocks: unknown[], projectRoot: string): unknown[] {
     try {
       const template = loadYaml<Record<string, unknown>>(absPath);
 
-      // When the ref'd file is a template definition (has uid + type: block/popup at top
-      // level) AND the block declared key === 'reference', produce a templateRef instead
-      // of inlining the content. Inlining a template that was originally exported from a
-      // popup context (binding: currentRecord) into a regular page tab causes NocoBase
-      // to 400 on compose ("resource.binding only works on popup collection blocks").
+      // When the ref'd file is a template definition (type: block/popup at top
+      // level) AND the block declared key === 'reference', produce a templateRef
+      // instead of inlining the content. Inlining a template that was originally
+      // exported from a popup context (binding: currentRecord) into a regular page
+      // tab causes NocoBase to 400 on compose ("resource.binding only works on
+      // popup collection blocks").
+      //
+      // The uid is optional: a freshly authored template (e.g. created by an
+      // agent from scratch) has only `name + type + collectionName + content`.
+      // We carry the templateName so the deploy-side rewriter can resolve to a
+      // live template uid by name. Without this, missing-uid templates were
+      // silently inlined (Round1 kimi build hit this) and `usage` stayed at 0.
       const extraKey = (extra as Record<string, unknown>).key;
-      if (extraKey === 'reference' && template.uid && template.type === 'block') {
+      if (extraKey === 'reference' && template.type === 'block') {
+        const templateUid = (template.uid as string) || '';
+        const templateName = (template.name as string) || '';
+        const ref: Record<string, unknown> = { mode: 'reference' };
+        if (templateUid) ref.templateUid = templateUid;
+        if (templateName) ref.templateName = templateName;
         return {
           type: 'reference',
           key: 'reference',
-          templateRef: { templateUid: template.uid, mode: 'reference' },
+          templateRef: ref,
           coll: (template.collectionName as string) || undefined,
           _fromRef: refPath,
         };
