@@ -290,6 +290,13 @@ export async function deployProject(
       if (firstColl) pageCollMap.set(pi.slug, firstColl);
     }
 
+    // In copy mode: build the set of block template UIDs this project owns.
+    // Only these may be used for nested ReferenceBlockModel bindings inside popups,
+    // preventing cross-group coupling (CRM Copy reusing Main's block templates).
+    const allowedBlockTemplateUids: Set<string> | undefined = opts.copyMode
+      ? new Set(Object.values(state.template_uids || {}).filter(t => t.type === 'block').map(t => t.uid))
+      : undefined;
+
     for (const [pageKey, ps] of Object.entries(state.pages)) {
       const pageColl = pageCollMap.get(pageKey) || '';
       if (!pageColl) continue;
@@ -304,12 +311,13 @@ export async function deployProject(
         if (!popupType) continue;
         const collTitle = pageColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         const tplName = `Popup (${popupType}): ${collTitle}`;
+        const stateKey = `popup:${tplName}`;
+        const savedPopupUid = state.template_uids?.[stateKey]?.uid;
         try {
-          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, pageColl, log);
+          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, pageColl, log, opts.copyMode || false, savedPopupUid, allowedBlockTemplateUids);
           if (tplResult) {
-            const key = `popup:${tplName}`;
             if (!state.template_uids) state.template_uids = {};
-            state.template_uids[key] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: pageColl };
+            state.template_uids[stateKey] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: pageColl };
           }
         } catch { /* skip */ }
       }
