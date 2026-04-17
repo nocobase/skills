@@ -47,13 +47,34 @@ const _createdThisRun = new Set<string>();
 // creates the template; subsequent calls find it here and reuse → no more
 // duplicate "Form (Edit): Customers > Contacts" × N per deploy.
 const _popupTplCacheThisRun = new Map<string, { templateUid: string; targetUid: string }>();
+// Per-run block template cache keyed by (useModel|collection). Tracks block
+// templates created inside popups via convertPopupBlocksToTemplates so later
+// popup conversions in the same deploy can point to the same template
+// instead of recursively duplicating (template explosion through nested refs).
+const _blockTplCacheThisRun = new Map<string, { uid: string; targetUid: string; name: string }>();
 export function resetTemplateCreationTracking(): void {
   _createdThisRun.clear();
   _popupTplCacheThisRun.clear();
+  _blockTplCacheThisRun.clear();
 }
 export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
 export function listCreatedThisRun(): string[] { return Array.from(_createdThisRun); }
+export function cacheBlockTemplate(useModel: string, coll: string, info: { uid: string; targetUid: string; name: string }): void {
+  _blockTplCacheThisRun.set(`${useModel}|${coll}`, info);
+}
+export function lookupBlockTemplateCache(useModel: string, coll: string): { uid: string; targetUid: string; name: string } | undefined {
+  return _blockTplCacheThisRun.get(`${useModel}|${coll}`);
+}
 function cachePopupKey(name: string, coll: string): string { return `${name}|${coll}`; }
+function inferBlockUseModel(blockType: string): string {
+  switch (blockType) {
+    case 'createForm': return 'CreateFormModel';
+    case 'editForm': return 'EditFormModel';
+    case 'details': return 'DetailsBlockModel';
+    case 'table': return 'TableBlockModel';
+    default: return '';
+  }
+}
 
 /** Delete the given template UIDs from NocoBase. Used by `rollback` CLI. */
 export async function deleteTemplatesByUid(
@@ -487,6 +508,12 @@ export async function deployTemplates(
             try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `); } catch { /* skip */ }
           }
           deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
+          if (tpl.type === 'block') {
+            const useModel = inferBlockUseModel((tplContent?.type as string) || '');
+            if (useModel && collName) {
+              cacheBlockTemplate(useModel, collName, { uid: savedEntry.uid, targetUid: savedEntry.targetUid, name: tpl.name });
+            }
+          }
           reused++;
           continue;
         }
@@ -528,6 +555,12 @@ export async function deployTemplates(
         }
       }
       deployedTemplates[stateKey] = { uid: existingEntry.uid, targetUid: existingEntry.targetUid, type: tpl.type, collection: collName };
+      if (tpl.type === 'block') {
+        const useModel = inferBlockUseModel((tplContent?.type as string) || '');
+        if (useModel && collName) {
+          cacheBlockTemplate(useModel, collName, { uid: existingEntry.uid, targetUid: existingEntry.targetUid, name: tpl.name });
+        }
+      }
       reused++;
       continue;
     }
@@ -586,6 +619,15 @@ export async function deployTemplates(
         uidMap.set(tpl.targetUid, result.targetUid);
       }
       deployedTemplates[stateKey] = { uid: result.templateUid, targetUid: result.targetUid, type: tpl.type, collection: collName };
+      // Seed per-run block template cache so later popup conversions reuse
+      // this template instead of creating yet another copy for the same
+      // (useModel, collection) pair.
+      if (tpl.type === 'block' && tplSpec.content && typeof tplSpec.content === 'object') {
+        const useModel = inferBlockUseModel((tplSpec.content as Record<string, unknown>).type as string);
+        if (useModel && collName) {
+          cacheBlockTemplate(useModel, collName, { uid: result.templateUid, targetUid: result.targetUid, name: tpl.name });
+        }
+      }
       log(`  + template "${tpl.name}" (${tpl.type}) → ${result.templateUid}`);
       created++;
     } catch (e) {
@@ -1141,6 +1183,9 @@ async function convertPopupBlocksToTemplates(
 
     // Find existing block templates (by useModel + collectionName) to reuse.
     // In copy mode: restrict to allowedBlockTemplateUids (this group's own templates only).
+    // ALSO seed from _blockTplCacheThisRun so block templates detached by
+    // earlier popup conversions in the SAME deploy are reused instead of
+    // recreated — otherwise nested refs explode with duplicates.
     const allTpls = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
     const existingByUseModel = new Map<string, { uid: string; targetUid: string; name: string }>();
     for (const t of (allTpls.data?.data || []) as Record<string, unknown>[]) {
@@ -1151,6 +1196,11 @@ async function convertPopupBlocksToTemplates(
       if (!existingByUseModel.has(key) || (t.name as string).length > (existingByUseModel.get(key)!.name.length)) {
         existingByUseModel.set(key, { uid: t.uid as string, targetUid: t.targetUid as string, name: t.name as string });
       }
+    }
+    // Overlay per-run cache (always allowed, even in copy mode)
+    for (const use of BLOCK_USES) {
+      const cached = lookupBlockTemplateCache(use, collName);
+      if (cached) existingByUseModel.set(`${use}|${collName}`, cached);
     }
 
     for (const block of blocks) {
@@ -1208,7 +1258,10 @@ async function convertPopupBlocksToTemplates(
             }},
             sortIndex: block.sortIndex, flowRegistry: {},
           });
-          existingByUseModel.set(key, { uid: blockTplUid, targetUid: block.uid, name: tplName });
+          const info = { uid: blockTplUid, targetUid: block.uid, name: tplName };
+          existingByUseModel.set(key, info);
+          cacheBlockTemplate(block.use, collName, info);
+          trackCreatedTemplate(blockTplUid);
           log(`      + block template: ${tplName} (${blockTplUid.slice(0, 8)})`);
         }
       } catch (e: any) {
