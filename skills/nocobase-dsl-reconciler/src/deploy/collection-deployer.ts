@@ -199,4 +199,26 @@ export async function ensureAllCollections(
       } catch { /* skip */ }
     }
   }
+
+  // Apply collection.triggers — raw SQL DDL that travels with the collection.
+  // We do this AFTER all collections+fields exist so the SQL can reference
+  // any column. drop+create per object so reruns are idempotent.
+  for (const [name, def] of Object.entries(collections)) {
+    if (!def.triggers?.length) continue;
+    log(`    triggers on ${name}: applying ${def.triggers.length}`);
+    const { execSql, dropSqlObject } = await import('../utils/sql-exec');
+    for (const t of def.triggers) {
+      try {
+        if (t.drop) {
+          execSql(t.drop);
+        } else {
+          dropSqlObject(t.name, name, t.kind);
+        }
+        execSql(t.sql);
+        log(`      + ${t.name} (${t.kind || 'sql'})`);
+      } catch (e) {
+        log(`      ✗ ${t.name}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+      }
+    }
+  }
 }

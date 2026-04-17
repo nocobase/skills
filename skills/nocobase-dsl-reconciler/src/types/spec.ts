@@ -222,10 +222,25 @@ export interface FieldDef {
 
 // ── Collection def ──
 
+/** A raw SQL object (trigger, function, view, constraint...) that lives on
+ *  the collection's underlying table. Stored verbatim — we don't try to
+ *  abstract over PostgreSQL DDL because the surface area is too large
+ *  relative to the win. Ensure-style: drop+recreate by name on each deploy. */
+export interface SqlObjectDef {
+  name: string;            // identity for drop+recreate (must be unique within the collection)
+  kind?: 'trigger' | 'function' | 'view' | 'constraint' | 'index';  // hint only — sql is authoritative
+  sql: string;             // full DDL (CREATE OR REPLACE / CREATE INDEX / etc.)
+  drop?: string;           // DROP statement to run BEFORE sql; auto-derived if omitted
+}
+
 export interface CollectionDef {
   title: string;
   titleField?: string;
   fields: FieldDef[];
+  /** Raw SQL DDL that travels with the collection — captured by pull, deployed
+   *  by push. Used for triggers / functions / db-level constraints that NB's
+   *  collection schema can't express. */
+  triggers?: SqlObjectDef[];
 }
 
 // ── Top-level structure.yaml ──

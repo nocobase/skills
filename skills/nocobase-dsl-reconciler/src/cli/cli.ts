@@ -817,18 +817,24 @@ async function cmdDuplicateProject(args: string[]) {
   const src = args[0];
   const dst = args[1];
   if (!src || !dst) {
-    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--force]\n\n  --key-suffix    Append to every route key so the duplicate is a separate identity.\n  --title-prefix  Prepend to every top-level title so push won\'t adopt a same-titled live group.\n                  Use BOTH for a clean isolated duplicate (recommended).');
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--collection-suffix _v2] [--force]\n\n  --key-suffix         Append to every route key so the duplicate is a separate identity.\n  --title-prefix       Prepend to every top-level title so push won\'t adopt a same-titled live group.\n  --collection-suffix  Rename every collection (and trigger SQL refs) — produces TRULY independent\n                       data. Without it, v2 shares the source\'s tables.\n\n  Recommended for isolated duplicate: all three.');
     process.exit(1);
   }
   const sufIdx = args.indexOf('--key-suffix');
   const keySuffix = sufIdx >= 0 ? args[sufIdx + 1] : undefined;
   const tpIdx = args.indexOf('--title-prefix');
   const titlePrefix = tpIdx >= 0 ? args[tpIdx + 1] : undefined;
+  const csIdx = args.indexOf('--collection-suffix');
+  const collectionSuffix = csIdx >= 0 ? args[csIdx + 1] : undefined;
   const force = args.includes('--force');
   const { duplicateProject } = await import('../duplicate/duplicate-project');
-  const tags = [keySuffix && `key suffix: ${keySuffix}`, titlePrefix && `title prefix: ${titlePrefix}`].filter(Boolean).join(', ');
+  const tags = [
+    keySuffix && `key: ${keySuffix}`,
+    titlePrefix && `title: ${titlePrefix}`,
+    collectionSuffix && `coll: ${collectionSuffix}`,
+  ].filter(Boolean).join(', ');
   console.log(`\n  Duplicating ${src} → ${dst}${tags ? ` (${tags})` : ''}`);
-  const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, force });
+  const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, collectionSuffix, force });
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
   if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
   console.log(`\n  Next: cd ${dst} && git init && git add -A && git commit -m "duplicate"`);

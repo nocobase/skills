@@ -26,6 +26,12 @@ export interface DuplicateOptions {
    *  group instead of creating a new one. A unique title prefix forces
    *  creation of a separate group tree. */
   titlePrefix?: string;
+  /** Suffix appended to every collection name. Triggers / SQL inside
+   *  collection.triggers also get table-name rewrite so a v2 trigger
+   *  references the v2 table instead of the source. Page coll: refs are
+   *  also rewritten. Use this when you want truly independent data, not
+   *  just a parallel UI on the same tables. */
+  collectionSuffix?: string;
   /** Wipe the target dir if it exists. Without this, fail on conflict. */
   force?: boolean;
 }
@@ -107,6 +113,102 @@ function rewriteUids(obj: unknown, map: Map<string, string>): unknown {
     return out;
   }
   return obj;
+}
+
+/** When --collection-suffix is set, rewrite every reference to an old
+ *  collection name → new name. Touches:
+ *    - top-level `name` (collection file rename)
+ *    - field.target / field.through (relation refs)
+ *    - workflow trigger.collection
+ *    - workflow nodes.config.sql (string substitution — quoted/unquoted)
+ *    - collection.triggers[].sql (same), and rename trigger names too
+ *    - page block.coll
+ *  Also auto-renames trigger names by appending the same suffix to keep them
+ *  uniquely named at the DB level. */
+function rewriteCollectionRefs(
+  obj: unknown,
+  collMap: Map<string, string>,
+  filePath: string,
+): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    // String-level rewrites only happen for SQL bodies (handled inline below).
+    return obj;
+  }
+  if (Array.isArray(obj)) return obj.map(x => rewriteCollectionRefs(x, collMap, filePath));
+  if (typeof obj !== 'object') return obj;
+  const o = obj as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    // Direct name fields
+    if ((k === 'name' || k === 'target' || k === 'through' || k === 'collection' || k === 'collectionName') && typeof v === 'string' && collMap.has(v)) {
+      out[k] = collMap.get(v);
+      continue;
+    }
+    // Block.coll on page YAML
+    if (k === 'coll' && typeof v === 'string' && collMap.has(v)) {
+      out[k] = collMap.get(v);
+      continue;
+    }
+    // SQL bodies — substitute table names (word-boundary match) AND auto-suffix trigger names
+    if (k === 'sql' && typeof v === 'string') {
+      let sql = v;
+      for (const [oldName, newName] of collMap) {
+        sql = sql.replace(new RegExp(`\\b${oldName}\\b`, 'g'), newName);
+      }
+      out[k] = sql;
+      continue;
+    }
+    // Trigger object: rename its `name` (so v1/v2 triggers coexist on
+    // different tables — but PG also requires unique trigger names per
+    // table, which is fine since they're on different tables now), and
+    // rewrite collection names + function names inside the SQL body so
+    // v2's CREATE OR REPLACE doesn't clobber v1's function.
+    if (k === 'triggers' && Array.isArray(v)) {
+      // We need a suffix. Derive it from the first collMap entry
+      // (e.g. 'bookings' → 'bookings_v2' → suffix '_v2').
+      const firstEntry = collMap.entries().next().value;
+      const suffix = firstEntry ? firstEntry[1].slice(firstEntry[0].length) : '';
+      out[k] = v.map((t: any) => {
+        if (!t || typeof t !== 'object') return t;
+        const newT = { ...t };
+        if (typeof newT.name === 'string' && suffix) {
+          newT.name = `${newT.name}${suffix}`;
+        }
+        for (const field of ['sql', 'drop'] as const) {
+          if (typeof newT[field] !== 'string') continue;
+          let s = newT[field] as string;
+          // 1. Rename table refs.
+          for (const [oldName, newName] of collMap) {
+            s = s.replace(new RegExp(`\\b${oldName}\\b`, 'g'), newName);
+          }
+          // 2. Rename function names declared/referenced in this DDL.
+          //    Match `CREATE [OR REPLACE] FUNCTION [schema.]<name>(`
+          //    and `EXECUTE FUNCTION [schema.]<name>` and `EXECUTE PROCEDURE …`.
+          if (suffix) {
+            s = s.replace(
+              /\b(CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:[a-zA-Z0-9_]+\.)?)([a-zA-Z0-9_]+)\s*\(/gi,
+              (_m, p1, fn) => `${p1}${fn}${suffix}(`,
+            );
+            s = s.replace(
+              /\b(EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:[a-zA-Z0-9_]+\.)?)([a-zA-Z0-9_]+)/gi,
+              (_m, p1, fn) => `${p1}${fn}${suffix}`,
+            );
+            // Also rename CREATE TRIGGER <name> so the trigger name itself gets the suffix.
+            s = s.replace(
+              /\b(CREATE\s+TRIGGER\s+)([a-zA-Z0-9_]+)/gi,
+              (_m, p1, tn) => `${p1}${tn}${suffix}`,
+            );
+          }
+          newT[field] = s;
+        }
+        return newT;
+      });
+      continue;
+    }
+    out[k] = rewriteCollectionRefs(v, collMap, filePath);
+  }
+  return out;
 }
 
 /** Replace UID substrings inside arbitrary string values. Skips template
@@ -316,6 +418,42 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     console.log(`     If that's wrong, either disable one side or add a filter condition.`);
   }
 
+  // 3b. If --collection-suffix, build a name-rewrite map covering every
+  //     collection in collections/ AND propagate the rename through:
+  //       - collection.name field
+  //       - field.target / field.through (relation refs)
+  //       - field.foreignKey (no rewrite — derived from field name, not table name)
+  //       - workflow.trigger.collection
+  //       - workflow.nodes.*.config.sql (string substitution)
+  //       - collection.triggers[].sql (string substitution + auto-rename trigger names)
+  //       - page coll: refs (string substitution in page YAML)
+  //     This is the missing piece for fully-isolated duplicates: without it,
+  //     v2 shares tables / triggers / workflows with v1.
+  // NB system tables that we should NEVER rename — they're shared across all
+  // applications. Add to this set if you discover more (auth-related etc).
+  const NB_SYSTEM_COLLS = new Set([
+    'users', 'roles', 'departments', 'rolesUsers', 'rolesUserschemas',
+    'attachments', 'storages', 'verifications',
+    'mailMessages', 'mailMessagesUsers', 'notifications',
+    'workflows', 'jobs', 'executions', 'flow_nodes',
+    'applicationPlugins', 'systemSettings',
+  ]);
+
+  const collMap = new Map<string, string>();
+  if (opts.collectionSuffix && fs.existsSync(path.join(dst, 'collections'))) {
+    for (const f of fs.readdirSync(path.join(dst, 'collections'))) {
+      if (!f.endsWith('.yaml')) continue;
+      const collFile = path.join(dst, 'collections', f);
+      try {
+        const c = loadYaml<Record<string, unknown>>(collFile);
+        const oldName = (c.name as string) || f.replace('.yaml', '');
+        if (!oldName.startsWith('_') && !NB_SYSTEM_COLLS.has(oldName)) {
+          collMap.set(oldName, `${oldName}${opts.collectionSuffix}`);
+        }
+      } catch { /* skip */ }
+    }
+  }
+
   // 4. Rewrite each YAML file with the new UIDs (skip routes.yaml if we just
   //    rewrote it — UIDs inside routes are still safe to remap, but reassign
   //    has already saved the file). state.yaml is wiped (deploy will repopulate).
@@ -331,9 +469,22 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     }
     try {
       const obj = loadYaml<unknown>(file);
-      const next = rewriteUids(obj, uidMap);
+      let next = rewriteUids(obj, uidMap);
+      if (collMap.size) next = rewriteCollectionRefs(next, collMap, file);
       saveYaml(file, next);
     } catch { /* skip */ }
+  }
+  // Also rename the collection files themselves
+  if (collMap.size) {
+    const collDir = path.join(dst, 'collections');
+    for (const [oldName, newName] of collMap) {
+      const oldPath = path.join(collDir, `${oldName}.yaml`);
+      const newPath = path.join(collDir, `${newName}.yaml`);
+      if (fs.existsSync(oldPath) && oldPath !== newPath) {
+        fs.renameSync(oldPath, newPath);
+      }
+    }
+    console.log(`  ✓ ${collMap.size} collections renamed (--collection-suffix ${opts.collectionSuffix})`);
   }
 
   // 5. Rename page directories so they match the new keys.

@@ -1395,10 +1395,70 @@ async function exportCollections(
     if (c.titleField) collDef.titleField = c.titleField;
     collDef.fields = fields;
 
+    // Capture user-defined triggers / functions for this table so they
+    // travel with the collection in pull → push → duplicate flows.
+    // Without this, a kimi-installed conflict-detection trigger gets left
+    // behind on the source DB and the duplicate has no enforcement.
+    try {
+      const triggers = await captureTriggersForTable(name);
+      if (triggers.length) collDef.triggers = triggers;
+    } catch { /* psql not available — skip silently, can be re-pulled later */ }
+
     fs.writeFileSync(path.join(collDir, `${name}.yaml`), dumpYaml(collDef));
     count++;
   }
   console.log(`  + ${count} collections`);
+}
+
+/** Query Postgres for user triggers + their backing functions on `tableName`.
+ *  Returns SqlObjectDef[] suitable for round-tripping back into the table.
+ *  We deliberately avoid pg_dump complexity — only triggers + their immediate
+ *  trigger-function are captured. Other DDL (views, custom indexes) can be
+ *  added later if a real use case appears. */
+async function captureTriggersForTable(tableName: string): Promise<unknown[]> {
+  const { execSql, singleValue } = await import('../utils/sql-exec');
+  const out: Record<string, unknown>[] = [];
+  const safe = tableName.replace(/'/g, "''");
+  // Step 1 — list trigger names (one per line, single column, no separator confusion).
+  const trigNames = execSql(
+    `SELECT t.tgname
+       FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE c.relname = '${safe}' AND NOT t.tgisinternal
+      ORDER BY t.tgname`,
+    { select: true },
+  ).split('\n').map(s => s.trim()).filter(Boolean);
+
+  for (const name of trigNames) {
+    const safeName = name.replace(/'/g, "''");
+    // Step 2 — fetch the CREATE TRIGGER body (single-row single-column, multi-line OK).
+    let createTrigger = '';
+    try {
+      createTrigger = singleValue(execSql(
+        `SELECT pg_get_triggerdef(t.oid, true)
+           FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+          WHERE c.relname = '${safe}' AND t.tgname = '${safeName}' AND NOT t.tgisinternal`,
+        { select: true },
+      )).trim();
+    } catch { /* skip */ }
+    if (!createTrigger) continue;
+    // Step 3 — find the trigger's function name from the trigger def.
+    const fnMatch = createTrigger.match(/EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)/i);
+    const fnName = fnMatch?.[1];
+    let createFn = '';
+    if (fnName) {
+      try {
+        createFn = singleValue(execSql(
+          `SELECT pg_get_functiondef(p.oid)
+             FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = '${fnName.replace(/'/g, "''")}'`,
+          { select: true },
+        )).trim();
+      } catch { /* skip */ }
+    }
+    const sql = createFn ? `${createFn};\n${createTrigger};` : `${createTrigger};`;
+    out.push({ name, kind: 'trigger', sql });
+  }
+  return out;
 }
 
 function moveEventFiles(jsDir: string, eventsDir: string): void {
