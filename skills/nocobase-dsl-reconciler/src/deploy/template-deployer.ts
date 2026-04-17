@@ -421,33 +421,17 @@ export async function deployTemplates(
   const tplDir = path.join(projectDir, 'templates');
   if (!fs.existsSync(tplDir)) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
 
-  // Build index: prefer _index.yaml, then auto-discover YAML files
-  let index: TemplateIndex[];
-  const indexFile = path.join(tplDir, '_index.yaml');
-  if (fs.existsSync(indexFile)) {
-    index = loadYaml<TemplateIndex[]>(indexFile) || [];
-  } else {
-    index = discoverTemplates(tplDir);
-  }
+  // Build index by scanning the individual template YAML files.
+  //
+  // We intentionally ignore templates/_index.yaml even when it exists: that file
+  // is a historical export-side convenience that often contains stale UID
+  // duplicates (multiple entries pointing at the same file with different uids).
+  // Each individual YAML is the authoritative source of its own uid — using the
+  // index would mask that, leading to "template does not exist" when popup DSL
+  // references the file's uid while deploy creates the template with the
+  // index's (different) uid.
+  const index: TemplateIndex[] = discoverTemplates(tplDir);
   if (!index.length) return { uidMap: new Map(), pendingPopupTemplates: [], deployedTemplates: {} };
-
-  // Dedupe _index entries by (type, name, collection). _index.yaml may contain
-  // multiple UIDs for the same template name when the live DB has duplicates
-  // from prior deploys — without dedup, copy mode would create a fresh template
-  // for each duplicate (explosion). Keep the FIRST occurrence of each key.
-  {
-    const seen = new Set<string>();
-    const deduped: TemplateIndex[] = [];
-    let dups = 0;
-    for (const t of index) {
-      const key = `${t.type}|${t.name}|${t.collection || ''}`;
-      if (seen.has(key)) { dups++; continue; }
-      seen.add(key);
-      deduped.push(t);
-    }
-    if (dups) log(`  templates: skipped ${dups} duplicate _index entries`);
-    index = deduped;
-  }
 
   log('\n  -- Templates --');
 
