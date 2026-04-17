@@ -1050,6 +1050,8 @@ async function exportActions(
   const recordActions: unknown[] = [];
   const actionPopups: PopupRef[] = [];
 
+  const processedUids = new Set<string>();  // track to avoid duplicates from block + actionsColumn
+
   for (const subKey of ['actions', 'recordActions'] as const) {
     const raw = item.subModels?.[subKey];
     let arr = (Array.isArray(raw) ? raw : []) as FlowModelNode[];
@@ -1069,6 +1071,8 @@ async function exportActions(
     for (const act of arr) {
       const atype = ACTION_TYPE_MAP[act.use || ''];
       if (!atype) continue;
+      if (act.uid && processedUids.has(act.uid)) continue;
+      if (act.uid) processedUids.add(act.uid);
 
       // Complex actions — export as shorthand + files
       if (atype === 'ai') {
@@ -1190,7 +1194,8 @@ async function exportActions(
         for (const act of colActArr) {
           const atype = ACTION_TYPE_MAP[act.use || ''];
           if (!atype) continue;
-          if (!recordActions.includes(atype)) recordActions.push(atype);
+          if (act.uid && processedUids.has(act.uid)) continue;
+          if (act.uid) processedUids.add(act.uid);
           if (act.subModels?.page) {
             actionPopups.push({ field: atype, field_uid: act.uid, block_key: blockKey });
           }
