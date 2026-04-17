@@ -33,7 +33,7 @@ import { resetM2oCache } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { verifySqlFromPages } from './sql-verifier';
-import { discoverPages, type RouteEntry, type PageInfo } from './page-discovery';
+import { discoverPages, routeKey, type RouteEntry, type PageInfo } from './page-discovery';
 import { RefResolver } from '../refs';
 import { pageToBlueprint } from './blueprint-converter';
 import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
@@ -229,44 +229,30 @@ export async function deployProject(
   // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
   rewriteTemplateUids(pages, templateUidMap, templateNameMap);
 
-  // Routes + pages
-  // --group overrides the target title (e.g. deploy "Main" pages as "CRM Copy").
-  // When source has multiple top-level entries, --group becomes a prefix to keep them
-  // uniquely named (e.g. "CRM Copy - Main", "CRM Copy - Other") rather than flattening.
-  // Applied to both groups and top-level flowPages for consistent namespacing.
-  const needsPrefix = routes.length > 1;
-  const computeTargetTitle = (sourceTitle: string): string => {
-    if (!opts.group) return sourceTitle;
-    return needsPrefix ? `${opts.group} - ${sourceTitle}` : opts.group;
-  };
+  // Routes + pages.
+  // DSL is the source of truth — title controls display, key controls identity.
+  // `--group <key>` filters to a single top-level route subtree.
   state.group_ids = state.group_ids || {};
-  const deployedGroups = new Set<string>();
+  const deployedKeys = new Set<string>();
   for (const routeEntry of routes) {
+    const rkey = routeKey(routeEntry);
+    if (opts.group && rkey !== opts.group) continue;
     if (routeEntry.type === 'group') {
-      if (deployedGroups.has(routeEntry.title)) continue;
-      deployedGroups.add(routeEntry.title);
-      const targetTitle = computeTargetTitle(routeEntry.title);
-      const targetEntry = { ...routeEntry, title: targetTitle };
-      // Swap state.group_id to the per-source-group id so deployGroup reuses correct id
-      state.group_id = state.group_ids[routeEntry.title];
-      await deployGroup(ctx, targetEntry, pages, state, root, opts.blueprint || false);
-      if (state.group_id) state.group_ids[routeEntry.title] = state.group_id;
+      if (deployedKeys.has(rkey)) continue;
+      deployedKeys.add(rkey);
+      // Swap state.group_id to the per-route group id so deployGroup reuses the correct id
+      state.group_id = state.group_ids[rkey];
+      await deployGroup(ctx, routeEntry, pages, state, root, opts.blueprint || false);
+      if (state.group_id) state.group_ids[rkey] = state.group_id;
     } else if (routeEntry.type === 'flowPage') {
-      const pageInfo = pages.find(p => p.title === routeEntry.title);
-      if (pageInfo) {
-        // Apply prefix to title in copy mode so we get a unique page name
-        const targetTitle = computeTargetTitle(routeEntry.title);
-        const targetPageInfo = targetTitle === pageInfo.title
-          ? pageInfo
-          : { ...pageInfo, title: targetTitle };
-        await deployOnePage(ctx, targetPageInfo, state, null);
-      }
+      const pageInfo = pages.find(p => p.key === rkey);
+      if (pageInfo) await deployOnePage(ctx, pageInfo, state, null);
     }
   }
 
   // Final column reorder
   for (const p of pages) {
-    const pageKey = slugify(p.title);
+    const pageKey = p.key;
     const pageState = state.pages[pageKey];
     for (const bs of p.layout.blocks || []) {
       if (bs.type !== 'table') continue;
@@ -288,7 +274,7 @@ export async function deployProject(
   const allPopups = pages.flatMap(p =>
     p.popups.map(ps => ({
       ...ps,
-      target: ps.target.replace('$SELF', `$${slugify(p.title)}`),
+      target: ps.target.replace('$SELF', `$${p.key}`),
     })),
   );
   const structure: StructureSpec = { module: path.basename(root), collections: collDefs, pages: pages.map(p => p.layout) };
@@ -318,7 +304,7 @@ export async function deployProject(
   log(`\n  ── Post-deploy: m2o popup binding ──`);
   const { enableM2oClickToOpen } = await import('./block-filler');
   for (const [pageKey, pageState] of Object.entries(state.pages)) {
-    const pageInfo = pages.find(p => slugify(p.title) === pageKey);
+    const pageInfo = pages.find(p => p.key === pageKey);
     if (!pageInfo) continue;
     const blockColl = pageInfo.layout?.coll as string || '';
 
@@ -357,7 +343,7 @@ export async function deployProject(
   // then runs verify-data as a separate validation pass.
 
   // Set menu sortIndex to match routes.yaml declaration order
-  await syncMenuOrder(nb, state, routes, log, computeTargetTitle);
+  await syncMenuOrder(nb, state, routes, log);
 
   // Persist UIDs created during this deploy so a future rollback can remove them.
   // We do NOT auto-delete here — a user's manually created template may be 0-usage
@@ -379,11 +365,10 @@ export async function deployProject(
   await cleanStaleTemplateUsages(nb, log);
 
   // Auto-sync: re-export deployed groups to keep local files in sync with live state.
-  // Sync each top-level group (source title → target title via computeTargetTitle).
   for (const r of routes) {
     if (r.type !== 'group') continue;
-    const targetTitle = computeTargetTitle(r.title);
-    await syncRoutesYaml(nb, root, r.title, targetTitle, log);
+    if (opts.group && routeKey(r) !== opts.group) continue;
+    await syncRoutesYaml(nb, root, r, log);
   }
 
   // Rebuild graph + _refs.yaml after sync
@@ -601,6 +586,8 @@ async function deployGroup(
       const existingGroup = (liveRoutes.data.data || []).find((r: any) => r.type === 'group' && r.title === routeEntry.title);
       if (existingGroup) {
         state.group_id = existingGroup.id;
+        log(`  ⚠ group "${routeEntry.title}" already exists in NocoBase — adopting it (state was empty for key "${routeKey(routeEntry)}").`);
+        log(`     If this DSL is meant to be SEPARATE from that live group, change the title in routes.yaml or use a different key.`);
         log(`  = group: ${routeEntry.title} (found existing)`);
       } else {
         const result = await nb.createGroup(routeEntry.title, routeEntry.icon || 'appstoreoutlined');
@@ -617,11 +604,11 @@ async function deployGroup(
     for (let ci = 0; ci < children.length; ci++) {
       const child = children[ci];
       if (child.type === 'flowPage') {
-        const pageInfo = pages.find(p => p.title === child.title);
+        const pageInfo = pages.find(p => p.key === routeKey(child));
         if (pageInfo) {
           await deployPageBlueprint(ctx, pageInfo, state, state.group_id!, routeEntry.title);
           // Set sortIndex to match declaration order
-          const pageKey = slugify(pageInfo.title);
+          const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
           if (routeId) {
             await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -629,7 +616,7 @@ async function deployGroup(
           saveYaml(stateFile, state);
         }
       } else if (child.type === 'group') {
-        const subGroupKey = `_subgroup_${slugify(child.title)}`;
+        const subGroupKey = `_subgroup_${routeKey(child)}`;
         let subGroupId = (state as unknown as Record<string, unknown>)[subGroupKey] as number | undefined;
         if (!subGroupId) {
           const result = await nb.createGroup(child.title, child.icon || 'folderoutlined', state.group_id!);
@@ -644,11 +631,11 @@ async function deployGroup(
         const subChildren = child.children || [];
         for (let si = 0; si < subChildren.length; si++) {
           const sc = subChildren[si];
-          const pageInfo = pages.find(p => p.title === sc.title);
+          const pageInfo = pages.find(p => p.key === routeKey(sc));
           if (pageInfo) {
             await deployPageBlueprint(ctx, pageInfo, state, subGroupId, child.title);
             // Set sortIndex on sub-group child
-            const pageKey = slugify(pageInfo.title);
+            const pageKey = pageInfo.key;
             const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
             if (routeId) {
               await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -667,6 +654,8 @@ async function deployGroup(
     const existingGroup = (liveRoutes.data.data || []).find((r: any) => r.type === 'group' && r.title === routeEntry.title);
     if (existingGroup) {
       state.group_id = existingGroup.id;
+      log(`  ⚠ group "${routeEntry.title}" already exists in NocoBase — adopting it (state was empty for key "${routeKey(routeEntry)}").`);
+      log(`     If this DSL is meant to be SEPARATE from that live group, change the title in routes.yaml or use a different key.`);
       log(`  = group: ${routeEntry.title} (found existing)`);
     } else {
       const result = await nb.createGroup(routeEntry.title, routeEntry.icon || 'appstoreoutlined');
@@ -687,7 +676,7 @@ async function deployGroup(
       if (pageInfo) {
         await deployOnePage(ctx, pageInfo, state, state.group_id!);
         // Set sortIndex to match declaration order
-        const pageKey = slugify(pageInfo.title);
+        const pageKey = pageInfo.key;
         const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
         if (routeId) {
           await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -695,7 +684,7 @@ async function deployGroup(
         saveYaml(legacyStateFile, state);
       }
     } else if (child.type === 'group') {
-      const subGroupKey = `_subgroup_${slugify(child.title)}`;
+      const subGroupKey = `_subgroup_${routeKey(child)}`;
       let subGroupId = (state as unknown as Record<string, unknown>)[subGroupKey] as number | undefined;
       if (!subGroupId) {
         const result = await nb.createGroup(child.title, child.icon || 'folderoutlined', state.group_id!);
@@ -714,7 +703,7 @@ async function deployGroup(
         if (pageInfo) {
           await deployOnePage(ctx, pageInfo, state, subGroupId);
           // Set sortIndex on sub-group child
-          const pageKey = slugify(pageInfo.title);
+          const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
           if (routeId) {
             await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -733,7 +722,7 @@ async function deployOnePage(
   parentRouteId: number | null,
 ): Promise<void> {
   const { nb, log } = ctx;
-  const pageKey = slugify(pageInfo.title);
+  const pageKey = pageInfo.key;
   let pageState = state.pages[pageKey];
 
   if (!pageState?.tab_uid) {
@@ -930,7 +919,7 @@ async function deployPageBlueprint(
   groupTitle: string,
 ): Promise<void> {
   const { nb, log } = ctx;
-  const pageKey = slugify(pageInfo.title);
+  const pageKey = pageInfo.key;
   let pageState = state.pages[pageKey];
 
   // Always check live routes for existing page — prevents duplicates on repeated deploy
@@ -1281,7 +1270,6 @@ async function syncMenuOrder(
   state: ModuleState,
   routes: RouteEntry[],
   log: (msg: string) => void,
-  computeTargetTitle: (sourceTitle: string) => string = (t) => t,
 ): Promise<void> {
   try {
     const groupEntries = routes.filter(r => r.type === 'group');
@@ -1305,16 +1293,11 @@ async function syncMenuOrder(
     for (const groupEntry of groupEntries) {
       if (!groupEntry.children?.length) continue;
 
-      // Find live group by state route_id match or title match
-      let liveGroup = liveGroups.find((g: any) => {
-        for (const [, ps] of Object.entries(state.pages)) {
-          const pg = ps as Record<string, unknown>;
-          if (pg.route_id && g.children?.some((c: any) => c.id === pg.route_id)) return true;
-        }
-        return false;
-      });
-      const targetTitle = computeTargetTitle(groupEntry.title);
-      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === targetTitle);
+      // Prefer matching by state.group_ids[key] (stable across title changes), fall back to title.
+      const gKey = routeKey(groupEntry);
+      const stateGroupId = state.group_ids?.[gKey];
+      let liveGroup = stateGroupId ? liveGroups.find((g: any) => g.id === stateGroupId) : undefined;
+      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === groupEntry.title);
       if (!liveGroup?.children?.length) continue;
 
       const liveChildren = liveGroup.children as { id: number; title: string; type: string; sortIndex?: number; children?: any[] }[];
@@ -1341,30 +1324,31 @@ async function syncMenuOrder(
 }
 
 /**
- * For copy mode (Main -> CRM Copy), this syncs back from CRM Copy so spec
- * reflects the actual deployed state. Source template (Main) is unaffected.
- * Only routes.yaml is updated; use explicit `export-project` for full sync.
+ * Re-sync the deployed group's children/icons back into routes.yaml so the
+ * file stays in step with what's actually live. Identity is matched by `key`
+ * (= route.key || slugify(title)), so titles can change freely without
+ * losing the entry.
  */
 async function syncRoutesYaml(
   nb: NocoBaseClient,
   root: string,
-  sourceTitle: string,
-  targetTitle: string,
+  routeEntry: RouteEntry,
   log: (msg: string) => void,
 ): Promise<void> {
   try {
     nb.routes.clearCache();
     const liveRoutes = await nb.routes.list();
 
-    // Find the deployed group in live routes (matched by deployed/target title)
-    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === targetTitle);
-    if (!liveGroup) { log(`\n  routes.yaml sync: group "${targetTitle}" not found in live`); return; }
+    // Match live group by stored title (DSL is source of truth for naming).
+    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === routeEntry.title);
+    if (!liveGroup) { log(`\n  routes.yaml sync: group "${routeEntry.title}" not found in live`); return; }
 
-    // Build updated entry from live state — but preserve the original source title
-    // in the YAML file so repeated deploys don't drift (target title is only what
-    // appears in NocoBase, source file must remain canonical).
-    const buildEntry = (r: any): Record<string, unknown> => {
-      const entry: Record<string, unknown> = { title: r.title };
+    // Build updated entry from live state. Preserve declared key so identity
+    // is stable regardless of how the title changes later.
+    const buildEntry = (r: any, declaredKey: string | undefined, declaredTitle?: string): Record<string, unknown> => {
+      const entry: Record<string, unknown> = {};
+      if (declaredKey) entry.key = declaredKey;
+      entry.title = declaredTitle ?? r.title;
       if (r.type === 'group') entry.type = 'group';
       if (r.icon) entry.icon = r.icon;
       const seenChildren = new Set<string>();
@@ -1400,15 +1384,17 @@ async function syncRoutesYaml(
       return entry;
     };
 
-    // Read existing routes.yaml, update only the deployed group entry
+    // Read existing routes.yaml, update only the matching group entry by key.
     const routesFile = path.join(root, 'routes.yaml');
     let existing: Record<string, unknown>[] = [];
     try { existing = loadYaml<Record<string, unknown>[]>(routesFile) || []; } catch { /* fresh */ }
 
-    const updatedEntry = buildEntry(liveGroup);
-    // Restore source title at top level (target title only lives in NocoBase)
-    updatedEntry.title = sourceTitle;
-    const idx = existing.findIndex(e => e.title === sourceTitle && e.type === 'group');
+    const ourKey = routeKey(routeEntry);
+    const updatedEntry = buildEntry(liveGroup, routeEntry.key, routeEntry.title);
+    const idx = existing.findIndex(e => {
+      const er = e as { key?: string; title?: string; type?: string };
+      return routeKey({ key: er.key, title: er.title || '' }) === ourKey && er.type === 'group';
+    });
     if (idx >= 0) {
       existing[idx] = updatedEntry;
     } else {

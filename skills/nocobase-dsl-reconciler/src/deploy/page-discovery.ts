@@ -10,6 +10,8 @@ import { loadYaml } from '../utils/yaml';
 import { slugify } from '../utils/slugify';
 
 export interface RouteEntry {
+  /** Identity. Stable across title changes. Default: slugify(title). */
+  key?: string;
   title: string;
   type?: 'group' | 'flowPage';  // default: flowPage
   icon?: string;
@@ -17,7 +19,14 @@ export interface RouteEntry {
   children?: RouteEntry[];
 }
 
+/** Identity of a route. Use this for state lookups, NB matching, dir resolution. */
+export function routeKey(r: { key?: string; title: string }): string {
+  return r.key || slugify(r.title);
+}
+
 export interface PageInfo {
+  /** Stable identity (= route.key || slugify(title)). */
+  key: string;
   title: string;
   icon: string;
   slug: string;
@@ -29,6 +38,11 @@ export interface PageInfo {
 
 /**
  * Discover all pages from directory tree, guided by routes.yaml structure.
+ *
+ * Directory layout follows route keys (= route.key || slugify(title)). Falls
+ * back to slugify(title) for backward compat when key-named dir doesn't exist.
+ *
+ * `filterGroup` matches against routeKey, not title.
  */
 export function discoverPages(
   pagesDir: string,
@@ -38,32 +52,38 @@ export function discoverPages(
   const pages: PageInfo[] = [];
   if (!fs.existsSync(pagesDir)) return pages;
 
+  const resolveDir = (parent: string, r: RouteEntry): string => {
+    const byKey = path.join(parent, routeKey(r));
+    if (fs.existsSync(byKey)) return byKey;
+    const byTitle = path.join(parent, slugify(r.title));
+    return byTitle;
+  };
+
   for (const routeEntry of routes) {
     const rtype = routeEntry.type || (routeEntry.children ? 'group' : 'flowPage');
     if (rtype === 'group') {
-      if (filterGroup && routeEntry.title !== filterGroup) continue;
-      const groupSlug = slugify(routeEntry.title);
-      const groupDir = path.join(pagesDir, groupSlug);
+      if (filterGroup && routeKey(routeEntry) !== filterGroup) continue;
+      const groupDir = resolveDir(pagesDir, routeEntry);
       if (!fs.existsSync(groupDir)) continue;
 
       for (const child of routeEntry.children || []) {
         const ctype = child.type || (child.children ? 'group' : 'flowPage');
         if (ctype === 'flowPage') {
-          const p = readPageDir(path.join(groupDir, slugify(child.title)), child.title, child.icon);
+          const p = readPageDir(resolveDir(groupDir, child), child.title, child.icon, routeKey(child));
           if (p) pages.push(p);
         } else if (ctype === 'group') {
-          const subDir = path.join(groupDir, slugify(child.title));
+          const subDir = resolveDir(groupDir, child);
           for (const sc of child.children || []) {
             const stype = sc.type || 'flowPage';
             if (stype === 'flowPage') {
-              const p = readPageDir(path.join(subDir, slugify(sc.title)), sc.title, sc.icon);
+              const p = readPageDir(resolveDir(subDir, sc), sc.title, sc.icon, routeKey(sc));
               if (p) pages.push(p);
             }
           }
         }
       }
     } else if (rtype === 'flowPage' && !filterGroup) {
-      const p = readPageDir(path.join(pagesDir, slugify(routeEntry.title)), routeEntry.title, routeEntry.icon);
+      const p = readPageDir(resolveDir(pagesDir, routeEntry), routeEntry.title, routeEntry.icon, routeKey(routeEntry));
       if (p) pages.push(p);
     }
   }
@@ -73,8 +93,11 @@ export function discoverPages(
 
 /**
  * Read a single page directory and parse its spec files.
+ *
+ * `key` is the stable identity (defaults to slugify(title)) used for state
+ * indexing and NB matching. `slug` is always slugify(title) for legacy use.
  */
-export function readPageDir(pageDir: string, title: string, icon?: string): PageInfo | null {
+export function readPageDir(pageDir: string, title: string, icon?: string, key?: string): PageInfo | null {
   if (!fs.existsSync(pageDir)) return null;
 
   const pageMeta = fs.existsSync(path.join(pageDir, 'page.yaml'))
@@ -210,6 +233,7 @@ export function readPageDir(pageDir: string, title: string, icon?: string): Page
   }
 
   return {
+    key: key || slugify(title),
     title,
     icon: icon || (pageMeta.icon as string) || 'fileoutlined',
     slug: slugify(title),
