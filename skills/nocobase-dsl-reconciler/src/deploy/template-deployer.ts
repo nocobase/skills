@@ -604,7 +604,9 @@ export async function deployTemplates(
       let result: { templateUid: string; targetUid: string } | undefined;
 
       if (tpl.type === 'block') {
-        result = await createBlockTemplate(nb, tpl.name, content, collName, tplSpec, tplDir, log);
+        // Pass the DSL-declared uid so saveTemplate creates the template with
+        // that exact UID — DSL references stay valid without post-deploy rewrite.
+        result = await createBlockTemplate(nb, tpl.name, content, collName, tplSpec, tplDir, log, tpl.uid);
       } else if (tpl.type === 'popup') {
         // Popup templates are created AFTER page deployment:
         // 1. Sugar expansion inlines the popup content into the first referencing field
@@ -694,6 +696,7 @@ async function createBlockTemplate(
   tplSpec: Record<string, unknown>,
   tplDir: string,
   log: (msg: string) => void,
+  declaredUid?: string,  // DSL-declared template UID — honored by NocoBase's saveTemplate
 ): Promise<{ templateUid: string; targetUid: string } | undefined> {
   // Strip resource_binding for template compose — temp page has no record context.
   // The binding will be set when the template is actually used in a popup.
@@ -740,8 +743,31 @@ async function createBlockTemplate(
       }
     }
 
-    // 3. Save as template via flowSurfaces:saveTemplate
-    const saveResult = await nb.surfaces.saveTemplate({
+    // 3. Save as template via flowSurfaces:saveTemplate.
+    // If the DSL declares a stable uid, pass it through — NocoBase's saveTemplate
+    // honors values.uid (see plugin-flow-engine service.ts:4050).
+    // Before using declaredUid, verify it's free — otherwise saveTemplate would
+    // fail on duplicate primary key. If occupied and the template matches our
+    // (name, collection), reuse it instead of creating.
+    let uidToUse = declaredUid;
+    if (declaredUid) {
+      try {
+        const existing = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:get`, { params: { filterByTk: declaredUid } });
+        const row = existing.data?.data;
+        if (row) {
+          if (row.collectionName === collName) {
+            // Reuse — clean up the temp page we just composed on, return existing
+            log(`    = template: ${name} (reused by declared uid: ${declaredUid.slice(0, 8)})`);
+            return { templateUid: declaredUid, targetUid: row.targetUid as string };
+          }
+          // Collision with a different-collection template — fall back to server-generated uid
+          log(`    ! declared uid ${declaredUid.slice(0, 8)} is occupied by "${row.collectionName}" template, creating with fresh uid`);
+          uidToUse = undefined;
+        }
+      } catch { /* not found — safe to use declaredUid */ }
+    }
+
+    const savePayload: Record<string, unknown> = {
       target: { uid: blockUid },
       name,
       description: name,
@@ -749,7 +775,9 @@ async function createBlockTemplate(
       collectionName: collName,
       dataSourceKey: (tplSpec.dataSourceKey as string) || 'main',
       saveMode: 'duplicate',
-    }) as Record<string, unknown>;
+    };
+    if (uidToUse) savePayload.uid = uidToUse;
+    const saveResult = await nb.surfaces.saveTemplate(savePayload) as Record<string, unknown>;
 
     const templateUid = (saveResult.uid || saveResult.templateUid) as string;
     const targetUid = (saveResult.targetUid) as string || blockUid;
