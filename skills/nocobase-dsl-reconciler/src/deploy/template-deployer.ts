@@ -1206,13 +1206,34 @@ async function convertPopupBlocksToTemplates(
     }
     if (!tree) return;
 
-    // Walk tree to find blocks + their parent grid
-    const blocks: { uid: string; use: string; parentId: string; sortIndex: number }[] = [];
+    // Walk tree to find blocks + their parent grid. Also record each block's OWN
+    // collection/association — a popup may contain association blocks that target
+    // a different collection than the popup's host (e.g. Customer popup with a
+    // Contacts list block → block collection = nb_crm_contacts, association =
+    // nb_crm_customers.contacts). NocoBase's flowModelTemplates carry both
+    // fields, so we must match/create per-block.
+    function blockColl(node: any): string {
+      const init = node.stepParams?.resourceSettings?.init;
+      return (init?.collectionName as string) || '';
+    }
+    function blockAssoc(node: any): string {
+      const init = node.stepParams?.resourceSettings?.init;
+      return (init?.associationName as string) || '';
+    }
+
+    const blocks: { uid: string; use: string; parentId: string; sortIndex: number; coll: string; assoc: string }[] = [];
     function walkTree(node: any, gridUid: string | null) {
       if (!node || typeof node !== 'object') return;
       const curGrid = node.use === 'BlockGridModel' ? node.uid : gridUid;
       if (BLOCK_USES.has(node.use) && curGrid) {
-        blocks.push({ uid: node.uid, use: node.use, parentId: curGrid, sortIndex: node.sortIndex || 0 });
+        blocks.push({
+          uid: node.uid,
+          use: node.use,
+          parentId: curGrid,
+          sortIndex: node.sortIndex || 0,
+          coll: blockColl(node) || collName,
+          assoc: blockAssoc(node),
+        });
       }
       const subs = node.subModels;
       if (subs) for (const v of Object.values(subs)) {
@@ -1223,6 +1244,10 @@ async function convertPopupBlocksToTemplates(
     walkTree(tree, null);
     if (!blocks.length) return;
 
+    // Collect all distinct collections referenced by the blocks — matters when
+    // association blocks target nb_crm_contacts inside a nb_crm_customers popup.
+    const touchedColls = new Set(blocks.map(b => b.coll).filter(Boolean));
+
     // Find existing block templates (by useModel + collectionName) to reuse.
     // In copy mode: restrict to allowedBlockTemplateUids (this group's own templates only).
     // ALSO seed from _blockTplCacheThisRun so block templates detached by
@@ -1231,22 +1256,25 @@ async function convertPopupBlocksToTemplates(
     const allTpls = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
     const existingByUseModel = new Map<string, { uid: string; targetUid: string; name: string }>();
     for (const t of (allTpls.data?.data || []) as Record<string, unknown>[]) {
-      if (t.type !== 'block' || t.collectionName !== collName) continue;
+      if (t.type !== 'block') continue;
+      const tColl = t.collectionName as string;
+      if (!touchedColls.has(tColl)) continue;  // skip templates for unrelated collections
       if (allowedBlockTemplateUids && !allowedBlockTemplateUids.has(t.uid as string)) continue;
-      const key = `${t.useModel}|${t.collectionName}`;
-      // Prefer templates from _index.yaml (longer names with collection prefix)
+      const key = `${t.useModel}|${tColl}`;
       if (!existingByUseModel.has(key) || (t.name as string).length > (existingByUseModel.get(key)!.name.length)) {
         existingByUseModel.set(key, { uid: t.uid as string, targetUid: t.targetUid as string, name: t.name as string });
       }
     }
-    // Overlay per-run cache (always allowed, even in copy mode)
+    // Overlay per-run cache — keyed by (useModel, eachBlock's OWN coll)
     for (const use of BLOCK_USES) {
-      const cached = lookupBlockTemplateCache(use, collName);
-      if (cached) existingByUseModel.set(`${use}|${collName}`, cached);
+      for (const c of touchedColls) {
+        const cached = lookupBlockTemplateCache(use, c);
+        if (cached) existingByUseModel.set(`${use}|${c}`, cached);
+      }
     }
 
     for (const block of blocks) {
-      const key = `${block.use}|${collName}`;
+      const key = `${block.use}|${block.coll}`;
       const existing = existingByUseModel.get(key);
 
       try {
@@ -1278,16 +1306,23 @@ async function convertPopupBlocksToTemplates(
           await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: block.uid } }).catch(() => {});
           log(`      = block ref: ${existing.name} (${existing.uid.slice(0, 8)})`);
         } else {
-          // No existing template — detach this block as new template
-          const collTitle = collName.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          // No existing template — detach this block as new template.
+          // Use the block's OWN collection (+ association), not the popup's,
+          // so an association sub-block (e.g. Customer popup containing a
+          // Contacts details block) gets a correctly-scoped template rather
+          // than one mislabelled as the popup's collection.
+          const blockColl = block.coll;
+          const collTitle = blockColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           const tplName = `${BLOCK_NAMES[block.use] || block.use}: ${collTitle}`;
-          const tplResp = await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:create`, {
+          const createPayload: Record<string, unknown> = {
             name: tplName, description: '',
             targetUid: block.uid, useModel: block.use, type: 'block',
-            dataSourceKey: 'main', collectionName: collName,
+            dataSourceKey: 'main', collectionName: blockColl,
             filterByTk: block.use !== 'CreateFormModel' ? '{{ctx.view.inputArgs.filterByTk}}' : null,
             detachParent: true,
-          });
+          };
+          if (block.assoc) createPayload.associationName = block.assoc;
+          const tplResp = await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:create`, createPayload);
           const blockTplUid = tplResp.data?.data?.uid;
           if (!blockTplUid) continue;
           const refUid = generateUid();
@@ -1302,7 +1337,7 @@ async function convertPopupBlocksToTemplates(
           });
           const info = { uid: blockTplUid, targetUid: block.uid, name: tplName };
           existingByUseModel.set(key, info);
-          cacheBlockTemplate(block.use, collName, info);
+          cacheBlockTemplate(block.use, blockColl, info);
           trackCreatedTemplate(blockTplUid);
           log(`      + block template: ${tplName} (${blockTplUid.slice(0, 8)})`);
         }
