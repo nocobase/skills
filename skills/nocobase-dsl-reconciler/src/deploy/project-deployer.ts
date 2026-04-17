@@ -322,6 +322,8 @@ export async function deployProject(
         } catch { /* skip */ }
       }
     }
+    // Persist popup template UIDs to state.yaml for next re-deploy
+    saveYaml(stateFile, state);
   }
 
   // Ensure popup template blocks have binding: 'currentRecord' (for edit/detail popups)
