@@ -2789,123 +2789,123 @@ pages:
     popups: {}
 template_uids:
   'block:Form (Add new): nb_crm_leads':
-    uid: vm5e9x5k5vb
-    targetUid: dc5l6j4na9k
+    uid: uo6x7jz3khg
+    targetUid: 60rbjd72bo4
     type: block
     collection: nb_crm_leads
   'block:Form (Add new): Opportunities':
-    uid: xpblq7elnvp
-    targetUid: vvwq9wsm0ve
+    uid: qosufp6wrxh
+    targetUid: ov3nxbtz06j
     type: block
     collection: nb_crm_opportunities
   'block:Form (Edit): Suppliers':
-    uid: fbeogbdy58k
-    targetUid: qfned4vtyx8
+    uid: o1t0s731t19
+    targetUid: tapmr9s544f
     type: block
     collection: nb_erp_suppliers
   'block:Form (Add new): nb_crm_opportunity_stages':
-    uid: s711byigzo6
-    targetUid: jvntyzsk8zp
+    uid: 2xge0vtmg1r
+    targetUid: i8a5fykks4p
     type: block
     collection: nb_crm_opportunity_stages
   'block:Form (Edit): Customers > Contacts (Contacts)':
-    uid: ph09bgz857c
-    targetUid: nz4vnp5a8ae
+    uid: 43pkjgrfa82
+    targetUid: 5qcfbubp5qi
     type: block
     collection: nb_crm_contacts
   'block:Detail: Warehouses':
-    uid: mztqwwpoud2
-    targetUid: a5wd7gpr97j
+    uid: 4ss1q2zadnc
+    targetUid: k5aajpbtzew
     type: block
     collection: nb_erp_warehouses
   'block:Form (Add new): Currencies':
-    uid: oomf25am5jr
-    targetUid: wv2hrvu8n11
+    uid: dv5w06zri8w
+    targetUid: 8thzslksoi3
     type: block
     collection: nb_cbo_currencies
   'block:Form (Add new): Activities':
-    uid: it555b7ki1s
-    targetUid: ou6zgdzxepe
+    uid: svt94olrhw9
+    targetUid: 1q7r5ckb9ay
     type: block
     collection: nb_crm_activities
   'block:Form (Add new): Suppliers':
-    uid: qzhvf14g7bh
-    targetUid: 6rzf3q1kmr6
+    uid: znyywa55rg6
+    targetUid: xnql2alsq8j
     type: block
     collection: nb_erp_suppliers
   'block:Form (Edit): Warehouses':
-    uid: etew0olokgs
-    targetUid: 2e7ebo8339x
+    uid: lxtvxvprcj8
+    targetUid: d7s1t7qrmh7
     type: block
     collection: nb_erp_warehouses
   'block:Form (Add new): New Orders from Quotations':
-    uid: uvy6lvf6uu8
-    targetUid: ytkt6wl9lsr
+    uid: kviy0c0j9lo
+    targetUid: x7o6y4ul1yb
     type: block
     collection: nb_crm_orders
   'block:Form (Edit): Categories':
-    uid: wz9qarradxt
-    targetUid: s9zy0hzx6g9
+    uid: i06pi63vsb4
+    targetUid: 0wt7tmyyq07
     type: block
     collection: nb_erp_categories
   'block:Details: Customers > Contacts (Contacts)':
-    uid: og4yj4nxlnb
-    targetUid: 07egdkyskco
+    uid: 0c1ube3mhvi
+    targetUid: vtkmf4yr4ik
     type: block
     collection: nb_crm_contacts
   'block:Form (Add new): Exchange Rates':
-    uid: 4t67lvny10b
-    targetUid: 2aark4y3k9t
+    uid: 0v10j60fwjc
+    targetUid: uae4h0cn487
     type: block
     collection: nb_crm_exchange_rates
   'block:Details: Quotations':
-    uid: hrz38eevcfu
-    targetUid: rn0g6i8p6qo
+    uid: hljlvpz88tv
+    targetUid: hu0dc4gksxp
     type: block
     collection: nb_crm_quotations
   'block:Table: Opportunities':
-    uid: chzf90plxch
-    targetUid: 4dsytw7ofy8
+    uid: aww1mh0i2r1
+    targetUid: rm9oo8yg6gv
     type: block
     collection: nb_crm_opportunities
   'block:Detail: Categories':
-    uid: 09cgvuiodit
-    targetUid: ofvkywhk0m1
+    uid: aqmb843yoo3
+    targetUid: aaq795jvl6r
     type: block
     collection: nb_erp_categories
   'block:Form (Add new): Categories':
-    uid: ruytdg7i7g8
-    targetUid: gmw46xe20fz
+    uid: 5dubmd945wv
+    targetUid: s0op9u7oujh
     type: block
     collection: nb_erp_categories
   'block:Form (Add new): Opportunities > Quotations (Quotations)':
-    uid: vbapn4184yk
-    targetUid: efv1426u5t1
+    uid: 6guwfk84kii
+    targetUid: pa9lso90qea
     type: block
     collection: nb_crm_quotations
   'block:Detail: Suppliers':
-    uid: zs8etuf0jha
-    targetUid: e2tw3t3c8op
+    uid: c9ngjz4f2fl
+    targetUid: p1zha9mnj6j
     type: block
     collection: nb_erp_suppliers
   'block:Form (Add new): nb_crm_customers':
-    uid: d4z13j0gry0
-    targetUid: qinsfxxxjar
+    uid: v071bzccfem
+    targetUid: flelzox6bz7
     type: block
     collection: nb_crm_customers
   'block:Form (Add new): nb_crm_products':
-    uid: vwimg0ynize
-    targetUid: kjear973tof
+    uid: 359752luhvk
+    targetUid: g8jrb0u3q34
     type: block
     collection: nb_crm_products
   'block:Table: Orders':
-    uid: 719a0equn2y
-    targetUid: ajzisd3mocd
+    uid: dxe8wp1bh9n
+    targetUid: 394d5021cgg
     type: block
     collection: nb_crm_orders
   'block:Form (Add new): Warehouses':
-    uid: v86yy4qj7sz
-    targetUid: 4dtaimf4cth
+    uid: gx7qt5k54b7
+    targetUid: htca3346ftn
     type: block
     collection: nb_erp_warehouses
 group_id: 359372590284800
