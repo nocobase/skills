@@ -1,2 +1,107 @@
 target: $SELF.table.fields.name
-popup: templates/popup/detail_nb_erp_products.yaml
+mode: drawer
+tabs:
+  - title: Summary
+    blocks:
+      - ref: templates/block/detail_nb_erp_products.yaml
+  - title: Inventory Movements
+    blocks:
+      - key: inventory_movements
+        type: table
+        title: Inventory Movements
+        coll: nb_erp_inventory_movements
+        resource_binding:
+          associationName: nb_erp_products.inventory_movements
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - reference_number
+          - movement_type
+          - quantity
+          - unit_cost
+          - movement_date
+          - related_order
+          - related_purchase_order
+        actions:
+          - filter
+          - refresh
+        recordActions:
+          - edit
+  - title: Purchase Order Lines
+    blocks:
+      - key: purchase_order_lines
+        type: table
+        title: Purchase Order Lines
+        coll: nb_erp_purchase_order_lines
+        resource_binding:
+          associationName: nb_erp_products.purchase_order_lines
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - line_label
+          - purchase_order
+          - quantity
+          - received_quantity
+          - unit_cost
+          - line_total
+          - line_status
+        actions:
+          - filter
+          - refresh
+        recordActions:
+          - edit
+  - title: Sales Order Lines
+    blocks:
+      - key: sales_order_lines
+        type: table
+        title: Sales Order Lines
+        coll: nb_erp_order_lines
+        resource_binding:
+          associationName: nb_erp_products.sales_order_lines
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - line_label
+          - order
+          - quantity
+          - unit_price
+          - discount_amount
+          - line_total
+          - fulfill_status
+        actions:
+          - filter
+          - refresh
+        recordActions:
+          - edit
+  - title: Supplier Info
+    blocks:
+      - key: supplier_info
+        type: details
+        title: Preferred Supplier
+        coll: nb_erp_suppliers
+        resource_binding:
+          associationName: nb_erp_products.preferred_supplier
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - supplier_code
+          - name
+          - contact_name
+          - email
+          - phone
+          - status
+          - payment_terms
+          - lead_time_days
+          - address
+          - notes
+        field_layout:
+          - '--- Supplier Profile ---'
+          - - supplier_code
+            - name
+          - - contact_name
+            - status
+          - - email
+            - phone
+          - '--- Purchasing Terms ---'
+          - - payment_terms
+            - lead_time_days
+          - '--- Address ---'
+          - - address
+          - '--- Notes ---'
+          - - notes

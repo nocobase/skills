@@ -1,2 +1,57 @@
 target: $SELF.table.fields.order_number
-popup: templates/popup/detail_nb_erp_customer_orders.yaml
+mode: drawer
+tabs:
+  - title: Summary
+    blocks:
+      - ref: templates/block/detail_nb_erp_customer_orders.yaml
+      - key: line_items
+        type: table
+        title: Order Line Items
+        coll: nb_erp_order_lines
+        resource_binding:
+          associationName: nb_erp_customer_orders.order_lines
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - line_label
+          - product
+          - quantity
+          - unit_price
+          - discount_amount
+          - line_total
+          - fulfill_status
+        actions:
+          - filter
+          - refresh
+          - addNew
+        recordActions:
+          - edit
+          - delete
+      - key: movements
+        type: list
+        title: Related Inventory Movements
+        coll: nb_erp_inventory_movements
+        resource_binding:
+          associationName: nb_erp_customer_orders.inventory_movements
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - reference_number
+          - movement_type
+          - quantity
+          - movement_date
+        field_layout:
+          - - reference_number
+            - movement_type
+          - - quantity
+            - movement_date
+        actions:
+          - filter
+          - refresh
+    layout:
+      - - details: 10
+        - line_items: 14
+      - - movements
+  - title: History
+    blocks:
+      - key: recordHistory
+        type: recordHistory
+        coll: nb_erp_customer_orders

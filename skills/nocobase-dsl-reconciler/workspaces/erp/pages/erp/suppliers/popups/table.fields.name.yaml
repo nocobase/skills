@@ -1,2 +1,48 @@
 target: $SELF.table.fields.name
-popup: templates/popup/detail_nb_erp_suppliers.yaml
+mode: drawer
+tabs:
+  - title: Summary
+    blocks:
+      - ref: templates/block/detail_nb_erp_suppliers.yaml
+  - title: Products Supplied
+    blocks:
+      - key: products_supplied
+        type: table
+        title: Products Supplied
+        coll: nb_erp_products
+        resource_binding:
+          associationName: nb_erp_suppliers.products_supplied
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - name
+          - sku
+          - status
+          - inventory_status
+          - current_stock
+          - sale_price
+        actions:
+          - filter
+          - refresh
+        recordActions:
+          - edit
+  - title: Purchase Orders
+    blocks:
+      - key: purchase_orders
+        type: table
+        title: Purchase Orders
+        coll: nb_erp_purchase_orders
+        resource_binding:
+          associationName: nb_erp_suppliers.purchase_orders
+          sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+        fields:
+          - po_number
+          - status
+          - buyer_name
+          - order_date
+          - expected_date
+          - total_amount
+        actions:
+          - filter
+          - refresh
+        recordActions:
+          - edit
