@@ -4,8 +4,8 @@ description: "Use when users need to prepare a NocoBase environment, install and
 argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|upgrade|diagnose|app-manage] [target-dir]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
-version: 1.11.0
-last-reviewed: 2026-04-16
+version: 1.12.0
+last-reviewed: 2026-04-17
 risk-level: medium
 ---
 
@@ -38,7 +38,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `mode` | no | `quick` | one of `quick/standard/rescue` | "Do you want quick mode, standard mode, or rescue mode?" |
 | `task` | yes | inferred from user text | one of `preflight/install/upgrade/diagnose/app-manage` | "Should I run preflight, install, upgrade, diagnose, or app-manage?" |
 | `install_method` | install optional, upgrade optional | install: `docker`; upgrade: `auto` | one of `auto/docker/create-nocobase-app/git` | "Which installation method should be used?" |
-| `release_channel` | install or upgrade | `latest` | one of `latest/beta/alpha` | "Which release channel should be used?" |
+| `release_channel` | install or upgrade | `latest` | one of `latest/beta/alpha` | "Which release channel should be used (`alpha` recommended for docker install when setup capabilities are required)?" |
 | `target_version` | upgrade optional | none | non-empty version or image tag | "Which target version should be upgraded to?" |
 | `backup_confirmed` | upgrade required | `false` | must be `true` before upgrade | "Have you completed and confirmed database backup?" |
 | `upgrade_confirmed` | upgrade required for non-dry-run | `false` | must be `true` before non-dry-run upgrade | "Please confirm the resolved upgrade method/version/restart plan." |
@@ -51,6 +51,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `db_host` | when `db_mode=existing` | none | non-empty host | "Which DB host should be used?" |
 | `db_port` | when `db_mode=existing` | by dialect (`5432`/`3306`) | numeric port | "Which DB port should be used?" |
 | `db_database` | when `db_mode=existing` | none | non-empty database name | "Which DB database should be used?" |
+| `db_database_mode` | when `db_mode=existing` | `existing` | one of `existing/create` | "Use existing database or create database first?" |
 | `db_user` | when `db_mode=existing` | none | non-empty user | "Which DB user should be used?" |
 | `db_password` | when `db_mode=existing` | none | non-empty password | "Please provide DB password." |
 | `db_underscored` | no | `false` | boolean (`true/false`) | "For local DB, should DB_UNDERSCORED be enabled?" |
@@ -70,9 +71,10 @@ Default behavior when user says "you decide":
 - `mode=quick`
 - `task=install`
 - `install_method=docker`
-- `release_channel=latest`
+- `release_channel=latest` (docker install still runs channel clarification when user did not specify channel)
 - `db_mode=bundled`
 - `db_dialect=postgres`
+- `db_database_mode=existing`
 - `db_underscored=false`
 - `port=13000`
 - `network_profile=online`
@@ -85,6 +87,12 @@ Default behavior when user says "you decide":
 - Max clarification rounds: `2`
 - Max questions per round: `3`
 - Never run mutable actions (`install/upgrade`) until all required inputs for the selected `task` are resolved.
+- Docker release-channel clarification gate is mandatory for install:
+- when `task=install` and `install_method=docker`, if user did not explicitly specify `release_channel`, ask one short question before install:
+- "Docker default is `latest`, but current setup capabilities are primarily available in `alpha`. Install `alpha` now?"
+- accepted values: `alpha` / `latest` / `beta`.
+- if user explicitly indicates stability or production preference, select `latest`.
+- record channel decision source as `user_explicit`, `clarified`, or `default_fallback`.
 - Upgrade gate is mandatory:
 - `backup_confirmed` must be `true` before running upgrade commands.
 - For upgrade, `install_method` defaults to `auto`; resolve method from marker/project files when user does not specify.
@@ -97,6 +105,9 @@ Default behavior when user says "you decide":
 - `docker` default is `db_mode=bundled`.
 - If user provides DB connection inputs on docker path, switch to `db_mode=existing`.
 - `create-nocobase-app` and `git` always require `db_mode=existing` plus PostgreSQL/MySQL/MariaDB readiness.
+- for `db_mode=existing`, require `db_database_mode` decision:
+- `existing`: connect and verify existing database directly.
+- `create`: create database first, then connect/verify to avoid repeated initial connection failures.
 - If DB host is local (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask for `db_underscored` preference; default to `false` when user does not specify.
 - If DB is missing or unreachable for existing mode, stop and provide official install links:
 - PostgreSQL: `https://www.postgresql.org/download/`
@@ -121,16 +132,19 @@ Default behavior when user says "you decide":
 1. Parse request and normalize intent.
 - If intent is unclear, ask only one short question to select `task`.
 - Keep first round to at most five questions.
+- For docker install, resolve `release_channel` with this priority:
+- user explicit input > docker channel clarification answer > default fallback `latest`.
 
 2. Run preflight gate before install/upgrade.
 - For install/upgrade, run core checks only:
-- Windows: execute `powershell -File scripts/preflight.ps1 -InstallMethod <install_method> -DbMode <db_mode> -DbDialect <db_dialect> -DbHost <db_host> -DbPort <db_port> -DbDatabase <db_database> -DbUser <db_user> -DbPassword <db_password>`.
-- Linux/macOS: execute `bash scripts/preflight.sh <port> <install_method> <db_mode> <db_dialect>` with `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD` in environment.
+- Windows: execute `powershell -File scripts/preflight.ps1 -InstallMethod <install_method> -DbMode <db_mode> -DbDialect <db_dialect> -DbHost <db_host> -DbPort <db_port> -DbDatabase <db_database> -DbDatabaseMode <db_database_mode> -DbUser <db_user> -DbPassword <db_password>`.
+- Linux/macOS: execute `bash scripts/preflight.sh <port> <install_method> <db_mode> <db_dialect> <db_database_mode>` with `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD` in environment.
 - Classify findings into `fail`, `warn`, and `pass`.
 - Treat dependency/runtime/path/network blockers as immediate blockers.
 
 3. Execute by mode.
 - `quick`: Docker-first path with minimal questions.
+- `quick` + docker install: if user did not provide channel, ask the mandatory docker channel clarification and recommend `alpha`.
 - `standard`: user chooses method and database dialect.
 - `rescue`: collect diagnostics (`powershell -File scripts/collect-diagnostics.ps1` on Windows, `bash scripts/collect-diagnostics.sh` on Linux/macOS), map findings to troubleshooting entries, then apply the smallest safe fix first.
 - Install execution policy:
@@ -142,8 +156,8 @@ Default behavior when user says "you decide":
 4. Execute task-specific runbook.
 - For install: follow [Install Runbook](references/install-runbook.md).
 - For install command execution, use local script:
-- Windows: `powershell -File scripts/install.ps1 --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
-- Linux/macOS: `bash scripts/install.sh --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
+- Windows: `powershell -File scripts/install.ps1 --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
+- Linux/macOS: `bash scripts/install.sh --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
 - For upgrade: follow [Upgrade Runbook](references/upgrade-runbook.md) and execute local script:
 - Windows: `powershell -File scripts/upgrade.ps1 --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
 - Linux/macOS: `bash scripts/upgrade.sh --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
@@ -172,6 +186,7 @@ Default behavior when user says "you decide":
 6. Report output.
 - Include command list executed.
 - Include evidence of success/failure from command output.
+- Include `release_channel_source` evidence (`user_explicit`/`clarified`/`default_fallback`) for install flows.
 - For every write action (for example `.env`, compose file, or runtime config), perform immediate read-after-write verification and report expected vs actual values.
 - Include CLI bootstrap evidence:
 - `cli_env_name`
@@ -228,6 +243,8 @@ Confirmation template:
 
 - Preflight completed and contains zero unresolved blocking failures.
 - Preflight fails when `APP_KEY` is weak for existing project files, and defers missing `APP_KEY` only for fresh install targets before local install script generation.
+- Docker install without explicit channel triggers clarification and recommends `alpha`.
+- Explicit user channel choice is respected without re-asking.
 - Existing DB mode fails when required DB fields are missing or endpoint is unreachable.
 - `create-nocobase-app`/`git` fail preflight when PostgreSQL/MySQL/MariaDB is unavailable.
 - Method and release channel are explicitly confirmed or defaulted.
@@ -267,6 +284,8 @@ Confirmation template:
 14. create/git preflight passes when DB endpoint and auth probe succeed.
 15. `task=app-manage` with oauth mode validates metadata/auth flow, runs `env update`, and returns current env info only on full connectivity success.
 16. `task=app-manage` with token mode remote URL + missing token fails with clear token-required error.
+17. Docker install without explicit channel asks clarification and records `release_channel_source=clarified` when user chooses.
+18. Docker install with explicit channel keeps user choice and records `release_channel_source=user_explicit`.
 
 # Output Contract
 
@@ -274,6 +293,7 @@ Final response must include:
 
 - selected mode and task
 - inputs used (method, channel, directory, port)
+- `release_channel_source` (`user_explicit`/`clarified`/`default_fallback`)
 - preflight summary (`fail/warn/pass`)
 - actions executed
 - verification result

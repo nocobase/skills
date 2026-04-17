@@ -8,6 +8,8 @@ param(
   [string]$DbHost = '',
   [string]$DbPort = '',
   [string]$DbDatabase = '',
+  [ValidateSet('existing', 'create')]
+  [string]$DbDatabaseMode = 'existing',
   [string]$DbUser = '',
   [string]$DbPassword = '',
   [switch]$McpRequired,
@@ -187,6 +189,109 @@ function Test-MySqlAuthProbe {
   }
 }
 
+function Escape-SqlLiteral {
+  param([string]$Value)
+  return ($Value -replace "'", "''")
+}
+
+function Quote-PostgresIdentifier {
+  param([string]$Value)
+  return '"' + ($Value -replace '"', '""') + '"'
+}
+
+function Quote-MySqlIdentifier {
+  param([string]$Value)
+  $tick = [char]96
+  return $tick + ($Value -replace [string]$tick, [string]($tick + $tick)) + $tick
+}
+
+function Ensure-ExternalDatabaseExists {
+  param(
+    [string]$Dialect,
+    [string]$DatabaseMode,
+    [string]$DbHost,
+    [string]$PortNumber,
+    [string]$Database,
+    [string]$User,
+    [string]$Password
+  )
+
+  if ($DatabaseMode -ne 'create') {
+    Record-Check pass 'DB-CREATE-001' 'Database creation mode is existing; creation step skipped.'
+    return $true
+  }
+
+  if ($Dialect -eq 'postgres') {
+    if (-not (Has-Command psql)) {
+      Record-Check fail 'DB-CREATE-001' 'db_database_mode=create requires psql client for postgres.' 'Install PostgreSQL client tools and retry.'
+      return $false
+    }
+
+    $dbLiteral = Escape-SqlLiteral -Value $Database
+    $dbIdentifier = Quote-PostgresIdentifier -Value $Database
+    $checkSql = "SELECT 1 FROM pg_database WHERE datname = '$dbLiteral' LIMIT 1;"
+    $previous = [System.Environment]::GetEnvironmentVariable('PGPASSWORD', 'Process')
+    [System.Environment]::SetEnvironmentVariable('PGPASSWORD', $Password, 'Process')
+    try {
+      $checkResult = (& psql -h $DbHost -p $PortNumber -U $User -d postgres -tA -v ON_ERROR_STOP=1 -c $checkSql 2>$null) -join ''
+      if ($LASTEXITCODE -ne 0) {
+        Record-Check fail 'DB-CREATE-001' "Failed to check target database existence ($Database)." 'Check DB_HOST/DB_PORT/DB_USER and network connectivity, then retry.'
+        return $false
+      }
+
+      if (($checkResult.Trim()) -eq '1') {
+        Record-Check pass 'DB-CREATE-001' "Target database already exists ($Database)."
+        return $true
+      }
+
+      & psql -h $DbHost -p $PortNumber -U $User -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $dbIdentifier;" *> $null
+      if ($LASTEXITCODE -eq 0) {
+        Record-Check pass 'DB-CREATE-001' "Created target database ($Database)."
+        return $true
+      }
+
+      Record-Check fail 'DB-CREATE-001' "Failed to create target database ($Database)." 'Check DB_USER permissions (CREATE DATABASE) or create database manually, then retry.'
+      return $false
+    } finally {
+      [System.Environment]::SetEnvironmentVariable('PGPASSWORD', $previous, 'Process')
+    }
+  }
+
+  if (-not (Has-Command mysql)) {
+    Record-Check fail 'DB-CREATE-001' 'db_database_mode=create requires mysql client for mysql/mariadb.' 'Install mysql client tools and retry.'
+    return $false
+  }
+
+  $dbLiteral = Escape-SqlLiteral -Value $Database
+  $dbIdentifier = Quote-MySqlIdentifier -Value $Database
+  $checkSql = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$dbLiteral' LIMIT 1;"
+  $previous = [System.Environment]::GetEnvironmentVariable('MYSQL_PWD', 'Process')
+  [System.Environment]::SetEnvironmentVariable('MYSQL_PWD', $Password, 'Process')
+  try {
+    $checkResult = (& mysql --protocol=TCP -h $DbHost -P $PortNumber -u $User --connect-timeout=5 --batch --skip-column-names -e $checkSql 2>$null) -join ''
+    if ($LASTEXITCODE -ne 0) {
+      Record-Check fail 'DB-CREATE-001' "Failed to check target database existence ($Database)." 'Check DB_HOST/DB_PORT/DB_USER and network connectivity, then retry.'
+      return $false
+    }
+
+    if (($checkResult.Trim()) -eq $Database) {
+      Record-Check pass 'DB-CREATE-001' "Target database already exists ($Database)."
+      return $true
+    }
+
+    & mysql --protocol=TCP -h $DbHost -P $PortNumber -u $User --connect-timeout=5 -e "CREATE DATABASE IF NOT EXISTS $dbIdentifier;" *> $null
+    if ($LASTEXITCODE -eq 0) {
+      Record-Check pass 'DB-CREATE-001' "Created target database ($Database)."
+      return $true
+    }
+
+    Record-Check fail 'DB-CREATE-001' "Failed to create target database ($Database)." 'Check DB_USER permissions (CREATE DATABASE) or create database manually, then retry.'
+    return $false
+  } finally {
+    [System.Environment]::SetEnvironmentVariable('MYSQL_PWD', $previous, 'Process')
+  }
+}
+
 function Test-IsPlaceholderAppKey {
   param([string]$Value)
 
@@ -361,6 +466,7 @@ $hasExternalDbInputs = -not [string]::IsNullOrWhiteSpace($dbHostResolved) -or
   -not [string]::IsNullOrWhiteSpace($dbDatabaseResolved) -or
   -not [string]::IsNullOrWhiteSpace($dbUserResolved) -or
   -not [string]::IsNullOrWhiteSpace($dbPasswordResolved)
+$dbDatabaseModeResolved = $DbDatabaseMode
 
 if (Is-MethodCreateOrGit) {
   $dbModeResolved = 'existing'
@@ -378,6 +484,7 @@ if ([string]::IsNullOrWhiteSpace($dbPortResolved)) {
 
 Write-Host "db_mode: $dbModeResolved"
 Write-Host "db_dialect: $dbDialectResolved"
+Write-Host "db_database_mode: $dbDatabaseModeResolved"
 if (-not [string]::IsNullOrWhiteSpace($dbHostResolved)) {
   Write-Host "db_host: $dbHostResolved"
 }
@@ -524,17 +631,24 @@ if ($dbModeResolved -eq 'existing') {
     Emit-DbInstallAction
   } else {
     Record-Check pass 'DB-REQ-002' 'External DB required fields are present.'
+    $dbCreateReady = $true
 
     if ($dbPortResolved -notmatch '^\d+$') {
       Record-Check fail 'DB-REQ-003' "DB_PORT must be numeric (current=$dbPortResolved)." 'Set DB_PORT to a valid numeric port.'
+      $dbCreateReady = $false
     } elseif (Test-TcpReachable -DbHost $dbHostResolved -PortNumber ([int]$dbPortResolved)) {
       Record-Check pass 'DB-CONN-001' "Database endpoint is reachable (${dbHostResolved}:$dbPortResolved)."
     } else {
       Record-Check fail 'DB-CONN-001' "Database endpoint is not reachable (${dbHostResolved}:$dbPortResolved)." "Start database service or install one: PostgreSQL $PostgresInstallUrl | MySQL $MySqlInstallUrl | MariaDB $MariaDbInstallUrl"
       Emit-DbInstallAction
+      $dbCreateReady = $false
     }
 
-    if ($dbDialectResolved -eq 'postgres') {
+    if ($dbCreateReady) {
+      $dbCreateReady = Ensure-ExternalDatabaseExists -Dialect $dbDialectResolved -DatabaseMode $dbDatabaseModeResolved -DbHost $dbHostResolved -PortNumber $dbPortResolved -Database $dbDatabaseResolved -User $dbUserResolved -Password $dbPasswordResolved
+    }
+
+    if ($dbCreateReady -and $dbDialectResolved -eq 'postgres') {
       $pgProbe = Test-PostgresAuthProbe -DbHost $dbHostResolved -PortNumber $dbPortResolved -Database $dbDatabaseResolved -User $dbUserResolved -Password $dbPasswordResolved
       if ($null -eq $pgProbe) {
         Record-Check warn 'DB-AUTH-001' 'psql client is not available; skipped PostgreSQL auth probe.' 'Install psql for stronger preflight verification.'
@@ -543,7 +657,7 @@ if ($dbModeResolved -eq 'existing') {
       } else {
         Record-Check fail 'DB-AUTH-001' "PostgreSQL auth probe failed (host=$dbHostResolved, db=$dbDatabaseResolved, user=$dbUserResolved)." 'Check DB_DATABASE/DB_USER/DB_PASSWORD and permissions.'
       }
-    } elseif ($dbDialectResolved -in @('mysql', 'mariadb')) {
+    } elseif ($dbCreateReady -and $dbDialectResolved -in @('mysql', 'mariadb')) {
       $myProbe = Test-MySqlAuthProbe -DbHost $dbHostResolved -PortNumber $dbPortResolved -Database $dbDatabaseResolved -User $dbUserResolved -Password $dbPasswordResolved
       if ($null -eq $myProbe) {
         Record-Check warn 'DB-AUTH-001' 'mysql client is not available; skipped MySQL/MariaDB auth probe.' 'Install mysql client for stronger preflight verification.'
