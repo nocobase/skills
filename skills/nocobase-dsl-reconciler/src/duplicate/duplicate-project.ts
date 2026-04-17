@@ -270,7 +270,8 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
 
   const uidMap = new Map<string, string>();
   for (const file of yamlFiles) {
-    if (path.basename(file) === 'state.yaml') continue;
+    const base = path.basename(file);
+    if (base === 'state.yaml' || base === 'workflow-state.yaml') continue;
     try { collectUids(loadYaml<unknown>(file), uidMap); } catch { /* skip bad yaml */ }
   }
 
@@ -284,11 +285,47 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     saveYaml(routesFile, routesObj);
   }
 
+  // 3a. If --title-prefix, also rewrite workflow titles so the duplicate's
+  //     workflows can coexist with the source's (NocoBase doesn't enforce
+  //     unique workflow titles, but identical names confuse the UI).
+  //     CAUTION: workflows whose trigger.collection is unchanged will fire on
+  //     the SAME table as the source — every insert/update fires both
+  //     workflows. The duplicate is logically wrong unless either:
+  //       (a) you also rename collections in v2 (manual edit), or
+  //       (b) you remove/disable one side, or
+  //       (c) you add a filter condition that distinguishes records.
+  let sharedCollWorkflowCount = 0;
+  const wfDir = path.join(dst, 'workflows');
+  if (opts.titlePrefix && fs.existsSync(wfDir)) {
+    for (const entry of fs.readdirSync(wfDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const wfFile = path.join(wfDir, entry.name, 'workflow.yaml');
+      if (!fs.existsSync(wfFile)) continue;
+      try {
+        const wf = loadYaml<Record<string, unknown>>(wfFile);
+        if (typeof wf.title === 'string') wf.title = `${opts.titlePrefix}${wf.title}`;
+        const trig = (wf.trigger || {}) as Record<string, unknown>;
+        if (trig.collection) sharedCollWorkflowCount++;
+        saveYaml(wfFile, wf);
+      } catch { /* skip */ }
+    }
+  }
+  if (sharedCollWorkflowCount > 0) {
+    console.log(`  ⚠ ${sharedCollWorkflowCount} workflow(s) trigger on collections shared with the source.`);
+    console.log(`     After push, every insert/update will fire BOTH workflows (source + v2).`);
+    console.log(`     If that's wrong, either disable one side or add a filter condition.`);
+  }
+
   // 4. Rewrite each YAML file with the new UIDs (skip routes.yaml if we just
   //    rewrote it — UIDs inside routes are still safe to remap, but reassign
   //    has already saved the file). state.yaml is wiped (deploy will repopulate).
   for (const file of yamlFiles) {
-    if (path.basename(file) === 'state.yaml') {
+    const base = path.basename(file);
+    if (base === 'state.yaml' || base === 'workflow-state.yaml') {
+      // Wipe both deploy-state files so the duplicate's first push creates
+      // fresh routes/templates AND fresh workflows. Without wiping
+      // workflow-state.yaml the deploy treats the duplicated workflow as
+      // "already deployed" and never creates the v2 copy.
       fs.unlinkSync(file);
       continue;
     }
