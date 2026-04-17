@@ -76,23 +76,34 @@ export async function seedData(
     const bizFields = def.fields.filter(f => !SYSTEM.has(f.name) && f.interface !== 'o2m' && f.interface !== 'm2m');
     log(`\n  Seeding ${collName} (${count} records)...`);
 
+    // Collect FK column names used by m2o fields — skip these when filling scalar fields
+    // (prevents redundant integer field from overwriting the real FK value)
+    const fkColumns = new Set<string>();
+    for (const f of bizFields) {
+      if (f.interface === 'm2o') {
+        fkColumns.add(f.foreignKey || `${f.name}Id`);
+      }
+    }
+
     const ids: string[] = [];
     for (let i = 0; i < count; i++) {
       const record: Record<string, unknown> = {};
 
+      // Fill scalar fields first (skip FK columns that m2o will handle)
       for (const f of bizFields) {
-        if (f.interface === 'm2o') {
-          // Use real ID from parent table
-          const parentIds = idMap.get(f.target || '');
-          if (parentIds?.length) {
-            const fkName = f.foreignKey || `${f.name}Id`;
-            record[fkName] = parentIds[i % parentIds.length];
-          }
-          continue;
-        }
-
-        // Generate sample data based on field type
+        if (f.interface === 'm2o') continue;
+        if (fkColumns.has(f.name)) continue;  // don't overwrite m2o FKs
         record[f.name] = generateSampleValue(f, i, collName);
+      }
+
+      // Fill m2o FKs LAST so they win over any stray integer definition
+      for (const f of bizFields) {
+        if (f.interface !== 'm2o') continue;
+        const parentIds = idMap.get(f.target || '');
+        if (parentIds?.length) {
+          const fkName = f.foreignKey || `${f.name}Id`;
+          record[fkName] = parentIds[i % parentIds.length];
+        }
       }
 
       try {

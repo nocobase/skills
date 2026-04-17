@@ -38,8 +38,19 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         knownColls.add(collName);
         collTitleFields.set(collName, (c.titleField || 'name') as string);
         const m2oMap = new Map<string, string>();
+        const fks = new Set<string>();
         for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
-          if (fd.interface === 'm2o' && fd.target) m2oMap.set(fd.name as string, fd.target as string);
+          if (fd.interface === 'm2o' && fd.target) {
+            m2oMap.set(fd.name as string, fd.target as string);
+            const fk = (fd.foreignKey as string) || `${fd.name}Id`;
+            fks.add(fk);
+          }
+        }
+        // Rule: don't redefine auto-created FK columns (e.g. category_id alongside category m2o)
+        for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
+          if (fks.has(fd.name as string) && fd.interface !== 'm2o') {
+            issues.push({ level: 'error', page: `collection "${collName}"`, message: `field "${fd.name}" conflicts with m2o's foreignKey — remove it (the FK column is auto-created by NocoBase)` });
+          }
         }
         if (m2oMap.size) collM2oTargets.set(collName, m2oMap);
       } catch { /* skip */ }

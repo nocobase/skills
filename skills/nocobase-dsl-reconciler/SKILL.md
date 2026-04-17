@@ -140,6 +140,8 @@ Quick reference for common types used in collection YAML:
 
 > System columns (`id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`) are auto-created — do NOT define them.
 
+> **m2o foreign key columns** are auto-created. If you declare `category` (m2o → nb_pos_categories), NocoBase creates `category_id` automatically. **Do NOT** define `category_id` as a separate integer field — it duplicates the auto-FK and corrupts seed data.
+
 ## Key Rules
 
 1. **select must have options** — `options: [{value, label}]`
