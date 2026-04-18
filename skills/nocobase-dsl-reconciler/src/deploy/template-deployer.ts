@@ -535,7 +535,19 @@ export async function deployTemplates(
     // Priority 1: Match by persisted UID from state.yaml (most reliable, works in any mode)
     // state.yaml is scoped to this project — in copy mode, its UIDs refer to the Copy's
     // own templates, so reusing them is correct (prevents duplicate accumulation).
-    const stateKey = `${tpl.type}:${tpl.name}`;
+    //
+    // stateKey includes the DSL uid when present so multiple templates sharing
+    // a name (e.g. two "Table: Opportunities" exported from a NocoBase whose UI
+    // had duplicates) get tracked independently. Without this, the second
+    // template's deploy clobbered the first's state entry, leaving the page
+    // ref → template lookup pointing at whichever YAML happened to be processed
+    // last. Pre-existing state entries without uid still match (backward compat).
+    // Strict lookup: when DSL has uid, key by `type:name@uid` and DON'T fall
+    // back to the plain `type:name` key — the fallback let the FIRST YAML's
+    // stale state entry hijack EVERY same-named YAML (the bug we're fixing).
+    // Plain-key lookup only when DSL is uid-less (older agent-authored YAMLs
+    // that never had a uid:).
+    const stateKey = tpl.uid ? `${tpl.type}:${tpl.name}@${tpl.uid}` : `${tpl.type}:${tpl.name}`;
     const savedEntry = savedTemplateUids?.[stateKey];
     if (savedEntry?.uid) {
       // Verify the saved UID still exists in NocoBase AND matches the expected
@@ -732,7 +744,7 @@ export async function deployTemplates(
     const tplSpec = loadYaml<Record<string, unknown>>(tplFile);
     const collName = (tpl.collection || tplSpec.collectionName) as string || '';
     if (!collName) continue;
-    const stateKey = `${tpl.type}:${tpl.name}`;
+    const stateKey = tpl.uid ? `${tpl.type}:${tpl.name}@${tpl.uid}` : `${tpl.type}:${tpl.name}`;
     const deployed = deployedTemplates[stateKey];
     if (!deployed?.targetUid) continue;
     try {
@@ -864,6 +876,30 @@ async function createBlockTemplate(
       // Fallback: saveTemplate didn't return expected format — register manually
       return registerTemplateManually(nb, name, 'block', collName, tplSpec, blockUid);
     }
+
+    // Strip empty TableActionsColumnModel that NocoBase auto-creates on every
+    // saveTemplate('block'). When the DSL doesn't list any recordActions we
+    // get a header column "Actions" with no buttons inside — the user reads
+    // this as a deployer bug ("auto-created action column"). Only strip when
+    // it has zero subModels.actions; a populated action column is intentional.
+    try {
+      const tgtTree = await nb.get({ uid: targetUid });
+      const cols = ((tgtTree.tree as { subModels?: Record<string, unknown> }).subModels || {}).columns;
+      const colArr = (Array.isArray(cols) ? cols : []) as { uid: string; use?: string; subModels?: Record<string, unknown> }[];
+      const hasRecordActions = Array.isArray((content as Record<string, unknown>).recordActions) && ((content as Record<string, unknown>).recordActions as unknown[]).length > 0;
+      if (!hasRecordActions) {
+        for (const c of colArr) {
+          if (c.use !== 'TableActionsColumnModel') continue;
+          const inner = (c.subModels?.actions as unknown[] | undefined) || [];
+          if (!inner.length) {
+            try {
+              await nb.surfaces.removeNode(c.uid);
+              log(`    ~ template "${name}": stripped empty TableActionsColumnModel ${c.uid.slice(0, 8)}`);
+            } catch { /* skip */ }
+          }
+        }
+      }
+    } catch { /* best effort */ }
 
     return { templateUid, targetUid };
   } finally {
