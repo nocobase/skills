@@ -4,3 +4,4 @@
 skills/nocobase-page-builder/
 node_modules/
 package-lock.json
+.claude/
