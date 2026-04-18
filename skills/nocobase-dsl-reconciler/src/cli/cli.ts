@@ -41,6 +41,41 @@ const WORKSPACE_ROOT = path.resolve(
 );
 
 /**
+ * Ensure the project directory is its OWN git repo (independent of any
+ * parent repo it may live inside). Runs `git init` when absDir/.git is
+ * missing, then makes an initial commit so future pre-deploy snapshots
+ * and `--incremental` push have a base SHA to diff against.
+ *
+ * Why per-project repo?
+ *   - Without one, `git rev-parse` would walk up to the parent (e.g. the
+ *     tool source repo), and snapshots/diffs would target THAT history.
+ *   - The parent's `.gitignore workspaces/*` then hides our files, so
+ *     diff-based incremental push can't see anything → falls back to
+ *     full push every time.
+ *   - A local `.git/` makes deployment data live in its own timeline,
+ *     completely decoupled from tool-source commits.
+ */
+function ensureProjectGit(absDir: string, log: (msg: string) => void = () => {}): void {
+  const gitDir = path.join(absDir, '.git');
+  if (fs.existsSync(gitDir)) return;
+  if (!fs.existsSync(absDir)) return;  // dir doesn't exist yet (e.g. fresh pull about to write)
+  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  try {
+    execSync('git init -b main', { cwd: absDir, stdio: 'pipe' });
+    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      execSync('git commit -m "initial: project bootstrap" --allow-empty-message', { cwd: absDir, stdio: 'pipe' });
+    } else {
+      execSync('git commit --allow-empty -m "initial: project bootstrap"', { cwd: absDir, stdio: 'pipe' });
+    }
+    log(`  git: initialised local repo at ${path.basename(absDir)}/`);
+  } catch (e) {
+    log(`  ⚠ failed to git-init ${absDir}: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+  }
+}
+
+/**
  * Resolve a project-dir argument. Relative paths attach to WORKSPACE_ROOT.
  * Absolute paths must already be inside WORKSPACE_ROOT.
  * Throws if the resolved path escapes the root.
@@ -344,11 +379,11 @@ async function cmdDeployProject(args: string[]) {
 
   const absDir = resolveWorkspacePath(dir);
 
-  // Optional pre-deploy git snapshot (rollback point) — only if it's a git
-  // repo. We deliberately do NOT auto-export the live state, do NOT create
-  // worktrees, do NOT auto-cleanup templates. Push deploys; pull (separate
-  // command) re-imports; user runs `git diff` to see what changed.
+  // Pre-deploy git snapshot (rollback point). Auto-init a local repo for
+  // the project if missing, so this works the very first time and stays
+  // decoupled from any parent repo above workspaces/.
   if (!planOnly) {
+    ensureProjectGit(absDir, console.log);
     const { execSync } = await import('node:child_process');
     try {
       execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
@@ -771,6 +806,7 @@ function cmdScaffold(args: string[]) {
   }
   const dir = resolveWorkspacePath(dirArg);
   scaffold(dir, name, pages, collections);
+  ensureProjectGit(dir, console.log);
 }
 
 async function cmdExportProject(args: string[]) {
@@ -784,6 +820,7 @@ async function cmdExportProject(args: string[]) {
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
   await exportProject(nb, { outDir, group });
+  ensureProjectGit(outDir, console.log);
 }
 
 async function cmdSync(args: string[]) {
@@ -880,8 +917,8 @@ async function cmdDuplicateProject(args: string[]) {
   const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, collectionSuffix, force });
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
   if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
-  console.log(`\n  Next: cd ${dst} && git init && git add -A && git commit -m "duplicate"`);
-  console.log(`  Then: cli push ${dst} --force`);
+  ensureProjectGit(dst, console.log);
+  console.log(`\n  Next: cli push ${path.relative(WORKSPACE_ROOT, dst) || dst} --force`);
 }
 
 function cmdValidateWorkflows(args: string[]) {
