@@ -446,9 +446,14 @@ async function exportPage(
     // Also read tab icons from route children
     const routeTabs = (route.children || []).filter(c => c.type === 'tabs');
     tabs = tabArr.map((t, i) => {
-      const titleSetting = ((t.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>)
-        ?.title as Record<string, unknown>;
-      const title = (titleSetting?.title as string)
+      // NocoBase stores tab title in pageTabSettings.tab.title (current NB).
+      // Older builds used pageTabSettings.title.title — we read both as a
+      // fallback chain so pulls survive across NB versions.
+      const tabSettings = ((t.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>) || {};
+      const tabBlock = tabSettings.tab as Record<string, unknown> | undefined;
+      const titleBlock = tabSettings.title as Record<string, unknown> | undefined;
+      const title = (tabBlock?.title as string)
+        || (titleBlock?.title as string)
         || ((t as unknown as Record<string, unknown>).props as Record<string, unknown>)?.title as string
         || routeTabs[i]?.title
         || `Tab${i}`;
@@ -911,12 +916,17 @@ async function exportPopupsToDir(
         const tabSpecs: Record<string, unknown>[] = [];
         for (let i = 0; i < tabs.length; i++) {
           const tab = tabs[i] as FlowModelNode;
-          const title = ((tab.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>)
-            ?.title as Record<string, unknown>;
+          // Same dual-path fallback as page-level tabs (line ~449):
+          // newer NB uses pageTabSettings.tab.title, older builds put it
+          // at pageTabSettings.title.title.
+          const tabSettings = ((tab.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>) || {};
+          const tabBlock = tabSettings.tab as Record<string, unknown> | undefined;
+          const titleBlock = tabSettings.title as Record<string, unknown> | undefined;
+          const title = (tabBlock?.title as string) || (titleBlock?.title as string) || `Tab${i}`;
           const tabGrid = tab.subModels?.grid;
           if (tabGrid && !Array.isArray(tabGrid)) {
             const { blocks, popupRefs: nested, layout: tabLayout } = await exportGridBlocks(nb, tabGrid as FlowModelNode, jsDir, `${prefix}_${ref.field}_tab${i}`, projectDir);
-            const tabEntry: Record<string, unknown> = { title: (title?.title as string) || `Tab${i}`, blocks };
+            const tabEntry: Record<string, unknown> = { title, blocks };
             if (tabLayout?.length) tabEntry.layout = tabLayout;
             tabSpecs.push(tabEntry);
             nestedPopupRefs.push(...nested);
