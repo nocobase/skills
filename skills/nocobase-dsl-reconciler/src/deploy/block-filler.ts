@@ -264,6 +264,32 @@ export async function fillBlock(
     }
   }
 
+  // ── Standalone markdown block content ──
+  // Compose creates an empty MarkdownBlockModel; we have to write the body
+  // separately. `content_file` (relative to modDir) wins over inline `content`.
+  if (btype === 'markdown') {
+    let mdBody = (bs.content as string) || '';
+    const cf = bs.content_file as string | undefined;
+    if (cf) {
+      const mdPath = path.join(mod, cf);
+      if (fs.existsSync(mdPath)) {
+        mdBody = fs.readFileSync(mdPath, 'utf8');
+      } else {
+        log(`      ! markdown content_file not found: ${cf}`);
+      }
+    }
+    if (mdBody) {
+      try {
+        await nb.updateModel(blockUid, {
+          markdownBlockSettings: { editMarkdown: { content: mdBody } },
+        });
+        log(`      ~ markdown: ${cf ? cf : `${mdBody.length} chars inline`}`);
+      } catch (e) {
+        log(`      ! markdown content: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+      }
+    }
+  }
+
   // ── Chart config ──
   await deployChart(ctx, blockUid, bs, mod);
 
@@ -297,7 +323,7 @@ export async function fillBlock(
   await deployJsColumns(ctx, blockUid, bs, coll, mod, blockState, allBlocksState);
 
   // ── Dividers ──
-  await deployDividers(ctx, gridUid, bs, blockState);
+  await deployDividers(ctx, gridUid, bs, blockState, mod);
 
   // ── Event flows ──
   await deployEventFlows(ctx, blockUid, bs, mod);

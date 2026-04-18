@@ -164,6 +164,13 @@ export interface BlockSpec {
   dataScope?: Record<string, unknown>;
   pageSize?: number;
   dataLoadingMode?: 'auto' | 'manual';   // Table block: when 'manual', table only loads after user clicks Search
+  /**
+   * Standalone markdown block content. Either inline text (short hints) or
+   * `content_file: ./md/<name>.md` for longer prose. The deploy reads
+   * content_file relative to the project's page dir (modDir).
+   */
+  content?: string;
+  content_file?: string;
   sort?: Record<string, unknown>;
   tableSettings?: Record<string, unknown>;
   popups?: PopupSpec[];

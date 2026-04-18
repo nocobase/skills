@@ -428,6 +428,27 @@ export async function exportBlock(
     }
   }
 
+  // ── Standalone markdown block ──
+  // MarkdownBlockModel stores its body in stepParams.markdownBlockSettings.editMarkdown.content.
+  // Externalise to <page-dir>/md/<block-key>.md when the body is multi-line so
+  // long markdown stays diff-friendly and editable in a real markdown editor.
+  if (btype === 'markdown') {
+    const mdContent = ((sp.markdownBlockSettings as Record<string, unknown>)
+      ?.editMarkdown as Record<string, unknown>)?.content as string || '';
+    if (mdContent) {
+      const inlineThreshold = 80;
+      const isLong = mdContent.includes('\n') || mdContent.length > inlineThreshold;
+      if (isLong && jsDir) {
+        const mdDir = path.join(path.dirname(jsDir), 'md');
+        const mdFname = prefix ? `${prefix}_${key}.md` : `${key}.md`;
+        safeWrite(path.join(mdDir, mdFname), mdContent);
+        spec.content_file = `./md/${mdFname}`;
+      } else {
+        spec.content = mdContent;
+      }
+    }
+  }
+
   // ── Chart ──
   if (btype === 'chart') {
     const chartSettings = sp.chartSettings as Record<string, unknown>;
@@ -939,8 +960,19 @@ function exportFormContents(
 
       if (mdContent) {
         // MarkdownItem with template content (e.g. {{ ctx.popup.record.name }})
+        // Externalise long markdown to <page-dir>/md/<key>.md so YAML stays
+        // readable (detail popups often have multi-line markdown banners).
         const mdKey = `_md_${fields.length}`;
-        fields.push({ type: 'markdown', key: mdKey, content: mdContent });
+        const inlineThreshold = 80;
+        const isLong = mdContent.includes('\n') || mdContent.length > inlineThreshold;
+        if (isLong && jsDir) {
+          const mdDir = path.join(path.dirname(jsDir), 'md');
+          const mdFname = `${prefix}_${blockKey}_${mdKey}.md`;
+          safeWrite(path.join(mdDir, mdFname), mdContent);
+          fields.push({ type: 'markdown', key: mdKey, content_file: `./md/${mdFname}` });
+        } else {
+          fields.push({ type: 'markdown', key: mdKey, content: mdContent });
+        }
         uidToName.set(gi.uid, `[MD:${mdKey}]`);
       } else {
         uidToName.set(gi.uid, label ? `--- ${label} ---` : '---');
