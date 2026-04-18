@@ -27,7 +27,7 @@ import type { DeployContext } from './deploy-context';
 import { loadYaml } from '../utils/yaml';
 import { generateUid } from '../utils/uid';
 import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
-import { toComposeBlock } from './block-composer';
+import { toComposeBlock, COMPOSE_ACTIONS } from './block-composer';
 
 interface TemplateIndex {
   uid: string;
@@ -182,6 +182,7 @@ async function syncTemplateContent(
   content: Record<string, unknown>,
   log: (msg: string) => void,
   indent: string,
+  modDir?: string,
 ): Promise<void> {
   const specFields = ((content.fields as unknown[]) || [])
     .map((f: any) => typeof f === 'string' ? f : (f.field || f.fieldPath || ''))
@@ -191,8 +192,13 @@ async function syncTemplateContent(
   const targetData = await nb.get({ uid: targetUid });
   const targetUse = (targetData.tree.use || '') as string;
 
-  // Table blocks have columns, not grid.items — skip field sync for tables
-  if (targetUse.includes('Table')) return;
+  // Table blocks have columns, not grid.items — skip field sync for tables.
+  // Still run extras so non-composable actions (ai buttons, etc.) and
+  // event_flows land on the table template.
+  if (targetUse.includes('Table')) {
+    await applyTemplateExtras(nb, targetUid, content, log, indent, modDir);
+    return;
+  }
 
   const grid = targetData.tree.subModels?.grid as any;
   const gridUid = grid?.uid as string | undefined;
@@ -341,7 +347,7 @@ async function syncTemplateContent(
   // Apply block-level extras that neither compose nor deep-copy carry:
   // fieldLinkageRules, fieldValueRules, event_flows — they must be set
   // explicitly so copied form templates show/hide/compute fields correctly.
-  await applyTemplateExtras(nb, targetUid, content, log, indent);
+  await applyTemplateExtras(nb, targetUid, content, log, indent, modDir);
 }
 
 async function applyTemplateExtras(
@@ -350,6 +356,7 @@ async function applyTemplateExtras(
   content: Record<string, unknown>,
   log: (msg: string) => void,
   indent: string,
+  modDir?: string,
 ): Promise<void> {
   const linkageRules = content.fieldLinkageRules as Record<string, unknown>[] | undefined;
   if (Array.isArray(linkageRules) && linkageRules.length) {
@@ -373,6 +380,28 @@ async function applyTemplateExtras(
       await deployEventFlows(fCtx, targetUid, { event_flows: eventFlows } as any, '');
       log(`${indent}~ event_flows: ${eventFlows.length} flows`);
     } catch (e) { log(`${indent}! event_flows: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+  }
+  // Non-composable actions (ai / export / import / link / workflowTrigger / updateRecord / ...)
+  // don't make it through the compose → saveTemplate(duplicate) path — compose
+  // only sends composable actions (filter/refresh/addNew/submit/reset/delete/bulkDelete)
+  // and the deep-copy of the duplicated subtree carries only those. Without this
+  // pass the template schema tree permanently loses its AI buttons, link actions,
+  // etc. — the visible symptom of issue #3 (Opportunities table "incomplete").
+  // Safe to run on reuse too: deployActions dedupes by (action model → live uid),
+  // so it updates props on composable actions and only creates the ones that are
+  // genuinely missing.
+  const actions = [...((content.actions as unknown[]) || []), ...((content.recordActions as unknown[]) || [])];
+  const hasNonComposable = actions.some(a => {
+    const t = typeof a === 'string' ? a : (a as Record<string, unknown>)?.type as string;
+    return t && !COMPOSE_ACTIONS.has(t);
+  });
+  if (hasNonComposable && modDir) {
+    try {
+      const { deployActions } = await import('./fillers/action-filler');
+      const fCtx: DeployContext = { nb, log, force: false };
+      await deployActions(fCtx, targetUid, content as any, {} as any, modDir);
+      log(`${indent}~ actions: synced non-composable (ai / link / export / ...)`);
+    } catch (e) { log(`${indent}! actions: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
   }
 }
 
@@ -466,6 +495,9 @@ export async function deployTemplates(
       skipped++;
       continue;
     }
+    // Sidecar dir holding ./ai/*.yaml, ./events/*.js etc. referenced by this
+    // template — next to the YAML, named after its basename (per exporter convention).
+    const tplModDir = path.join(path.dirname(tplFile), path.basename(tplFile, '.yaml'));
     const tplSpec = loadYaml<Record<string, unknown>>(tplFile);
     const collName = (tpl.collection || tplSpec.collectionName) as string || '';
 
@@ -488,7 +520,7 @@ export async function deployTemplates(
           // Sync content
           const tplContent = tplSpec.content as Record<string, unknown>;
           if (tpl.type === 'block' && savedEntry.targetUid && tplContent) {
-            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `); } catch { /* skip */ }
+            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
           }
           deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
           reused++;
@@ -513,7 +545,7 @@ export async function deployTemplates(
           if (tpl.targetUid && existingByDslUid.targetUid) uidMap.set(tpl.targetUid, existingByDslUid.targetUid);
           const tplContent = tplSpec.content as Record<string, unknown>;
           if (tpl.type === 'block' && existingByDslUid.targetUid && tplContent) {
-            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `); } catch { /* skip */ }
+            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
           }
           deployedTemplates[stateKey] = { uid: existingByDslUid.uid, targetUid: existingByDslUid.targetUid, type: tpl.type, collection: collName };
           reused++;
@@ -562,7 +594,7 @@ export async function deployTemplates(
       // Sync block template content (fields + layout). Popup templates have different structure.
       if (tpl.type === 'block' && existingEntry.targetUid && tplContent) {
         try {
-          await syncTemplateContent(nb, existingEntry.targetUid, collName, tplContent, log, `      `);
+          await syncTemplateContent(nb, existingEntry.targetUid, collName, tplContent, log, `      `, tplModDir);
         } catch (e) {
           log(`  ! template sync ${tpl.name}: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
         }
@@ -633,7 +665,7 @@ export async function deployTemplates(
       // show up on the first deploy, not just on redeploys.
       if (tpl.type === 'block' && tplSpec.content && result.targetUid) {
         try {
-          await applyTemplateExtras(nb, result.targetUid, tplSpec.content as Record<string, unknown>, log, '      ');
+          await applyTemplateExtras(nb, result.targetUid, tplSpec.content as Record<string, unknown>, log, '      ', tplModDir);
         } catch (e) { log(`      ! template extras: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
       }
       // Seed per-run block template cache so later popup conversions reuse
