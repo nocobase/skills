@@ -33,6 +33,7 @@ import type { EnhanceSpec } from '../types/spec';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { catchSwallow } from '../utils/swallow';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -393,7 +394,7 @@ async function cmdDeployProject(args: string[]) {
       execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
       const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
       if (branch) await gitSnapshot(absDir, branch);
-    } catch { /* not a git repo — skip */ }
+    } catch (e) { catchSwallow(e, 'not a git repo — skip'); }
   }
 
   await deployProject(absDir, { force, planOnly, group, page, blueprint, incremental, copy });
@@ -528,7 +529,7 @@ async function deepCleanTemplates(nb: NocoBaseClient): Promise<void> {
     try {
       await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:destroy`, {}, { params: { filterByTk: u.uid } });
       delU++;
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
   console.log(`  deleted ${delU}/${staleUsages.length} stale usage records`);
 
@@ -546,7 +547,7 @@ async function deepCleanTemplates(nb: NocoBaseClient): Promise<void> {
     try {
       await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: t.uid as string } });
       delT++;
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
   console.log(`  deleted ${delT}/${zeroUse.length} zero-usage templates`);
   console.log(`  templates remaining: ${fresh.length - delT}`);
@@ -563,7 +564,7 @@ function autoDetectGroup(projectDir: string): string {
       const g = routes.find((r: any) => r.type === 'group' || r.children);
       return g?.title || '';
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'skip'); }
   return '';
 }
 
@@ -602,8 +603,8 @@ async function preDeployExport(absDir: string, group: string, mainBranch: string
     // Export live state to worktree
     const liveBranch = 'pre-deploy-live';
     const wtDir = absDir + '-live';
-    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-    try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
+    try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
     execSync(`git worktree add "${wtDir}" -b ${liveBranch}`, { cwd: absDir, stdio: 'pipe' });
 
     // Copy state.yaml so export can match UIDs
@@ -636,9 +637,9 @@ async function preDeployExport(absDir: string, group: string, mainBranch: string
     }
 
     // Cleanup worktree (branch preserved)
-    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
     if (!diff) {
-      try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+      try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
     }
   } catch (e) {
     console.log('  ! pre-deploy sync: ' + (e instanceof Error ? e.message.slice(0, 60) : e));
@@ -680,8 +681,8 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
     console.log('\n  ── Deploy sync ──');
 
     // Clean previous worktree/branch
-    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-    try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
+    try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
 
     // Create worktree on new branch from current HEAD
     execSync(`git worktree add "${wtDir}" -b ${branch}`, { cwd: absDir, stdio: 'pipe' });
@@ -728,7 +729,7 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
     } else {
       console.log('  ✓ No diff — DSL matches live state');
       // No changes → clean up branch too
-      try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+      try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
     }
 
     // Normalized structural diff (UID-aware) — surfaces real content drift
@@ -741,11 +742,11 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
     } catch (e) { console.log('  ! normalized-diff: ' + (e instanceof Error ? e.message.slice(0, 80) : e)); }
 
     // Always remove worktree (branch stays if there are changes)
-    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
   } catch (e) {
     console.log('  ! deploy-sync failed: ' + (e instanceof Error ? e.message.slice(0, 80) : e));
     // Best-effort cleanup
-    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch (e) { catchSwallow(e, 'ok'); }
   }
 }
 

@@ -28,6 +28,7 @@ import { loadYaml } from '../utils/yaml';
 import { generateUid } from '../utils/uid';
 import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 import { toComposeBlock, COMPOSE_ACTIONS } from './block-composer';
+import { catchSwallow } from '../utils/swallow';
 
 interface TemplateIndex {
   uid: string;
@@ -108,7 +109,7 @@ export async function cleanStaleTemplateUsages(
       try {
         await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:destroy`, {}, { params: { filterByTk: u.uid } });
         cleaned++;
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
     if (cleaned) log(`  cleanup: removed ${cleaned} stale template usage records (NocoBase cascade bug)`);
     return { cleaned, usageRecords: usages.length };
@@ -186,7 +187,7 @@ function discoverTemplates(tplDir: string): TemplateIndex[] {
           targetUid: (content.targetUid as string) || generateUid(),
           file: `${subDir}/${f}`,
         });
-      } catch { /* skip malformed */ }
+      } catch (e) { catchSwallow(e, 'skip malformed'); }
     }
   }
   return result;
@@ -568,7 +569,7 @@ export async function deployTemplates(
             {},
           );
           pruned++;
-        } catch { /* locked by another ref — skip */ }
+        } catch (e) { catchSwallow(e, 'locked by another ref — skip'); }
       }
       if (orphans.length) log(`  - pruned ${orphans.length} duplicate of "${k}" (kept ${keeper.uid.slice(0, 8)})`);
     }
@@ -649,14 +650,14 @@ export async function deployTemplates(
           // Sync content
           const tplContent = tplSpec.content as Record<string, unknown>;
           if (tpl.type === 'block' && savedEntry.targetUid && tplContent) {
-            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
+            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `, tplModDir); } catch (e) { catchSwallow(e, 'skip'); }
           }
           deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
           persistUidToYaml(tplFile, tpl, savedEntry.uid, savedEntry.targetUid, log);
           reused++;
           continue;
         }
-      } catch { /* saved UID no longer valid, fall through to name matching */ }
+      } catch (e) { catchSwallow(e, 'saved UID no longer valid, fall through to name matching'); }
     }
 
     // Priority 1.5: Match by the DSL-declared uid directly. duplicate-project
@@ -675,14 +676,14 @@ export async function deployTemplates(
           if (tpl.targetUid && existingByDslUid.targetUid) uidMap.set(tpl.targetUid, existingByDslUid.targetUid);
           const tplContent = tplSpec.content as Record<string, unknown>;
           if (tpl.type === 'block' && existingByDslUid.targetUid && tplContent) {
-            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
+            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `, tplModDir); } catch (e) { catchSwallow(e, 'skip'); }
           }
           deployedTemplates[stateKey] = { uid: existingByDslUid.uid, targetUid: existingByDslUid.targetUid, type: tpl.type, collection: collName };
           persistUidToYaml(tplFile, tpl, existingByDslUid.uid, existingByDslUid.targetUid, log);
           reused++;
           continue;
         }
-      } catch { /* not found — fall through to create */ }
+      } catch (e) { catchSwallow(e, 'not found — fall through to create'); }
     }
 
     // Priority 2: Match by name + collection (fallback)
@@ -725,7 +726,7 @@ export async function deployTemplates(
               continue;
             }
           }
-        } catch { /* skip validation if API fails */ }
+        } catch (e) { catchSwallow(e, 'skip validation if API fails'); }
       }
       // Sync block template content (fields + layout). Popup templates have different structure.
       if (tpl.type === 'block' && existingEntry.targetUid && tplContent) {
@@ -764,7 +765,7 @@ export async function deployTemplates(
             continue;
           }
         }
-      } catch { /* skip validation if API fails */ }
+      } catch (e) { catchSwallow(e, 'skip validation if API fails'); }
     }
 
     try {
@@ -841,7 +842,7 @@ export async function deployTemplates(
     try {
       const { enableM2oClickToOpen } = await import('./block-filler');
       await enableM2oClickToOpen(nb, deployed.targetUid, collName, path.dirname(tplFile), log);
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
 
   return { uidMap, pendingPopupTemplates, deployedTemplates };
@@ -946,7 +947,7 @@ async function createBlockTemplate(
           log(`    = template: ${name} (reused by declared uid: ${declaredUid.slice(0, 8)})`);
           return { templateUid: declaredUid, targetUid: row.targetUid as string };
         }
-      } catch { /* not found — will create with server-generated uid */ }
+      } catch (e) { catchSwallow(e, 'not found — will create with server-generated uid'); }
     }
 
     const saveResult = await nb.surfaces.saveTemplate({
@@ -989,7 +990,7 @@ async function createBlockTemplate(
             try {
               await nb.surfaces.removeNode(c.uid);
               log(`    ~ template "${name}": stripped empty TableActionsColumnModel ${c.uid.slice(0, 8)}`);
-            } catch { /* skip */ }
+            } catch (e) { catchSwallow(e, 'skip'); }
           }
         }
       }
@@ -1288,7 +1289,7 @@ async function deleteTempPage(
     // Best-effort cleanup — don't fail the template deploy
     try {
       await nb.surfaces.destroyPage(tempPage.pageUid);
-    } catch { /* ignore */ }
+    } catch (e) { catchSwallow(e, 'ignore'); }
   }
 }
 

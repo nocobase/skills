@@ -12,6 +12,7 @@ import type { BlockSpec } from '../../types/spec';
 import type { BlockState } from '../../types/state';
 import type { DeployContext } from './types';
 import { generateUid } from '../../utils/uid';
+import { catchSwallow } from '../../utils/swallow';
 
 export async function deployDividers(
   ctx: DeployContext,
@@ -81,7 +82,7 @@ export async function deployDividers(
         if (divLabel) existingDividerLabels.add(divLabel);
       }
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'skip'); }
 
   // Collect spec divider labels
   const specDividerLabels = new Set<string>();
@@ -104,7 +105,7 @@ export async function deployDividers(
         log(`      - divider: ${divLabel}`);
       }
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'skip'); }
 
   for (const row of fieldLayout) {
     if (typeof row === 'string' && row.startsWith('---')) {

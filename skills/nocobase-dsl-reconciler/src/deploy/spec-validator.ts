@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import type { PageSpec, BlockSpec, PopupSpec } from '../types/spec';
 import type { PageInfo } from './page-discovery';
 import { loadYaml } from '../utils/yaml';
+import { catchSwallow } from '../utils/swallow';
 
 export interface SpecIssue {
   level: 'error' | 'warn';
@@ -39,7 +40,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         defaultsPopupColls.add(coll);
         if (typeof tplPath === 'string') defaultsPopupPaths.set(coll, tplPath);
       }
-    } catch { /* malformed defaults caught elsewhere */ }
+    } catch (e) { catchSwallow(e, 'malformed defaults caught elsewhere'); }
   }
 
   // Collect every `clickToOpen: <string-path>` value across pages + popups.
@@ -115,7 +116,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
           }
         }
         if (m2oMap.size) collM2oTargets.set(collName, m2oMap);
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -284,7 +285,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
                 const context = isM2o ? `m2o field → target "${expectedColl}"` : `row field → own "${expectedColl}"`;
                 issues.push({ level: 'error', page: page.title, block: key, message: `field "${fieldName}": clickToOpen template is for "${tplColl}" but field expects ${context}` });
               }
-            } catch { /* skip parse errors — caught at deploy */ }
+            } catch (e) { catchSwallow(e, 'skip parse errors — caught at deploy'); }
           }
         }
       }
@@ -607,7 +608,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
             if (/ctx\.render\s*\(\s*null\s*\)/.test(content) || content.startsWith('// TODO')) {
               issues.push({ level: 'error', page: pageTitle, block: key, message: `js_items "${file}" is a placeholder — see templates/crm/js/ for implementation` });
             }
-          } catch { /* file not found — will be caught at deploy time */ }
+          } catch (e) { catchSwallow(e, 'file not found — will be caught at deploy time'); }
         }
       }
     }
@@ -653,7 +654,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
             issues.push({ level: 'error', page: pageTitle, block: key, message: `chart SQL "${sqlFile}" contains demo data — replace with real queries` });
           }
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -718,7 +719,7 @@ function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], pr
           if (content) {
             validateBlock(content as any, `${pageTitle} popup [${tpl.name || bAny.ref}]`, [], issues, projectDir, knownColls, collToMany);
           }
-        } catch { /* skip malformed */ }
+        } catch (e) { catchSwallow(e, 'skip malformed'); }
       }
     } else {
       validateBlock(bs, `${pageTitle} popup`, [], issues, projectDir, knownColls, collToMany);

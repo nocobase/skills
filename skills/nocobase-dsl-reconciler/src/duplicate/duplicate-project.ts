@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import { loadYaml, saveYaml, dumpYaml } from '../utils/yaml';
 import { generateUid } from '../utils/uid';
 import { slugify } from '../utils/slugify';
+import { catchSwallow } from '../utils/swallow';
 
 export interface DuplicateOptions {
   source: string;
@@ -380,7 +381,7 @@ function pruneOrphanCollections(dst: string, log: (msg: string) => void): void {
     if (!fs.existsSync(root)) continue;
     walkDir(root, (f) => {
       if (!(f.endsWith('.yaml') || f.endsWith('.yml'))) return;
-      try { visit(loadYaml<unknown>(f)); } catch { /* skip */ }
+      try { visit(loadYaml<unknown>(f)); } catch (e) { catchSwallow(e, 'skip'); }
     });
   }
 
@@ -400,7 +401,7 @@ function pruneOrphanCollections(dst: string, log: (msg: string) => void): void {
         const before = referenced.size;
         visit(loadYaml<unknown>(cf.path));
         if (referenced.size > before) grew = true;
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -557,7 +558,7 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
   for (const file of yamlFiles) {
     const base = path.basename(file);
     if (base === 'state.yaml' || base === 'workflow-state.yaml') continue;
-    try { collectUids(loadYaml<unknown>(file), uidMap); } catch { /* skip bad yaml */ }
+    try { collectUids(loadYaml<unknown>(file), uidMap); } catch (e) { catchSwallow(e, 'skip bad yaml'); }
   }
 
   // 3. If --key-suffix or --title-prefix, rewrite routes.yaml first so we
@@ -592,7 +593,7 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
         const trig = (wf.trigger || {}) as Record<string, unknown>;
         if (trig.collection) sharedCollWorkflowCount++;
         saveYaml(wfFile, wf);
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
   if (sharedCollWorkflowCount > 0) {
@@ -633,7 +634,7 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
         if (!oldName.startsWith('_') && !NB_SYSTEM_COLLS.has(oldName)) {
           collMap.set(oldName, `${oldName}${opts.collectionSuffix}`);
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -662,7 +663,7 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
         next = rewriteDefaultsKeys(next, collMap);
       }
       saveYaml(file, next);
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
   // Also rename the collection files themselves
   if (collMap.size) {

@@ -32,6 +32,7 @@ import { exportAllTemplates, exportTemplateUsages } from './template-exporter';
 import { dumpYaml, loadYaml } from '../utils/yaml';
 import { slugify } from '../utils/slugify';
 import { stripDefaults } from '../utils/strip-defaults';
+import { catchSwallow } from '../utils/swallow';
 
 interface ExportOptions {
   outDir: string;
@@ -83,7 +84,7 @@ export async function exportProject(
         }
       };
       collect(prior);
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
 
   // Build the matcher (knows about route keys, falls back to title).
@@ -229,7 +230,7 @@ export async function exportProject(
             fs.rmSync(path.join(wfDir, e.name), { recursive: true, force: true });
             dropped++;
           } else { kept++; }
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'skip'); }
       }
       // Also rewrite workflow-state.yaml to keep only kept workflows
       const stateFile = path.join(wfDir, 'workflow-state.yaml');
@@ -242,7 +243,7 @@ export async function exportProject(
           }
           st.workflows = ws;
           fs.writeFileSync(stateFile, dumpYaml(st));
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'skip'); }
       }
       if (dropped) console.log(`  + ${kept} workflows (dropped ${dropped} out-of-scope)`);
     }
@@ -283,7 +284,7 @@ async function expandToRelationTargets(nb: NocoBaseClient, names: Set<string>): 
             }
           }
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 }
@@ -303,7 +304,7 @@ function collectCollNamesFromDir(dir: string, into: Set<string>): void {
           const text = fs.readFileSync(p, 'utf8');
           let m;
           while ((m = COLL_RE.exec(text))) into.add(m[1]);
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'skip'); }
       }
     }
   };
@@ -329,7 +330,7 @@ function collectTemplateUidsFromDir(dir: string): Set<string> {
           const text = fs.readFileSync(p, 'utf8');
           let m;
           while ((m = RE.exec(text))) out.add(m[1]);
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'skip'); }
       }
     }
   };
@@ -386,7 +387,7 @@ async function _resolveScopedTemplateUidsViaApi(
     for (const u of usages) {
       if (u.modelUid && allDescendants.has(u.modelUid) && u.templateUid) tplUids.add(u.templateUid);
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'skip'); }
 
   // ALSO: any block referencing a template via stepParams.referenceSettings
   // shows up as a usage row, but if a template was deployed without a usage
@@ -460,7 +461,7 @@ async function exportPage(
       const icon = routeTabs[i]?.icon || '';
       return { uid: t.uid, title, icon };
     });
-  } catch { /* single tab fallback */ }
+  } catch (e) { catchSwallow(e, 'single tab fallback'); }
 
   // If only 1 tab, export normally. If multi-tab, export each tab.
   if (tabs.length <= 1) {
@@ -600,7 +601,7 @@ async function exportSingleTab(
             const rs = ((rawOpts?.stepParams as Record<string, unknown>)?.referenceSettings as Record<string, unknown>) || {};
             const ut = (rs.useTemplate as Record<string, unknown>) || {};
             if (ut.templateUid) templateUid = ut.templateUid as string;
-          } catch { /* best effort */ }
+          } catch (e) { catchSwallow(e, 'best effort'); }
         }
         if (templateUid) {
           // Try simplified ref: templates/xxx.yaml
@@ -629,7 +630,7 @@ async function exportSingleTab(
             }
           }
         }
-      } catch { /* best effort */ }
+      } catch (e) { catchSwallow(e, 'best effort'); }
     }
 
     // Move event flow files from js/ to events/
@@ -695,7 +696,7 @@ async function exportSingleTab(
         if (!allPopupRefs.some(r => r.field_uid === fieldUid)) {
           allPopupRefs.push({ field: fieldPath, field_uid: fieldUid, block_key: blockKey, target: `$SELF.${blockKey}.fields.${fieldPath}` });
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -776,7 +777,7 @@ async function exportSingleTab(
         break;
       }
     }
-  } catch { /* connectFields read failed — fields stay plain */ }
+  } catch (e) { catchSwallow(e, 'connectFields read failed — fields stay plain'); }
 
   // Infer coll for filterForm from sibling table/reference/form blocks
   const pageColl = blocks.find(b => {
@@ -812,7 +813,7 @@ async function exportSingleTab(
   for (const d of [jsDir, path.join(outDir, 'charts'), popupsDir, eventsDir]) {
     try {
       if (fs.existsSync(d) && !fs.readdirSync(d).length) fs.rmdirSync(d);
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
 
   console.log(`  + ${meta.title || prefix}: ${blocks.length} blocks, ${allPopupRefs.length} popups`);
@@ -991,7 +992,7 @@ async function exportGridBlocks(
             const rs = ((rawOpts?.stepParams as Record<string, unknown>)?.referenceSettings as Record<string, unknown>) || {};
             const ut = (rs.useTemplate as Record<string, unknown>) || {};
             if (ut.templateUid) templateUid = ut.templateUid as string;
-          } catch { /* best effort */ }
+          } catch (e) { catchSwallow(e, 'best effort'); }
         }
         if (templateUid) {
           // Try simplified ref: templates/xxx.yaml
@@ -1015,7 +1016,7 @@ async function exportGridBlocks(
             }
           }
         }
-      } catch { /* best effort */ }
+      } catch (e) { catchSwallow(e, 'best effort'); }
     }
 
     blocks.push(spec);
@@ -1091,7 +1092,7 @@ async function exportGridBlocks(
             target: `$SELF.${blockUidToKey.get(item.uid) || 'table'}.fields.${fieldPath}`,
           });
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -1130,7 +1131,7 @@ async function exportGridBlocks(
           br.templateRef = { templateUid, mode: 'reference' };
         }
       }
-    } catch { /* best effort */ }
+    } catch (e) { catchSwallow(e, 'best effort'); }
   }
 
   // Reference blocks: keep as-is (templateRef preserved from lookup above)
@@ -1378,7 +1379,7 @@ async function exportDefaults(nb: NocoBaseClient, outDir: string): Promise<void>
       if (Object.keys(forms).length) defaults.forms = sortKeys(forms);
       fs.writeFileSync(path.join(outDir, 'defaults.yaml'), dumpYaml(defaults));
     }
-  } catch { /* best effort */ }
+  } catch (e) { catchSwallow(e, 'best effort'); }
 }
 
 async function exportCollections(
@@ -1504,7 +1505,7 @@ async function exportCollections(
     try {
       const triggers = await captureTriggersForTable(name);
       if (triggers.length) collDef.triggers = triggers;
-    } catch { /* psql not available — skip silently, can be re-pulled later */ }
+    } catch (e) { catchSwallow(e, 'psql not available — skip silently, can be re-pulled later'); }
 
     fs.writeFileSync(path.join(collDir, `${name}.yaml`), dumpYaml(collDef));
     count++;
@@ -1541,7 +1542,7 @@ async function captureTriggersForTable(tableName: string): Promise<unknown[]> {
           WHERE c.relname = '${safe}' AND t.tgname = '${safeName}' AND NOT t.tgisinternal`,
         { select: true },
       )).trim();
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
     if (!createTrigger) continue;
     // Step 3 — find the trigger's function name from the trigger def.
     const fnMatch = createTrigger.match(/EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)/i);
@@ -1555,7 +1556,7 @@ async function captureTriggersForTable(tableName: string): Promise<unknown[]> {
             WHERE n.nspname = 'public' AND p.proname = '${fnName.replace(/'/g, "''")}'`,
           { select: true },
         )).trim();
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
     const sql = createFn ? `${createFn};\n${createTrigger};` : `${createTrigger};`;
     out.push({ name, kind: 'trigger', sql });
@@ -1571,5 +1572,5 @@ function moveEventFiles(jsDir: string, eventsDir: string): void {
         fs.renameSync(path.join(jsDir, f), path.join(eventsDir, f));
       }
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'skip'); }
 }
