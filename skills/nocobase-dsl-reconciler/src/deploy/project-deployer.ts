@@ -34,6 +34,8 @@ import { catchSwallow } from '../utils/swallow';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { rewriteWorkflowKeys, type WorkflowKeyMap } from './rewrite-workflow-keys';
+import { rewriteTemplateUids } from './template-uid-rewriter';
+import { ensurePopupBindings } from './popup-bindings';
 import { verifySqlFromPages } from './sql-verifier';
 import { discoverPages, routeKey, type RouteEntry, type PageInfo } from './page-discovery';
 import { RefResolver } from '../refs';
@@ -644,100 +646,8 @@ function extractBlockState(
  *   1. templateRef.templateUid — block reference specs
  *   2. popupSettings.popupTemplateUid — field popup specs
  */
-function rewriteTemplateUids(
-  pages: PageInfo[],
-  uidMap: TemplateUidMap,
-  nameMap: Map<string, string> = new Map(),
-  nameToTarget: Map<string, string> = new Map(),
-): void {
-  for (const page of pages) {
-    rewriteInBlocks(page.layout.blocks || [], uidMap, nameMap, nameToTarget);
-    if (page.layout.tabs) {
-      for (const tab of page.layout.tabs) {
-        rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
-      }
-    }
-    for (const popup of page.popups) {
-      rewriteInBlocks((popup as any).blocks || [], uidMap, nameMap, nameToTarget);
-      if ((popup as any).tabs) {
-        for (const tab of (popup as any).tabs) {
-          rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
-        }
-      }
-    }
-  }
-}
-
-function rewriteInBlocks(
-  blocks: any[],
-  uidMap: TemplateUidMap,
-  nameMap: Map<string, string> = new Map(),
-  nameToTarget: Map<string, string> = new Map(),
-): void {
-  for (const block of blocks) {
-    // Case 1: templateRef (reference blocks)
-    if (block.templateRef) {
-      // Rewrite by UID map
-      if (block.templateRef.templateUid) {
-        const newUid = uidMap.get(block.templateRef.templateUid);
-        if (newUid) block.templateRef.templateUid = newUid;
-      }
-      // If templateUid still empty, look up by name from live templates
-      if (!block.templateRef.templateUid && block.templateRef.templateName) {
-        const byName = nameMap.get(block.templateRef.templateName);
-        if (byName) block.templateRef.templateUid = byName;
-      }
-      // Also try _refName (legacy)
-      if (!block.templateRef.templateUid && block._refName) {
-        const byName = nameMap.get(block._refName);
-        if (byName) block.templateRef.templateUid = byName;
-      }
-      // Rewrite targetUid (DSL-declared)
-      if (block.templateRef.targetUid) {
-        const newTarget = uidMap.get(block.templateRef.targetUid);
-        if (newTarget) block.templateRef.targetUid = newTarget;
-      }
-      // If targetUid still missing but we know the templateName, fill it from
-      // the live template. Required for fresh ref blocks (no uid in DSL): the
-      // reference block needs a targetUid to mirror, otherwise NocoBase shows
-      // an empty card.
-      if (!block.templateRef.targetUid && block.templateRef.templateName) {
-        const byName = nameToTarget.get(block.templateRef.templateName);
-        if (byName) block.templateRef.targetUid = byName;
-      }
-      delete block._refName;
-      delete block._refColl;
-    }
-
-    // Case 2: fields with popupSettings.popupTemplateUid
-    if (Array.isArray(block.fields)) {
-      for (const f of block.fields) {
-        if (typeof f !== 'object' || !f) continue;
-        const ps = f.popupSettings;
-        if (ps?.popupTemplateUid) {
-          const newUid = uidMap.get(ps.popupTemplateUid);
-          if (newUid) ps.popupTemplateUid = newUid;
-        }
-      }
-    }
-
-    // Case 3: popupTemplate on blocks (e.g. popup-deployer path)
-    if ((block as any).popupTemplate?.uid) {
-      const newUid = uidMap.get((block as any).popupTemplate.uid);
-      if (newUid) (block as any).popupTemplate.uid = newUid;
-    }
-
-    // Recurse into nested blocks (tabs, popups)
-    if (Array.isArray(block.blocks)) {
-      rewriteInBlocks(block.blocks, uidMap, nameMap, nameToTarget);
-    }
-    if (Array.isArray(block.tabs)) {
-      for (const tab of block.tabs) {
-        rewriteInBlocks((tab as any).blocks || [], uidMap);
-      }
-    }
-  }
-}
+// Template UID rewriting: see ./template-uid-rewriter.ts
+// (pre-deploy pass that remaps DSL UIDs → live UIDs across pages/popups/tabs)
 
 // ── Git helpers ──
 
@@ -1652,86 +1562,4 @@ async function enablePageTabs(
   }
 }
 
-/**
- * Post-deploy: ensure popup action/field hosts have filterByTk in openView.
- *
- * Checks all deployed popups in state:
- * - recordActions.* and fields.* → must have filterByTk='{{ctx.view.inputArgs.filterByTk}}'
- * - actions.* (addNew) → no filterByTk needed
- */
-async function ensurePopupBindings(
-  nb: NocoBaseClient,
-  state: ModuleState,
-  log: (msg: string) => void,
-): Promise<void> {
-  let fixed = 0;
-  try {
-    for (const [, pageState] of Object.entries(state.pages || {})) {
-      const ps = pageState as Record<string, unknown>;
-      const popups = (ps.popups || {}) as Record<string, Record<string, unknown>>;
-      for (const [popupKey, popupState] of Object.entries(popups)) {
-        // Only recordActions and fields need filterByTk
-        const needsRecord = popupKey.includes('recordActions.') || popupKey.includes('fields.');
-        if (!needsRecord) continue;
-
-        const targetUid = popupState.target_uid as string;
-        if (!targetUid) continue;
-
-        try {
-          const fm = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: targetUid } });
-          const data = fm.data?.data;
-          if (!data) continue;
-          const ov = data.stepParams?.popupSettings?.openView;
-          if (!ov) continue;
-
-          // Fix missing filterByTk on host
-          if (!ov.filterByTk) {
-            ov.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
-            await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-              uid: targetUid, use: data.use, parentId: data.parentId,
-              subKey: data.subKey, subType: data.subType,
-              sortIndex: data.sortIndex || 0, flowRegistry: data.flowRegistry || {},
-              stepParams: data.stepParams,
-            });
-            fixed++;
-          }
-        } catch (e) { catchSwallow(e, 'popup host filterByTk fix: target may have drifted, continue with next host'); }
-      }
-    }
-    if (fixed) log(`  popup filterByTk: ${fixed} hosts fixed`);
-
-    // Fix block template targets: edit/detail templates need filterByTk
-    // (created on temp page without popup context, so target block has no filterByTk)
-    let blockFixed = 0;
-    const tplResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
-    const NO_FILTER_MODELS = new Set(['CreateFormModel']);
-    for (const t of (tplResp.data?.data || []) as Record<string, unknown>[]) {
-      if (t.type !== 'block' || !t.targetUid) continue;
-      if (NO_FILTER_MODELS.has(t.useModel as string)) continue; // addNew doesn't need filterByTk
-      try {
-        const fm = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: t.targetUid } });
-        const d = fm.data?.data;
-        if (!d) continue;
-        const res = d.stepParams?.resourceSettings?.init || {};
-        if (res.filterByTk === '{{ctx.view.inputArgs.filterByTk}}' && res.binding === 'currentRecord') continue;
-        const sp = d.stepParams || {};
-        if (!sp.resourceSettings) sp.resourceSettings = {};
-        if (!sp.resourceSettings.init) sp.resourceSettings.init = {};
-        sp.resourceSettings.init.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
-        sp.resourceSettings.init.binding = 'currentRecord';
-        if (!sp.resourceSettings.init.dataSourceKey) sp.resourceSettings.init.dataSourceKey = 'main';
-        if (!sp.resourceSettings.init.collectionName) sp.resourceSettings.init.collectionName = t.collectionName;
-        await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-          uid: t.targetUid as string, use: d.use, parentId: d.parentId,
-          subKey: d.subKey, subType: d.subType,
-          sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
-          stepParams: sp,
-        });
-        blockFixed++;
-      } catch (e) { catchSwallow(e, 'block template filterByTk fix: per-template failure is non-fatal, continue'); }
-    }
-    if (blockFixed) log(`  block template filterByTk: ${blockFixed} targets fixed`);
-  } catch (e) {
-    log(`  ! popup bindings: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-  }
-}
+// Post-deploy popup filterByTk binding: see ./popup-bindings.ts
