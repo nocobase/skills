@@ -63,6 +63,29 @@ export async function ensureCollection(
 ): Promise<void> {
   // Skip system columns — NocoBase auto-creates these
   const SYSTEM_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
+
+  // Coerce FK fields away from string-backed interfaces (snowflakeId, uuid,
+  // nanoid). When a field is referenced as foreignKey by a relation whose
+  // target is `id` (always bigint by NB convention), the FK column MUST be
+  // bigint or runtime queries fail with `bigint = character varying`. The
+  // pull side sometimes captures wrong interfaces (Products' parentId came
+  // back as snowflakeId despite source DB being bigint), so we fix it here
+  // at deploy time rather than chase every pull bug.
+  const fkNames = new Set<string>();
+  for (const fd of def.fields) {
+    if (['m2o', 'o2m', 'o2o'].includes(fd.interface) && fd.foreignKey) {
+      const targetKey = fd.targetField || 'id';
+      if (targetKey === 'id') fkNames.add(fd.foreignKey);
+    }
+  }
+  const STRING_BACKED = new Set(['snowflakeId', 'uuid', 'nanoid']);
+  for (const fd of def.fields) {
+    if (fkNames.has(fd.name) && STRING_BACKED.has(fd.interface)) {
+      log(`  ⚠ ${name}.${fd.name}: interface=${fd.interface} would create varchar — coercing to integer (FK to bigint id)`);
+      fd.interface = 'integer';
+    }
+  }
+
   const fields = def.fields.filter(f => !SYSTEM_FIELDS.has(f.name)).map(toApplyField);
 
   // Auto-detect titleField: first 'name' or 'title' field, or explicit from def
