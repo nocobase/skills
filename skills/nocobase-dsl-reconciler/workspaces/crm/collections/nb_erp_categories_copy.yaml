@@ -1,8 +1,0 @@
-name: nb_erp_categories_copy
-title: Categories
-titleField: name
-fields:
-  - name: name
-    interface: input
-  - name: description
-    interface: textarea

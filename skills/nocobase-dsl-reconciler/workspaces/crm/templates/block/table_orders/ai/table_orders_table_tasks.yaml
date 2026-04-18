@@ -1,5 +1,0 @@
-tasks:
-  - title: Orders Analysis
-    user: Analyze my order performance and revenue.
-    system_file: ./ai/table_orders_table_task0.md
-    autoSend: true

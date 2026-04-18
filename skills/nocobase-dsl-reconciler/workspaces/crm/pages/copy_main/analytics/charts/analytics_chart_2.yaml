@@ -1,2 +1,0 @@
-sql_file: ./charts/analytics_chart_2.sql
-render_file: ./charts/analytics_chart_2_render.js

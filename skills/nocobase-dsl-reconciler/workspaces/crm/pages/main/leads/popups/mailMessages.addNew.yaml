@@ -1,3 +1,0 @@
-target: $SELF.mailMessages.actions.addNew
-mode: drawer
-blocks: []

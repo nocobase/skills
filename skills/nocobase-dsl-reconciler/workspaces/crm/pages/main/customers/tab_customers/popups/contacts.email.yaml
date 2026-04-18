@@ -1,3 +1,0 @@
-target: $SELF.contacts.fields.email
-mode: drawer
-blocks: []

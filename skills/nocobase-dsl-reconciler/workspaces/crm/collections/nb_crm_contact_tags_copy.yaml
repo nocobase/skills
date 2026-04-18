@@ -1,7 +1,0 @@
-name: nb_crm_contact_tags_copy
-title: Contact Tags
-fields:
-  - name: tag_id
-    interface: integer
-  - name: contact_id
-    interface: integer

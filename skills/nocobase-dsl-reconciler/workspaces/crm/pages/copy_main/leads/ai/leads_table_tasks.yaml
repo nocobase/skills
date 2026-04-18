@@ -1,5 +1,0 @@
-tasks:
-  - title: Leads Analysis
-    user: How are my leads performing? Which sources work best?
-    system_file: ./ai/leads_table_task0.md
-    autoSend: true

@@ -1,5 +1,0 @@
-tasks:
-  - title: Customer & History Summary
-    user: Ellis, summarize the customer’s background and communication history.
-    system_file: ./ai/opportunity_view_tab1_mailMessages_task0.md
-    autoSend: true

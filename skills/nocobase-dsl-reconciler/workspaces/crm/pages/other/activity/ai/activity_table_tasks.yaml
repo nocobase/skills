@@ -1,5 +1,0 @@
-tasks:
-  - title: Activities Analysis
-    user: Show me activity trends and productivity metrics.
-    system_file: ./ai/activity_table_task0.md
-    autoSend: true
