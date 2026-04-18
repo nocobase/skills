@@ -1,11 +1,23 @@
 ---
 title: nocobase-ui-builder 参考索引
-description: 当前 flow-surfaces 技能的文档入口，按 transport、页面蓝图、局部编辑、图表和 JS 主题分流。
+description: 按任务形状把 Modern page (v2) UI Builder 文档分流到最小必读集。
 ---
 
 # nocobase-ui-builder 参考索引
 
-## 通用入口
+## 先按任务分流
+
+| 任务形状 | 先读 | 然后读 |
+| --- | --- | --- |
+| transport / CLI / fallback 规则 | [cli-transport.md](cli-transport.md) | [cli-command-surface.md](cli-command-surface.md), [transport-crosswalk.md](transport-crosswalk.md) |
+| 从业务意图起草或整页创建/替换 | [page-intent.md](page-intent.md) | [page-blueprint.md](page-blueprint.md), [ascii-preview.md](ascii-preview.md), [tool-shapes.md](tool-shapes.md) |
+| 现有页面上的局部编辑 | [runtime-playbook.md](runtime-playbook.md) | [tool-shapes.md](tool-shapes.md), [capabilities.md](capabilities.md), [settings.md](settings.md) |
+| 默认值 / 联动 / 显隐 / 动作状态 | [reaction.md](reaction.md) | 局部编辑场景再回到 [runtime-playbook.md](runtime-playbook.md) |
+| 模板复用 / 已有 template reference / copy vs reference | [templates.md](templates.md) | [template-decision-summary.md](template-decision-summary.md), [popup.md](popup.md) |
+| JS / RunJS / `ctx.*` / event-flow JS | [js.md](js.md) | [js-reference-index.md](js-reference-index.md), [runjs-runtime.md](runjs-runtime.md), [settings.md](settings.md) |
+| 图表主题 | [chart.md](chart.md) | [chart-core.md](chart-core.md), [chart-validation.md](chart-validation.md) |
+
+## Core Docs
 
 - [cli-transport.md](cli-transport.md)
 - [cli-command-surface.md](cli-command-surface.md)
@@ -15,12 +27,13 @@ description: 当前 flow-surfaces 技能的文档入口，按 transport、页面
 - [verification.md](verification.md)
 - [template-decision-summary.md](template-decision-summary.md)
 
-## Whole-page Blueprint
+## Whole-page Authoring
 
-- [page-blueprint.md](page-blueprint.md)
 - [page-intent.md](page-intent.md)
+- [page-blueprint.md](page-blueprint.md)
 - [page-archetypes.md](page-archetypes.md)
 - [ascii-preview.md](ascii-preview.md)
+- [page-first-planning.md](page-first-planning.md)
 - [tool-shapes.md](tool-shapes.md)
 - [reaction.md](reaction.md)
 
@@ -29,9 +42,10 @@ description: 当前 flow-surfaces 技能的文档入口，按 transport、页面
 - [runtime-playbook.md](runtime-playbook.md)
 - [capabilities.md](capabilities.md)
 - [settings.md](settings.md)
-- [templates.md](templates.md)
 - [popup.md](popup.md)
+- [templates.md](templates.md)
 - [aliases.md](aliases.md)
+- [opaque-uid.md](opaque-uid.md)
 
 ## Topic Docs
 
@@ -41,10 +55,8 @@ description: 当前 flow-surfaces 技能的文档入口，按 transport、页面
 - [js.md](js.md)
 - [js-reference-index.md](js-reference-index.md)
 - [runjs-runtime.md](runjs-runtime.md)
-- [page-first-planning.md](page-first-planning.md)
-- [opaque-uid.md](opaque-uid.md)
 
-## Subindexes
+## Blocks
 
 - [blocks/index.md](blocks/index.md)
 - [blocks/chart.md](blocks/chart.md)
@@ -54,6 +66,9 @@ description: 当前 flow-surfaces 技能的文档入口，按 transport、页面
 - [blocks/filter-form.md](blocks/filter-form.md)
 - [blocks/grid-card.md](blocks/grid-card.md)
 - [blocks/table.md](blocks/table.md)
+
+## JS Models
+
 - [js-models/index.md](js-models/index.md)
 - [js-models/js-action.md](js-models/js-action.md)
 - [js-models/js-block.md](js-models/js-block.md)

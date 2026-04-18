@@ -1,10 +1,10 @@
 # Templates
 
-Read this file when the task involves saving a reusable UI template, searching/selecting templates, applying a template during `add*` / `compose`, editing content under an existing template reference, switching popup-template targets, converting a reference to copy mode, or reasoning about template `usageCount`.
+Read this file when the task involves reusable popup / block / fields scenes, template search/selection, applying a template during `add*` / `compose`, editing content under an existing template reference, switching popup-template targets, converting a reference to copy mode, or reasoning about template `usageCount`.
 
-Canonical front door is `nocobase-ctl flow-surfaces`. JSON examples below default to the CLI raw body unless a block is explicitly labeled as MCP fallback. For CLI/MCP envelope mapping, see [tool-shapes.md](./tool-shapes.md). For popup-specific rules, see [popup.md](./popup.md). For general execution order, see [execution-checklist.md](./execution-checklist.md).
+Canonical front door is `nocobase-ctl flow-surfaces`. JSON examples below default to the CLI raw body unless a block is explicitly labeled as MCP fallback. For CLI/MCP envelope mapping, see [tool-shapes.md](./tool-shapes.md). For popup-specific rules, see [popup.md](./popup.md). For execution order, see [execution-checklist.md](./execution-checklist.md).
 
-This file is the single normative template-selection and existing-reference edit-routing source for `nocobase-ui-builder`. If another reference file summarizes template behavior and conflicts with this file, follow this file and shorten the other file instead of duplicating rules.
+This file is the single normative template-selection and existing-reference edit-routing source for `nocobase-ui-builder`. If another reference file summarizes template behavior and conflicts with this file, shorten the other file instead of duplicating rules here.
 
 ## Public page blueprint vs low-level template APIs
 

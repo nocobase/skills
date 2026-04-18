@@ -1,10 +1,8 @@
 # Page Blueprint
 
-This file defines the simplified public **page-structure JSON blueprint** used by `applyBlueprint`.
+This file defines the simplified public page-structure JSON blueprint used by `applyBlueprint`.
 
-Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file defines the inner page document that the CLI eventually sends to the backend action.
-
-This file is for authoring the **inner page blueprint document**. It is **not** the primary CLI cookbook. For the actual CLI request-body shape, and for the MCP fallback envelope when needed, always read [tool-shapes.md](./tool-shapes.md).
+Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file owns the inner page document only; for CLI raw body and MCP fallback envelope details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
 
 ## 1. Core Rules
 
@@ -19,7 +17,6 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Side-by-side blocks, relation tables, and nested popups normally stay inside that one tab.
 - Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
@@ -31,14 +28,12 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - When the user explicitly wants the newly created local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on that inline popup instead of planning a separate save step. This requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
 
-Important:
+Envelope boundary:
 
-- This file describes the **inner page blueprint document** only.
+- This file describes the inner page blueprint document only.
 - In CLI-first execution, pass this document itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
-- Only in MCP fallback should that same object be wrapped under `requestBody` as an **object**.
+- Only in MCP fallback should that same object be wrapped under `requestBody` as an object.
 - Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
-- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the MCP fallback tool-call envelope.
-- If the CLI returns request-body validation errors, first fix the raw body shape and chosen command. If MCP fallback returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer fallback envelope.
 - Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint and also as the CLI raw body.
 
 ## 2. Top-level Shape

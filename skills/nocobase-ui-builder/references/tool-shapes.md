@@ -2,11 +2,11 @@
 
 This file summarizes the request shapes most often needed by this skill.
 
-Use it together with:
+Use it with:
 
-- [cli-command-surface.md](./cli-command-surface.md) for the canonical CLI command families
-- [transport-crosswalk.md](./transport-crosswalk.md) when you need the matching MCP fallback tool family
-- [page-blueprint.md](./page-blueprint.md) and [reaction.md](./reaction.md) for the inner business object rules
+- [cli-command-surface.md](./cli-command-surface.md) for canonical CLI command families
+- [transport-crosswalk.md](./transport-crosswalk.md) for the MCP fallback family
+- [page-blueprint.md](./page-blueprint.md), [reaction.md](./reaction.md), and [templates.md](./templates.md) for business-object rules and template planning
 
 Canonical front door is `nocobase-ctl`. Use this file in two layers:
 
@@ -24,8 +24,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - For `applyBlueprint`, the page blueprint object itself is the CLI request body. Do not wrap it again.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
-- For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs.
-- Do not add placeholder `Summary` / `Later` / `Fallback` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
+- For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs or placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing inline fallback; keyword-only search stays discovery-only.
