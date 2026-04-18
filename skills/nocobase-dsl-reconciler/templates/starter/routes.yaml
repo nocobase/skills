@@ -1,0 +1,10 @@
+- title: Starter
+  type: group
+  icon: projectoutlined
+  children:
+    - title: Dashboard
+      icon: dashboardoutlined
+    - title: Projects
+      icon: projectoutlined
+    - title: Tasks
+      icon: checksquareoutlined

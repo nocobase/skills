@@ -155,29 +155,35 @@ export async function deployProject(
     const specErrors = specIssues.filter(i => i.level === 'error');
     const specWarnings = specIssues.filter(i => i.level === 'warn');
     if (specErrors.length) {
-      // Copy-mode bypass: a workspace freshly minted by duplicate-project carries
-      // every quirk of the source spec — invalid layouts, missing popup bindings,
-      // orphan defaults — and the user wants to push first then iterate. Strict
-      // validation blocks that. We accept --copy ONLY when a `.duplicate-source`
-      // marker is present (written by duplicate-project), so generic projects
-      // can't sneak around the validator by passing the flag.
+      // --copy bypass: accept when any of these is true
+      //   1. `.duplicate-source` marker (written by duplicate-project) — the
+      //      source quirks carry over, user wants to push first then iterate
+      //   2. Workspace has zero popup files under pages/**/popups/ — early
+      //      stage of a starter-style agile build, popup bindings not wired
+      //      yet; allow push so the skeleton is visible in NB before the
+      //      deeper validation rules (m2o popup binding, clickToOpen file
+      //      presence) start applying.
       const dupMarker = path.join(root, '.duplicate-source');
       const isDupWorkspace = fs.existsSync(dupMarker);
-      if (opts.copy && isDupWorkspace) {
+      const hasAnyPopupFile = pages.some(p => (p.popups || []).length > 0);
+      const isEarlyStage = !hasAnyPopupFile;
+      const bypassAllowed = opts.copy && (isDupWorkspace || isEarlyStage);
+      if (bypassAllowed) {
         log('\n  ── Spec Validation ERRORS (bypassed in --copy mode) ──');
         for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
-        log(`\n  ${specErrors.length} errors bypassed (--copy + .duplicate-source). ${specWarnings.length} warnings.`);
-        log('  ⚠ Bypass is intentional for duplicate workspaces — fix errors before promoting to a non-duplicate workspace.');
+        const reason = isDupWorkspace ? '--copy + .duplicate-source' : '--copy + no popup files (early stage)';
+        log(`\n  ${specErrors.length} errors bypassed (${reason}). ${specWarnings.length} warnings.`);
+        log('  ⚠ Bypass is intentional for early-stage / duplicate workspaces — fix errors before wiring popups.');
       } else {
         log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
         for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
         log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
-        if (opts.copy && !isDupWorkspace) {
-          log('  --copy was passed but .duplicate-source marker is missing — refusing bypass on a non-duplicate workspace.');
+        if (opts.copy && !isDupWorkspace && !isEarlyStage) {
+          log('  --copy was passed but workspace already has popup files — bypass only accepted for empty/duplicate workspaces.');
         }
-        // No escape hatch outside duplicate workspaces. Deploying a spec with
-        // known-bad DSL creates NocoBase state that has to be hand-cleaned later
-        // (dangling blocks, silent 400s on m2o clicks, empty popup targets).
+        // No escape hatch outside bypass-eligible workspaces. Deploying a spec
+        // with known-bad DSL creates NocoBase state that has to be hand-cleaned
+        // later (dangling blocks, silent 400s on m2o clicks, empty popup targets).
         // If an error is a false positive, fix the rule.
         process.exit(1);
       }
