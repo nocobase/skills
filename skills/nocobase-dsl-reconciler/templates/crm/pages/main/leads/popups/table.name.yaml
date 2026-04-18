@@ -1,7 +1,7 @@
 target: $SELF.table.fields.name
 mode: drawer
 tabs:
-  - title: Tab0
+  - title: Details
     blocks:
       - key: details
         type: details
@@ -11,11 +11,7 @@ tabs:
         fields:
           - type: markdown
             key: _md_0
-            content: |+
-              {{ ctx.popup.record.lead_no }}
-
-              ##  {{ ctx.popup.record.name }}
-
+            content_file: ./md/leads_name_tab0_details__md_0.md
           - company
           - title
           - owner
@@ -185,14 +181,18 @@ tabs:
           associationName: nb_crm_leads.comments
           sourceId: '{{ctx.view.inputArgs.filterByTk}}'
     layout:
-      - - details: 16
-        - details_2: 16
-        - contact_information: 16
-        - company_information: 16
-        - lead_owner: 8
-        - lead_insights: 8
-        - comments: 8
-  - title: Tab1
+      - - col:
+            - details
+            - details_2
+            - contact_information
+            - company_information
+          size: 16
+        - col:
+            - lead_owner
+            - lead_insights
+            - comments
+          size: 8
+  - title: Activity
     blocks:
       - key: recordHistory
         type: recordHistory
@@ -202,7 +202,7 @@ tabs:
           - refresh
           - historyExpand
           - historyCollapse
-  - title: Tab2
+  - title: Emails
     blocks:
       - key: mailMessages
         type: mailMessages

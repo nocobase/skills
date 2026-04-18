@@ -5,16 +5,6 @@ blocks:
     fields:
       - field: name
         label: Search
-        filterPaths:
-          - name
-          - company
-          - title
-          - email
-          - phone
-          - mobile_phone
-          - website
-          - source
-          - industry
     js_items:
       - key: leads_stats_filter_block
         file: ./js/leads_filterForm_leads_stats_filter_block.js

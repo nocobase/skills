@@ -1,13 +1,18 @@
-uid: z1ypw0cj59b
+uid: 3tom9uwel06
 name: 'Popup (Detail): Projects'
 type: popup
-collectionName: nb_pm2_projects
+collectionName: nb_pm_projects
 dataSourceKey: main
-targetUid: gc8u421qyaj
+targetUid: 0mow4hfqqrh
 description: 'Popup (Detail): Projects'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: l1declypil3
+        templateName: 'Detail: Projects'
+        targetUid: abxik2b89fp
+        mode: reference
   layout:
-    - - reference
+    - - irdimkcm

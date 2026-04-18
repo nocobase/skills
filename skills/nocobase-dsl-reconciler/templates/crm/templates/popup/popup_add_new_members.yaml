@@ -1,13 +1,18 @@
-uid: xdhl8dodm40
+uid: gue1lmnb6dc
 name: 'Popup (Add new): Members'
 type: popup
 collectionName: nb_pm_members
 dataSourceKey: main
-targetUid: i23df4548od
+targetUid: ji0r295dxdq
 description: 'Popup (Add new): Members'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: svd7qva1n07
+        templateName: 'Form (Add new): Members'
+        targetUid: etfqfnnluen
+        mode: reference
   layout:
-    - - reference
+    - - m7o90uoj

@@ -16,11 +16,7 @@ content:
           fields:
             - type: markdown
               key: _md_0
-              content: |+
-                {{ ctx.record.opportunity_no }}
-
-                #  {{ ctx.popup.record.name }}
-
+              content_file: ./md/opportunity_view_tab0_details__md_0.md
             - customer
             - contact
             - owner

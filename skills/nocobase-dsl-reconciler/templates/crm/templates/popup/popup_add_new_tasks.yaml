@@ -1,13 +1,18 @@
-uid: zm6s8pkq10z
+uid: uihv9mohfqj
 name: 'Popup (Add new): Tasks'
 type: popup
-collectionName: nb_pm2_tasks
+collectionName: nb_pm_tasks
 dataSourceKey: main
-targetUid: w8iekzspv5g
+targetUid: 2fokyzmxe0y
 description: 'Popup (Add new): Tasks'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: rmwjdy07klk
+        templateName: 'Form (Add new): Tasks'
+        targetUid: uwdlif07qe6
+        mode: reference
   layout:
-    - - reference
+    - - fcnybnyt

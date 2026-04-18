@@ -1,7 +1,7 @@
 target: $SELF.table.fields.name
 mode: embed
 tabs:
-  - title: Tab0
+  - title: Details
     blocks:
       - key: details
         type: details
@@ -11,6 +11,7 @@ tabs:
         fields:
           - level
           - type
+          - scale
           - region
         js_items:
           - key: customer_statistics_block
@@ -22,6 +23,7 @@ tabs:
         field_layout:
           - - '[JS:item_profile - Customer Profile Header]'
           - - level
+            - scale
             - region
             - type
           - - '[JS:Customer Statistics Block]'
@@ -80,12 +82,16 @@ tabs:
           associationName: nb_crm_customers.comments
           sourceId: '{{ctx.view.inputArgs.filterByTk}}'
     layout:
-      - - details: 16
-        - opportunities: 16
-        - contacts: 8
-        - details_2: 8
-        - comments: 8
-  - title: Tab1
+      - - col:
+            - details
+            - opportunities
+          size: 16
+        - col:
+            - contacts
+            - details_2
+            - comments
+          size: 8
+  - title: Activity
     blocks:
       - key: recordHistory
         type: recordHistory

@@ -9,5 +9,10 @@ content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: b8yiiha802c
+        templateName: 'Detail: Tasks'
+        targetUid: oy827m3x2hy
+        mode: reference
   layout:
-    - - reference
+    - - kjq5u3r1

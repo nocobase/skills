@@ -14,17 +14,13 @@ content:
   fields:
     - name
     - project
-    - target_date
+    - due_date
     - status
     - description
-    - createdAt
   field_layout:
-    - '--- Milestone Info ---'
+    - '--- Basic Info ---'
     - - name
-      - project
-    - - target_date
       - status
-    - '--- Description ---'
+    - - project
+      - due_date
     - - description
-    - '--- Audit ---'
-    - - createdAt

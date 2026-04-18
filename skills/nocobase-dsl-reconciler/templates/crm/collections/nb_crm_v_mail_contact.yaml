@@ -1,5 +1,6 @@
 name: nb_crm_v_mail_contact
 title: Mail Contact
+template: view
 fields:
   - name: contact_id
     interface: integer

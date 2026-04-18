@@ -9,5 +9,10 @@ content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: 9sa8z6s4kub
+        templateName: 'Detail: Members'
+        targetUid: wophnkgz6xx
+        mode: reference
   layout:
-    - - reference
+    - - 4eqympgl

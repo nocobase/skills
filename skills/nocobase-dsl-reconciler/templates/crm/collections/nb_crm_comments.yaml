@@ -1,5 +1,6 @@
 name: nb_crm_comments
 title: Comments
+template: comment
 titleField: content
 fields:
   - name: opportunity_id

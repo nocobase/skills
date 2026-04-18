@@ -1,5 +1,6 @@
 name: nb_crm_product_categories
 title: Product Categories
+template: tree
 titleField: name
 fields:
   - name: parentId

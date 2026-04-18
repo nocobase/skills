@@ -1,13 +1,18 @@
-uid: ynenweoet2o
+uid: 1lhnxnw13uq
 name: 'Popup (Edit): Members'
 type: popup
 collectionName: nb_pm_members
 dataSourceKey: main
-targetUid: r4fveadmv5p
+targetUid: kjfq36ws3gb
 description: 'Popup (Edit): Members'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: nasaoxhkp6o
+        templateName: 'Form (Edit): Members'
+        targetUid: tlppnn9wgxs
+        mode: reference
   layout:
-    - - reference
+    - - 0j41epei

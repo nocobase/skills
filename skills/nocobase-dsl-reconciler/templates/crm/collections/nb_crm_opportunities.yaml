@@ -104,7 +104,7 @@ fields:
   - name: competitor_id
     interface: integer
   - name: actual_close_date
-    interface: dateOnly
+    interface: date
   - name: description
     interface: textarea
   - name: customer_id
@@ -112,7 +112,7 @@ fields:
   - name: opportunity_no
     interface: sequence
   - name: expected_close_date
-    interface: dateOnly
+    interface: date
   - name: lead_source
     interface: select
     options:
@@ -152,7 +152,7 @@ fields:
   - name: loss_reason
     interface: textarea
   - name: ai_predicted_close
-    interface: dateOnly
+    interface: date
   - name: stage_sort
     interface: integer
   - name: stage_entered_at

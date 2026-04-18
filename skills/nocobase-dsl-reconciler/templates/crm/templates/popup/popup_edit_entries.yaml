@@ -9,5 +9,10 @@ content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: nykn04s2sjy
+        templateName: 'Form (Edit): Time Entries'
+        targetUid: idontlv9sil
+        mode: reference
   layout:
-    - - reference
+    - - hkxgloc4

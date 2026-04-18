@@ -1,20 +1,26 @@
-uid: wadl2am6aed
+uid: bpoczlmfqmn
 name: 'Form (Add new): Milestones'
 type: block
-collectionName: nb_pm2_milestones
+collectionName: nb_pm_milestones
 dataSourceKey: main
-targetUid: a4pzwuhw0ji
+targetUid: wp7efts8wbz
+description: 'Form (Add new): Milestones'
 content:
   key: createForm
   type: createForm
-  coll: nb_pm2_milestones
+  coll: nb_pm_milestones
   fields:
     - name
     - project
+    - due_date
+    - status
+    - description
   field_layout:
-    - '--- Milestone Info ---'
+    - '--- Basic Info ---'
     - - name
-      - project
+      - status
+    - - project
+      - due_date
+    - - description
   actions:
-    - submit
     - submit

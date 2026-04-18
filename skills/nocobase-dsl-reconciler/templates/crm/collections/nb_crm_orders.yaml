@@ -65,9 +65,9 @@ fields:
     target: nb_crm_quotations
     foreignKey: quotation_id
   - name: delivery_date
-    interface: dateOnly
+    interface: date
   - name: order_date
-    interface: dateOnly
+    interface: date
   - name: payment_status
     interface: select
     options:
@@ -116,6 +116,6 @@ fields:
   - name: opportunity_id
     interface: integer
   - name: actual_delivery_date
-    interface: dateOnly
+    interface: date
   - name: extra
     interface: json

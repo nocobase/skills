@@ -63,7 +63,7 @@ fields:
     target: nb_crm_customers
     foreignKey: customer_id
   - name: valid_until
-    interface: dateOnly
+    interface: date
   - name: subtotal
     interface: number
   - name: contact

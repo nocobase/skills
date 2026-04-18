@@ -75,7 +75,7 @@ fields:
   - name: description
     interface: textarea
   - name: birthday
-    interface: dateOnly
+    interface: date
   - name: languages
     interface: input
   - name: reports_to

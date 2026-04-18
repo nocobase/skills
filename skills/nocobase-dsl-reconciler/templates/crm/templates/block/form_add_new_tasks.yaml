@@ -10,25 +10,21 @@ content:
   type: createForm
   coll: nb_pm_tasks
   fields:
-    - title
+    - name
     - project
     - assignee
     - status
     - priority
     - due_date
-    - estimated_hours
     - description
   field_layout:
-    - '--- Task Info ---'
-    - - title
-    - - description
-    - '--- Assignment ---'
+    - '--- Basic Info ---'
+    - - name
+      - status
     - - project
       - assignee
-    - '--- Planning ---'
-    - - status
-      - priority
-    - - due_date
-      - estimated_hours
+    - - priority
+      - due_date
+    - - description
   actions:
     - submit

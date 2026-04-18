@@ -11,22 +11,20 @@ content:
   coll: nb_pm_projects
   fields:
     - name
+    - code
     - status
-    - priority
-    - owner
     - start_date
     - end_date
+    - budget
     - description
   field_layout:
     - '--- Basic Info ---'
     - - name
-      - status
-    - - priority
-      - owner
-    - '--- Schedule ---'
+      - code
+    - - status
+      - budget
     - - start_date
       - end_date
-    - '--- Details ---'
     - - description
   actions:
     - submit

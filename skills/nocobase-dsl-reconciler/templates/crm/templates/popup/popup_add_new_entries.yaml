@@ -9,5 +9,10 @@ content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: psc47ak50zb
+        templateName: 'Form (Add new): Time Entries'
+        targetUid: byzmxdqqq6k
+        mode: reference
   layout:
-    - - reference
+    - - 8at3t3g2

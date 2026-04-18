@@ -1,10 +1,9 @@
-uid: ylou50jsfxu
+uid: afkt6evyern
 name: 'Form (Add new): nb_crm_opportunity_stages'
 type: block
 collectionName: nb_crm_opportunity_stages
 dataSourceKey: main
-targetUid: vklzr5rncse
-description: 'Form (Add new): nb_crm_opportunity_stages'
+targetUid: 064a59ddf9a
 content:
   key: createForm
   type: createForm

@@ -1,3 +1,8 @@
 blocks:
-  - ref: templates/block/email_table_mail_messages.yaml
-    key: reference
+  - key: reference
+    type: reference
+    templateRef:
+      templateUid: vj6vwmysk9t
+      templateName: 'Email table: Mail messages'
+      targetUid: cb09a1ee275
+      mode: reference

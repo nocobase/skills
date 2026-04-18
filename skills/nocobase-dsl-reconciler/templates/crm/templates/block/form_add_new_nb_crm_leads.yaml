@@ -1,10 +1,9 @@
-uid: v1ytf6w82n3
+uid: 3d77445kyzp
 name: 'Form (Add new): nb_crm_leads'
 type: block
 collectionName: nb_crm_leads
 dataSourceKey: main
-targetUid: 1x0qu1hbo79
-description: 'Form (Add new): nb_crm_leads'
+targetUid: bd7f0823f37
 content:
   key: createForm
   type: createForm
@@ -47,3 +46,22 @@ content:
     - - owner
   actions:
     - submit
+    - type: ai
+      employee: dex
+      tasks_file: ./ai/form_add_new_nb_crm_leads_createForm_tasks.yaml
+  fieldLinkageRules:
+    - key: 2iku5gs0k4o
+      title: Linkage rule
+      enable: true
+      condition:
+        logic: $and
+        items: []
+      actions:
+        - key: dqytz7lb1qz
+          name: linkageSetFieldProps
+          params:
+            value:
+              fields:
+                - status
+                - owner
+              state: hiddenReservedValue

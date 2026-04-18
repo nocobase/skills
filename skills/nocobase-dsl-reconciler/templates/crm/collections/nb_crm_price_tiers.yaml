@@ -9,7 +9,7 @@ fields:
     target: nb_crm_products
     foreignKey: product_id
   - name: effective_from
-    interface: dateOnly
+    interface: date
   - name: min_quantity
     interface: integer
   - name: quotationItems
@@ -17,7 +17,7 @@ fields:
     target: nb_crm_quotation_items
     foreignKey: tier_applied
   - name: effective_to
-    interface: dateOnly
+    interface: date
   - name: currencyInfo
     interface: m2o
     target: nb_cbo_currencies

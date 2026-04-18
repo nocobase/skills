@@ -1,13 +1,18 @@
-uid: u4rk508f24r
+uid: j6wcp7ey1mi
 name: 'Popup (Add new): Projects'
 type: popup
-collectionName: nb_pm2_projects
+collectionName: nb_pm_projects
 dataSourceKey: main
-targetUid: k82x27jx6bl
+targetUid: gt5vuqhn0q3
 description: 'Popup (Add new): Projects'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: ugr26dob75f
+        templateName: 'Form (Add new): Projects'
+        targetUid: wazniejagf8
+        mode: reference
   layout:
-    - - reference
+    - - pfo7cje0

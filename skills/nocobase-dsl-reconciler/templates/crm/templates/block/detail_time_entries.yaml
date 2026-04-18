@@ -12,17 +12,17 @@ content:
   resource_binding:
     filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
+    - name
     - task
+    - member
     - hours
-    - work_date
-    - notes
-    - createdAt
+    - date
+    - description
   field_layout:
-    - '--- Time Entry ---'
+    - '--- Basic Info ---'
+    - - name
     - - task
+      - member
     - - hours
-      - work_date
-    - '--- Notes ---'
-    - - notes
-    - '--- Audit ---'
-    - - createdAt
+      - date
+    - - description

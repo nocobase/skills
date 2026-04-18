@@ -15,19 +15,16 @@ content:
     - name
     - task
     - member
-    - entry_date
     - hours
-    - billable
-    - notes
+    - date
+    - description
   field_layout:
-    - '--- Time Entry ---'
+    - '--- Basic Info ---'
     - - name
     - - task
       - member
-    - - entry_date
-      - hours
-    - - billable
-    - '--- Notes ---'
-    - - notes
+    - - hours
+      - date
+    - - description
   actions:
     - submit

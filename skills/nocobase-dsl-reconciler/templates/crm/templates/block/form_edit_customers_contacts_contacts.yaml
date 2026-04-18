@@ -1,16 +1,18 @@
-uid: xdf5dh5gr81
+uid: e2dlzncn3pu
 name: 'Form (Edit): Customers > Contacts (Contacts)'
 type: block
 collectionName: nb_crm_contacts
 dataSourceKey: main
-targetUid: o7eodmpg5h0
-description: 'Form (Edit): Customers > Contacts (Contacts)'
+targetUid: 26a1e02dba7
+associationName: nb_crm_customers.contacts
 content:
   key: editForm
   type: editForm
   coll: nb_crm_contacts
   resource_binding:
     filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    associationName: nb_crm_customers.contacts
+    sourceId: '{{ctx.view.inputArgs.sourceId}}'
   fields:
     - salutation
     - name

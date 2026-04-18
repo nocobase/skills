@@ -10,16 +10,19 @@ content:
   type: createForm
   coll: nb_pm_time_entries
   fields:
+    - name
     - task
+    - member
     - hours
-    - work_date
-    - notes
+    - date
+    - description
   field_layout:
-    - '--- Time Entry ---'
+    - '--- Basic Info ---'
+    - - name
     - - task
-      - work_date
+      - member
     - - hours
-    - '--- Notes ---'
-    - - notes
+      - date
+    - - description
   actions:
     - submit

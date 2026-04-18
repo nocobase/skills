@@ -1,13 +1,18 @@
-uid: zwwrb5a593c
+uid: spncb27xyh1
 name: 'Popup (Detail): Milestones'
 type: popup
-collectionName: nb_pm2_milestones
+collectionName: nb_pm_milestones
 dataSourceKey: main
-targetUid: gfaosraiy2y
+targetUid: q0hfq3xpgkg
 description: 'Popup (Detail): Milestones'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: qjjq5pwpxlq
+        templateName: 'Detail: Milestones'
+        targetUid: unolyvmalp3
+        mode: reference
   layout:
-    - - reference
+    - - bjxsejfx

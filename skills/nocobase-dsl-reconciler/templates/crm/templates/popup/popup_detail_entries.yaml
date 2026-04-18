@@ -9,5 +9,10 @@ content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: ksdej6zqq7y
+        templateName: 'Detail: Time Entries'
+        targetUid: o4zctul9zgm
+        mode: reference
   layout:
-    - - reference
+    - - 4zd6j5i7

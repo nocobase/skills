@@ -3,7 +3,7 @@ title: Quotation Items
 titleField: product_code
 fields:
   - name: service_date
-    interface: dateOnly
+    interface: date
   - name: description
     interface: textarea
   - name: product_id

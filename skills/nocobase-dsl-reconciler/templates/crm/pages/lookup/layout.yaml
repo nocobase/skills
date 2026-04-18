@@ -3,22 +3,23 @@ blocks:
     type: filterForm
     coll: v_nb_crm_lead_lookup
     fields:
-      - field: name
-        label: Search
-        filterPaths:
-          - account_number
-          - name
-          - phone
-          - website
+      - name
+      - industry
+      - createdAt
     field_layout:
       - - name
+        - industry
+        - createdAt
     actions:
       - submit
+      - reset
+      - collapse
   - key: all_leads
     type: table
     title: All Leads
     coll: v_nb_crm_lead_lookup
     pageSize: 10
+    dataLoadingMode: manual
     fields:
       - name
       - company
@@ -35,6 +36,7 @@ blocks:
     title: All Customers
     coll: v_nb_crm_customer_lookup
     pageSize: 10
+    dataLoadingMode: manual
     fields:
       - name
       - industry
@@ -50,6 +52,7 @@ blocks:
     title: All Contacts
     coll: v_nb_crm_contact_lookup
     pageSize: 10
+    dataLoadingMode: manual
     fields:
       - name
       - title

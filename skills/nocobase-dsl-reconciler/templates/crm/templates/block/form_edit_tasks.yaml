@@ -18,19 +18,15 @@ content:
     - status
     - priority
     - due_date
-    - estimated_hours
     - description
   field_layout:
-    - '--- Task Info ---'
+    - '--- Basic Info ---'
     - - name
-    - - description
-    - '--- Assignment ---'
+      - status
     - - project
       - assignee
-    - '--- Planning ---'
-    - - status
-      - priority
-    - - due_date
-      - estimated_hours
+    - - priority
+      - due_date
+    - - description
   actions:
     - submit

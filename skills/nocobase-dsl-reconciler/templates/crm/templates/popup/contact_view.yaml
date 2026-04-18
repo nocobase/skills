@@ -11,6 +11,11 @@ content:
       blocks:
         - key: reference
           type: reference
+          templateRef:
+            templateUid: llog4slwm27
+            templateName: 'Details: Customers > Contacts (Contacts)'
+            targetUid: thd2lhmr5v3
+            mode: reference
       layout:
         - - reference
     - title: Tab1

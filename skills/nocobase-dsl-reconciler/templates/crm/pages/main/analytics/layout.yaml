@@ -10,7 +10,8 @@ blocks:
         fieldModelProps:
           isRange: true
         source: []
-      - owner
+      - field: owner
+        label: Owner
     js_items:
       - key: js_0
         file: ./js/analytics_filterForm_js_0.js

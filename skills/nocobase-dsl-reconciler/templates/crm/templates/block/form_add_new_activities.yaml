@@ -1,10 +1,9 @@
-uid: xa3kgvo8wzv
+uid: fpq7iu2da59
 name: 'Form (Add new): Activities'
 type: block
 collectionName: nb_crm_activities
 dataSourceKey: main
-targetUid: vtej7fylf7l
-description: 'Form (Add new): Activities'
+targetUid: b9e42f19aab
 content:
   key: createForm
   type: createForm

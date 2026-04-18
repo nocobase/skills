@@ -1,13 +1,18 @@
-uid: s4ff2bp5a56
+uid: pbtedi2nlpi
 name: 'Popup (Edit): Projects'
 type: popup
 collectionName: nb_pm_projects
 dataSourceKey: main
-targetUid: 695tmlur725
+targetUid: opkoloba75s
 description: 'Popup (Edit): Projects'
 content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: ofjq5s4okjz
+        templateName: 'Form (Edit): Projects'
+        targetUid: mbmyuezgjiw
+        mode: reference
   layout:
-    - - reference
+    - - kyfw9q2n

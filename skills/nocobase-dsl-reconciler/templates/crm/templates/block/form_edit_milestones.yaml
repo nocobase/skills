@@ -1,22 +1,28 @@
-uid: f0we3gdfkf3
+uid: dyuoxodhcj6
 name: 'Form (Edit): Milestones'
 type: block
-collectionName: nb_pm2_milestones
+collectionName: nb_pm_milestones
 dataSourceKey: main
-targetUid: if06k0cnn8s
+targetUid: vm5proh5u24
+description: 'Form (Edit): Milestones'
 content:
   key: editForm
   type: editForm
-  coll: nb_pm2_milestones
+  coll: nb_pm_milestones
   resource_binding:
     filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
     - project
+    - due_date
+    - status
+    - description
   field_layout:
-    - '--- Milestone Info ---'
+    - '--- Basic Info ---'
     - - name
-      - project
+      - status
+    - - project
+      - due_date
+    - - description
   actions:
-    - submit
     - submit

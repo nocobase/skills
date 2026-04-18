@@ -1,17 +1,22 @@
-uid: nlak5e6eob4
+uid: llog4slwm27
 name: 'Details: Customers > Contacts (Contacts)'
 type: block
 collectionName: nb_crm_contacts
 dataSourceKey: main
-targetUid: kljynsuvtyb
-description: 'Details: Customers > Contacts (Contacts)'
+targetUid: thd2lhmr5v3
+associationName: nb_crm_customers.contacts
 content:
   key: details
   type: details
   coll: nb_crm_contacts
   resource_binding:
     filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    associationName: nb_crm_customers.contacts
+    sourceId: '{{ctx.view.inputArgs.sourceId}}'
   fields:
+    - type: markdown
+      key: _md_0
+      content_file: ./md/details_customers_contacts_contacts_details__md_0.md
     - email
     - phone
     - salutation
@@ -31,157 +36,49 @@ content:
     - customer
     - description
     - type: markdown
-      key: _md_18
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
       key: _md_19
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_19.md
     - type: markdown
       key: _md_20
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_20.md
     - type: markdown
       key: _md_21
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_21.md
     - type: markdown
       key: _md_22
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_22.md
     - type: markdown
       key: _md_23
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_23.md
     - type: markdown
       key: _md_24
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_24.md
     - type: markdown
       key: _md_25
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_25.md
     - type: markdown
       key: _md_26
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_26.md
     - type: markdown
       key: _md_27
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_27.md
     - type: markdown
       key: _md_28
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_28.md
     - type: markdown
       key: _md_29
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_29.md
     - type: markdown
       key: _md_30
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_30.md
     - type: markdown
       key: _md_31
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_31.md
     - type: markdown
       key: _md_32
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_33
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_34
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_35
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_36
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_37
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_38
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_39
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_40
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_41
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_42
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_43
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_44
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_45
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_46
-      content: |+
-        ##  {{ ctx.record.name }}
-
-    - type: markdown
-      key: _md_47
-      content: |+
-        ##  {{ ctx.record.name }}
-
+      content_file: ./md/details_customers_contacts_contacts_details__md_32.md
   field_layout:
-    - - '[MD:_md_18]'
+    - - '[MD:_md_0]'
     - - title
       - salutation
     - - customer
@@ -217,18 +114,5 @@ content:
     - - '[MD:_md_30]'
     - - '[MD:_md_31]'
     - - '[MD:_md_32]'
-    - - '[MD:_md_33]'
-    - - '[MD:_md_34]'
-    - - '[MD:_md_35]'
-    - - '[MD:_md_36]'
-    - - '[MD:_md_37]'
-    - - '[MD:_md_38]'
-    - - '[MD:_md_39]'
-    - - '[MD:_md_40]'
-    - - '[MD:_md_41]'
-    - - '[MD:_md_42]'
-    - - '[MD:_md_43]'
-    - - '[MD:_md_44]'
-    - - '[MD:_md_45]'
-    - - '[MD:_md_46]'
-    - - '[MD:_md_47]'
+  actions:
+    - edit
