@@ -33,6 +33,7 @@ import { resetM2oCache } from './block-filler';
 import { resetPromotedPopupCache } from './fillers/click-to-open';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
+import { rewriteWorkflowKeys, type WorkflowKeyMap } from './rewrite-workflow-keys';
 import { verifySqlFromPages } from './sql-verifier';
 import { discoverPages, routeKey, type RouteEntry, type PageInfo } from './page-discovery';
 import { RefResolver } from '../refs';
@@ -268,6 +269,25 @@ export async function deployProject(
     log('  ✓ collections phase skipped (no collections/*.yaml changes)');
   }
 
+  // Deploy workflows BEFORE templates+pages so the source-key → live-key map
+  // is available when we rewrite `workflowKey:` references in page DSL.
+  // After duplicate-project, every workflow gets a fresh NB key — pages still
+  // hold the source key from pull time, so without this rewrite the Copy
+  // would trigger the source CRM's workflow (cross-project pollution).
+  let wfKeyMap: WorkflowKeyMap = new Map();
+  const skipWfEarly = incScope ? !incScope.workflows?.size : false;
+  if (skipWfEarly) {
+    log('  ✓ workflows phase skipped (no workflows/ changes)');
+  } else if (fs.existsSync(path.join(root, 'workflows'))) {
+    try {
+      const { deployWorkflows } = await import('../workflow/workflow-deployer');
+      log('\n  ── Workflows ──');
+      wfKeyMap = await deployWorkflows(nb, root, { log });
+    } catch (e) {
+      log(`  ! workflows: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+    }
+  }
+
   // Deploy templates (before pages, so popupTemplateUid can be mapped)
   let templateUidMap: TemplateUidMap = new Map();
   let pendingPopups: PendingPopupTemplate[] = [];
@@ -306,6 +326,14 @@ export async function deployProject(
 
   // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
   rewriteTemplateUids(pages, templateUidMap, templateNameMap, templateNameToTarget);
+
+  // Rewrite `workflowKey:` references using the source-key → live-key map
+  // built during workflow deploy (no-op when source CRM redeploys; rewrites
+  // for Copy pushes where workflow keys changed).
+  if (wfKeyMap.size) {
+    const rewroteCount = rewriteWorkflowKeys(pages, wfKeyMap);
+    if (rewroteCount) log(`  rewrote ${rewroteCount} workflowKey ref(s) in page DSL`);
+  }
 
   // Routes + pages.
   // DSL is the source of truth — title controls display, key controls identity.
@@ -449,22 +477,9 @@ export async function deployProject(
   // when nothing is stale), so runs unconditionally to keep the DB tidy.
   await cleanStaleTemplateUsages(nb, log);
 
-  // Workflows are part of "everything pushable" per PHILOSOPHY (push is the
-  // full DSL→NB sync). Without this, users had to remember to run a separate
-  // `cli deploy-workflows` after every push, and forgetting silently dropped
-  // the workflow side of a duplicated module.
-  const skipWf = incScope ? !incScope.workflows?.size : false;
-  if (skipWf) {
-    log('  ✓ workflows phase skipped (no workflows/ changes)');
-  } else if (fs.existsSync(path.join(root, 'workflows'))) {
-    try {
-      const { deployWorkflows } = await import('../workflow/workflow-deployer');
-      log('\n  ── Workflows ──');
-      await deployWorkflows(nb, root, { log });
-    } catch (e) {
-      log(`  ! workflows: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
-    }
-  }
+  // (Workflows now deploy BEFORE templates+pages — see "Deploy workflows
+  // BEFORE templates+pages" above. Position matters because page DSL
+  // `workflowKey:` references must be rewritten before pages compose.)
 
   // (removed) Auto-sync routes.yaml from live state. Push is one-way DSL→NB
   // per PHILOSOPHY.md — overwriting the DSL with mid-deploy state has bitten

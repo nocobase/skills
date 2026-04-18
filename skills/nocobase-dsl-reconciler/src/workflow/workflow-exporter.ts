@@ -350,11 +350,15 @@ async function exportSingleWorkflow(
     nodesMap[name] = nodeSpec;
   }
 
-  // Build workflow spec
+  // Build workflow spec.
+  // `key` snapshots the source NB-runtime key — page actions reference it via
+  // `workflowKey:` and the deployer rewrites those refs (spec.key → state.key)
+  // when the runtime key changes (e.g. after duplicate-project).
   const spec: WorkflowSpec = {
     title: wf.title,
     type: wf.type,
     enabled: wf.enabled,
+    ...(wf.key ? { key: wf.key } : {}),
     ...(wf.sync ? { sync: wf.sync } : {}),
     ...(wf.description ? { description: wf.description } : {}),
     ...(wf.options && Object.keys(wf.options).length ? { options: wf.options } : {}),

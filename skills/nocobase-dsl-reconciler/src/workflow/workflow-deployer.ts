@@ -199,17 +199,26 @@ export interface DeployWorkflowsOptions {
  * Reads workflow.yaml files, creates/updates workflows and nodes,
  * writes back workflow-state.yaml for state tracking.
  */
+/**
+ * Re-export the canonical WorkflowKeyMap type so workflow callers don't have
+ * to reach into deploy/. Definition lives with the rewrite helper that
+ * actually consumes it.
+ */
+export type { WorkflowKeyMap } from '../deploy/rewrite-workflow-keys';
+import type { WorkflowKeyMap } from '../deploy/rewrite-workflow-keys';
+
 export async function deployWorkflows(
   nb: NocoBaseClient,
   projectDir: string,
   opts: DeployWorkflowsOptions = {},
-): Promise<void> {
+): Promise<WorkflowKeyMap> {
   const log = opts.log ?? console.log.bind(console);
   const wfBaseDir = path.join(projectDir, 'workflows');
+  const keyMap: WorkflowKeyMap = new Map();
 
   if (!fs.existsSync(wfBaseDir)) {
     log('  No workflows/ directory found, skipping workflow deploy');
-    return;
+    return keyMap;
   }
 
   // Find all workflow.yaml files
@@ -221,7 +230,7 @@ export async function deployWorkflows(
 
   if (!wfDirs.length) {
     log('  No workflow.yaml files found');
-    return;
+    return keyMap;
   }
 
   // Load existing state if any
@@ -271,11 +280,19 @@ export async function deployWorkflows(
       nb, spec, wfDir, slug, titleToExisting, stateFile.workflows[slug], log,
     );
     stateFile.workflows[slug] = state;
+
+    // Build cross-reference map: spec.key (DSL identity) → state.key (live NB
+    // key). Identity for source CRM redeploys; rewrite-only for Copy pushes
+    // where source key carries through but Copy gets a fresh key.
+    if (spec.key && state.key) {
+      keyMap.set(spec.key, state.key);
+    }
   }
 
   // Write updated state
   saveYaml(stateFilePath, stateFile);
   log(`  + workflow-state.yaml updated`);
+  return keyMap;
 }
 
 /**
