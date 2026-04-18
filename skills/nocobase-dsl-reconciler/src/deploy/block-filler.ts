@@ -27,6 +27,7 @@ import {
   deployEventFlows,
   applyFieldLayout,
   syncGridItemsOrder,
+  applySubTableFields,
 } from './fillers';
 
 const RECORD_ACTION_BLOCKS = new Set(['details', 'list', 'gridCard']);
@@ -306,6 +307,15 @@ export async function fillBlock(
     await applyFieldLayout(ctx, gridUid, bs.field_layout!, bs);
   } else if (gridUid && GRID_BLOCK_TYPES.has(btype)) {
     await syncGridItemsOrder(ctx, gridUid, bs);
+  }
+
+  // ── Sub-table cell rendering ──
+  // Convert o2m/m2m form fields to inline editable sub-tables when DSL
+  // declares `type: subTable`. Runs after field_layout so the form items
+  // already exist; this filler swaps the field model + injects column
+  // children, doesn't change layout placement.
+  if (FORM_BLOCK_TYPES.has(btype)) {
+    await applySubTableFields(ctx, blockUid, defaultColl, bs);
   }
 
   // ── Linkage / reaction rules ──
