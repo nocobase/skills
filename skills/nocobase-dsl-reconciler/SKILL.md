@@ -118,24 +118,37 @@ for the parent-detail + child-list pattern.
 
 ### Round 4: JS + Charts + Dashboard (optional)
 
-Reference the CRM JS files that match your need — **copy individual
-files, not directories**. Write your own `layout.yaml` in your page;
-only the small JS/SQL leaf files get copied.
+**Dashboards look bad when designed freehand — mirror the CRM shape.**
+Open the reference layout first, copy its **block count, ordering, and
+grid widths** into your own `layout.yaml`; then fill in leaf files with
+your content.
 
-| Need | Reference (single file) |
+| Reference layout | What to mirror |
 |---|---|
-| A single KPI card jsBlock | `templates/crm/pages/main/overview/js/overview_jsBlock.js` |
-| A filtered summary jsBlock | `templates/crm/pages/main/analytics/js/analytics_jsBlock.js` |
-| A chart SQL (grouped counts) | `templates/crm/pages/main/analytics/charts/analytics_chart_2.sql` |
-| A chart render (echarts bar/pie) | `templates/crm/pages/main/analytics/charts/analytics_chart_2_render.js` |
-| Filter stat buttons on a filterForm | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_customer_stats_filter_block.js` |
+| `templates/crm/pages/main/overview/layout.yaml` | Overview: 1 jsBlock hero row, 2 small tables underneath. Use for a landing page with a few KPIs. |
+| `templates/crm/pages/main/analytics/layout.yaml` | Full dashboard: filterForm row → 4 KPI jsBlocks in one row → 5 charts in a `16/8 ∣ full ∣ 14/10` grid. Use when you want ≥5 charts (validator requires this when the page title contains `dashboard` or `analytics`). |
 
-For each file you copy:
+Procedure:
+1. Open the reference `layout.yaml`. Note the block keys / types / widths.
+2. Write YOUR `layout.yaml` with the SAME shape — same number of blocks,
+   same grid widths in the `layout:` section — but your own block
+   keys and your own collection names.
+3. For each block's leaf JS/SQL file, copy from the single-file table
+   below. **Copy files individually**; do not `cp -r` the folder.
+
+| Leaf file to copy | Reference |
+|---|---|
+| KPI card jsBlock | `templates/crm/pages/main/overview/js/overview_jsBlock.js` |
+| Filtered summary jsBlock | `templates/crm/pages/main/analytics/js/analytics_jsBlock.js` |
+| Chart SQL (grouped counts) | `templates/crm/pages/main/analytics/charts/analytics_chart_2.sql` |
+| Chart render (echarts bar/pie) | `templates/crm/pages/main/analytics/charts/analytics_chart_2_render.js` |
+| Filter stat buttons on filterForm | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_customer_stats_filter_block.js` |
+
+After copying each leaf file:
 - Rename in place and retarget SQL/collection/field names.
-- Remove `ns: 'nb_crm'` i18n wrappers unless you've set up an i18n
-  namespace for your module.
-- Simplify `ctx.var_form1.*` filter var references if your page has
-  no matching filterForm.
+- Remove `ns: 'nb_crm'` i18n wrappers unless your module has i18n.
+- Simplify `ctx.var_form1.*` filter var references if your page's
+  filterForm uses different field keys.
 
 SQL charts: save + run as a two-step pattern —
 `ctx.sql.save({uid, sql})` then `ctx.sql.runById(uid)`.
