@@ -672,72 +672,82 @@ async function exportSingleTab(
 
   // Fields with popup template: keep as reference (don't inline template content)
 
-  // Enrich filterForm fields with filterManager data (filterPaths, label)
-  // filterManager lives on the PAGE-LEVEL grid, not filterForm's own grid
+  // Enrich filterForm fields with per-target binding (filterPaths + label).
+  // The real binding lives on each FilterFormItem's
+  //   stepParams.filterFormItemSettings.connectFields.value.targets[]
+  // (an array of {targetId, filterPaths}). The page-level grid's
+  // filterManager often stays empty in newer NB builds, so reading from
+  // there alone produces flat filterPaths that get broadcast to ALL
+  // target blocks at deploy time — fine for single-table pages, but
+  // breaks multi-table lookups (e.g. leads vs customers vs contacts have
+  // different filterable columns).
   try {
-    const pgResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, {
-      params: { filterByTk: gridNode.uid },
-    });
-    const filterManager = pgResp.data?.data?.filterManager as { filterId: string; targetId: string; filterPaths: string[] }[] || [];
-    if (filterManager.length) {
-      const filterPathsMap = new Map<string, string[]>();
-      for (const entry of filterManager) {
-        if (entry.filterId && entry.filterPaths?.length) {
-          filterPathsMap.set(entry.filterId, entry.filterPaths);
-        }
-      }
+    // blockUidToKey is uid→key already (set on line ~620). Use directly to
+    // translate connectFields targetIds back to stable DSL block keys.
+    for (const b of blocks) {
+      const br = b as Record<string, unknown>;
+      if (br.type !== 'filterForm') continue;
+      const fields = br.fields as unknown[];
+      if (!Array.isArray(fields)) continue;
 
-      for (const b of blocks) {
-        const br = b as Record<string, unknown>;
-        if (br.type !== 'filterForm') continue;
-        const fields = br.fields as unknown[];
-        if (!Array.isArray(fields)) continue;
+      for (const rawItem of items) {
+        if (rawItem.use !== 'FilterFormBlockModel') continue;
+        const ffGrid = rawItem.subModels?.grid;
+        const ffItems = (ffGrid && !Array.isArray(ffGrid))
+          ? ((ffGrid as FlowModelNode).subModels?.items || []) as FlowModelNode[]
+          : [];
 
-        // Find filterForm grid items to map fieldPath → UID
-        const ffBlock = items.find(it => it.uid === blockUidToKey.entries().next().value?.[0]);
-        // Actually find the filterForm block in the raw items
-        for (const rawItem of items) {
-          if (rawItem.use !== 'FilterFormBlockModel') continue;
-          const ffGrid = rawItem.subModels?.grid;
-          const ffItems = (ffGrid && !Array.isArray(ffGrid))
-            ? ((ffGrid as FlowModelNode).subModels?.items || []) as FlowModelNode[]
-            : [];
-
-          const enriched: unknown[] = [];
-          for (const f of fields) {
-            const fpName = typeof f === 'string' ? f : (f as Record<string, unknown>).field as string || (f as Record<string, unknown>).name as string || '';
-            if (!fpName || (typeof f === 'object' && (f as Record<string, unknown>).type === 'custom')) {
-              enriched.push(f);
-              continue;
-            }
-            // Find UID of this field in filterForm grid
-            const ffItem = ffItems.find(gi => {
-              const giFp = ((gi.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
-                ?.init as Record<string, unknown>;
-              return (giFp?.fieldPath as string) === fpName;
-            });
-            const filterPaths = ffItem ? filterPathsMap.get(ffItem.uid) : undefined;
-            const label = ffItem
-              ? ((ffItem.stepParams as Record<string, unknown>)?.filterFormItemSettings as Record<string, unknown>)
-                  ?.label as Record<string, unknown>
-              : undefined;
-            const labelText = label?.label as string || '';
-
-            if (filterPaths || labelText) {
-              const entry: Record<string, unknown> = { field: fpName };
-              if (labelText) entry.label = labelText;
-              if (filterPaths) entry.filterPaths = filterPaths;
-              enriched.push(entry);
-            } else {
-              enriched.push(f);
-            }
+        const enriched: unknown[] = [];
+        for (const f of fields) {
+          const fpName = typeof f === 'string' ? f : (f as Record<string, unknown>).field as string || (f as Record<string, unknown>).name as string || '';
+          if (!fpName || (typeof f === 'object' && (f as Record<string, unknown>).type === 'custom')) {
+            enriched.push(f);
+            continue;
           }
-          br.fields = enriched;
-          break;
+          const ffItem = ffItems.find(gi => {
+            const giFp = ((gi.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
+              ?.init as Record<string, unknown>;
+            return (giFp?.fieldPath as string) === fpName;
+          });
+          const itemSettings = ffItem
+            ? ((ffItem.stepParams as Record<string, unknown>)?.filterFormItemSettings as Record<string, unknown>)
+            : undefined;
+
+          // Pull per-target paths from connectFields.value.targets[]
+          const targetsRaw = ((itemSettings?.connectFields as Record<string, unknown>)?.value as Record<string, unknown>)
+            ?.targets as { targetId: string; filterPaths: string[] }[] | undefined;
+          const labelText = (itemSettings?.label as Record<string, unknown>)?.label as string || '';
+
+          let perTarget: { block: string; paths: string[] }[] | undefined;
+          if (Array.isArray(targetsRaw) && targetsRaw.length) {
+            perTarget = [];
+            for (const t of targetsRaw) {
+              const blockKey = uidToBlockKey.get(t.targetId);
+              if (blockKey && t.filterPaths?.length) {
+                perTarget.push({ block: blockKey, paths: t.filterPaths });
+              }
+            }
+            if (!perTarget.length) perTarget = undefined;
+          }
+
+          if (perTarget || labelText) {
+            const entry: Record<string, unknown> = { field: fpName };
+            if (labelText) entry.label = labelText;
+            if (perTarget) {
+              // Single-target: collapse to flat filterPaths for backward compat
+              if (perTarget.length === 1) entry.filterPaths = perTarget[0].paths;
+              else entry.targets = perTarget;
+            }
+            enriched.push(entry);
+          } else {
+            enriched.push(f);
+          }
         }
+        br.fields = enriched;
+        break;
       }
     }
-  } catch { /* filterManager read failed — fields stay plain */ }
+  } catch { /* connectFields read failed — fields stay plain */ }
 
   // Infer coll for filterForm from sibling table/reference/form blocks
   const pageColl = blocks.find(b => {

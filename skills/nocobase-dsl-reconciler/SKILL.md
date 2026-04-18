@@ -292,7 +292,11 @@ shadows the real FK.
 
 1. **select must have options** — `options: [{value, label}]`
 2. **collection must have titleField** — auto-set if a `name` field exists
-3. **filterForm search fields must have filterPaths** — `filterPaths: [name]`
+3. **filterForm search fields must have filterPaths** — `filterPaths: [name]`. For
+   multi-target lookups (one filter feeding several tables with different
+   columns) use `targets: [{block: all_leads, paths: [name, lead_no]}, ...]`
+   instead — `filterPaths` broadcasts the same paths to every target which
+   blows up if a column doesn't exist in all of them.
 4. **field_layout must have sections** — `'--- Section Name ---'`
 5. **layout must be declared** — required when there is more than 1 block
 6. **actions are auto-populated** — no need to write actions/recordActions
@@ -310,6 +314,18 @@ shadows the real FK.
     For o2m/m2o relations, the seed must fill the FK column (e.g. `ticket_id`)
     on the child rows — leaving it null produces orphaned children.
 13. **Do NOT define system columns** — never include `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `id` in collection YAML (auto-created by NocoBase)
+14. **`<user-dir>` is workspace-relative** — `cli push myapp` resolves to
+    `<reconciler>/workspaces/myapp/`. Absolute paths must already live inside
+    workspaces/. Override the root with `NB_WORKSPACE_ROOT=/some/path`.
+15. **Each project gets its own git repo** — auto `git init` on first
+    push/pull/duplicate-project. The parent skills repo's `.gitignore` hides
+    workspaces/, so deployment data and tool source stay decoupled.
+16. **Tables that should NOT auto-load** — set `dataLoadingMode: manual` on
+    the table block. The DSL omits this field when default (auto).
+17. **Approval workflows carry their own UIs** — `workflows/<slug>/ui/*.yaml`
+    holds the trigger form, task cards, and per-node approval forms. They
+    pull/push automatically; no need to declare manually unless you want a
+    custom shape.
 
 ## Common Errors
 
@@ -330,9 +346,14 @@ shadows the real FK.
 cd <skill-dir>/src
 export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
 
-# Deploy local DSL → NocoBase  (DSL is source of truth)
+# Deploy local DSL → NocoBase  (DSL is source of truth).
+# <user-dir> is resolved under workspaces/ — `push myapp` = workspaces/myapp.
 npx tsx cli/cli.ts push <user-dir> --force
 npx tsx cli/cli.ts push <user-dir> --group <route-key>     # only one subtree
+npx tsx cli/cli.ts push <user-dir> --incremental           # skip unchanged
+                                                            # pages/colls/tpls/wfs
+                                                            # (uses git diff vs
+                                                            # state.last_deployed_sha)
 
 # Pull live NocoBase → local DSL  (covers menu, pages, popups, templates,
 #                                  collections, defaults, layouts, event flows)
@@ -344,11 +365,12 @@ npx tsx cli/cli.ts diff <left-dir> <right-dir>
 # Duplicate a project to a new isolated module (new keys, optional title prefix)
 npx tsx cli/cli.ts duplicate-project <src> <dst> --key-suffix _v2 --title-prefix "V2 - "
 
-# Seed test data (resolves FK IDs from already-inserted rows — pass --count N)
-npx tsx cli/cli.ts seed <user-dir> --count 5
-
 # Verify data integrity (FK references, field completeness)
 npx tsx cli/cli.ts verify-data <user-dir>
+
+# (Removed: `cli seed` — generate test data ad-hoc with AI / SQL instead;
+#  the previous template-based seeder produced too many false-positive FK
+#  warnings to be useful.)
 ```
 
 > Don't add an auto-sync between push and pull. Push is one-way DSL→NB; pull

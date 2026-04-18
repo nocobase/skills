@@ -238,17 +238,32 @@ function rewriteCollectionRefs(
   return out;
 }
 
-/** Replace UID substrings inside arbitrary string values. Skips template
- *  expressions ({{...}}) and well-known semantic prefixes. */
+/** Replace UID substrings inside arbitrary string values. Strings with
+ *  template expressions (`{{...}}`) ARE processed — only the literal
+ *  expression body is preserved verbatim while UIDs in the surrounding
+ *  text get rewritten. Without this, action URLs like
+ *    admin/<page-uid>/view/<block-uid>/filterbytk/{{ctx.record.id}}
+ *  would skip rewriting (the early `if (s.includes('{{'))` bail-out), and
+ *  a duplicated project's "Detail" buttons would jump back to the
+ *  source's pages. */
 function rewriteString(s: string, map: Map<string, string>): string {
   if (!s) return s;
-  // Don't touch i18n / template-var strings — they don't carry UIDs.
-  if (s.includes('{{')) return s;
-  let out = s;
-  for (const [oldUid, newUid] of map) {
-    if (out.includes(oldUid)) out = out.split(oldUid).join(newUid);
+  // Pure template expression with no surrounding text → no UIDs to remap.
+  if (/^\s*\{\{[\s\S]*\}\}\s*$/.test(s)) return s;
+  // Split into [text, expr, text, expr, ...] segments so we only rewrite
+  // outside `{{...}}` blocks. Keeps things like {{ ctx.record.id }} intact
+  // even when ctx happens to contain an alphanumeric run that collides
+  // with a UID in the map.
+  const parts = s.split(/(\{\{[\s\S]*?\}\})/);
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) continue;  // odd indices are expression bodies
+    let segment = parts[i];
+    for (const [oldUid, newUid] of map) {
+      if (segment.includes(oldUid)) segment = segment.split(oldUid).join(newUid);
+    }
+    parts[i] = segment;
   }
-  return out;
+  return parts.join('');
 }
 
 /** Walk routes.yaml and rewrite every route's identity. Returns the

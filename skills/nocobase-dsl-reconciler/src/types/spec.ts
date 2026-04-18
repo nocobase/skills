@@ -22,7 +22,15 @@ export interface FieldRef {
   field: string;                  // Field path (e.g. 'name', 'customer.name')
   fieldPath?: string;             // @deprecated — use `field` instead
   label?: string;                 // Display label (filterForm fields)
-  filterPaths?: string[];         // Target filter paths (filterForm fields)
+  filterPaths?: string[];         // Flat filter paths — broadcast to all target blocks (legacy / single-target)
+  /**
+   * Per-target filter paths. When set, `filterPaths` is ignored and each
+   * entry binds the field to ONE specific target block by its `key`
+   * (matching another block in the same page's `blocks[]`). Required for
+   * multi-table lookups where each table has different filterable columns
+   * (e.g. leads has `account_number`, customers has `name` only).
+   */
+  targets?: { block: string; paths: string[] }[];
   clickToOpen?: boolean | string;  // true = auto-detect popup; "path" = explicit template file
   width?: number;                 // Column width (default: auto/150, only export if non-default)
   ellipsis?: boolean;             // Ellipsis on overflow (default: true, only export if false)
@@ -33,6 +41,29 @@ export interface FieldRef {
     filterByTk?: string;
     popupTemplateUid?: string;    // Popup template reference
   };
+  /**
+   * When set, this o2m/m2m field renders as an inline editable sub-table
+   * (PatternFormFieldModel + SubTableColumnModel children) instead of the
+   * default RecordSelect picker. `columns` lists the child fields shown
+   * in each row. Each entry can be a plain field name string or a
+   * SubTableColumn object for column-level overrides.
+   */
+  type?: 'subTable' | 'subForm';
+  columns?: (string | SubTableColumn)[];
+  /**
+   * For sub-form rendering of m2o/o2o fields: list of child fields to
+   * inline-edit (vs. opening a popup). When omitted, falls back to NB
+   * default (collection's titleField).
+   */
+  fields?: (string | FieldRef)[];
+  mode?: 'inline' | 'collapse' | 'popup';
+}
+
+export interface SubTableColumn {
+  field: string;                  // Sub-field name (no parent prefix — e.g. `quantity`, NOT `items.quantity`)
+  width?: number;
+  readonly?: boolean;
+  hidden?: boolean;
 }
 
 export type FieldSpec = string | FieldRef;
@@ -132,6 +163,7 @@ export interface BlockSpec {
   filter?: Record<string, unknown>;     // Shorthand: { field.$op: value } — deployer converts to dataScope
   dataScope?: Record<string, unknown>;
   pageSize?: number;
+  dataLoadingMode?: 'auto' | 'manual';   // Table block: when 'manual', table only loads after user clicks Search
   sort?: Record<string, unknown>;
   tableSettings?: Record<string, unknown>;
   popups?: PopupSpec[];

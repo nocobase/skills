@@ -405,6 +405,12 @@ export async function exportBlock(
     if (tableSettings.sort) spec.sort = tableSettings.sort;
   }
 
+  // Table loading mode (manual / auto) lives in its own stepParams group.
+  // Default is "auto"; only export when overridden so YAML stays clean.
+  const dlms = sp.dataLoadingModeSettings as Record<string, unknown> | undefined;
+  const dlMode = (dlms?.dataLoadingMode as Record<string, unknown> | undefined)?.mode as string | undefined;
+  if (dlMode && dlMode !== 'auto') spec.dataLoadingMode = dlMode;
+
   const popupRefs: PopupRef[] = [];
 
   // ── JS Block ──
@@ -921,6 +927,39 @@ function exportFormContents(
       const fpInit = (sp.fieldSettings as Record<string, unknown>)?.init as Record<string, unknown>;
       const fieldPath = (fpInit?.fieldPath as string) || '';
       if (fieldPath) {
+        // Detect sub-table rendering: o2m/m2m field whose inner field model
+        // has SubTableColumnModel children (instead of being a plain
+        // RecordSelectFieldModel). Without capturing this, round-trip
+        // silently reverts the user's column choice to NB defaults.
+        const fieldSubForSt = gi.subModels?.field as FlowModelNode | undefined;
+        const stColumns = fieldSubForSt && !Array.isArray(fieldSubForSt)
+          ? ((fieldSubForSt as FlowModelNode).subModels?.columns as FlowModelNode[] | undefined)
+          : undefined;
+        const isSubTable = Array.isArray(stColumns) && stColumns.length > 0
+          && stColumns.some(c => c.use === 'SubTableColumnModel');
+        if (isSubTable) {
+          const cols: unknown[] = [];
+          for (const col of stColumns!) {
+            if (col.use !== 'SubTableColumnModel') continue;
+            const colField = col.subModels?.field as FlowModelNode | undefined;
+            const colFp = colField && !Array.isArray(colField)
+              ? (((colField as FlowModelNode).stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)?.init as Record<string, unknown>
+              : undefined;
+            const rawPath = (colFp?.fieldPath as string) || '';
+            if (!rawPath) continue;
+            // NB stores child fieldPath as `<parent>.<child>` — strip prefix
+            const stripped = rawPath.startsWith(`${fieldPath}.`)
+              ? rawPath.slice(fieldPath.length + 1)
+              : rawPath;
+            cols.push(stripped);
+          }
+          if (cols.length) {
+            fields.push({ field: fieldPath, type: 'subTable', columns: cols });
+            uidToName.set(gi.uid, fieldPath);
+            continue;
+          }
+        }
+
         fields.push(fieldPath);
         uidToName.set(gi.uid, fieldPath);
 

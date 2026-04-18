@@ -140,6 +140,17 @@ export async function fillBlock(
     } catch (e) { log(`      ! tableSettings: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
   }
 
+  // ── Data loading mode (manual / auto) — separate stepParams group ──
+  // Tables that load on demand (manual) need this set explicitly; default
+  // is auto, so we only call when DSL overrides it.
+  if (bs.dataLoadingMode && bs.dataLoadingMode !== 'auto') {
+    try {
+      await nb.updateModel(blockUid, {
+        dataLoadingModeSettings: { dataLoadingMode: { mode: bs.dataLoadingMode } },
+      });
+    } catch (e) { log(`      ! dataLoadingMode: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+  }
+
   // ── Table: read actColUid + handle explicit empty recordActions ──
   let actColUid = '';
   if (btype === 'table') {
