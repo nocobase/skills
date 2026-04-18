@@ -367,11 +367,12 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X] [--incremental]\n\n  --group <key>     Deploy only the route subtree whose key matches.\n  --incremental     Skip pages whose DSL files have not changed since the last\n                    push (uses git diff vs state.last_deployed_sha; falls back\n                    to full push when not in git or sha missing).'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X] [--incremental] [--copy]\n\n  --group <key>     Deploy only the route subtree whose key matches.\n  --incremental     Skip pages whose DSL files have not changed since the last\n                    push (uses git diff vs state.last_deployed_sha; falls back\n                    to full push when not in git or sha missing).\n  --copy            Bypass spec validation errors (warnings still shown).\n                    ONLY accepted on a workspace produced by duplicate-project\n                    (presence of .duplicate-source marker). Refused otherwise.'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
   const incremental = args.includes('--incremental');
+  const copy = args.includes('--copy');
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const pageIdx = args.indexOf('--page');
@@ -392,7 +393,7 @@ async function cmdDeployProject(args: string[]) {
     } catch { /* not a git repo — skip */ }
   }
 
-  await deployProject(absDir, { force, planOnly, group, page, blueprint, incremental });
+  await deployProject(absDir, { force, planOnly, group, page, blueprint, incremental, copy });
 }
 
 /**
@@ -932,7 +933,8 @@ async function cmdDuplicateProject(args: string[]) {
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
   if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
   await ensureProjectGit(dst, console.log);
-  console.log(`\n  Next: cli push ${path.relative(WORKSPACE_ROOT, dst) || dst} --force`);
+  console.log(`\n  Next: cli push ${path.relative(WORKSPACE_ROOT, dst) || dst} --copy --force`);
+  console.log(`        --copy bypasses spec validation (gated on .duplicate-source marker, written above).`);
 }
 
 function cmdValidateWorkflows(args: string[]) {

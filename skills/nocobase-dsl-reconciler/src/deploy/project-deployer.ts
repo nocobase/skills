@@ -42,7 +42,7 @@ import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 
 export async function deployProject(
   projectDir: string,
-  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean; incremental?: boolean } = {},
+  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean; incremental?: boolean; copy?: boolean } = {},
   log: (msg: string) => void = console.log,
 ): Promise<void> {
   const root = path.resolve(projectDir);
@@ -151,15 +151,32 @@ export async function deployProject(
     const specErrors = specIssues.filter(i => i.level === 'error');
     const specWarnings = specIssues.filter(i => i.level === 'warn');
     if (specErrors.length) {
-      log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
-      for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
-      log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
-      // No escape hatch. Deploying a spec with known-bad DSL creates NocoBase
-      // state that has to be hand-cleaned later (dangling blocks, silent 400s
-      // on m2o clicks, empty popup targets). --force used to bypass these;
-      // the flag now only governs state overwrite during normal deploy flow,
-      // never spec validation. If an error is a false positive, fix the rule.
-      process.exit(1);
+      // Copy-mode bypass: a workspace freshly minted by duplicate-project carries
+      // every quirk of the source spec — invalid layouts, missing popup bindings,
+      // orphan defaults — and the user wants to push first then iterate. Strict
+      // validation blocks that. We accept --copy ONLY when a `.duplicate-source`
+      // marker is present (written by duplicate-project), so generic projects
+      // can't sneak around the validator by passing the flag.
+      const dupMarker = path.join(root, '.duplicate-source');
+      const isDupWorkspace = fs.existsSync(dupMarker);
+      if (opts.copy && isDupWorkspace) {
+        log('\n  ── Spec Validation ERRORS (bypassed in --copy mode) ──');
+        for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
+        log(`\n  ${specErrors.length} errors bypassed (--copy + .duplicate-source). ${specWarnings.length} warnings.`);
+        log('  ⚠ Bypass is intentional for duplicate workspaces — fix errors before promoting to a non-duplicate workspace.');
+      } else {
+        log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
+        for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
+        log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
+        if (opts.copy && !isDupWorkspace) {
+          log('  --copy was passed but .duplicate-source marker is missing — refusing bypass on a non-duplicate workspace.');
+        }
+        // No escape hatch outside duplicate workspaces. Deploying a spec with
+        // known-bad DSL creates NocoBase state that has to be hand-cleaned later
+        // (dangling blocks, silent 400s on m2o clicks, empty popup targets).
+        // If an error is a false positive, fix the rule.
+        process.exit(1);
+      }
     }
     if (specWarnings.length) {
       log('\n  ── Spec Warnings ──');

@@ -703,6 +703,20 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
     if (changed) { fs.writeFileSync(f, code); jsCount++; }
   });
 
+  // Mark as a duplicate workspace. push --copy will only bypass spec
+  // validation when this marker exists, so AI agents can't accidentally
+  // bypass the validator on a regular hand-authored project by passing
+  // --copy. Contents are informational (source path + duplicate flags).
+  fs.writeFileSync(path.join(dst, '.duplicate-source'), [
+    `source: ${path.relative(dst, src) || src}`,
+    `created_at: ${new Date().toISOString()}`,
+    opts.keySuffix ? `key_suffix: ${opts.keySuffix}` : '',
+    opts.titlePrefix ? `title_prefix: ${opts.titlePrefix}` : '',
+    opts.collectionSuffix ? `collection_suffix: ${opts.collectionSuffix}` : '',
+    opts.includeGroups?.length ? `include_groups: [${opts.includeGroups.join(', ')}]` : '',
+    opts.skipGroups?.length ? `skip_groups: [${opts.skipGroups.join(', ')}]` : '',
+  ].filter(Boolean).join('\n') + '\n');
+
   return {
     yamlFiles: yamlFiles.length,
     jsFiles: jsCount,
