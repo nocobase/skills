@@ -72,6 +72,17 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
       validateBlock(bs, page.title, page.popups, issues, projectDir, knownColls);
     }
 
+    // Validate the page/tab-level `layout:` specs
+    if ((page.layout as { layout?: unknown[] }).layout) {
+      validateLayoutSpec((page.layout as { layout: unknown[] }).layout, page.title, 'page', issues);
+    }
+    if (tabs) {
+      for (const t of tabs) {
+        const tLayout = (t as { layout?: unknown[] }).layout;
+        if (tLayout) validateLayoutSpec(tLayout, page.title, `tab "${(t as { title?: string }).title || ''}"`, issues);
+      }
+    }
+
     // Check popups
     for (const ps of page.popups) {
       validatePopup(ps, page.title, issues, projectDir, knownColls);
@@ -219,6 +230,55 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
   return issues;
 }
 
+/**
+ * Sanity-check a page/tab/popup-level `layout:` spec.
+ *
+ * Catches the flat-vs-col authoring bug that produced the "Leads details
+ * popup crammed into one horizontal row" symptom: a single row carrying
+ * multiple `{key: size}` entries whose sizes total > 24 is almost always
+ * a mis-authored `col: [...], size: N` — the user meant side-by-side
+ * columns with internal vertical stacking, but wrote every block as its
+ * own flat cell, so NocoBase's 24-grid overflows into a cramped strip.
+ *
+ * Shape: layout is an array of rows; each row is an array of cells;
+ * each cell is either a string (full-width), `{key: size}`, or
+ * `{col: [...], size}`. We flag rows where cells are ALL `{key: size}`
+ * (no `col:`) and size-sum > 24.
+ */
+function validateLayoutSpec(
+  layoutSpec: unknown,
+  pageTitle: string,
+  where: string,
+  issues: SpecIssue[],
+): void {
+  if (!Array.isArray(layoutSpec)) return;
+  for (let ri = 0; ri < layoutSpec.length; ri++) {
+    const row = layoutSpec[ri];
+    if (!Array.isArray(row) || row.length < 2) continue;
+    let hasCol = false;
+    let sizeSum = 0;
+    let mappedCells = 0;
+    for (const cell of row) {
+      if (typeof cell === 'string') continue;
+      if (cell && typeof cell === 'object') {
+        const obj = cell as Record<string, unknown>;
+        if (Array.isArray(obj.col)) { hasCol = true; break; }
+        const entries = Object.entries(obj).filter(([k]) => k !== 'col' && k !== 'size');
+        if (entries.length === 1) {
+          const size = entries[0][1];
+          if (typeof size === 'number' && size > 0) { sizeSum += size; mappedCells++; }
+        }
+      }
+    }
+    if (!hasCol && mappedCells >= 2 && sizeSum > 24) {
+      issues.push({
+        level: 'warn', page: pageTitle,
+        message: `${where} layout row ${ri + 1} has ${mappedCells} flat {key:size} cells summing to ${sizeSum} (>24) — likely meant \`col: [...], size: N\` to stack blocks vertically in side-by-side columns. Flat format renders as a cramped horizontal strip.`,
+      });
+    }
+  }
+}
+
 function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
   const key = bs.key || bs.type;
 
@@ -226,6 +286,24 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
   if ('_refError' in bs) {
     issues.push({ level: 'error', page: pageTitle, block: key, message: `ref: failed — ${(bs as any)._refError}` });
     return;
+  }
+
+  // ── Rule: reference block must declare a template binding ──
+  // A `- key: reference, type: reference` with no templateRef/ref deploys as
+  // an orphan ReferenceBlockModel with null useTemplate — renders blank.
+  // We hit this across Orders, Opportunities>Table, Emails after a copy
+  // roundtrip. The exporter now has a fallback to block.stepParams.useTemplate,
+  // but bare authoring still needs to be blocked so the UI never ships blank.
+  if (bs.type === 'reference') {
+    const tplUid = bs.templateRef?.templateUid;
+    const hasTplName = !!bs.templateRef?.templateName;
+    const fromRef = '_fromRef' in bs;
+    if (!tplUid && !hasTplName && !fromRef) {
+      issues.push({
+        level: 'error', page: pageTitle, block: key,
+        message: 'reference block requires `ref: templates/block/<file>.yaml` OR `templateRef: {templateUid, templateName, targetUid}`. A bare `type: reference` deploys an empty ReferenceBlockModel (visually blank).',
+      });
+    }
   }
 
   // ── Rule: block coll must reference an existing collection ──
@@ -402,5 +480,10 @@ function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], pr
     for (const bs of (tab.blocks || [])) {
       validateBlock(bs, `${pageTitle} popup tab`, [], issues, projectDir, knownColls);
     }
+    const tLayout = (tab as { layout?: unknown[] }).layout;
+    if (tLayout) validateLayoutSpec(tLayout, pageTitle, `popup [${ps.target}] tab "${tab.title || ''}"`, issues);
   }
+  // Non-tabbed popups can also carry a top-level `layout:`
+  const psLayout = (ps as { layout?: unknown[] }).layout;
+  if (psLayout) validateLayoutSpec(psLayout, pageTitle, `popup [${ps.target}]`, issues);
 }
