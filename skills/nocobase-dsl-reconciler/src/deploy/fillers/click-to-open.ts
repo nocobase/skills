@@ -376,6 +376,24 @@ async function deployPopupTemplateFromFile(
     log(`      ! compose onto ${tplName} target: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
   }
 
+  // Neutralise the template target's blocks — saveTemplate(convert) on an
+  // m2o field host stamps the host's associationName/sourceId onto every
+  // block inside the template (e.g. `nb_pm_comments.task` on a Tasks
+  // detail block). That binds the shared template to ONE specific host's
+  // association context, so auto-binding other m2o fields (different
+  // host, different association) renders a block trying to resolve via
+  // the wrong association → `id=undefined` WHERE error.
+  //
+  // Strip associationName + sourceId + binding so each auto-bound host
+  // resolves records via its own openView.filterByTk (the target record
+  // id) against the block's own collectionName. Keep collectionName +
+  // filterByTk.
+  try {
+    await neutraliseTemplateTargetBlocks(nb, targetUid, popupColl, log);
+  } catch (e) {
+    log(`      ! neutralise ${tplName} blocks: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+
   // Rebind the host field to reference the template.
   try {
     const fieldResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fieldUid } });
@@ -417,6 +435,87 @@ async function deployPopupTemplateFromFile(
   } catch { /* best-effort */ }
 
   log(`      ~ clickToOpen: ${fp} → template ${templateUid.slice(0, 8)}`);
+}
+
+/**
+ * Walk the popup template's target tree and clear any associationName /
+ * sourceId / binding that saveTemplate(convert) inherited from the host
+ * field's ambient context. Runs after compose-onto-template-target so
+ * the shared template stays host-agnostic.
+ *
+ * Keeps: collectionName, dataSourceKey, filterByTk.
+ * Drops: associationName, sourceId, binding.
+ */
+async function neutraliseTemplateTargetBlocks(
+  nb: NocoBaseClient,
+  targetUid: string,
+  popupColl: string,
+  log: (msg: string) => void,
+): Promise<void> {
+  const BLOCK_USES = new Set([
+    'DetailsBlockModel', 'EditFormModel', 'CreateFormModel',
+    'TableBlockModel', 'ListBlockModel', 'GridCardBlockModel',
+  ]);
+  let tree: any;
+  try {
+    const resp = await nb.get({ uid: targetUid });
+    tree = resp.tree;
+  } catch { return; }
+
+  const targets: Array<{ uid: string; data: Record<string, unknown> }> = [];
+  function walk(node: any) {
+    if (!node || typeof node !== 'object') return;
+    if (BLOCK_USES.has(node.use) && node.uid) {
+      targets.push({ uid: node.uid, data: node });
+    }
+    const subs = node.subModels;
+    if (subs && typeof subs === 'object') {
+      for (const v of Object.values(subs)) {
+        if (Array.isArray(v)) { for (const item of v) walk(item); }
+        else if (v && typeof v === 'object') walk(v);
+      }
+    }
+  }
+  walk(tree);
+
+  for (const { uid } of targets) {
+    try {
+      const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: uid } });
+      const d = raw.data?.data as Record<string, unknown> | undefined;
+      if (!d) continue;
+      const sp = (d.stepParams as Record<string, unknown>) || {};
+      const rs = (sp.resourceSettings as Record<string, unknown>) || {};
+      const init = (rs.init as Record<string, unknown>) || {};
+
+      const hadAssoc = 'associationName' in init || 'sourceId' in init || 'binding' in init;
+      if (!hadAssoc) continue;
+
+      delete init.associationName;
+      delete init.sourceId;
+      delete init.binding;
+      // Ensure collection is explicit (not inherited from association)
+      if (!init.collectionName) init.collectionName = popupColl;
+      if (!init.dataSourceKey) init.dataSourceKey = 'main';
+      if (!init.filterByTk) init.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
+
+      rs.init = init;
+      sp.resourceSettings = rs;
+
+      await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+        uid,
+        use: d.use,
+        parentId: d.parentId,
+        subKey: d.subKey,
+        subType: d.subType,
+        sortIndex: (d.sortIndex as number) || 0,
+        flowRegistry: (d.flowRegistry as Record<string, unknown>) || {},
+        stepParams: sp,
+      });
+      log(`        . neutralised block ${uid.slice(0, 8)} (dropped association/sourceId)`);
+    } catch (e) {
+      log(`        ! neutralise block ${uid.slice(0, 8)}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+    }
+  }
 }
 
 async function checkExistingPopup(nb: NocoBaseClient, fieldUid: string): Promise<boolean> {
