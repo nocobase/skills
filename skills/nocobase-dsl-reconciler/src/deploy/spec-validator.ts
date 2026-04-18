@@ -427,11 +427,25 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
     }
   }
 
-  // ── Rule: block coll must reference an existing collection ──
-  // Warn (not error) — collection might be plugin-provided (e.g., mailMessages) or
-  // an SQL view created outside DSL. Deploy will catch it if truly missing.
-  if (bs.coll && knownColls?.size && !knownColls.has(bs.coll)) {
-    issues.push({ level: 'warn', page: pageTitle, block: key, message: `collection "${bs.coll}" not in local YAML — create collections/${bs.coll}.yaml if DSL should manage it` });
+  // ── Rule: block coll must reference a known collection ──
+  // Error when the block references a collection that's neither in
+  // collections/*.yaml nor a NocoBase/plugin built-in. The deploy would
+  // otherwise create a dangling block whose UI shows "Collection ... may
+  // have been deleted" (NocoBase resolves coll at render time, not
+  // deploy time). If the collection genuinely lives elsewhere (SQL view,
+  // plugin table), add it to BLOCK_COLL_ALLOWLIST below.
+  const BLOCK_COLL_ALLOWLIST = new Set([
+    'users', 'roles', 'dataSources', 'collections', 'uiSchemas',
+    'applicationPlugins', 'mailMessages', 'workflows', 'usersJobs',
+    'attachments', 'files', 'storages',
+  ]);
+  if (bs.coll && knownColls?.size && !knownColls.has(bs.coll) && !BLOCK_COLL_ALLOWLIST.has(bs.coll)) {
+    issues.push({
+      level: 'error',
+      page: pageTitle,
+      block: key,
+      message: `collection "${bs.coll}" not found — no collections/${bs.coll}.yaml and not a known built-in. Either create the collection YAML, remove the block, or add "${bs.coll}" to BLOCK_COLL_ALLOWLIST in spec-validator.ts if it's a plugin/view.`,
+    });
   }
 
   // ── Rule 1: filterForm MUST have field_layout (grid) ──
