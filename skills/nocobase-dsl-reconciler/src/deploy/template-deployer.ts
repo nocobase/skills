@@ -611,6 +611,11 @@ export async function deployTemplates(
         try {
           const fResp = await nb.http.get(`${nb.baseUrl}/api/collections/${collName}/fields:list`, { params: { paginate: false } });
           const liveFieldNames = new Set((fResp.data.data || []).map((f: any) => f.name as string));
+          // NocoBase auto-fields — the fields:list endpoint omits them, but
+          // they're valid column references in DSL (e.g. createdAt in a Table
+          // template). Without this allowlist every template that mentions
+          // createdAt gets rejected ("fields not in collection: createdAt").
+          for (const sysf of ['id','createdAt','updatedAt','createdBy','updatedBy','createdById','updatedById','sort']) liveFieldNames.add(sysf);
           if (liveFieldNames.size) {
             const specFields = ((tplContent.fields as unknown[]) || []).map((f: any) => typeof f === 'string' ? f : (f.field || f.fieldPath || '')).filter(Boolean);
             const missing = specFields.filter(f => !liveFieldNames.has(f));
@@ -648,6 +653,7 @@ export async function deployTemplates(
       try {
         const fResp = await nb.http.get(`${nb.baseUrl}/api/collections/${collName}/fields:list`, { params: { paginate: false } });
         const liveFields = new Set((fResp.data.data || []).map((f: any) => f.name as string));
+        for (const sysf of ['id','createdAt','updatedAt','createdBy','updatedBy','createdById','updatedById','sort']) liveFields.add(sysf);
         if (liveFields.size) {
           const specFields = ((content.fields as unknown[]) || []).map((f: any) => typeof f === 'string' ? f : (f.field || f.fieldPath || '')).filter(Boolean);
           const missing = specFields.filter(f => !liveFields.has(f));
