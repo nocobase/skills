@@ -272,7 +272,7 @@ export async function exportBlock(
 
   // ── Form/detail fields ──
   if (['createForm', 'editForm', 'details', 'filterForm'].includes(btype)) {
-    const { fields, jsItems, fieldLayout, fieldPopups, templateRef } = exportFormContents(item, jsDir, prefix, key);
+    const { fields, jsItems, fieldLayout, fieldPopups, templateRef } = exportFormContents(item, jsDir, prefix, key, projectDir);
     if (fields.length) spec.fields = fields;
     if (jsItems.length) spec.js_items = jsItems;
     if (fieldLayout.length) spec.field_layout = fieldLayout;
@@ -287,7 +287,7 @@ export async function exportBlock(
       // Treat the ListItemModel's grid like a form grid
       const fakeItem = { ...listItem, subModels: { ...listItem.subModels } } as FlowModelNode;
       // ListItemModel has grid in subModels.grid (same as form blocks)
-      const { fields, jsItems, fieldLayout, fieldPopups } = exportFormContents(fakeItem, jsDir, prefix, key);
+      const { fields, jsItems, fieldLayout, fieldPopups } = exportFormContents(fakeItem, jsDir, prefix, key, projectDir);
       if (fields.length) spec.fields = fields;
       if (jsItems.length) spec.js_items = jsItems;
       if (fieldLayout.length) spec.field_layout = fieldLayout;
@@ -640,6 +640,7 @@ function exportFormContents(
   jsDir: string | null,
   prefix: string,
   blockKey: string,
+  projectDir: string | null = null,
 ): { fields: unknown[]; jsItems: unknown[]; fieldLayout: unknown[]; fieldPopups: PopupRef[]; templateRef?: Record<string, unknown> } {
   const grid = item.subModels?.grid;
   if (!grid || Array.isArray(grid)) return { fields: [], jsItems: [], fieldLayout: [], fieldPopups: [] };
@@ -763,11 +764,40 @@ function exportFormContents(
           }
         }
 
-        fields.push(fieldPath);
+        // Capture popupTemplateUid if the field's DisplayFieldModel has one.
+        // Details / form / list blocks bind click-to-open popups on field
+        // subModels (e.g. Leads Email template on a DisplayTextFieldModel
+        // inside DetailsItemModel). Without this, the explicit template
+        // binding is lost and the field falls back to `clickToOpen: true`.
+        const fieldSub = gi.subModels?.field;
+        const fieldSubSp = fieldSub && !Array.isArray(fieldSub)
+          ? ((fieldSub as FlowModelNode).stepParams as Record<string, unknown> | undefined)
+          : undefined;
+        const openView = (fieldSubSp?.popupSettings as Record<string, unknown> | undefined)
+          ?.openView as Record<string, unknown> | undefined;
+        const clickSettings = (fieldSubSp?.displayFieldSettings as Record<string, unknown> | undefined)
+          ?.clickToOpen as Record<string, unknown> | undefined;
+        const isClickable = clickSettings?.clickToOpen === true;
+        if (isClickable && openView?.popupTemplateUid) {
+          const fieldSpec: Record<string, unknown> = {
+            field: fieldPath,
+            clickToOpen: true,
+            popupSettings: {
+              collectionName: openView.collectionName || '',
+              mode: openView.mode || 'drawer',
+              size: openView.size || 'medium',
+              filterByTk: openView.filterByTk || '{{ ctx.record.id }}',
+              popupTemplateUid: openView.popupTemplateUid,
+            },
+          };
+          simplifyPopup(fieldSpec, projectDir);
+          fields.push(fieldSpec);
+        } else {
+          fields.push(fieldPath);
+        }
         uidToName.set(gi.uid, fieldPath);
 
         // Check for popup on field (in subModels.field.subModels.page)
-        const fieldSub = gi.subModels?.field;
         if (fieldSub && !Array.isArray(fieldSub)) {
           const fpage = (fieldSub as FlowModelNode).subModels?.page;
           if (fpage && !Array.isArray(fpage) && (fpage as FlowModelNode).uid) {

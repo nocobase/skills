@@ -102,6 +102,14 @@ export async function exportProject(
   fs.writeFileSync(path.join(outDir, 'routes.yaml'), dumpYaml(routesTree));
   console.log(`  + routes.yaml`);
 
+  // Pre-write templates/_index.yaml stub so block-exporter's simplifyPopup
+  // can resolve `popupSettings.openView.popupTemplateUid` → `clickToOpen:
+  // templates/popup/X.yaml` during page export. Full template content is
+  // written later by exportAllTemplates, which overwrites _index.yaml with
+  // complete entries (including usageCount / targetUid).
+  const { writeTemplateIndexStub } = await import('./template-exporter');
+  await writeTemplateIndexStub(nb, outDir);
+
   // Export pages FIRST when group-scoped, so we can collect the set of
   // referenced collections + flowModel UIDs and pass them to the template /
   // collection exporters as a filter. Without this, a small project that
@@ -114,13 +122,21 @@ export async function exportProject(
   const usedFlowModelUids = new Set<string>();
   const trackPage = (uid: string | undefined) => { if (uid) usedFlowModelUids.add(uid); };
 
+  // Prefer the DSL key (from existing routes.yaml) over a fresh slugify(title)
+  // for dir names. Without this, re-pulling after a duplicate-project run
+  // (whose route key is e.g. `main_copy`) rebuilds the dir as the title-slug
+  // `copy_main` — round-trip diffs then look like data loss when it's
+  // actually a cosmetic rename.
+  const dirSlug = (title: string, fallback: string) =>
+    existingKeyByTitle.get(title) || slugify(title || fallback);
+
   const exportedGroups = new Set<string>();
   for (const route of routes) {
     if (route.type === 'group') {
       if (groupMatches && !groupMatches(route.title || '')) continue;
       if (exportedGroups.has(route.title || '')) continue;
       exportedGroups.add(route.title || '');
-      const groupSlug = slugify(route.title || 'group');
+      const groupSlug = dirSlug(route.title || '', 'group');
       const groupDir = path.join(pagesDir, groupSlug);
       fs.mkdirSync(groupDir, { recursive: true });
 
@@ -129,7 +145,7 @@ export async function exportProject(
           trackPage(child.schemaUid);
           await exportPage(nb, child, groupDir);
         } else if (child.type === 'group') {
-          const subDir = path.join(groupDir, slugify(child.title || 'sub'));
+          const subDir = path.join(groupDir, dirSlug(child.title || '', 'sub'));
           fs.mkdirSync(subDir, { recursive: true });
           for (const sc of child.children || []) {
             if (sc.type === 'flowPage') {
