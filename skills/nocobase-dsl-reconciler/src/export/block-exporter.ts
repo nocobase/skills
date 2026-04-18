@@ -523,6 +523,29 @@ export async function exportBlock(
       if (jsItems.length) spec.js_items = jsItems;
       if (fieldLayout.length) spec.field_layout = fieldLayout;
       popupRefs.push(...fieldPopups);
+
+      // Per-row record actions live on ListItemModel.subModels.actions.
+      // Each action with subModels.page hosts a ChildPage popup (e.g. the
+      // detail drawer that opens when you click a row's "edit" / "view"
+      // button). Without traversing here the row popup never gets exported,
+      // so duplicate-project + push silently produces an empty drawer
+      // missing AI buttons / nested JS items / detail block content.
+      const itemActions = (listItem as FlowModelNode).subModels?.actions;
+      const itemActArr = (Array.isArray(itemActions) ? itemActions : []) as FlowModelNode[];
+      for (const act of itemActArr) {
+        const actPage = act.subModels?.page;
+        if (!actPage || (Array.isArray(actPage) ? !actPage.length : !(actPage as FlowModelNode).uid)) continue;
+        const actType = (ACTION_TYPE_MAP[act.use || ''] || 'popup');
+        // Target convention mirrors table recordActions:
+        //   $SELF.<block-key>.recordActions.<action-type>
+        // Deploy / popup-deployer already recognises this pattern.
+        popupRefs.push({
+          field: actType,
+          field_uid: act.uid,
+          block_key: key,
+          target: `$SELF.${key}.recordActions.${actType}`,
+        });
+      }
     }
   }
 
