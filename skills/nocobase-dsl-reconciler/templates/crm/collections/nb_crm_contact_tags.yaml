@@ -1,19 +1,7 @@
 name: nb_crm_contact_tags
 title: Contact Tags
 fields:
-  - name: updatedBy
-    interface: updatedBy
-  - name: createdAt
-    interface: createdAt
   - name: tag_id
-    interface: integer
-  - name: createdBy
-    interface: createdBy
-  - name: updatedAt
-    interface: updatedAt
-  - name: createdById
-    interface: integer
-  - name: updatedById
     interface: integer
   - name: contact_id
     interface: integer

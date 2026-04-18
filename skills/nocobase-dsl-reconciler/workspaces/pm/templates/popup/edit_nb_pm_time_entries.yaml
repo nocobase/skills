@@ -1,6 +1,0 @@
-name: 'Popup (Edit): Time Entries'
-type: popup
-collectionName: nb_pm_time_entries
-content:
-  blocks:
-    - ref: templates/block/form_edit_nb_pm_time_entries.yaml

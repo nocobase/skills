@@ -8,10 +8,11 @@ content:
   key: table
   type: table
   coll: nb_crm_opportunities
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - field: name
-      popup:
-        mode: embed
+      clickToOpen: true
     - field: amount
       width: 100
     - currency
@@ -25,9 +26,9 @@ content:
     - filter
     - refresh
     - addNew
-    - ai:
-        employee: viz
-        tasks: ./ai/table_opportunities_table_tasks.yaml
+    - type: ai
+      employee: viz
+      tasks_file: ./ai/table_opportunities_table_tasks.yaml
   event_flows:
     - event:
         eventName: beforeRender

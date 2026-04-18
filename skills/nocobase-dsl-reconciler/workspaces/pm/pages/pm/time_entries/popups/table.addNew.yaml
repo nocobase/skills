@@ -1,2 +1,0 @@
-target: $SELF.table.actions.addNew
-popup: templates/popup/add_new_nb_pm_time_entries.yaml

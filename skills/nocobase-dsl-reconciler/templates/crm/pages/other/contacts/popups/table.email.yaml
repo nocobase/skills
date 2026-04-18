@@ -17,6 +17,6 @@ blocks:
       - filter
       - refresh
       - addNew
-      - ai:
-          employee: ellis
-          tasks: ./ai/contacts_email_mailMessages_tasks.yaml
+      - type: ai
+        employee: ellis
+        tasks_file: ./ai/contacts_email_mailMessages_tasks.yaml

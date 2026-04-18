@@ -1,5 +1,10 @@
 target: $SELF.exchange_rates.actions.addNew
 mode: drawer
 blocks:
-  - ref: templates/block/form_add_new_exchange_rates.yaml
-    key: reference
+  - key: reference
+    type: reference
+    templateRef:
+      templateUid: ls0z7rdsrs3
+      templateName: 'Form (Add new): Exchange Rates'
+      targetUid: 0da9d0a6105
+      mode: reference

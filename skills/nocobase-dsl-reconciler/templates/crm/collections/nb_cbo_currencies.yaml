@@ -1,20 +1,19 @@
 name: nb_cbo_currencies
 title: Currencies
+titleField: name
 fields:
   - name: priceTiers
     interface: o2m
+    target: nb_crm_price_tiers
+    foreignKey: currency_id
   - name: current_rate
     interface: number
-  - name: createdById
-    interface: integer
   - name: sort_order
     interface: integer
-  - name: updatedAt
-    interface: datetime
   - name: quotations
     interface: o2m
-  - name: createdAt
-    interface: datetime
+    target: nb_crm_quotations
+    foreignKey: currency_id
   - name: is_active
     interface: checkbox
   - name: symbol
@@ -25,7 +24,3 @@ fields:
     interface: input
   - name: code
     interface: input
-  - name: id
-    interface: integer
-  - name: updatedById
-    interface: integer

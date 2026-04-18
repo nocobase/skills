@@ -6,10 +6,10 @@ blocks:
     coll: nb_crm_exchange_rates
     resource_binding:
       filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    actions:
-      - submit
     templateRef:
       templateUid: ls0z7rdsrs3
       templateName: 'Form (Add new): Exchange Rates'
       targetUid: 0da9d0a6105
       mode: reference
+    actions:
+      - submit

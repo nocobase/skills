@@ -1,0 +1,18 @@
+uid: f2b0l9m5axf
+name: 'Popup (Edit): Milestones'
+type: popup
+collectionName: nb_pm_milestones
+dataSourceKey: main
+targetUid: j0hxi99dkpv
+description: 'Popup (Edit): Milestones'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: dyuoxodhcj6
+        templateName: 'Form (Edit): Milestones'
+        targetUid: vm5proh5u24
+        mode: reference
+  layout:
+    - - ldzab1e5

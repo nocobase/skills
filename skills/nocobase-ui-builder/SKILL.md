@@ -1,14 +1,17 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  Use when the user wants to inspect, draft, create, modify, reorder, or
-  delete NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and
-  block / field / action configuration. Also covers reaction-based interaction
-  authoring such as default values, computed linkage, block visibility, and
-  action enable/disable. Canonical transport is `nocobase-ctl flow-surfaces`
-  whenever available. Whole-page creation or replacement still uses the
-  simplified page-structure JSON blueprint through applyBlueprint; localized
-  edits still map to low-level flow-surfaces APIs and retained API/MCP docs.
+  Use for LOCALIZED live-UI tweaks against an already-running NocoBase app:
+  move / reorder / reconfigure a single block, field, action, or reaction
+  rule on an existing page; inspect current schema via `nocobase-ctl
+  flow-surfaces`. Scope is per-node edits through flow-surfaces APIs.
+
+  For BUILDING new pages, menus, modules, or whole systems (multi-page,
+  multi-collection, scaffolding a CRM / project management / library app
+  from scratch, adding a Dashboard / sub-table / approval workflow),
+  use `nocobase-dsl-reconciler` instead — it produces YAML DSL files
+  committable to git and deployable via `cli push`.
+
   Does not handle ACL, data modeling, workflow orchestration, browser
   reproduction, page error postmortems, or non-Modern-page navigation.
 ---
@@ -45,17 +48,20 @@ description: >-
   10. Before the first `applyBlueprint`, run the local prepare-write gate on that same blueprint (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a field object that is actually needed for `popup` / `target` / `renderer` / field-specific `type`, and every custom `edit` popup contains exactly one `editForm`. If the gate reports extra outer tabs, accidental outer `requestBody` wrappers, stringified fallback envelopes, illegal tab keys, block-level `layout`, or bad custom `edit` popups, rewrite locally before writing.
   11. For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise **ASCII-first** prewrite preview rendered from the same blueprint. Prefer the local prepare-write gate because it renders that preview and returns the normalized CLI body together: short intent summary + one ASCII wireframe, popup depth exactly one level deep, and full JSON hidden unless the user asks for it. This preview is mandatory even when you will execute immediately afterward. Only stop for confirmation when the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first; otherwise show the preview and continue in the same run.
   12. If the user asks for default values, linkage, computed values, show/hide, required/disabled, or action visibility/state, treat it as a reaction task first. Whole-page authoring goes through top-level `reaction.items[]`; localized edits go through `getReactionMeta` -> `set*Rules`. Do not start by guessing raw configure keys.
-  13. Task understanding stays intent-first: first identify whether the request is whole-page authoring, localized editing, reaction work, or another UI-builder path. After the current page/edit path and reusable scene are understood, template selection becomes structure-repeat-first and reuse-first, and whole-page `create` / `replace` is not exempt. For repeat-eligible popup / block / fields scenes, and also for single standard reusable scenes such as relation-details popups, standard CRUD popups, reusable tables, or reusable form-fields layouts with strong context, contextual `list-templates` is a hard gate before binding a template or finalizing the inline fallback; keyword-only search is discovery-only, not binding proof. When the same task contains two or more obviously repeated popup / block / fields scenes, proactively probe templates before locking in inline content even if the user did not explicitly ask for reuse. Natural-language sameness cues such as "same as before", "same", "roughly the same", "follow the earlier pattern", "keep it consistent", or "do not rebuild it from scratch every time" still count as extra evidence, but they are not required once repeated structure is already clear. Repeated-scene detection should compare scene type, collection/resource/association context, field order, and actions/recordActions while ignoring page-local title/key/uid noise. Use a real `target.uid` when available; otherwise build the strongest planning context from the intended opener/resource/association scene, and prefer the local `nb-template-decision plan-query` / `select` helper when it is available. `select` should consume the `plan-query` probe rather than raw candidates alone. Do not guess compatibility locally. Multiple usable templates are not a blocker: auto-pick one stable best available candidate/highest-probability winner when ranking is clear, preferring an exact relation/association-field match first and current scene/description fit next; if semantic ranking still ties, use the smaller uid as the deterministic final tie-break. Ask only when explicit template identity itself is ambiguous, such as one non-unique template name. If contextual probing still finds no usable template, bootstrap the earliest concrete repeated scene, or the first single standard reusable scene with strong context, finish the write/readback, and save that source as a template immediately. When the source kind supports conversion, prefer `save-template(saveMode="convert")` so the first reusable instance also becomes a template reference. Explicit template `uid` / `name` only resolves identity first; availability still comes from the contextual backend result. Default selected templates to `reference`, and switch to `copy` only for explicit local-customization intent.
-  14. If one task asks for several pages, split it into an ordered page plan first and execute one page per run; never author or imply a multi-page `applyBlueprint` payload.
-  15. After one page writes successfully and readback confirms a reusable popup / block / fields scene, save that scene as a persistent template seed whenever it is the earliest repeated scene and no usable template existed yet; otherwise you may still save it for later pages in the same task. When possible, convert that earliest repeated source to a template reference immediately so all repeated instances in the task end up under the same template. Later pages must still rerun contextual `list-templates` before binding, and the page itself is never a template type.
-  16. When the user's request is moderately ambiguous, infer only the minimal reasonable structure needed for the current page. Do not silently invent extra tabs, exact field sets, or rigid layouts unless the request or live facts require them.
+  13. Keep task understanding intent-first. Decide the route before template details: whole-page authoring goes through `applyBlueprint`, localized existing-surface edits go through low-level `flow-surfaces` commands, and reaction work starts from `get-reaction-meta` / `set*Rules`. After that route is clear, use [templates.md](./references/templates.md) for template-specific decisions.
+  14. Keep template rules centralized in [templates.md](./references/templates.md). Do not restate the template selection matrix, popup-template fallbacks, or same-task template-seeding details here.
+  15. If live readback shows an existing template reference and the requested change touches template-owned popup / block / fields content, route through [templates.md](./references/templates.md) first and default that change to the template source. Keep current host/openView config edits local, and do not rewrite that existing referenced content through whole-page `applyBlueprint replace` or other shortcut fallback paths. Page-scoped wording alone is not local-only intent, so do not auto-detach to `copy`; if live readback still cannot separate template-owned vs host-local scope, clarify before writing.
+  16. If one task asks for several pages, split it into an ordered page plan first and execute one page per run; never author or imply a multi-page `applyBlueprint` payload.
+  17. Template seeding, `reference` / `copy` mode choice, and post-write reuse checks still follow [templates.md](./references/templates.md).
+  18. When the user's request is moderately ambiguous, infer only the minimal reasonable structure needed for the current page. Do not silently invent extra tabs, exact field sets, or rigid layouts unless the request or live facts require them.
 - Minimum read set:
   1. Read [cli-transport.md](./references/cli-transport.md) first.
   2. Read [cli-command-surface.md](./references/cli-command-surface.md) second.
   3. Read [transport-crosswalk.md](./references/transport-crosswalk.md) third when you may need CLI <-> MCP fallback name translation.
   4. Read [normative-contract.md](./references/normative-contract.md) fourth.
   5. Read [execution-checklist.md](./references/execution-checklist.md) fifth.
-  5.5. If the request suggests reuse, or if the same task contains repeated popup / block / fields scenes, read [templates.md](./references/templates.md) before deciding inline vs template. This also applies to whole-page `create` / `replace`. For repeat-eligible scenes, treat contextual `list-templates` probing as mandatory and treat keyword-only search as discovery-only.
+  5.5. If the request suggests reuse, or if a localized edit hits an existing template reference, read [templates.md](./references/templates.md) before deciding inline vs template, template-source vs host-local edit, or `copy` / detach. This also applies to whole-page `create` / `replace`.
+  5.6. If the task involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`, read [js.md](./references/js.md) before choosing the write path. If you need copied upstream `ctx.*` API docs or scenario examples, then read [js-reference-index.md](./references/js-reference-index.md). For existing-surface event-flow JavaScript, also read [settings.md](./references/settings.md) and treat `set-event-flows` as the low-level write path. For linkage / field-value / action-state JavaScript, return to [reaction.md](./references/reaction.md).
   6. Then choose **one** path:
      - whole-page `applyBlueprint` authoring -> [page-blueprint.md](./references/page-blueprint.md) + [tool-shapes.md](./references/tool-shapes.md) + [ascii-preview.md](./references/ascii-preview.md); if you are starting from business intent, also read [page-intent.md](./references/page-intent.md)
      - whole-page `applyBlueprint` + interaction/reaction -> also read [reaction.md](./references/reaction.md)
@@ -134,4 +140,5 @@ description: >-
 ### Topic-specific
 
 - [chart.md](./references/chart.md): chart topic routing.
-- [js.md](./references/js.md): RunJS validator contract.
+- [js.md](./references/js.md): skill-side RunJS validator, runtime-model, and strict-render contract.
+- [js-reference-index.md](./references/js-reference-index.md): upstream JS capability snapshot map for JS Block / JS Action / JS Item / JS Field / JS Column / Event Flow / Linkage / `ctx.*` APIs.

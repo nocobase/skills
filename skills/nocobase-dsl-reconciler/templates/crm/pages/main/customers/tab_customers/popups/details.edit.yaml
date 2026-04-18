@@ -1,15 +1,10 @@
 target: $SELF.details.actions.edit
 mode: drawer
 blocks:
-  - key: editForm
-    type: editForm
-    coll: nb_crm_customers
-    resource_binding:
-      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    actions:
-      - submit
+  - key: reference
+    type: reference
     templateRef:
-      templateUid: wq7rth44sim
-      templateName: 'Form (Add new): nb_crm_customers'
-      targetUid: 001b8d6c620
+      templateUid: e2dlzncn3pu
+      templateName: 'Form (Edit): Customers > Contacts (Contacts)'
+      targetUid: 26a1e02dba7
       mode: reference

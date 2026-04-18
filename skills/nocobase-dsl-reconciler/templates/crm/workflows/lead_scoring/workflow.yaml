@@ -1,0 +1,59 @@
+title: Lead Scoring
+type: collection
+enabled: false
+key: 0x8w1zroaje
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  mode: 3
+  appends:
+    - converted_customer
+    - converted_contact
+    - converted_opportunity
+  changed:
+    - name
+    - company
+    - title
+    - address
+    - source
+    - industry
+    - annual_revenue
+    - number_of_employees
+    - rating
+    - status
+    - description
+    - disqualification_reason
+    - lost_reason
+    - owner
+  condition:
+    $and:
+      - company:
+          $notEmpty: true
+      - email:
+          $notEmpty: true
+      - industry:
+          $notEmpty: true
+      - number_of_employees:
+          $notEmpty: true
+  collection: nb_crm_leads
+graph:
+  - llm
+  - llm --> json_variable_mapping
+  - json_variable_mapping --> update_record
+nodes:
+  llm:
+    type: llm
+    title: LLM
+    config:
+      $ref: components/llm.yaml
+  json_variable_mapping:
+    type: json-variable-mapping
+    title: JSON variable mapping
+    config:
+      $ref: components/json_variable_mapping.yaml
+  update_record:
+    type: update
+    title: Update record
+    config:
+      $ref: components/update_record.yaml

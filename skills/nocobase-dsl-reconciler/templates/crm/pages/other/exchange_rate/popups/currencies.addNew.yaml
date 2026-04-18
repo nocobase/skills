@@ -1,5 +1,10 @@
 target: $SELF.currencies.actions.addNew
 mode: drawer
 blocks:
-  - ref: templates/block/form_add_new_currencies.yaml
-    key: reference
+  - key: reference
+    type: reference
+    templateRef:
+      templateUid: fggawimkpeo
+      templateName: 'Form (Add new): Currencies'
+      targetUid: c0547bc25a4
+      mode: reference

@@ -1,21 +1,12 @@
 name: nb_crm_data_analysis
 title: Data Analysis
+titleField: name
 fields:
   - name: name
     interface: input
-  - name: updatedAt
-    interface: datetime
-  - name: updatedById
-    interface: integer
-  - name: createdById
-    interface: integer
-  - name: createdAt
-    interface: datetime
   - name: collection
     interface: collection
   - name: sql
     interface: textarea
   - name: description
     interface: textarea
-  - name: id
-    interface: integer

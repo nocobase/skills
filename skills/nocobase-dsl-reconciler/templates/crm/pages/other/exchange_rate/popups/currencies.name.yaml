@@ -6,10 +6,10 @@ blocks:
     coll: nb_cbo_currencies
     resource_binding:
       filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    actions:
-      - submit
     templateRef:
       templateUid: fggawimkpeo
       templateName: 'Form (Add new): Currencies'
       targetUid: c0547bc25a4
       mode: reference
+    actions:
+      - submit

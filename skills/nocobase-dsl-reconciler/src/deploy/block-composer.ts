@@ -130,14 +130,21 @@ export function toComposeBlock(
 
   // ── Actions (skip for chart/jsBlock/markdown — no data source) ──
   if (!['chart', 'jsBlock', 'markdown', 'iframe'].includes(btype)) {
-    const actions = (bs.actions || []).filter(a => {
-      const t = typeof a === 'string' ? a : (a as Record<string, unknown>).type as string;
-      return COMPOSE_ACTIONS.has(t);
-    });
-    const recordActions = (bs.recordActions || []).filter(a => {
-      const t = typeof a === 'string' ? a : (a as Record<string, unknown>).type as string;
-      return COMPOSE_ACTIONS.has(t);
-    });
+    const filterAndDedup = (arr: unknown[]): unknown[] => {
+      const seen = new Set<string>();
+      const out: unknown[] = [];
+      for (const a of arr) {
+        const t = typeof a === 'string' ? a : (a as Record<string, unknown>).type as string;
+        if (!COMPOSE_ACTIONS.has(t)) continue;
+        const key = typeof a === 'string' ? t : ((a as Record<string, unknown>).key as string || t);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(a);
+      }
+      return out;
+    };
+    const actions = filterAndDedup(bs.actions || []);
+    const recordActions = filterAndDedup(bs.recordActions || []);
 
     if (actions.length > 0) {
       block.actions = actions.map(a => typeof a === 'string' ? { type: a } : a);

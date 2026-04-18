@@ -2,6 +2,9 @@
 
 新上下文必读。这些都是实际调试过的 API 行为，不是猜测。
 
+> 想理解**为什么**这套工具刻意减少 API 调用、把判断挪到本地？
+> 看 [PHILOSOPHY.md](./PHILOSOPHY.md)。本文只列具体 API 行为陷阱。
+
 ## API 陷阱
 
 ### desktopRoutes:update 必须用 POST，不是 PUT

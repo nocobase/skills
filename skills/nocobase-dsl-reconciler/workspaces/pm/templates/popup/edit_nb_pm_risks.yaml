@@ -1,6 +1,0 @@
-name: 'Popup (Edit): Risks'
-type: popup
-collectionName: nb_pm_risks
-content:
-  blocks:
-    - ref: templates/block/form_edit_nb_pm_risks.yaml

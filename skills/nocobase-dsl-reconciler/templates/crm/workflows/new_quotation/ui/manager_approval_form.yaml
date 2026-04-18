@@ -1,0 +1,1230 @@
+uid: vd6bkws846f
+subType: object
+use: ApprovalChildPageModel
+stepParams:
+  pageSettings:
+    general:
+      displayTitle: false
+      enableTabs: false
+      title: '{{t("Approver''s interface", { ns: "@nocobase/plugin-workflow-approval" })}}'
+  ApprovalChildPageSettings:
+    init:
+      dataSourceKey: main
+      collectionName: nb_crm_quotations
+sortIndex: 0
+flowRegistry: {}
+subModels:
+  tabs:
+    - uid: ouzj7ssmjtc
+      use: ApprovalChildPageTabModel
+      stepParams:
+        pageTabSettings:
+          tab:
+            title: '{{t("Details")}}'
+      parentId: vd6bkws846f
+      subKey: tabs
+      subType: array
+      sortIndex: 1
+      flowRegistry: {}
+      parent: vd6bkws846f
+      subModels:
+        grid:
+          uid: m03zsi7azoq
+          parentId: ouzj7ssmjtc
+          subKey: grid
+          subType: object
+          use: ApprovalBlockGridModel
+          stepParams: {}
+          sortIndex: 1
+          flowRegistry: {}
+          filterManager: []
+          parent: ouzj7ssmjtc
+          subModels:
+            items:
+              - uid: rv4dcrh2z2a
+                use: NodeDetailsModel
+                stepParams:
+                  resourceSettings:
+                    init:
+                      dataSourceKey: main
+                      collectionName: nb_crm_quotations
+                      dataPath: $context.data
+                  cardSettings:
+                    titleDescription:
+                      title: '{{t("Original application content", { ns: "@nocobase/plugin-workflow-approval" })}}'
+                parentId: m03zsi7azoq
+                subKey: items
+                subType: array
+                sortIndex: 1
+                flowRegistry: {}
+                parent: m03zsi7azoq
+                subModels:
+                  grid:
+                    uid: fkij3kyle39
+                    use: NodeDetailsGridModel
+                    subType: object
+                    parentId: rv4dcrh2z2a
+                    subKey: grid
+                    stepParams:
+                      gridSettings:
+                        grid:
+                          rows:
+                            rwbbl3epgrk:
+                              - - h7r4qke92qj
+                            g373k8bo5pq:
+                              - - ndzmlot93qc
+                            9td9by62q31:
+                              - - rvy9hzycc1p
+                              - - i4s8c2q0ne3
+                            7rd1ksi9psh:
+                              - - a4xp59vs5ta
+                            zft0i7h6omt:
+                              - - wyh71zwyrsn
+                              - - 3mn6qe7phzs
+                              - - zfxdhycyg77
+                            2m7063fmrs7:
+                              - - lrnrnwsuc70
+                            9yk1dt4rruu:
+                              - - pvotq5jwq4u
+                            z85majdljfv:
+                              - - 905l7eb2db3
+                            o8t5q1zb0m6:
+                              - - i3hvsor4ryh
+                              - - z8v2l5me2pq
+                            8ahoq3htaw2:
+                              - - 1qki5jlc0dw
+                            xxzivbml491:
+                              - - rkahzfhhbrz
+                              - - sg8uop9l1yn
+                              - - dz1tfrdlits
+                            80gvft8n4mo:
+                              - - 0zujzkdv0lp
+                              - - 9tjorlzclml
+                              - - 8xjdjau9mxw
+                            j5kzlsset7r:
+                              - - 85q8omlpd5p
+                              - - 600zde6m0b9
+                            1605jb8d9b8:
+                              - - i0nevtushbx
+                            4gigynnafuc:
+                              - - b0vvuiw7c2u
+                              - - ra7thc064hw
+                            vuuywk0wwbp:
+                              - - 6nxqnc6yp3v
+                            akaxknobth1:
+                              - - cgkzowqg459
+                          sizes:
+                            rwbbl3epgrk:
+                              - 24
+                            g373k8bo5pq:
+                              - 24
+                            9td9by62q31:
+                              - 14
+                              - 10
+                            7rd1ksi9psh:
+                              - 24
+                            zft0i7h6omt:
+                              - 8
+                              - 8
+                              - 8
+                            2m7063fmrs7:
+                              - 24
+                            9yk1dt4rruu:
+                              - 24
+                            z85majdljfv:
+                              - 24
+                            o8t5q1zb0m6:
+                              - 12
+                              - 12
+                            8ahoq3htaw2:
+                              - 24
+                            xxzivbml491:
+                              - 8
+                              - 8
+                              - 8
+                            80gvft8n4mo:
+                              - 8
+                              - 8
+                              - 8
+                            j5kzlsset7r:
+                              - 12
+                              - 12
+                            1605jb8d9b8:
+                              - 24
+                            4gigynnafuc:
+                              - 12
+                              - 12
+                            vuuywk0wwbp:
+                              - 24
+                            akaxknobth1:
+                              - 24
+                          rowOrder:
+                            - rwbbl3epgrk
+                            - g373k8bo5pq
+                            - 9td9by62q31
+                            - 7rd1ksi9psh
+                            - zft0i7h6omt
+                            - 2m7063fmrs7
+                            - 9yk1dt4rruu
+                            - z85majdljfv
+                            - o8t5q1zb0m6
+                            - 8ahoq3htaw2
+                            - xxzivbml491
+                            - 80gvft8n4mo
+                            - j5kzlsset7r
+                            - 1605jb8d9b8
+                            - 4gigynnafuc
+                            - vuuywk0wwbp
+                            - akaxknobth1
+                    sortIndex: 1
+                    flowRegistry: {}
+                    parent: rv4dcrh2z2a
+                    subModels:
+                      items:
+                        - uid: h7r4qke92qj
+                          use: DividerItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 1
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Basic Info
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: fkij3kyle39
+                        - uid: ndzmlot93qc
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 2
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: quotation_no
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: 7d32hu1tfhq
+                              use: DisplayTextFieldModel
+                              parentId: ndzmlot93qc
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: ndzmlot93qc
+                        - uid: rvy9hzycc1p
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 3
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: name
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: hxd9s3o8d4x
+                              use: DisplayTextFieldModel
+                              parentId: rvy9hzycc1p
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: rvy9hzycc1p
+                        - uid: i4s8c2q0ne3
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 4
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: version
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: 1p3pjll0xmx
+                              use: DisplayNumberFieldModel
+                              parentId: i4s8c2q0ne3
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: i4s8c2q0ne3
+                        - uid: a4xp59vs5ta
+                          use: DividerItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 5
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Related
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: fkij3kyle39
+                        - uid: wyh71zwyrsn
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 6
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: opportunity
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: hdeqgbvk7bo
+                              use: DisplayTextFieldModel
+                              parentId: wyh71zwyrsn
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: wyh71zwyrsn
+                        - uid: 3mn6qe7phzs
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 7
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: customer
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: m1av3biynno
+                              use: DisplayTextFieldModel
+                              parentId: 3mn6qe7phzs
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 3mn6qe7phzs
+                        - uid: zfxdhycyg77
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 8
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: contact
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: bfjlmi5z3gf
+                              use: DisplayTextFieldModel
+                              parentId: zfxdhycyg77
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: zfxdhycyg77
+                        - uid: lrnrnwsuc70
+                          use: DividerItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 9
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Items
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: fkij3kyle39
+                        - uid: pvotq5jwq4u
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 10
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: items
+                            detailItemSettings:
+                              model:
+                                use: DisplaySubTableFieldModel
+                              showLabel:
+                                showLabel: false
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: 53yikdbx2tc
+                              use: DisplayNumberFieldModel
+                              parentId: pvotq5jwq4u
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotation_items
+                                    associationName: nb_crm_quotations.items
+                                    dataSourceKey: main
+                                fieldBinding:
+                                  use: DisplaySubTableFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: items
+                              parent: pvotq5jwq4u
+                              subModels:
+                                columns:
+                                  - uid: ex8cjc5lndk
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.product
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayTextFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 1
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: 9z7w20kp18t
+                                        use: DisplayTextFieldModel
+                                        props: null
+                                        parentId: ex8cjc5lndk
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_products
+                                              associationName: nb_crm_quotation_items.product
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: ex8cjc5lndk
+                                  - uid: 9tjs7ydkrs0
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.specification
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayTextFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 2
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: 82jsiwjmw8j
+                                        use: DisplayTextFieldModel
+                                        props: null
+                                        parentId: 9tjs7ydkrs0
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: 9tjs7ydkrs0
+                                  - uid: 8abo2dhir7a
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.unit
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayTextFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 3
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: pfct7938j6b
+                                        use: DisplayTextFieldModel
+                                        props: null
+                                        parentId: 8abo2dhir7a
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: 8abo2dhir7a
+                                  - uid: v5g3at18o2y
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.quantity
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayNumberFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 4
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: 0bklrtfwyx2
+                                        use: DisplayNumberFieldModel
+                                        props: null
+                                        parentId: v5g3at18o2y
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: v5g3at18o2y
+                                  - uid: ygd4ithb7x1
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.list_price
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayNumberFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 5
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: dwssoum2rzs
+                                        use: DisplayNumberFieldModel
+                                        props: null
+                                        parentId: ygd4ithb7x1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: ygd4ithb7x1
+                                  - uid: i3o0gdb9cyh
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.unit_price
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayNumberFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 6
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: t25xlnwnkkm
+                                        use: DisplayNumberFieldModel
+                                        props: null
+                                        parentId: i3o0gdb9cyh
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: i3o0gdb9cyh
+                                  - uid: ux0w9e5s639
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.line_amount
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayNumberFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 7
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: 7xjxvxbio8t
+                                        use: DisplayNumberFieldModel
+                                        props: null
+                                        parentId: ux0w9e5s639
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: ux0w9e5s639
+                                  - uid: k42sr41v4fw
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.tierInfo
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayTextFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 8
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: a3mlhhaevmz
+                                        use: DisplayTextFieldModel
+                                        props: null
+                                        parentId: k42sr41v4fw
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_price_tiers
+                                              associationName: nb_crm_quotation_items.tierInfo
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: k42sr41v4fw
+                                  - uid: md07xpz5a8q
+                                    use: TableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.description
+                                      tableColumnSettings:
+                                        model:
+                                          use: DisplayTextFieldModel
+                                    parentId: 53yikdbx2tc
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 9
+                                    flowRegistry: {}
+                                    parent: 53yikdbx2tc
+                                    subModels:
+                                      field:
+                                        uid: 5wg7jvzz1zj
+                                        use: DisplayTextFieldModel
+                                        props: null
+                                        parentId: md07xpz5a8q
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: md07xpz5a8q
+                        - uid: 905l7eb2db3
+                          use: DividerItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 11
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Currency
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: fkij3kyle39
+                        - uid: i3hvsor4ryh
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 12
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: currencyInfo
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: r5xhtlwtqq5
+                              use: DisplayTextFieldModel
+                              parentId: i3hvsor4ryh
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: i3hvsor4ryh
+                        - uid: z8v2l5me2pq
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 13
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: exchange_rate
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: 95h2o6mq138
+                              use: DisplayNumberFieldModel
+                              parentId: z8v2l5me2pq
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: z8v2l5me2pq
+                        - uid: 1qki5jlc0dw
+                          use: DividerItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 14
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Amounts
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: fkij3kyle39
+                        - uid: rkahzfhhbrz
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 15
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: subtotal
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: kt4g8wzdq7w
+                              use: DisplayNumberFieldModel
+                              parentId: rkahzfhhbrz
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: rkahzfhhbrz
+                        - uid: sg8uop9l1yn
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 16
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: tax_rate
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: whd9viw8eht
+                              use: DisplayPercentFieldModel
+                              parentId: sg8uop9l1yn
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: sg8uop9l1yn
+                        - uid: dz1tfrdlits
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 17
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: discount_rate
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: se3hffhm11p
+                              use: DisplayPercentFieldModel
+                              parentId: dz1tfrdlits
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: dz1tfrdlits
+                        - uid: 0zujzkdv0lp
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 18
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: total_amount
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: go7hwgqzdfw
+                              use: DisplayNumberFieldModel
+                              parentId: 0zujzkdv0lp
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 0zujzkdv0lp
+                        - uid: 9tjorlzclml
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 19
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: tax_amount
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: tztim1f1bf9
+                              use: DisplayNumberFieldModel
+                              parentId: 9tjorlzclml
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 9tjorlzclml
+                        - uid: 8xjdjau9mxw
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 20
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: shipping_handling
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: 51k8y2onb77
+                              use: DisplayNumberFieldModel
+                              parentId: 8xjdjau9mxw
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 8xjdjau9mxw
+                        - uid: 85q8omlpd5p
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 21
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: discount_amount
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: nctzswi26ch
+                              use: DisplayNumberFieldModel
+                              parentId: 85q8omlpd5p
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 85q8omlpd5p
+                        - uid: 600zde6m0b9
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 22
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: total_amount_usd
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: ifnc4ynhyzc
+                              use: DisplayNumberFieldModel
+                              parentId: 600zde6m0b9
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 600zde6m0b9
+                        - uid: i0nevtushbx
+                          use: DividerItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 23
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Terms
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: fkij3kyle39
+                        - uid: b0vvuiw7c2u
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 24
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: payment_terms
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: yfj4pw7gat4
+                              use: DisplayTextFieldModel
+                              parentId: b0vvuiw7c2u
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: b0vvuiw7c2u
+                        - uid: ra7thc064hw
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 25
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: terms_condition
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: z1ioti0h6jg
+                              use: DisplayTextFieldModel
+                              parentId: ra7thc064hw
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: ra7thc064hw
+                        - uid: 6nxqnc6yp3v
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 26
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: address
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: 5geuwntdkj0
+                              use: DisplayTextFieldModel
+                              parentId: 6nxqnc6yp3v
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: 6nxqnc6yp3v
+                        - uid: cgkzowqg459
+                          use: DetailsItemModel
+                          parentId: fkij3kyle39
+                          sortIndex: 27
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: description
+                          parent: fkij3kyle39
+                          subModels:
+                            field:
+                              uid: vuz4haaoqgy
+                              use: DisplayTextFieldModel
+                              parentId: cgkzowqg459
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                popupSettings:
+                                  openView:
+                                    collectionName: nb_crm_quotations
+                                    dataSourceKey: main
+                              parent: cgkzowqg459
+              - uid: 2zrb9m9lsqi
+                use: ProcessFormModel
+                stepParams:
+                  resourceSettings:
+                    init:
+                      dataSourceKey: main
+                      collectionName: nb_crm_quotations
+                  patternSettings:
+                    pattern:
+                      pattern: createNew
+                parentId: m03zsi7azoq
+                subKey: items
+                subType: array
+                sortIndex: 2
+                flowRegistry: {}
+                parent: m03zsi7azoq
+                subModels:
+                  actions:
+                    - uid: rnv525w9ugu
+                      use: ProcessFormApproveModel
+                      parentId: 2zrb9m9lsqi
+                      subKey: actions
+                      subType: array
+                      stepParams:
+                        clickSettings:
+                          saveResource:
+                            commentModelUid: eq0ujfdywc3
+                      sortIndex: 1
+                      flowRegistry: {}
+                      parent: 2zrb9m9lsqi
+                    - uid: n8kwy0gb6j0
+                      use: ProcessFormRejectModel
+                      parentId: 2zrb9m9lsqi
+                      subKey: actions
+                      subType: array
+                      stepParams:
+                        clickSettings:
+                          saveResource:
+                            commentModelUid: 15zf6l8cyx4
+                      sortIndex: 2
+                      flowRegistry: {}
+                      parent: 2zrb9m9lsqi
+                    - uid: 2sq4tzp7j3j
+                      use: ProcessFormReturnModel
+                      parentId: 2zrb9m9lsqi
+                      subKey: actions
+                      subType: array
+                      stepParams:
+                        clickSettings:
+                          saveResource:
+                            commentModelUid: p17af263k09
+                      sortIndex: 3
+                      flowRegistry: {}
+                      parent: 2zrb9m9lsqi
+                    - uid: ir0xubzcqyr
+                      use: ProcessFormDelegateModel
+                      parentId: 2zrb9m9lsqi
+                      subKey: actions
+                      subType: array
+                      stepParams: {}
+                      sortIndex: 4
+                      flowRegistry: {}
+                      parent: 2zrb9m9lsqi
+                    - uid: aoeqv0kbj8s
+                      use: ProcessFormAddAssigneeModel
+                      parentId: 2zrb9m9lsqi
+                      subKey: actions
+                      subType: array
+                      stepParams: {}
+                      sortIndex: 5
+                      flowRegistry: {}
+                      parent: 2zrb9m9lsqi
+                  grid:
+                    uid: 6ial377yj7i
+                    use: PatternFormGridModel
+                    parentId: 2zrb9m9lsqi
+                    subKey: grid
+                    subType: object
+                    stepParams: {}
+                    sortIndex: 1
+                    flowRegistry: {}
+                    parent: 2zrb9m9lsqi

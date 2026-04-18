@@ -36,6 +36,8 @@ interface TemplateRecord {
 export async function exportAllTemplates(
   nb: NocoBaseClient,
   outDir: string,
+  keepUids?: Set<string>,
+  keepColls?: Set<string>,
 ): Promise<void> {
   const tplDir = path.join(outDir, 'templates');
 
@@ -43,10 +45,40 @@ export async function exportAllTemplates(
   const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
     params: { paginate: false },
   });
-  const templates = (resp.data?.data || []) as TemplateRecord[];
-  if (!templates.length) {
+  const allTemplates = (resp.data?.data || []) as TemplateRecord[];
+  if (!allTemplates.length) {
     console.log('  No templates found');
     return;
+  }
+
+  // Two-criterion scope when called from `cli pull --group`:
+  //   keepUids: templates explicitly referenced by templateUid in scoped pages
+  //   keepColls: templates whose collectionName matches a scoped collection
+  // The union covers both DSL-authored references AND auto-templates that
+  // NocoBase creates on first compose of a collection block (which aren't
+  // referenced via templateUid anywhere — only via the collection name).
+  // Without scope, every template is exported as before.
+  const templates = (keepUids || keepColls)
+    ? allTemplates.filter(t =>
+        (keepUids && keepUids.has(t.uid)) ||
+        (keepColls && t.collectionName && keepColls.has(t.collectionName))
+      )
+    : allTemplates;
+
+  // Pre-compute filenames, disambiguating on slug collisions across same type.
+  const slugCount = new Map<string, number>();  // key = type|slug → count
+  const fileNames = new Map<string, string>();  // tpl.uid → final basename
+  for (const t of templates) {
+    const baseSlug = slugify(t.name || t.uid);
+    const k = `${t.type}|${baseSlug}`;
+    const n = slugCount.get(k) || 0;
+    slugCount.set(k, n + 1);
+    // First occurrence keeps the bare slug; later ones get __<uidPrefix>
+    fileNames.set(t.uid, n === 0 ? baseSlug : `${baseSlug}__${t.uid.slice(0, 6)}`);
+  }
+  const collisions = Array.from(slugCount.entries()).filter(([, n]) => n > 1);
+  if (collisions.length) {
+    console.log(`  templates: ${templates.length} (${collisions.length} name collisions disambiguated by uid suffix)`);
   }
 
   // Create directories
@@ -58,7 +90,7 @@ export async function exportAllTemplates(
   const index: Record<string, unknown>[] = [];
 
   for (const tpl of templates) {
-    const tplSlug = slugify(tpl.name || tpl.uid);
+    const tplSlug = fileNames.get(tpl.uid)!;
     const typeDir = tpl.type === 'popup' ? popupDir : blockDir;
     const jsDir = path.join(typeDir, tplSlug, 'js');
 
@@ -121,10 +153,16 @@ async function exportTemplateContent(
   prefix: string,
   templateType: 'popup' | 'block',
 ): Promise<Record<string, unknown>> {
+  // Use flowModels:findOne, NOT flowSurfaces:get — the surfaces variant
+  // strips stepParams.referenceSettings.useTemplate (and other internal
+  // surface metadata), which makes ReferenceBlockModel children export as
+  // bare `type: reference` with no templateRef. findOne returns the raw
+  // tree with full stepParams.
   let tree: FlowModelNode;
   try {
-    const d = await nb.get({ uid: targetUid });
-    tree = d.tree;
+    const node = await nb.models.findOne(targetUid, true);
+    if (!node) return {};
+    tree = node as unknown as FlowModelNode;
   } catch {
     return {};
   }
@@ -143,7 +181,7 @@ async function exportTemplateContent(
   } else {
     // Block template: targetUid → the actual block model (form/table/details/etc.)
     const usedKeys = new Set<string>();
-    const exported = exportBlock(tree, jsDir, prefix, 0, usedKeys);
+    const exported = await exportBlock(tree, jsDir, prefix, 0, usedKeys);
     if (!exported) return {};
     const spec = { ...exported.spec };
     delete spec._popups;
@@ -164,7 +202,7 @@ async function exportChildPageContent(
     const tabGrid = tabs.length ? tabs[0].subModels?.grid : null;
     if (!tabGrid || Array.isArray(tabGrid)) return { content: { blocks: [] } };
 
-    const { blocks, layout } = exportGridItems(tabGrid as FlowModelNode, jsDir, prefix);
+    const { blocks, layout } = await exportGridItems(tabGrid as FlowModelNode, jsDir, prefix);
     const content: Record<string, unknown> = { blocks };
     if (layout.length) content.layout = layout;
     return { content };
@@ -179,7 +217,7 @@ async function exportChildPageContent(
     const tabTitle = (title?.title as string) || `Tab${i}`;
     const tabGrid = tab.subModels?.grid;
     if (tabGrid && !Array.isArray(tabGrid)) {
-      const { blocks, layout } = exportGridItems(tabGrid as FlowModelNode, jsDir, `${prefix}_tab${i}`);
+      const { blocks, layout } = await exportGridItems(tabGrid as FlowModelNode, jsDir, `${prefix}_tab${i}`);
       const tabEntry: Record<string, unknown> = { title: tabTitle, blocks };
       if (layout.length) tabEntry.layout = layout;
       tabSpecs.push(tabEntry);
@@ -190,11 +228,11 @@ async function exportChildPageContent(
   return { content: { tabs: tabSpecs } };
 }
 
-function exportGridItems(
+async function exportGridItems(
   grid: FlowModelNode,
   jsDir: string,
   prefix: string,
-): { blocks: Record<string, unknown>[]; layout: unknown[] } {
+): Promise<{ blocks: Record<string, unknown>[]; layout: unknown[] }> {
   const rawItems = grid.subModels?.items;
   const items = (Array.isArray(rawItems) ? rawItems : []) as FlowModelNode[];
   const usedKeys = new Set<string>();
@@ -202,7 +240,7 @@ function exportGridItems(
   const blockUidToKey = new Map<string, string>();
 
   for (let i = 0; i < items.length; i++) {
-    const exported = exportBlock(items[i], jsDir, prefix, i, usedKeys);
+    const exported = await exportBlock(items[i], jsDir, prefix, i, usedKeys);
     if (exported) {
       const spec = { ...exported.spec };
       delete spec._popups;
@@ -268,11 +306,15 @@ function extractTemplateGridLayout(
 export async function exportTemplateUsages(
   nb: NocoBaseClient,
   outDir: string,
+  keepTemplateUids?: Set<string>,
 ): Promise<void> {
   const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
     params: { paginate: false },
   });
-  const usages = (resp.data?.data || []) as { uid: string; templateUid: string; modelUid: string }[];
+  const all = (resp.data?.data || []) as { uid: string; templateUid: string; modelUid: string }[];
+  const usages = keepTemplateUids
+    ? all.filter(u => keepTemplateUids.has(u.templateUid))
+    : all;
   if (!usages.length) return;
 
   fs.writeFileSync(

@@ -1,6 +1,0 @@
-name: 'Popup (Edit): Projects'
-type: popup
-collectionName: nb_pm_projects
-content:
-  blocks:
-    - ref: templates/block/form_edit_nb_pm_projects.yaml

@@ -1,0 +1,1710 @@
+uid: fc43jj22azq
+subType: object
+use: TriggerChildPageModel
+stepParams:
+  pageSettings:
+    general:
+      displayTitle: false
+      enableTabs: false
+      title: '{{t("Initiator''s interface", { ns: "workflow" })}}'
+sortIndex: 0
+flowRegistry: {}
+subModels:
+  tabs:
+    - uid: nc5z7csc7mv
+      use: TriggerChildPageTabModel
+      stepParams:
+        pageTabSettings:
+          tab:
+            title: '{{t("Details")}}'
+      parentId: fc43jj22azq
+      subKey: tabs
+      subType: array
+      sortIndex: 1
+      flowRegistry: {}
+      parent: fc43jj22azq
+      subModels:
+        grid:
+          uid: byldudn5amg
+          parentId: nc5z7csc7mv
+          subKey: grid
+          subType: object
+          use: TriggerBlockGridModel
+          stepParams: {}
+          sortIndex: 1
+          flowRegistry: {}
+          filterManager: []
+          parent: nc5z7csc7mv
+          subModels:
+            items:
+              - uid: zk7xwcgakbj
+                use: ApplyFormModel
+                stepParams:
+                  resourceSettings:
+                    init:
+                      dataSourceKey: main
+                      collectionName: nb_crm_quotations
+                  patternSettings:
+                    pattern:
+                      pattern: createNew
+                parentId: byldudn5amg
+                subKey: items
+                subType: array
+                sortIndex: 1
+                flowRegistry:
+                  yrohvt81g2k:
+                    title: Event flow
+                    key: yrohvt81g2k
+                    'on':
+                      eventName: formValuesChange
+                      defaultParams:
+                        condition:
+                          logic: $and
+                          items: []
+                    steps:
+                      5rp447eybr2:
+                        use: runjs
+                        sort: 1
+                        key: 5rp447eybr2
+                        defaultParams:
+                          code: |
+                            /**
+                             * Quotation Total Calculation
+                             *
+                             * Auto-calculates quotation totals when form values change.
+                             * Trigger: Form field change event
+                             *
+                             * Auto-fills:
+                             * - Item fields from product: specification, unit, list_price
+                             * - Price tier matching: unit_price, discount_rate (from tier), tier_applied, tierInfo, description
+                             * - exchange_rate from currencyInfo.current_rate
+                             *
+                             * Note: discount_rate is stored as decimal (0-1), e.g., 0.10 = 10%
+                             * Note: unit_price from tier is already the discounted price
+                             *
+                             * Calculates:
+                             * - line_amount: quantity * unit_price (tier price is already discounted)
+                             * - subtotal: Sum of line_amount
+                             * - discount_amount: subtotal * header discount_rate
+                             * - tax_amount: (subtotal - discount_amount + shipping_handling) * tax_rate
+                             * - total_amount: subtotal - discount_amount + shipping_handling + tax_amount
+                             * - total_amount_usd: total_amount * exchange_rate
+                             */
+
+                            (async () => {
+                              const values = ctx.form?.values || ctx.form?.getFieldsValue?.() || {};
+
+                              // ==================== Config ====================
+
+                              const DECIMAL_PLACES = 2;
+
+                              // ==================== Helper Functions ====================
+
+                              function toNumber(val) {
+                                const num = parseFloat(val);
+                                return isNaN(num) ? 0 : num;
+                              }
+
+                              function round(val, decimals = DECIMAL_PLACES) {
+                                return Math.round(val * Math.pow(10, decimals)) / Math.pow(10, decimals);
+                              }
+
+                              // ==================== Fetch Price Tiers ====================
+
+                              const items = values.items || [];
+                              const currencyId = values.currencyInfo?.id || values.currency_id;
+
+                              // Collect unique product IDs
+                              const productIds = [...new Set(
+                                items
+                                  .filter(item => item.product?.id)
+                                  .map(item => item.product.id)
+                              )];
+
+                              let priceTiersMap = {}; // { productId: [tiers] }
+
+                              if (productIds.length > 0 && ctx.api) {
+                                try {
+                                  const filter = { product_id: { $in: productIds } };
+                                  if (currencyId) {
+                                    filter.currency_id = currencyId;
+                                  }
+
+                                  const res = await ctx.api.request({
+                                    url: 'nb_crm_price_tiers:list',
+                                    method: 'GET',
+                                    params: {
+                                      filter,
+                                      sort: ['product_id', 'min_quantity'],
+                                      pageSize: 500,
+                                    },
+                                  });
+
+                                  const tiers = res?.data?.data || [];
+
+                                  // Group by product_id
+                                  tiers.forEach(tier => {
+                                    const pid = tier.product_id;
+                                    if (!priceTiersMap[pid]) {
+                                      priceTiersMap[pid] = [];
+                                    }
+                                    priceTiersMap[pid].push(tier);
+                                  });
+
+                                  console.log('Quotation: Fetched tiers for', productIds.length, 'products,', tiers.length, 'tiers');
+                                } catch (error) {
+                                  console.error('Failed to fetch price tiers:', error);
+                                }
+                              }
+
+                              // ==================== Find Matching Tier ====================
+
+                              function findMatchingTier(productId, quantity) {
+                                const tiers = priceTiersMap[productId] || [];
+                                for (const tier of tiers) {
+                                  const minQty = tier.min_quantity || 0;
+                                  const maxQty = tier.max_quantity || Infinity;
+                                  if (quantity >= minQty && quantity <= maxQty) {
+                                    return tier;
+                                  }
+                                }
+                                return null;
+                              }
+
+                              // ==================== Process Items ====================
+
+                              let itemsUpdated = false;
+
+                              const updatedItems = items.map((item) => {
+                                const product = item.product;
+                                let updated = { ...item };
+
+                                // Auto-fill from product if available
+                                if (product) {
+                                  if (product.specification && !item.specification) {
+                                    updated.specification = product.specification;
+                                    itemsUpdated = true;
+                                  }
+                                  if (product.unit && !item.unit) {
+                                    updated.unit = product.unit;
+                                    itemsUpdated = true;
+                                  }
+                                  if (product.list_price && !item.list_price) {
+                                    updated.list_price = toNumber(product.list_price);
+                                    itemsUpdated = true;
+                                  }
+                                }
+
+                                // Default quantity to 1 if not set
+                                if (!updated.quantity) {
+                                  updated.quantity = 1;
+                                  itemsUpdated = true;
+                                }
+
+                                // Match price tier based on product and quantity
+                                const quantity = toNumber(updated.quantity);
+                                const listPrice = toNumber(updated.list_price || product?.list_price);
+
+                                if (product?.id && listPrice > 0) {
+                                  const tier = findMatchingTier(product.id, quantity);
+
+                                  if (tier) {
+                                    const tierPrice = toNumber(tier.unit_price);
+                                    // Use discount_rate from tier directly (stored as decimal: 0.10 = 10%)
+                                    const discountRate = toNumber(tier.discount_rate);
+                                    const discountPercent = round(discountRate * 100, 1);
+
+                                    // Update tier id
+                                    if (updated.tier_applied !== tier.id) {
+                                      updated.tier_applied = tier.id;
+                                      itemsUpdated = true;
+                                    }
+
+                                    // Fill tierInfo object (full tier snapshot)
+                                    updated.tierInfo = { ...tier };
+                                    itemsUpdated = true;
+
+                                    // Update pricing
+                                    if (updated.unit_price !== tierPrice) {
+                                      updated.unit_price = tierPrice;
+                                      itemsUpdated = true;
+                                    }
+                                    // discount_rate is stored as decimal (0-1), e.g., 0.10 = 10%
+                                    if (updated.discount_rate !== discountRate) {
+                                      updated.discount_rate = discountRate;
+                                      itemsUpdated = true;
+                                    }
+
+                                    // Build detailed tier snapshot description
+                                    const currencySymbol = values.currencyInfo?.symbol || '';
+                                    const currencyCode = values.currencyInfo?.code || '';
+                                    const qtyRange = tier.max_quantity
+                                      ? `${tier.min_quantity} - ${tier.max_quantity}`
+                                      : `${tier.min_quantity}+`;
+
+                                    const tierSnapshot = [
+                                      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                                      `📋 Price Tier Applied: #${tier.id}`,
+                                      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                                      `📌 Tier: ${tier.tier_description || 'Standard Pricing'}`,
+                                      `📦 Quantity Range: ${qtyRange} units`,
+                                      ``,
+                                      `💰 Pricing Details:`,
+                                      `   • Unit Price: ${currencySymbol}${tierPrice.toLocaleString()} ${currencyCode}`,
+                                      `   • Discount: ${discountPercent}%`,
+                                      tier.requires_approval ? `\n⚠️ APPROVAL REQUIRED` : '',
+                                      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                                    ].filter(Boolean).join('\n');
+
+                                    // Update description if tier changed
+                                    if (updated.tier_applied !== item.tier_applied || !updated.description?.includes('Price Tier Applied')) {
+                                      const existingDesc = (updated.description || '').replace(/━━━━━━━━━━━━[\s\S]*?━━━━━━━━━━━━/g, '').trim();
+                                      updated.description = tierSnapshot + (existingDesc ? '\n\n' + existingDesc : '');
+                                      itemsUpdated = true;
+                                    }
+                                  } else {
+                                    // No tier matched, use list_price
+                                    if (!updated.unit_price) {
+                                      updated.unit_price = listPrice;
+                                      itemsUpdated = true;
+                                    }
+                                    if (updated.discount_rate === undefined || updated.discount_rate === null) {
+                                      updated.discount_rate = 0;
+                                      itemsUpdated = true;
+                                    }
+                                    updated.tierInfo = null;
+                                    updated.tier_applied = null;
+                                  }
+                                } else {
+                                  // No product or list_price
+                                  if (updated.discount_rate === undefined || updated.discount_rate === null) {
+                                    updated.discount_rate = 0;
+                                    itemsUpdated = true;
+                                  }
+                                }
+
+                                // Calculate line_amount
+                                // Note: unit_price from tier is already the discounted price, so no need to apply discount again
+                                const unitPrice = toNumber(updated.unit_price);
+                                const lineAmount = round(quantity * unitPrice);
+
+                                if (updated.line_amount !== lineAmount) {
+                                  updated.line_amount = lineAmount;
+                                  itemsUpdated = true;
+                                }
+
+                                return updated;
+                              });
+
+                              // ==================== Calculate Subtotal ====================
+
+                              let subtotal = 0;
+                              updatedItems.forEach((item) => {
+                                subtotal += toNumber(item.line_amount);
+                              });
+                              subtotal = round(subtotal);
+
+                              // ==================== Get Exchange Rate ====================
+
+                              // Always sync exchange_rate from currencyInfo when currency is selected
+                              let exchangeRate = 1;
+                              if (values.currencyInfo?.current_rate) {
+                                exchangeRate = toNumber(values.currencyInfo.current_rate);
+                              } else if (values.exchange_rate) {
+                                exchangeRate = toNumber(values.exchange_rate);
+                              }
+
+                              // ==================== Calculate Header Amounts ====================
+
+                              const headerDiscountRate = toNumber(values.discount_rate);
+                              const discountAmount = round(subtotal * headerDiscountRate);
+                              const shippingHandling = toNumber(values.shipping_handling);
+                              const taxRate = toNumber(values.tax_rate);
+                              const taxableAmount = subtotal - discountAmount + shippingHandling;
+                              const taxAmount = round(taxableAmount * taxRate);
+                              const totalAmount = round(subtotal - discountAmount + shippingHandling + taxAmount);
+                              const totalAmountUsd = round(totalAmount * exchangeRate, 2);
+
+                              // ==================== Update Form ====================
+
+                              const updateValues = {
+                                subtotal,
+                                discount_amount: discountAmount,
+                                tax_amount: taxAmount,
+                                total_amount: totalAmount,
+                                total_amount_usd: totalAmountUsd,
+                                exchange_rate: exchangeRate,
+                              };
+
+                              if (itemsUpdated) {
+                                updateValues.items = updatedItems;
+                              }
+
+                              ctx.form?.setFieldsValue(updateValues);
+
+                              // ==================== Debug ====================
+
+                              console.log('Quotation Calc:', {
+                                items: updatedItems.length,
+                                products: productIds.length,
+                                tiers: Object.keys(priceTiersMap).length,
+                                currency: values.currencyInfo?.code || 'N/A',
+                                currencyRate: values.currencyInfo?.current_rate || 'N/A',
+                                exchangeRate,
+                                subtotal,
+                                totalAmount,
+                                totalAmountUsd: totalAmountUsd,
+                              });
+                            })();
+                        flowKey: yrohvt81g2k
+                parent: byldudn5amg
+                subModels:
+                  actions:
+                    - uid: m6gw3ppchph
+                      use: ApplyFormSubmitModel
+                      parentId: zk7xwcgakbj
+                      subKey: actions
+                      subType: array
+                      stepParams: {}
+                      sortIndex: 1
+                      flowRegistry: {}
+                      parent: zk7xwcgakbj
+                  grid:
+                    uid: dsxf3mlumic
+                    use: PatternFormGridModel
+                    parentId: zk7xwcgakbj
+                    subKey: grid
+                    subType: object
+                    stepParams:
+                      gridSettings:
+                        grid:
+                          rows:
+                            d0gr4ab2eih:
+                              - - wpedt7lw4ab
+                            uj1dzkmtsxf:
+                              - - 63a5m0yfip4
+                              - - 016ch4cwtgb
+                            jzqhq1ltcpc:
+                              - - ipw9uwz6p2j
+                            rxn2gk2oak4:
+                              - - 8w20xe6ibve
+                            g04x5oqzc0m:
+                              - - a8dwo9jij4y
+                              - - 7cf3nw4b3fg
+                              - - 6yg0ol3v4v4
+                            nhdjfbkjkn7:
+                              - - fqh4pphwkh0
+                            xoi5ofb0gd3:
+                              - - o878ji9sci4
+                                - tbv4uxpkm2t
+                            j4k76cbcbep:
+                              - - 62glq5cbr93
+                            djaf76ol9us:
+                              - - 3px7w0kn11o
+                              - - 8e5h3gdxxwd
+                            yalqr3mwo3t:
+                              - - s75x6h4d9z2
+                            fhb605n677u:
+                              - - 99uc1g2yup0
+                            i1xorbztl0o:
+                              - - uw32jq9epld
+                              - - l9pk1dtzhcp
+                            w0zikmk1l4i:
+                              - - gr4201i7frf
+                            2nvf0ejt0lc:
+                              - - xjkehms5njm
+                              - - bxy6wf1g4xp
+                            a2xuo6c4a03:
+                              - - djnlcs9nwjj
+                              - - nhtirj1yv5z
+                            mysrfb9smfg:
+                              - - eesav5m5vk6
+                            dsleovqx3fl:
+                              - - 8k4qndj6p5s
+                            4smrx86s4ye:
+                              - - 697f8xf0gkd
+                              - - tcf4j19s2qb
+                            c5bntwbpm1t:
+                              - - qg90cr6m87c
+                            ignic35n0x9:
+                              - - bsmcg70l1da
+                          sizes:
+                            d0gr4ab2eih:
+                              - 24
+                            uj1dzkmtsxf:
+                              - 12
+                              - 12
+                            jzqhq1ltcpc:
+                              - 24
+                            rxn2gk2oak4:
+                              - 24
+                            g04x5oqzc0m:
+                              - 8
+                              - 8
+                              - 8
+                            nhdjfbkjkn7:
+                              - 24
+                            xoi5ofb0gd3:
+                              - 24
+                            j4k76cbcbep:
+                              - 24
+                            djaf76ol9us:
+                              - 12
+                              - 12
+                            yalqr3mwo3t:
+                              - 24
+                            fhb605n677u:
+                              - 24
+                            i1xorbztl0o:
+                              - 12
+                              - 12
+                            w0zikmk1l4i:
+                              - 24
+                            2nvf0ejt0lc:
+                              - 12
+                              - 12
+                            a2xuo6c4a03:
+                              - 12
+                              - 12
+                            mysrfb9smfg:
+                              - 24
+                            dsleovqx3fl:
+                              - 24
+                            4smrx86s4ye:
+                              - 12
+                              - 12
+                            c5bntwbpm1t:
+                              - 24
+                            ignic35n0x9:
+                              - 24
+                          rowOrder:
+                            - d0gr4ab2eih
+                            - uj1dzkmtsxf
+                            - jzqhq1ltcpc
+                            - rxn2gk2oak4
+                            - g04x5oqzc0m
+                            - nhdjfbkjkn7
+                            - xoi5ofb0gd3
+                            - j4k76cbcbep
+                            - djaf76ol9us
+                            - yalqr3mwo3t
+                            - fhb605n677u
+                            - i1xorbztl0o
+                            - w0zikmk1l4i
+                            - 2nvf0ejt0lc
+                            - a2xuo6c4a03
+                            - mysrfb9smfg
+                            - dsleovqx3fl
+                            - 4smrx86s4ye
+                            - c5bntwbpm1t
+                            - ignic35n0x9
+                    sortIndex: 1
+                    flowRegistry: {}
+                    parent: zk7xwcgakbj
+                    subModels:
+                      items:
+                        - uid: 63a5m0yfip4
+                          use: PatternFormItemModel
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: quotation_no
+                            editItemSettings:
+                              pattern:
+                                pattern: disabled
+                          parentId: dsxf3mlumic
+                          subKey: items
+                          subType: array
+                          sortIndex: 1
+                          flowRegistry: {}
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: enncp1u6m3g
+                              use: PatternFormFieldModel
+                              props: null
+                              stepParams:
+                                fieldBinding:
+                                  use: InputFieldModel
+                              parentId: 63a5m0yfip4
+                              subKey: field
+                              subType: object
+                              sortIndex: 1
+                              flowRegistry: {}
+                              parent: 63a5m0yfip4
+                        - uid: 016ch4cwtgb
+                          use: PatternFormItemModel
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: version
+                          parentId: dsxf3mlumic
+                          subKey: items
+                          subType: array
+                          sortIndex: 2
+                          flowRegistry: {}
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: 2t4w4885fi3
+                              use: PatternFormFieldModel
+                              props: null
+                              stepParams:
+                                fieldBinding:
+                                  use: NumberFieldModel
+                              parentId: 016ch4cwtgb
+                              subKey: field
+                              subType: object
+                              sortIndex: 1
+                              flowRegistry: {}
+                              parent: 016ch4cwtgb
+                        - uid: o878ji9sci4
+                          use: PatternFormItemModel
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: items
+                          parentId: dsxf3mlumic
+                          subKey: items
+                          subType: array
+                          sortIndex: 3
+                          flowRegistry:
+                            87sf3qpex4v:
+                              title: Event flow
+                              key: 87sf3qpex4v
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: bz9oqo7gkdy
+                              use: PatternFormFieldModel
+                              props: null
+                              stepParams:
+                                fieldBinding:
+                                  use: SubTableFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: items
+                              parentId: o878ji9sci4
+                              subKey: field
+                              subType: object
+                              sortIndex: 1
+                              flowRegistry: {}
+                              parent: o878ji9sci4
+                              subModels:
+                                columns:
+                                  - uid: jehpvyl8zmz
+                                    use: SubTableColumnModel
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.product
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 150
+                                        required:
+                                          required: true
+                                    parentId: bz9oqo7gkdy
+                                    subKey: columns
+                                    subType: array
+                                    sortIndex: 1
+                                    flowRegistry: {}
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: 973k5u51j5z
+                                        use: RecordSelectFieldModel
+                                        props: null
+                                        parentId: jehpvyl8zmz
+                                        subKey: field
+                                        subType: object
+                                        stepParams: {}
+                                        sortIndex: 1
+                                        flowRegistry: {}
+                                        parent: jehpvyl8zmz
+                                  - uid: 1w303kfp97q
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 2
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.specification
+                                      subTableColumnSettings:
+                                        pattern:
+                                          pattern: readPretty
+                                        width:
+                                          width: 100
+                                    flowRegistry: {}
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: dyzgo79r7oy
+                                        use: InputFieldModel
+                                        parentId: 1w303kfp97q
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          fieldBinding:
+                                            use: DisplayTextFieldModel
+                                          fieldSettings:
+                                            init:
+                                              dataSourceKey: main
+                                              collectionName: nb_crm_quotations
+                                              fieldPath: items.specification
+                                          popupSettings:
+                                            openView:
+                                              collectionName: nb_crm_quotation_items
+                                              dataSourceKey: main
+                                        props: {}
+                                        flowRegistry: {}
+                                        parent: 1w303kfp97q
+                                  - uid: un68yl44xpp
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 3
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.unit
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                        pattern:
+                                          pattern: readPretty
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: slv2gi4nr81
+                                        use: InputFieldModel
+                                        parentId: un68yl44xpp
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          fieldBinding:
+                                            use: DisplayTextFieldModel
+                                          fieldSettings:
+                                            init:
+                                              dataSourceKey: main
+                                              collectionName: nb_crm_quotations
+                                              fieldPath: items.unit
+                                        parent: un68yl44xpp
+                                  - uid: y6yzzap830b
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 4
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.quantity
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                        required:
+                                          required: true
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: 7qvyq55osqi
+                                        use: NumberFieldModel
+                                        parentId: y6yzzap830b
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams: {}
+                                        parent: y6yzzap830b
+                                  - uid: cdal1tlzq8g
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 5
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.unit_price
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                        pattern:
+                                          pattern: readPretty
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: 76lxoys4c6l
+                                        use: NumberFieldModel
+                                        parentId: cdal1tlzq8g
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          fieldBinding:
+                                            use: DisplayNumberFieldModel
+                                          fieldSettings:
+                                            init:
+                                              dataSourceKey: main
+                                              collectionName: nb_crm_quotations
+                                              fieldPath: items.unit_price
+                                        parent: cdal1tlzq8g
+                                  - uid: qez5ysgn84l
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 6
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.list_price
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                        pattern:
+                                          pattern: readPretty
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: 34gx61zt4xa
+                                        use: NumberFieldModel
+                                        parentId: qez5ysgn84l
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          fieldBinding:
+                                            use: DisplayNumberFieldModel
+                                          fieldSettings:
+                                            init:
+                                              dataSourceKey: main
+                                              collectionName: nb_crm_quotations
+                                              fieldPath: items.list_price
+                                        parent: qez5ysgn84l
+                                  - uid: 8hq19vmnwj0
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 7
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.discount_rate
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                        pattern:
+                                          pattern: readPretty
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: uxe0kowit5u
+                                        use: PercentFieldModel
+                                        parentId: 8hq19vmnwj0
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          fieldBinding:
+                                            use: DisplayPercentFieldModel
+                                          fieldSettings:
+                                            init:
+                                              dataSourceKey: main
+                                              collectionName: nb_crm_quotations
+                                              fieldPath: items.discount_rate
+                                        parent: 8hq19vmnwj0
+                                  - uid: 7emv5zq7p62
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 8
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.line_amount
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                        pattern:
+                                          pattern: disabled
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: cjkvo48n7yo
+                                        use: NumberFieldModel
+                                        parentId: 7emv5zq7p62
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams:
+                                          fieldBinding:
+                                            use: DisplayNumberFieldModel
+                                          fieldSettings:
+                                            init:
+                                              dataSourceKey: main
+                                              collectionName: nb_crm_quotations
+                                              fieldPath: items.line_amount
+                                        parent: 7emv5zq7p62
+                                  - uid: j96pubu770u
+                                    use: SubTableColumnModel
+                                    parentId: bz9oqo7gkdy
+                                    sortIndex: 9
+                                    subKey: columns
+                                    subType: array
+                                    stepParams:
+                                      fieldSettings:
+                                        init:
+                                          dataSourceKey: main
+                                          collectionName: nb_crm_quotations
+                                          fieldPath: items.description
+                                      subTableColumnSettings:
+                                        width:
+                                          width: 100
+                                    parent: bz9oqo7gkdy
+                                    subModels:
+                                      field:
+                                        uid: rzzn7y6kd58
+                                        use: TextareaFieldModel
+                                        parentId: j96pubu770u
+                                        sortIndex: 1
+                                        subKey: field
+                                        subType: object
+                                        stepParams: {}
+                                        parent: j96pubu770u
+                        - uid: wpedt7lw4ab
+                          use: DividerItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 4
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Basic Info
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: dsxf3mlumic
+                        - uid: ipw9uwz6p2j
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 5
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: name
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: q4rd2ds4z39
+                              use: PatternFormFieldModel
+                              parentId: ipw9uwz6p2j
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: InputFieldModel
+                              parent: ipw9uwz6p2j
+                        - uid: 8w20xe6ibve
+                          use: DividerItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 6
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Related
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: dsxf3mlumic
+                        - uid: 7cf3nw4b3fg
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 7
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: opportunity
+                            editItemSettings:
+                              required:
+                                required: true
+                          flowRegistry: {}
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: yg3jw7q4mem
+                              use: PatternFormFieldModel
+                              parentId: 7cf3nw4b3fg
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: RecordSelectFieldModel
+                                selectSettings:
+                                  dataScope:
+                                    filter:
+                                      logic: $and
+                                      items:
+                                        - path: customer_id
+                                          operator: $eq
+                                          value: '{{ ctx.formValues.customer.id }}'
+                                          noValue: false
+                              flowRegistry: {}
+                              parent: 7cf3nw4b3fg
+                        - uid: a8dwo9jij4y
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 8
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: customer
+                            editItemSettings:
+                              required:
+                                required: true
+                          flowRegistry: {}
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: ppn1tra17vp
+                              use: PatternFormFieldModel
+                              parentId: a8dwo9jij4y
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: RecordSelectFieldModel
+                              parent: a8dwo9jij4y
+                        - uid: 6yg0ol3v4v4
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 9
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: contact
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: jsa87j72vsn
+                              use: PatternFormFieldModel
+                              parentId: 6yg0ol3v4v4
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: RecordSelectFieldModel
+                              parent: 6yg0ol3v4v4
+                        - uid: fqh4pphwkh0
+                          use: DividerItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 10
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Items
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: dsxf3mlumic
+                        - uid: 62glq5cbr93
+                          use: DividerItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 11
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Currency
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: dsxf3mlumic
+                        - uid: 3px7w0kn11o
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 12
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: currencyInfo
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: y2wb6q72xmf
+                              use: PatternFormFieldModel
+                              parentId: 3px7w0kn11o
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: RecordSelectFieldModel
+                              parent: 3px7w0kn11o
+                        - uid: 8e5h3gdxxwd
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 13
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: exchange_rate
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: xd155wreaip
+                              use: PatternFormFieldModel
+                              parentId: 8e5h3gdxxwd
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: DisplayNumberFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: exchange_rate
+                              parent: 8e5h3gdxxwd
+                        - uid: s75x6h4d9z2
+                          use: DividerItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 14
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Amounts
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: dsxf3mlumic
+                        - uid: 99uc1g2yup0
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 15
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: subtotal
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: qeflv4m4n3j
+                              use: PatternFormFieldModel
+                              parentId: 99uc1g2yup0
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: DisplayNumberFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: subtotal
+                              parent: 99uc1g2yup0
+                        - uid: uw32jq9epld
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 16
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: discount_rate
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: scdafs2poxx
+                              use: PatternFormFieldModel
+                              parentId: uw32jq9epld
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: PercentFieldModel
+                              parent: uw32jq9epld
+                        - uid: l9pk1dtzhcp
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 17
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: discount_amount
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: ekg59esiuoj
+                              use: PatternFormFieldModel
+                              parentId: l9pk1dtzhcp
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: DisplayNumberFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: discount_amount
+                              parent: l9pk1dtzhcp
+                        - uid: gr4201i7frf
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 18
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: shipping_handling
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: ok6k78pdfwj
+                              use: PatternFormFieldModel
+                              parentId: gr4201i7frf
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: NumberFieldModel
+                              parent: gr4201i7frf
+                        - uid: xjkehms5njm
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 19
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: tax_rate
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: dran3lolf85
+                              use: PatternFormFieldModel
+                              parentId: xjkehms5njm
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: PercentFieldModel
+                              parent: xjkehms5njm
+                        - uid: bxy6wf1g4xp
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 20
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: tax_amount
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: hqzare7howb
+                              use: PatternFormFieldModel
+                              parentId: bxy6wf1g4xp
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: DisplayNumberFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: tax_amount
+                              parent: bxy6wf1g4xp
+                        - uid: djnlcs9nwjj
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 21
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: total_amount
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: 1frtncrjarb
+                              use: PatternFormFieldModel
+                              parentId: djnlcs9nwjj
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: DisplayNumberFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: total_amount
+                              parent: djnlcs9nwjj
+                        - uid: nhtirj1yv5z
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 22
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: total_amount_usd
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: 4bdwmo0hdy9
+                              use: PatternFormFieldModel
+                              parentId: nhtirj1yv5z
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: DisplayNumberFieldModel
+                                fieldSettings:
+                                  init:
+                                    dataSourceKey: main
+                                    collectionName: nb_crm_quotations
+                                    fieldPath: total_amount_usd
+                              parent: nhtirj1yv5z
+                        - uid: 8k4qndj6p5s
+                          use: DividerItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 23
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            markdownItemSetting:
+                              title:
+                                label: Terms
+                                orientation: left
+                                color: rgba(0,0,0,0.88)
+                                borderColor: rgba(5,5,5,0.06)
+                          parent: dsxf3mlumic
+                        - uid: 697f8xf0gkd
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 24
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: payment_terms
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: 92s9if5a8tv
+                              use: PatternFormFieldModel
+                              parentId: 697f8xf0gkd
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: TextareaFieldModel
+                              parent: 697f8xf0gkd
+                        - uid: tcf4j19s2qb
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 25
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: terms_condition
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: gn1m8aeluaj
+                              use: PatternFormFieldModel
+                              parentId: tcf4j19s2qb
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: TextareaFieldModel
+                              parent: tcf4j19s2qb
+                        - uid: qg90cr6m87c
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 26
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: address
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: rq2sb463tt0
+                              use: PatternFormFieldModel
+                              parentId: qg90cr6m87c
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: TextareaFieldModel
+                              parent: qg90cr6m87c
+                        - uid: bsmcg70l1da
+                          use: PatternFormItemModel
+                          parentId: dsxf3mlumic
+                          sortIndex: 27
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            fieldSettings:
+                              init:
+                                dataSourceKey: main
+                                collectionName: nb_crm_quotations
+                                fieldPath: description
+                          parent: dsxf3mlumic
+                          subModels:
+                            field:
+                              uid: 3k3ogcfo9p3
+                              use: PatternFormFieldModel
+                              parentId: bsmcg70l1da
+                              sortIndex: 1
+                              subKey: field
+                              subType: object
+                              stepParams:
+                                fieldBinding:
+                                  use: TextareaFieldModel
+                              parent: bsmcg70l1da
+                        - uid: tbv4uxpkm2t
+                          use: JSItemModel
+                          parentId: dsxf3mlumic
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            jsSettings:
+                              runJs:
+                                version: v2
+                                code: |
+                                  /**
+                                   * Line Item Auto-Fill Tip
+                                   *
+                                   * Displays help tip for quotation line item auto-fill behavior
+                                   */
+
+                                  const { Typography, Space } = ctx.antd;
+                                  const { Text } = Typography;
+                                  // Theme detection
+                                  const algorithm = ctx.antdConfig?.theme?.algorithm;
+                                  const darkAlgo = ctx.antd.theme.darkAlgorithm;
+                                  const isDark = Array.isArray(algorithm)
+                                    ? algorithm.some(fn => fn === darkAlgo)
+                                    : algorithm === darkAlgo;
+                                  const T = ctx.themeToken || {};
+
+                                  // i18n
+                                  const t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });
+
+                                  const TipCard = () => {
+                                    const tipStyle = {
+                                      border: `1px solid ${isDark ? 'rgba(3,105,161,0.4)' : '#bae6fd'}`,
+                                      borderRadius: 8,
+                                      padding: '12px 16px',
+                                      fontSize: 13,
+                                    };
+
+                                    const titleStyle = {
+                                      fontSize: 14,
+                                      fontWeight: 600,
+                                      color: isDark ? '#38bdf8' : '#0369a1',
+                                      marginBottom: 8,
+                                      display: 'block',
+                                    };
+
+                                    const sectionStyle = {
+                                      color: T.colorText || '#475569',
+                                      marginBottom: 6,
+                                    };
+
+                                    const fieldStyle = {
+                                      color: T.colorPrimary || '#0284c7',
+                                      fontWeight: 500,
+                                    };
+
+                                    const sourceStyle = {
+                                      color: T.colorTextSecondary || '#64748b',
+                                      fontSize: 12,
+                                    };
+
+                                    const footerStyle = {
+                                      marginTop: 10,
+                                      paddingTop: 8,
+                                      borderTop: `1px dashed ${isDark ? 'rgba(3,105,161,0.4)' : '#bae6fd'}`,
+                                      fontSize: 12,
+                                      color: isDark ? '#38bdf8' : '#0369a1',
+                                    };
+
+                                    return (
+                                      <div style={tipStyle}>
+                                        <Text style={titleStyle}>📦 {t('Line Item Auto-Fill')}</Text>
+
+                                        <div style={sectionStyle}>
+                                          <Text>{t('When you select a')} <Text style={fieldStyle}>{t('Product')}</Text>:</Text>
+                                          <div style={{ marginLeft: 12, marginTop: 4 }}>
+                                            <div><Text style={fieldStyle}>{t('Specification')}</Text> <Text style={sourceStyle}>{t('← from Product')}</Text></div>
+                                            <div><Text style={fieldStyle}>{t('Unit')}</Text> <Text style={sourceStyle}>{t('← from Product')}</Text></div>
+                                            <div><Text style={fieldStyle}>{t('List Price')}</Text> <Text style={sourceStyle}>{t('← from Product')}</Text></div>
+                                          </div>
+                                        </div>
+
+                                        <div style={sectionStyle}>
+                                          <Text>{t('When')} <Text style={fieldStyle}>{t('Quantity')}</Text> {t('changes, Price Tier auto-matches:')}</Text>
+                                          <div style={{ marginLeft: 12, marginTop: 4 }}>
+                                            <div><Text style={fieldStyle}>{t('Unit Price')}</Text> <Text style={sourceStyle}>{t('← Tier discounted price')}</Text></div>
+                                            <div><Text style={fieldStyle}>{t('Discount Rate')}</Text> <Text style={sourceStyle}>{t('← from Tier')}</Text></div>
+                                            <div><Text style={fieldStyle}>{t('Description')}</Text> <Text style={sourceStyle}>{t('← Tier snapshot')}</Text></div>
+                                          </div>
+                                        </div>
+
+                                        <div style={footerStyle}>
+                                          💡 {t('Price Tier matches by Product + Currency + Quantity Range')}
+                                        </div>
+                                      </div>
+                                    );
+                                  };
+
+                                  ctx.render(<TipCard />);
+                          sortIndex: 28
+                          flowRegistry: {}
+                          parent: dsxf3mlumic
+                        - uid: eesav5m5vk6
+                          use: JSItemModel
+                          parentId: dsxf3mlumic
+                          subKey: items
+                          subType: array
+                          stepParams:
+                            jsSettings:
+                              runJs:
+                                version: v2
+                                code: |
+                                  /**
+                                   * Price Calculation Formula Tip
+                                   *
+                                   * Displays help tip for quotation price calculation formulas
+                                   */
+
+                                  const { Typography } = ctx.antd;
+                                  const { Text } = Typography;
+                                  // Theme detection
+                                  const algorithm = ctx.antdConfig?.theme?.algorithm;
+                                  const darkAlgo = ctx.antd.theme.darkAlgorithm;
+                                  const isDark = Array.isArray(algorithm)
+                                    ? algorithm.some(fn => fn === darkAlgo)
+                                    : algorithm === darkAlgo;
+                                  const T = ctx.themeToken || {};
+
+                                  // i18n
+                                  const t = (key, opts) => ctx.t(key, { ns: 'nb_crm', ...opts });
+
+                                  const TipCard = () => {
+                                    const tipStyle = {
+                                      border: `1px solid ${isDark ? 'rgba(21,128,61,0.4)' : '#86efac'}`,
+                                      borderRadius: 8,
+                                      padding: '12px 16px',
+                                      fontSize: 13,
+                                    };
+
+                                    const titleStyle = {
+                                      fontSize: 14,
+                                      fontWeight: 600,
+                                      color: isDark ? '#4ade80' : '#15803d',
+                                      marginBottom: 10,
+                                      display: 'block',
+                                    };
+
+                                    const formulaRowStyle = {
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      marginBottom: 4,
+                                      color: T.colorText || '#475569',
+                                    };
+
+                                    const fieldStyle = {
+                                      color: T.colorSuccess || '#16a34a',
+                                      fontWeight: 500,
+                                      minWidth: 120,
+                                      display: 'inline-block',
+                                    };
+
+                                    const operatorStyle = {
+                                      color: T.colorTextSecondary || '#64748b',
+                                      margin: '0 6px',
+                                    };
+
+                                    const footerStyle = {
+                                      marginTop: 10,
+                                      paddingTop: 8,
+                                      borderTop: `1px dashed ${isDark ? 'rgba(21,128,61,0.4)' : '#86efac'}`,
+                                      fontSize: 12,
+                                      color: isDark ? '#4ade80' : '#15803d',
+                                    };
+
+                                    return (
+                                      <div style={tipStyle}>
+                                        <Text style={titleStyle}>🔎 {t('Price Calculation Formula')}</Text>
+
+                                        <div style={formulaRowStyle}>
+                                          <Text style={fieldStyle}>{t('Line Amount')}</Text>
+                                          <Text style={operatorStyle}>=</Text>
+                                          <Text>{t('Quantity × Unit Price')}</Text>
+                                        </div>
+
+                                        <div style={formulaRowStyle}>
+                                          <Text style={fieldStyle}>{t('Subtotal')}</Text>
+                                          <Text style={operatorStyle}>=</Text>
+                                          <Text>{t('Sum of all Line Amounts')}</Text>
+                                        </div>
+
+                                        <div style={formulaRowStyle}>
+                                          <Text style={fieldStyle}>{t('Discount Amount')}</Text>
+                                          <Text style={operatorStyle}>=</Text>
+                                          <Text>{t('Subtotal × Discount Rate')}</Text>
+                                        </div>
+
+                                        <div style={formulaRowStyle}>
+                                          <Text style={fieldStyle}>{t('Tax Amount')}</Text>
+                                          <Text style={operatorStyle}>=</Text>
+                                          <Text>{t('(Subtotal - Discount + S&H) × Tax Rate')}</Text>
+                                        </div>
+
+                                        <div style={formulaRowStyle}>
+                                          <Text style={fieldStyle}>{t('Total Amount')}</Text>
+                                          <Text style={operatorStyle}>=</Text>
+                                          <Text>{t('Subtotal - Discount + S&H + Tax')}</Text>
+                                        </div>
+
+                                        <div style={formulaRowStyle}>
+                                          <Text style={fieldStyle}>{t('Total (USD)')}</Text>
+                                          <Text style={operatorStyle}>=</Text>
+                                          <Text>{t('Total Amount × Exchange Rate')}</Text>
+                                        </div>
+
+                                        <div style={footerStyle}>
+                                          💡 {t('Exchange Rate auto-fills from selected Currency')}
+                                        </div>
+                                      </div>
+                                    );
+                                  };
+
+                                  ctx.render(<TipCard />);
+                          sortIndex: 29
+                          flowRegistry: {}
+                          parent: dsxf3mlumic
