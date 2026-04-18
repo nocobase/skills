@@ -1,9 +1,14 @@
 /**
  * Deploy ALL actions — unified single-pass, matching Python deployer pattern.
  *
- * Flow: check state → check live → create if missing. Never delete.
+ * Flow: check state → check live → create if missing → prune stale.
  * Compose creates standard actions → state tracks them → this loop skips.
  * Only creates actions that compose missed (save_model path, non-compose types).
+ *
+ * Pruning (stale actions): any action recorded in state.yaml under this block
+ * whose key no longer appears in the DSL is destroyed on the NB side and
+ * removed from state. state.yaml is the "this-tool deployed" ledger, so
+ * manually-authored NB actions (never in state) are left alone — safe.
  */
 import type { BlockSpec } from '../../types/spec';
 import type { BlockState } from '../../types/state';
@@ -33,6 +38,25 @@ export async function deployActions(
   isRecordActionBlock = false,
 ): Promise<void> {
   const { nb, log } = ctx;
+
+  // Compute desired-key sets up-front. Mirror the main loop's dedup: one
+  // shared `usedStateKeys` counter across actions + recordActions, iterated
+  // in that same order so the keys we compute here match the ones the main
+  // loop will assign.
+  const desiredActionKeys = new Set<string>();
+  const desiredRecordActionKeys = new Set<string>();
+  {
+    const shared = new Set<string>();
+    for (const aspec of bs.actions || []) {
+      const k = (typeof aspec === 'object' ? (aspec as Record<string, unknown>).key as string : undefined) || genActionKey(aspec);
+      desiredActionKeys.add(deduplicateKey(k, shared));
+    }
+    for (const aspec of bs.recordActions || []) {
+      const k = (typeof aspec === 'object' ? (aspec as Record<string, unknown>).key as string : undefined) || genActionKey(aspec);
+      desiredRecordActionKeys.add(deduplicateKey(k, shared));
+    }
+  }
+
   // Read live actions once for dedup (compose/blueprint may have created some)
   const liveActionsByUse = new Map<string, string>(); // use → uid
   try {
@@ -170,6 +194,30 @@ export async function deployActions(
 
   // Reorder actions to match DSL declaration order (sortIndex)
   await reorderActions(nb, blockState, bs, actColUid);
+
+  // Prune: destroy live actions whose keys are no longer in DSL, then drop
+  // from state. Only touches entries state.yaml tracked — user-authored NB
+  // actions (not in state) are left alone.
+  for (const [stateKey, desired] of [
+    ['actions', desiredActionKeys],
+    ['record_actions', desiredRecordActionKeys],
+  ] as const) {
+    const group = blockState[stateKey];
+    if (!group) continue;
+    for (const key of Object.keys(group)) {
+      if (desired.has(key)) continue;
+      const uid = group[key]?.uid;
+      if (uid) {
+        try {
+          await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: uid } });
+          log(`      - removed ${stateKey} "${key}" (uid=${uid})`);
+        } catch (e) {
+          log(`      ! destroy ${stateKey} "${key}": ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+        }
+      }
+      delete group[key];
+    }
+  }
 }
 
 async function reorderActions(

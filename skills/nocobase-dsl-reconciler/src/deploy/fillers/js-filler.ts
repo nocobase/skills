@@ -130,6 +130,24 @@ export async function deployJsColumns(
 ): Promise<void> {
   const { nb, log } = ctx;
   const jsCols = bs.js_columns || [];
+  const specKeys = new Set(jsCols.map(j => j.key));
+
+  // Prune js_columns whose keys are no longer in DSL (applies regardless of
+  // whether new cols exist — pure-delete case also needs cleanup).
+  if (bs.type === 'table' && blockState.js_columns) {
+    for (const [key, entry] of Object.entries(blockState.js_columns)) {
+      if (specKeys.has(key)) continue;
+      const uid = (entry as { uid?: string })?.uid;
+      if (uid) {
+        try {
+          await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: uid } });
+          log(`      - JS column orphan removed: ${key}`);
+        } catch { /* skip */ }
+      }
+      delete blockState.js_columns[key];
+    }
+  }
+
   if (!jsCols.length || bs.type !== 'table') return;
 
   for (const jsSpec of jsCols) {

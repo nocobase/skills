@@ -156,6 +156,31 @@ export async function deploySurface(
           }
         }
 
+        // Prune: remove fields tracked in state but no longer in DSL.
+        // Exclude filterForm custom fields (type: custom) — those live under
+        // different names and are handled separately by block-filler.
+        const desired = new Set(specFields);
+        const customNames = new Set<string>();
+        for (const f of bs.fields || []) {
+          if (typeof f !== 'object') continue;
+          const fo = f as unknown as Record<string, unknown>;
+          if (fo.type === 'custom' && typeof fo.name === 'string') customNames.add(fo.name);
+        }
+        const stateFields = blocksState[key].fields || {};
+        for (const fName of Object.keys(stateFields)) {
+          if (desired.has(fName) || customNames.has(fName)) continue;
+          const uid = stateFields[fName]?.wrapper || stateFields[fName]?.field || '';
+          if (uid) {
+            try {
+              await nb.surfaces.removeNode(uid);
+              log(`      - removed field "${fName}" (uid=${uid})`);
+            } catch (e) {
+              log(`      ! destroy field "${fName}": ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+            }
+          }
+          delete stateFields[fName];
+        }
+
         // Apply non-default column settings (width, ellipsis)
         if (bs.type === 'table') {
           await applyColumnSettings(nb, blockUid, bs.fields || []);
