@@ -272,8 +272,8 @@ function validateLayoutSpec(
     }
     if (!hasCol && mappedCells >= 2 && sizeSum > 24) {
       issues.push({
-        level: 'warn', page: pageTitle,
-        message: `${where} layout row ${ri + 1} has ${mappedCells} flat {key:size} cells summing to ${sizeSum} (>24) — likely meant \`col: [...], size: N\` to stack blocks vertically in side-by-side columns. Flat format renders as a cramped horizontal strip.`,
+        level: 'error', page: pageTitle,
+        message: `${where} layout row ${ri + 1} has ${mappedCells} flat {key:size} cells summing to ${sizeSum} (>24) — must use \`col: [...], size: N\` to stack blocks vertically in side-by-side columns. Flat format renders as a cramped horizontal strip.`,
       });
     }
   }
