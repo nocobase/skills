@@ -1,8 +1,13 @@
 ---
 name: nocobase-dsl-reconciler
 description: >-
-  Build NocoBase applications from YAML DSL + JS specs.
-  Trigger: user wants to build, create, scaffold, or deploy a NocoBase system/module.
+  Build or extend NocoBase applications from YAML DSL + JS specs. Canonical
+  skill for creating new pages, menus, modules, or whole systems — and for
+  adding collections, tables, sub-tables, popups, dashboards, approval
+  workflows, or recordActions to an existing DSL project. Use for anything
+  that produces/changes files under `workspaces/<project>/` and gets
+  deployed via `cli push`. For one-off live-UI edits without DSL, see
+  `nocobase-ui-builder` instead.
 argument-hint: "[system-name]"
 allowed-tools: shell, local file reads, local file writes
 ---

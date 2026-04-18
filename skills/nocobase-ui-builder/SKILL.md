@@ -1,14 +1,17 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  Use when the user wants to inspect, draft, create, modify, reorder, or
-  delete NocoBase Modern page (v2) menus, pages, tabs, popups, layouts, and
-  block / field / action configuration. Also covers reaction-based interaction
-  authoring such as default values, computed linkage, block visibility, and
-  action enable/disable. Canonical transport is `nocobase-ctl flow-surfaces`
-  whenever available. Whole-page creation or replacement still uses the
-  simplified page-structure JSON blueprint through applyBlueprint; localized
-  edits still map to low-level flow-surfaces APIs and retained API/MCP docs.
+  Use for LOCALIZED live-UI tweaks against an already-running NocoBase app:
+  move / reorder / reconfigure a single block, field, action, or reaction
+  rule on an existing page; inspect current schema via `nocobase-ctl
+  flow-surfaces`. Scope is per-node edits through flow-surfaces APIs.
+
+  For BUILDING new pages, menus, modules, or whole systems (multi-page,
+  multi-collection, scaffolding a CRM / project management / library app
+  from scratch, adding a Dashboard / sub-table / approval workflow),
+  use `nocobase-dsl-reconciler` instead — it produces YAML DSL files
+  committable to git and deployable via `cli push`.
+
   Does not handle ACL, data modeling, workflow orchestration, browser
   reproduction, page error postmortems, or non-Modern-page navigation.
 ---
