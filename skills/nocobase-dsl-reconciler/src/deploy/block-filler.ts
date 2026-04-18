@@ -89,51 +89,7 @@ export async function fillBlock(
       const formData = await nb.get({ uid: blockUid });
       const blockUse = (formData.tree as { use?: string }).use || '';
       if (blockUse === 'ReferenceBlockModel') {
-        // Existing reference block — rebind if its useTemplate points at a
-        // stale template uid. Happens after duplicate-project + rerun: the
-        // block was created against an older template uid, now the DSL
-        // resolves to a different one. Without this, the reference renders
-        // the stale template forever.
-        //
-        // Read the RAW row via flowModels:get — flowSurfaces:get has been
-        // observed to return a rendered/merged view where stepParams aren't
-        // the literal DB record, making drift invisible to a naive diff.
-        try {
-          const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: blockUid } });
-          const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
-          const sp = ((rawOpts?.stepParams as Record<string, unknown>) || {}) as Record<string, unknown>;
-          const rs = ((sp.referenceSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
-          const curUT = (rs.useTemplate as Record<string, unknown> | undefined);
-          const curUid = curUT?.templateUid as string | undefined;
-          if (curUid && curUid !== templateRef.templateUid) {
-            rs.useTemplate = {
-              ...(curUT || {}),
-              templateUid: templateRef.templateUid,
-              templateName: templateRef.templateName,
-              targetUid: templateRef.targetUid,
-              mode: templateRef.mode || 'reference',
-            };
-            if (rs.target && typeof rs.target === 'object') {
-              (rs.target as Record<string, unknown>).targetUid = templateRef.targetUid;
-            }
-            sp.referenceSettings = rs;
-            await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-              uid: blockUid,
-              use: blockUse,
-              parentId: (rawOpts?.parentId as string) || undefined,
-              subKey: (rawOpts?.subKey as string) || undefined,
-              subType: (rawOpts?.subType as string) || undefined,
-              sortIndex: (rawOpts?.sortIndex as number) || 0,
-              flowRegistry: (rawOpts?.flowRegistry as Record<string, unknown>) || {},
-              stepParams: sp,
-            });
-            log(`      ~ templateRef: rebound ${curUid.slice(0, 8)} → ${(templateRef.templateUid || '').slice(0, 8)} (${templateRef.templateName || ''})`);
-          } else {
-            log(`      = templateRef: ${templateRef.templateName || templateRef.templateUid} (reference block)`);
-          }
-        } catch (e) {
-          log(`      ! templateRef rebind: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-        }
+        await syncReferenceBlockBinding(ctx, blockUid, templateRef);
       } else {
         const formGrid = formData.tree.subModels?.grid;
         if (formGrid && !Array.isArray(formGrid)) {
@@ -471,6 +427,61 @@ async function autoFillRecordActionPopups(
  */
 // Cache shared across a single deploy run — avoids re-fetching 1000+ popup templates
 // and re-attempting m2o fallbacks for collections without popup support.
+/**
+ * Rebind a ReferenceBlockModel's useTemplate.templateUid if the live binding
+ * drifted from what the DSL now resolves to. Used on every existing reference
+ * block (NOT gated on --force): it's one flowModels:get + at most one
+ * flowModels:save, and the check is the entire reason reference blocks can
+ * silently render the wrong template after duplicate-project / template rebuild.
+ *
+ * Reads the RAW row via flowModels:get — flowSurfaces:get returns a
+ * rendered/merged view where stepParams aren't the literal DB record,
+ * which hides the drift.
+ */
+export async function syncReferenceBlockBinding(
+  ctx: DeployContext,
+  blockUid: string,
+  templateRef: { templateUid?: string; templateName?: string; targetUid?: string; mode?: string },
+): Promise<void> {
+  const { nb, log } = ctx;
+  if (!templateRef?.templateUid) return;
+  try {
+    const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: blockUid } });
+    const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+    if (!rawOpts) return;
+    if (rawOpts.use !== 'ReferenceBlockModel') return;
+    const sp = ((rawOpts.stepParams as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const rs = ((sp.referenceSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const curUT = (rs.useTemplate as Record<string, unknown> | undefined);
+    const curUid = curUT?.templateUid as string | undefined;
+    if (!curUid || curUid === templateRef.templateUid) return;
+    rs.useTemplate = {
+      ...(curUT || {}),
+      templateUid: templateRef.templateUid,
+      templateName: templateRef.templateName,
+      targetUid: templateRef.targetUid,
+      mode: templateRef.mode || 'reference',
+    };
+    if (rs.target && typeof rs.target === 'object' && templateRef.targetUid) {
+      (rs.target as Record<string, unknown>).targetUid = templateRef.targetUid;
+    }
+    sp.referenceSettings = rs;
+    await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+      uid: blockUid,
+      use: 'ReferenceBlockModel',
+      parentId: (rawOpts.parentId as string) || undefined,
+      subKey: (rawOpts.subKey as string) || undefined,
+      subType: (rawOpts.subType as string) || undefined,
+      sortIndex: (rawOpts.sortIndex as number) || 0,
+      flowRegistry: (rawOpts.flowRegistry as Record<string, unknown>) || {},
+      stepParams: sp,
+    });
+    log(`      ~ templateRef: rebound ${curUid.slice(0, 8)} → ${(templateRef.templateUid || '').slice(0, 8)} (${templateRef.templateName || ''})`);
+  } catch (e) {
+    log(`      ! templateRef rebind: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+}
+
 interface M2oCache {
   templates?: Record<string, unknown>[];
   fieldsByColl: Map<string, Map<string, string>>;  // coll → (fieldPath → m2o target)

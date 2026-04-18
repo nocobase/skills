@@ -11,7 +11,7 @@ import type { ComposeBlockResult } from '../types/api';
 import type { DeployContext } from './deploy-context';
 import type { PopupContext } from './fillers/types';
 import { toComposeBlock } from './block-composer';
-import { fillBlock } from './block-filler';
+import { fillBlock, syncReferenceBlockBinding } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { slugify } from '../utils/slugify';
 import { BLOCK_TYPE_TO_MODEL as BLOCK_TYPES, COMPOSE_ACTION_TYPES } from '../utils/block-types';
@@ -42,6 +42,19 @@ export async function deploySurface(
 
   const existing = { ...existingState };
   const blocksState: Record<string, BlockState> = { ...existing };
+
+  // Always-on: sync ReferenceBlockModel.useTemplate.templateUid to the
+  // DSL-resolved value. Must run BEFORE any early-return (allExist branch
+  // returns at the "all blocks unchanged" fast path; composeByKey branch
+  // is skipped when nothing is new). Runs once per surface, touches only
+  // blocks whose DSL declares a templateRef.
+  for (const bs of blocksSpec) {
+    const key = bs.key || bs.type;
+    const bstate = blocksState[key];
+    if (!bstate?.uid) continue;
+    if (!bs.templateRef?.templateUid) continue;
+    await syncReferenceBlockBinding(ctx, bstate.uid, bs.templateRef);
+  }
 
   // Strip actions from block types that never have them.
   const NO_ACTION_TYPES = new Set(['chart', 'jsBlock', 'markdown', 'iframe']);
