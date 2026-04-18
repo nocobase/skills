@@ -103,7 +103,24 @@ Edit templates and popup bindings, then `push --force`. See
 pattern, and `templates/crm/pages/main/customers/tab_customers/popups/`
 for the parent-detail + child-list pattern.
 
-### Round 4: JS + Charts (optional)
+### Round 4: JS + Charts + Dashboard (optional)
+
+**Copy the whole page/template folder from CRM, then modify in place.**
+Writing dashboards from scratch is a huge amount of glue — SQLs,
+echarts render functions, KPI jsBlocks, filterForm wiring, grid
+widths. The CRM analytics and overview pages are proven end-to-end;
+`cp -r` them and retarget SQL/collection names instead of reinventing.
+
+```bash
+# Example: scaffold a pm Dashboard by copying CRM analytics
+cp -r templates/crm/pages/main/analytics workspaces/pm/pages/pm/dashboard
+# then edit:
+#   page.yaml   → strip runtime UIDs, rename title
+#   layout.yaml → change collection refs + field names
+#   charts/*.sql   → point at your tables, simplify filter conditions
+#   charts/*_render.js → swap title + fields, strip i18n if not needed
+#   js/*.js     → rewrite KPI queries against your collections
+```
 
 **Copy existing JS, don't write from scratch.**
 

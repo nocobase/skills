@@ -392,6 +392,38 @@ could maintain a whitelist of Ant Design icon names and warn on
 unknowns. Similarly for `flagoutlined` / `checkcircleoutlined` —
 wouldn't hurt to verify.
 
+## E-7 `linkageRules` schema differs per host — LANDMINE
+Same key `linkageRules` lives in three different storage shapes across
+NocoBase flow-model contexts:
+
+| Host | NB stepParams path | Shape |
+|---|---|---|
+| Action button | `buttonSettings.linkageRules` | **flat array** |
+| Form grid (fieldLinkageRules) | `eventSettings.linkageRules.value` | object → `.value` is array |
+| Details block (fieldLinkageRules) | `detailsSettings.linkageRules.value` | object → `.value` is array |
+| Block card (blockLinkageRules) | `cardSettings.linkageRules` | **flat array** |
+
+Sources: `packages/plugins/@nocobase/plugin-flow-engine/server/flow-surfaces/catalog.ts`
+(`linkageRules: ARRAY_SCHEMA` for button) vs `packages/core/client/src/flow/
+models/actions/UpdateRecordActionModel.tsx` (flow registration) vs
+exporter code that pulls back both shapes.
+
+Our deployer wrote the `{value: [...]}` wrapper on action buttons —
+the runtime reader saw no rules and never fired hide/disable. Fixed
+in commit `fc09127` for action buttons. The validator should now
+catch the wrong shape pre-deploy:
+
+- `recordActions[].linkageRules` — must be a flat array, not `{value: [...]}`
+- `actions[].linkageRules` — same
+- `fieldLinkageRules` — must be `{value: [...]}` (inverse)
+- Anyone writing `linkageRules:` in DSL YAML should match the shape
+  that fits the host type.
+
+**Action item**: add a validator rule that errors on mismatched shape
++ a one-line note in SKILL.md Common Errors ("If a hide/disable rule
+doesn't fire in UI, re-check linkageRules shape against host — see
+ISSUES E-7 for the cheat sheet").
+
 ## Summary of validator / deployer improvements this session
 - **Validator** (4 new rules):
   - m2o fields must have popup binding (clickToOpen path or defaults.yaml)
