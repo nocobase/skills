@@ -417,7 +417,7 @@ export async function deployProject(
   // Deploy no longer blocks on missing/broken test data — AI inserts data after deploy,
   // then runs verify-data as a separate validation pass.
 
-  // Set menu sortIndex to match routes.yaml declaration order
+  // Set menu sort to match routes.yaml declaration order
   await syncMenuOrder(nb, state, routes, log);
 
   // Persist UIDs created during this deploy so a future rollback can remove them.
@@ -716,11 +716,11 @@ async function deployGroup(
         const pageInfo = pages.find(p => p.key === routeKey(child));
         if (pageInfo) {
           await deployPageBlueprint(ctx, pageInfo, state, state.group_id!, routeEntry.title);
-          // Set sortIndex to match declaration order
+          // Set sort to match declaration order
           const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
           if (routeId) {
-            await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
+            await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sort: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
           }
           saveYaml(stateFile, state);
         }
@@ -735,19 +735,19 @@ async function deployGroup(
         } else {
           log(`  = sub-group: ${child.title}`);
         }
-        // Set sortIndex on sub-group to match declaration order
-        await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': subGroupId } }).catch(() => {});
+        // Set sort on sub-group to match declaration order
+        await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sort: ci + 1 }, { params: { 'filter[id]': subGroupId } }).catch(() => {});
         const subChildren = child.children || [];
         for (let si = 0; si < subChildren.length; si++) {
           const sc = subChildren[si];
           const pageInfo = pages.find(p => p.key === routeKey(sc));
           if (pageInfo) {
             await deployPageBlueprint(ctx, pageInfo, state, subGroupId, child.title);
-            // Set sortIndex on sub-group child
+            // Set sort on sub-group child
             const pageKey = pageInfo.key;
             const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
             if (routeId) {
-              await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
+              await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sort: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
             }
             saveYaml(stateFile, state);
           }
@@ -784,11 +784,11 @@ async function deployGroup(
       const pageInfo = pages.find(p => p.title === child.title);
       if (pageInfo) {
         await deployOnePage(ctx, pageInfo, state, state.group_id!);
-        // Set sortIndex to match declaration order
+        // Set sort to match declaration order
         const pageKey = pageInfo.key;
         const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
         if (routeId) {
-          await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
+          await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sort: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
         }
         saveYaml(legacyStateFile, state);
       }
@@ -803,19 +803,19 @@ async function deployGroup(
       } else {
         log(`  = sub-group: ${child.title}`);
       }
-      // Set sortIndex on sub-group
-      await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': subGroupId } }).catch(() => {});
+      // Set sort on sub-group
+      await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sort: ci + 1 }, { params: { 'filter[id]': subGroupId } }).catch(() => {});
       const subChildren = child.children || [];
       for (let si = 0; si < subChildren.length; si++) {
         const sc = subChildren[si];
         const pageInfo = pages.find(p => p.title === sc.title);
         if (pageInfo) {
           await deployOnePage(ctx, pageInfo, state, subGroupId);
-          // Set sortIndex on sub-group child
+          // Set sort on sub-group child
           const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
           if (routeId) {
-            await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
+            await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sort: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
           }
           saveYaml(legacyStateFile, state);
         }
@@ -1379,7 +1379,7 @@ async function cleanupDuplicatePages(
 }
 
 /**
- * Set sortIndex on deployed routes to match routes.yaml declaration order.
+ * Set sort on deployed routes to match routes.yaml declaration order.
  */
 async function syncMenuOrder(
   nb: NocoBaseClient,
@@ -1397,7 +1397,7 @@ async function syncMenuOrder(
 
     const syncRoute = async (spec: RouteEntry, live: any, sortIdx: number) => {
       const patch: Record<string, unknown> = {};
-      if (live.sortIndex !== sortIdx) patch.sortIndex = sortIdx;
+      if (live.sort !== sortIdx) patch.sort = sortIdx;
       if (spec.icon && live.icon !== spec.icon) patch.icon = spec.icon;
       if (spec.hidden !== undefined && live.hidden !== spec.hidden) patch.hidden = spec.hidden;
       if (Object.keys(patch).length) {
@@ -1416,7 +1416,7 @@ async function syncMenuOrder(
       if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === groupEntry.title);
       if (!liveGroup?.children?.length) continue;
 
-      const liveChildren = liveGroup.children as { id: number; title: string; type: string; sortIndex?: number; children?: any[] }[];
+      const liveChildren = liveGroup.children as { id: number; title: string; type: string; sort?: number; children?: any[] }[];
 
       for (let i = 0; i < groupEntry.children.length; i++) {
         const specChild = groupEntry.children[i];
