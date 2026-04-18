@@ -24,6 +24,20 @@ export interface SpecIssue {
 export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIssue[] {
   const issues: SpecIssue[] = [];
 
+  // Build defaults.yaml popup-binding set: every target collection with a
+  // `popups:` entry is considered "globally bound" — m2o fields pointing at
+  // it don't need explicit clickToOpen. Without either, clicking the cell
+  // 400s at runtime.
+  const defaultsPopupColls = new Set<string>();
+  const defaultsPath = path.join(projectDir, 'defaults.yaml');
+  if (fs.existsSync(defaultsPath)) {
+    try {
+      const d = loadYaml<Record<string, unknown>>(defaultsPath);
+      const popups = (d?.popups || {}) as Record<string, unknown>;
+      for (const coll of Object.keys(popups)) defaultsPopupColls.add(coll);
+    } catch { /* malformed defaults caught elsewhere */ }
+  }
+
   // Build collection metadata: known names + m2o target map
   const collDir = path.join(projectDir, 'collections');
   const knownColls = new Set<string>();
@@ -39,7 +53,15 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         collTitleFields.set(collName, (c.titleField || 'name') as string);
         const m2oMap = new Map<string, string>();
         const fks = new Set<string>();
+        // Rule: collection YAML must not declare NocoBase's auto-managed system
+        // columns. The deployer silently filters them, but callers benefit from
+        // knowing the YAML is polluted — these entries are often copy-paste
+        // residue from pulled specs that forgot to strip them.
+        const SYS_COLS = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
         for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
+          if (SYS_COLS.has(fd.name as string)) {
+            issues.push({ level: 'warn', page: `collection "${collName}"`, message: `field "${fd.name}" is a NocoBase system column — remove from YAML (auto-managed)` });
+          }
           if (fd.interface === 'm2o' && fd.target) {
             m2oMap.set(fd.name as string, fd.target as string);
             const fk = (fd.foreignKey as string) || `${fd.name}Id`;
@@ -164,6 +186,29 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
           }
         }
       }
+      // Rule: every displayed m2o field must resolve to a popup at runtime.
+      // Either the field itself has `clickToOpen: <path>`, or defaults.yaml
+      // `popups:` has an entry for the target collection. Otherwise clicking
+      // the cell 400s silently post-deploy.
+      if (m2oMap) {
+        for (const f of fields) {
+          const fo = (typeof f === 'object' ? f : { field: f }) as Record<string, unknown>;
+          const fieldName = (fo.field || fo.fieldPath || '') as string;
+          if (!fieldName || !m2oMap.has(fieldName)) continue;
+          const targetColl = m2oMap.get(fieldName)!;
+          const hasExplicitPath = typeof fo.clickToOpen === 'string' || typeof fo._clickToOpenPath === 'string';
+          const hasDefaultsBinding = defaultsPopupColls.has(targetColl);
+          if (!hasExplicitPath && !hasDefaultsBinding) {
+            issues.push({
+              level: 'error',
+              page: page.title,
+              block: key,
+              message: `m2o field "${fieldName}" (→ ${targetColl}) has no popup binding — clicking the cell will 400 at runtime. Either set "clickToOpen: templates/popup/<x>.yaml" on the field, or add "popups:\n  ${targetColl}: templates/popup/<x>.yaml" in defaults.yaml.`,
+            });
+          }
+        }
+      }
+
       // Only require clickToOpen if the table has no other record-level nav (no recordActions at all).
       // Tables with explicit recordActions (e.g. `type: link` custom detail buttons) don't need clickToOpen.
       const hasRecordActions = Array.isArray(tb.recordActions) && tb.recordActions.length > 0;
