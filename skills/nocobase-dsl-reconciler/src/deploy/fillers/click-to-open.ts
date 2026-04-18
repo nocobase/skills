@@ -216,7 +216,22 @@ async function deployInlinePopup(
 
   const popupTabs = inlinePopup.tabs as Record<string, unknown>[];
   const popupBlocks = inlinePopup.blocks as Record<string, unknown>[];
+  const meta = inlinePopup._templateMeta as Record<string, unknown> | undefined;
 
+  // ─── Path A: popup-template file (_templateMeta set) ───
+  // Compose content directly onto the template's target grid — do NOT
+  // inline on the field. This avoids the host-collection ambient context
+  // problem (m2o → users on a projects table would otherwise try to
+  // resolve fields against nb_pm_projects). Target's grid is owned by
+  // the template, not the host block, so collection binding stays clean.
+  if (meta?.path && meta.name && popupBlocks?.length) {
+    await deployPopupTemplateFromFile(
+      ctx, fieldUid, fp, popupBlocks, popupColl, meta, inlinePopup, ps, popupModDir, childCtx,
+    );
+    return;
+  }
+
+  // ─── Path B: legacy inline popup (no _templateMeta) ───
   if (popupTabs?.length) {
     // Multi-tab popup → use deployPopup
     const { deployPopup } = await import('../popup-deployer');
@@ -254,98 +269,154 @@ async function deployInlinePopup(
   };
   log(`      ~ clickToOpen: ${fp} (inline popup: ${popupTabs?.length || 0} tabs, ${popupBlocks?.length || 0} blocks)`);
   await nb.updateModel(fieldUid, update);
+}
 
-  // Promote the just-inlined popup into a live flowModelTemplate so
-  // defaults.yaml m2o auto-binding can find it (by collection + type=popup)
-  // and bind other m2o fields to it. Only fires when the inline popup
-  // originated from a `templates/popup/*.yaml` file tagged with _templateMeta
-  // by page-discovery. Cached by template path so subsequent fields pointing
-  // to the same file skip inline entirely (see Path 1 cache check).
-  const meta = inlinePopup._templateMeta as Record<string, unknown> | undefined;
-  if (meta?.path && meta.name) {
-    const tplPath = meta.path as string;
-    if (!_promotedPopupCache.has(tplPath)) {
-      try {
-        // Check if a template with this name+coll already exists (idempotent re-deploys)
-        let templateUid = '';
-        let targetUid = '';
-        try {
-          const existing = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
-            params: { paginate: false, 'filter[name]': meta.name as string, 'filter[collectionName]': popupColl },
-          });
-          const row = (existing.data?.data || [])[0] as Record<string, unknown> | undefined;
-          if (row?.uid) {
-            templateUid = row.uid as string;
-            targetUid = (row.targetUid as string) || '';
-          }
-        } catch { /* fall through to convert */ }
+/**
+ * Deploy a popup template from a `templates/popup/*.yaml` file.
+ *
+ * Flow:
+ *   1. Look up live popup template by name + collection. If missing,
+ *      create it via saveTemplate(convert) on a scratch field host —
+ *      but we use the current field as the host so we don't need a
+ *      temp page. (NocoBase's convert auto-creates a ChildPage on the
+ *      host if none exists, then detaches it to the template.)
+ *   2. Compose the popup blocks ONTO the template's target grid. This
+ *      is idempotent: fresh content always lands in the template tree,
+ *      even when step 1 reused a pre-existing (possibly empty) template.
+ *   3. Rebind the current field's popupSettings to reference the
+ *      template by popupTemplateUid + openView.uid = template.targetUid.
+ *   4. Destroy any stale inline ChildPage left on the field — clicking
+ *      openView.uid must resolve to the template target, not the host's
+ *      detached subtree.
+ */
+async function deployPopupTemplateFromFile(
+  ctx: DeployContext,
+  fieldUid: string,
+  fp: string,
+  popupBlocks: Record<string, unknown>[],
+  popupColl: string,
+  meta: Record<string, unknown>,
+  inlinePopup: Record<string, unknown>,
+  ps: Record<string, unknown> | undefined,
+  popupModDir: string,
+  childCtx: PopupContext,
+): Promise<void> {
+  const { nb, log } = ctx;
+  const tplPath = meta.path as string;
+  const tplName = meta.name as string;
 
-        if (!templateUid) {
-          const saveResult = await nb.surfaces.saveTemplate({
-            target: { uid: fieldUid },
-            name: meta.name as string,
-            description: meta.name as string,
-            type: 'popup',
-            collectionName: popupColl,
-            dataSourceKey: 'main',
-            saveMode: 'convert',
-          }) as Record<string, unknown>;
-          templateUid = (saveResult.uid || saveResult.templateUid) as string;
-          targetUid = (saveResult.targetUid as string) || '';
-          if (templateUid) log(`      + popup template: ${meta.name} (promoted: ${templateUid.slice(0, 8)})`);
-        } else {
-          log(`      = popup template: ${meta.name} (reused: ${templateUid.slice(0, 8)})`);
-        }
+  let templateUid = '';
+  let targetUid = '';
 
-        if (templateUid) {
-          _promotedPopupCache.set(tplPath, { templateUid, targetUid });
-          // Update THIS field to reference the template by uid (stable across redeploys).
-          // Also destroy the orphaned inline page underneath the field — clicking
-          // openView.uid=targetUid would otherwise still resolve to the stale
-          // inline tree (NocoBase looks up ChildPage by the host field's subtree
-          // when openView.uid matches).
-          try {
-            const fieldResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fieldUid } });
-            const fieldData = fieldResp.data.data;
-            if (fieldData) {
-              const sp = fieldData.stepParams || {};
-              sp.popupSettings = { openView: {
-                collectionName: popupColl, dataSourceKey: 'main',
-                mode: (inlinePopup.mode || ps?.mode || 'drawer') as string,
-                size: (inlinePopup.size || ps?.size || 'medium') as string,
-                popupTemplateUid: templateUid,
-                ...(targetUid ? { uid: targetUid } : {}),
-                popupTemplateHasFilterByTk: false,
-                popupTemplateHasSourceId: false,
-              } };
-              sp.displayFieldSettings = { clickToOpen: { clickToOpen: true } };
-              await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-                uid: fieldUid, use: fieldData.use, parentId: fieldData.parentId,
-                subKey: fieldData.subKey, subType: fieldData.subType,
-                stepParams: sp, sortIndex: fieldData.sortIndex || 0, flowRegistry: fieldData.flowRegistry || {},
-              });
-            }
-            // Destroy the stale inline ChildPage (if any) now that the field
-            // points at a template's targetUid. Leaving it causes NocoBase to
-            // render the inline tree instead of the template on click.
-            try {
-              const tree = await nb.get({ uid: fieldUid });
-              const page = tree.tree.subModels?.page as Record<string, unknown> | undefined;
-              const pageUid = page?.uid as string | undefined;
-              if (pageUid && pageUid !== targetUid) {
-                await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: pageUid } }).catch(() => {});
-                log(`      ~ cleared stale inline page ${pageUid.slice(0, 8)}`);
-              }
-            } catch { /* best-effort */ }
-          } catch (e) {
-            log(`      ! rebinding ${fp} to promoted template: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-          }
-        }
-      } catch (e) {
-        log(`      ! popup promote ${meta.name}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  // Cache hit within this deploy run → skip lookup
+  const cached = _promotedPopupCache.get(tplPath);
+  if (cached) ({ templateUid, targetUid } = cached);
+
+  // DB lookup: existing template by name + collection (idempotent redeploys)
+  if (!templateUid) {
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
+        params: { paginate: false },
+      });
+      const rows = (resp.data?.data || []) as Record<string, unknown>[];
+      const row = rows.find(r =>
+        r.name === tplName && r.collectionName === popupColl && r.type === 'popup',
+      );
+      if (row?.uid) {
+        templateUid = row.uid as string;
+        targetUid = (row.targetUid as string) || '';
+        log(`      = popup template: ${tplName} (reused: ${templateUid.slice(0, 8)})`);
       }
+    } catch { /* fall through to create */ }
+  }
+
+  // No existing template → create via saveTemplate(convert) on this field.
+  // NocoBase auto-creates a ChildPage on the host at convert time, then
+  // detaches it as the template's target. We don't need to compose
+  // anything inline beforehand — the compose step (below) fills the
+  // detached target grid.
+  if (!templateUid) {
+    try {
+      const saveResult = await nb.surfaces.saveTemplate({
+        target: { uid: fieldUid },
+        name: tplName,
+        description: tplName,
+        type: 'popup',
+        collectionName: popupColl,
+        dataSourceKey: 'main',
+        saveMode: 'convert',
+      }) as Record<string, unknown>;
+      templateUid = (saveResult.uid || saveResult.templateUid) as string;
+      targetUid = (saveResult.targetUid as string) || '';
+      if (templateUid) log(`      + popup template: ${tplName} (promoted: ${templateUid.slice(0, 8)})`);
+    } catch (e) {
+      log(`      ! popup promote ${tplName}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+      return;
     }
   }
+
+  if (!templateUid || !targetUid) {
+    log(`      ! popup template: ${tplName} missing uid/targetUid after create/reuse`);
+    return;
+  }
+
+  _promotedPopupCache.set(tplPath, { templateUid, targetUid });
+
+  // Compose popup blocks onto the template target's grid. deploySurface
+  // walks subModels.page.tabs[0].grid under the targetUid, so the
+  // collection is the template's own (users/projects/tasks), not the
+  // host block's. Idempotent across redeploys — updates content to
+  // match latest DSL.
+  try {
+    const { deploySurface } = await import('../surface-deployer');
+    await deploySurface(ctx, targetUid,
+      { blocks: popupBlocks as any[], coll: popupColl } as any,
+      { modDir: popupModDir, popupContext: childCtx });
+  } catch (e) {
+    log(`      ! compose onto ${tplName} target: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+
+  // Rebind the host field to reference the template.
+  try {
+    const fieldResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fieldUid } });
+    const fieldData = fieldResp.data.data;
+    if (fieldData) {
+      const sp = fieldData.stepParams || {};
+      sp.popupSettings = { openView: {
+        collectionName: popupColl, dataSourceKey: 'main',
+        mode: (inlinePopup.mode || ps?.mode || 'drawer') as string,
+        size: (inlinePopup.size || ps?.size || 'medium') as string,
+        popupTemplateUid: templateUid,
+        uid: targetUid,
+        popupTemplateHasFilterByTk: true,
+        popupTemplateHasSourceId: false,
+      } };
+      sp.displayFieldSettings = { clickToOpen: { clickToOpen: true } };
+      await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+        uid: fieldUid, use: fieldData.use, parentId: fieldData.parentId,
+        subKey: fieldData.subKey, subType: fieldData.subType,
+        stepParams: sp, sortIndex: fieldData.sortIndex || 0, flowRegistry: fieldData.flowRegistry || {},
+      });
+    }
+  } catch (e) {
+    log(`      ! rebinding ${fp} to template: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+
+  // Kill any stale inline ChildPage on the host. Leaving it causes NB to
+  // resolve openView.uid (= targetUid) through the host's subtree in some
+  // render paths, returning the dangling inline grid instead of the
+  // template's grid.
+  try {
+    const tree = await nb.get({ uid: fieldUid });
+    const page = tree.tree.subModels?.page as Record<string, unknown> | undefined;
+    const pageUid = page?.uid as string | undefined;
+    if (pageUid && pageUid !== targetUid) {
+      await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: pageUid } }).catch(() => {});
+      log(`      ~ cleared stale inline page ${pageUid.slice(0, 8)}`);
+    }
+  } catch { /* best-effort */ }
+
+  log(`      ~ clickToOpen: ${fp} → template ${templateUid.slice(0, 8)}`);
 }
 
 async function checkExistingPopup(nb: NocoBaseClient, fieldUid: string): Promise<boolean> {
