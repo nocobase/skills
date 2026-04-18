@@ -127,6 +127,38 @@ interface ExistingTemplate {
 
 export type TemplateUidMap = Map<string, string>; // oldUid → newUid
 export interface PendingPopupTemplate { name: string; collName: string; file: string; uid: string; targetUid: string; }
+
+/**
+ * Write assigned uid + targetUid back to the DSL YAML's top keys if
+ * they aren't already present. Lets the next push skip name+collection
+ * lookup and match by uid directly (Priority 1.5), which is the only
+ * path that's fully stable across state.yaml resets or orphan-accumulation
+ * cycles. No-op when the YAML already declares both (pull-produced DSL
+ * already has them). Uses string prepend — not a YAML re-dump — to
+ * preserve the author's formatting / comments.
+ */
+function persistUidToYaml(
+  tplFile: string,
+  tpl: { uid?: string; targetUid?: string; file: string },
+  newUid: string,
+  newTargetUid: string,
+  log: (msg: string) => void,
+): void {
+  try {
+    if (!newUid) return;
+    const raw = fs.readFileSync(tplFile, 'utf8');
+    const hasUid = /^uid:\s*\S/m.test(raw);
+    const hasTargetUid = /^targetUid:\s*\S/m.test(raw);
+    const prefix: string[] = [];
+    if (!hasUid) prefix.push(`uid: ${newUid}`);
+    if (!hasTargetUid && newTargetUid) prefix.push(`targetUid: ${newTargetUid}`);
+    if (!prefix.length) return;
+    fs.writeFileSync(tplFile, prefix.join('\n') + '\n' + raw);
+    log(`      ~ persisted uid → ${tpl.file} (${newUid.slice(0, 8)}${newTargetUid ? ' + target ' + newTargetUid.slice(0, 8) : ''})`);
+  } catch (e) {
+    log(`      . uid persist ${tpl.file}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+}
 export interface DeployTemplatesResult {
   uidMap: TemplateUidMap;
   pendingPopupTemplates: PendingPopupTemplate[];
@@ -496,6 +528,60 @@ export async function deployTemplates(
   });
   const existing = (existingResp.data?.data || []) as ExistingTemplate[];
 
+  // ── Orphan cleanup: same (name, collection) appearing more than once is
+  // always noise from prior delete+redeploy cycles. Query template usages
+  // once, keep the one with usages (the live page ref block's target) or
+  // the oldest if all are idle, and delete the rest. Without this step
+  // the matchKey below is non-deterministic (Map.set keeps the last-seen,
+  // which changes push-by-push) and orphans accumulate forever.
+  try {
+    const usagesResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
+      params: { paginate: false },
+    });
+    const usageCount = new Map<string, number>();
+    for (const u of (usagesResp.data?.data || []) as Record<string, unknown>[]) {
+      const tid = u.templateUid as string;
+      usageCount.set(tid, (usageCount.get(tid) || 0) + 1);
+    }
+    const byKey = new Map<string, ExistingTemplate[]>();
+    for (const t of existing) {
+      const k = makeMatchKey(t.name, t.collectionName || '');
+      const arr = byKey.get(k) || [];
+      arr.push(t);
+      byKey.set(k, arr);
+    }
+    let pruned = 0;
+    for (const [k, arr] of byKey) {
+      if (arr.length < 2) continue;
+      // Pick the keeper: usage > 0 wins, else oldest (smallest id / first created)
+      arr.sort((a, b) => {
+        const ua = usageCount.get(a.uid) || 0;
+        const ub = usageCount.get(b.uid) || 0;
+        if (ua !== ub) return ub - ua;  // higher usage first
+        return String(a.uid).localeCompare(String(b.uid));  // stable tiebreak
+      });
+      const [keeper, ...orphans] = arr;
+      for (const o of orphans) {
+        try {
+          await nb.http.post(
+            `${nb.baseUrl}/api/flowModelTemplates:destroy?filterByTk=${o.uid}`,
+            {},
+          );
+          pruned++;
+        } catch { /* locked by another ref — skip */ }
+      }
+      if (orphans.length) log(`  - pruned ${orphans.length} duplicate of "${k}" (kept ${keeper.uid.slice(0, 8)})`);
+    }
+    if (pruned) {
+      // Re-fetch to drop deleted entries from our maps below
+      const refetch = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
+      existing.length = 0;
+      for (const t of (refetch.data?.data || []) as ExistingTemplate[]) existing.push(t);
+    }
+  } catch (e) {
+    log(`  . orphan-template cleanup skipped: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+
   // Build lookup: "name|collection" → existing entry
   const existingByKey = new Map<string, ExistingTemplate>();
   for (const t of existing) {
@@ -566,6 +652,7 @@ export async function deployTemplates(
             try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
           }
           deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
+          persistUidToYaml(tplFile, tpl, savedEntry.uid, savedEntry.targetUid, log);
           reused++;
           continue;
         }
@@ -591,6 +678,7 @@ export async function deployTemplates(
             try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
           }
           deployedTemplates[stateKey] = { uid: existingByDslUid.uid, targetUid: existingByDslUid.targetUid, type: tpl.type, collection: collName };
+          persistUidToYaml(tplFile, tpl, existingByDslUid.uid, existingByDslUid.targetUid, log);
           reused++;
           continue;
         }
@@ -648,6 +736,7 @@ export async function deployTemplates(
         }
       }
       deployedTemplates[stateKey] = { uid: existingEntry.uid, targetUid: existingEntry.targetUid, type: tpl.type, collection: collName };
+      persistUidToYaml(tplFile, tpl, existingEntry.uid, existingEntry.targetUid, log);
       reused++;
       continue;
     }
@@ -709,6 +798,8 @@ export async function deployTemplates(
         uidMap.set(tpl.targetUid, result.targetUid);
       }
       deployedTemplates[stateKey] = { uid: result.templateUid, targetUid: result.targetUid, type: tpl.type, collection: collName };
+
+      persistUidToYaml(tplFile, tpl, result.templateUid, result.targetUid, log);
       // Apply block-level extras (fieldLinkageRules / fieldValueRules / event_flows)
       // that compose doesn't carry. Mirrors the syncTemplateContent path so rules
       // show up on the first deploy, not just on redeploys.
@@ -877,15 +968,18 @@ async function createBlockTemplate(
       return registerTemplateManually(nb, name, 'block', collName, tplSpec, blockUid);
     }
 
-    // Strip empty TableActionsColumnModel that NocoBase auto-creates on every
-    // saveTemplate('block'). When the DSL doesn't list any recordActions we
-    // get a header column "Actions" with no buttons inside — the user reads
-    // this as a deployer bug ("auto-created action column"). Only strip when
-    // it has zero subModels.actions; a populated action column is intentional.
+    // Post-save fixups on the SAVED target (saveTemplate snapshots blockUid →
+    // a new tree under targetUid; per-field bindings created on the temp page
+    // don't carry across the snapshot, so we re-apply them here).
     try {
       const tgtTree = await nb.get({ uid: targetUid });
       const cols = ((tgtTree.tree as { subModels?: Record<string, unknown> }).subModels || {}).columns;
       const colArr = (Array.isArray(cols) ? cols : []) as { uid: string; use?: string; subModels?: Record<string, unknown> }[];
+
+      // 1. Strip empty TableActionsColumnModel that NocoBase auto-creates on
+      //    every saveTemplate('block'). Without recordActions, we get a header
+      //    column "Actions" with no buttons inside — the user reads this as a
+      //    deployer bug. Populated columns survive untouched.
       const hasRecordActions = Array.isArray((content as Record<string, unknown>).recordActions) && ((content as Record<string, unknown>).recordActions as unknown[]).length > 0;
       if (!hasRecordActions) {
         for (const c of colArr) {
@@ -899,7 +993,34 @@ async function createBlockTemplate(
           }
         }
       }
-    } catch { /* best effort */ }
+
+      // 2. Apply clickToOpen on table column fields. compose creates the
+      //    DisplayXxxFieldModel but NOT the ChildPageModel popup — that's
+      //    deployClickToOpen's job, and template-deployer never called it
+      //    before, so every cell in a Table template was un-clickable.
+      const tableTypes = new Set(['table']);
+      if (tableTypes.has((content.type as string) || '')) {
+        const fields = (content.fields as unknown[]) || [];
+        const hasAnyClickToOpen = fields.some(f => typeof f === 'object' && f && (f as Record<string, unknown>).clickToOpen);
+        if (hasAnyClickToOpen) {
+          // Build fieldStates: fieldPath → { wrapper: TableColumnUid, field: DisplayFieldUid }
+          const fieldStates: Record<string, { wrapper: string; field?: string }> = {};
+          for (const c of colArr) {
+            if (c.use !== 'TableColumnModel') continue;
+            const sub = c.subModels?.field as Record<string, unknown> | undefined;
+            const fp = (sub?.stepParams as Record<string, unknown> | undefined)?.fieldSettings as Record<string, unknown> | undefined;
+            const fpVal = (fp?.init as Record<string, unknown> | undefined)?.fieldPath as string | undefined;
+            if (fpVal) {
+              fieldStates[fpVal] = { wrapper: c.uid, field: sub?.uid as string | undefined };
+            }
+          }
+          const { deployClickToOpen } = await import('./fillers/click-to-open');
+          const fCtx: DeployContext = { nb, log, force: false };
+          const popupContext = { seenColls: new Set([collName]) };
+          await deployClickToOpen(fCtx, content as any, collName, fieldStates, tplDir, {}, popupContext);
+        }
+      }
+    } catch (e) { log(`    . template post-save fixups: ${e instanceof Error ? e.message.slice(0, 80) : e}`); }
 
     return { templateUid, targetUid };
   } finally {

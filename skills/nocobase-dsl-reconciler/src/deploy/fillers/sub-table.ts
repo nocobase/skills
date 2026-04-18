@@ -99,22 +99,66 @@ export async function applySubTableFields(
       continue;
     }
 
-    // Step 1: switch the field model class to PatternFormFieldModel.
-    // flowModels:save upserts by uid; preserving existing parentId so the
-    // form item still owns it as `subModels.field`.
+    // Step 1a: keep the field model class as-is (RecordSelectFieldModel —
+    // NocoBase's default for o2m/m2m) and add `fieldBinding.use =
+    // SubTableFieldModel` to its stepParams. This is how CRM quotations
+    // items sub-table is configured — the field model class doesn't
+    // change, only the binding + the parent FormItem's editItemSettings.
     try {
+      const existingSp = (existingField?.stepParams || {}) as Record<string, unknown>;
+      const existingInit = (((existingSp.fieldSettings as Record<string, unknown>)?.init) || {}) as Record<string, unknown>;
+      const newSp = {
+        ...existingSp,
+        fieldBinding: { use: 'SubTableFieldModel' },
+        fieldSettings: {
+          init: {
+            dataSourceKey: 'main',
+            collectionName: coll,
+            fieldPath: stf.field,
+            ...existingInit,
+          },
+        },
+      };
       await nb.models.save({
         uid: fieldUid,
-        use: 'PatternFormFieldModel',
+        use: (existingField?.use as string) || 'RecordSelectFieldModel',
         parentId: item.uid,
         subKey: 'field',
         subType: 'object',
         sortIndex: 0,
-        stepParams: existingField?.stepParams || {},
+        stepParams: newSp,
         flowRegistry: existingField?.flowRegistry || {},
       });
     } catch (e) {
       log(`      ✗ subTable [${stf.field}]: switch model failed — ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+      continue;
+    }
+
+    // Step 1b: update the parent FormItem's stepParams with
+    // editItemSettings so NocoBase renders the sub-table widget instead
+    // of the default record picker. Need to preserve the rest of the
+    // FormItem's stepParams to avoid clobbering fieldSettings.init.
+    try {
+      const formItemSp = (item.stepParams || {}) as Record<string, unknown>;
+      const newFormItemSp = {
+        ...formItemSp,
+        editItemSettings: {
+          model: { use: 'SubTableFieldModel' },
+          showLabel: { showLabel: false },
+        },
+      };
+      await nb.models.save({
+        uid: item.uid as string,
+        use: (item.use as string) || 'FormItemModel',
+        parentId: item.parentId,
+        subKey: item.subKey || 'items',
+        subType: item.subType || 'array',
+        sortIndex: item.sortIndex || 0,
+        stepParams: newFormItemSp,
+        flowRegistry: (item.flowRegistry as Record<string, unknown>) || {},
+      });
+    } catch (e) {
+      log(`      ✗ subTable [${stf.field}]: FormItem editItemSettings save failed — ${e instanceof Error ? e.message.slice(0, 60) : e}`);
       continue;
     }
 
@@ -134,7 +178,14 @@ export async function applySubTableFields(
 
       const colUid = generateUid();
       const innerFieldUid = generateUid();
-      // Sub-table column wrapper
+      // Sub-table column wrapper.
+      // fieldSettings.init MUST include dataSourceKey + collectionName
+      // alongside fieldPath — NocoBase's SubTableFieldModel render flow
+      // validates `dataSourceKey` as required and throws
+      //   "dataSourceKey is a required parameter"
+      // in the browser otherwise, hiding the whole popup. Default to
+      // main; parent-table's collectionName identifies the sub-table
+      // relation.
       try {
         await nb.models.save({
           uid: colUid,
@@ -149,6 +200,8 @@ export async function applySubTableFields(
             },
             fieldSettings: {
               init: {
+                dataSourceKey: 'main',
+                collectionName: coll,
                 fieldPath: `${stf.field}.${childFieldName}`,
                 ...(childMetaEntry ? { interface: childInterface } : {}),
               },
@@ -160,7 +213,7 @@ export async function applySubTableFields(
         log(`      ✗ subTable [${stf.field}].${childFieldName}: column failed — ${e instanceof Error ? e.message.slice(0, 60) : e}`);
         continue;
       }
-      // Inner field model for the cell
+      // Inner field model for the cell — same dataSourceKey requirement.
       try {
         await nb.models.save({
           uid: innerFieldUid,
@@ -172,6 +225,8 @@ export async function applySubTableFields(
           stepParams: {
             fieldSettings: {
               init: {
+                dataSourceKey: 'main',
+                collectionName: coll,
                 fieldPath: `${stf.field}.${childFieldName}`,
                 interface: childInterface,
               },
