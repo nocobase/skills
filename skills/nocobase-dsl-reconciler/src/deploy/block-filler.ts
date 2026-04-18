@@ -308,14 +308,46 @@ export async function fillBlock(
   if (['list', 'gridCard'].includes(btype) && !gridUid) {
     try {
       const blockData = await nb.get({ uid: blockUid });
-      const listItem = blockData.tree.subModels?.item;
-      if (listItem && !Array.isArray(listItem)) {
-        const listGrid = (listItem as { subModels?: Record<string, unknown> }).subModels?.grid;
-        if (listGrid && !Array.isArray(listGrid)) {
-          itemGridUid = (listGrid as { uid: string }).uid;
-        }
+      const listItem = blockData.tree.subModels?.item as { uid?: string; subModels?: Record<string, unknown> } | undefined;
+      let listItemUid = listItem?.uid;
+      let listGrid = listItem?.subModels?.grid as { uid?: string } | undefined;
+
+      // Compose creates ListBlockModel but for popup-context list blocks
+      // sometimes skips the inner ListItemModel + grid scaffold. Without it
+      // NB has nothing to render — UI shows
+      // "Attempted a SELECT query for model 'X' without selecting any columns"
+      // and the JS items / fields the spec declares never have anywhere to land.
+      // Detect the gap and scaffold it before deployJsItems runs.
+      if (!listItemUid) {
+        const newItemUid = generateUid();
+        const newGridUid = generateUid();
+        await nb.models.save({
+          uid: newItemUid, use: 'ListItemModel',
+          parentId: blockUid, subKey: 'item', subType: 'object',
+          sortIndex: 1, stepParams: {}, flowRegistry: {},
+        });
+        await nb.models.save({
+          uid: newGridUid, use: 'DetailsGridModel',
+          parentId: newItemUid, subKey: 'grid', subType: 'object',
+          sortIndex: 1, stepParams: {}, flowRegistry: {},
+        });
+        listItemUid = newItemUid;
+        listGrid = { uid: newGridUid };
+        log(`      + list scaffold: ListItemModel + DetailsGridModel`);
+      } else if (!listGrid?.uid) {
+        // Item exists but no grid — rare, but handle the same way
+        const newGridUid = generateUid();
+        await nb.models.save({
+          uid: newGridUid, use: 'DetailsGridModel',
+          parentId: listItemUid, subKey: 'grid', subType: 'object',
+          sortIndex: 1, stepParams: {}, flowRegistry: {},
+        });
+        listGrid = { uid: newGridUid };
+        log(`      + list grid scaffold: DetailsGridModel`);
       }
-    } catch (e) { log(`      . list/gridCard grid read: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+
+      if (listGrid?.uid) itemGridUid = listGrid.uid;
+    } catch (e) { log(`      . list/gridCard scaffold: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
   }
   await deployJsItems(ctx, itemGridUid, bs, coll, mod, blockState, allBlocksState);
 
