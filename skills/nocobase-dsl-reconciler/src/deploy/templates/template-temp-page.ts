@@ -7,9 +7,9 @@
  * content). The template's targetUid lives in its own tree afterwards
  * and survives the temp page delete.
  */
-import type { NocoBaseClient } from '../client';
-import { generateUid } from '../utils/uid';
-import { catchSwallow } from '../utils/swallow';
+import type { NocoBaseClient } from '../../client';
+import { generateUid } from '../../utils/uid';
+import { catchSwallow } from '../../utils/swallow';
 
 export interface TempPage {
   routeId: number;

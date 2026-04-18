@@ -8,11 +8,11 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { NocoBaseClient } from '../client';
-import type { ModuleState } from '../types/state';
-import { loadYaml, dumpYaml } from '../utils/yaml';
-import { catchSwallow } from '../utils/swallow';
-import { routeKey, type RouteEntry } from './page-discovery';
+import type { NocoBaseClient } from '../../client';
+import type { ModuleState } from '../../types/state';
+import { loadYaml, dumpYaml } from '../../utils/yaml';
+import { catchSwallow } from '../../utils/swallow';
+import { routeKey, type RouteEntry } from '../page-discovery';
 
 /**
  * Remove duplicate pages (same title) within a group — keep the latest (highest id).

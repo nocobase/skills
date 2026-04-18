@@ -9,8 +9,8 @@
  *
  * Runs on every deploy (cheap — typically <100 stale rows per cycle).
  */
-import type { NocoBaseClient } from '../client';
-import { catchSwallow } from '../utils/swallow';
+import type { NocoBaseClient } from '../../client';
+import { catchSwallow } from '../../utils/swallow';
 
 export async function cleanStaleTemplateUsages(
   nb: NocoBaseClient,

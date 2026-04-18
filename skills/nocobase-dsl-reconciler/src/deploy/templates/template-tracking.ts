@@ -10,7 +10,7 @@
  * invocation. Callers never touch the Set directly — only the exported
  * functions.
  */
-import type { NocoBaseClient } from '../client';
+import type { NocoBaseClient } from '../../client';
 
 const _createdThisRun = new Set<string>();
 

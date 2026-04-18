@@ -7,10 +7,10 @@
  * - popupSettings.uid must point to field itself (NocoBase resolves field → page)
  * - See src/PITFALLS.md for complete list.
  */
-import type { DeployContext } from './deploy-context';
-import type { PopupSpec, BlockSpec } from '../types/spec';
-import type { BlockState } from '../types/state';
-import { deploySurface } from './surface-deployer';
+import type { DeployContext } from '../deploy-context';
+import type { PopupSpec, BlockSpec } from '../../types/spec';
+import type { BlockState } from '../../types/state';
+import { deploySurface } from '../surface-deployer';
 
 export interface PopupOpts {
   modDir: string;
@@ -131,7 +131,7 @@ export async function deployPopup(
             blocksState = extractLiveBlockState(tabArr, blocks);
           }
           if (Object.keys(blocksState).length) {
-            const { fillBlock } = await import('./block-filler');
+            const { fillBlock } = await import('../blocks/block-filler');
             for (const bs of blocks) {
               const key = bs.key || bs.type;
               const existing = blocksState[key];
@@ -144,7 +144,7 @@ export async function deployPopup(
             }
             // Apply layout
             if (popupLayout) {
-              const { parseLayoutSpec, applyLayout } = await import('../layout/layout-engine');
+              const { parseLayoutSpec, applyLayout } = await import('../../layout/layout-engine');
               const tg0 = (tabArr[0] as unknown as Record<string, unknown>).subModels as Record<string, unknown>;
               const gridUid = (tg0?.grid as Record<string, unknown>)?.uid as string || '';
               if (gridUid) {
@@ -271,7 +271,7 @@ async function ensureChildPageScaffold(
 ): Promise<string | undefined> {
   const { nb } = ctx;
   try {
-    const { generateUid } = await import('../utils/uid');
+    const { generateUid } = await import('../../utils/uid');
     const pageUid = generateUid();
     const tabUid = generateUid();
     const gridUid = generateUid();

@@ -17,7 +17,7 @@
  *   2. nameMap        by templateName (live templates by name)
  *   3. nameToTarget   fill missing targetUid from live template's own target
  */
-import type { PageInfo } from './page-discovery';
+import type { PageInfo } from '../page-discovery';
 import type { TemplateUidMap } from './template-deployer';
 
 type BlockLike = Record<string, unknown> & {

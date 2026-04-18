@@ -19,9 +19,9 @@
  * Cache modules keep their own reset exports for callers that only need
  * to clear one (e.g. a test that exercises only the m2o path).
  */
-import { resetM2oCache } from './block-filler';
+import { resetM2oCache } from './blocks/block-filler';
 import { resetPromotedPopupCache } from './fillers/click-to-open';
-import { resetTemplateCreationTracking } from './template-deployer';
+import { resetTemplateCreationTracking } from './templates/template-deployer';
 
 export function resetAllCaches(): void {
   resetM2oCache();

@@ -9,9 +9,9 @@
  * they were created on a temp page without popup context, so the target
  * block has no filterByTk binding by default).
  */
-import type { NocoBaseClient } from '../client';
-import type { ModuleState } from '../types/state';
-import { catchSwallow } from '../utils/swallow';
+import type { NocoBaseClient } from '../../client';
+import type { ModuleState } from '../../types/state';
+import { catchSwallow } from '../../utils/swallow';
 
 export async function ensurePopupBindings(
   nb: NocoBaseClient,

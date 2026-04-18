@@ -8,7 +8,7 @@
  * If edit/detail popups already exist (manually defined), skip derivation.
  * Pure function — no API calls.
  */
-import type { PopupSpec, BlockSpec } from '../types/spec';
+import type { PopupSpec, BlockSpec } from '../../types/spec';
 
 /**
  * Expand popup list: for every addNew popup, auto-derive edit + detail.

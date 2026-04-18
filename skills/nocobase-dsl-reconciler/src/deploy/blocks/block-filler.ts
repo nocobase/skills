@@ -9,14 +9,14 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { NocoBaseClient } from '../client';
-import type { DeployContext } from './deploy-context';
-import type { BlockSpec } from '../types/spec';
-import type { BlockState } from '../types/state';
-import { fixDisplayModels } from './display-model-fixer';
-import { ensureJsHeader, replaceJsUids } from '../utils/js-utils';
-import { generateUid } from '../utils/uid';
-import { catchSwallow } from '../utils/swallow';
+import type { NocoBaseClient } from '../../client';
+import type { DeployContext } from '../deploy-context';
+import type { BlockSpec } from '../../types/spec';
+import type { BlockState } from '../../types/state';
+import { fixDisplayModels } from '../display-model-fixer';
+import { ensureJsHeader, replaceJsUids } from '../../utils/js-utils';
+import { generateUid } from '../../utils/uid';
+import { catchSwallow } from '../../utils/swallow';
 import {
   deployClickToOpen,
   configureFilter,
@@ -29,7 +29,7 @@ import {
   applyFieldLayout,
   syncGridItemsOrder,
   applySubTableFields,
-} from './fillers';
+} from '../fillers';
 
 const RECORD_ACTION_BLOCKS = new Set(['details', 'list', 'gridCard']);
 const GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'filterForm', 'details']);

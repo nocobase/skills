@@ -26,18 +26,18 @@ import { buildGraph } from '../graph/graph-builder';
 import { slugify } from '../utils/slugify';
 import { ensureAllCollections } from './collection-deployer';
 import { deploySurface, type SurfaceOpts } from './surface-deployer';
-import { deployPopup, type PopupOpts } from './popup-deployer';
-import { expandPopups } from './popup-expander';
-import { deployTemplates, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
+import { deployPopup, type PopupOpts } from './popups/popup-deployer';
+import { expandPopups } from './popups/popup-expander';
+import { deployTemplates, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './templates/template-deployer';
 import { resetAllCaches } from './cache-manager';
 import { catchSwallow } from '../utils/swallow';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { rewriteWorkflowKeys, type WorkflowKeyMap } from './rewrite-workflow-keys';
-import { rewriteTemplateUids } from './template-uid-rewriter';
-import { ensurePopupBindings } from './popup-bindings';
-import { extractBlockState, buildPopupTargetFields } from './block-state-extractor';
-import { cleanupDuplicatePages, syncMenuOrder, syncRoutesYaml, enablePageTabs } from './route-lifecycle';
+import { rewriteTemplateUids } from './templates/template-uid-rewriter';
+import { ensurePopupBindings } from './popups/popup-bindings';
+import { extractBlockState, buildPopupTargetFields } from './blocks/block-state-extractor';
+import { cleanupDuplicatePages, syncMenuOrder, syncRoutesYaml, enablePageTabs } from './routes/route-lifecycle';
 import { verifySqlFromPages } from './sql-verifier';
 import { discoverPages, routeKey, type RouteEntry, type PageInfo } from './page-discovery';
 import { RefResolver } from '../refs';
@@ -459,7 +459,7 @@ export async function deployProject(
 
   // Re-run m2o popup binding on all page blocks (popup templates may not have existed during fillBlock)
   log(`\n  ── Post-deploy: m2o popup binding ──`);
-  const { enableM2oClickToOpen } = await import('./block-filler');
+  const { enableM2oClickToOpen } = await import('./blocks/block-filler');
   for (const [pageKey, pageState] of Object.entries(state.pages)) {
     const pageInfo = pages.find(p => p.key === pageKey);
     if (!pageInfo) continue;
@@ -505,7 +505,7 @@ export async function deployProject(
   // Persist UIDs created during this deploy so a future rollback can remove them.
   // We do NOT auto-delete here — a user's manually created template may be 0-usage
   // but legitimate. Cleanup happens only via explicit `rollback` CLI command.
-  const { listCreatedThisRun } = await import('./template-deployer');
+  const { listCreatedThisRun } = await import('./templates/template-deployer');
   const createdUids = listCreatedThisRun();
   if (createdUids.length) {
     (state as any)._last_deploy_created_templates = createdUids;

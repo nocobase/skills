@@ -22,13 +22,13 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { NocoBaseClient } from '../client';
-import type { DeployContext } from './deploy-context';
-import { loadYaml } from '../utils/yaml';
-import { generateUid } from '../utils/uid';
-import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
-import { toComposeBlock, COMPOSE_ACTIONS } from './block-composer';
-import { catchSwallow } from '../utils/swallow';
+import type { NocoBaseClient } from '../../client';
+import type { DeployContext } from '../deploy-context';
+import { loadYaml } from '../../utils/yaml';
+import { generateUid } from '../../utils/uid';
+import { BLOCK_TYPE_TO_MODEL } from '../../utils/block-types';
+import { toComposeBlock, COMPOSE_ACTIONS } from '../blocks/block-composer';
+import { catchSwallow } from '../../utils/swallow';
 
 interface TemplateIndex {
   uid: string;
@@ -286,8 +286,8 @@ async function syncTemplateContent(
       if (newGridUid) {
         const fieldLayout = content.field_layout as unknown[];
         if (fieldLayout?.length) {
-          const { deployDividers } = await import('./fillers/divider-filler');
-          const { applyFieldLayout } = await import('./fillers/field-layout');
+          const { deployDividers } = await import('../fillers/divider-filler');
+          const { applyFieldLayout } = await import('../fillers/field-layout');
           const fCtx: DeployContext = { nb, log, force: false };
           await deployDividers(fCtx, newGridUid, content as any, {}, modDir);
           await applyFieldLayout(fCtx, newGridUid, fieldLayout, content as any);
@@ -302,8 +302,8 @@ async function syncTemplateContent(
     if (gridUid) {
       const fieldLayout = content.field_layout as unknown[];
       if (fieldLayout?.length) {
-        const { deployDividers } = await import('./fillers/divider-filler');
-        const { applyFieldLayout } = await import('./fillers/field-layout');
+        const { deployDividers } = await import('../fillers/divider-filler');
+        const { applyFieldLayout } = await import('../fillers/field-layout');
         const fCtx: DeployContext = { nb, log, force: false };
         await deployDividers(fCtx, gridUid, content as any, {}, modDir);
         await applyFieldLayout(fCtx, gridUid, fieldLayout, content as any);
@@ -339,7 +339,7 @@ async function applyTemplateSubTables(
   const coll = content.coll as string | undefined;
   if (!coll) return;
   try {
-    const { applySubTableFields } = await import('./fillers/sub-table');
+    const { applySubTableFields } = await import('../fillers/sub-table');
     const ctx = { nb, log, force: false } as DeployContext;
     await applySubTableFields(ctx, blockUid, coll, content as any);
   } catch (e) {
@@ -372,7 +372,7 @@ async function applyTemplateExtras(
   const eventFlows = content.event_flows as Record<string, unknown>[] | undefined;
   if (Array.isArray(eventFlows) && eventFlows.length) {
     try {
-      const { deployEventFlows } = await import('./fillers/event-flow-filler');
+      const { deployEventFlows } = await import('../fillers/event-flow-filler');
       const fCtx: DeployContext = { nb, log, force: false };
       await deployEventFlows(fCtx, targetUid, { event_flows: eventFlows } as any, '');
       log(`${indent}~ event_flows: ${eventFlows.length} flows`);
@@ -394,7 +394,7 @@ async function applyTemplateExtras(
   });
   if (hasNonComposable && modDir) {
     try {
-      const { deployActions } = await import('./fillers/action-filler');
+      const { deployActions } = await import('../fillers/action-filler');
       const fCtx: DeployContext = { nb, log, force: false };
       await deployActions(fCtx, targetUid, content as any, {} as any, modDir);
       log(`${indent}~ actions: synced non-composable (ai / link / export / ...)`);
@@ -773,7 +773,7 @@ export async function deployTemplates(
     const deployed = deployedTemplates[stateKey];
     if (!deployed?.targetUid) continue;
     try {
-      const { enableM2oClickToOpen } = await import('./block-filler');
+      const { enableM2oClickToOpen } = await import('../blocks/block-filler');
       await enableM2oClickToOpen(nb, deployed.targetUid, collName, path.dirname(tplFile), log);
     } catch (e) { catchSwallow(e, 'skip'); }
   }
@@ -851,8 +851,8 @@ async function createBlockTemplate(
         const formGridUid = (gridNode as Record<string, unknown>)?.uid as string || '';
         if (formGridUid) {
           // Deploy dividers first
-          const { deployDividers } = await import('./fillers/divider-filler');
-          const { applyFieldLayout } = await import('./fillers/field-layout');
+          const { deployDividers } = await import('../fillers/divider-filler');
+          const { applyFieldLayout } = await import('../fillers/field-layout');
           const fCtx: DeployContext = { nb, log, force: false };
           await deployDividers(fCtx, formGridUid, content as any, {}, tplDir);
           // Apply layout
@@ -948,7 +948,7 @@ async function createBlockTemplate(
               fieldStates[fpVal] = { wrapper: c.uid, field: sub?.uid as string | undefined };
             }
           }
-          const { deployClickToOpen } = await import('./fillers/click-to-open');
+          const { deployClickToOpen } = await import('../fillers/click-to-open');
           const fCtx: DeployContext = { nb, log, force: false };
           const popupContext = { seenColls: new Set([collName]) };
           await deployClickToOpen(fCtx, content as any, collName, fieldStates, tplDir, {}, popupContext);

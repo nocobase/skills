@@ -15,9 +15,9 @@
  * field/recordAction paths from popup specs, used by fillers to skip
  * auto-generated defaults when the DSL already describes the popup.
  */
-import type { BlockSpec, PopupSpec } from '../types/spec';
-import type { BlockState } from '../types/state';
-import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
+import type { BlockSpec, PopupSpec } from '../../types/spec';
+import type { BlockState } from '../../types/state';
+import { BLOCK_TYPE_TO_MODEL } from '../../utils/block-types';
 
 export function extractBlockState(
   liveTab: Record<string, unknown>,

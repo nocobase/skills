@@ -11,7 +11,7 @@ import { validate, verifySql, expandPopups } from '../../deploy';
 import { ensureAllCollections } from '../../deploy/collection-deployer';
 import { createDeployContext } from '../../deploy/deploy-context';
 import { deploySurface } from '../../deploy/surface-deployer';
-import { deployPopup } from '../../deploy/popup-deployer';
+import { deployPopup } from '../../deploy/popups/popup-deployer';
 import { reorderTableColumns } from '../../deploy/column-reorder';
 import { postVerify } from '../../deploy/post-verify';
 import { scaffold } from '../../deploy/scaffold';
@@ -218,7 +218,7 @@ export async function cmdRollback(args: string[]) {
 
   if (uids?.length) {
     console.log(`Rolling back ${uids.length} templates created by last deploy…`);
-    const { deleteTemplatesByUid } = await import('../../deploy/template-deployer');
+    const { deleteTemplatesByUid } = await import('../../deploy/templates/template-deployer');
     await deleteTemplatesByUid(nb, uids, console.log);
     delete (state as unknown as Record<string, unknown>)._last_deploy_created_templates;
     saveYaml(stateFile, state);
