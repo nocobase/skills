@@ -1192,6 +1192,21 @@ function buildRoutesTree(
   filterGroup?: string,
   existingKeyByTitle: Map<string, string> = new Map(),
 ): Record<string, unknown>[] {
+  // NocoBase's desktopRoutes:list?tree=true returns children in insertion
+  // order, NOT in `sort` ASC. The UI re-sorts client-side, so the user sees
+  // a different order than the API array produces. If we export in API
+  // array order, routes.yaml records the WRONG order — and any downstream
+  // consumer (duplicate-project, push's sort assignment) propagates the
+  // error. Sort every level by `sort` ASC before iterating.
+  const sortBySort = (list: RouteInfo[] | undefined): RouteInfo[] => {
+    if (!Array.isArray(list) || !list.length) return list || [];
+    const copy = [...list].sort((a, b) => (a.sort ?? Infinity) - (b.sort ?? Infinity));
+    for (const n of copy) {
+      if (Array.isArray(n.children) && n.children.length) n.children = sortBySort(n.children);
+    }
+    return copy;
+  };
+  routes = sortBySort(routes);
   const result: Record<string, unknown>[] = [];
   const seenTitles = new Set<string>();
 
