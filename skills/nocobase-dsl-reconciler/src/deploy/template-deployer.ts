@@ -39,85 +39,18 @@ interface TemplateIndex {
   file: string;
 }
 
-// Track template UIDs created during the current deploy run.
-// Stored in state.yaml._last_deploy_created_templates so the `rollback` CLI
-// command can remove them later. We do NOT auto-delete — a freshly created
-// template may be 0-usage legitimately (user hand-built a library).
-const _createdThisRun = new Set<string>();
-export function resetTemplateCreationTracking(): void { _createdThisRun.clear(); }
-export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
-export function listCreatedThisRun(): string[] { return Array.from(_createdThisRun); }
-
-/** Delete the given template UIDs from NocoBase. Used by `rollback` CLI. */
-export async function deleteTemplatesByUid(
-  nb: NocoBaseClient,
-  uids: string[],
-  log: (msg: string) => void,
-): Promise<{ deleted: number; failed: number }> {
-  let deleted = 0, failed = 0;
-  for (const uid of uids) {
-    try {
-      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
-      deleted++;
-    } catch { failed++; }
-  }
-  log(`  rollback: deleted ${deleted} templates, ${failed} failed`);
-  return { deleted, failed };
-}
-
-/**
- * Drop flowModelTemplateUsages rows whose modelUid no longer exists.
- *
- * NocoBase bug: when a flowModel is destroyed, its usage records in
- * flowModelTemplateUsages are NOT cascade-deleted. Those rows keep the
- * template's usageCount artificially elevated, blocking later destroy
- * attempts with "Template is in use". This routine walks the usages
- * table and removes records pointing at dead flowModels.
- *
- * Runs on every deploy (cheap — typically <100 stale rows per cycle).
- */
-export async function cleanStaleTemplateUsages(
-  nb: NocoBaseClient,
-  log: (msg: string) => void,
-): Promise<{ cleaned: number; usageRecords: number }> {
-  try {
-    // Page through all usages
-    const usages: any[] = [];
-    for (let p = 1; p <= 10; p++) {
-      const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, { params: { pageSize: 1000, page: p } });
-      const d = r.data.data || [];
-      usages.push(...d);
-      if (d.length < 1000) break;
-    }
-    if (!usages.length) return { cleaned: 0, usageRecords: 0 };
-
-    // Collect live flowModel UIDs in one pass (only what's referenced)
-    const referencedUids = new Set(usages.map((u: any) => u.modelUid as string));
-    const liveUids = new Set<string>();
-    // Ask NocoBase for each chunk — but since we don't have batch-by-uid,
-    // we just fetch all model uids which is manageable (~few thousand after cleanup)
-    for (let p = 1; p <= 10; p++) {
-      const r = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, { params: { pageSize: 5000, page: p, fields: 'uid' } });
-      const d = r.data.data || [];
-      for (const n of d) if (referencedUids.has(n.uid)) liveUids.add(n.uid);
-      if (d.length < 5000) break;
-    }
-
-    const stale = usages.filter((u: any) => !liveUids.has(u.modelUid));
-    let cleaned = 0;
-    for (const u of stale) {
-      try {
-        await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:destroy`, {}, { params: { filterByTk: u.uid } });
-        cleaned++;
-      } catch (e) { catchSwallow(e, 'skip'); }
-    }
-    if (cleaned) log(`  cleanup: removed ${cleaned} stale template usage records (NocoBase cascade bug)`);
-    return { cleaned, usageRecords: usages.length };
-  } catch (e) {
-    log(`  ! cleanup usages: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-    return { cleaned: 0, usageRecords: 0 };
-  }
-}
+// Template tracking, bulk delete, and stale-usage cleanup live in sibling
+// modules — re-exported here so existing importers (project-deployer, cli
+// rollback) don't have to change their import paths.
+export {
+  resetTemplateCreationTracking,
+  trackCreatedTemplate,
+  listCreatedThisRun,
+  deleteTemplatesByUid,
+} from './template-tracking';
+import { trackCreatedTemplate } from './template-tracking';
+export { cleanStaleTemplateUsages } from './template-cleanup';
+import { createTempPage, deleteTempPage } from './template-temp-page';
 
 interface ExistingTemplate {
   uid: string;
@@ -1094,64 +1027,6 @@ async function registerTemplateManually(
     return { templateUid: createdUid, targetUid };
   }
   return undefined;
-}
-
-// ── Temp page lifecycle ──
-
-interface TempPage {
-  routeId: number;
-  pageUid: string;
-  tabUid: string;
-  gridUid: string;
-}
-
-/**
- * Create a temporary hidden page for composing template content.
- * Returns page info needed for compose and cleanup.
- */
-async function createTempPage(
-  nb: NocoBaseClient,
-): Promise<TempPage | undefined> {
-  try {
-    // Create a hidden menu item
-    const menu = await nb.surfaces.createMenu({
-      title: `_tpl_temp_${generateUid(6)}`,
-      type: 'item',
-      icon: 'fileoutlined',
-    });
-
-    // Create the page surface
-    const page = await nb.surfaces.createPage(menu.routeId);
-
-    return {
-      routeId: menu.routeId,
-      pageUid: page.pageUid,
-      tabUid: page.tabSchemaUid,
-      gridUid: page.gridUid,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Delete a temporary page and its route.
- */
-async function deleteTempPage(
-  nb: NocoBaseClient,
-  tempPage: TempPage,
-): Promise<void> {
-  try {
-    // Delete the route (cascades to page content)
-    await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:destroy`, {
-      filterByTk: tempPage.routeId,
-    });
-  } catch {
-    // Best-effort cleanup — don't fail the template deploy
-    try {
-      await nb.surfaces.destroyPage(tempPage.pageUid);
-    } catch (e) { catchSwallow(e, 'ignore'); }
-  }
 }
 
 // ── Matching helpers ──
