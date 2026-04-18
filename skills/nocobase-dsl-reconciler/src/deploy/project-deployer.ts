@@ -28,19 +28,19 @@ import { ensureAllCollections } from './collection-deployer';
 import { deploySurface, type SurfaceOpts } from './surface-deployer';
 import { deployPopup, type PopupOpts } from './popup-deployer';
 import { expandPopups } from './popup-expander';
-import { deployTemplates, convertPopupToTemplate, resetTemplateCreationTracking, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
+import { deployTemplates, resetTemplateCreationTracking, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
 import { resetM2oCache } from './block-filler';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { verifySqlFromPages } from './sql-verifier';
-import { discoverPages, type RouteEntry, type PageInfo } from './page-discovery';
+import { discoverPages, routeKey, type RouteEntry, type PageInfo } from './page-discovery';
 import { RefResolver } from '../refs';
 import { pageToBlueprint } from './blueprint-converter';
 import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 
 export async function deployProject(
   projectDir: string,
-  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean; copyMode?: boolean } = {},
+  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean; incremental?: boolean } = {},
   log: (msg: string) => void = console.log,
 ): Promise<void> {
   const root = path.resolve(projectDir);
@@ -49,6 +49,12 @@ export async function deployProject(
   const routesFile = path.join(root, 'routes.yaml');
   if (!fs.existsSync(routesFile)) throw new Error(`routes.yaml not found in ${root}`);
   const routes = loadYaml<RouteEntry[]>(routesFile);
+
+  // Pollution guard: if templates/ is wildly larger than pages/, the source
+  // was probably an unscoped pull from a multi-project NocoBase. Pushing
+  // would mass-create unrelated templates. Warn loudly.
+  const { warnIfPolluted } = await import('../duplicate/duplicate-project');
+  warnIfPolluted(root, log);
 
   // Normalize: default type = flowPage (group if has children)
   const normalizeRoutes = (entries: RouteEntry[]) => {
@@ -82,6 +88,7 @@ export async function deployProject(
         title: (coll.title as string) || name,
         titleField: (coll.titleField as string) || undefined,
         fields: (coll.fields as CollectionDef['fields']) || [],
+        triggers: (coll.triggers as CollectionDef['triggers']) || undefined,
       };
     }
   }
@@ -135,7 +142,7 @@ export async function deployProject(
   if (hasError) { log('\n  Validation failed'); process.exit(1); }
 
   // ── Spec validation (runs before connect — pure YAML checks) ──
-  if (!opts.copyMode) {
+  {
     const { validatePageSpecs } = await import('./spec-validator');
     const specIssues = validatePageSpecs(pages, root);
     const specErrors = specIssues.filter(i => i.level === 'error');
@@ -160,6 +167,23 @@ export async function deployProject(
     log(`  ⚠ ${graphStats.cycles} circular popup references detected — deploy will stop at cycle boundary`);
   }
   log(`  Graph: ${graphStats.nodes} nodes, ${graphStats.edges} edges`);
+
+  // Incremental scope (computed once, used by both --plan preview and the
+  // actual deploy below). state.yaml may not exist yet — peek at it.
+  let incScope: import('./incremental').IncrementalScope | null = null;
+  if (opts.incremental) {
+    const peekStateFile = path.join(root, 'state.yaml');
+    const peekState: Record<string, unknown> = fs.existsSync(peekStateFile)
+      ? loadYaml<Record<string, unknown>>(peekStateFile) : {};
+    const { computeIncrementalScope } = await import('./incremental');
+    incScope = computeIncrementalScope(root, peekState.last_deployed_sha as string | undefined);
+    log(`  ${incScope.reason}`);
+    if (!incScope.full && incScope.pages) {
+      const matched = pages.filter(p => incScope!.pages!.has(p.key));
+      log(`  incremental preview: ${matched.length}/${pages.length} page(s) would deploy`);
+      if (matched.length) log(`    [${[...incScope.pages].slice(0, 8).join(', ')}${incScope.pages.size > 8 ? ', ...' : ''}]`);
+    }
+  }
 
   if (opts.planOnly) {
     // Generate _refs.yaml in plan mode too
@@ -194,91 +218,109 @@ export async function deployProject(
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
 
-  // In copy mode, state.yaml comes from the SOURCE module's export — its UIDs
-  // refer to the original blocks/fields, not the copy. Resolving popup refs
-  // against those UIDs causes 400s ("flowModels:get <stale-uid> → 200" with
-  // empty body) because we'd be POSTing to non-existent UIDs. Wipe all
-  // identity state so the deploy creates fresh routes/groups/pages/popups.
-  // Keep template_uids — those are tracked separately and survive copies.
-  if (opts.copyMode) {
-    state.pages = {};
-    state.group_id = undefined;
-    state.group_ids = {};
-    // Sub-group keys are dynamic: `_subgroup_<slug>` — strip them too.
-    for (const k of Object.keys(state)) {
-      if (k.startsWith('_subgroup_')) delete (state as Record<string, unknown>)[k];
+  // ── Incremental scope (opt-in via --incremental) ──
+  // Use the scope computed earlier (during plan preview). When NOTHING
+  // changed (no pages, no collections, no templates, no workflows),
+  // short-circuit entirely.
+  let activePages = pages;
+  if (incScope && !incScope.full && incScope.pages) {
+    activePages = pages.filter(p => incScope!.pages!.has(p.key));
+    const nothingChanged = !activePages.length
+      && !incScope.collections?.size
+      && !incScope.templates?.size
+      && !incScope.workflows?.size;
+    if (nothingChanged) {
+      log('  ✓ no DSL changes — skipping all deploy phases');
+      const { getCurrentSha } = await import('./incremental');
+      const sha = getCurrentSha(root);
+      if (sha) (state as Record<string, unknown>).last_deployed_sha = sha;
+      saveYaml(stateFile, state);
+      log('  State saved. Done.');
+      return;
     }
+    log(`  incremental: deploying ${activePages.length}/${pages.length} page(s)`);
   }
 
-  // Collections (skip if deploying single page — safety)
-  if (!opts.page) {
-    await ensureAllCollections(nb, collDefs, log);
+  // (removed) copy-mode state reset. Use `cli duplicate-project` to produce
+  // a DSL with fresh UIDs + no state.yaml; deploy then creates everything
+  // from scratch without any runtime state-rewriting.
+
+  // Collections (skip when single-page deploy; with incremental, narrow to
+  // changed collections only).
+  const skipCollPhase = incScope ? !incScope.collections?.size : false;
+  if (!opts.page && !skipCollPhase) {
+    const collFilter = incScope?.collections && !incScope.full ? incScope.collections : undefined;
+    if (collFilter) {
+      log(`  incremental: ${collFilter.size} collection(s) targeted: ${[...collFilter].slice(0, 6).join(', ')}${collFilter.size > 6 ? ', ...' : ''}`);
+    }
+    await ensureAllCollections(nb, collDefs, log, collFilter);
+  } else if (skipCollPhase) {
+    log('  ✓ collections phase skipped (no collections/*.yaml changes)');
   }
 
   // Deploy templates (before pages, so popupTemplateUid can be mapped)
   let templateUidMap: TemplateUidMap = new Map();
   let pendingPopups: PendingPopupTemplate[] = [];
-  if (!opts.page) {
-    const tplResult = await deployTemplates(nb, root, log, ctx.copyMode, state.template_uids);
+  const skipTpl = incScope ? !incScope.templates?.size : false;
+  if (!opts.page && !skipTpl) {
+    const tplResult = await deployTemplates(nb, root, log, state.template_uids);
     templateUidMap = tplResult.uidMap;
     pendingPopups = tplResult.pendingPopupTemplates;
     // Persist template UIDs to state for next deploy
     state.template_uids = { ...(state.template_uids || {}), ...tplResult.deployedTemplates } as typeof state.template_uids;
     saveYaml(stateFile, state);
-  }
-
-  // For pending popup templates: expand their content inline into the first referencing popup
-
-  // Build name→uid map from live templates for ref: blocks without UIDs
-  let templateNameMap = new Map<string, string>();
-  try {
-    const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 200 } });
-    for (const t of resp.data?.data || []) {
-      if (t.name && t.uid) templateNameMap.set(t.name, t.uid);
-    }
-  } catch { /* skip */ }
-
-  // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
-  rewriteTemplateUids(pages, templateUidMap, templateNameMap);
-
-  // Routes + pages
-  // --group overrides the target title (e.g. deploy "Main" pages as "CRM Copy").
-  // When source has multiple top-level entries, --group becomes a prefix to keep them
-  // uniquely named (e.g. "CRM Copy - Main", "CRM Copy - Other") rather than flattening.
-  // Applied to both groups and top-level flowPages for consistent namespacing.
-  const needsPrefix = routes.length > 1;
-  const computeTargetTitle = (sourceTitle: string): string => {
-    if (!opts.group) return sourceTitle;
-    return needsPrefix ? `${opts.group} - ${sourceTitle}` : opts.group;
-  };
-  state.group_ids = state.group_ids || {};
-  const deployedGroups = new Set<string>();
-  for (const routeEntry of routes) {
-    if (routeEntry.type === 'group') {
-      if (deployedGroups.has(routeEntry.title)) continue;
-      deployedGroups.add(routeEntry.title);
-      const targetTitle = computeTargetTitle(routeEntry.title);
-      const targetEntry = { ...routeEntry, title: targetTitle };
-      // Swap state.group_id to the per-source-group id so deployGroup reuses correct id
-      state.group_id = state.group_ids[routeEntry.title];
-      await deployGroup(ctx, targetEntry, pages, state, root, opts.blueprint || false);
-      if (state.group_id) state.group_ids[routeEntry.title] = state.group_id;
-    } else if (routeEntry.type === 'flowPage') {
-      const pageInfo = pages.find(p => p.title === routeEntry.title);
-      if (pageInfo) {
-        // Apply prefix to title in copy mode so we get a unique page name
-        const targetTitle = computeTargetTitle(routeEntry.title);
-        const targetPageInfo = targetTitle === pageInfo.title
-          ? pageInfo
-          : { ...pageInfo, title: targetTitle };
-        await deployOnePage(ctx, targetPageInfo, state, null);
+  } else if (skipTpl) {
+    log('  ✓ templates phase skipped (no templates/ changes)');
+    // Reuse previously persisted template UIDs so page deploy can still resolve refs
+    if (state.template_uids) {
+      for (const [k, v] of Object.entries(state.template_uids)) {
+        templateUidMap.set(k, v as string);
       }
     }
   }
 
+  // For pending popup templates: expand their content inline into the first referencing popup
+
+  // Build name→{uid,targetUid} map from live templates so DSL `ref:` blocks
+  // that omit `uid`/`targetUid` (freshly authored templates with only `name`)
+  // can still be wired up to the right live template at deploy time.
+  const templateNameMap = new Map<string, string>();
+  const templateNameToTarget = new Map<string, string>();
+  try {
+    const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 200 } });
+    for (const t of resp.data?.data || []) {
+      if (t.name && t.uid) templateNameMap.set(t.name, t.uid);
+      if (t.name && t.targetUid) templateNameToTarget.set(t.name, t.targetUid);
+    }
+  } catch { /* skip */ }
+
+  // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
+  rewriteTemplateUids(pages, templateUidMap, templateNameMap, templateNameToTarget);
+
+  // Routes + pages.
+  // DSL is the source of truth — title controls display, key controls identity.
+  // `--group <key>` filters to a single top-level route subtree.
+  state.group_ids = state.group_ids || {};
+  const deployedKeys = new Set<string>();
+  for (const routeEntry of routes) {
+    const rkey = routeKey(routeEntry);
+    if (opts.group && rkey !== opts.group) continue;
+    if (routeEntry.type === 'group') {
+      if (deployedKeys.has(rkey)) continue;
+      deployedKeys.add(rkey);
+      // Swap state.group_id to the per-route group id so deployGroup reuses the correct id
+      state.group_id = state.group_ids[rkey];
+      await deployGroup(ctx, routeEntry, activePages, state, root, opts.blueprint || false);
+      if (state.group_id) state.group_ids[rkey] = state.group_id;
+    } else if (routeEntry.type === 'flowPage') {
+      const pageInfo = activePages.find(p => p.key === rkey);
+      if (pageInfo) await deployOnePage(ctx, pageInfo, state, null);
+    }
+  }
+
   // Final column reorder
-  for (const p of pages) {
-    const pageKey = slugify(p.title);
+  for (const p of activePages) {
+    const pageKey = p.key;
     const pageState = state.pages[pageKey];
     for (const bs of p.layout.blocks || []) {
       if (bs.type !== 'table') continue;
@@ -292,6 +334,13 @@ export async function deployProject(
     }
   }
 
+  // Capture HEAD SHA so the next --incremental push can compute a diff.
+  if (opts.incremental) {
+    const { getCurrentSha } = await import('./incremental');
+    const sha = getCurrentSha(root);
+    if (sha) (state as Record<string, unknown>).last_deployed_sha = sha;
+  }
+
   // Save state
   saveYaml(stateFile, state);
   log('\n  State saved. Done.');
@@ -300,7 +349,7 @@ export async function deployProject(
   const allPopups = pages.flatMap(p =>
     p.popups.map(ps => ({
       ...ps,
-      target: ps.target.replace('$SELF', `$${slugify(p.title)}`),
+      target: ps.target.replace('$SELF', `$${p.key}`),
     })),
   );
   const structure: StructureSpec = { module: path.basename(root), collections: collDefs, pages: pages.map(p => p.layout) };
@@ -316,66 +365,12 @@ export async function deployProject(
     for (const w of pv.warnings) log(`  💡 ${w}`);
   }
 
-  // Convert all inline popups to popup templates (one by one)
-  {
-    // Per-page block→coll map: popup target's collection often differs from
-    // the page's primary collection (e.g. overview's today_s_tasks block is
-    // nb_crm_activities while overview's primary is nb_crm_leads). Without
-    // per-block resolution every popup on the page would be tagged as the
-    // page's coll → cross-collection template contamination.
-    const pageBlockColls = new Map<string, Map<string, string>>();
-    const pageCollMap = new Map<string, string>();
-    for (const pi of pages) {
-      const blocks = (pi.layout as any)?.blocks || [];
-      const blockMap = new Map<string, string>();
-      let firstColl = '';
-      for (const b of blocks) {
-        if (b?.key && b?.coll) blockMap.set(b.key, b.coll);
-        if (b?.coll && !firstColl) firstColl = b.coll;
-      }
-      pageBlockColls.set(pi.slug, blockMap);
-      if (firstColl) pageCollMap.set(pi.slug, firstColl);
-    }
-
-    // In copy mode: build the set of block template UIDs this project owns.
-    // Only these may be used for nested ReferenceBlockModel bindings inside popups,
-    // preventing cross-group coupling (CRM Copy reusing Main's block templates).
-    const allowedBlockTemplateUids: Set<string> | undefined = opts.copyMode
-      ? new Set(Object.values(state.template_uids || {}).filter(t => t.type === 'block').map(t => t.uid))
-      : undefined;
-
-    for (const [pageKey, ps] of Object.entries(state.pages)) {
-      const pageColl = pageCollMap.get(pageKey) || '';
-      const blockColls = pageBlockColls.get(pageKey) || new Map<string, string>();
-      if (!pageColl) continue;
-      const popups = ((ps as Record<string, unknown>).popups || {}) as Record<string, Record<string, unknown>>;
-      for (const [popupKey, popupState] of Object.entries(popups)) {
-        const targetUid = popupState.target_uid as string;
-        if (!targetUid) continue;
-        // Derive template name from popup key
-        const popupType = popupKey.includes('.actions.addNew') ? 'Add new'
-          : popupKey.includes('.recordActions.edit') ? 'Edit'
-          : popupKey.includes('.fields.') ? 'Detail' : null;
-        if (!popupType) continue;
-        // Resolve THIS popup's collection from the source block, not the page.
-        const blockName = popupKey.split('.')[0];
-        const popupColl = blockColls.get(blockName) || pageColl;
-        const collTitle = popupColl.replace(/^nb_\w+_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        const tplName = `Popup (${popupType}): ${collTitle}`;
-        const stateKey = `popup:${tplName}`;
-        const savedPopupUid = state.template_uids?.[stateKey]?.uid;
-        try {
-          const tplResult = await convertPopupToTemplate(nb, targetUid, tplName, popupColl, log, opts.copyMode || false, savedPopupUid, allowedBlockTemplateUids);
-          if (tplResult) {
-            if (!state.template_uids) state.template_uids = {};
-            state.template_uids[stateKey] = { uid: tplResult.templateUid, targetUid: tplResult.targetUid, type: 'popup', collection: popupColl };
-          }
-        } catch { /* skip */ }
-      }
-    }
-    // Persist popup template UIDs to state.yaml for next re-deploy
-    saveYaml(stateFile, state);
-  }
+  // (removed) Runtime convertPopupToTemplate loop. Was used in --copy mode to
+  // auto-promote inline popups into shared templates with per-deploy UIDs.
+  // Replaced by explicit DSL transformation: use `cli duplicate-project` to
+  // produce an isolated DSL with new UIDs, then `cli push` deploys it as-is.
+  // Inline popups stay inline; templated popups stay templated; conversion
+  // (when needed) is an offline DSL operation, not runtime magic.
 
   // Ensure popup template blocks have binding: 'currentRecord' (for edit/detail popups)
   await ensurePopupBindings(nb, state, log);
@@ -384,7 +379,7 @@ export async function deployProject(
   log(`\n  ── Post-deploy: m2o popup binding ──`);
   const { enableM2oClickToOpen } = await import('./block-filler');
   for (const [pageKey, pageState] of Object.entries(state.pages)) {
-    const pageInfo = pages.find(p => slugify(p.title) === pageKey);
+    const pageInfo = pages.find(p => p.key === pageKey);
     if (!pageInfo) continue;
     const blockColl = pageInfo.layout?.coll as string || '';
 
@@ -423,7 +418,7 @@ export async function deployProject(
   // then runs verify-data as a separate validation pass.
 
   // Set menu sortIndex to match routes.yaml declaration order
-  await syncMenuOrder(nb, state, routes, log, computeTargetTitle);
+  await syncMenuOrder(nb, state, routes, log);
 
   // Persist UIDs created during this deploy so a future rollback can remove them.
   // We do NOT auto-delete here — a user's manually created template may be 0-usage
@@ -436,18 +431,6 @@ export async function deployProject(
     delete (state as any)._last_deploy_created_templates;
   }
 
-  // Cumulative tracking — every template UID this tool has ever created in
-  // this project, across all deploys. cleanupSupersededTemplates uses this
-  // to identify templates safe to delete (ours from prior runs that the
-  // current deploy no longer references). Keep it bounded to the union of
-  // (existing list) ∪ (this run's creations); never includes user-created
-  // templates because we don't track those.
-  const allCreated = new Set(((state as any)._all_created_templates as string[]) || []);
-  for (const u of createdUids) allCreated.add(u);
-  for (const v of Object.values(state.template_uids || {})) {
-    if (v?.uid) allCreated.add(v.uid);
-  }
-  (state as any)._all_created_templates = Array.from(allCreated);
   saveYaml(stateFile, state);
 
   // Auto-clean stale flowModelTemplateUsages rows. This is the NocoBase bug
@@ -456,13 +439,28 @@ export async function deployProject(
   // when nothing is stale), so runs unconditionally to keep the DB tidy.
   await cleanStaleTemplateUsages(nb, log);
 
-  // Auto-sync: re-export deployed groups to keep local files in sync with live state.
-  // Sync each top-level group (source title → target title via computeTargetTitle).
-  for (const r of routes) {
-    if (r.type !== 'group') continue;
-    const targetTitle = computeTargetTitle(r.title);
-    await syncRoutesYaml(nb, root, r.title, targetTitle, log);
+  // Workflows are part of "everything pushable" per PHILOSOPHY (push is the
+  // full DSL→NB sync). Without this, users had to remember to run a separate
+  // `cli deploy-workflows` after every push, and forgetting silently dropped
+  // the workflow side of a duplicated module.
+  const skipWf = incScope ? !incScope.workflows?.size : false;
+  if (skipWf) {
+    log('  ✓ workflows phase skipped (no workflows/ changes)');
+  } else if (fs.existsSync(path.join(root, 'workflows'))) {
+    try {
+      const { deployWorkflows } = await import('../workflow/workflow-deployer');
+      log('\n  ── Workflows ──');
+      await deployWorkflows(nb, root, { log });
+    } catch (e) {
+      log(`  ! workflows: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+    }
   }
+
+  // (removed) Auto-sync routes.yaml from live state. Push is one-way DSL→NB
+  // per PHILOSOPHY.md — overwriting the DSL with mid-deploy state has bitten
+  // us when a push is killed and the partial sync truncates routes.yaml,
+  // making the next push deploy LESS than the previous. Use `cli pull` to
+  // explicitly reconcile from live.
 
   // Rebuild graph + _refs.yaml after sync
   try {
@@ -581,26 +579,36 @@ function extractBlockState(
  *   1. templateRef.templateUid — block reference specs
  *   2. popupSettings.popupTemplateUid — field popup specs
  */
-function rewriteTemplateUids(pages: PageInfo[], uidMap: TemplateUidMap, nameMap: Map<string, string> = new Map()): void {
+function rewriteTemplateUids(
+  pages: PageInfo[],
+  uidMap: TemplateUidMap,
+  nameMap: Map<string, string> = new Map(),
+  nameToTarget: Map<string, string> = new Map(),
+): void {
   for (const page of pages) {
-    rewriteInBlocks(page.layout.blocks || [], uidMap, nameMap);
+    rewriteInBlocks(page.layout.blocks || [], uidMap, nameMap, nameToTarget);
     if (page.layout.tabs) {
       for (const tab of page.layout.tabs) {
-        rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap);
+        rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
       }
     }
     for (const popup of page.popups) {
-      rewriteInBlocks((popup as any).blocks || [], uidMap, nameMap);
+      rewriteInBlocks((popup as any).blocks || [], uidMap, nameMap, nameToTarget);
       if ((popup as any).tabs) {
         for (const tab of (popup as any).tabs) {
-          rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap);
+          rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
         }
       }
     }
   }
 }
 
-function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<string, string> = new Map()): void {
+function rewriteInBlocks(
+  blocks: any[],
+  uidMap: TemplateUidMap,
+  nameMap: Map<string, string> = new Map(),
+  nameToTarget: Map<string, string> = new Map(),
+): void {
   for (const block of blocks) {
     // Case 1: templateRef (reference blocks)
     if (block.templateRef) {
@@ -619,10 +627,18 @@ function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<str
         const byName = nameMap.get(block._refName);
         if (byName) block.templateRef.templateUid = byName;
       }
-      // Rewrite targetUid
+      // Rewrite targetUid (DSL-declared)
       if (block.templateRef.targetUid) {
         const newTarget = uidMap.get(block.templateRef.targetUid);
         if (newTarget) block.templateRef.targetUid = newTarget;
+      }
+      // If targetUid still missing but we know the templateName, fill it from
+      // the live template. Required for fresh ref blocks (no uid in DSL): the
+      // reference block needs a targetUid to mirror, otherwise NocoBase shows
+      // an empty card.
+      if (!block.templateRef.targetUid && block.templateRef.templateName) {
+        const byName = nameToTarget.get(block.templateRef.templateName);
+        if (byName) block.templateRef.targetUid = byName;
       }
       delete block._refName;
       delete block._refColl;
@@ -648,7 +664,7 @@ function rewriteInBlocks(blocks: any[], uidMap: TemplateUidMap, nameMap: Map<str
 
     // Recurse into nested blocks (tabs, popups)
     if (Array.isArray(block.blocks)) {
-      rewriteInBlocks(block.blocks, uidMap);
+      rewriteInBlocks(block.blocks, uidMap, nameMap, nameToTarget);
     }
     if (Array.isArray(block.tabs)) {
       for (const tab of block.tabs) {
@@ -679,6 +695,8 @@ async function deployGroup(
       const existingGroup = (liveRoutes.data.data || []).find((r: any) => r.type === 'group' && r.title === routeEntry.title);
       if (existingGroup) {
         state.group_id = existingGroup.id;
+        log(`  ⚠ group "${routeEntry.title}" already exists in NocoBase — adopting it (state was empty for key "${routeKey(routeEntry)}").`);
+        log(`     If this DSL is meant to be SEPARATE from that live group, change the title in routes.yaml or use a different key.`);
         log(`  = group: ${routeEntry.title} (found existing)`);
       } else {
         const result = await nb.createGroup(routeEntry.title, routeEntry.icon || 'appstoreoutlined');
@@ -695,11 +713,11 @@ async function deployGroup(
     for (let ci = 0; ci < children.length; ci++) {
       const child = children[ci];
       if (child.type === 'flowPage') {
-        const pageInfo = pages.find(p => p.title === child.title);
+        const pageInfo = pages.find(p => p.key === routeKey(child));
         if (pageInfo) {
           await deployPageBlueprint(ctx, pageInfo, state, state.group_id!, routeEntry.title);
           // Set sortIndex to match declaration order
-          const pageKey = slugify(pageInfo.title);
+          const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
           if (routeId) {
             await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -707,7 +725,7 @@ async function deployGroup(
           saveYaml(stateFile, state);
         }
       } else if (child.type === 'group') {
-        const subGroupKey = `_subgroup_${slugify(child.title)}`;
+        const subGroupKey = `_subgroup_${routeKey(child)}`;
         let subGroupId = (state as unknown as Record<string, unknown>)[subGroupKey] as number | undefined;
         if (!subGroupId) {
           const result = await nb.createGroup(child.title, child.icon || 'folderoutlined', state.group_id!);
@@ -722,11 +740,11 @@ async function deployGroup(
         const subChildren = child.children || [];
         for (let si = 0; si < subChildren.length; si++) {
           const sc = subChildren[si];
-          const pageInfo = pages.find(p => p.title === sc.title);
+          const pageInfo = pages.find(p => p.key === routeKey(sc));
           if (pageInfo) {
             await deployPageBlueprint(ctx, pageInfo, state, subGroupId, child.title);
             // Set sortIndex on sub-group child
-            const pageKey = slugify(pageInfo.title);
+            const pageKey = pageInfo.key;
             const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
             if (routeId) {
               await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -745,6 +763,8 @@ async function deployGroup(
     const existingGroup = (liveRoutes.data.data || []).find((r: any) => r.type === 'group' && r.title === routeEntry.title);
     if (existingGroup) {
       state.group_id = existingGroup.id;
+      log(`  ⚠ group "${routeEntry.title}" already exists in NocoBase — adopting it (state was empty for key "${routeKey(routeEntry)}").`);
+      log(`     If this DSL is meant to be SEPARATE from that live group, change the title in routes.yaml or use a different key.`);
       log(`  = group: ${routeEntry.title} (found existing)`);
     } else {
       const result = await nb.createGroup(routeEntry.title, routeEntry.icon || 'appstoreoutlined');
@@ -765,7 +785,7 @@ async function deployGroup(
       if (pageInfo) {
         await deployOnePage(ctx, pageInfo, state, state.group_id!);
         // Set sortIndex to match declaration order
-        const pageKey = slugify(pageInfo.title);
+        const pageKey = pageInfo.key;
         const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
         if (routeId) {
           await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: ci + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -773,7 +793,7 @@ async function deployGroup(
         saveYaml(legacyStateFile, state);
       }
     } else if (child.type === 'group') {
-      const subGroupKey = `_subgroup_${slugify(child.title)}`;
+      const subGroupKey = `_subgroup_${routeKey(child)}`;
       let subGroupId = (state as unknown as Record<string, unknown>)[subGroupKey] as number | undefined;
       if (!subGroupId) {
         const result = await nb.createGroup(child.title, child.icon || 'folderoutlined', state.group_id!);
@@ -792,7 +812,7 @@ async function deployGroup(
         if (pageInfo) {
           await deployOnePage(ctx, pageInfo, state, subGroupId);
           // Set sortIndex on sub-group child
-          const pageKey = slugify(pageInfo.title);
+          const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
           if (routeId) {
             await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, { sortIndex: si + 1 }, { params: { 'filter[id]': routeId } }).catch(() => {});
@@ -811,7 +831,7 @@ async function deployOnePage(
   parentRouteId: number | null,
 ): Promise<void> {
   const { nb, log } = ctx;
-  const pageKey = slugify(pageInfo.title);
+  const pageKey = pageInfo.key;
   let pageState = state.pages[pageKey];
 
   if (!pageState?.tab_uid) {
@@ -1008,7 +1028,7 @@ async function deployPageBlueprint(
   groupTitle: string,
 ): Promise<void> {
   const { nb, log } = ctx;
-  const pageKey = slugify(pageInfo.title);
+  const pageKey = pageInfo.key;
   let pageState = state.pages[pageKey];
 
   // Always check live routes for existing page — prevents duplicates on repeated deploy
@@ -1190,6 +1210,13 @@ async function deployPagePopups(
 
   const expanded = expandPopups(pageInfo.popups, pageInfo.layout.blocks || []);
 
+  // Derive page-level coll for popups that have no coll of their own.
+  // page.yaml lacks a top-level coll; the primary collection lives on
+  // layout.blocks[0].coll (the main table/form/details block).
+  const pageColl = (pageInfo.layout?.coll as string | undefined)
+    || (pageInfo.layout?.blocks as Array<{ coll?: string }> | undefined)?.find(b => b?.coll)?.coll
+    || undefined;
+
   // Write back auto-derived popups to disk so AI can see and edit them next round
   const popupsDir = path.join(pageInfo.dir, 'popups');
   for (const ps of expanded) {
@@ -1222,7 +1249,7 @@ async function deployPagePopups(
     const pp = targetRef.split('.').pop() || '';
     const popupKey = targetRef.replace(`$${pageKey}.`, '');
     const existingPopupBlocks = pageState.popups?.[popupKey]?.blocks || {};
-    const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks });
+    const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks, pageColl });
     if (Object.keys(popupBlocks).length) {
       pageState.popups[popupKey] = { target_uid: targetUid, blocks: popupBlocks };
       state.pages[pageKey] = pageState;
@@ -1286,7 +1313,7 @@ async function deployPagePopups(
       const pp = targetRef.split('.').pop() || '';
       const popupKey2 = targetRef.replace(`$${pageKey}.`, '');
       const existingPopupBlocks2 = pageState.popups?.[popupKey2]?.blocks || {};
-      const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks: existingPopupBlocks2 });
+      const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks: existingPopupBlocks2, pageColl });
       if (Object.keys(popupBlocks).length) {
         pageState.popups[popupKey2] = { target_uid: targetUid, blocks: popupBlocks };
       }
@@ -1359,7 +1386,6 @@ async function syncMenuOrder(
   state: ModuleState,
   routes: RouteEntry[],
   log: (msg: string) => void,
-  computeTargetTitle: (sourceTitle: string) => string = (t) => t,
 ): Promise<void> {
   try {
     const groupEntries = routes.filter(r => r.type === 'group');
@@ -1383,16 +1409,11 @@ async function syncMenuOrder(
     for (const groupEntry of groupEntries) {
       if (!groupEntry.children?.length) continue;
 
-      // Find live group by state route_id match or title match
-      let liveGroup = liveGroups.find((g: any) => {
-        for (const [, ps] of Object.entries(state.pages)) {
-          const pg = ps as Record<string, unknown>;
-          if (pg.route_id && g.children?.some((c: any) => c.id === pg.route_id)) return true;
-        }
-        return false;
-      });
-      const targetTitle = computeTargetTitle(groupEntry.title);
-      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === targetTitle);
+      // Prefer matching by state.group_ids[key] (stable across title changes), fall back to title.
+      const gKey = routeKey(groupEntry);
+      const stateGroupId = state.group_ids?.[gKey];
+      let liveGroup = stateGroupId ? liveGroups.find((g: any) => g.id === stateGroupId) : undefined;
+      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === groupEntry.title);
       if (!liveGroup?.children?.length) continue;
 
       const liveChildren = liveGroup.children as { id: number; title: string; type: string; sortIndex?: number; children?: any[] }[];
@@ -1419,30 +1440,31 @@ async function syncMenuOrder(
 }
 
 /**
- * For copy mode (Main -> CRM Copy), this syncs back from CRM Copy so spec
- * reflects the actual deployed state. Source template (Main) is unaffected.
- * Only routes.yaml is updated; use explicit `export-project` for full sync.
+ * Re-sync the deployed group's children/icons back into routes.yaml so the
+ * file stays in step with what's actually live. Identity is matched by `key`
+ * (= route.key || slugify(title)), so titles can change freely without
+ * losing the entry.
  */
 async function syncRoutesYaml(
   nb: NocoBaseClient,
   root: string,
-  sourceTitle: string,
-  targetTitle: string,
+  routeEntry: RouteEntry,
   log: (msg: string) => void,
 ): Promise<void> {
   try {
     nb.routes.clearCache();
     const liveRoutes = await nb.routes.list();
 
-    // Find the deployed group in live routes (matched by deployed/target title)
-    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === targetTitle);
-    if (!liveGroup) { log(`\n  routes.yaml sync: group "${targetTitle}" not found in live`); return; }
+    // Match live group by stored title (DSL is source of truth for naming).
+    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === routeEntry.title);
+    if (!liveGroup) { log(`\n  routes.yaml sync: group "${routeEntry.title}" not found in live`); return; }
 
-    // Build updated entry from live state — but preserve the original source title
-    // in the YAML file so repeated deploys don't drift (target title is only what
-    // appears in NocoBase, source file must remain canonical).
-    const buildEntry = (r: any): Record<string, unknown> => {
-      const entry: Record<string, unknown> = { title: r.title };
+    // Build updated entry from live state. Preserve declared key so identity
+    // is stable regardless of how the title changes later.
+    const buildEntry = (r: any, declaredKey: string | undefined, declaredTitle?: string): Record<string, unknown> => {
+      const entry: Record<string, unknown> = {};
+      if (declaredKey) entry.key = declaredKey;
+      entry.title = declaredTitle ?? r.title;
       if (r.type === 'group') entry.type = 'group';
       if (r.icon) entry.icon = r.icon;
       const seenChildren = new Set<string>();
@@ -1478,15 +1500,17 @@ async function syncRoutesYaml(
       return entry;
     };
 
-    // Read existing routes.yaml, update only the deployed group entry
+    // Read existing routes.yaml, update only the matching group entry by key.
     const routesFile = path.join(root, 'routes.yaml');
     let existing: Record<string, unknown>[] = [];
     try { existing = loadYaml<Record<string, unknown>[]>(routesFile) || []; } catch { /* fresh */ }
 
-    const updatedEntry = buildEntry(liveGroup);
-    // Restore source title at top level (target title only lives in NocoBase)
-    updatedEntry.title = sourceTitle;
-    const idx = existing.findIndex(e => e.title === sourceTitle && e.type === 'group');
+    const ourKey = routeKey(routeEntry);
+    const updatedEntry = buildEntry(liveGroup, routeEntry.key, routeEntry.title);
+    const idx = existing.findIndex(e => {
+      const er = e as { key?: string; title?: string; type?: string };
+      return routeKey({ key: er.key, title: er.title || '' }) === ourKey && er.type === 'group';
+    });
     if (idx >= 0) {
       existing[idx] = updatedEntry;
     } else {

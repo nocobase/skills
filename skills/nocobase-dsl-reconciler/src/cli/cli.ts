@@ -32,6 +32,32 @@ import type { ModuleState, PageState } from '../types/state';
 import type { EnhanceSpec } from '../types/spec';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const WORKSPACE_ROOT = path.resolve(
+  process.env.NB_WORKSPACE_ROOT || path.join(__dirname, '..', '..', 'workspaces'),
+);
+
+/**
+ * Resolve a project-dir argument. Relative paths attach to WORKSPACE_ROOT.
+ * Absolute paths must already be inside WORKSPACE_ROOT.
+ * Throws if the resolved path escapes the root.
+ */
+function resolveWorkspacePath(arg: string): string {
+  const abs = path.isAbsolute(arg) ? path.resolve(arg) : path.resolve(WORKSPACE_ROOT, arg);
+  const rel = path.relative(WORKSPACE_ROOT, abs);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(
+      `Path "${arg}" is outside workspace root.\n`
+      + `  Workspace: ${WORKSPACE_ROOT}\n`
+      + `  Resolved:  ${abs}\n`
+      + `Set NB_WORKSPACE_ROOT to override, or pass a path inside the workspace.`,
+    );
+  }
+  return abs;
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -39,7 +65,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: deploy, deploy-project, rollback, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
+    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, scaffold, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
     process.exit(1);
   }
 
@@ -55,9 +81,6 @@ async function main() {
       break;
     case 'scaffold':
       cmdScaffold(args.slice(1));
-      break;
-    case 'seed':
-      await cmdSeed(args.slice(1));
       break;
     case 'verify-data':
       await cmdVerifyData(args.slice(1));
@@ -95,6 +118,18 @@ async function main() {
     case 'compare':
       await cmdCompare(args.slice(1));
       break;
+    case 'duplicate-project':
+      await cmdDuplicateProject(args.slice(1));
+      break;
+    case 'push':
+      await cmdDeployProject(args.slice(1));
+      break;
+    case 'pull':
+      await cmdExportProject(args.slice(1));
+      break;
+    case 'diff':
+      await cmdCompare(args.slice(1));
+      break;
     default:
       console.error(`Unknown command: ${command}`);
       process.exit(1);
@@ -102,8 +137,9 @@ async function main() {
 }
 
 async function cmdDeploy(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts deploy <dir> [--force] [--plan]'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts deploy <dir> [--force] [--plan]'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
 
@@ -135,7 +171,7 @@ async function cmdDeploy(args: string[]) {
   await ensureAllCollections(nb, structure.collections || {});
 
   // State
-  const mod = path.resolve(modDir);
+  const mod = modDir;
   const stateFile = path.join(mod, 'state.yaml');
   const state: ModuleState = fs.existsSync(stateFile)
     ? loadYaml<ModuleState>(stateFile)
@@ -232,8 +268,9 @@ async function cmdDeploy(args: string[]) {
 }
 
 async function cmdVerifySql(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts verify-sql <dir>'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts verify-sql <dir>'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
 
   const nb = await NocoBaseClient.create();
   const result = await verifySql(modDir, nb);
@@ -249,8 +286,9 @@ async function cmdVerifySql(args: string[]) {
 
 async function cmdExport(args: string[]) {
   const pageTitle = args[0];
-  const outDir = args[1];
-  if (!pageTitle || !outDir) { console.error('Usage: cli.ts export <page-title> <outdir>'); process.exit(1); }
+  const outDirArg = args[1];
+  if (!pageTitle || !outDirArg) { console.error('Usage: cli.ts export <page-title> <outdir>'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
 
   const nb = await NocoBaseClient.create();
   const routes = await nb.routes.list();
@@ -294,62 +332,32 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-project <dir> [--force] [--plan] [--group X] [--page X] [--blueprint] [--copy]'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X] [--incremental]\n\n  --group <key>     Deploy only the route subtree whose key matches.\n  --incremental     Skip pages whose DSL files have not changed since the last\n                    push (uses git diff vs state.last_deployed_sha; falls back\n                    to full push when not in git or sha missing).'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
-  const copyMode = args.includes('--copy');
+  const incremental = args.includes('--incremental');
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const pageIdx = args.indexOf('--page');
   const page = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
 
-  const absDir = path.resolve(dir);
+  const absDir = resolveWorkspacePath(dir);
 
-  // ── Git detection (always — sync is mandatory for git repos) ──
-  let isGit = false;
-  let mainBranch = '';
+  // Optional pre-deploy git snapshot (rollback point) — only if it's a git
+  // repo. We deliberately do NOT auto-export the live state, do NOT create
+  // worktrees, do NOT auto-cleanup templates. Push deploys; pull (separate
+  // command) re-imports; user runs `git diff` to see what changed.
   if (!planOnly) {
     const { execSync } = await import('node:child_process');
     try {
       execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
-      mainBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
-      isGit = !!mainBranch;
-    } catch { /* not a git repo — skip all git operations */ }
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+      if (branch) await gitSnapshot(absDir, branch);
+    } catch { /* not a git repo — skip */ }
   }
 
-  const targetGroup = group || autoDetectGroup(absDir);
-
-  // ── Step 1: Pre-deploy ──
-  if (isGit) {
-    if (targetGroup && fs.existsSync(path.join(absDir, 'state.yaml'))) {
-      // Incremental deploy: export live state first (capture UI changes)
-      await preDeployExport(absDir, targetGroup, mainBranch);
-    } else {
-      // First deploy: just snapshot local YAML
-      await gitSnapshot(absDir, mainBranch);
-    }
-  }
-
-  // ── Step 2: Deploy ──
-  await deployProject(absDir, { force, planOnly, group, page, blueprint, copyMode });
-  if (planOnly) return;
-
-  // ── Step 3: Post-deploy sync (export + diff — mandatory for git repos) ──
-  if (isGit && targetGroup) {
-    await deploySyncWorktree(absDir, targetGroup, mainBranch);
-  }
-
-  // ── Step 4: Conservative cleanup — ONLY popup + block templates that
-  // PRIOR deploys created (tracked in state) but the CURRENT deploy no
-  // longer references. Does NOT touch flowModels, user-created templates,
-  // or anything outside this tool's tracking scope.
-  if (!planOnly) {
-    try {
-      const nb = await NocoBaseClient.create();
-      await cleanupSupersededTemplates(nb, absDir);
-    } catch (e) { console.log('  ! cleanup: ' + (e instanceof Error ? e.message.slice(0, 80) : e)); }
-  }
+  await deployProject(absDir, { force, planOnly, group, page, blueprint, incremental });
 }
 
 /**
@@ -363,7 +371,7 @@ async function cmdRollback(args: string[]) {
   const dir = args[0];
   const clean = args.includes('--clean');  // also prune orphan flowModels + stale usage records
   if (!dir) { console.error('Usage: cli.ts rollback <project-dir> [--clean]'); process.exit(1); }
-  const absDir = path.resolve(dir);
+  const absDir = resolveWorkspacePath(dir);
   const stateFile = path.join(absDir, 'state.yaml');
   if (!fs.existsSync(stateFile)) { console.error(`state.yaml not found in ${absDir}`); process.exit(1); }
   const state = loadYaml<ModuleState>(stateFile);
@@ -386,51 +394,6 @@ async function cmdRollback(args: string[]) {
   }
 
   console.log('Rollback done.');
-}
-
-/**
- * Conservative post-deploy cleanup: delete only popup + block templates
- * that THIS tool created in prior deploys (tracked in
- * state._all_created_templates) and that the CURRENT deploy no longer
- * references (i.e. dropped from state.template_uids).
- *
- * Does NOT touch:
- *   - flowModels (only templates)
- *   - templates user created via UI (we never tracked them)
- *   - templates from other modules / current deploy's active set
- *
- * The cumulative tracking lives in state.yaml — populated by deployTemplates
- * + convertPopupToTemplate via trackCreatedTemplate(). Each new template UID
- * gets appended; superseded UIDs drop out of state.template_uids on the next
- * deploy (because deployTemplates rewrites that map by template name+coll).
- */
-async function cleanupSupersededTemplates(nb: NocoBaseClient, absDir: string): Promise<void> {
-  const stateFile = path.join(absDir, 'state.yaml');
-  if (!fs.existsSync(stateFile)) return;
-  const state = loadYaml<Record<string, unknown>>(stateFile);
-  const all = (state._all_created_templates as string[]) || [];
-  if (!all.length) return;
-
-  const inUse = new Set<string>();
-  const tplUids = state.template_uids as Record<string, { uid: string }> | undefined;
-  if (tplUids) for (const v of Object.values(tplUids)) if (v?.uid) inUse.add(v.uid);
-
-  const orphans = all.filter(uid => !inUse.has(uid));
-  if (!orphans.length) return;
-
-  console.log('\n  ── Cleanup superseded templates ──');
-  let deleted = 0;
-  for (const uid of orphans) {
-    try {
-      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
-      deleted++;
-    } catch { /* template may already be gone or have lingering usages */ }
-  }
-  // Compact the cumulative list — keep only ones still alive (still in use OR
-  // failed to delete this round).
-  state._all_created_templates = all.filter(uid => inUse.has(uid) || !orphans.includes(uid));
-  saveYaml(stateFile, state);
-  console.log(`  deleted ${deleted}/${orphans.length} superseded popup/block templates`);
 }
 
 /**
@@ -575,12 +538,16 @@ async function preDeployExport(absDir: string, group: string, mainBranch: string
   if (!fs.existsSync(path.join(absDir, 'state.yaml'))) return;
 
   try {
-    // Commit any pending local changes first (rollback point)
-    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
-    const localStatus = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    // Snapshot the project subtree only — never the whole git repo. Without
+    // the path scope, `git add -A` would also commit unrelated edits in
+    // src/ (the tool source) under "pre-deploy snapshot", coupling tool
+    // development to deployment side-effects.
+    const projectName = path.basename(absDir);
+    execSync(`git add -A -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' });
+    const localStatus = execSync(`git status --porcelain -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' }).toString().trim();
     if (localStatus) {
-      execSync('git commit -m "pre-deploy snapshot"', { cwd: absDir, stdio: 'pipe' });
-      console.log('  git: pre-deploy snapshot saved');
+      execSync(`git commit -m "pre-deploy snapshot: ${projectName}" -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' });
+      console.log(`  git: pre-deploy snapshot saved (${projectName})`);
     }
 
     // Export live state to worktree
@@ -734,8 +701,9 @@ async function deploySyncWorktree(absDir: string, group: string, mainBranch: str
 }
 
 async function cmdGraph(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts graph <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts graph <project-dir>'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
 
   const { buildGraph } = await import('../graph/graph-builder');
   const { saveYaml } = await import('../utils/yaml');
@@ -771,9 +739,9 @@ async function cmdGraph(args: string[]) {
 }
 
 function cmdScaffold(args: string[]) {
-  const dir = args[0];
+  const dirArg = args[0];
   const name = args[1];
-  if (!dir || !name) {
+  if (!dirArg || !name) {
     console.error('Usage: cli.ts scaffold <dir> <module-name> [--pages P1,P2,...] [--collections C1,C2,...]');
     console.error('\nOptions:');
     console.error('  --pages        Comma-separated page names (default: Dashboard,Main)');
@@ -801,12 +769,17 @@ function cmdScaffold(args: string[]) {
   } else {
     pages = ['Dashboard', 'Main'];
   }
+  const dir = resolveWorkspacePath(dirArg);
   scaffold(dir, name, pages, collections);
 }
 
 async function cmdExportProject(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-project <outdir> [--group "Main"]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) {
+    console.error('Usage: cli.ts pull <outdir> [--group <key-or-title>]\n\n  --group <key>  Scope the pull to one route subtree. Without it, pull dumps\n                 every collection / template / page from NocoBase — fine for a\n                 fresh export, dangerous when you want a small project copy\n                 (templates from unrelated systems will get pulled too).');
+    process.exit(1);
+  }
+  const outDir = resolveWorkspacePath(outDirArg);
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
@@ -814,8 +787,9 @@ async function cmdExportProject(args: string[]) {
 }
 
 async function cmdSync(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts sync <dir> [--page <name>]'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts sync <dir> [--page <name>]'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
   const pageIdx = args.indexOf('--page');
   const pageFilter = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
@@ -823,8 +797,9 @@ async function cmdSync(args: string[]) {
 }
 
 async function cmdExportAcl(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-acl <outdir> [--roles role1,role2]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) { console.error('Usage: cli.ts export-acl <outdir> [--roles role1,role2]'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
   const rolesIdx = args.indexOf('--roles');
   const roles = rolesIdx >= 0 && args[rolesIdx + 1] ? args[rolesIdx + 1].split(',').map(s => s.trim()) : undefined;
   const nb = await NocoBaseClient.create();
@@ -832,16 +807,18 @@ async function cmdExportAcl(args: string[]) {
 }
 
 async function cmdDeployAcl(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-acl <project-dir> [--dry-run]'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts deploy-acl <project-dir> [--dry-run]'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
   const dryRun = args.includes('--dry-run');
   const nb = await NocoBaseClient.create();
   await deployAcl(nb, dir, console.log, { dryRun });
 }
 
 async function cmdExportWorkflows(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-workflows <outdir> [--enabled] [--type X] [--title-pattern X]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) { console.error('Usage: cli.ts export-workflows <outdir> [--enabled] [--type X] [--title-pattern X]'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
   const nb = await NocoBaseClient.create();
   const filter: Record<string, unknown> = {};
   if (args.includes('--enabled')) filter.enabled = true;
@@ -853,30 +830,64 @@ async function cmdExportWorkflows(args: string[]) {
 }
 
 async function cmdDeployWorkflows(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-workflows <project-dir> [--copy]'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts deploy-workflows <project-dir> [--copy]'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
   const copyMode = args.includes('--copy');
   const nb = await NocoBaseClient.create();
   await deployWorkflows(nb, dir, { copyMode });
 }
 
 async function cmdCompare(args: string[]) {
-  const left = args[0];
-  const right = args[1];
-  if (!left || !right) { console.error('Usage: cli.ts compare <source-dir> <live-dir> [--copy-group <slug>]'); process.exit(1); }
+  const leftArg = args[0];
+  const rightArg = args[1];
+  if (!leftArg || !rightArg) { console.error('Usage: cli.ts compare <source-dir> <live-dir> [--copy-group <slug>]'); process.exit(1); }
+  const left = resolveWorkspacePath(leftArg);
+  const right = resolveWorkspacePath(rightArg);
   const slugIdx = args.indexOf('--copy-group');
   const copyGroupSlug = slugIdx >= 0 ? args[slugIdx + 1] : undefined;
   const { compareProjects, printCompareResult } = await import('../diff/compare');
-  const result = compareProjects(path.resolve(left), path.resolve(right), copyGroupSlug);
+  const result = compareProjects(left, right, copyGroupSlug);
   printCompareResult(result);
   if (result.differing.length || result.onlyInLeft.length || result.onlyInRight.length) {
     process.exit(2);
   }
 }
 
+async function cmdDuplicateProject(args: string[]) {
+  const srcArg = args[0];
+  const dstArg = args[1];
+  if (!srcArg || !dstArg) {
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--collection-suffix _v2] [--force]\n\n  --key-suffix         Append to every route key so the duplicate is a separate identity.\n  --title-prefix       Prepend to every top-level title so push won\'t adopt a same-titled live group.\n  --collection-suffix  Rename every collection (and trigger SQL refs) — produces TRULY independent\n                       data. Without it, v2 shares the source\'s tables.\n\n  Recommended for isolated duplicate: all three.');
+    process.exit(1);
+  }
+  const src = resolveWorkspacePath(srcArg);
+  const dst = resolveWorkspacePath(dstArg);
+  const sufIdx = args.indexOf('--key-suffix');
+  const keySuffix = sufIdx >= 0 ? args[sufIdx + 1] : undefined;
+  const tpIdx = args.indexOf('--title-prefix');
+  const titlePrefix = tpIdx >= 0 ? args[tpIdx + 1] : undefined;
+  const csIdx = args.indexOf('--collection-suffix');
+  const collectionSuffix = csIdx >= 0 ? args[csIdx + 1] : undefined;
+  const force = args.includes('--force');
+  const { duplicateProject } = await import('../duplicate/duplicate-project');
+  const tags = [
+    keySuffix && `key: ${keySuffix}`,
+    titlePrefix && `title: ${titlePrefix}`,
+    collectionSuffix && `coll: ${collectionSuffix}`,
+  ].filter(Boolean).join(', ');
+  console.log(`\n  Duplicating ${src} → ${dst}${tags ? ` (${tags})` : ''}`);
+  const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, collectionSuffix, force });
+  console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
+  if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
+  console.log(`\n  Next: cd ${dst} && git init && git add -A && git commit -m "duplicate"`);
+  console.log(`  Then: cli push ${dst} --force`);
+}
+
 function cmdValidateWorkflows(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts validate-workflows <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts validate-workflows <project-dir>'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
 
   const wfBaseDir = path.join(dir, 'workflows');
   if (!fs.existsSync(wfBaseDir)) {
@@ -920,20 +931,11 @@ function cmdValidateWorkflows(args: string[]) {
 }
 
 async function cmdVerifyData(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
   const { verifyData } = await import('./verify-data');
-  const result = await verifyData(path.resolve(dir));
+  const result = await verifyData(resolveWorkspacePath(dirArg));
   if (result.failed > 0) process.exit(1);
-}
-
-async function cmdSeed(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.log('Usage: seed <project-dir> [--count N]'); process.exit(1); }
-  const countIdx = args.indexOf('--count');
-  const count = countIdx >= 0 ? parseInt(args[countIdx + 1], 10) : 5;
-  const { seedData } = await import('./seed');
-  await seedData(path.resolve(dir), { count });
 }
 
 main().catch(e => { console.error(e.message || e); process.exit(1); });

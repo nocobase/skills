@@ -58,8 +58,8 @@ export interface TemplateState {
 }
 
 export interface ModuleState {
-  group_id?: number;
-  group_ids?: Record<string, number>;  // keyed by SOURCE group title, for multi-group projects
-  pages: Record<string, PageState>;
+  group_id?: number;                           // current group being deployed (mutable cursor)
+  group_ids?: Record<string, number>;          // keyed by route.key (= route.key || slugify(title))
+  pages: Record<string, PageState>;            // keyed by route.key, NOT title
   template_uids?: Record<string, TemplateState>;  // key = "type:name" e.g. "block:Form: Tasks"
 }

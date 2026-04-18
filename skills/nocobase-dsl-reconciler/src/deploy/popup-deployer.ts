@@ -16,6 +16,13 @@ export interface PopupOpts {
   modDir: string;
   popupPath?: string;
   existingPopupBlocks?: Record<string, BlockState>;
+  /**
+   * Fallback collection name when popupSpec has no coll (and no
+   * blocks/tabs[0].coll either). Used for "empty action shell" popups
+   * (addNew, send_email, etc.) so the openView still binds to the
+   * host page's collection rather than ''.
+   */
+  pageColl?: string;
 }
 
 /**
@@ -29,29 +36,32 @@ export async function deployPopup(
   opts: PopupOpts,
 ): Promise<Record<string, BlockState>> {
   const { nb, log } = ctx;
-  const { modDir, popupPath = '', existingPopupBlocks = {} } = opts;
+  const { modDir, popupPath = '', existingPopupBlocks = {}, pageColl } = opts;
   const mode = popupSpec.mode || 'drawer';
-  const coll = popupSpec.coll || '';
   const tabsSpec = popupSpec.tabs;
+  // popupSpec.coll is rarely set explicitly; fall back to the first block's coll
+  // (covers both flat blocks[] and tabs[].blocks[]) then the host page's coll.
+  // Without this the openView ends up with collectionName='' and renders broken.
+  const coll = popupSpec.coll
+    || popupSpec.blocks?.[0]?.coll
+    || tabsSpec?.[0]?.blocks?.[0]?.coll
+    || pageColl
+    || '';
+  if (!coll) {
+    log(`  ⚠ popup [${targetRef}] has no coll — openView.collectionName will be empty`);
+  }
 
   // If popup uses a template reference, just set it — no compose needed
   const popupTemplate = (popupSpec as unknown as Record<string, unknown>).popupTemplate as { uid: string; name?: string } | undefined;
   if (popupTemplate?.uid) {
     log(`  = popup [${targetRef}] (template: ${popupTemplate.name || popupTemplate.uid})`);
-    if (ctx.copyMode) {
-      try {
-        await nb.updateModel(targetUid, {
-          popupSettings: { openView: { popupTemplateUid: popupTemplate.uid, mode } },
-          displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-        });
-      } catch (e) {
-        log(`    ! popup template set: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      }
-    } else {
+    try {
       await nb.updateModel(targetUid, {
         popupSettings: { openView: { popupTemplateUid: popupTemplate.uid, mode } },
         displayFieldSettings: { clickToOpen: { clickToOpen: true } },
       });
+    } catch (e) {
+      log(`    ! popup template set: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
     }
     return {};
   }
@@ -179,21 +189,14 @@ export async function deployPopup(
   if (needsRecordContext) {
     openViewSettings.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
   }
-  if (ctx.copyMode) {
-    try {
-      await nb.updateModel(targetUid, {
-        popupSettings: { openView: openViewSettings },
-        displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-      });
-    } catch (e) {
-      log(`  ! popup openView set [${targetRef}]: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      return {};
-    }
-  } else {
+  try {
     await nb.updateModel(targetUid, {
       popupSettings: { openView: openViewSettings },
       displayFieldSettings: { clickToOpen: { clickToOpen: true } },
     });
+  } catch (e) {
+    log(`  ! popup openView set [${targetRef}]: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+    return {};
   }
 
   let result: Record<string, BlockState> = {};

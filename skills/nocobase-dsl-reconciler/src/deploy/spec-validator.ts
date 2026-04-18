@@ -47,9 +47,12 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
           }
         }
         // Rule: don't redefine auto-created FK columns (e.g. category_id alongside category m2o)
+        // Downgraded to warning — NocoBase tolerates the duplicate column (the
+        // m2o relation continues to work via its own FK), and existing CRM
+        // exports include both forms. Blocking deploy on this is too strict.
         for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
           if (fks.has(fd.name as string) && fd.interface !== 'm2o') {
-            issues.push({ level: 'error', page: `collection "${collName}"`, message: `field "${fd.name}" conflicts with m2o's foreignKey — remove it (the FK column is auto-created by NocoBase)` });
+            issues.push({ level: 'warn', page: `collection "${collName}"`, message: `field "${fd.name}" conflicts with m2o's foreignKey — safe to remove (FK is auto-created by NocoBase)` });
           }
         }
         if (m2oMap.size) collM2oTargets.set(collName, m2oMap);
@@ -72,6 +75,28 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
     // Check popups
     for (const ps of page.popups) {
       validatePopup(ps, page.title, issues, projectDir, knownColls);
+      // Catch dead popup files: target=$SELF.<block>.fields.<field> where the
+      // block doesn't declare that field. The deploy would log "ref not found
+      // — popup NOT created" buried in the post-deploy errors. Surface it
+      // pre-deploy so the user can either remove the popup file or add the
+      // missing field. This was a recurring kimi-build trap (writing
+      // table.fields.name.yaml when the table has no `name` field).
+      const tgt = ps.target || '';
+      const fieldsMatch = tgt.match(/\$(?:SELF|[a-z0-9_]+)\.([a-z0-9_]+)\.fields\.([a-z0-9_]+)/i);
+      if (fieldsMatch) {
+        const [, blockKey, fieldName] = fieldsMatch;
+        const block = allBlocks.find(b => (b.key || b.type) === blockKey);
+        if (block) {
+          const blockFields = (block.fields || []).map(f => typeof f === 'string' ? f : (f.field || ''));
+          if (blockFields.length && !blockFields.includes(fieldName)) {
+            issues.push({
+              level: 'warn',
+              page: page.title,
+              message: `popup "${tgt}" targets field "${fieldName}" but block "${blockKey}" doesn't declare it. Either add the field, or delete the popup file.`,
+            });
+          }
+        }
+      }
     }
 
     // Must have at least addNew popup + detail popup template for main table

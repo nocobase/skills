@@ -15,6 +15,23 @@ export class LegacyModelsApi {
   ) {}
 
   /**
+   * flowModels:findOne — fetch a flowModel as a tree with FULL stepParams.
+   *
+   * Use this in exporters instead of `nb.surfaces.get` (flowSurfaces:get):
+   * the surfaces variant returns a "rendered surface" tree that strips fields
+   * like `stepParams.referenceSettings.useTemplate`, which makes exporters
+   * lose the template binding on ReferenceBlockModel children.
+   *
+   * Returns the full node tree (subModels nested), or null if not found.
+   */
+  async findOne(uid: string, includeAsyncNode = true): Promise<Record<string, unknown> | null> {
+    const params: Record<string, string> = { uid };
+    if (includeAsyncNode) params.includeAsyncNode = 'true';
+    const resp = await this.http.get(`${this.baseUrl}/api/flowModels:findOne`, { params });
+    return (resp.data?.data as Record<string, unknown>) || null;
+  }
+
+  /**
    * flowModels:save — upsert a single FlowModel node.
    */
   async save(node: Record<string, unknown>) {

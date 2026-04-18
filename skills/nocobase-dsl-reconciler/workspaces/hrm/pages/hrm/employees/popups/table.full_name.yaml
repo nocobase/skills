@@ -1,3 +1,0 @@
-target: $SELF.table.fields.full_name
-blocks:
-  - ref: templates/block/detail_nb_hrm_employees.yaml

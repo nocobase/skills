@@ -1,3 +1,0 @@
-target: $SELF.table.fields.name
-blocks:
-  - ref: templates/block/detail_nb_pm_time_entries.yaml
