@@ -125,6 +125,33 @@ function rewriteUids(obj: unknown, map: Map<string, string>): unknown {
  *    - page block.coll
  *  Also auto-renames trigger names by appending the same suffix to keep them
  *  uniquely named at the DB level. */
+/** defaults.yaml structure:
+ *    popups: { <collectionName>: <template-file> }
+ *    forms:  { <collectionName>: <template-file> }
+ *  rewriteCollectionRefs only touches VALUES keyed on name/target/through/…
+ *  so the map KEYS (collection names) survive unchanged. This remaps them. */
+function rewriteDefaultsKeys(
+  obj: unknown,
+  collMap: Map<string, string>,
+): unknown {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const o = obj as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [section, inner] of Object.entries(o)) {
+    if ((section === 'popups' || section === 'forms') && inner && typeof inner === 'object' && !Array.isArray(inner)) {
+      const remapped: Record<string, unknown> = {};
+      for (const [collName, tplFile] of Object.entries(inner as Record<string, unknown>)) {
+        const newKey = collMap.get(collName) || collName;
+        remapped[newKey] = tplFile;
+      }
+      out[section] = remapped;
+    } else {
+      out[section] = inner;
+    }
+  }
+  return out;
+}
+
 function rewriteCollectionRefs(
   obj: unknown,
   collMap: Map<string, string>,
@@ -471,6 +498,13 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
       const obj = loadYaml<unknown>(file);
       let next = rewriteUids(obj, uidMap);
       if (collMap.size) next = rewriteCollectionRefs(next, collMap, file);
+      // defaults.yaml keys `popups:` and `forms:` as { <collectionName>: <file> }
+      // — the collection name is the KEY, which rewriteCollectionRefs (values-only)
+      // doesn't touch. Remap keys here so the duplicate's default-popup lookup
+      // (enableM2oClickToOpen etc.) finds the template under the new coll name.
+      if (collMap.size && base === 'defaults.yaml') {
+        next = rewriteDefaultsKeys(next, collMap);
+      }
       saveYaml(file, next);
     } catch { /* skip */ }
   }

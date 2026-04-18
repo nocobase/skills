@@ -40,7 +40,7 @@ import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
 
 export async function deployProject(
   projectDir: string,
-  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean } = {},
+  opts: { force?: boolean; planOnly?: boolean; group?: string; page?: string; blueprint?: boolean; incremental?: boolean } = {},
   log: (msg: string) => void = console.log,
 ): Promise<void> {
   const root = path.resolve(projectDir);
@@ -168,6 +168,23 @@ export async function deployProject(
   }
   log(`  Graph: ${graphStats.nodes} nodes, ${graphStats.edges} edges`);
 
+  // Incremental scope (computed once, used by both --plan preview and the
+  // actual deploy below). state.yaml may not exist yet — peek at it.
+  let incScope: import('./incremental').IncrementalScope | null = null;
+  if (opts.incremental) {
+    const peekStateFile = path.join(root, 'state.yaml');
+    const peekState: Record<string, unknown> = fs.existsSync(peekStateFile)
+      ? loadYaml<Record<string, unknown>>(peekStateFile) : {};
+    const { computeIncrementalScope } = await import('./incremental');
+    incScope = computeIncrementalScope(root, peekState.last_deployed_sha as string | undefined);
+    log(`  ${incScope.reason}`);
+    if (!incScope.full && incScope.pages) {
+      const matched = pages.filter(p => incScope!.pages!.has(p.key));
+      log(`  incremental preview: ${matched.length}/${pages.length} page(s) would deploy`);
+      if (matched.length) log(`    [${[...incScope.pages].slice(0, 8).join(', ')}${incScope.pages.size > 8 ? ', ...' : ''}]`);
+    }
+  }
+
   if (opts.planOnly) {
     // Generate _refs.yaml in plan mode too
     const nodes = (graph as any).nodes as Map<string, any>;
@@ -201,25 +218,65 @@ export async function deployProject(
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
 
+  // ── Incremental scope (opt-in via --incremental) ──
+  // Use the scope computed earlier (during plan preview). When NOTHING
+  // changed (no pages, no collections, no templates, no workflows),
+  // short-circuit entirely.
+  let activePages = pages;
+  if (incScope && !incScope.full && incScope.pages) {
+    activePages = pages.filter(p => incScope!.pages!.has(p.key));
+    const nothingChanged = !activePages.length
+      && !incScope.collections?.size
+      && !incScope.templates?.size
+      && !incScope.workflows?.size;
+    if (nothingChanged) {
+      log('  ✓ no DSL changes — skipping all deploy phases');
+      const { getCurrentSha } = await import('./incremental');
+      const sha = getCurrentSha(root);
+      if (sha) (state as Record<string, unknown>).last_deployed_sha = sha;
+      saveYaml(stateFile, state);
+      log('  State saved. Done.');
+      return;
+    }
+    log(`  incremental: deploying ${activePages.length}/${pages.length} page(s)`);
+  }
+
   // (removed) copy-mode state reset. Use `cli duplicate-project` to produce
   // a DSL with fresh UIDs + no state.yaml; deploy then creates everything
   // from scratch without any runtime state-rewriting.
 
-  // Collections (skip if deploying single page — safety)
-  if (!opts.page) {
-    await ensureAllCollections(nb, collDefs, log);
+  // Collections (skip when single-page deploy; with incremental, narrow to
+  // changed collections only).
+  const skipCollPhase = incScope ? !incScope.collections?.size : false;
+  if (!opts.page && !skipCollPhase) {
+    const collFilter = incScope?.collections && !incScope.full ? incScope.collections : undefined;
+    if (collFilter) {
+      log(`  incremental: ${collFilter.size} collection(s) targeted: ${[...collFilter].slice(0, 6).join(', ')}${collFilter.size > 6 ? ', ...' : ''}`);
+    }
+    await ensureAllCollections(nb, collDefs, log, collFilter);
+  } else if (skipCollPhase) {
+    log('  ✓ collections phase skipped (no collections/*.yaml changes)');
   }
 
   // Deploy templates (before pages, so popupTemplateUid can be mapped)
   let templateUidMap: TemplateUidMap = new Map();
   let pendingPopups: PendingPopupTemplate[] = [];
-  if (!opts.page) {
+  const skipTpl = incScope ? !incScope.templates?.size : false;
+  if (!opts.page && !skipTpl) {
     const tplResult = await deployTemplates(nb, root, log, state.template_uids);
     templateUidMap = tplResult.uidMap;
     pendingPopups = tplResult.pendingPopupTemplates;
     // Persist template UIDs to state for next deploy
     state.template_uids = { ...(state.template_uids || {}), ...tplResult.deployedTemplates } as typeof state.template_uids;
     saveYaml(stateFile, state);
+  } else if (skipTpl) {
+    log('  ✓ templates phase skipped (no templates/ changes)');
+    // Reuse previously persisted template UIDs so page deploy can still resolve refs
+    if (state.template_uids) {
+      for (const [k, v] of Object.entries(state.template_uids)) {
+        templateUidMap.set(k, v as string);
+      }
+    }
   }
 
   // For pending popup templates: expand their content inline into the first referencing popup
@@ -253,16 +310,16 @@ export async function deployProject(
       deployedKeys.add(rkey);
       // Swap state.group_id to the per-route group id so deployGroup reuses the correct id
       state.group_id = state.group_ids[rkey];
-      await deployGroup(ctx, routeEntry, pages, state, root, opts.blueprint || false);
+      await deployGroup(ctx, routeEntry, activePages, state, root, opts.blueprint || false);
       if (state.group_id) state.group_ids[rkey] = state.group_id;
     } else if (routeEntry.type === 'flowPage') {
-      const pageInfo = pages.find(p => p.key === rkey);
+      const pageInfo = activePages.find(p => p.key === rkey);
       if (pageInfo) await deployOnePage(ctx, pageInfo, state, null);
     }
   }
 
   // Final column reorder
-  for (const p of pages) {
+  for (const p of activePages) {
     const pageKey = p.key;
     const pageState = state.pages[pageKey];
     for (const bs of p.layout.blocks || []) {
@@ -275,6 +332,13 @@ export async function deployProject(
         await reorderTableColumns(nb, blockUid, specFields, jsKeys, colOrder);
       }
     }
+  }
+
+  // Capture HEAD SHA so the next --incremental push can compute a diff.
+  if (opts.incremental) {
+    const { getCurrentSha } = await import('./incremental');
+    const sha = getCurrentSha(root);
+    if (sha) (state as Record<string, unknown>).last_deployed_sha = sha;
   }
 
   // Save state
@@ -379,7 +443,10 @@ export async function deployProject(
   // full DSL→NB sync). Without this, users had to remember to run a separate
   // `cli deploy-workflows` after every push, and forgetting silently dropped
   // the workflow side of a duplicated module.
-  if (fs.existsSync(path.join(root, 'workflows'))) {
+  const skipWf = incScope ? !incScope.workflows?.size : false;
+  if (skipWf) {
+    log('  ✓ workflows phase skipped (no workflows/ changes)');
+  } else if (fs.existsSync(path.join(root, 'workflows'))) {
     try {
       const { deployWorkflows } = await import('../workflow/workflow-deployer');
       log('\n  ── Workflows ──');
@@ -1143,6 +1210,13 @@ async function deployPagePopups(
 
   const expanded = expandPopups(pageInfo.popups, pageInfo.layout.blocks || []);
 
+  // Derive page-level coll for popups that have no coll of their own.
+  // page.yaml lacks a top-level coll; the primary collection lives on
+  // layout.blocks[0].coll (the main table/form/details block).
+  const pageColl = (pageInfo.layout?.coll as string | undefined)
+    || (pageInfo.layout?.blocks as Array<{ coll?: string }> | undefined)?.find(b => b?.coll)?.coll
+    || undefined;
+
   // Write back auto-derived popups to disk so AI can see and edit them next round
   const popupsDir = path.join(pageInfo.dir, 'popups');
   for (const ps of expanded) {
@@ -1175,7 +1249,7 @@ async function deployPagePopups(
     const pp = targetRef.split('.').pop() || '';
     const popupKey = targetRef.replace(`$${pageKey}.`, '');
     const existingPopupBlocks = pageState.popups?.[popupKey]?.blocks || {};
-    const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks });
+    const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks, pageColl });
     if (Object.keys(popupBlocks).length) {
       pageState.popups[popupKey] = { target_uid: targetUid, blocks: popupBlocks };
       state.pages[pageKey] = pageState;
@@ -1239,7 +1313,7 @@ async function deployPagePopups(
       const pp = targetRef.split('.').pop() || '';
       const popupKey2 = targetRef.replace(`$${pageKey}.`, '');
       const existingPopupBlocks2 = pageState.popups?.[popupKey2]?.blocks || {};
-      const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks: existingPopupBlocks2 });
+      const popupBlocks = await deployPopup(ctx, targetUid, targetRef, ps, { modDir: pageInfo.dir, popupPath: pp, existingPopupBlocks: existingPopupBlocks2, pageColl });
       if (Object.keys(popupBlocks).length) {
         pageState.popups[popupKey2] = { target_uid: targetUid, blocks: popupBlocks };
       }

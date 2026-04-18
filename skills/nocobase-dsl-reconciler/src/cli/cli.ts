@@ -332,10 +332,11 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X]\n\n  --group <key>  Deploy only the route subtree whose key matches (key = route.key || slugify(title)).'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X] [--incremental]\n\n  --group <key>     Deploy only the route subtree whose key matches.\n  --incremental     Skip pages whose DSL files have not changed since the last\n                    push (uses git diff vs state.last_deployed_sha; falls back\n                    to full push when not in git or sha missing).'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
+  const incremental = args.includes('--incremental');
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const pageIdx = args.indexOf('--page');
@@ -356,7 +357,7 @@ async function cmdDeployProject(args: string[]) {
     } catch { /* not a git repo — skip */ }
   }
 
-  await deployProject(absDir, { force, planOnly, group, page, blueprint });
+  await deployProject(absDir, { force, planOnly, group, page, blueprint, incremental });
 }
 
 /**
@@ -537,12 +538,16 @@ async function preDeployExport(absDir: string, group: string, mainBranch: string
   if (!fs.existsSync(path.join(absDir, 'state.yaml'))) return;
 
   try {
-    // Commit any pending local changes first (rollback point)
-    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
-    const localStatus = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    // Snapshot the project subtree only — never the whole git repo. Without
+    // the path scope, `git add -A` would also commit unrelated edits in
+    // src/ (the tool source) under "pre-deploy snapshot", coupling tool
+    // development to deployment side-effects.
+    const projectName = path.basename(absDir);
+    execSync(`git add -A -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' });
+    const localStatus = execSync(`git status --porcelain -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' }).toString().trim();
     if (localStatus) {
-      execSync('git commit -m "pre-deploy snapshot"', { cwd: absDir, stdio: 'pipe' });
-      console.log('  git: pre-deploy snapshot saved');
+      execSync(`git commit -m "pre-deploy snapshot: ${projectName}" -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' });
+      console.log(`  git: pre-deploy snapshot saved (${projectName})`);
     }
 
     // Export live state to worktree

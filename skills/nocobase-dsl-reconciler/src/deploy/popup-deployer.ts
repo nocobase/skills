@@ -16,6 +16,13 @@ export interface PopupOpts {
   modDir: string;
   popupPath?: string;
   existingPopupBlocks?: Record<string, BlockState>;
+  /**
+   * Fallback collection name when popupSpec has no coll (and no
+   * blocks/tabs[0].coll either). Used for "empty action shell" popups
+   * (addNew, send_email, etc.) so the openView still binds to the
+   * host page's collection rather than ''.
+   */
+  pageColl?: string;
 }
 
 /**
@@ -29,15 +36,16 @@ export async function deployPopup(
   opts: PopupOpts,
 ): Promise<Record<string, BlockState>> {
   const { nb, log } = ctx;
-  const { modDir, popupPath = '', existingPopupBlocks = {} } = opts;
+  const { modDir, popupPath = '', existingPopupBlocks = {}, pageColl } = opts;
   const mode = popupSpec.mode || 'drawer';
   const tabsSpec = popupSpec.tabs;
   // popupSpec.coll is rarely set explicitly; fall back to the first block's coll
-  // (covers both flat blocks[] and tabs[].blocks[]). Without this the openView
-  // ends up with collectionName='' and the popup renders broken.
+  // (covers both flat blocks[] and tabs[].blocks[]) then the host page's coll.
+  // Without this the openView ends up with collectionName='' and renders broken.
   const coll = popupSpec.coll
     || popupSpec.blocks?.[0]?.coll
     || tabsSpec?.[0]?.blocks?.[0]?.coll
+    || pageColl
     || '';
   if (!coll) {
     log(`  ⚠ popup [${targetRef}] has no coll — openView.collectionName will be empty`);

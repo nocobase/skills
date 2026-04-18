@@ -165,13 +165,19 @@ export async function ensureAllCollections(
   nb: NocoBaseClient,
   collections: Record<string, CollectionDef>,
   log: (msg: string) => void = console.log,
+  /** When set, only operate on collections whose name is in this set. */
+  onlyNames?: Set<string>,
 ): Promise<void> {
-  for (const [name, def] of Object.entries(collections)) {
+  const filterFn = onlyNames
+    ? (entry: [string, CollectionDef]) => onlyNames.has(entry[0])
+    : (_: [string, CollectionDef]) => true;
+  const entries = Object.entries(collections).filter(filterFn);
+  for (const [name, def] of entries) {
     await ensureCollection(nb, name, def, log);
   }
 
   // Post-create validation + repair for m2o fields
-  for (const [name, def] of Object.entries(collections)) {
+  for (const [name, def] of entries) {
     for (const fd of def.fields) {
       if (fd.interface !== 'm2o' || !fd.target) continue;
 
@@ -203,7 +209,7 @@ export async function ensureAllCollections(
   // Apply collection.triggers — raw SQL DDL that travels with the collection.
   // We do this AFTER all collections+fields exist so the SQL can reference
   // any column. drop+create per object so reruns are idempotent.
-  for (const [name, def] of Object.entries(collections)) {
+  for (const [name, def] of entries) {
     if (!def.triggers?.length) continue;
     log(`    triggers on ${name}: applying ${def.triggers.length}`);
     const { execSql, dropSqlObject } = await import('../utils/sql-exec');
