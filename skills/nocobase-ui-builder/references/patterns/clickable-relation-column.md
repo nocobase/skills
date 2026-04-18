@@ -60,5 +60,5 @@ description: 表格中的关联标题字段如何稳定展示、点击打开 pop
 
 - [table-column-rendering.md](table-column-rendering.md)
 - [popup-openview.md](popup-openview.md)
-- [payload-guard.md](payload-guard.md)
+- [../normative-contract.md](../normative-contract.md)
 - [../js-models/js-column.md](../js-models/js-column.md)

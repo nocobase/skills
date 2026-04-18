@@ -16,8 +16,6 @@ function createSkillFixture({
   jsSubindexLeafDocs = ['js-block.md', 'js-editable-field.md'],
   topLevelReferenceDocs = [],
   topLevelReferenceLinks = [],
-  recipeDocs = [],
-  recipeLinks = [],
   includeAgentConfig = true,
 } = {}) {
   const skillRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'check-docs-contract-'));
@@ -49,7 +47,6 @@ function createSkillFixture({
     ...topLevelReferenceLinks.map((docPath) => `- [${path.basename(docPath, '.md')}](${docPath})`),
     '- [js-models/index.md](js-models/index.md)',
     ...rootJsLeafDocs.map((docPath) => `- [${path.basename(docPath, '.md')}](${docPath})`),
-    ...recipeLinks.map((docPath) => `- [${path.basename(docPath, '.md')}](${docPath})`),
     '',
   ].join('\n'));
 
@@ -65,10 +62,6 @@ function createSkillFixture({
   }
 
   for (const docPath of topLevelReferenceDocs) {
-    writeFile(path.join(referencesRoot, docPath), `# ${docPath}\n`);
-  }
-
-  for (const docPath of recipeDocs) {
     writeFile(path.join(referencesRoot, docPath), `# ${docPath}\n`);
   }
 
@@ -103,29 +96,14 @@ test('collectDocsContractFailures still requires top-level reference docs to be 
   const skillRoot = createSkillFixture({
     rootJsLeafDocs: ['js-models/js-block.md', 'js-models/js-editable-field.md'],
     jsSubindexLeafDocs: ['js-block.md', 'js-editable-field.md'],
-    topLevelReferenceDocs: ['validation.md'],
+    topLevelReferenceDocs: ['page-intent.md'],
     topLevelReferenceLinks: [],
   });
 
   const failures = collectDocsContractFailures({ skillRoot });
 
   assert.deepEqual(failures, [
-    'Top-level reference doc is not directly linked from SKILL.md or references/index.md: references/validation.md',
-  ]);
-});
-
-test('collectDocsContractFailures requires recipe docs to be directly linked from root docs', () => {
-  const skillRoot = createSkillFixture({
-    rootJsLeafDocs: ['js-models/js-block.md', 'js-models/js-editable-field.md'],
-    jsSubindexLeafDocs: ['js-block.md', 'js-editable-field.md'],
-    recipeDocs: ['recipes/page-lifecycle.md'],
-    recipeLinks: [],
-  });
-
-  const failures = collectDocsContractFailures({ skillRoot });
-
-  assert.deepEqual(failures, [
-    'Reference doc is not directly linked from SKILL.md or references/index.md: references/recipes/page-lifecycle.md',
+    'Top-level reference doc is not directly linked from SKILL.md or references/index.md: references/page-intent.md',
   ]);
 });
 
