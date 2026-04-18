@@ -19,7 +19,15 @@ content:
     - opportunity
     - contact
     - customer
-    - items
+    - field: items
+      type: subTable
+      columns:
+        - specification
+        - unit
+        - list_price
+        - unit_price
+        - discount_rate
+        - tier_applied
     - exchange_rate
     - currencyInfo
     - payment_terms

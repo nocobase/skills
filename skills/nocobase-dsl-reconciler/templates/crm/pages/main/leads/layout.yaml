@@ -5,16 +5,6 @@ blocks:
     fields:
       - field: name
         label: Search
-        filterPaths:
-          - name
-          - company
-          - title
-          - email
-          - phone
-          - mobile_phone
-          - website
-          - source
-          - industry
     js_items:
       - key: leads_stats_filter_block
         file: ./js/leads_filterForm_leads_stats_filter_block.js
@@ -29,7 +19,7 @@ blocks:
       status.$eq: '{{ ctx.urlSearchParams.status }}'
     fields:
       - field: name
-        popup: templates/popup/leads_view.yaml
+        clickToOpen: true
       - field: source
         width: 100
       - field: status
@@ -69,12 +59,12 @@ blocks:
     actions:
       - filter
       - refresh
+      - addNew
+      - type: ai
+        employee: viz
+        tasks_file: ./ai/leads_table_tasks.yaml
       - export
       - import
-      - addNew
-      - ai:
-          employee: viz
-          tasks: ./ai/leads_table_tasks.yaml
 layout:
   - - filterForm
   - - table

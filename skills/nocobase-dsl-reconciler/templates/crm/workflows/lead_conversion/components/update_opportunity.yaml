@@ -1,0 +1,67 @@
+usingAssignFormSchema: true
+assignFormSchema:
+  _isJSONSchemaObject: true
+  version: '2.0'
+  name: 1g50rob0r8f
+  type: void
+  x-component: Grid
+  x-initializer: assignFieldValuesForm:configureFields
+  properties:
+    to1becjb443:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        jqta89mn8qv:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            customer_id:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: customer_id
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_opportunities.customer_id
+          name: jqta89mn8qv
+      name: to1becjb443
+    nv6e0g1o886:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        ggq2glp2vrh:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            contact_id:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: contact_id
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_opportunities.contact_id
+          name: ggq2glp2vrh
+      name: nv6e0g1o886
+collection: nb_crm_opportunities
+params:
+  individualHooks: false
+  filter:
+    $and:
+      - id:
+          $eq: '{{$context.data.converted_opportunity_id}}'
+  values:
+    customer_id: '{{$context.data.converted_customer_id}}'
+    contact_id: '{{$context.data.converted_contact_id}}'

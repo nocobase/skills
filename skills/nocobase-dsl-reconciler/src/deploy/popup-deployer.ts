@@ -16,6 +16,13 @@ export interface PopupOpts {
   modDir: string;
   popupPath?: string;
   existingPopupBlocks?: Record<string, BlockState>;
+  /**
+   * Fallback collection name when popupSpec has no coll (and no
+   * blocks/tabs[0].coll either). Used for "empty action shell" popups
+   * (addNew, send_email, etc.) so the openView still binds to the
+   * host page's collection rather than ''.
+   */
+  pageColl?: string;
 }
 
 /**
@@ -29,29 +36,32 @@ export async function deployPopup(
   opts: PopupOpts,
 ): Promise<Record<string, BlockState>> {
   const { nb, log } = ctx;
-  const { modDir, popupPath = '', existingPopupBlocks = {} } = opts;
+  const { modDir, popupPath = '', existingPopupBlocks = {}, pageColl } = opts;
   const mode = popupSpec.mode || 'drawer';
-  const coll = popupSpec.coll || '';
   const tabsSpec = popupSpec.tabs;
+  // popupSpec.coll is rarely set explicitly; fall back to the first block's coll
+  // (covers both flat blocks[] and tabs[].blocks[]) then the host page's coll.
+  // Without this the openView ends up with collectionName='' and renders broken.
+  const coll = popupSpec.coll
+    || popupSpec.blocks?.[0]?.coll
+    || tabsSpec?.[0]?.blocks?.[0]?.coll
+    || pageColl
+    || '';
+  if (!coll) {
+    log(`  ⚠ popup [${targetRef}] has no coll — openView.collectionName will be empty`);
+  }
 
   // If popup uses a template reference, just set it — no compose needed
   const popupTemplate = (popupSpec as unknown as Record<string, unknown>).popupTemplate as { uid: string; name?: string } | undefined;
   if (popupTemplate?.uid) {
     log(`  = popup [${targetRef}] (template: ${popupTemplate.name || popupTemplate.uid})`);
-    if (ctx.copyMode) {
-      try {
-        await nb.updateModel(targetUid, {
-          popupSettings: { openView: { popupTemplateUid: popupTemplate.uid, mode } },
-          displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-        });
-      } catch (e) {
-        log(`    ! popup template set: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      }
-    } else {
+    try {
       await nb.updateModel(targetUid, {
         popupSettings: { openView: { popupTemplateUid: popupTemplate.uid, mode } },
         displayFieldSettings: { clickToOpen: { clickToOpen: true } },
       });
+    } catch (e) {
+      log(`    ! popup template set: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
     }
     return {};
   }
@@ -179,21 +189,14 @@ export async function deployPopup(
   if (needsRecordContext) {
     openViewSettings.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
   }
-  if (ctx.copyMode) {
-    try {
-      await nb.updateModel(targetUid, {
-        popupSettings: { openView: openViewSettings },
-        displayFieldSettings: { clickToOpen: { clickToOpen: true } },
-      });
-    } catch (e) {
-      log(`  ! popup openView set [${targetRef}]: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      return {};
-    }
-  } else {
+  try {
     await nb.updateModel(targetUid, {
       popupSettings: { openView: openViewSettings },
       displayFieldSettings: { clickToOpen: { clickToOpen: true } },
     });
+  } catch (e) {
+    log(`  ! popup openView set [${targetRef}]: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+    return {};
   }
 
   let result: Record<string, BlockState> = {};
@@ -225,14 +228,72 @@ async function deploySimplePopup(
     if (tabUid) composeTarget = tabUid;
   } catch { /* proceed with targetUid */ }
 
+  // If every block in the popup will be skipped by surfaces.compose — either
+  // because the type is not composable (mailMessages, comments, recordHistory,
+  // reference) or because it carries a popup association binding (sourceId
+  // with template var + associationName), then nothing triggers ChildPage
+  // creation and the popup ends up empty. Pre-create the ChildPage scaffold
+  // so step 1b's save_model has a grid to attach into.
+  const blocks = popupSpec.blocks || [];
+  const willCompose = (b: unknown): boolean => {
+    const bo = b as { type?: string; resource_binding?: Record<string, unknown> };
+    const t = bo.type;
+    const legacy = !t || t === 'mailMessages' || t === 'comments' || t === 'recordHistory' || t === 'reference';
+    if (legacy) return false;
+    const rb = bo.resource_binding || {};
+    const sid = rb.sourceId as string | undefined;
+    return !(sid && sid.includes('{{') && rb.associationName);
+  };
+  const allSkipped = blocks.length > 0 && !(blocks as unknown[]).some(willCompose);
+  if (allSkipped && composeTarget === targetUid) {
+    composeTarget = await ensureChildPageScaffold(ctx, targetUid) || targetUid;
+  }
+
   const spec = {
     coll,
-    blocks: popupSpec.blocks || [],
+    blocks,
     layout: popupSpec.layout,
   };
   const blocksState = await deploySurface(ctx, composeTarget, spec as any, { modDir });
   log(`  + popup [${targetRef}]: ${Object.keys(blocksState).length} blocks`);
   return blocksState;
+}
+
+/**
+ * Manually create ChildPage → ChildPageTab → BlockGrid scaffold under a popup
+ * host. Returns the tab UID (compose target) so subsequent block deploys can
+ * attach into the new grid. Returns undefined on failure (caller falls back to
+ * the host UID and the deploy degrades gracefully).
+ */
+async function ensureChildPageScaffold(
+  ctx: DeployContext,
+  hostUid: string,
+): Promise<string | undefined> {
+  const { nb } = ctx;
+  try {
+    const { generateUid } = await import('../utils/uid');
+    const pageUid = generateUid();
+    const tabUid = generateUid();
+    const gridUid = generateUid();
+    await nb.models.save({
+      uid: pageUid, use: 'ChildPageModel',
+      parentId: hostUid, subKey: 'page', subType: 'object',
+      sortIndex: 0, stepParams: {}, flowRegistry: {},
+    });
+    await nb.models.save({
+      uid: tabUid, use: 'ChildPageTabModel',
+      parentId: pageUid, subKey: 'tabs', subType: 'array',
+      sortIndex: 0, stepParams: {}, flowRegistry: {},
+    });
+    await nb.models.save({
+      uid: gridUid, use: 'BlockGridModel',
+      parentId: tabUid, subKey: 'grid', subType: 'object',
+      sortIndex: 0, stepParams: {}, flowRegistry: {},
+    });
+    return tabUid;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -323,6 +384,51 @@ function extractLiveBlockState(
   return result;
 }
 
+/**
+ * Sync a ChildPageTabModel's title to match DSL. NocoBase stores it in two
+ * places (props.title + stepParams.pageTabSettings.tab.title) — both must
+ * update, otherwise the UI keeps showing the old one. Reads raw row via
+ * flowModels:get to avoid merged-view drift, writes back via flowModels:save.
+ * Cheap no-op when title already matches.
+ */
+async function syncTabTitle(
+  ctx: DeployContext,
+  tabUid: string,
+  desiredTitle: string,
+): Promise<void> {
+  const { nb, log } = ctx;
+  if (!tabUid || !desiredTitle) return;
+  try {
+    const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: tabUid } });
+    const row = raw.data?.data as Record<string, unknown> | undefined;
+    if (!row) return;
+    const props = ((row.props as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const curTitle = props.title as string | undefined;
+    if (curTitle === desiredTitle) return;
+    props.title = desiredTitle;
+    const sp = ((row.stepParams as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const pts = ((sp.pageTabSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const tab = ((pts.tab as Record<string, unknown>) || {}) as Record<string, unknown>;
+    tab.title = desiredTitle;
+    pts.tab = tab;
+    sp.pageTabSettings = pts;
+    await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+      uid: tabUid,
+      use: row.use,
+      parentId: (row.parentId as string) || undefined,
+      subKey: (row.subKey as string) || undefined,
+      subType: (row.subType as string) || undefined,
+      sortIndex: (row.sortIndex as number) || 0,
+      flowRegistry: (row.flowRegistry as Record<string, unknown>) || {},
+      props,
+      stepParams: sp,
+    });
+    log(`      ~ tab title: '${curTitle || '(none)'}' → '${desiredTitle}'`);
+  } catch (e) {
+    log(`      ! tab title sync: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+}
+
 async function deployTabbedPopup(
   ctx: DeployContext,
   targetUid: string,
@@ -389,12 +495,18 @@ async function deployTabbedPopup(
         const subs = (pp as unknown as Record<string, unknown>).subModels as Record<string, unknown>;
         const tl = subs?.tabs;
         existingTabs = (Array.isArray(tl) ? tl : tl ? [tl] : []) as { uid: string }[];
+        firstTabUid = existingTabs[0]?.uid || '';
       }
     } catch { /* skip */ }
 
     if (!popupPageUid) {
       log(`    ! popup [${targetRef}]: ChildPage not found — cannot create additional tabs`);
       return allBlocks;
+    }
+    // Sync first tab's title from DSL. Compose auto-creates the row with a
+    // default label; DSL never lands on it otherwise.
+    if (firstTabUid && firstTabSpec.title) {
+      await syncTabTitle(ctx, firstTabUid, firstTabSpec.title);
     }
   } else {
     // ChildPage already exists — compose first tab to its tab UID (not targetUid)
@@ -405,6 +517,11 @@ async function deployTabbedPopup(
     );
     Object.assign(allBlocks, firstTabBlocks);
     log(`    tab '${firstTabSpec.title || 'Tab0'}': ${Object.keys(firstTabBlocks).length} blocks`);
+    // Drift repair: sync title even on re-push — DSL may have changed
+    // since the tab was created.
+    if (firstTabUid && firstTabSpec.title) {
+      await syncTabTitle(ctx, firstTabUid, firstTabSpec.title);
+    }
 
     if (tabsSpec.length <= 1) return allBlocks;
   }
@@ -433,6 +550,11 @@ async function deployTabbedPopup(
         continue;
       }
     }
+
+    // Sync title on every pass — addPopupTab sets it at creation, but an
+    // existing reused tab needs drift repair, and addPopupTab itself has
+    // been observed to not always stick the title on first call.
+    await syncTabTitle(ctx, tabUid, tabTitle);
 
     const tabBlocks = await deploySurface(ctx, tabUid, { ...tabSpec, coll } as any, { modDir });
     Object.assign(allBlocks, tabBlocks);

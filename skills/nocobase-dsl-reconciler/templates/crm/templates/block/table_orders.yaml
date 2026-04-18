@@ -8,11 +8,13 @@ content:
   key: table
   type: table
   coll: nb_crm_orders
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   filter:
     order_date.$dateBetween: '{{ ctx.urlSearchParams.month }}'
   fields:
     - field: order_no
-      popup: true
+      clickToOpen: true
     - field: customer
       width: 200
     - order_amount
@@ -37,9 +39,9 @@ content:
     - filter
     - refresh
     - addNew
-    - ai:
-        employee: viz
-        tasks: ./ai/table_orders_table_tasks.yaml
+    - type: ai
+      employee: viz
+      tasks_file: ./ai/table_orders_table_tasks.yaml
   event_flows:
     - event:
         eventName: beforeRender

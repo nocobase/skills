@@ -1,0 +1,238 @@
+uid: eezadvh2u6t
+subType: object
+use: ApprovalTaskCardDetailsModel
+stepParams:
+  resourceSettings:
+    init:
+      dataSourceKey: main
+      collectionName: approvalRecords
+  detailsSettings:
+    layout:
+      layout: horizontal
+sortIndex: 0
+flowRegistry: {}
+subModels:
+  grid:
+    uid: ielda4s2ovo
+    use: ApprovalTaskCardGridModel
+    subType: object
+    parentId: eezadvh2u6t
+    subKey: grid
+    stepParams:
+      gridSettings:
+        grid:
+          rows:
+            grrslqb3kah:
+              - - xynlhupk1vz
+            sq8t3r4rzb6:
+              - - 4o4kbnt8n6o
+            i8acg7tso17:
+              - - 2z5o7j99dxx
+            ri4ba0cpz94:
+              - - 2dvpqgu3j71
+            e76e1w84b6e:
+              - - v8ok5fpmfwz
+              - - es6zuhosq3g
+          sizes:
+            grrslqb3kah:
+              - 24
+            sq8t3r4rzb6:
+              - 24
+            i8acg7tso17:
+              - 24
+            ri4ba0cpz94:
+              - 24
+            e76e1w84b6e:
+              - 12
+              - 12
+          rowOrder:
+            - grrslqb3kah
+            - sq8t3r4rzb6
+            - i8acg7tso17
+            - ri4ba0cpz94
+            - e76e1w84b6e
+    sortIndex: 1
+    flowRegistry: {}
+    parent: eezadvh2u6t
+    subModels:
+      items:
+        - uid: xynlhupk1vz
+          use: ApprovalTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvalRecords
+                fieldPath: id
+          parentId: ielda4s2ovo
+          subKey: items
+          subType: array
+          sortIndex: 1
+          flowRegistry: {}
+          parent: ielda4s2ovo
+          subModels:
+            field:
+              uid: ksokmt5fd4u
+              use: DisplayNumberFieldModel
+              props: null
+              parentId: xynlhupk1vz
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvalRecords
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: xynlhupk1vz
+        - uid: 4o4kbnt8n6o
+          use: ApprovalTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvalRecords
+                fieldPath: title
+          parentId: ielda4s2ovo
+          subKey: items
+          subType: array
+          sortIndex: 2
+          flowRegistry: {}
+          parent: ielda4s2ovo
+          subModels:
+            field:
+              uid: m1b2qfag95w
+              use: DisplayTextFieldModel
+              props: null
+              parentId: 4o4kbnt8n6o
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvalRecords
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: 4o4kbnt8n6o
+        - uid: 2z5o7j99dxx
+          use: ApprovalTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvalRecords
+                fieldPath: status
+          parentId: ielda4s2ovo
+          subKey: items
+          subType: array
+          sortIndex: 3
+          flowRegistry: {}
+          parent: ielda4s2ovo
+          subModels:
+            field:
+              uid: s97squpc8hg
+              use: DisplayEnumFieldModel
+              props: null
+              parentId: 2z5o7j99dxx
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvalRecords
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: 2z5o7j99dxx
+        - uid: 2dvpqgu3j71
+          use: ApprovalTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvalRecords
+                fieldPath: comment
+          parentId: ielda4s2ovo
+          subKey: items
+          subType: array
+          sortIndex: 4
+          flowRegistry: {}
+          parent: ielda4s2ovo
+          subModels:
+            field:
+              uid: i7qau2g1uaz
+              use: DisplayTextFieldModel
+              props: null
+              parentId: 2dvpqgu3j71
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvalRecords
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: 2dvpqgu3j71
+        - uid: v8ok5fpmfwz
+          use: ApprovalTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvalRecords
+                fieldPath: createdAt
+          parentId: ielda4s2ovo
+          subKey: items
+          subType: array
+          sortIndex: 5
+          flowRegistry: {}
+          parent: ielda4s2ovo
+          subModels:
+            field:
+              uid: obtrpnz2z8x
+              use: DisplayDateTimeFieldModel
+              props: null
+              parentId: v8ok5fpmfwz
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvalRecords
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: v8ok5fpmfwz
+        - uid: es6zuhosq3g
+          use: ApprovalTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvalRecords
+                fieldPath: updatedAt
+          parentId: ielda4s2ovo
+          subKey: items
+          subType: array
+          sortIndex: 6
+          flowRegistry: {}
+          parent: ielda4s2ovo
+          subModels:
+            field:
+              uid: y18mtbhvkac
+              use: DisplayDateTimeFieldModel
+              props: null
+              parentId: es6zuhosq3g
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvalRecords
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: es6zuhosq3g

@@ -27,6 +27,7 @@ import {
   deployEventFlows,
   applyFieldLayout,
   syncGridItemsOrder,
+  applySubTableFields,
 } from './fillers';
 
 const RECORD_ACTION_BLOCKS = new Set(['details', 'list', 'gridCard']);
@@ -84,12 +85,12 @@ export async function fillBlock(
 
   // ── Template reference ──
   const templateRef = bs.templateRef;
-  if (templateRef?.targetUid && FORM_BLOCK_TYPES.has(btype)) {
+  if (templateRef?.targetUid && (FORM_BLOCK_TYPES.has(btype) || btype === 'reference')) {
     try {
       const formData = await nb.get({ uid: blockUid });
       const blockUse = (formData.tree as { use?: string }).use || '';
       if (blockUse === 'ReferenceBlockModel') {
-        log(`      = templateRef: ${templateRef.templateName || templateRef.templateUid} (reference block)`);
+        await syncReferenceBlockBinding(ctx, blockUid, templateRef);
       } else {
         const formGrid = formData.tree.subModels?.grid;
         if (formGrid && !Array.isArray(formGrid)) {
@@ -130,13 +131,25 @@ export async function fillBlock(
 
   // ── Table settings: dataScope + pageSize + sort ──
   const tableUpdates: Record<string, unknown> = {};
-  if (bs.dataScope) tableUpdates.dataScope = { filter: bs.dataScope };
+  const dataScope = bs.dataScope || (bs.filter ? parseFilterShorthand(bs.filter) : undefined);
+  if (dataScope) tableUpdates.dataScope = { filter: dataScope };
   if (bs.pageSize) tableUpdates.pageSize = { pageSize: bs.pageSize };
   if (bs.sort) tableUpdates.sort = bs.sort;
   if (Object.keys(tableUpdates).length) {
     try {
       await nb.updateModel(blockUid, { tableSettings: tableUpdates });
     } catch (e) { log(`      ! tableSettings: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+  }
+
+  // ── Data loading mode (manual / auto) — separate stepParams group ──
+  // Tables that load on demand (manual) need this set explicitly; default
+  // is auto, so we only call when DSL overrides it.
+  if (bs.dataLoadingMode && bs.dataLoadingMode !== 'auto') {
+    try {
+      await nb.updateModel(blockUid, {
+        dataLoadingModeSettings: { dataLoadingMode: { mode: bs.dataLoadingMode } },
+      });
+    } catch (e) { log(`      ! dataLoadingMode: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
   }
 
   // ── Table: read actColUid + handle explicit empty recordActions ──
@@ -149,11 +162,14 @@ export async function fillBlock(
         .find((c: any) => c.use?.includes('TableActionsColumn'));
       if (actCol) actColUid = (actCol as { uid: string }).uid;
 
-      // recordActions: [] (explicitly empty) → remove actCol
-      if (Array.isArray(bs.recordActions) && bs.recordActions.length === 0 && actColUid) {
+      // DSL-as-source-of-truth: if the spec doesn't declare recordActions
+      // (or declares an empty list), remove any compose-created default action
+      // column. Otherwise the deployed table has [edit, delete] that the DSL
+      // doesn't account for, breaking round-trip diff.
+      if (actColUid && (!bs.recordActions || (Array.isArray(bs.recordActions) && bs.recordActions.length === 0))) {
         await nb.surfaces.removeNode(actColUid);
         actColUid = '';
-        log(`      - action column removed (spec declares empty recordActions)`);
+        log(`      - action column removed (no recordActions in DSL)`);
       }
     } catch { /* skip */ }
   }
@@ -169,10 +185,13 @@ export async function fillBlock(
   await deployClickToOpen(ctx, bs, coll, fieldStates, mod, allBlocksState, popupContext, popupTargetFields);
 
   // ── Auto-bind m2o clickToOpen (all block types) ──
-  // TODO: bind popup templates once the popup template creation mechanism is fixed.
-  // For now, just enable clickToOpen on m2o fields → default details popup.
+  // Non-m2o fields that already have a dedicated popup file (popups/{field}.yaml)
+  // must not be auto-bound to a pre-existing template here — the popup file
+  // itself is the source of truth and deployPopup will compose it inline,
+  // which convertPopupToTemplate later promotes to a per-copy template. Binding
+  // them to a borrowed cross-group template lets that template's drift leak in.
   if (coll) {
-    await enableM2oClickToOpen(nb, blockUid, coll, modDir, log);
+    await enableM2oClickToOpen(nb, blockUid, coll, modDir, log, popupTargetFields);
   }
 
   // ── FilterForm custom fields ──
@@ -223,19 +242,50 @@ export async function fillBlock(
     const jsPath = path.join(mod, bs.file);
     if (fs.existsSync(jsPath)) {
       let code = fs.readFileSync(jsPath, 'utf8');
-      // Validate JS code
-      const unfilled = code.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
+      // Validate JS code — strip strings before checking for {{var}} patterns
+      // so we don't false-positive on i18n calls like t('{{count}}m ago', ...).
+      const codeNoStrings = code
+        .replace(/`(?:\\.|[^`\\])*`/g, '""')
+        .replace(/'(?:\\.|[^'\\])*'/g, '""')
+        .replace(/"(?:\\.|[^"\\])*"/g, '""');
+      const unfilled = codeNoStrings.match(/\{\{(\w+)(?:\|\|[^}]*)?\}\}/g);
       if (unfilled?.length) {
         log(`      ✗ JS ${bs.file}: unfilled template params: ${unfilled.join(', ')}`);
       } else if (/ctx\.render\s*\(\s*null\s*\)/.test(code)) {
-        log(`      ✗ JS ${bs.file}: ctx.render(null) 是空占位符，需要实现实际内容`);
+        log(`      ✗ JS ${bs.file}: ctx.render(null) is a placeholder — implement actual content`);
       } else if (/ctx\.sql\s*\(/.test(code) && !/ctx\.sql\.(save|runById)/.test(code)) {
-        log(`      ✗ JS ${bs.file}: ctx.sql() 直接调用不可用，请用 ctx.sql.save() + ctx.sql.runById() 流程`);
+        log(`      ✗ JS ${bs.file}: ctx.sql() direct call not available — use ctx.sql.save() + ctx.sql.runById() pattern`);
       } else {
         code = ensureJsHeader(code, { desc: bs.desc, jsType: 'JSBlockModel', coll });
         code = replaceJsUids(code, allBlocksState);
         await nb.updateModel(blockUid, { jsSettings: { runJs: { code, version: 'v1' } } });
         log(`      ~ JS: ${(bs.desc || bs.file).slice(0, 40)}`);
+      }
+    }
+  }
+
+  // ── Standalone markdown block content ──
+  // Compose creates an empty MarkdownBlockModel; we have to write the body
+  // separately. `content_file` (relative to modDir) wins over inline `content`.
+  if (btype === 'markdown') {
+    let mdBody = (bs.content as string) || '';
+    const cf = bs.content_file as string | undefined;
+    if (cf) {
+      const mdPath = path.join(mod, cf);
+      if (fs.existsSync(mdPath)) {
+        mdBody = fs.readFileSync(mdPath, 'utf8');
+      } else {
+        log(`      ! markdown content_file not found: ${cf}`);
+      }
+    }
+    if (mdBody) {
+      try {
+        await nb.updateModel(blockUid, {
+          markdownBlockSettings: { editMarkdown: { content: mdBody } },
+        });
+        log(`      ~ markdown: ${cf ? cf : `${mdBody.length} chars inline`}`);
+      } catch (e) {
+        log(`      ! markdown content: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
       }
     }
   }
@@ -258,14 +308,46 @@ export async function fillBlock(
   if (['list', 'gridCard'].includes(btype) && !gridUid) {
     try {
       const blockData = await nb.get({ uid: blockUid });
-      const listItem = blockData.tree.subModels?.item;
-      if (listItem && !Array.isArray(listItem)) {
-        const listGrid = (listItem as { subModels?: Record<string, unknown> }).subModels?.grid;
-        if (listGrid && !Array.isArray(listGrid)) {
-          itemGridUid = (listGrid as { uid: string }).uid;
-        }
+      const listItem = blockData.tree.subModels?.item as { uid?: string; subModels?: Record<string, unknown> } | undefined;
+      let listItemUid = listItem?.uid;
+      let listGrid = listItem?.subModels?.grid as { uid?: string } | undefined;
+
+      // Compose creates ListBlockModel but for popup-context list blocks
+      // sometimes skips the inner ListItemModel + grid scaffold. Without it
+      // NB has nothing to render — UI shows
+      // "Attempted a SELECT query for model 'X' without selecting any columns"
+      // and the JS items / fields the spec declares never have anywhere to land.
+      // Detect the gap and scaffold it before deployJsItems runs.
+      if (!listItemUid) {
+        const newItemUid = generateUid();
+        const newGridUid = generateUid();
+        await nb.models.save({
+          uid: newItemUid, use: 'ListItemModel',
+          parentId: blockUid, subKey: 'item', subType: 'object',
+          sortIndex: 1, stepParams: {}, flowRegistry: {},
+        });
+        await nb.models.save({
+          uid: newGridUid, use: 'DetailsGridModel',
+          parentId: newItemUid, subKey: 'grid', subType: 'object',
+          sortIndex: 1, stepParams: {}, flowRegistry: {},
+        });
+        listItemUid = newItemUid;
+        listGrid = { uid: newGridUid };
+        log(`      + list scaffold: ListItemModel + DetailsGridModel`);
+      } else if (!listGrid?.uid) {
+        // Item exists but no grid — rare, but handle the same way
+        const newGridUid = generateUid();
+        await nb.models.save({
+          uid: newGridUid, use: 'DetailsGridModel',
+          parentId: listItemUid, subKey: 'grid', subType: 'object',
+          sortIndex: 1, stepParams: {}, flowRegistry: {},
+        });
+        listGrid = { uid: newGridUid };
+        log(`      + list grid scaffold: DetailsGridModel`);
       }
-    } catch (e) { log(`      . list/gridCard grid read: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
+
+      if (listGrid?.uid) itemGridUid = listGrid.uid;
+    } catch (e) { log(`      . list/gridCard scaffold: ${e instanceof Error ? e.message.slice(0, 60) : e}`); }
   }
   await deployJsItems(ctx, itemGridUid, bs, coll, mod, blockState, allBlocksState);
 
@@ -273,7 +355,7 @@ export async function fillBlock(
   await deployJsColumns(ctx, blockUid, bs, coll, mod, blockState, allBlocksState);
 
   // ── Dividers ──
-  await deployDividers(ctx, gridUid, bs, blockState);
+  await deployDividers(ctx, gridUid, bs, blockState, mod);
 
   // ── Event flows ──
   await deployEventFlows(ctx, blockUid, bs, mod);
@@ -283,6 +365,15 @@ export async function fillBlock(
     await applyFieldLayout(ctx, gridUid, bs.field_layout!, bs);
   } else if (gridUid && GRID_BLOCK_TYPES.has(btype)) {
     await syncGridItemsOrder(ctx, gridUid, bs);
+  }
+
+  // ── Sub-table cell rendering ──
+  // Convert o2m/m2m form fields to inline editable sub-tables when DSL
+  // declares `type: subTable`. Runs after field_layout so the form items
+  // already exist; this filler swaps the field model + injects column
+  // children, doesn't change layout placement.
+  if (FORM_BLOCK_TYPES.has(btype)) {
+    await applySubTableFields(ctx, blockUid, defaultColl, bs);
   }
 
   // ── Linkage / reaction rules ──
@@ -413,51 +504,123 @@ async function autoFillRecordActionPopups(
  * Checks defaults.yaml for a matching popup template and binds it.
  * Works for table columns, detail items, form items, list items, etc.
  */
+// Cache shared across a single deploy run — avoids re-fetching 1000+ popup templates
+// and re-attempting m2o fallbacks for collections without popup support.
+/**
+ * Rebind a ReferenceBlockModel's useTemplate.templateUid if the live binding
+ * drifted from what the DSL now resolves to. Used on every existing reference
+ * block (NOT gated on --force): it's one flowModels:get + at most one
+ * flowModels:save, and the check is the entire reason reference blocks can
+ * silently render the wrong template after duplicate-project / template rebuild.
+ *
+ * Reads the RAW row via flowModels:get — flowSurfaces:get returns a
+ * rendered/merged view where stepParams aren't the literal DB record,
+ * which hides the drift.
+ */
+export async function syncReferenceBlockBinding(
+  ctx: DeployContext,
+  blockUid: string,
+  templateRef: { templateUid?: string; templateName?: string; targetUid?: string; mode?: string },
+): Promise<void> {
+  const { nb, log } = ctx;
+  if (!templateRef?.templateUid) return;
+  try {
+    const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: blockUid } });
+    const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+    if (!rawOpts) return;
+    if (rawOpts.use !== 'ReferenceBlockModel') return;
+    const sp = ((rawOpts.stepParams as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const rs = ((sp.referenceSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const curUT = (rs.useTemplate as Record<string, unknown> | undefined);
+    const curUid = curUT?.templateUid as string | undefined;
+    const curTarget = curUT?.targetUid as string | undefined;
+    // Skip only when BOTH templateUid and targetUid already match DSL. If
+    // curUid is missing (orphan ReferenceBlockModel from a prior deploy
+    // where template creation failed and the block got left without a
+    // binding), fall through and write the binding now. Also rebind when
+    // only targetUid drifted — common after our resolver started carrying
+    // targetUid: an earlier push wrote templateUid but stale targetUid;
+    // without this check the user sees the OLD template content.
+    const uidMatches = curUid && curUid === templateRef.templateUid;
+    const targetMatches = !templateRef.targetUid || curTarget === templateRef.targetUid;
+    if (uidMatches && targetMatches) return;
+    rs.useTemplate = {
+      ...(curUT || {}),
+      templateUid: templateRef.templateUid,
+      templateName: templateRef.templateName,
+      targetUid: templateRef.targetUid,
+      mode: templateRef.mode || 'reference',
+    };
+    if (rs.target && typeof rs.target === 'object' && templateRef.targetUid) {
+      (rs.target as Record<string, unknown>).targetUid = templateRef.targetUid;
+    }
+    sp.referenceSettings = rs;
+    await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+      uid: blockUid,
+      use: 'ReferenceBlockModel',
+      parentId: (rawOpts.parentId as string) || undefined,
+      subKey: (rawOpts.subKey as string) || undefined,
+      subType: (rawOpts.subType as string) || undefined,
+      sortIndex: (rawOpts.sortIndex as number) || 0,
+      flowRegistry: (rawOpts.flowRegistry as Record<string, unknown>) || {},
+      stepParams: sp,
+    });
+    log(`      ~ templateRef: ${curUid ? 'rebound ' + curUid.slice(0, 8) : 'bound (was empty)'} → ${(templateRef.templateUid || '').slice(0, 8)} (${templateRef.templateName || ''})`);
+  } catch (e) {
+    log(`      ! templateRef rebind: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+}
+
+interface M2oCache {
+  templates?: Record<string, unknown>[];
+  fieldsByColl: Map<string, Map<string, string>>;  // coll → (fieldPath → m2o target)
+  failedFallbackColls: Set<string>;                 // target colls whose fallback compose is known to 400
+}
+let _m2oCache: M2oCache | null = null;
+export function resetM2oCache(): void { _m2oCache = null; }
+function m2oCache(): M2oCache {
+  if (!_m2oCache) _m2oCache = { fieldsByColl: new Map(), failedFallbackColls: new Set() };
+  return _m2oCache;
+}
+
 export async function enableM2oClickToOpen(
   nb: NocoBaseClient,
   blockUid: string,
   coll: string,
   modDir: string,
   log: (msg: string) => void,
+  popupTargetFields?: Set<string>,
 ): Promise<void> {
-  // Load defaults.yaml (walk up to project root)
-  let popupDefaults: Record<string, string> = {};
-  try {
-    const { loadYaml } = await import('../utils/yaml');
-    for (let dir = modDir; dir !== path.dirname(dir); dir = path.dirname(dir)) {
-      const f = path.join(dir, 'defaults.yaml');
-      if (fs.existsSync(f)) {
-        popupDefaults = (loadYaml<{ popups?: Record<string, string> }>(f))?.popups || {};
-        break;
-      }
-    }
-  } catch { /* skip */ }
-  if (!Object.keys(popupDefaults).length) return;
+  const cache = m2oCache();
 
-  // Get collection field metadata — m2o fields and their targets
-  const m2oTargets = new Map<string, string>(); // fieldPath → targetCollection
-  try {
-    const resp = await nb.http.get(`${nb.baseUrl}/api/collections/${coll}/fields:list`, { params: { paginate: false } });
-    for (const f of (resp.data.data || []) as Record<string, unknown>[]) {
-      if (f.interface === 'm2o' && f.target) m2oTargets.set(f.name as string, f.target as string);
-    }
-  } catch { return; }
+  // Get collection field metadata — m2o fields and their targets (cached per deploy run)
+  let m2oTargets = cache.fieldsByColl.get(coll);
+  if (!m2oTargets) {
+    m2oTargets = new Map<string, string>();
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/collections/${coll}/fields:list`, { params: { paginate: false } });
+      for (const f of (resp.data.data || []) as Record<string, unknown>[]) {
+        if (f.interface === 'm2o' && f.target) m2oTargets.set(f.name as string, f.target as string);
+      }
+    } catch { return; }
+    cache.fieldsByColl.set(coll, m2oTargets);
+  }
   if (!m2oTargets.size) return;
 
-  // Resolve popup template names → live UIDs
-  const { loadYaml } = await import('../utils/yaml');
+  // Query ALL live popup templates (cached per deploy run — the list is stable within one deploy)
   const templateNameToUid = new Map<string, { templateUid: string; targetUid: string }>();
-  let liveTemplates: Record<string, unknown>[] = [];
-  try {
-    const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
-    liveTemplates = resp.data.data || [];
-  } catch { return; }
+  if (!cache.templates) {
+    try {
+      const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
+      cache.templates = resp.data.data || [];
+    } catch { return; }
+  }
+  const liveTemplates = cache.templates!;
 
-  // Resolve popup templates by collectionName (more reliable than name matching)
+  // Find popup templates for each needed collection (m2o targets + own collection)
   const neededColls = new Set(m2oTargets.values());
   neededColls.add(coll);
   for (const targetColl of neededColls) {
-    if (!popupDefaults[targetColl]) continue;
     // Find live popup template by collectionName + type=popup, prefer Detail
     const isDetail = (t: Record<string, unknown>) => {
       const name = (t.name || '').toString().toLowerCase();
@@ -476,7 +639,8 @@ export async function enableM2oClickToOpen(
       templateNameToUid.set(targetColl, { templateUid: (live as Record<string, unknown>).uid as string, targetUid: ((live as Record<string, unknown>).targetUid as string) || '' });
     }
   }
-  if (!templateNameToUid.size) return;
+  // Note: continue even if no templates exist — we may still need to deploy
+  // inline default details for m2o fields pointing to collections without pages.
 
   // Scan block tree — collect field models with m2o fieldPath (deduplicated by UID)
   let blockData: any;
@@ -534,13 +698,75 @@ export async function enableM2oClickToOpen(
     const targetColl = m2oTargets.get(fm.fieldPath);  // m2o → target collection
     const popupColl = targetColl || coll;              // non-m2o → own collection
     const tplInfo = templateNameToUid.get(popupColl);
-    if (!tplInfo) continue;
 
     // For non-m2o: only bind if field already has clickToOpen enabled
     if (!targetColl) {
       const hasClickToOpen = fm.stepParams?.displayFieldSettings?.clickToOpen?.clickToOpen;
       if (!hasClickToOpen) continue;
+      // Skip binding if a dedicated popup file already owns this field —
+      // deployPopup composes its content inline and we don't want to
+      // overwrite it with an auto-discovered template binding.
+      if (popupTargetFields?.has(fm.fieldPath)) continue;
+      // Refetch live state — flowSurfaces:get returns a stale tree missing
+      // the popupTemplateUid that click-to-open's flowModels:save just wrote.
+      // Without this re-check, auto-binding overrides the DSL-declared
+      // template (`clickToOpen: templates/popup/X.yaml` → wrong template).
+      try {
+        const liveResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
+        const liveTplUid = liveResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid;
+        if (liveTplUid) continue;
+      } catch { /* fall through if get fails */ }
     }
+
+    // Fallback for m2o without a popup template: deploy default details inline
+    // (m2o target collection has no page → no auto-created popup template)
+    if (!tplInfo && targetColl) {
+      // Skip targets that already failed compose in this deploy run — the failure is
+      // per-collection (users / regions / quotations etc. NocoBase rejects) and retrying
+      // wastes hundreds of API round-trips.
+      if (cache.failedFallbackColls.has(targetColl)) continue;
+      try {
+        const meta = await nb.collections.fieldMeta(targetColl);
+        const defaultFields = Object.keys(meta)
+          .filter(k => !['id', 'createdById', 'updatedById', 'createdAt', 'updatedAt'].includes(k))
+          .slice(0, 8)
+          .map(k => ({ fieldPath: k }));
+        if (defaultFields.length) {
+          await nb.surfaces.compose(fm.uid, [{
+            key: 'details', type: 'details',
+            resource: { collectionName: targetColl, dataSourceKey: 'main', binding: 'currentRecord' },
+            fields: defaultFields,
+          }], 'replace');
+          // Set popupSettings so clickToOpen navigates to this inline popup
+          const sp = fm.stepParams || {};
+          sp.displayFieldSettings = { clickToOpen: { clickToOpen: true } };
+          sp.popupSettings = {
+            openView: {
+              collectionName: targetColl, dataSourceKey: 'main',
+              mode: 'drawer', size: 'large',
+              pageModelClass: 'ChildPageModel', uid: fm.uid,
+              filterByTk: '{{ctx.view.inputArgs.filterByTk}}',
+            },
+          };
+          const fdResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
+          const fd = fdResp.data.data;
+          if (fd) {
+            await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+              uid: fm.uid, use: fd.use, parentId: fd.parentId,
+              subKey: fd.subKey, subType: fd.subType,
+              stepParams: sp, sortIndex: fd.sortIndex || 0, flowRegistry: fd.flowRegistry || {},
+            });
+            log(`      ~ m2o fallback: ${fm.fieldPath} → inline default details (no popup template for ${targetColl})`);
+          }
+        }
+      } catch (e) {
+        cache.failedFallbackColls.add(targetColl);
+        log(`      . m2o fallback ${fm.fieldPath} → ${targetColl}: ${e instanceof Error ? e.message.slice(0, 60) : e} (will skip this target for rest of deploy)`);
+      }
+      continue;
+    }
+
+    if (!tplInfo) continue;
 
     // ── Validation: verify template's collectionName matches expected ──
     try {
@@ -579,4 +805,25 @@ export async function enableM2oClickToOpen(
       log(`      . popup bind ${fm.fieldPath}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
     }
   }
+}
+
+/**
+ * Parse filter shorthand: { "field.$op": value } → { logic: '$and', items: [...] }
+ */
+function parseFilterShorthand(filter: Record<string, unknown>): Record<string, unknown> {
+  const items: Record<string, unknown>[] = [];
+  for (const [rawKey, value] of Object.entries(filter)) {
+    const dotIdx = rawKey.indexOf('.$');
+    let fieldPath: string;
+    let operator: string;
+    if (dotIdx !== -1) {
+      fieldPath = rawKey.slice(0, dotIdx);
+      operator = rawKey.slice(dotIdx + 1);
+    } else {
+      fieldPath = rawKey;
+      operator = '$eq';
+    }
+    items.push({ path: fieldPath, operator, value });
+  }
+  return { logic: '$and', items };
 }

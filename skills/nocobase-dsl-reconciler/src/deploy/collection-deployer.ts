@@ -63,6 +63,29 @@ export async function ensureCollection(
 ): Promise<void> {
   // Skip system columns — NocoBase auto-creates these
   const SYSTEM_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
+
+  // Coerce FK fields away from string-backed interfaces (snowflakeId, uuid,
+  // nanoid). When a field is referenced as foreignKey by a relation whose
+  // target is `id` (always bigint by NB convention), the FK column MUST be
+  // bigint or runtime queries fail with `bigint = character varying`. The
+  // pull side sometimes captures wrong interfaces (Products' parentId came
+  // back as snowflakeId despite source DB being bigint), so we fix it here
+  // at deploy time rather than chase every pull bug.
+  const fkNames = new Set<string>();
+  for (const fd of def.fields) {
+    if (['m2o', 'o2m', 'o2o'].includes(fd.interface) && fd.foreignKey) {
+      const targetKey = fd.targetField || 'id';
+      if (targetKey === 'id') fkNames.add(fd.foreignKey);
+    }
+  }
+  const STRING_BACKED = new Set(['snowflakeId', 'uuid', 'nanoid']);
+  for (const fd of def.fields) {
+    if (fkNames.has(fd.name) && STRING_BACKED.has(fd.interface)) {
+      log(`  ⚠ ${name}.${fd.name}: interface=${fd.interface} would create varchar — coercing to integer (FK to bigint id)`);
+      fd.interface = 'integer';
+    }
+  }
+
   const fields = def.fields.filter(f => !SYSTEM_FIELDS.has(f.name)).map(toApplyField);
 
   // Auto-detect titleField: first 'name' or 'title' field, or explicit from def
@@ -83,16 +106,29 @@ export async function ensureCollection(
       sortable: true,
       filterTargetKey: 'id',
       ...(titleField ? { titleField } : {}),
+      // Template ('comment' / 'tree' / 'calendar' / etc.) controls which
+      // NocoBase plugin blocks the collection unlocks. Default 'general'
+      // is fine for plain CRUD; without the right template,
+      // CommentsBlock / CalendarBlock / TreeBlock refuse to bind to
+      // duplicated collections ("not a comment collection" error).
+      ...(def.template ? { template: def.template } : {}),
     });
     if (!titleField) {
-      log(`  ✗ collection ${name}: 没有 titleField（需要 name/title 字段，或显式设置 titleField）`);
+      log(`  ⚠ collection ${name}: no titleField (add a name/title field, or set titleField explicitly)`);
     }
     log(`  = collection: ${name}${titleField ? ` (titleField: ${titleField})` : ''}`);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // Fallback: if apply fails (404=older NocoBase, 500=upsert issue), use legacy
+    // Fallback: if apply fails (404=older NocoBase, 500=upsert issue), use legacy.
+    // Catch the fallback's errors too so one bad collection doesn't kill the entire
+    // push — log and continue to the next collection.
     if (msg.includes('404') || msg.includes('500') || msg.includes('Not Found')) {
-      await ensureCollectionLegacy(nb, name, def, log);
+      try {
+        await ensureCollectionLegacy(nb, name, def, log);
+      } catch (le) {
+        const lmsg = le instanceof Error ? le.message : String(le);
+        log(`  ! collection ${name} (legacy fallback): ${lmsg.slice(0, 200)}`);
+      }
     } else {
       log(`  ! collection ${name}: ${msg}`);
     }
@@ -126,7 +162,7 @@ async function ensureCollectionLegacy(
       log(`  = collection: ${name} (titleField: ${tf})`);
     } catch { /* best effort */ }
   } else {
-    log(`  ✗ collection ${name}: 没有 titleField（需要 name 或 title 字段，或在 YAML 中显式设置 titleField）`);
+    log(`  ⚠ collection ${name}: no titleField (add a name or title field, or set titleField in YAML)`);
   }
 
   for (const fd of def.fields) {
@@ -165,13 +201,27 @@ export async function ensureAllCollections(
   nb: NocoBaseClient,
   collections: Record<string, CollectionDef>,
   log: (msg: string) => void = console.log,
+  /** When set, only operate on collections whose name is in this set. */
+  onlyNames?: Set<string>,
 ): Promise<void> {
-  for (const [name, def] of Object.entries(collections)) {
-    await ensureCollection(nb, name, def, log);
+  const filterFn = onlyNames
+    ? (entry: [string, CollectionDef]) => onlyNames.has(entry[0])
+    : (_: [string, CollectionDef]) => true;
+  const entries = Object.entries(collections).filter(filterFn);
+  for (const [name, def] of entries) {
+    // Robust: don't let one collection's failure terminate the whole deploy.
+    // ensureCollection has its own per-step try/catch for apply + legacy
+    // fallback, but a runaway exception (network, undefined access) would
+    // otherwise kill ensureAllCollections + the rest of project deploy.
+    try {
+      await ensureCollection(nb, name, def, log);
+    } catch (e) {
+      log(`  ✗ collection ${name}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+    }
   }
 
   // Post-create validation + repair for m2o fields
-  for (const [name, def] of Object.entries(collections)) {
+  for (const [name, def] of entries) {
     for (const fd of def.fields) {
       if (fd.interface !== 'm2o' || !fd.target) continue;
 
@@ -197,6 +247,28 @@ export async function ensureAllCollections(
           log(`    ⚠ ${name}.${fd.name} → ${fd.target} has no titleField (relation will show ID)`);
         }
       } catch { /* skip */ }
+    }
+  }
+
+  // Apply collection.triggers — raw SQL DDL that travels with the collection.
+  // We do this AFTER all collections+fields exist so the SQL can reference
+  // any column. drop+create per object so reruns are idempotent.
+  for (const [name, def] of entries) {
+    if (!def.triggers?.length) continue;
+    log(`    triggers on ${name}: applying ${def.triggers.length}`);
+    const { execSql, dropSqlObject } = await import('../utils/sql-exec');
+    for (const t of def.triggers) {
+      try {
+        if (t.drop) {
+          execSql(t.drop);
+        } else {
+          dropSqlObject(t.name, name, t.kind);
+        }
+        execSql(t.sql);
+        log(`      + ${t.name} (${t.kind || 'sql'})`);
+      } catch (e) {
+        log(`      ✗ ${t.name}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+      }
     }
   }
 }

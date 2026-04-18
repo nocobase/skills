@@ -1,2 +1,0 @@
-target: $SELF.table.fields.role_on_project
-popup: templates/popup/detail_nb_pm_team_members.yaml

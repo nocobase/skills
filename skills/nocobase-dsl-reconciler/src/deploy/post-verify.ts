@@ -166,7 +166,7 @@ export async function postVerify(
     if (selectFields.length) {
       warnings.push(
         `Page '${ps.page}' has select fields (${selectFields.slice(0, 3).join(', ')}) but no filter-stats jsBlock. `
-        + `TIP: cp templates/filter-stats.js js/filter_${slugify(ps.page)}.js — edit CONFIG then add jsBlock to structure.yaml`,
+        + `TIP: copy a filter-stats JS from templates/crm/pages/main/customers/tab_customers/js/ and add a jsBlock entry to layout.yaml`,
       );
     }
   }

@@ -1,6 +1,0 @@
-name: 'Popup (Add new): Members'
-type: popup
-collectionName: nb_pm_members
-content:
-  blocks:
-    - ref: templates/block/form_add_new_nb_pm_members.yaml

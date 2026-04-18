@@ -32,9 +32,9 @@ content:
             - - '[JS:Customer Statistics Block]'
           actions:
             - edit
-            - ai:
-                employee: vera
-                tasks: ./ai/customer_view_tab0_details_tasks.yaml
+            - type: ai
+              employee: vera
+              tasks_file: ./ai/customer_view_tab0_details_tasks.yaml
         - key: details_2
           type: details
           coll: nb_crm_customers
@@ -123,8 +123,8 @@ content:
             - filter
             - refresh
             - addNew
-            - ai:
-                employee: ellis
-                tasks: ./ai/customer_view_tab2_mailMessages_tasks.yaml
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/customer_view_tab2_mailMessages_tasks.yaml
       layout:
         - - mailMessages

@@ -1,7 +1,7 @@
 /**
- * Post-seed data verification — check record completeness and FK integrity.
+ * Data verification — check record completeness and FK integrity.
  *
- * Run AFTER inserting test data to catch:
+ * Run AFTER inserting data to catch:
  * - Empty collections (no records)
  * - Ghost records (all business fields null)
  * - Broken FK references (projectId=1 but real ID is snowflake)

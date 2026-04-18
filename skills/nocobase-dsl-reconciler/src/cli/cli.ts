@@ -32,6 +32,67 @@ import type { ModuleState, PageState } from '../types/state';
 import type { EnhanceSpec } from '../types/spec';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const WORKSPACE_ROOT = path.resolve(
+  process.env.NB_WORKSPACE_ROOT || path.join(__dirname, '..', '..', 'workspaces'),
+);
+
+/**
+ * Ensure the project directory is its OWN git repo (independent of any
+ * parent repo it may live inside). Runs `git init` when absDir/.git is
+ * missing, then makes an initial commit so future pre-deploy snapshots
+ * and `--incremental` push have a base SHA to diff against.
+ *
+ * Why per-project repo?
+ *   - Without one, `git rev-parse` would walk up to the parent (e.g. the
+ *     tool source repo), and snapshots/diffs would target THAT history.
+ *   - The parent's `.gitignore workspaces/*` then hides our files, so
+ *     diff-based incremental push can't see anything → falls back to
+ *     full push every time.
+ *   - A local `.git/` makes deployment data live in its own timeline,
+ *     completely decoupled from tool-source commits.
+ */
+async function ensureProjectGit(absDir: string, log: (msg: string) => void = () => {}): Promise<void> {
+  const gitDir = path.join(absDir, '.git');
+  if (fs.existsSync(gitDir)) return;
+  if (!fs.existsSync(absDir)) return;  // dir doesn't exist yet (e.g. fresh pull about to write)
+  const { execSync } = await import('node:child_process');
+  try {
+    execSync('git init -b main', { cwd: absDir, stdio: 'pipe' });
+    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      execSync('git commit -m "initial: project bootstrap" --allow-empty-message', { cwd: absDir, stdio: 'pipe' });
+    } else {
+      execSync('git commit --allow-empty -m "initial: project bootstrap"', { cwd: absDir, stdio: 'pipe' });
+    }
+    log(`  git: initialised local repo at ${path.basename(absDir)}/`);
+  } catch (e) {
+    log(`  ⚠ failed to git-init ${absDir}: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+  }
+}
+
+/**
+ * Resolve a project-dir argument. Relative paths attach to WORKSPACE_ROOT.
+ * Absolute paths must already be inside WORKSPACE_ROOT.
+ * Throws if the resolved path escapes the root.
+ */
+function resolveWorkspacePath(arg: string): string {
+  const abs = path.isAbsolute(arg) ? path.resolve(arg) : path.resolve(WORKSPACE_ROOT, arg);
+  const rel = path.relative(WORKSPACE_ROOT, abs);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(
+      `Path "${arg}" is outside workspace root.\n`
+      + `  Workspace: ${WORKSPACE_ROOT}\n`
+      + `  Resolved:  ${abs}\n`
+      + `Set NB_WORKSPACE_ROOT to override, or pass a path inside the workspace.`,
+    );
+  }
+  return abs;
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -39,7 +100,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: deploy, deploy-project, scaffold, seed, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows');
+    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, scaffold, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
     process.exit(1);
   }
 
@@ -50,11 +111,11 @@ async function main() {
     case 'deploy-project':
       await cmdDeployProject(args.slice(1));
       break;
-    case 'scaffold':
-      cmdScaffold(args.slice(1));
+    case 'rollback':
+      await cmdRollback(args.slice(1));
       break;
-    case 'seed':
-      await cmdSeed(args.slice(1));
+    case 'scaffold':
+      await cmdScaffold(args.slice(1));
       break;
     case 'verify-data':
       await cmdVerifyData(args.slice(1));
@@ -89,6 +150,21 @@ async function main() {
     case 'validate-workflows':
       cmdValidateWorkflows(args.slice(1));
       break;
+    case 'compare':
+      await cmdCompare(args.slice(1));
+      break;
+    case 'duplicate-project':
+      await cmdDuplicateProject(args.slice(1));
+      break;
+    case 'push':
+      await cmdDeployProject(args.slice(1));
+      break;
+    case 'pull':
+      await cmdExportProject(args.slice(1));
+      break;
+    case 'diff':
+      await cmdCompare(args.slice(1));
+      break;
     default:
       console.error(`Unknown command: ${command}`);
       process.exit(1);
@@ -96,8 +172,9 @@ async function main() {
 }
 
 async function cmdDeploy(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts deploy <dir> [--force] [--plan]'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts deploy <dir> [--force] [--plan]'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
 
@@ -129,7 +206,7 @@ async function cmdDeploy(args: string[]) {
   await ensureAllCollections(nb, structure.collections || {});
 
   // State
-  const mod = path.resolve(modDir);
+  const mod = modDir;
   const stateFile = path.join(mod, 'state.yaml');
   const state: ModuleState = fs.existsSync(stateFile)
     ? loadYaml<ModuleState>(stateFile)
@@ -226,8 +303,9 @@ async function cmdDeploy(args: string[]) {
 }
 
 async function cmdVerifySql(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts verify-sql <dir>'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts verify-sql <dir>'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
 
   const nb = await NocoBaseClient.create();
   const result = await verifySql(modDir, nb);
@@ -243,8 +321,9 @@ async function cmdVerifySql(args: string[]) {
 
 async function cmdExport(args: string[]) {
   const pageTitle = args[0];
-  const outDir = args[1];
-  if (!pageTitle || !outDir) { console.error('Usage: cli.ts export <page-title> <outdir>'); process.exit(1); }
+  const outDirArg = args[1];
+  if (!pageTitle || !outDirArg) { console.error('Usage: cli.ts export <page-title> <outdir>'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
 
   const nb = await NocoBaseClient.create();
   const routes = await nb.routes.list();
@@ -288,91 +367,379 @@ async function cmdExport(args: string[]) {
 
 async function cmdDeployProject(args: string[]) {
   const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-project <dir> [--force] [--plan] [--group X] [--page X] [--blueprint] [--no-sync] [--copy]'); process.exit(1); }
+  if (!dir) { console.error('Usage: cli.ts push <dir> [--force] [--plan] [--group <key>] [--page X] [--incremental] [--copy]\n\n  --group <key>     Deploy only the route subtree whose key matches.\n  --incremental     Skip pages whose DSL files have not changed since the last\n                    push (uses git diff vs state.last_deployed_sha; falls back\n                    to full push when not in git or sha missing).\n  --copy            Bypass spec validation errors (warnings still shown).\n                    ONLY accepted on a workspace produced by duplicate-project\n                    (presence of .duplicate-source marker). Refused otherwise.'); process.exit(1); }
   const force = args.includes('--force');
   const planOnly = args.includes('--plan');
   const blueprint = args.includes('--blueprint');
-  const skipSync = args.includes('--no-sync');
-  const copyMode = args.includes('--copy');
+  const incremental = args.includes('--incremental');
+  const copy = args.includes('--copy');
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const pageIdx = args.indexOf('--page');
   const page = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
 
-  const absDir = path.resolve(dir);
-  const { execSync } = await import('node:child_process');
+  const absDir = resolveWorkspacePath(dir);
 
-  // Check if git repo
-  const isGit = (() => { try { execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' }); return true; } catch { return false; } })();
-
-  // ── Pre-deploy: commit current state ──
-  if (!planOnly && !skipSync && isGit) {
+  // Pre-deploy git snapshot (rollback point). Auto-init a local repo for
+  // the project if missing, so this works the very first time and stays
+  // decoupled from any parent repo above workspaces/.
+  if (!planOnly) {
+    await ensureProjectGit(absDir, console.log);
+    const { execSync } = await import('node:child_process');
     try {
-      execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
-      const status = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
-      if (status) {
-        execSync('git commit -m "pre-deploy snapshot"', { cwd: absDir, stdio: 'pipe' });
-        console.log('  git: pre-deploy commit saved');
-      }
-    } catch { /* skip */ }
+      execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
+      const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+      if (branch) await gitSnapshot(absDir, branch);
+    } catch { /* not a git repo — skip */ }
   }
 
-  // ── Deploy ──
-  await deployProject(absDir, { force, planOnly, group, page, blueprint, copyMode });
+  await deployProject(absDir, { force, planOnly, group, page, blueprint, incremental, copy });
+}
 
-  // ── Post-deploy: export to worktree branch for safe comparison ──
-  if (!planOnly && !skipSync && group && isGit) {
-    try {
-      const nb = await NocoBaseClient.create();
-      const branch = 'deploy-sync';
-      const wtDir = absDir + '-worktree';
+/**
+ * Rollback — delete templates created by the most recent deploy.
+ *
+ * Reads state.yaml._last_deploy_created_templates (written by deploy-project)
+ * and destroys each UID in NocoBase. Use before `git revert` if you want the
+ * live instance to match the reverted YAML state.
+ */
+async function cmdRollback(args: string[]) {
+  const dir = args[0];
+  const clean = args.includes('--clean');  // also prune orphan flowModels + stale usage records
+  if (!dir) { console.error('Usage: cli.ts rollback <project-dir> [--clean]'); process.exit(1); }
+  const absDir = resolveWorkspacePath(dir);
+  const stateFile = path.join(absDir, 'state.yaml');
+  if (!fs.existsSync(stateFile)) { console.error(`state.yaml not found in ${absDir}`); process.exit(1); }
+  const state = loadYaml<ModuleState>(stateFile);
+  const uids = (state as any)._last_deploy_created_templates as string[] | undefined;
+  const nb = await NocoBaseClient.create();
 
-      // Clean up previous worktree
-      try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-      try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+  if (uids?.length) {
+    console.log(`Rolling back ${uids.length} templates created by last deploy…`);
+    const { deleteTemplatesByUid } = await import('../deploy/template-deployer');
+    await deleteTemplatesByUid(nb, uids, console.log);
+    delete (state as any)._last_deploy_created_templates;
+    saveYaml(stateFile, state);
+  } else {
+    console.log('No templates recorded from last deploy.');
+  }
 
-      // Create worktree on new branch from current HEAD
-      execSync(`git worktree add "${wtDir}" -b ${branch}`, { cwd: absDir, stdio: 'pipe' });
+  if (clean) {
+    console.log('\nDeep cleanup (--clean):');
+    await deepCleanTemplates(nb);
+  }
 
-      // Export live state into worktree
-      console.log('\n  ── Sync back (worktree) ──');
-      await exportProject(nb, { outDir: wtDir, group });
+  console.log('Rollback done.');
+}
 
-      // Commit export result in worktree
-      execSync('git add -A', { cwd: wtDir, stdio: 'pipe' });
-      const wtStatus = execSync('git status --porcelain', { cwd: wtDir, stdio: 'pipe' }).toString().trim();
-      if (wtStatus) {
-        execSync('git commit -m "post-deploy export"', { cwd: wtDir, stdio: 'pipe' });
-      }
+/**
+ * Aggressive cleanup: reachable flowModels from active route trees + template targets
+ * are preserved; everything else is deleted. Also cleans stale flowModelTemplateUsages
+ * records (NocoBase doesn't cascade-delete them when flowModels disappear, which keeps
+ * usageCount artificially high and blocks template deletion).
+ */
+async function deepCleanTemplates(nb: NocoBaseClient): Promise<void> {
+  // 1. Collect reachable flowModel UIDs
+  const routesResp = await nb.http.get(`${nb.baseUrl}/api/desktopRoutes:list`, { params: { paginate: false, tree: true } });
+  const topRoutes = (routesResp.data.data || []) as any[];
+  const rootUids = new Set<string>();
+  function walkRoute(r: any) {
+    if (r.schemaUid) rootUids.add(r.schemaUid);
+    for (const c of (r.children || [])) walkRoute(c);
+  }
+  for (const r of topRoutes) walkRoute(r);
 
-      // Show diff: main vs deploy-sync
-      const mainBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: absDir, stdio: 'pipe' }).toString().trim();
-      const diff = execSync(`git diff --stat ${mainBranch}..${branch}`, { cwd: absDir, stdio: 'pipe' }).toString().trim();
-
-      if (diff) {
-        console.log(`\n  Diff (${mainBranch} → ${branch}):`);
-        console.log(diff.split('\n').map(l => '    ' + l).join('\n'));
-        console.log(`\n  To review:  git diff ${mainBranch}..${branch}`);
-        console.log(`  To merge:   git merge ${branch}`);
-        console.log(`  To discard: git branch -D ${branch}`);
-      } else {
-        console.log('  ✓ No diff — DSL matches live state');
-        // Clean up if no changes
-        try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-        try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-      }
-
-      // Always remove worktree (branch stays for review)
-      try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
-    } catch (e) {
-      console.log('  ! sync back failed: ' + (e instanceof Error ? e.message.slice(0, 80) : e));
+  const allFm: any[] = [];
+  for (let p = 1; p <= 10; p++) {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, { params: { pageSize: 5000, page: p } });
+    const d = r.data.data || [];
+    allFm.push(...d);
+    if (d.length < 5000) break;
+  }
+  const childrenIdx = new Map<string, any[]>();
+  for (const n of allFm) {
+    const p = n.parentId || '__root__';
+    if (!childrenIdx.has(p)) childrenIdx.set(p, []);
+    childrenIdx.get(p)!.push(n);
+  }
+  const reachable = new Set<string>(rootUids);
+  const queue: string[] = Array.from(rootUids);
+  while (queue.length) {
+    const u = queue.shift()!;
+    for (const k of (childrenIdx.get(u) || [])) {
+      if (!reachable.has(k.uid)) { reachable.add(k.uid); queue.push(k.uid); }
     }
+  }
+
+  // 2. Also preserve template target trees
+  const tResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 1000 } });
+  const templates = (tResp.data.data || []) as any[];
+  for (const t of templates) {
+    if (!t.targetUid || reachable.has(t.targetUid)) continue;
+    reachable.add(t.targetUid);
+    queue.push(t.targetUid);
+  }
+  while (queue.length) {
+    const u = queue.shift()!;
+    for (const k of (childrenIdx.get(u) || [])) {
+      if (!reachable.has(k.uid)) { reachable.add(k.uid); queue.push(k.uid); }
+    }
+  }
+
+  const orphans = allFm.filter(n => !reachable.has(n.uid));
+  console.log(`  flowModels: ${allFm.length} total, ${reachable.size} reachable, ${orphans.length} orphan`);
+
+  // 3. Batch delete orphans (20 parallel)
+  let delFm = 0;
+  for (let i = 0; i < orphans.length; i += 20) {
+    const batch = orphans.slice(i, i + 20);
+    const results = await Promise.allSettled(batch.map(o =>
+      nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: o.uid } })
+    ));
+    for (const r of results) if (r.status === 'fulfilled') delFm++;
+  }
+  console.log(`  deleted ${delFm} orphan flowModels`);
+
+  // 4. Clean stale usage records (modelUid no longer exists)
+  const usages: any[] = [];
+  for (let p = 1; p <= 5; p++) {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, { params: { pageSize: 1000, page: p } });
+    const d = r.data.data || [];
+    usages.push(...d);
+    if (d.length < 1000) break;
+  }
+  const liveUids = new Set(allFm.filter(n => reachable.has(n.uid)).map(n => n.uid));
+  const staleUsages = usages.filter(u => !liveUids.has(u.modelUid));
+  let delU = 0;
+  for (const u of staleUsages) {
+    try {
+      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:destroy`, {}, { params: { filterByTk: u.uid } });
+      delU++;
+    } catch { /* skip */ }
+  }
+  console.log(`  deleted ${delU}/${staleUsages.length} stale usage records`);
+
+  // 5. Delete templates whose usageCount dropped to 0
+  const fresh: any[] = [];
+  for (let p = 1; p <= 3; p++) {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { pageSize: 1000, page: p } });
+    const d = r.data.data || [];
+    fresh.push(...d);
+    if (d.length < 1000) break;
+  }
+  const zeroUse = fresh.filter(t => ((t.usageCount as number) || 0) === 0);
+  let delT = 0;
+  for (const t of zeroUse) {
+    try {
+      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: t.uid as string } });
+      delT++;
+    } catch { /* skip */ }
+  }
+  console.log(`  deleted ${delT}/${zeroUse.length} zero-usage templates`);
+  console.log(`  templates remaining: ${fresh.length - delT}`);
+}
+
+// ── Deploy-sync helpers ──
+
+/** Auto-detect group title from routes.yaml (first group entry). */
+function autoDetectGroup(projectDir: string): string {
+  try {
+    const { loadYaml } = require('../utils/yaml');
+    const routes = loadYaml(path.join(projectDir, 'routes.yaml'));
+    if (Array.isArray(routes)) {
+      const g = routes.find((r: any) => r.type === 'group' || r.children);
+      return g?.title || '';
+    }
+  } catch { /* skip */ }
+  return '';
+}
+
+/**
+ * Pre-deploy: export live NocoBase state to a worktree BEFORE deploying.
+ *
+ * If user modified pages in the NocoBase UI since last deploy, those changes
+ * are captured in the pre-deploy-live branch. The deploy still runs from the
+ * main branch YAML, but the user can compare/merge the live state afterwards.
+ *
+ * Flow:
+ *   1. Commit local YAML changes (rollback point)
+ *   2. Export live state to worktree (pre-deploy-live branch)
+ *   3. Show diff: local YAML vs live NocoBase
+ *   4. Proceed with deploy from local YAML
+ */
+async function preDeployExport(absDir: string, group: string, mainBranch: string): Promise<void> {
+  const { execSync } = await import('node:child_process');
+
+  // Skip for first deploy (no state.yaml = nothing deployed yet)
+  if (!fs.existsSync(path.join(absDir, 'state.yaml'))) return;
+
+  try {
+    // Snapshot the project subtree only — never the whole git repo. Without
+    // the path scope, `git add -A` would also commit unrelated edits in
+    // src/ (the tool source) under "pre-deploy snapshot", coupling tool
+    // development to deployment side-effects.
+    const projectName = path.basename(absDir);
+    execSync(`git add -A -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' });
+    const localStatus = execSync(`git status --porcelain -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    if (localStatus) {
+      execSync(`git commit -m "pre-deploy snapshot: ${projectName}" -- "${absDir}"`, { cwd: absDir, stdio: 'pipe' });
+      console.log(`  git: pre-deploy snapshot saved (${projectName})`);
+    }
+
+    // Export live state to worktree
+    const liveBranch = 'pre-deploy-live';
+    const wtDir = absDir + '-live';
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    execSync(`git worktree add "${wtDir}" -b ${liveBranch}`, { cwd: absDir, stdio: 'pipe' });
+
+    // Copy state.yaml so export can match UIDs
+    const stateFile = path.join(absDir, 'state.yaml');
+    if (fs.existsSync(stateFile)) fs.copyFileSync(stateFile, path.join(wtDir, 'state.yaml'));
+
+    const nb = await NocoBaseClient.create();
+    await exportProject(nb, { outDir: wtDir, group });
+
+    execSync('git add -A', { cwd: wtDir, stdio: 'pipe' });
+    const liveStatus = execSync('git status --porcelain', { cwd: wtDir, stdio: 'pipe' }).toString().trim();
+    if (liveStatus) {
+      execSync('git commit -m "pre-deploy: live state"', { cwd: wtDir, stdio: 'pipe' });
+    }
+
+    // Show diff: local YAML vs live NocoBase
+    const diff = execSync(
+      `git diff --stat ${mainBranch}..${liveBranch} -- pages/ ":(exclude)**/page.yaml" ":(exclude)**/_refs.yaml"`,
+      { cwd: absDir, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+    ).trim();
+
+    if (diff) {
+      const lines = diff.split('\n');
+      console.log(`\n  ⚠ Live state differs from local DSL (${lines.length - 1} files):`);
+      console.log(lines.slice(0, 10).map(l => '    ' + l).join('\n'));
+      if (lines.length > 11) console.log(`    ... and ${lines.length - 11} more`);
+      console.log(`  To review:  git diff ${mainBranch}..${liveBranch}`);
+      console.log(`  To adopt:   git merge ${liveBranch}`);
+      console.log('  Proceeding with deploy from local DSL...\n');
+    }
+
+    // Cleanup worktree (branch preserved)
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    if (!diff) {
+      try { execSync(`git branch -D ${liveBranch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    }
+  } catch (e) {
+    console.log('  ! pre-deploy sync: ' + (e instanceof Error ? e.message.slice(0, 60) : e));
+  }
+}
+
+/** Step 1: Commit current state as rollback point. */
+async function gitSnapshot(absDir: string, branch: string): Promise<void> {
+  const { execSync } = await import('node:child_process');
+  try {
+    execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { cwd: absDir, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      execSync(`git commit -m "pre-deploy snapshot (${branch})"`, { cwd: absDir, stdio: 'pipe' });
+      console.log('  git: pre-deploy snapshot saved');
+    }
+  } catch (e) {
+    console.log('  git: snapshot skipped — ' + (e instanceof Error ? e.message.slice(0, 60) : e));
+  }
+}
+
+/**
+ * Steps 3-6: Create worktree → export → diff → cleanup.
+ *
+ * Flow:
+ *   1. git worktree add <dir>-worktree -b deploy-sync
+ *   2. Copy state.yaml (has deployed UIDs)
+ *   3. export-project into worktree
+ *   4. git add + commit in worktree
+ *   5. git diff main..deploy-sync --stat
+ *   6. Remove worktree (branch preserved for review/merge)
+ */
+async function deploySyncWorktree(absDir: string, group: string, mainBranch: string): Promise<void> {
+  const { execSync } = await import('node:child_process');
+  const branch = 'deploy-sync';
+  const wtDir = absDir + '-worktree';
+
+  try {
+    console.log('\n  ── Deploy sync ──');
+
+    // Clean previous worktree/branch
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+
+    // Create worktree on new branch from current HEAD
+    execSync(`git worktree add "${wtDir}" -b ${branch}`, { cwd: absDir, stdio: 'pipe' });
+
+    // Clear all worktree files before export. Without this the worktree
+    // inherits the source DSL (from HEAD) and the export only ADDS
+    // group-prefixed copy paths — the leftover source files then masquerade
+    // as "live" entries during compare, hiding cases where the deploy didn't
+    // recreate a popup/template at all. Keep state.yaml as input for the
+    // exporter (UID matching).
+    const stateFile = path.join(absDir, 'state.yaml');
+    let savedState: Buffer | null = null;
+    if (fs.existsSync(stateFile)) savedState = fs.readFileSync(stateFile);
+    for (const entry of fs.readdirSync(wtDir)) {
+      if (entry === '.git') continue;
+      fs.rmSync(path.join(wtDir, entry), { recursive: true, force: true });
+    }
+    if (savedState) fs.writeFileSync(path.join(wtDir, 'state.yaml'), savedState);
+
+    // Export live NocoBase state into worktree
+    const nb = await NocoBaseClient.create();
+    await exportProject(nb, { outDir: wtDir, group });
+
+    // Commit export result in worktree
+    execSync('git add -A', { cwd: wtDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain', { cwd: wtDir, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      execSync('git commit -m "post-deploy export"', { cwd: wtDir, stdio: 'pipe' });
+    }
+
+    // Show diff: main..deploy-sync (content files only, exclude metadata)
+    const diff = execSync(
+      `git diff --stat ${mainBranch}..${branch} -- . ":(exclude)**/page.yaml" ":(exclude)**/_refs.yaml" ":(exclude)_graph.yaml"`,
+      { cwd: absDir, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 },
+    ).trim();
+
+    if (diff) {
+      const lines = diff.split('\n');
+      console.log(`\n  Diff (${mainBranch} → ${branch}):`);
+      console.log(lines.map(l => '    ' + l).join('\n'));
+      console.log(`\n  To review:  git diff ${mainBranch}..${branch}`);
+      console.log(`  To merge:   git merge ${branch}`);
+      console.log(`  To discard: git branch -D ${branch}`);
+    } else {
+      console.log('  ✓ No diff — DSL matches live state');
+      // No changes → clean up branch too
+      try { execSync(`git branch -D ${branch}`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+    }
+
+    // Normalized structural diff (UID-aware) — surfaces real content drift
+    // even when raw text diff is huge from deep-copy UID/path noise.
+    try {
+      const { compareProjects, printCompareResult } = await import('../diff/compare');
+      const copyGroupSlug = group.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const result = compareProjects(absDir, wtDir, copyGroupSlug);
+      printCompareResult(result);
+    } catch (e) { console.log('  ! normalized-diff: ' + (e instanceof Error ? e.message.slice(0, 80) : e)); }
+
+    // Always remove worktree (branch stays if there are changes)
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
+  } catch (e) {
+    console.log('  ! deploy-sync failed: ' + (e instanceof Error ? e.message.slice(0, 80) : e));
+    // Best-effort cleanup
+    try { execSync(`git worktree remove --force "${wtDir}"`, { cwd: absDir, stdio: 'pipe' }); } catch { /* ok */ }
   }
 }
 
 async function cmdGraph(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts graph <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts graph <project-dir>'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
 
   const { buildGraph } = await import('../graph/graph-builder');
   const { saveYaml } = await import('../utils/yaml');
@@ -407,10 +774,10 @@ async function cmdGraph(args: string[]) {
   console.log(`Saved _graph.yaml`);
 }
 
-function cmdScaffold(args: string[]) {
-  const dir = args[0];
+async function cmdScaffold(args: string[]) {
+  const dirArg = args[0];
   const name = args[1];
-  if (!dir || !name) {
+  if (!dirArg || !name) {
     console.error('Usage: cli.ts scaffold <dir> <module-name> [--pages P1,P2,...] [--collections C1,C2,...]');
     console.error('\nOptions:');
     console.error('  --pages        Comma-separated page names (default: Dashboard,Main)');
@@ -438,21 +805,29 @@ function cmdScaffold(args: string[]) {
   } else {
     pages = ['Dashboard', 'Main'];
   }
+  const dir = resolveWorkspacePath(dirArg);
   scaffold(dir, name, pages, collections);
+  await ensureProjectGit(dir, console.log);
 }
 
 async function cmdExportProject(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-project <outdir> [--group "Main"]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) {
+    console.error('Usage: cli.ts pull <outdir> [--group <key-or-title>]\n\n  --group <key>  Scope the pull to one route subtree. Without it, pull dumps\n                 every collection / template / page from NocoBase — fine for a\n                 fresh export, dangerous when you want a small project copy\n                 (templates from unrelated systems will get pulled too).');
+    process.exit(1);
+  }
+  const outDir = resolveWorkspacePath(outDirArg);
   const groupIdx = args.indexOf('--group');
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
   await exportProject(nb, { outDir, group });
+  await ensureProjectGit(outDir, console.log);
 }
 
 async function cmdSync(args: string[]) {
-  const modDir = args[0];
-  if (!modDir) { console.error('Usage: cli.ts sync <dir> [--page <name>]'); process.exit(1); }
+  const modDirArg = args[0];
+  if (!modDirArg) { console.error('Usage: cli.ts sync <dir> [--page <name>]'); process.exit(1); }
+  const modDir = resolveWorkspacePath(modDirArg);
   const pageIdx = args.indexOf('--page');
   const pageFilter = pageIdx >= 0 ? args[pageIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
@@ -460,8 +835,9 @@ async function cmdSync(args: string[]) {
 }
 
 async function cmdExportAcl(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-acl <outdir> [--roles role1,role2]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) { console.error('Usage: cli.ts export-acl <outdir> [--roles role1,role2]'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
   const rolesIdx = args.indexOf('--roles');
   const roles = rolesIdx >= 0 && args[rolesIdx + 1] ? args[rolesIdx + 1].split(',').map(s => s.trim()) : undefined;
   const nb = await NocoBaseClient.create();
@@ -469,16 +845,18 @@ async function cmdExportAcl(args: string[]) {
 }
 
 async function cmdDeployAcl(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-acl <project-dir> [--dry-run]'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts deploy-acl <project-dir> [--dry-run]'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
   const dryRun = args.includes('--dry-run');
   const nb = await NocoBaseClient.create();
   await deployAcl(nb, dir, console.log, { dryRun });
 }
 
 async function cmdExportWorkflows(args: string[]) {
-  const outDir = args[0];
-  if (!outDir) { console.error('Usage: cli.ts export-workflows <outdir> [--enabled] [--type X] [--title-pattern X]'); process.exit(1); }
+  const outDirArg = args[0];
+  if (!outDirArg) { console.error('Usage: cli.ts export-workflows <outdir> [--enabled] [--type X] [--title-pattern X]'); process.exit(1); }
+  const outDir = resolveWorkspacePath(outDirArg);
   const nb = await NocoBaseClient.create();
   const filter: Record<string, unknown> = {};
   if (args.includes('--enabled')) filter.enabled = true;
@@ -490,16 +868,79 @@ async function cmdExportWorkflows(args: string[]) {
 }
 
 async function cmdDeployWorkflows(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts deploy-workflows <project-dir> [--copy]'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts deploy-workflows <project-dir> [--copy]'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
   const copyMode = args.includes('--copy');
   const nb = await NocoBaseClient.create();
   await deployWorkflows(nb, dir, { copyMode });
 }
 
+async function cmdCompare(args: string[]) {
+  const leftArg = args[0];
+  const rightArg = args[1];
+  if (!leftArg || !rightArg) { console.error('Usage: cli.ts compare <source-dir> <live-dir> [--copy-group <slug>]'); process.exit(1); }
+  const left = resolveWorkspacePath(leftArg);
+  const right = resolveWorkspacePath(rightArg);
+  const slugIdx = args.indexOf('--copy-group');
+  const copyGroupSlug = slugIdx >= 0 ? args[slugIdx + 1] : undefined;
+  const { compareProjects, printCompareResult } = await import('../diff/compare');
+  const result = compareProjects(left, right, copyGroupSlug);
+  printCompareResult(result);
+  if (result.differing.length || result.onlyInLeft.length || result.onlyInRight.length) {
+    process.exit(2);
+  }
+}
+
+async function cmdDuplicateProject(args: string[]) {
+  const srcArg = args[0];
+  const dstArg = args[1];
+  if (!srcArg || !dstArg) {
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--collection-suffix _v2] [--include-group <key|title>] [--skip-group <key|title>] [--force]\n\n  --key-suffix         Append to every route key so the duplicate is a separate identity.\n  --title-prefix       Prepend to every top-level title so push won\'t adopt a same-titled live group.\n  --collection-suffix  Rename every collection (and trigger SQL refs) — produces TRULY independent\n                       data. Without it, v2 shares the source\'s tables.\n  --include-group      KEEP only these top-level menu groups (repeatable). White-list mode.\n                       Also prunes collections that no kept page references.\n  --skip-group         DROP these top-level menu groups (repeatable). Black-list mode.\n                       Match by route key first, then title.\n\n  Recommended for isolated duplicate: --key-suffix + --title-prefix + --collection-suffix.');
+    process.exit(1);
+  }
+  const src = resolveWorkspacePath(srcArg);
+  const dst = resolveWorkspacePath(dstArg);
+  const sufIdx = args.indexOf('--key-suffix');
+  const keySuffix = sufIdx >= 0 ? args[sufIdx + 1] : undefined;
+  const tpIdx = args.indexOf('--title-prefix');
+  const titlePrefix = tpIdx >= 0 ? args[tpIdx + 1] : undefined;
+  const csIdx = args.indexOf('--collection-suffix');
+  const collectionSuffix = csIdx >= 0 ? args[csIdx + 1] : undefined;
+  // --include-group / --skip-group are repeatable: collect every occurrence
+  const includeGroups: string[] = [];
+  const skipGroups: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--include-group' && args[i + 1]) includeGroups.push(args[++i]);
+    else if (args[i] === '--skip-group' && args[i + 1]) skipGroups.push(args[++i]);
+  }
+  const force = args.includes('--force');
+  const { duplicateProject } = await import('../duplicate/duplicate-project');
+  const tags = [
+    keySuffix && `key: ${keySuffix}`,
+    titlePrefix && `title: ${titlePrefix}`,
+    collectionSuffix && `coll: ${collectionSuffix}`,
+    includeGroups.length && `include: ${includeGroups.join('|')}`,
+    skipGroups.length && `skip: ${skipGroups.join('|')}`,
+  ].filter(Boolean).join(', ');
+  console.log(`\n  Duplicating ${src} → ${dst}${tags ? ` (${tags})` : ''}`);
+  const r = await duplicateProject({
+    source: src, target: dst, keySuffix, titlePrefix, collectionSuffix,
+    includeGroups: includeGroups.length ? includeGroups : undefined,
+    skipGroups: skipGroups.length ? skipGroups : undefined,
+    force,
+  });
+  console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
+  if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
+  await ensureProjectGit(dst, console.log);
+  console.log(`\n  Next: cli push ${path.relative(WORKSPACE_ROOT, dst) || dst} --copy --force`);
+  console.log(`        --copy bypasses spec validation (gated on .duplicate-source marker, written above).`);
+}
+
 function cmdValidateWorkflows(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.error('Usage: cli.ts validate-workflows <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.error('Usage: cli.ts validate-workflows <project-dir>'); process.exit(1); }
+  const dir = resolveWorkspacePath(dirArg);
 
   const wfBaseDir = path.join(dir, 'workflows');
   if (!fs.existsSync(wfBaseDir)) {
@@ -543,20 +984,11 @@ function cmdValidateWorkflows(args: string[]) {
 }
 
 async function cmdVerifyData(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
+  const dirArg = args[0];
+  if (!dirArg) { console.log('Usage: verify-data <project-dir>'); process.exit(1); }
   const { verifyData } = await import('./verify-data');
-  const result = await verifyData(path.resolve(dir));
+  const result = await verifyData(resolveWorkspacePath(dirArg));
   if (result.failed > 0) process.exit(1);
-}
-
-async function cmdSeed(args: string[]) {
-  const dir = args[0];
-  if (!dir) { console.log('Usage: seed <project-dir> [--count N]'); process.exit(1); }
-  const countIdx = args.indexOf('--count');
-  const count = countIdx >= 0 ? parseInt(args[countIdx + 1], 10) : 5;
-  const { seedData } = await import('./seed');
-  await seedData(path.resolve(dir), { count });
 }
 
 main().catch(e => { console.error(e.message || e); process.exit(1); });

@@ -35,8 +35,23 @@ import { stripDefaults } from '../utils/strip-defaults';
 
 interface ExportOptions {
   outDir: string;
-  group?: string;       // only export pages under this group
+  group?: string;       // route key OR title (exact or prefix match) to scope export
   includeCollections?: boolean;
+}
+
+/** Match a route against the group filter. Tries (in order): route key (when
+ *  available — pulled from existing routes.yaml), exact title, title prefix.
+ *  This lets `--group hr_approval` (key) and `--group "人事审批"` (title) both
+ *  work. */
+function makeGroupMatcher(filter: string, keyByTitle: Map<string, string>) {
+  return (routeTitle: string): boolean => {
+    if (!routeTitle) return false;
+    if (routeTitle === filter) return true;
+    if (routeTitle.startsWith(filter + ' - ')) return true;
+    const key = keyByTitle.get(routeTitle);
+    if (key === filter) return true;
+    return false;
+  };
 }
 
 /**
@@ -52,32 +67,53 @@ export async function exportProject(
   // Get routes (tree structure with children)
   const routes = await nb.routes.list();
 
-  // Export routes.yaml
-  const routesTree = buildRoutesTree(routes, opts.group);
+  // Preserve any existing route keys from the local routes.yaml so a pull
+  // after a key-suffixed duplicate doesn't lose identity.
+  const existingRoutesFile = path.join(outDir, 'routes.yaml');
+  const existingKeyByTitle = new Map<string, string>();
+  if (fs.existsSync(existingRoutesFile)) {
+    try {
+      const prior = loadYaml<Record<string, unknown>[]>(existingRoutesFile) || [];
+      const collect = (entries: Record<string, unknown>[]) => {
+        for (const e of entries) {
+          if (typeof e?.title === 'string' && typeof e?.key === 'string') {
+            existingKeyByTitle.set(e.title, e.key);
+          }
+          if (Array.isArray(e?.children)) collect(e.children as Record<string, unknown>[]);
+        }
+      };
+      collect(prior);
+    } catch { /* skip */ }
+  }
+
+  // Build the matcher (knows about route keys, falls back to title).
+  const groupMatches = opts.group ? makeGroupMatcher(opts.group, existingKeyByTitle) : null;
+
+  // Export routes.yaml. When --group is set, keep only the matching subtree
+  // (top-level groups whose title or key matches). Without scope, everything.
+  const scopedRoutes = groupMatches
+    ? routes.filter(r => groupMatches(r.title || ''))
+    : routes;
+  const routesTree = buildRoutesTree(scopedRoutes, opts.group, existingKeyByTitle);
   fs.writeFileSync(path.join(outDir, 'routes.yaml'), dumpYaml(routesTree));
   console.log(`  + routes.yaml`);
 
-  // Export collections
-  if (opts.includeCollections !== false) {
-    await exportCollections(nb, outDir);
-  }
-
-  // Export V2 templates (popup + block)
-  await exportAllTemplates(nb, outDir);
-  await exportTemplateUsages(nb, outDir);
-
-  // Generate defaults.yaml from high-usage popup templates
-  await exportDefaults(nb, outDir);
-
-  // Export pages by traversing route tree
+  // Export pages FIRST when group-scoped, so we can collect the set of
+  // referenced collections + flowModel UIDs and pass them to the template /
+  // collection exporters as a filter. Without this, a small project that
+  // shares a NocoBase instance with a large one would pull every unrelated
+  // template/collection, defeating the point of `--group`.
   const pagesDir = path.join(outDir, 'pages');
   fs.mkdirSync(pagesDir, { recursive: true });
+
+  const usedColls = new Set<string>();
+  const usedFlowModelUids = new Set<string>();
+  const trackPage = (uid: string | undefined) => { if (uid) usedFlowModelUids.add(uid); };
 
   const exportedGroups = new Set<string>();
   for (const route of routes) {
     if (route.type === 'group') {
-      if (opts.group && route.title !== opts.group) continue;
-      // Skip duplicate groups (same title)
+      if (groupMatches && !groupMatches(route.title || '')) continue;
       if (exportedGroups.has(route.title || '')) continue;
       exportedGroups.add(route.title || '');
       const groupSlug = slugify(route.title || 'group');
@@ -86,23 +122,285 @@ export async function exportProject(
 
       for (const child of route.children || []) {
         if (child.type === 'flowPage') {
+          trackPage(child.schemaUid);
           await exportPage(nb, child, groupDir);
         } else if (child.type === 'group') {
           const subDir = path.join(groupDir, slugify(child.title || 'sub'));
           fs.mkdirSync(subDir, { recursive: true });
           for (const sc of child.children || []) {
             if (sc.type === 'flowPage') {
+              trackPage(sc.schemaUid);
               await exportPage(nb, sc, subDir);
             }
           }
         }
       }
-    } else if (route.type === 'flowPage' && !opts.group) {
-      await exportPage(nb, route, pagesDir);
+    } else if (route.type === 'flowPage') {
+      if (!groupMatches || groupMatches(route.title || '')) {
+        trackPage(route.schemaUid);
+        await exportPage(nb, route, pagesDir);
+      }
     }
   }
 
+  // Walk the just-written page YAML to harvest referenced collection names.
+  if (groupMatches) {
+    collectCollNamesFromDir(pagesDir, usedColls);
+    // Expand to relation targets so a child o2m/m2o block has its target
+    // collection's templates pulled too.
+    await expandToRelationTargets(nb, usedColls);
+  }
+
+  // Resolve which template UIDs the scoped pages reference by scanning the
+  // just-written page YAML for `templateUid:` and `popupTemplateUid:` values.
+  // This is local-first (no API call needed) and catches every reference the
+  // page actually carries — including popup blocks that aren't nested under
+  // the page in the parentId tree.
+  let usedTemplateUids: Set<string> | undefined;
+  if (groupMatches) {
+    usedTemplateUids = collectTemplateUidsFromDir(pagesDir);
+  }
+
+  // Export V2 templates first when scoped. Filter by templateUid (explicit
+  // refs) AND collectionName (auto-templates NB creates on compose). Loop
+  // until the kept set stops growing — each newly-pulled template can
+  // surface additional templateUids and collection names that the previous
+  // pass missed (e.g. a popup template referencing another popup template,
+  // or a child block in a popup mentioning a sibling collection).
+  if (groupMatches) {
+    const tplDir = path.join(outDir, 'templates');
+    let prevTplCount = -1;
+    let prevCollCount = -1;
+    let pass = 0;
+    while ((usedTemplateUids?.size ?? 0) !== prevTplCount || usedColls.size !== prevCollCount) {
+      prevTplCount = usedTemplateUids?.size ?? 0;
+      prevCollCount = usedColls.size;
+      await exportAllTemplates(nb, outDir, usedTemplateUids ?? new Set(), usedColls);
+      // Refresh sets from what got written
+      const moreUids = collectTemplateUidsFromDir(tplDir);
+      for (const u of moreUids) usedTemplateUids?.add(u);
+      collectCollNamesFromDir(tplDir, usedColls);
+      pass++;
+      if (pass > 5) break;  // safety: prevent runaway
+    }
+  } else {
+    await exportAllTemplates(nb, outDir);
+  }
+  await exportTemplateUsages(nb, outDir, groupMatches ? (usedTemplateUids ?? new Set()) : undefined);
+
+  if (groupMatches) {
+    collectCollNamesFromDir(path.join(outDir, 'templates'), usedColls);
+  }
+
+  // Export collections (filtered when scoped). When --group is given the
+  // filter is the gathered usedColls set (possibly empty — that's intentional,
+  // an empty set means "no pages matched, so no collections needed").
+  if (opts.includeCollections !== false) {
+    await exportCollections(nb, outDir, groupMatches ? usedColls : undefined);
+  }
+
+  // Generate defaults.yaml from high-usage popup templates
+  await exportDefaults(nb, outDir);
+
+  // Workflows are part of "everything pullable" — the symmetric pair to push.
+  // When --group is set, filter workflows whose trigger collection is in the
+  // scoped collection set; otherwise pull all.
+  try {
+    const { exportWorkflows } = await import('../workflow/workflow-exporter');
+    const wfDir = path.join(outDir, 'workflows');
+    const wfFilter = groupMatches && usedColls.size
+      ? { titlePattern: undefined as string | undefined }
+      : undefined;
+    await exportWorkflows(nb, { outDir: wfDir, filter: wfFilter, log: () => {} });
+    // Post-filter: when scoped, drop workflows whose trigger.collection is
+    // not in usedColls. exportWorkflows itself doesn't have a collection
+    // filter so we prune the directory after it writes.
+    if (groupMatches && fs.existsSync(wfDir)) {
+      let kept = 0; let dropped = 0;
+      for (const e of fs.readdirSync(wfDir, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const wfFile = path.join(wfDir, e.name, 'workflow.yaml');
+        if (!fs.existsSync(wfFile)) continue;
+        try {
+          const wf = loadYaml<Record<string, unknown>>(wfFile);
+          const trig = (wf.trigger || {}) as Record<string, unknown>;
+          const coll = trig.collection as string | undefined;
+          if (coll && !usedColls.has(coll)) {
+            fs.rmSync(path.join(wfDir, e.name), { recursive: true, force: true });
+            dropped++;
+          } else { kept++; }
+        } catch { /* skip */ }
+      }
+      // Also rewrite workflow-state.yaml to keep only kept workflows
+      const stateFile = path.join(wfDir, 'workflow-state.yaml');
+      if (fs.existsSync(stateFile)) {
+        try {
+          const st = loadYaml<Record<string, unknown>>(stateFile) || {};
+          const ws = (st.workflows || {}) as Record<string, unknown>;
+          for (const slug of Object.keys(ws)) {
+            if (!fs.existsSync(path.join(wfDir, slug))) delete ws[slug];
+          }
+          st.workflows = ws;
+          fs.writeFileSync(stateFile, dumpYaml(st));
+        } catch { /* skip */ }
+      }
+      if (dropped) console.log(`  + ${kept} workflows (dropped ${dropped} out-of-scope)`);
+    }
+  } catch (e) {
+    console.log(`  ! workflows: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
+  }
+
   console.log(`\n  Exported to ${outDir}`);
+}
+
+/** Expand a set of collection names to include their relation targets
+ *  (m2o/o2m/m2m). A scoped pull that pulls leave_requests but not
+ *  leave_approvals would leave the o2m references dangling. We fetch fields
+ *  per collection on demand because the bulk list endpoint returns them as
+ *  empty arrays. Loops until stable so transitive relations are followed. */
+async function expandToRelationTargets(nb: NocoBaseClient, names: Set<string>): Promise<void> {
+  const seen = new Set<string>();
+  let changed = true;
+  let safety = 0;
+  while (changed && safety < 10) {
+    changed = false;
+    safety++;
+    for (const name of Array.from(names)) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      try {
+        const r = await nb.http.get(`${nb.baseUrl}/api/collections/${name}/fields:list`, { params: { paginate: false } });
+        const fields = (r.data?.data || []) as Record<string, unknown>[];
+        for (const f of fields) {
+          // Follow both target (m2o/o2m/m2m → other side) AND through (m2m
+          // join table). Without `through`, a duplicated module would have
+          // m2m fields pointing at a join table that was never pulled.
+          for (const refKey of ['target', 'through'] as const) {
+            const ref = f[refKey] as string;
+            if (ref && !names.has(ref)) {
+              names.add(ref);
+              changed = true;
+            }
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+}
+
+/** Walk a directory of YAML files and collect every `coll: <name>` value into
+ *  the given set. Used to discover which collections a scoped page set
+ *  actually references, so we don't drag the whole NocoBase collection list. */
+function collectCollNamesFromDir(dir: string, into: Set<string>): void {
+  if (!fs.existsSync(dir)) return;
+  const COLL_RE = /(?:^|\n)\s*coll:\s*([a-zA-Z0-9_]+)/g;
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile() && (e.name.endsWith('.yaml') || e.name.endsWith('.yml'))) {
+        try {
+          const text = fs.readFileSync(p, 'utf8');
+          let m;
+          while ((m = COLL_RE.exec(text))) into.add(m[1]);
+        } catch { /* skip */ }
+      }
+    }
+  };
+  walk(dir);
+}
+
+/** Walk a directory of YAML files and collect every `templateUid:` /
+ *  `popupTemplateUid:` value into a set. The page exporter has already
+ *  inlined the references it needs, so scanning the written files captures
+ *  the exact set of templates the scoped pages consume — including popup
+ *  blocks that don't appear as descendants of the page in NocoBase's
+ *  parentId tree. */
+function collectTemplateUidsFromDir(dir: string): Set<string> {
+  const out = new Set<string>();
+  if (!fs.existsSync(dir)) return out;
+  const RE = /(?:templateUid|popupTemplateUid):\s*([a-z0-9]{8,12})\b/g;
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile() && (e.name.endsWith('.yaml') || e.name.endsWith('.yml'))) {
+        try {
+          const text = fs.readFileSync(p, 'utf8');
+          let m;
+          while ((m = RE.exec(text))) out.add(m[1]);
+        } catch { /* skip */ }
+      }
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+/** [legacy, unused — kept for reference] For each scoped page root flowModel
+ *  uid, descend via parentId chains and collect uids; then look up template
+ *  usages. Doesn't catch popup blocks (which aren't parented under pages). */
+async function _resolveScopedTemplateUidsViaApi(
+  nb: NocoBaseClient,
+  pageRootUids: Set<string>,
+): Promise<Set<string>> {
+  const allDescendants = new Set<string>();
+  // Cheap path: list ALL flowModels once and walk parentId chains. With a
+  // moderate-size NB this is one network call and pure local work.
+  let allModels: Record<string, unknown>[] = [];
+  try {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, { params: { paginate: 'false' } });
+    allModels = (r.data?.data || []) as Record<string, unknown>[];
+  } catch { return new Set(); }
+  // Build child → parent map from the flat list (parentId carried per row).
+  const parentByChild = new Map<string, string>();
+  const uidToModel = new Map<string, Record<string, unknown>>();
+  for (const m of allModels) {
+    const uid = m.uid as string;
+    if (!uid) continue;
+    uidToModel.set(uid, m);
+    const pid = m.parentId as string | undefined;
+    if (pid) parentByChild.set(uid, pid);
+  }
+  // For each model, walk up to root; if any ancestor is in pageRootUids, the
+  // model is in scope.
+  for (const m of allModels) {
+    const uid = m.uid as string;
+    if (!uid) continue;
+    let cursor: string | undefined = uid;
+    let depth = 0;
+    while (cursor && depth < 30) {
+      if (pageRootUids.has(cursor)) { allDescendants.add(uid); break; }
+      cursor = parentByChild.get(cursor);
+      depth++;
+    }
+  }
+  // Also include the pageRootUids themselves
+  for (const u of pageRootUids) allDescendants.add(u);
+
+  // Look up template usages for any modelUid in scope.
+  const tplUids = new Set<string>();
+  try {
+    const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, { params: { paginate: 'false' } });
+    const usages = (r.data?.data || []) as { templateUid?: string; modelUid?: string }[];
+    for (const u of usages) {
+      if (u.modelUid && allDescendants.has(u.modelUid) && u.templateUid) tplUids.add(u.templateUid);
+    }
+  } catch { /* skip */ }
+
+  // ALSO: any block referencing a template via stepParams.referenceSettings
+  // shows up as a usage row, but if a template was deployed without a usage
+  // row (e.g., legacy), we'd miss it. Belt + suspenders: sweep stepParams.
+  const REF_RE = /"templateUid"\s*:\s*"([a-z0-9]{8,12})"/g;
+  for (const m of allModels) {
+    const uid = m.uid as string;
+    if (!uid || !allDescendants.has(uid)) continue;
+    const sp = m.stepParams ? JSON.stringify(m.stepParams) : '';
+    if (!sp) continue;
+    let mt;
+    while ((mt = REF_RE.exec(sp))) tplUids.add(mt[1]);
+  }
+  return tplUids;
 }
 
 /**
@@ -148,9 +446,14 @@ async function exportPage(
     // Also read tab icons from route children
     const routeTabs = (route.children || []).filter(c => c.type === 'tabs');
     tabs = tabArr.map((t, i) => {
-      const titleSetting = ((t.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>)
-        ?.title as Record<string, unknown>;
-      const title = (titleSetting?.title as string)
+      // NocoBase stores tab title in pageTabSettings.tab.title (current NB).
+      // Older builds used pageTabSettings.title.title — we read both as a
+      // fallback chain so pulls survive across NB versions.
+      const tabSettings = ((t.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>) || {};
+      const tabBlock = tabSettings.tab as Record<string, unknown> | undefined;
+      const titleBlock = tabSettings.title as Record<string, unknown> | undefined;
+      const title = (tabBlock?.title as string)
+        || (titleBlock?.title as string)
         || ((t as unknown as Record<string, unknown>).props as Record<string, unknown>)?.title as string
         || routeTabs[i]?.title
         || `Tab${i}`;
@@ -261,21 +564,45 @@ async function exportSingleTab(
   const allPopupRefs: PopupRef[] = [];
 
   for (let i = 0; i < items.length; i++) {
-    const exported = exportBlock(items[i], jsDir, prefix, i, usedKeys, outDir);
+    const exported = await exportBlock(items[i], jsDir, prefix, i, usedKeys, outDir, nb);
     if (!exported) continue;
 
     const spec = { ...exported.spec };
     delete spec._popups;
 
-    // ReferenceBlockModel: look up templateUid from flowModelTemplateUsages
+    // ReferenceBlockModel: look up templateUid.
+    //
+    // Two sources, in order:
+    //   1. flowModelTemplateUsages — the normal path.
+    //   2. The block's own stepParams.referenceSettings.useTemplate.templateUid
+    //      — fallback when usages is missing (NocoBase's cascade bug:
+    //      flowModelTemplateUsages rows aren't always in sync with the
+    //      ReferenceBlockModel's own useTemplate binding; older bindings
+    //      set directly via UI never land in usages). Without this fallback
+    //      the exporter writes bare `type: reference` and the downstream
+    //      duplicate-project / push roundtrip loses the template pointer,
+    //      deploying blank reference blocks.
     if (spec.type === 'reference' && items[i].uid) {
       try {
+        let templateUid: string | undefined;
         const usageResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
           params: { 'filter[modelUid]': items[i].uid, paginate: 'false' },
         });
         const usages = usageResp.data.data || [];
-        if (usages.length) {
-          const templateUid = usages[0].templateUid;
+        if (usages.length) templateUid = usages[0].templateUid as string;
+        if (!templateUid) {
+          // Fallback: read useTemplate straight from the block's options via
+          // flowModels:get (flowSurfaces:get returns a rendered view that
+          // doesn't always preserve stepParams literally).
+          try {
+            const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: items[i].uid } });
+            const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+            const rs = ((rawOpts?.stepParams as Record<string, unknown>)?.referenceSettings as Record<string, unknown>) || {};
+            const ut = (rs.useTemplate as Record<string, unknown>) || {};
+            if (ut.templateUid) templateUid = ut.templateUid as string;
+          } catch { /* best effort */ }
+        }
+        if (templateUid) {
           // Try simplified ref: templates/xxx.yaml
           const tplFile = lookupTemplateFile(templateUid, outDir);
           if (tplFile) {
@@ -374,72 +701,82 @@ async function exportSingleTab(
 
   // Fields with popup template: keep as reference (don't inline template content)
 
-  // Enrich filterForm fields with filterManager data (filterPaths, label)
-  // filterManager lives on the PAGE-LEVEL grid, not filterForm's own grid
+  // Enrich filterForm fields with per-target binding (filterPaths + label).
+  // The real binding lives on each FilterFormItem's
+  //   stepParams.filterFormItemSettings.connectFields.value.targets[]
+  // (an array of {targetId, filterPaths}). The page-level grid's
+  // filterManager often stays empty in newer NB builds, so reading from
+  // there alone produces flat filterPaths that get broadcast to ALL
+  // target blocks at deploy time — fine for single-table pages, but
+  // breaks multi-table lookups (e.g. leads vs customers vs contacts have
+  // different filterable columns).
   try {
-    const pgResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, {
-      params: { filterByTk: gridNode.uid },
-    });
-    const filterManager = pgResp.data?.data?.filterManager as { filterId: string; targetId: string; filterPaths: string[] }[] || [];
-    if (filterManager.length) {
-      const filterPathsMap = new Map<string, string[]>();
-      for (const entry of filterManager) {
-        if (entry.filterId && entry.filterPaths?.length) {
-          filterPathsMap.set(entry.filterId, entry.filterPaths);
-        }
-      }
+    // blockUidToKey is uid→key already (set on line ~620). Use directly to
+    // translate connectFields targetIds back to stable DSL block keys.
+    for (const b of blocks) {
+      const br = b as Record<string, unknown>;
+      if (br.type !== 'filterForm') continue;
+      const fields = br.fields as unknown[];
+      if (!Array.isArray(fields)) continue;
 
-      for (const b of blocks) {
-        const br = b as Record<string, unknown>;
-        if (br.type !== 'filterForm') continue;
-        const fields = br.fields as unknown[];
-        if (!Array.isArray(fields)) continue;
+      for (const rawItem of items) {
+        if (rawItem.use !== 'FilterFormBlockModel') continue;
+        const ffGrid = rawItem.subModels?.grid;
+        const ffItems = (ffGrid && !Array.isArray(ffGrid))
+          ? ((ffGrid as FlowModelNode).subModels?.items || []) as FlowModelNode[]
+          : [];
 
-        // Find filterForm grid items to map fieldPath → UID
-        const ffBlock = items.find(it => it.uid === blockUidToKey.entries().next().value?.[0]);
-        // Actually find the filterForm block in the raw items
-        for (const rawItem of items) {
-          if (rawItem.use !== 'FilterFormBlockModel') continue;
-          const ffGrid = rawItem.subModels?.grid;
-          const ffItems = (ffGrid && !Array.isArray(ffGrid))
-            ? ((ffGrid as FlowModelNode).subModels?.items || []) as FlowModelNode[]
-            : [];
-
-          const enriched: unknown[] = [];
-          for (const f of fields) {
-            const fpName = typeof f === 'string' ? f : (f as Record<string, unknown>).field as string || (f as Record<string, unknown>).name as string || '';
-            if (!fpName || (typeof f === 'object' && (f as Record<string, unknown>).type === 'custom')) {
-              enriched.push(f);
-              continue;
-            }
-            // Find UID of this field in filterForm grid
-            const ffItem = ffItems.find(gi => {
-              const giFp = ((gi.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
-                ?.init as Record<string, unknown>;
-              return (giFp?.fieldPath as string) === fpName;
-            });
-            const filterPaths = ffItem ? filterPathsMap.get(ffItem.uid) : undefined;
-            const label = ffItem
-              ? ((ffItem.stepParams as Record<string, unknown>)?.filterFormItemSettings as Record<string, unknown>)
-                  ?.label as Record<string, unknown>
-              : undefined;
-            const labelText = label?.label as string || '';
-
-            if (filterPaths || labelText) {
-              const entry: Record<string, unknown> = { field: fpName };
-              if (labelText) entry.label = labelText;
-              if (filterPaths) entry.filterPaths = filterPaths;
-              enriched.push(entry);
-            } else {
-              enriched.push(f);
-            }
+        const enriched: unknown[] = [];
+        for (const f of fields) {
+          const fpName = typeof f === 'string' ? f : (f as Record<string, unknown>).field as string || (f as Record<string, unknown>).name as string || '';
+          if (!fpName || (typeof f === 'object' && (f as Record<string, unknown>).type === 'custom')) {
+            enriched.push(f);
+            continue;
           }
-          br.fields = enriched;
-          break;
+          const ffItem = ffItems.find(gi => {
+            const giFp = ((gi.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
+              ?.init as Record<string, unknown>;
+            return (giFp?.fieldPath as string) === fpName;
+          });
+          const itemSettings = ffItem
+            ? ((ffItem.stepParams as Record<string, unknown>)?.filterFormItemSettings as Record<string, unknown>)
+            : undefined;
+
+          // Pull per-target paths from connectFields.value.targets[]
+          const targetsRaw = ((itemSettings?.connectFields as Record<string, unknown>)?.value as Record<string, unknown>)
+            ?.targets as { targetId: string; filterPaths: string[] }[] | undefined;
+          const labelText = (itemSettings?.label as Record<string, unknown>)?.label as string || '';
+
+          let perTarget: { block: string; paths: string[] }[] | undefined;
+          if (Array.isArray(targetsRaw) && targetsRaw.length) {
+            perTarget = [];
+            for (const t of targetsRaw) {
+              const blockKey = uidToBlockKey.get(t.targetId);
+              if (blockKey && t.filterPaths?.length) {
+                perTarget.push({ block: blockKey, paths: t.filterPaths });
+              }
+            }
+            if (!perTarget.length) perTarget = undefined;
+          }
+
+          if (perTarget || labelText) {
+            const entry: Record<string, unknown> = { field: fpName };
+            if (labelText) entry.label = labelText;
+            if (perTarget) {
+              // Single-target: collapse to flat filterPaths for backward compat
+              if (perTarget.length === 1) entry.filterPaths = perTarget[0].paths;
+              else entry.targets = perTarget;
+            }
+            enriched.push(entry);
+          } else {
+            enriched.push(f);
+          }
         }
+        br.fields = enriched;
+        break;
       }
     }
-  } catch { /* filterManager read failed — fields stay plain */ }
+  } catch { /* connectFields read failed — fields stay plain */ }
 
   // Infer coll for filterForm from sibling table/reference/form blocks
   const pageColl = blocks.find(b => {
@@ -501,8 +838,11 @@ async function exportPopupsToDir(
     exportedUids.add(ref.field_uid);
 
     try {
-      const data = await nb.get({ uid: ref.field_uid });
-      const tree = data.tree;
+      // Use flowModels:findOne (full stepParams) instead of flowSurfaces:get
+      // (strips referenceSettings.useTemplate on Reference children).
+      const node = await nb.models.findOne(ref.field_uid, true);
+      if (!node) continue;
+      const tree = node as unknown as FlowModelNode;
 
       // Check if popup uses a template — if so, read content from template file
       const openView = ((tree.stepParams as Record<string, unknown>)?.popupSettings as Record<string, unknown>)
@@ -576,12 +916,17 @@ async function exportPopupsToDir(
         const tabSpecs: Record<string, unknown>[] = [];
         for (let i = 0; i < tabs.length; i++) {
           const tab = tabs[i] as FlowModelNode;
-          const title = ((tab.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>)
-            ?.title as Record<string, unknown>;
+          // Same dual-path fallback as page-level tabs (line ~449):
+          // newer NB uses pageTabSettings.tab.title, older builds put it
+          // at pageTabSettings.title.title.
+          const tabSettings = ((tab.stepParams as Record<string, unknown>)?.pageTabSettings as Record<string, unknown>) || {};
+          const tabBlock = tabSettings.tab as Record<string, unknown> | undefined;
+          const titleBlock = tabSettings.title as Record<string, unknown> | undefined;
+          const title = (tabBlock?.title as string) || (titleBlock?.title as string) || `Tab${i}`;
           const tabGrid = tab.subModels?.grid;
           if (tabGrid && !Array.isArray(tabGrid)) {
             const { blocks, popupRefs: nested, layout: tabLayout } = await exportGridBlocks(nb, tabGrid as FlowModelNode, jsDir, `${prefix}_${ref.field}_tab${i}`, projectDir);
-            const tabEntry: Record<string, unknown> = { title: (title?.title as string) || `Tab${i}`, blocks };
+            const tabEntry: Record<string, unknown> = { title, blocks };
             if (tabLayout?.length) tabEntry.layout = tabLayout;
             tabSpecs.push(tabEntry);
             nestedPopupRefs.push(...nested);
@@ -621,20 +966,34 @@ async function exportGridBlocks(
   const blockUidToKey = new Map<string, string>();
 
   for (let i = 0; i < items.length; i++) {
-    const exported = exportBlock(items[i], jsDir, prefix, i, usedKeys, projectDir);
+    const exported = await exportBlock(items[i], jsDir, prefix, i, usedKeys, projectDir, nb);
     if (!exported) continue;
     const spec = { ...exported.spec };
     delete spec._popups;
 
-    // ReferenceBlockModel: look up templateUid from flowModelTemplateUsages
+    // ReferenceBlockModel: look up templateUid. Primary source:
+    // flowModelTemplateUsages. Fallback: block's own stepParams.useTemplate
+    // (NocoBase's cascade bug leaves usages rows out of sync with the
+    // actual ReferenceBlockModel binding). See the tab-level variant
+    // above for full context.
     if (spec.type === 'reference' && items[i].uid) {
       try {
+        let templateUid: string | undefined;
         const usageResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
           params: { 'filter[modelUid]': items[i].uid, paginate: 'false' },
         });
         const usages = usageResp.data.data || [];
-        if (usages.length) {
-          const templateUid = usages[0].templateUid;
+        if (usages.length) templateUid = usages[0].templateUid as string;
+        if (!templateUid) {
+          try {
+            const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: items[i].uid } });
+            const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+            const rs = ((rawOpts?.stepParams as Record<string, unknown>)?.referenceSettings as Record<string, unknown>) || {};
+            const ut = (rs.useTemplate as Record<string, unknown>) || {};
+            if (ut.templateUid) templateUid = ut.templateUid as string;
+          } catch { /* best effort */ }
+        }
+        if (templateUid) {
           // Try simplified ref: templates/xxx.yaml
           const tplFile = lookupTemplateFile(templateUid, projectDir || jsDir);
           if (tplFile) {
@@ -803,26 +1162,31 @@ function exportLayout(
     const rowSizes = sizes[rk] || [];
 
     if (cols.length === 1) {
-      // Single column — blocks are stacked vertically → one row per block
-      // Single column — blocks are stacked vertically
+      // Single column — blocks stacked vertically. Emit as separate
+      // single-key rows so the DSL stays flat in the common case.
       for (const uid of cols[0]) {
         const key = blockUidToKey.get(uid);
         if (key) layout.push([key]);
       }
     } else {
-      // Multiple columns — blocks side by side in one row
+      // Multiple columns — one row. Must preserve PER-COLUMN stacking via
+      // `{col: [...], size: N}` so parseLayoutSpec rebuilds the same grid.
+      // A previous flattening bug pushed every block into the outer row as
+      // individual items (sizes 16,16,16,16,8,8,8) — that rendered as 7
+      // side-by-side blocks overflowing the 24-grid, not 2 stacked columns.
+      // See: Leads details popup layout drift after duplicate.
       const row: unknown[] = [];
       for (let i = 0; i < cols.length; i++) {
-        // Each column may have multiple stacked blocks
-        for (const uid of cols[i]) {
-          const key = blockUidToKey.get(uid);
-          if (!key) continue;
-          const size = rowSizes[i];
-          if (size && size !== Math.floor(24 / cols.length)) {
-            row.push({ [key]: size });
-          } else {
-            row.push(key);
-          }
+        const colUids = cols[i];
+        const size = rowSizes[i];
+        const keys = colUids.map(u => blockUidToKey.get(u)).filter((k): k is string => !!k);
+        if (!keys.length) continue;
+        const defaultSize = Math.floor(24 / cols.length);
+        if (keys.length === 1) {
+          if (size && size !== defaultSize) row.push({ [keys[0]]: size });
+          else row.push(keys[0]);
+        } else {
+          row.push({ col: keys, size: size ?? 24 });
         }
       }
       if (row.length) layout.push(row);
@@ -889,12 +1253,31 @@ function copyTemplateJsFiles(
 function buildRoutesTree(
   routes: RouteInfo[],
   filterGroup?: string,
+  existingKeyByTitle: Map<string, string> = new Map(),
 ): Record<string, unknown>[] {
+  // NocoBase's desktopRoutes:list?tree=true returns children in insertion
+  // order, NOT in `sort` ASC. The UI re-sorts client-side, so the user sees
+  // a different order than the API array produces. If we export in API
+  // array order, routes.yaml records the WRONG order — and any downstream
+  // consumer (duplicate-project, push's sort assignment) propagates the
+  // error. Sort every level by `sort` ASC before iterating.
+  const sortBySort = (list: RouteInfo[] | undefined): RouteInfo[] => {
+    if (!Array.isArray(list) || !list.length) return list || [];
+    const copy = [...list].sort((a, b) => (a.sort ?? Infinity) - (b.sort ?? Infinity));
+    for (const n of copy) {
+      if (Array.isArray(n.children) && n.children.length) n.children = sortBySort(n.children);
+    }
+    return copy;
+  };
+  routes = sortBySort(routes);
   const result: Record<string, unknown>[] = [];
   const seenTitles = new Set<string>();
 
   const buildEntry = (r: RouteInfo): Record<string, unknown> => {
-    const entry: Record<string, unknown> = { title: r.title || r.schemaUid };
+    const entry: Record<string, unknown> = {};
+    const declaredKey = existingKeyByTitle.get(r.title || '');
+    if (declaredKey) entry.key = declaredKey;
+    entry.title = r.title || r.schemaUid;
     if (r.type === 'group') entry.type = 'group'; // flowPage is default, omit
     if (r.icon) entry.icon = r.icon;
     if (r.hidden) entry.hidden = true;
@@ -904,7 +1287,7 @@ function buildRoutesTree(
   for (const r of routes) {
     if (r.type === 'tabs') continue;
     // Export all routes for global view; only filter pages (not groups) when filterGroup is set
-    if (filterGroup && r.type === 'group' && r.title !== filterGroup) {
+    if (filterGroup && r.type === 'group' && !(r.title === filterGroup || (r.title || '').startsWith(filterGroup + ' - '))) {
       // Still export non-target groups as stubs (title + type only, no children pages to export)
       if (!seenTitles.has(r.title || '')) {
         seenTitles.add(r.title || '');
@@ -982,26 +1365,73 @@ async function exportDefaults(nb: NocoBaseClient, outDir: string): Promise<void>
       }
     }
 
+    // Sort keys alphabetically for stable diffs
+    const sortKeys = (m: Record<string, string>): Record<string, string> => {
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(m).sort()) out[k] = m[k];
+      return out;
+    };
+
     if (Object.keys(popups).length || Object.keys(forms).length) {
       const defaults: Record<string, unknown> = {};
-      if (Object.keys(popups).length) defaults.popups = popups;
-      if (Object.keys(forms).length) defaults.forms = forms;
+      if (Object.keys(popups).length) defaults.popups = sortKeys(popups);
+      if (Object.keys(forms).length) defaults.forms = sortKeys(forms);
       fs.writeFileSync(path.join(outDir, 'defaults.yaml'), dumpYaml(defaults));
     }
   } catch { /* best effort */ }
 }
 
-async function exportCollections(nb: NocoBaseClient, outDir: string): Promise<void> {
+async function exportCollections(
+  nb: NocoBaseClient,
+  outDir: string,
+  keepNames?: Set<string>,
+): Promise<void> {
   const collDir = path.join(outDir, 'collections');
   fs.mkdirSync(collDir, { recursive: true });
 
   const resp = await nb.http.get(`${nb.baseUrl}/api/collections:list`, { params: { paginate: 'false' } });
   const colls = (resp.data.data || []) as Record<string, unknown>[];
 
+  // When scoped, expand the keep set to include relation targets (m2o, o2m,
+  // m2m). Otherwise a child block referencing the o2m would resolve to a
+  // collection we never exported, leaving the duplicate broken. We fetch
+  // fields per collection on demand because /api/collections:list returns
+  // them as an empty array.
+  const expandedKeep = keepNames ? new Set(keepNames) : null;
+  if (expandedKeep) {
+    const fieldsCache = new Map<string, Record<string, unknown>[]>();
+    const fetchFields = async (name: string) => {
+      if (fieldsCache.has(name)) return fieldsCache.get(name)!;
+      try {
+        const r = await nb.http.get(`${nb.baseUrl}/api/collections/${name}/fields:list`, { params: { paginate: false } });
+        const f = (r.data?.data || []) as Record<string, unknown>[];
+        fieldsCache.set(name, f);
+        return f;
+      } catch { fieldsCache.set(name, []); return []; }
+    };
+    let changed = true;
+    let safety = 0;
+    while (changed && safety < 10) {
+      changed = false;
+      safety++;
+      for (const name of Array.from(expandedKeep)) {
+        const fields = await fetchFields(name);
+        for (const f of fields) {
+          const target = f.target as string;
+          if (target && !expandedKeep.has(target)) {
+            expandedKeep.add(target);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
   let count = 0;
   for (const c of colls) {
     const name = c.name as string;
-    if (!name || name.startsWith('_') || !name.startsWith('nb_')) continue;
+    if (!name || name.startsWith('_') || (!name.startsWith('nb_') && !expandedKeep?.has(name))) continue;
+    if (expandedKeep && !expandedKeep.has(name)) continue;
 
     // Fetch full field definitions (not just interface) for rich export
     let fields: Record<string, unknown>[];
@@ -1011,9 +1441,21 @@ async function exportCollections(nb: NocoBaseClient, outDir: string): Promise<vo
       fields = ((fResp.data?.data || []) as Record<string, unknown>[])
         .filter((f: any) => f.interface && !SYSTEM_FIELDS.has(f.name as string))
         .map((f: any) => {
+          // NB stores `interface` (UI hint) and `type` (actual DB column type)
+          // separately and lets them diverge — e.g. interface=snowflakeId on a
+          // bigInt column. When they disagree, the deploy side trusts interface
+          // and recreates the column with the WRONG SQL type, breaking m2o
+          // relations (varchar FK against bigint id → "operator does not
+          // exist: bigint = character varying"). Coerce interface to match
+          // the live `type` so a fresh push reproduces the actual schema.
+          let iface = f.interface as string;
+          const dbType = (f.type as string) || '';
+          if (dbType === 'bigInt' && (iface === 'snowflakeId' || iface === 'uuid' || iface === 'nanoid')) {
+            iface = 'integer';
+          }
           const entry: Record<string, unknown> = {
             name: f.name,
-            interface: f.interface,
+            interface: iface,
           };
           if (f.title) entry.title = f.title;
           // Relations
@@ -1045,13 +1487,80 @@ async function exportCollections(nb: NocoBaseClient, outDir: string): Promise<vo
       name,
       title: c.title || name,
     };
+    // NocoBase collection template — picks plugin behaviour beyond plain
+    // CRUD. Only emit when not the default ('general') so YAML stays clean.
+    // Without this, duplicates land as 'general' and plugin blocks
+    // (CommentsBlock / CalendarBlock / TreeBlock) refuse to bind:
+    // "current collection is not a comment collection".
+    const tpl = c.template as string | undefined;
+    if (tpl && tpl !== 'general') collDef.template = tpl;
     if (c.titleField) collDef.titleField = c.titleField;
     collDef.fields = fields;
+
+    // Capture user-defined triggers / functions for this table so they
+    // travel with the collection in pull → push → duplicate flows.
+    // Without this, a kimi-installed conflict-detection trigger gets left
+    // behind on the source DB and the duplicate has no enforcement.
+    try {
+      const triggers = await captureTriggersForTable(name);
+      if (triggers.length) collDef.triggers = triggers;
+    } catch { /* psql not available — skip silently, can be re-pulled later */ }
 
     fs.writeFileSync(path.join(collDir, `${name}.yaml`), dumpYaml(collDef));
     count++;
   }
   console.log(`  + ${count} collections`);
+}
+
+/** Query Postgres for user triggers + their backing functions on `tableName`.
+ *  Returns SqlObjectDef[] suitable for round-tripping back into the table.
+ *  We deliberately avoid pg_dump complexity — only triggers + their immediate
+ *  trigger-function are captured. Other DDL (views, custom indexes) can be
+ *  added later if a real use case appears. */
+async function captureTriggersForTable(tableName: string): Promise<unknown[]> {
+  const { execSql, singleValue } = await import('../utils/sql-exec');
+  const out: Record<string, unknown>[] = [];
+  const safe = tableName.replace(/'/g, "''");
+  // Step 1 — list trigger names (one per line, single column, no separator confusion).
+  const trigNames = execSql(
+    `SELECT t.tgname
+       FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE c.relname = '${safe}' AND NOT t.tgisinternal
+      ORDER BY t.tgname`,
+    { select: true },
+  ).split('\n').map(s => s.trim()).filter(Boolean);
+
+  for (const name of trigNames) {
+    const safeName = name.replace(/'/g, "''");
+    // Step 2 — fetch the CREATE TRIGGER body (single-row single-column, multi-line OK).
+    let createTrigger = '';
+    try {
+      createTrigger = singleValue(execSql(
+        `SELECT pg_get_triggerdef(t.oid, true)
+           FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+          WHERE c.relname = '${safe}' AND t.tgname = '${safeName}' AND NOT t.tgisinternal`,
+        { select: true },
+      )).trim();
+    } catch { /* skip */ }
+    if (!createTrigger) continue;
+    // Step 3 — find the trigger's function name from the trigger def.
+    const fnMatch = createTrigger.match(/EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)/i);
+    const fnName = fnMatch?.[1];
+    let createFn = '';
+    if (fnName) {
+      try {
+        createFn = singleValue(execSql(
+          `SELECT pg_get_functiondef(p.oid)
+             FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = '${fnName.replace(/'/g, "''")}'`,
+          { select: true },
+        )).trim();
+      } catch { /* skip */ }
+    }
+    const sql = createFn ? `${createFn};\n${createTrigger};` : `${createTrigger};`;
+    out.push({ name, kind: 'trigger', sql });
+  }
+  return out;
 }
 
 function moveEventFiles(jsDir: string, eventsDir: string): void {

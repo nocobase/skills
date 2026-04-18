@@ -7,4 +7,5 @@ export { deployActions } from './action-filler';
 export { deployJsItems, deployJsColumns } from './js-filler';
 export { deployEventFlows } from './event-flow-filler';
 export { deployDividers } from './divider-filler';
+export { applySubTableFields } from './sub-table';
 export type { DeployContext, LogFn, PopupContext } from './types';

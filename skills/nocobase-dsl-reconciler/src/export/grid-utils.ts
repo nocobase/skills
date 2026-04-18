@@ -56,7 +56,50 @@ export function extractBlockGridLayout(
         if (key) layout.push([key]);
       }
     } else {
-      // Multiple columns — blocks side by side
+      // Multiple columns — blocks side by side. NocoBase grid is 24-wide; if
+      // the raw NB row's sizes sum > 24 (legacy data with one-cell-per-block
+      // overflow), regroup consecutive same-size cells into vertical col
+      // stacks so the row sums to ≤ 24 and renders correctly. Single-block
+      // rows of mixed sizes still emit the flat `{key: size}` form so the
+      // validator can flag them — we only auto-restructure when there's a
+      // clear grouping signal (consecutive equal sizes).
+      const totalSize = sz.slice(0, nCols).reduce((a, b) => a + b, 0);
+      if (totalSize > 24) {
+        const grouped: { names: string[]; size: number }[] = [];
+        let cursor: { names: string[]; size: number } | null = null;
+        for (let i = 0; i < cols.length; i++) {
+          const colUids = cols[i];
+          const names = colUids.map(u => blockUidToKey.get(u)).filter(Boolean) as string[];
+          const s = i < sz.length ? sz[i] : defaultSize;
+          if (!names.length) continue;
+          if (cursor && cursor.size === s) {
+            cursor.names.push(...names);
+          } else {
+            cursor = { names: [...names], size: s };
+            grouped.push(cursor);
+          }
+        }
+        const groupedTotal = grouped.reduce((a, g) => a + g.size, 0);
+        if (groupedTotal <= 24 && grouped.some(g => g.names.length > 1)) {
+          const row: unknown[] = [];
+          for (const g of grouped) {
+            row.push(g.names.length === 1 ? { [g.names[0]]: g.size } : { col: g.names, size: g.size });
+          }
+          layout.push(row);
+          continue;
+        }
+        // Couldn't group cleanly → fall back to one-block-per-row stacks so
+        // the deployed UI is at least readable. Loses the side-by-side
+        // intent but avoids the >24 overflow.
+        for (const c of cols) {
+          for (const uid of c) {
+            const key = blockUidToKey.get(uid);
+            if (key) layout.push([key]);
+          }
+        }
+        continue;
+      }
+
       const row: unknown[] = [];
       for (let i = 0; i < cols.length; i++) {
         const colUids = cols[i];

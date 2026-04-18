@@ -1,0 +1,18 @@
+uid: hr6f4cid3tx
+name: 'Popup (Detail): Entries'
+type: popup
+collectionName: nb_pm_time_entries
+dataSourceKey: main
+targetUid: qmiqdvr3mcj
+description: 'Popup (Detail): Entries'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: ksdej6zqq7y
+        templateName: 'Detail: Time Entries'
+        targetUid: o4zctul9zgm
+        mode: reference
+  layout:
+    - - 4zd6j5i7

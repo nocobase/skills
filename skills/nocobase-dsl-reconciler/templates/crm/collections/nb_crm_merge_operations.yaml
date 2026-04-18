@@ -1,31 +1,34 @@
 name: nb_crm_merge_operations
 title: Merge Operations
+titleField: id
 fields:
-  - name: createdById
-    interface: integer
-  - name: id
-    interface: integer
   - name: operation_time
     interface: datetime
   - name: operator
     interface: m2o
+    target: users
+    foreignKey: operator_id
   - name: customer
     interface: m2o
+    target: nb_crm_customers
+    foreignKey: customer_id
   - name: merge_operation_items
     interface: o2m
-  - name: updatedAt
-    interface: updatedAt
-  - name: updatedBy
-    interface: updatedBy
+    target: nb_crm_merge_operation_items
+    foreignKey: merge_operation_id
   - name: status
     interface: select
-  - name: createdAt
-    interface: createdAt
-  - name: createdBy
-    interface: createdBy
+    options:
+      - value: pending
+        label: Pending
+        color: orange
+      - value: merged
+        label: Merged
+        color: green
+      - value: cancelled
+        label: Cancelled
+        color: default
   - name: operator_id
-    interface: integer
-  - name: updatedById
     interface: integer
   - name: detail_json
     interface: json
