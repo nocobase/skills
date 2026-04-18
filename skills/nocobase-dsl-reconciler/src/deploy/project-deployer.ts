@@ -151,17 +151,15 @@ export async function deployProject(
     const specErrors = specIssues.filter(i => i.level === 'error');
     const specWarnings = specIssues.filter(i => i.level === 'warn');
     if (specErrors.length) {
-      log('\n  ── Spec Validation ERRORS ──');
+      log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
       for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
-      // --force lets duplicates of legacy projects push without first fixing
-      // every spec issue inherited from the source. New projects should still
-      // see these as blocking — running without --force preserves that.
-      if (opts.force) {
-        log(`\n  ${specErrors.length} errors bypassed (--force). ${specWarnings.length} warnings.`);
-      } else {
-        log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors or rerun with --force to push anyway.`);
-        process.exit(1);
-      }
+      log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
+      // No escape hatch. Deploying a spec with known-bad DSL creates NocoBase
+      // state that has to be hand-cleaned later (dangling blocks, silent 400s
+      // on m2o clicks, empty popup targets). --force used to bypass these;
+      // the flag now only governs state overwrite during normal deploy flow,
+      // never spec validation. If an error is a false positive, fix the rule.
+      process.exit(1);
     }
     if (specWarnings.length) {
       log('\n  ── Spec Warnings ──');
