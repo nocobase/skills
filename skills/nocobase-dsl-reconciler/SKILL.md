@@ -277,23 +277,21 @@ type conflicts:
 - m2m join tables: `through: nb_x_y` is auto-created; don't write a
   collection YAML for it
 
-### Two shapes for displaying related records — pick the right one
+### Table vs sub-table — two different things, don't confuse
 
-| Shape | DSL | Use when |
+| | **Table** | **Sub-table** |
 |---|---|---|
-| **Inline sub-table** inside a form | `{ field: tasks, type: subTable, columns: [...] }` in a createForm/editForm's `fields:` | Child rows entered alongside the parent (invoice + line items, project + planned tasks). Editable grid in the same form. |
-| **Standalone list/table block** referencing the parent | `type: table` block in a popup / tab, with `resource_binding.sourceId + associationName` | Children viewed separately from the parent (project detail popup showing the task list, customer tab showing orders). Has its own filter/add-new/popups. |
+| What it is | Full CRUD block (filter + list + add/edit popups) for child records of a parent | Inline editable grid for child rows, lives INSIDE a parent form |
+| DSL | `type: table` + `resource_binding.sourceId + associationName` | `{ field: tasks, type: subTable, columns: [...] }` inside a createForm/editForm's `fields:` |
+| Where used | Detail popup, tab page, standalone-list popup | Inside createForm / editForm |
+| Use when | Children browsed separately (customer detail → orders list) | Children entered alongside parent (invoice + line items) |
 
-Both pull/push support both shapes end-to-end. Pick by UX intent:
-inline-editing → sub-table; separate-browse → standalone block.
-
-Bare `- tasks` in a form defaults to a **RecordSelect picker** ("pick
-existing record"), which is rarely what you want for master-child. The
-validator warns when this is ambiguous.
+Bare `- tasks` in a form is the third option: a **RecordSelect picker**
+("pick existing record"). Rarely what you want — validator warns.
 
 Canonical CRM examples:
-- Inline sub-table: `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` (`items` → 10-column editable grid)
-- Standalone block: `templates/crm/pages/main/customers/tab_customers/popups/table.name.yaml` (customer detail popup + nested orders/contacts tables)
+- Table (standalone CRUD block): `templates/crm/pages/main/customers/tab_customers/popups/table.name.yaml`
+- Sub-table (inline editable grid): `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` (`items`)
 
 ### `foreignKey` flips meaning
 
