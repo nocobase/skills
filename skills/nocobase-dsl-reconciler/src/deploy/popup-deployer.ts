@@ -384,6 +384,51 @@ function extractLiveBlockState(
   return result;
 }
 
+/**
+ * Sync a ChildPageTabModel's title to match DSL. NocoBase stores it in two
+ * places (props.title + stepParams.pageTabSettings.tab.title) — both must
+ * update, otherwise the UI keeps showing the old one. Reads raw row via
+ * flowModels:get to avoid merged-view drift, writes back via flowModels:save.
+ * Cheap no-op when title already matches.
+ */
+async function syncTabTitle(
+  ctx: DeployContext,
+  tabUid: string,
+  desiredTitle: string,
+): Promise<void> {
+  const { nb, log } = ctx;
+  if (!tabUid || !desiredTitle) return;
+  try {
+    const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: tabUid } });
+    const row = raw.data?.data as Record<string, unknown> | undefined;
+    if (!row) return;
+    const props = ((row.props as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const curTitle = props.title as string | undefined;
+    if (curTitle === desiredTitle) return;
+    props.title = desiredTitle;
+    const sp = ((row.stepParams as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const pts = ((sp.pageTabSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
+    const tab = ((pts.tab as Record<string, unknown>) || {}) as Record<string, unknown>;
+    tab.title = desiredTitle;
+    pts.tab = tab;
+    sp.pageTabSettings = pts;
+    await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+      uid: tabUid,
+      use: row.use,
+      parentId: (row.parentId as string) || undefined,
+      subKey: (row.subKey as string) || undefined,
+      subType: (row.subType as string) || undefined,
+      sortIndex: (row.sortIndex as number) || 0,
+      flowRegistry: (row.flowRegistry as Record<string, unknown>) || {},
+      props,
+      stepParams: sp,
+    });
+    log(`      ~ tab title: '${curTitle || '(none)'}' → '${desiredTitle}'`);
+  } catch (e) {
+    log(`      ! tab title sync: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+  }
+}
+
 async function deployTabbedPopup(
   ctx: DeployContext,
   targetUid: string,
@@ -450,12 +495,18 @@ async function deployTabbedPopup(
         const subs = (pp as unknown as Record<string, unknown>).subModels as Record<string, unknown>;
         const tl = subs?.tabs;
         existingTabs = (Array.isArray(tl) ? tl : tl ? [tl] : []) as { uid: string }[];
+        firstTabUid = existingTabs[0]?.uid || '';
       }
     } catch { /* skip */ }
 
     if (!popupPageUid) {
       log(`    ! popup [${targetRef}]: ChildPage not found — cannot create additional tabs`);
       return allBlocks;
+    }
+    // Sync first tab's title from DSL. Compose auto-creates the row with a
+    // default label; DSL never lands on it otherwise.
+    if (firstTabUid && firstTabSpec.title) {
+      await syncTabTitle(ctx, firstTabUid, firstTabSpec.title);
     }
   } else {
     // ChildPage already exists — compose first tab to its tab UID (not targetUid)
@@ -466,6 +517,11 @@ async function deployTabbedPopup(
     );
     Object.assign(allBlocks, firstTabBlocks);
     log(`    tab '${firstTabSpec.title || 'Tab0'}': ${Object.keys(firstTabBlocks).length} blocks`);
+    // Drift repair: sync title even on re-push — DSL may have changed
+    // since the tab was created.
+    if (firstTabUid && firstTabSpec.title) {
+      await syncTabTitle(ctx, firstTabUid, firstTabSpec.title);
+    }
 
     if (tabsSpec.length <= 1) return allBlocks;
   }
@@ -494,6 +550,11 @@ async function deployTabbedPopup(
         continue;
       }
     }
+
+    // Sync title on every pass — addPopupTab sets it at creation, but an
+    // existing reused tab needs drift repair, and addPopupTab itself has
+    // been observed to not always stick the title on first call.
+    await syncTabTitle(ctx, tabUid, tabTitle);
 
     const tabBlocks = await deploySurface(ctx, tabUid, { ...tabSpec, coll } as any, { modDir });
     Object.assign(allBlocks, tabBlocks);

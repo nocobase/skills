@@ -1104,26 +1104,31 @@ function exportLayout(
     const rowSizes = sizes[rk] || [];
 
     if (cols.length === 1) {
-      // Single column — blocks are stacked vertically → one row per block
-      // Single column — blocks are stacked vertically
+      // Single column — blocks stacked vertically. Emit as separate
+      // single-key rows so the DSL stays flat in the common case.
       for (const uid of cols[0]) {
         const key = blockUidToKey.get(uid);
         if (key) layout.push([key]);
       }
     } else {
-      // Multiple columns — blocks side by side in one row
+      // Multiple columns — one row. Must preserve PER-COLUMN stacking via
+      // `{col: [...], size: N}` so parseLayoutSpec rebuilds the same grid.
+      // A previous flattening bug pushed every block into the outer row as
+      // individual items (sizes 16,16,16,16,8,8,8) — that rendered as 7
+      // side-by-side blocks overflowing the 24-grid, not 2 stacked columns.
+      // See: Leads details popup layout drift after duplicate.
       const row: unknown[] = [];
       for (let i = 0; i < cols.length; i++) {
-        // Each column may have multiple stacked blocks
-        for (const uid of cols[i]) {
-          const key = blockUidToKey.get(uid);
-          if (!key) continue;
-          const size = rowSizes[i];
-          if (size && size !== Math.floor(24 / cols.length)) {
-            row.push({ [key]: size });
-          } else {
-            row.push(key);
-          }
+        const colUids = cols[i];
+        const size = rowSizes[i];
+        const keys = colUids.map(u => blockUidToKey.get(u)).filter((k): k is string => !!k);
+        if (!keys.length) continue;
+        const defaultSize = Math.floor(24 / cols.length);
+        if (keys.length === 1) {
+          if (size && size !== defaultSize) row.push({ [keys[0]]: size });
+          else row.push(keys[0]);
+        } else {
+          row.push({ col: keys, size: size ?? 24 });
         }
       }
       if (row.length) layout.push(row);
