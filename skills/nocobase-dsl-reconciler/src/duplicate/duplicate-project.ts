@@ -236,11 +236,14 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
         ].filter(Boolean).join(', ');
         console.log(`  ✓ ${droppedRoutes.length} top-level route(s) dropped (${filterTags})`);
 
-        // When narrowing via --include-group, also prune orphan collections.
-        // Walk every kept page YAML and gather every `coll:` reference; any
-        // collection file whose name isn't reached gets deleted so push
-        // doesn't create empty unused tables.
-        if (includeSet) pruneOrphanCollections(dst, walkDir, console.log);
+        // Prune orphan collections + defaults.yaml entries whenever the
+        // duplicate was scoped (either --include-group kept a subset or
+        // --skip-group dropped some groups). Walk every kept page/workflow
+        // YAML and gather every `coll:` reference; any collection file
+        // (or defaults.yaml popups/forms entry) whose name isn't reached
+        // gets deleted so push doesn't create empty tables or trigger
+        // validator "never inlined" false positives.
+        if (includeSet || skipSet.size) pruneOrphanCollections(dst, walkDir, console.log);
       }
     }
   }

@@ -212,11 +212,17 @@ export function readPageDir(pageDir: string, title: string, icon?: string, key?:
         // Resolve ref: in popup blocks
         if (Array.isArray(raw.blocks)) {
           raw.blocks = resolveBlockRefs(raw.blocks, projRoot);
+          // Also convert clickToOpen: "path" → true + inline popup on popup
+          // fields. Without this, a field inside a popup details block that
+          // points at a shared template (e.g. leads email on contact_information)
+          // stays as a bare string and the deployer can't materialise it.
+          resolveClickToOpenPaths(raw.blocks as BlockSpec[], projRoot);
         }
         if (Array.isArray(raw.tabs)) {
           for (const tab of raw.tabs as Record<string, unknown>[]) {
             if (Array.isArray(tab.blocks)) {
               tab.blocks = resolveBlockRefs(tab.blocks as unknown[], projRoot);
+              resolveClickToOpenPaths(tab.blocks as BlockSpec[], projRoot);
             }
           }
         }

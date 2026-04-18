@@ -69,6 +69,14 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
     }
     for (const p of page.popups || []) {
       for (const b of (p.blocks || []) as Record<string, unknown>[]) scanFieldsForClickToOpen(b.fields);
+      // Popup YAMLs with `tabs:` nest their blocks one level deeper. Without
+      // this branch, click-to-open bindings inside tabbed popups (the common
+      // case in CRM — e.g. leads table.name popup's contact_information
+      // details block pointing at leads_email.yaml) stay invisible to the
+      // validator and trigger false "never inlined" errors.
+      for (const t of ((p as Record<string, unknown>).tabs || []) as Record<string, unknown>[]) {
+        for (const b of (t.blocks || []) as Record<string, unknown>[]) scanFieldsForClickToOpen(b.fields);
+      }
     }
   }
 
@@ -332,14 +340,16 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
       const chartBlocks = allBlocks.filter(b => b.type === 'chart');
       const jsBlocks = allBlocks.filter(b => b.type === 'jsBlock');
 
-      // Must have >= 5 chart blocks
+      // Recommend >= 5 chart blocks (warn only — small dashboards with 2-3
+      // charts are valid for modules with fewer measurable metrics).
       if (chartBlocks.length < 5) {
-        issues.push({ level: 'error', page: page.title, message: `dashboard must have >= 5 chart blocks (has ${chartBlocks.length}). Add more charts with SQL + render config.` });
+        issues.push({ level: 'warn', page: page.title, message: `dashboard has ${chartBlocks.length} chart block${chartBlocks.length === 1 ? '' : 's'} — CRM-scale analytics pages usually ship 5+. Fine for small modules.` });
       }
 
-      // Must have KPI cards (JS blocks) at the top
+      // Recommend KPI card JS blocks at the top (warn only — some dashboards
+      // are charts-only and that's a valid design).
       if (!jsBlocks.length) {
-        issues.push({ level: 'error', page: page.title, message: 'dashboard must have KPI card JS blocks at the top — copy CRM pattern (js: ./js/kpi_xxx.js)' });
+        issues.push({ level: 'warn', page: page.title, message: 'dashboard has no KPI card JS blocks — consider adding summary cards at the top (see templates/crm/pages/main/overview/js/overview_jsBlock.js).' });
       }
 
       // Validate chart configs
@@ -554,10 +564,12 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
       }
     }
 
-    // ── Rule: filterForm max 3 fields ──
+    // ── Rule: filterForm recommends <= 3 fields ──
+    // Was an error — downgraded to warn. 4-5 filters (amount range + status
+    // + date + owner) is common and valid UX; only flag as a layout hint.
     const filterFields = (bs.fields || []).filter(f => typeof f === 'string' || (typeof f === 'object' && (f as Record<string, unknown>).field));
     if (filterFields.length > 3) {
-      issues.push({ level: 'error', page: pageTitle, block: key, message: `filterForm has too many filter fields (${filterFields.length}) — max 3 recommended for layout` });
+      issues.push({ level: 'warn', page: pageTitle, block: key, message: `filterForm has ${filterFields.length} filter fields — 3 or fewer tend to render better; consider grouping or moving to advanced filter.` });
     }
 
     // ── Rule 2: filterForm MUST have JS stats button group ──

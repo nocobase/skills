@@ -16,11 +16,14 @@
  *             deleting B (referenced only via A's m2o) leaves A's push
  *             failing with "collection B not found".
  *   Phase 3 — delete every collection YAML whose name didn't land in the
- *             final referenced set.
+ *             final referenced set. Also drop defaults.yaml popups/forms
+ *             map entries keyed on pruned collections — otherwise the
+ *             spec-validator reports them as "never inlined" false
+ *             positives on push.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { loadYaml } from '../utils/yaml';
+import { loadYaml, dumpYaml } from '../utils/yaml';
 import { catchSwallow } from '../utils/swallow';
 
 type WalkFn = (dir: string, fn: (file: string) => void) => void;
@@ -85,4 +88,31 @@ export function pruneOrphanCollections(
     }
   }
   if (dropped) log(`  - pruned ${dropped} orphan collection file(s) (no kept page references)`);
+
+  // Phase 4: drop defaults.yaml popups/forms entries keyed on pruned
+  // collections. Without this pass, defaults.yaml still declares
+  // e.g. `popups: { nb_pm_members: ... }` after we removed nb_pm_members.yaml
+  // and all its pages — validator then errors "never inlined" because no
+  // field can be displaying the collection's records anymore.
+  const defaultsPath = path.join(dst, 'defaults.yaml');
+  if (fs.existsSync(defaultsPath)) {
+    try {
+      const defaults = (loadYaml<Record<string, unknown>>(defaultsPath) || {}) as Record<string, unknown>;
+      let changed = false;
+      for (const section of ['popups', 'forms'] as const) {
+        const m = defaults[section] as Record<string, unknown> | undefined;
+        if (!m || typeof m !== 'object') continue;
+        for (const coll of Object.keys(m)) {
+          if (!referenced.has(coll)) {
+            delete m[coll];
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        fs.writeFileSync(defaultsPath, dumpYaml(defaults));
+        log(`  - pruned defaults.yaml popup/form entries for dropped collections`);
+      }
+    } catch (e) { catchSwallow(e, 'orphan-prune defaults: bad YAML — skip'); }
+  }
 }
