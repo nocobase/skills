@@ -276,16 +276,24 @@ export async function deployWorkflows(
     const wfDir = path.join(wfBaseDir, slug);
     const spec = loadYaml<WorkflowSpec>(path.join(wfDir, 'workflow.yaml'));
 
-    const state = await deploySingleWorkflow(
-      nb, spec, wfDir, slug, titleToExisting, stateFile.workflows[slug], log,
-    );
-    stateFile.workflows[slug] = state;
+    // Wrap per-workflow so one bad workflow (e.g. dangling approvalUid,
+    // unknown trigger type) doesn't tank the remaining 9 — we still want
+    // the keymap built for whatever DOES deploy, and we want page deploy
+    // to proceed.
+    try {
+      const state = await deploySingleWorkflow(
+        nb, spec, wfDir, slug, titleToExisting, stateFile.workflows[slug], log,
+      );
+      stateFile.workflows[slug] = state;
 
-    // Build cross-reference map: spec.key (DSL identity) → state.key (live NB
-    // key). Identity for source CRM redeploys; rewrite-only for Copy pushes
-    // where source key carries through but Copy gets a fresh key.
-    if (spec.key && state.key) {
-      keyMap.set(spec.key, state.key);
+      // Build cross-reference map: spec.key (DSL identity) → state.key (live NB
+      // key). Identity for source CRM redeploys; rewrite-only for Copy pushes
+      // where source key carries through but Copy gets a fresh key.
+      if (spec.key && state.key) {
+        keyMap.set(spec.key, state.key);
+      }
+    } catch (e) {
+      log(`  ✗ ${slug}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
     }
   }
 

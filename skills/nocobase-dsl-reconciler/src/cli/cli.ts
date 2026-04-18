@@ -895,7 +895,7 @@ async function cmdDuplicateProject(args: string[]) {
   const srcArg = args[0];
   const dstArg = args[1];
   if (!srcArg || !dstArg) {
-    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--collection-suffix _v2] [--force]\n\n  --key-suffix         Append to every route key so the duplicate is a separate identity.\n  --title-prefix       Prepend to every top-level title so push won\'t adopt a same-titled live group.\n  --collection-suffix  Rename every collection (and trigger SQL refs) — produces TRULY independent\n                       data. Without it, v2 shares the source\'s tables.\n\n  Recommended for isolated duplicate: all three.');
+    console.error('Usage: cli.ts duplicate-project <source-dir> <target-dir> [--key-suffix _ccd] [--title-prefix "CCD - "] [--collection-suffix _v2] [--include-group <key|title>] [--skip-group <key|title>] [--force]\n\n  --key-suffix         Append to every route key so the duplicate is a separate identity.\n  --title-prefix       Prepend to every top-level title so push won\'t adopt a same-titled live group.\n  --collection-suffix  Rename every collection (and trigger SQL refs) — produces TRULY independent\n                       data. Without it, v2 shares the source\'s tables.\n  --include-group      KEEP only these top-level menu groups (repeatable). White-list mode.\n                       Also prunes collections that no kept page references.\n  --skip-group         DROP these top-level menu groups (repeatable). Black-list mode.\n                       Match by route key first, then title.\n\n  Recommended for isolated duplicate: --key-suffix + --title-prefix + --collection-suffix.');
     process.exit(1);
   }
   const src = resolveWorkspacePath(srcArg);
@@ -906,15 +906,29 @@ async function cmdDuplicateProject(args: string[]) {
   const titlePrefix = tpIdx >= 0 ? args[tpIdx + 1] : undefined;
   const csIdx = args.indexOf('--collection-suffix');
   const collectionSuffix = csIdx >= 0 ? args[csIdx + 1] : undefined;
+  // --include-group / --skip-group are repeatable: collect every occurrence
+  const includeGroups: string[] = [];
+  const skipGroups: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--include-group' && args[i + 1]) includeGroups.push(args[++i]);
+    else if (args[i] === '--skip-group' && args[i + 1]) skipGroups.push(args[++i]);
+  }
   const force = args.includes('--force');
   const { duplicateProject } = await import('../duplicate/duplicate-project');
   const tags = [
     keySuffix && `key: ${keySuffix}`,
     titlePrefix && `title: ${titlePrefix}`,
     collectionSuffix && `coll: ${collectionSuffix}`,
+    includeGroups.length && `include: ${includeGroups.join('|')}`,
+    skipGroups.length && `skip: ${skipGroups.join('|')}`,
   ].filter(Boolean).join(', ');
   console.log(`\n  Duplicating ${src} → ${dst}${tags ? ` (${tags})` : ''}`);
-  const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, collectionSuffix, force });
+  const r = await duplicateProject({
+    source: src, target: dst, keySuffix, titlePrefix, collectionSuffix,
+    includeGroups: includeGroups.length ? includeGroups : undefined,
+    skipGroups: skipGroups.length ? skipGroups : undefined,
+    force,
+  });
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
   if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
   await ensureProjectGit(dst, console.log);

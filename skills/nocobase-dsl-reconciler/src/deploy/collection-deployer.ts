@@ -96,9 +96,16 @@ export async function ensureCollection(
     log(`  = collection: ${name}${titleField ? ` (titleField: ${titleField})` : ''}`);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // Fallback: if apply fails (404=older NocoBase, 500=upsert issue), use legacy
+    // Fallback: if apply fails (404=older NocoBase, 500=upsert issue), use legacy.
+    // Catch the fallback's errors too so one bad collection doesn't kill the entire
+    // push — log and continue to the next collection.
     if (msg.includes('404') || msg.includes('500') || msg.includes('Not Found')) {
-      await ensureCollectionLegacy(nb, name, def, log);
+      try {
+        await ensureCollectionLegacy(nb, name, def, log);
+      } catch (le) {
+        const lmsg = le instanceof Error ? le.message : String(le);
+        log(`  ! collection ${name} (legacy fallback): ${lmsg.slice(0, 200)}`);
+      }
     } else {
       log(`  ! collection ${name}: ${msg}`);
     }
@@ -179,7 +186,15 @@ export async function ensureAllCollections(
     : (_: [string, CollectionDef]) => true;
   const entries = Object.entries(collections).filter(filterFn);
   for (const [name, def] of entries) {
-    await ensureCollection(nb, name, def, log);
+    // Robust: don't let one collection's failure terminate the whole deploy.
+    // ensureCollection has its own per-step try/catch for apply + legacy
+    // fallback, but a runaway exception (network, undefined access) would
+    // otherwise kill ensureAllCollections + the rest of project deploy.
+    try {
+      await ensureCollection(nb, name, def, log);
+    } catch (e) {
+      log(`  ✗ collection ${name}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+    }
   }
 
   // Post-create validation + repair for m2o fields

@@ -34,6 +34,24 @@ export interface DuplicateOptions {
   collectionSuffix?: string;
   /** Wipe the target dir if it exists. Without this, fail on conflict. */
   force?: boolean;
+  /** Top-level route keys/titles to drop from the duplicate. Matches `key`
+   *  first, then `title`. Used when the source has menu groups that aren't
+   *  wanted in the copy (e.g. duplicating crm without the 项目管理 group).
+   *  Prunes routes.yaml + deletes the corresponding `pages/<dir>/`. Does NOT
+   *  prune collections — orphan _copy collections are harmless and can be
+   *  cleaned with a fresh pull later if desired. */
+  skipGroups?: string[];
+  /** Top-level route keys/titles to KEEP — everything else is dropped.
+   *  White-list counterpart to skipGroups. Use this when the source has many
+   *  groups and you only want one or two in the copy (e.g. only "Main" and
+   *  "Other" without "Lookup" or "项目管理"). When both skipGroups and
+   *  includeGroups are set, includeGroups runs first then skipGroups
+   *  prunes from the surviving subset.
+   *  Also prunes orphan collections: any collections/*.yaml whose name is
+   *  no longer referenced by any kept page is deleted (since you've narrowed
+   *  to a smaller surface and the unused tables would otherwise be created
+   *  empty in NB on push). */
+  includeGroups?: string[];
 }
 
 /** Field names whose values are flowModel UIDs that must be remapped. */
@@ -331,6 +349,71 @@ function renamePageDirs(pagesDir: string, keyMap: Map<string, string>): void {
   }
 }
 
+/** Walk every YAML in pages/ + workflows/ and gather every collection name
+ *  that's still referenced (coll, target, associationName head, trigger.collection).
+ *  Any collections/*.yaml whose basename isn't reached gets deleted —
+ *  reduces push-time noise when the duplicate scope was narrowed by
+ *  --include-group. Best-effort: malformed YAML / unexpected shapes are
+ *  silently skipped (we'd rather under-prune than crash). Run BEFORE
+ *  --collection-suffix renames anything, since refs use original names. */
+function pruneOrphanCollections(dst: string, log: (msg: string) => void): void {
+  const collDir = path.join(dst, 'collections');
+  if (!fs.existsSync(collDir)) return;
+
+  // Phase 1: seed referenced from kept pages + workflows
+  const referenced = new Set<string>();
+  function visit(node: unknown): void {
+    if (Array.isArray(node)) { for (const n of node) visit(n); return; }
+    if (!node || typeof node !== 'object') return;
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (typeof v === 'string' && (k === 'coll' || k === 'target' || k === 'collection')) {
+        referenced.add(v);
+      } else if (typeof v === 'string' && k === 'associationName' && v.includes('.')) {
+        referenced.add(v.split('.')[0]);
+      } else {
+        visit(v);
+      }
+    }
+  }
+  for (const dir of ['pages', 'workflows']) {
+    const root = path.join(dst, dir);
+    if (!fs.existsSync(root)) continue;
+    walkDir(root, (f) => {
+      if (!(f.endsWith('.yaml') || f.endsWith('.yml'))) return;
+      try { visit(loadYaml<unknown>(f)); } catch { /* skip */ }
+    });
+  }
+
+  // Phase 2: transitive closure — collection A may reference collection B via
+  // m2o/o2m target. Without this, pruning A's target B would break A on push
+  // (e.g. customers.contacts o2m → contacts; contacts pruned → 500 on
+  // customers field create). Iterate until the set stabilises.
+  const collFiles = fs.readdirSync(collDir, { withFileTypes: true })
+    .filter(e => e.isFile() && e.name.endsWith('.yaml'))
+    .map(e => ({ name: e.name.replace(/\.yaml$/, ''), path: path.join(collDir, e.name) }));
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const cf of collFiles) {
+      if (!referenced.has(cf.name)) continue;
+      try {
+        const before = referenced.size;
+        visit(loadYaml<unknown>(cf.path));
+        if (referenced.size > before) grew = true;
+      } catch { /* skip */ }
+    }
+  }
+
+  let dropped = 0;
+  for (const cf of collFiles) {
+    if (!referenced.has(cf.name)) {
+      fs.unlinkSync(cf.path);
+      dropped++;
+    }
+  }
+  if (dropped) log(`  - pruned ${dropped} orphan collection file(s) (no kept page references)`);
+}
+
 /** Recursive directory copy that skips .git and existing target files. */
 function copyDirectory(src: string, dst: string): void {
   fs.mkdirSync(dst, { recursive: true });
@@ -418,6 +501,52 @@ export async function duplicateProject(opts: DuplicateOptions): Promise<{
 
   // 1. Copy the whole tree.
   copyDirectory(src, dst);
+
+  // 1b. Filter top-level groups (--include-group / --skip-group) BEFORE we
+  //     collect UIDs / rewrite references — otherwise we'd be remapping UIDs
+  //     in subtrees we're about to delete, which is wasted work and may
+  //     pollute the keyMap.
+  if (opts.includeGroups?.length || opts.skipGroups?.length) {
+    const includeSet = opts.includeGroups?.length ? new Set(opts.includeGroups) : null;
+    const skipSet = new Set(opts.skipGroups ?? []);
+    const matchesId = (r: Record<string, unknown>, set: Set<string>) =>
+      set.has(String(r.key ?? '')) || set.has(String(r.title ?? ''));
+
+    const routesFile2 = path.join(dst, 'routes.yaml');
+    if (fs.existsSync(routesFile2)) {
+      const arr = loadYaml<Record<string, unknown>[]>(routesFile2);
+      if (Array.isArray(arr)) {
+        // include first (white-list), then skip (black-list) prunes further
+        let kept = includeSet ? arr.filter(r => matchesId(r, includeSet)) : arr.slice();
+        if (skipSet.size) kept = kept.filter(r => !matchesId(r, skipSet));
+        const droppedRoutes = arr.filter(r => !kept.includes(r));
+        saveYaml(routesFile2, kept);
+
+        // Remove dropped page dirs (slug = key || title — matches the dirname
+        // chosen by export-project when keys are present, falling back to title).
+        const pagesDir = path.join(dst, 'pages');
+        for (const r of droppedRoutes) {
+          const slug = String(r.key ?? r.title ?? '');
+          const pdir = path.join(pagesDir, slug);
+          if (fs.existsSync(pdir)) {
+            fs.rmSync(pdir, { recursive: true, force: true });
+            console.log(`  - dropped page dir: ${slug}`);
+          }
+        }
+        const filterTags = [
+          includeSet ? `--include-group ${[...includeSet].join('|')}` : null,
+          skipSet.size ? `--skip-group ${[...skipSet].join('|')}` : null,
+        ].filter(Boolean).join(', ');
+        console.log(`  ✓ ${droppedRoutes.length} top-level route(s) dropped (${filterTags})`);
+
+        // When narrowing via --include-group, also prune orphan collections.
+        // Walk every kept page YAML and gather every `coll:` reference; any
+        // collection file whose name isn't reached gets deleted so push
+        // doesn't create empty unused tables.
+        if (includeSet) pruneOrphanCollections(dst, console.log);
+      }
+    }
+  }
 
   // 2. Collect every UID across all YAML files (skipping state.yaml — it's
   //    regenerated per deploy and would add stale entries to the map).
