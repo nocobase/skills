@@ -475,7 +475,11 @@ export async function syncReferenceBlockBinding(
     const rs = ((sp.referenceSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
     const curUT = (rs.useTemplate as Record<string, unknown> | undefined);
     const curUid = curUT?.templateUid as string | undefined;
-    if (!curUid || curUid === templateRef.templateUid) return;
+    // Skip only when binding already matches DSL. If curUid is missing
+    // (orphan ReferenceBlockModel from a prior deploy where template
+    // creation failed and the block got left without a binding), fall
+    // through and write the binding now.
+    if (curUid && curUid === templateRef.templateUid) return;
     rs.useTemplate = {
       ...(curUT || {}),
       templateUid: templateRef.templateUid,
@@ -497,7 +501,7 @@ export async function syncReferenceBlockBinding(
       flowRegistry: (rawOpts.flowRegistry as Record<string, unknown>) || {},
       stepParams: sp,
     });
-    log(`      ~ templateRef: rebound ${curUid.slice(0, 8)} → ${(templateRef.templateUid || '').slice(0, 8)} (${templateRef.templateName || ''})`);
+    log(`      ~ templateRef: ${curUid ? 'rebound ' + curUid.slice(0, 8) : 'bound (was empty)'} → ${(templateRef.templateUid || '').slice(0, 8)} (${templateRef.templateName || ''})`);
   } catch (e) {
     log(`      ! templateRef rebind: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
   }
