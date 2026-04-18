@@ -316,6 +316,39 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
 
       // recordActions are opt-in — no warning for tables without them
       // (dashboard tables intentionally have no row-level actions)
+
+      // ── Rule: updateRecord with assign but no linkageRules ──
+      // Toggle actions (Mark Done / Mark Achieved / etc.) that write a
+      // target state SHOULD hide themselves once the record reaches that
+      // state. Without linkageRules, the button stays visible on already-
+      // toggled rows — clicks are idempotent but the UI is misleading.
+      // Exception: if the block has a filter: that already excludes the
+      // target state (e.g. tab_upcoming filters out achieved records),
+      // the rule is technically redundant — but still encouraged so the
+      // NB UI's "Linkage rules" panel shows authoring intent.
+      for (const ra of (tb.recordActions || [])) {
+        if (typeof ra !== 'object') continue;
+        const raObj = ra as Record<string, unknown>;
+        if (raObj.type !== 'updateRecord') continue;
+        const assign = raObj.assign as Record<string, unknown> | undefined;
+        if (!assign || !Object.keys(assign).length) continue;
+        const rules = raObj.linkageRules;
+        const hasRules = Array.isArray(rules)
+          ? rules.length > 0
+          : (rules && typeof rules === 'object' && Array.isArray((rules as Record<string, unknown>).value)
+            ? ((rules as Record<string, unknown>).value as unknown[]).length > 0
+            : false);
+        if (!hasRules && !raObj.hiddenWhen && !raObj.disabledWhen) {
+          const fieldName = Object.keys(assign)[0];
+          const targetValue = assign[fieldName];
+          issues.push({
+            level: 'warn',
+            page: page.title,
+            block: key,
+            message: `recordActions[${raObj.key || 'updateRecord'}] sets "${fieldName}: ${JSON.stringify(targetValue)}" but has no linkageRules — button will stay visible on rows already in that state. See templates/crm/pages/main/overview/layout.yaml (Done/Undone pattern) for the hide-when-already-${targetValue} shape.`,
+          });
+        }
+      }
     }
 
     // ── Dashboard validation ──
