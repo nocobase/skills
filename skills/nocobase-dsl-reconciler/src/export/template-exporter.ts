@@ -31,6 +31,56 @@ interface TemplateRecord {
 }
 
 /**
+ * Pre-compute filenames for every live template, matching the naming the
+ * full exportAllTemplates() will use. Disambiguates slug collisions by
+ * appending `__<uidPrefix>`, consistent with the main exporter.
+ */
+function computeFileNames(templates: TemplateRecord[]): Map<string, string> {
+  const slugCount = new Map<string, number>();
+  const fileNames = new Map<string, string>();
+  for (const t of templates) {
+    const baseSlug = slugify(t.name || t.uid);
+    const k = `${t.type}|${baseSlug}`;
+    const n = slugCount.get(k) || 0;
+    slugCount.set(k, n + 1);
+    fileNames.set(t.uid, n === 0 ? baseSlug : `${baseSlug}__${t.uid.slice(0, 6)}`);
+  }
+  return fileNames;
+}
+
+/**
+ * Write a minimal templates/_index.yaml stub BEFORE page export runs.
+ *
+ * Page export calls lookupTemplateFile(uid, projectDir) via simplifyPopup
+ * to resolve `popupSettings.openView.popupTemplateUid` → `clickToOpen: <path>`.
+ * Without this stub, the index doesn't exist yet during page export, lookup
+ * returns null, and the field falls back to `clickToOpen: true` — losing the
+ * explicit template binding forever.
+ *
+ * Stub contains every live template (uid + file only); full exportAllTemplates
+ * overwrites _index.yaml with complete metadata after page export.
+ */
+export async function writeTemplateIndexStub(nb: NocoBaseClient, outDir: string): Promise<void> {
+  const resp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
+    params: { paginate: false },
+  });
+  const templates = (resp.data?.data || []) as TemplateRecord[];
+  if (!templates.length) return;
+
+  const fileNames = computeFileNames(templates);
+  const tplDir = path.join(outDir, 'templates');
+  fs.mkdirSync(tplDir, { recursive: true });
+
+  const index: Record<string, unknown>[] = templates.map(t => ({
+    uid: t.uid,
+    name: t.name,
+    type: t.type,
+    file: `${t.type}/${fileNames.get(t.uid)}.yaml`,
+  }));
+  fs.writeFileSync(path.join(tplDir, '_index.yaml'), dumpYaml(index));
+}
+
+/**
  * Export all V2 templates from flowModelTemplates API.
  */
 export async function exportAllTemplates(

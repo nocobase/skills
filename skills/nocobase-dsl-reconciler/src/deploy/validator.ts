@@ -126,7 +126,7 @@ export async function validate(
     if (!types.includes('jsBlock')) {
       errors.push(
         `Dashboard page has no KPI cards (jsBlock). `
-        + `FIX: run 'deployer --new' to scaffold, or add jsBlock with file: ./js/kpi_*.js`
+        + `FIX: add jsBlock with file: ./js/kpi_*.js (see templates/crm/pages/main/overview/js/overview_jsBlock.js)`
       );
     }
     if (!types.includes('chart')) {

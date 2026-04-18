@@ -9,13 +9,14 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { NocoBaseClient } from '../client';
-import type { DeployContext } from './deploy-context';
-import type { BlockSpec } from '../types/spec';
-import type { BlockState } from '../types/state';
-import { fixDisplayModels } from './display-model-fixer';
-import { ensureJsHeader, replaceJsUids } from '../utils/js-utils';
-import { generateUid } from '../utils/uid';
+import type { NocoBaseClient } from '../../client';
+import type { DeployContext } from '../deploy-context';
+import type { BlockSpec } from '../../types/spec';
+import type { BlockState } from '../../types/state';
+import { fixDisplayModels } from '../display-model-fixer';
+import { ensureJsHeader, replaceJsUids } from '../../utils/js-utils';
+import { generateUid } from '../../utils/uid';
+import { catchSwallow } from '../../utils/swallow';
 import {
   deployClickToOpen,
   configureFilter,
@@ -28,7 +29,7 @@ import {
   applyFieldLayout,
   syncGridItemsOrder,
   applySubTableFields,
-} from './fillers';
+} from '../fillers';
 
 const RECORD_ACTION_BLOCKS = new Set(['details', 'list', 'gridCard']);
 const GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'filterForm', 'details']);
@@ -100,7 +101,7 @@ export async function fillBlock(
             const gridItems = (formGrid as { subModels?: Record<string, unknown> }).subModels?.items;
             const itemArr = (Array.isArray(gridItems) ? gridItems : []) as { uid: string }[];
             for (const item of itemArr) {
-              try { await nb.surfaces.removeNode(item.uid); } catch { /* skip */ }
+              try { await nb.surfaces.removeNode(item.uid); } catch (e) { catchSwallow(e, 'skip'); }
             }
             if (itemArr.length) log(`      ~ templateRef: cleared ${itemArr.length} local items`);
           }
@@ -171,7 +172,7 @@ export async function fillBlock(
         actColUid = '';
         log(`      - action column removed (no recordActions in DSL)`);
       }
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
 
   // ── Fix display models ──
@@ -444,7 +445,7 @@ async function autoFillRecordActionPopups(
           if (!!grid?.stepParams?.gridSettings?.grid && itemCount > 0) continue;
           if (itemCount > 0) needsCompose = false;
         }
-      } catch { /* try composing anyway */ }
+      } catch (e) { catchSwallow(e, 'try composing anyway'); }
 
       if (needsCompose) {
         const blockType = atype === 'view' ? 'details' : 'editForm';
@@ -464,7 +465,7 @@ async function autoFillRecordActionPopups(
             const t02 = (Array.isArray(tabs2) ? tabs2 : tabs2 ? [tabs2] : [])[0];
             popupGridUid = t02?.subModels?.grid?.uid || '';
           }
-        } catch { /* skip layout */ }
+        } catch (e) { catchSwallow(e, 'skip layout'); }
       }
 
       if (!popupGridUid) continue;
@@ -684,7 +685,7 @@ export async function enableM2oClickToOpen(
         if (tplColl && tplColl !== expectedColl) {
           log(`      ✗ ERROR: ${fm.fieldPath} popup template "${existingTplUid.slice(0, 8)}" is for "${tplColl}" but field expects "${expectedColl}"`);
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
       continue;
     }
 
@@ -715,7 +716,7 @@ export async function enableM2oClickToOpen(
         const liveResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });
         const liveTplUid = liveResp.data?.data?.stepParams?.popupSettings?.openView?.popupTemplateUid;
         if (liveTplUid) continue;
-      } catch { /* fall through if get fails */ }
+      } catch (e) { catchSwallow(e, 'fall through if get fails'); }
     }
 
     // Fallback for m2o without a popup template: deploy default details inline
@@ -776,7 +777,7 @@ export async function enableM2oClickToOpen(
         log(`      ✗ popup template mismatch: ${fm.fieldPath} expects "${popupColl}" but template "${tplInfo.templateUid.slice(0, 8)}" is for "${tplColl}" — skipped`);
         continue;
       }
-    } catch { /* skip validation if API fails */ }
+    } catch (e) { catchSwallow(e, 'skip validation if API fails'); }
 
     try {
       const fdResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fm.uid } });

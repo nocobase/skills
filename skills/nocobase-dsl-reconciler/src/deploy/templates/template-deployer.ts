@@ -22,12 +22,13 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { NocoBaseClient } from '../client';
-import type { DeployContext } from './deploy-context';
-import { loadYaml } from '../utils/yaml';
-import { generateUid } from '../utils/uid';
-import { BLOCK_TYPE_TO_MODEL } from '../utils/block-types';
-import { toComposeBlock, COMPOSE_ACTIONS } from './block-composer';
+import type { NocoBaseClient } from '../../client';
+import type { DeployContext } from '../deploy-context';
+import { loadYaml } from '../../utils/yaml';
+import { generateUid } from '../../utils/uid';
+import { BLOCK_TYPE_TO_MODEL } from '../../utils/block-types';
+import { toComposeBlock, COMPOSE_ACTIONS } from '../blocks/block-composer';
+import { catchSwallow } from '../../utils/swallow';
 
 interface TemplateIndex {
   uid: string;
@@ -38,85 +39,18 @@ interface TemplateIndex {
   file: string;
 }
 
-// Track template UIDs created during the current deploy run.
-// Stored in state.yaml._last_deploy_created_templates so the `rollback` CLI
-// command can remove them later. We do NOT auto-delete — a freshly created
-// template may be 0-usage legitimately (user hand-built a library).
-const _createdThisRun = new Set<string>();
-export function resetTemplateCreationTracking(): void { _createdThisRun.clear(); }
-export function trackCreatedTemplate(uid: string): void { if (uid) _createdThisRun.add(uid); }
-export function listCreatedThisRun(): string[] { return Array.from(_createdThisRun); }
-
-/** Delete the given template UIDs from NocoBase. Used by `rollback` CLI. */
-export async function deleteTemplatesByUid(
-  nb: NocoBaseClient,
-  uids: string[],
-  log: (msg: string) => void,
-): Promise<{ deleted: number; failed: number }> {
-  let deleted = 0, failed = 0;
-  for (const uid of uids) {
-    try {
-      await nb.http.post(`${nb.baseUrl}/api/flowModelTemplates:destroy`, {}, { params: { filterByTk: uid } });
-      deleted++;
-    } catch { failed++; }
-  }
-  log(`  rollback: deleted ${deleted} templates, ${failed} failed`);
-  return { deleted, failed };
-}
-
-/**
- * Drop flowModelTemplateUsages rows whose modelUid no longer exists.
- *
- * NocoBase bug: when a flowModel is destroyed, its usage records in
- * flowModelTemplateUsages are NOT cascade-deleted. Those rows keep the
- * template's usageCount artificially elevated, blocking later destroy
- * attempts with "Template is in use". This routine walks the usages
- * table and removes records pointing at dead flowModels.
- *
- * Runs on every deploy (cheap — typically <100 stale rows per cycle).
- */
-export async function cleanStaleTemplateUsages(
-  nb: NocoBaseClient,
-  log: (msg: string) => void,
-): Promise<{ cleaned: number; usageRecords: number }> {
-  try {
-    // Page through all usages
-    const usages: any[] = [];
-    for (let p = 1; p <= 10; p++) {
-      const r = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, { params: { pageSize: 1000, page: p } });
-      const d = r.data.data || [];
-      usages.push(...d);
-      if (d.length < 1000) break;
-    }
-    if (!usages.length) return { cleaned: 0, usageRecords: 0 };
-
-    // Collect live flowModel UIDs in one pass (only what's referenced)
-    const referencedUids = new Set(usages.map((u: any) => u.modelUid as string));
-    const liveUids = new Set<string>();
-    // Ask NocoBase for each chunk — but since we don't have batch-by-uid,
-    // we just fetch all model uids which is manageable (~few thousand after cleanup)
-    for (let p = 1; p <= 10; p++) {
-      const r = await nb.http.get(`${nb.baseUrl}/api/flowModels:list`, { params: { pageSize: 5000, page: p, fields: 'uid' } });
-      const d = r.data.data || [];
-      for (const n of d) if (referencedUids.has(n.uid)) liveUids.add(n.uid);
-      if (d.length < 5000) break;
-    }
-
-    const stale = usages.filter((u: any) => !liveUids.has(u.modelUid));
-    let cleaned = 0;
-    for (const u of stale) {
-      try {
-        await nb.http.post(`${nb.baseUrl}/api/flowModelTemplateUsages:destroy`, {}, { params: { filterByTk: u.uid } });
-        cleaned++;
-      } catch { /* skip */ }
-    }
-    if (cleaned) log(`  cleanup: removed ${cleaned} stale template usage records (NocoBase cascade bug)`);
-    return { cleaned, usageRecords: usages.length };
-  } catch (e) {
-    log(`  ! cleanup usages: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-    return { cleaned: 0, usageRecords: 0 };
-  }
-}
+// Template tracking, bulk delete, and stale-usage cleanup live in sibling
+// modules — re-exported here so existing importers (project-deployer, cli
+// rollback) don't have to change their import paths.
+export {
+  resetTemplateCreationTracking,
+  trackCreatedTemplate,
+  listCreatedThisRun,
+  deleteTemplatesByUid,
+} from './template-tracking';
+import { trackCreatedTemplate } from './template-tracking';
+export { cleanStaleTemplateUsages } from './template-cleanup';
+import { createTempPage, deleteTempPage } from './template-temp-page';
 
 interface ExistingTemplate {
   uid: string;
@@ -186,7 +120,7 @@ function discoverTemplates(tplDir: string): TemplateIndex[] {
           targetUid: (content.targetUid as string) || generateUid(),
           file: `${subDir}/${f}`,
         });
-      } catch { /* skip malformed */ }
+      } catch (e) { catchSwallow(e, 'skip malformed'); }
     }
   }
   return result;
@@ -352,8 +286,8 @@ async function syncTemplateContent(
       if (newGridUid) {
         const fieldLayout = content.field_layout as unknown[];
         if (fieldLayout?.length) {
-          const { deployDividers } = await import('./fillers/divider-filler');
-          const { applyFieldLayout } = await import('./fillers/field-layout');
+          const { deployDividers } = await import('../fillers/divider-filler');
+          const { applyFieldLayout } = await import('../fillers/field-layout');
           const fCtx: DeployContext = { nb, log, force: false };
           await deployDividers(fCtx, newGridUid, content as any, {}, modDir);
           await applyFieldLayout(fCtx, newGridUid, fieldLayout, content as any);
@@ -368,8 +302,8 @@ async function syncTemplateContent(
     if (gridUid) {
       const fieldLayout = content.field_layout as unknown[];
       if (fieldLayout?.length) {
-        const { deployDividers } = await import('./fillers/divider-filler');
-        const { applyFieldLayout } = await import('./fillers/field-layout');
+        const { deployDividers } = await import('../fillers/divider-filler');
+        const { applyFieldLayout } = await import('../fillers/field-layout');
         const fCtx: DeployContext = { nb, log, force: false };
         await deployDividers(fCtx, gridUid, content as any, {}, modDir);
         await applyFieldLayout(fCtx, gridUid, fieldLayout, content as any);
@@ -405,7 +339,7 @@ async function applyTemplateSubTables(
   const coll = content.coll as string | undefined;
   if (!coll) return;
   try {
-    const { applySubTableFields } = await import('./fillers/sub-table');
+    const { applySubTableFields } = await import('../fillers/sub-table');
     const ctx = { nb, log, force: false } as DeployContext;
     await applySubTableFields(ctx, blockUid, coll, content as any);
   } catch (e) {
@@ -438,7 +372,7 @@ async function applyTemplateExtras(
   const eventFlows = content.event_flows as Record<string, unknown>[] | undefined;
   if (Array.isArray(eventFlows) && eventFlows.length) {
     try {
-      const { deployEventFlows } = await import('./fillers/event-flow-filler');
+      const { deployEventFlows } = await import('../fillers/event-flow-filler');
       const fCtx: DeployContext = { nb, log, force: false };
       await deployEventFlows(fCtx, targetUid, { event_flows: eventFlows } as any, '');
       log(`${indent}~ event_flows: ${eventFlows.length} flows`);
@@ -460,7 +394,7 @@ async function applyTemplateExtras(
   });
   if (hasNonComposable && modDir) {
     try {
-      const { deployActions } = await import('./fillers/action-filler');
+      const { deployActions } = await import('../fillers/action-filler');
       const fCtx: DeployContext = { nb, log, force: false };
       await deployActions(fCtx, targetUid, content as any, {} as any, modDir);
       log(`${indent}~ actions: synced non-composable (ai / link / export / ...)`);
@@ -568,7 +502,7 @@ export async function deployTemplates(
             {},
           );
           pruned++;
-        } catch { /* locked by another ref — skip */ }
+        } catch (e) { catchSwallow(e, 'locked by another ref — skip'); }
       }
       if (orphans.length) log(`  - pruned ${orphans.length} duplicate of "${k}" (kept ${keeper.uid.slice(0, 8)})`);
     }
@@ -649,14 +583,14 @@ export async function deployTemplates(
           // Sync content
           const tplContent = tplSpec.content as Record<string, unknown>;
           if (tpl.type === 'block' && savedEntry.targetUid && tplContent) {
-            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
+            try { await syncTemplateContent(nb, savedEntry.targetUid, collName, tplContent, log, `      `, tplModDir); } catch (e) { catchSwallow(e, 'skip'); }
           }
           deployedTemplates[stateKey] = { uid: savedEntry.uid, targetUid: savedEntry.targetUid, type: tpl.type, collection: collName };
           persistUidToYaml(tplFile, tpl, savedEntry.uid, savedEntry.targetUid, log);
           reused++;
           continue;
         }
-      } catch { /* saved UID no longer valid, fall through to name matching */ }
+      } catch (e) { catchSwallow(e, 'saved UID no longer valid, fall through to name matching'); }
     }
 
     // Priority 1.5: Match by the DSL-declared uid directly. duplicate-project
@@ -675,14 +609,14 @@ export async function deployTemplates(
           if (tpl.targetUid && existingByDslUid.targetUid) uidMap.set(tpl.targetUid, existingByDslUid.targetUid);
           const tplContent = tplSpec.content as Record<string, unknown>;
           if (tpl.type === 'block' && existingByDslUid.targetUid && tplContent) {
-            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `, tplModDir); } catch { /* skip */ }
+            try { await syncTemplateContent(nb, existingByDslUid.targetUid, collName, tplContent, log, `      `, tplModDir); } catch (e) { catchSwallow(e, 'skip'); }
           }
           deployedTemplates[stateKey] = { uid: existingByDslUid.uid, targetUid: existingByDslUid.targetUid, type: tpl.type, collection: collName };
           persistUidToYaml(tplFile, tpl, existingByDslUid.uid, existingByDslUid.targetUid, log);
           reused++;
           continue;
         }
-      } catch { /* not found — fall through to create */ }
+      } catch (e) { catchSwallow(e, 'not found — fall through to create'); }
     }
 
     // Priority 2: Match by name + collection (fallback)
@@ -725,7 +659,7 @@ export async function deployTemplates(
               continue;
             }
           }
-        } catch { /* skip validation if API fails */ }
+        } catch (e) { catchSwallow(e, 'skip validation if API fails'); }
       }
       // Sync block template content (fields + layout). Popup templates have different structure.
       if (tpl.type === 'block' && existingEntry.targetUid && tplContent) {
@@ -764,7 +698,7 @@ export async function deployTemplates(
             continue;
           }
         }
-      } catch { /* skip validation if API fails */ }
+      } catch (e) { catchSwallow(e, 'skip validation if API fails'); }
     }
 
     try {
@@ -839,9 +773,9 @@ export async function deployTemplates(
     const deployed = deployedTemplates[stateKey];
     if (!deployed?.targetUid) continue;
     try {
-      const { enableM2oClickToOpen } = await import('./block-filler');
+      const { enableM2oClickToOpen } = await import('../blocks/block-filler');
       await enableM2oClickToOpen(nb, deployed.targetUid, collName, path.dirname(tplFile), log);
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
 
   return { uidMap, pendingPopupTemplates, deployedTemplates };
@@ -917,8 +851,8 @@ async function createBlockTemplate(
         const formGridUid = (gridNode as Record<string, unknown>)?.uid as string || '';
         if (formGridUid) {
           // Deploy dividers first
-          const { deployDividers } = await import('./fillers/divider-filler');
-          const { applyFieldLayout } = await import('./fillers/field-layout');
+          const { deployDividers } = await import('../fillers/divider-filler');
+          const { applyFieldLayout } = await import('../fillers/field-layout');
           const fCtx: DeployContext = { nb, log, force: false };
           await deployDividers(fCtx, formGridUid, content as any, {}, tplDir);
           // Apply layout
@@ -946,7 +880,7 @@ async function createBlockTemplate(
           log(`    = template: ${name} (reused by declared uid: ${declaredUid.slice(0, 8)})`);
           return { templateUid: declaredUid, targetUid: row.targetUid as string };
         }
-      } catch { /* not found — will create with server-generated uid */ }
+      } catch (e) { catchSwallow(e, 'not found — will create with server-generated uid'); }
     }
 
     const saveResult = await nb.surfaces.saveTemplate({
@@ -989,7 +923,7 @@ async function createBlockTemplate(
             try {
               await nb.surfaces.removeNode(c.uid);
               log(`    ~ template "${name}": stripped empty TableActionsColumnModel ${c.uid.slice(0, 8)}`);
-            } catch { /* skip */ }
+            } catch (e) { catchSwallow(e, 'skip'); }
           }
         }
       }
@@ -1014,7 +948,7 @@ async function createBlockTemplate(
               fieldStates[fpVal] = { wrapper: c.uid, field: sub?.uid as string | undefined };
             }
           }
-          const { deployClickToOpen } = await import('./fillers/click-to-open');
+          const { deployClickToOpen } = await import('../fillers/click-to-open');
           const fCtx: DeployContext = { nb, log, force: false };
           const popupContext = { seenColls: new Set([collName]) };
           await deployClickToOpen(fCtx, content as any, collName, fieldStates, tplDir, {}, popupContext);
@@ -1029,145 +963,6 @@ async function createBlockTemplate(
   }
 }
 
-
-/**
- * Fix grid layout UIDs after tree duplication (saveTemplate/deepCopy).
- *
- * When NocoBase duplicates a tree (saveTemplate convert/duplicate), all nodes get new UIDs
- * but gridSettings.rows still references the OLD UIDs. This function walks the tree
- * (multi-level fetch via flowSurfaces:get per node) and remaps orphan row UIDs to actual
- * item UIDs by position.
- *
- * Why multi-level fetch: flowSurfaces:get?uid=X returns only 1 shallow level of subModels.
- * A popup template's grid lives 3-4 levels deep (field → ChildPage → tab → grid → items),
- * so a single fetch misses all the grids. We must fetch each intermediate node.
- */
-export async function fixGridLayoutUids(
-  nb: NocoBaseClient,
-  rootUid: string,
-  log: (msg: string) => void,
-): Promise<void> {
-  const allUids = new Set<string>();
-  const gridNodes: { uid: string; rows: Record<string, string[][]>; sizes?: Record<string, number[]>; items: string[] }[] = [];
-  const visited = new Set<string>();
-
-  // flowSurfaces:get supports different query params per model type:
-  //   uid=<x>              — single node (subModels usually shallow or null)
-  //   pageSchemaUid=<x>    — ChildPage under a field + direct subModels.tabs
-  //   tabSchemaUid=<x>     — Tab + its BlockGridModel (grid) + grid.subModels.items
-  // We combine these to reach grids that are 3-4 levels below the template's target UID.
-
-  function collectFromNode(node: any): void {
-    if (!node) return;
-    allUids.add(node.uid);
-    const gs = node.stepParams?.gridSettings?.grid;
-    if (gs?.rows && typeof gs.rows === 'object') {
-      const items = node.subModels?.items;
-      const itemUids = (Array.isArray(items) ? items : []).map((i: any) => i.uid).filter(Boolean) as string[];
-      for (const u of itemUids) allUids.add(u);
-      gridNodes.push({ uid: node.uid, rows: gs.rows, sizes: gs.sizes, items: itemUids });
-    }
-    // Also record direct children's UIDs so the orphan check sees them
-    const subs = node.subModels;
-    if (subs && typeof subs === 'object') {
-      for (const v of Object.values(subs)) {
-        if (Array.isArray(v)) { for (const c of v) if (c?.uid) allUids.add(c.uid); }
-        else if (v && typeof v === 'object' && (v as any).uid) allUids.add((v as any).uid);
-      }
-    }
-  }
-
-  async function fetchBy(params: Record<string, string>): Promise<any> {
-    try {
-      const data = await nb.get(params);
-      return data?.tree;
-    } catch { return null; }
-  }
-
-  async function walk(uid: string, asPage = false): Promise<void> {
-    if (!uid || visited.has(uid)) return;
-    visited.add(uid);
-    // Fetch the node directly first (to read its stepParams / openView)
-    const self = await fetchBy({ uid });
-    if (self) collectFromNode(self);
-    // For template targets (field models), fetch the popup page + its tabs
-    const page = await fetchBy(asPage ? { pageSchemaUid: uid } : { pageSchemaUid: uid });
-    if (page) {
-      collectFromNode(page);
-      const tabs = Array.isArray(page.subModels?.tabs) ? page.subModels.tabs : [];
-      for (const tab of tabs) {
-        if (!tab?.uid || visited.has(tab.uid)) continue;
-        visited.add(tab.uid);
-        // tabSchemaUid gives tab + BlockGridModel in subModels.grid + grid.subModels.items
-        const fullTab = await fetchBy({ tabSchemaUid: tab.uid });
-        const tabNode = fullTab || tab;
-        collectFromNode(tabNode);
-        const grid = tabNode.subModels?.grid;
-        if (grid) {
-          // Fetch grid directly so subModels.items is populated reliably
-          const fullGrid = await fetchBy({ uid: grid.uid });
-          collectFromNode(fullGrid || grid);
-        }
-      }
-    }
-    // Follow openView.uid when it points somewhere else (rare — usually self-ref)
-    const openUid = self?.stepParams?.popupSettings?.openView?.uid;
-    if (openUid && openUid !== uid) await walk(openUid);
-  }
-  await walk(rootUid);
-
-  // For each grid: check if row UIDs are orphaned, remap by position
-  for (const gn of gridNodes) {
-    // Flatten all UIDs from rows
-    const rowUids: string[] = [];
-    for (const cols of Object.values(gn.rows)) {
-      for (const col of cols) {
-        for (const uid of col) rowUids.push(uid);
-      }
-    }
-
-    // Check if any are orphaned (not in tree)
-    const orphaned = rowUids.filter(u => !allUids.has(u));
-    if (!orphaned.length) continue;
-
-    // Items already referenced by non-orphan rowUids (keep their slots)
-    const keptItems = new Set(rowUids.filter(u => allUids.has(u)));
-    // Items NOT yet referenced — candidates to fill orphan slots, in API return order
-    const unusedItems = gn.items.filter(u => !keptItems.has(u));
-
-    // Walk orphan positions in row order, assign next unused item each time
-    const posMap = new Map<string, string>();
-    let u = 0;
-    for (const rowUid of rowUids) {
-      if (!allUids.has(rowUid) && u < unusedItems.length) {
-        if (!posMap.has(rowUid)) {
-          posMap.set(rowUid, unusedItems[u]);
-          u++;
-        }
-      }
-    }
-
-    // Remap rows
-    const newRows: Record<string, string[][]> = {};
-    for (const [rowKey, cols] of Object.entries(gn.rows)) {
-      const newRowKey = posMap.get(rowKey) || rowKey;
-      newRows[newRowKey] = cols.map(col => col.map(uid => posMap.get(uid) || uid));
-    }
-    const newSizes: Record<string, number[]> = {};
-    if (gn.sizes) {
-      for (const [key, val] of Object.entries(gn.sizes)) {
-        newSizes[posMap.get(key) || key] = val;
-      }
-    }
-
-    try {
-      await nb.updateModel(gn.uid, { gridSettings: { grid: { rows: newRows, sizes: gn.sizes ? newSizes : undefined } } });
-      log(`      ~ grid layout fixed: ${orphaned.length} UIDs remapped`);
-    } catch (e) {
-      log(`      ! grid layout fix: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-    }
-  }
-}
 
 // ── Fallback: direct model creation for unsupported block types ──
 //
@@ -1232,64 +1027,6 @@ async function registerTemplateManually(
     return { templateUid: createdUid, targetUid };
   }
   return undefined;
-}
-
-// ── Temp page lifecycle ──
-
-interface TempPage {
-  routeId: number;
-  pageUid: string;
-  tabUid: string;
-  gridUid: string;
-}
-
-/**
- * Create a temporary hidden page for composing template content.
- * Returns page info needed for compose and cleanup.
- */
-async function createTempPage(
-  nb: NocoBaseClient,
-): Promise<TempPage | undefined> {
-  try {
-    // Create a hidden menu item
-    const menu = await nb.surfaces.createMenu({
-      title: `_tpl_temp_${generateUid(6)}`,
-      type: 'item',
-      icon: 'fileoutlined',
-    });
-
-    // Create the page surface
-    const page = await nb.surfaces.createPage(menu.routeId);
-
-    return {
-      routeId: menu.routeId,
-      pageUid: page.pageUid,
-      tabUid: page.tabSchemaUid,
-      gridUid: page.gridUid,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Delete a temporary page and its route.
- */
-async function deleteTempPage(
-  nb: NocoBaseClient,
-  tempPage: TempPage,
-): Promise<void> {
-  try {
-    // Delete the route (cascades to page content)
-    await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:destroy`, {
-      filterByTk: tempPage.routeId,
-    });
-  } catch {
-    // Best-effort cleanup — don't fail the template deploy
-    try {
-      await nb.surfaces.destroyPage(tempPage.pageUid);
-    } catch { /* ignore */ }
-  }
 }
 
 // ── Matching helpers ──

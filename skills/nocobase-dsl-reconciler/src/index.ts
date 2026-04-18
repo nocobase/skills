@@ -7,7 +7,6 @@ export { slugify, generateUid, deepMerge, loadYaml, dumpYaml, saveYaml } from '.
 
 // Deploy
 export { validate, toComposeBlock, expandPopups, verifySql, deploySurface, deployPopup, fillBlock, ensureAllCollections, postVerify, reorderTableColumns } from './deploy';
-export { scaffold } from './deploy/scaffold';
 
 // Export
 export { exportPageSurface, exportPopupSurface, exportAllPopups } from './export';
