@@ -472,9 +472,17 @@ export async function deployTemplates(
     // Priority 1: Match by persisted UID from state.yaml (most reliable, works in any mode)
     // state.yaml is scoped to this project — in copy mode, its UIDs refer to the Copy's
     // own templates, so reusing them is correct (prevents duplicate accumulation).
+    //
+    // EXCEPTION: if the DSL declares a uid and it differs from state, the DSL wins.
+    // This handles duplicate-project → redeploy: state.yaml carries old uids from a
+    // prior (pre-duplicate) deploy, but the refreshed DSL has freshly-minted uids.
+    // Trusting state here would perpetually reuse the stale template, ignoring the
+    // new one the DSL intends. Let Priority 1.5 match the DSL uid in DB instead.
     const stateKey = `${tpl.type}:${tpl.name}`;
     const savedEntry = savedTemplateUids?.[stateKey];
-    if (savedEntry?.uid) {
+    const dslDeclaredUid = !!(tpl.uid && tpl.uid.length >= 8);
+    const stateMatchesDsl = !dslDeclaredUid || !savedEntry?.uid || savedEntry.uid === tpl.uid;
+    if (savedEntry?.uid && stateMatchesDsl) {
       // Verify the saved UID still exists in NocoBase AND matches the expected
       // collection. Without the collection check a stale state.yaml entry could
       // point at a cross-collection template (e.g. Leads state referencing an
