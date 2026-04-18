@@ -29,13 +29,45 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
   // it don't need explicit clickToOpen. Without either, clicking the cell
   // 400s at runtime.
   const defaultsPopupColls = new Set<string>();
+  const defaultsPopupPaths = new Map<string, string>(); // targetColl → popupTemplateRelPath
   const defaultsPath = path.join(projectDir, 'defaults.yaml');
   if (fs.existsSync(defaultsPath)) {
     try {
       const d = loadYaml<Record<string, unknown>>(defaultsPath);
       const popups = (d?.popups || {}) as Record<string, unknown>;
-      for (const coll of Object.keys(popups)) defaultsPopupColls.add(coll);
+      for (const [coll, tplPath] of Object.entries(popups)) {
+        defaultsPopupColls.add(coll);
+        if (typeof tplPath === 'string') defaultsPopupPaths.set(coll, tplPath);
+      }
     } catch { /* malformed defaults caught elsewhere */ }
+  }
+
+  // Collect every `clickToOpen: <string-path>` value across pages + popups.
+  // Popup templates referenced by defaults.yaml must ALSO be inlined by at
+  // least one clickToOpen somewhere — the deployer only materialises popup
+  // templates by inlining them during page deploy. Without an inline usage
+  // the template stays deferred and defaults.yaml m2o auto-binding can't
+  // find it at runtime (silent 400).
+  const inlinedPopupPaths = new Set<string>();
+  const scanFieldsForClickToOpen = (fields: unknown) => {
+    if (!Array.isArray(fields)) return;
+    for (const f of fields) {
+      if (!f || typeof f !== 'object') continue;
+      const fo = f as Record<string, unknown>;
+      const click = fo.clickToOpen;
+      const rawPath = fo._clickToOpenPath;
+      if (typeof click === 'string') inlinedPopupPaths.add(click);
+      if (typeof rawPath === 'string') inlinedPopupPaths.add(rawPath);
+    }
+  };
+  for (const page of pages) {
+    for (const b of page.layout.blocks || []) scanFieldsForClickToOpen((b as Record<string, unknown>).fields);
+    for (const t of page.layout.tabs || []) {
+      for (const b of t.blocks || []) scanFieldsForClickToOpen((b as Record<string, unknown>).fields);
+    }
+    for (const p of page.popups || []) {
+      for (const b of (p.blocks || []) as Record<string, unknown>[]) scanFieldsForClickToOpen(b.fields);
+    }
   }
 
   // Build collection metadata: known names + m2o target map
@@ -79,6 +111,21 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         }
         if (m2oMap.size) collM2oTargets.set(collName, m2oMap);
       } catch { /* skip */ }
+    }
+  }
+
+  // Error: defaults.yaml popup templates with no inline usage. The deployer's
+  // template pipeline leaves them as "deferred" forever — they're never
+  // materialised as live templates, so defaults.yaml m2o auto-binding fails
+  // silently. Fix: add `clickToOpen: <same-path>` on at least one field so
+  // the template gets inlined, promoted, and bindable.
+  for (const [coll, tplPath] of defaultsPopupPaths) {
+    if (!inlinedPopupPaths.has(tplPath)) {
+      issues.push({
+        level: 'error',
+        page: `defaults.yaml`,
+        message: `popup template "${tplPath}" (popups.${coll}) is never inlined — the deployer only materialises popup templates when a field uses them. Add "clickToOpen: ${tplPath}" on a field of any block displaying ${coll} records.`,
+      });
     }
   }
 
