@@ -11,21 +11,17 @@ allowed-tools: shell, local file reads, local file writes
 
 ## Golden rule
 
-`templates/crm/` is the canonical reference library. Treat it as a
-**read-only lookup** — when you're unsure how a field, block, or popup
-is shaped, open the closest CRM example and copy the relevant snippet
-into your own new file. Do **not** bulk-copy CRM files/directories into
-your workspace unless the exception below applies.
+`templates/crm/` is a **read-only reference library**. When you're
+unsure how a specific field, block, or popup is shaped, open the
+closest CRM example, read it, then write your own adapted version in
+your workspace. Per-scenario pointers live in Rounds 1/3/4 below.
 
-**Exception — whole-page copy is OK for complex prebuilt pages:**
-dashboards (`pages/main/analytics`), overviews with KPI jsBlocks
-(`pages/main/overview`). These are scoped `pages/<one-page>/` subtrees
-where the end-to-end plumbing (SQLs + render JS + jsBlocks + grid
-widths) is expensive to rebuild from scratch. See Round 4.
-
-Never `cp -r` at the CRM workspace / collections / routes.yaml level —
-that drags unrelated leads/opportunities/orders state into your project
-and forces you to fight hundreds of irrelevant errors.
+**Never** copy CRM files wholesale into your workspace. Do not
+`cp -r templates/crm/...` to get started, do not duplicate
+`collections/nb_crm_*.yaml`, do not base your `routes.yaml` on CRM's.
+Bulk-copying drags unrelated leads/opportunities/orders state and
+workflows into your project — you then spend the whole session fighting
+hundreds of irrelevant validator errors instead of building your module.
 
 The pre-deploy spec validator catches most structural mistakes with a
 clear error message. **Trust the validator**: when it errors, fix what
@@ -66,22 +62,25 @@ Workspace path: `cli push myapp` resolves to `workspaces/myapp/`.
 Override with `NB_WORKSPACE_ROOT=/some/path`. Each project auto `git init`s
 on first push/pull.
 
-**Open the right CRM reference and hand-write your own adapted version
-(read-only lookup — do not copy the file into your workspace):**
+**Before writing each piece, open the matching CRM file to see the
+shape — then hand-write your own adapted version in your workspace:**
 
-| Building | Open this CRM file for reference |
+| Building | Reference this CRM file |
 |---|---|
-| A standard list page (table + filter + popups) | `templates/crm/pages/main/leads/` |
-| A multi-tab page | `templates/crm/pages/main/customers/` |
-| Collection DSL | `templates/crm/collections/*.yaml` |
-| Block templates (forms/details) | `templates/crm/templates/block/` |
-| Popup templates | `templates/crm/templates/popup/` |
-| Menu tree | `templates/crm/routes.yaml` |
+| A standard list page (table + filter + popups) | `templates/crm/pages/main/leads/layout.yaml` |
+| A multi-tab page | `templates/crm/pages/main/customers/` (see `page.yaml` + `tab_*/layout.yaml`) |
+| A collection with relations & selects | `templates/crm/collections/nb_crm_leads.yaml` |
+| A create-form template (with sub-table) | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` |
+| A detail-popup template | `templates/crm/templates/popup/activity_view.yaml` |
+| Menu tree shape | `templates/crm/routes.yaml` (just the *shape* — your `routes.yaml` lists *your* pages) |
 | m2o auto-popup bindings | `templates/crm/defaults.yaml` |
 
-Pages where whole-folder `cp -r` IS appropriate (see Round 4):
-- Dashboard: `templates/crm/pages/main/analytics/`
-- Overview with KPIs: `templates/crm/pages/main/overview/`
+Tips for adapting:
+- Copy the 10–30 lines you need from the CRM file into your new file,
+  then change collection / field / title / route names.
+- Don't copy `uid:` / `targetUid:` / `route_id:` — those are runtime
+  IDs from CRM's deployed state. Leave them out; the deployer assigns
+  fresh ones.
 
 Deploy: `npx tsx cli/cli.ts push <name> --force`.
 The validator blocks bad DSL with specific messages. Fix those and re-push.
@@ -119,30 +118,24 @@ for the parent-detail + child-list pattern.
 
 ### Round 4: JS + Charts + Dashboard (optional)
 
-**Copy the whole page/template folder from CRM, then modify in place.**
-Writing dashboards from scratch is a huge amount of glue — SQLs,
-echarts render functions, KPI jsBlocks, filterForm wiring, grid
-widths. The CRM analytics and overview pages are proven end-to-end;
-`cp -r` them and retarget SQL/collection names instead of reinventing.
+Reference the CRM JS files that match your need — **copy individual
+files, not directories**. Write your own `layout.yaml` in your page;
+only the small JS/SQL leaf files get copied.
 
-```bash
-# Example: scaffold a pm Dashboard by copying CRM analytics
-cp -r templates/crm/pages/main/analytics workspaces/pm/pages/pm/dashboard
-# then edit:
-#   page.yaml   → strip runtime UIDs, rename title
-#   layout.yaml → change collection refs + field names
-#   charts/*.sql   → point at your tables, simplify filter conditions
-#   charts/*_render.js → swap title + fields, strip i18n if not needed
-#   js/*.js     → rewrite KPI queries against your collections
-```
-
-**Copy existing JS, don't write from scratch.**
-
-| Need | Copy from |
+| Need | Reference (single file) |
 |---|---|
-| KPI cards / dashboard hero | `templates/crm/pages/main/overview/js/` |
-| Charts | `templates/crm/pages/main/analytics/js/` |
-| Filter stat buttons | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js` |
+| A single KPI card jsBlock | `templates/crm/pages/main/overview/js/overview_jsBlock.js` |
+| A filtered summary jsBlock | `templates/crm/pages/main/analytics/js/analytics_jsBlock.js` |
+| A chart SQL (grouped counts) | `templates/crm/pages/main/analytics/charts/analytics_chart_2.sql` |
+| A chart render (echarts bar/pie) | `templates/crm/pages/main/analytics/charts/analytics_chart_2_render.js` |
+| Filter stat buttons on a filterForm | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_customer_stats_filter_block.js` |
+
+For each file you copy:
+- Rename in place and retarget SQL/collection/field names.
+- Remove `ns: 'nb_crm'` i18n wrappers unless you've set up an i18n
+  namespace for your module.
+- Simplify `ctx.var_form1.*` filter var references if your page has
+  no matching filterForm.
 
 SQL charts: save + run as a two-step pattern —
 `ctx.sql.save({uid, sql})` then `ctx.sql.runById(uid)`.
