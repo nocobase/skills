@@ -17,6 +17,10 @@ Each case defines:
 - intended task
 - expected result
 
+Contract note:
+- Current skill contract supports `inspect`, `enable`, and `disable`.
+- Legacy `install` cases in this file are historical references and should be skipped unless install support is explicitly reintroduced.
+
 ## Test Setup
 
 Prepare placeholders before running cases:
@@ -43,7 +47,7 @@ All successful cases should include these output fields:
 - `target_resolution`
 - `next_steps`
 
-Write actions (`install`, `enable`, and `disable`) in `safe` mode should also include:
+Write actions (`enable` and `disable`) in `safe` mode should also include:
 
 - `pre_state`
 - `post_state`
@@ -537,10 +541,9 @@ Use this set for fast smoke checks:
 
 1. TC01 local inspect
 2. TC13 local docker backend auto-selection
-3. TC03 local install
-4. TC11 local enable
-5. TC05 local disable
-6. TC02 remote inspect
-7. TC14 local write fallback to remote API
-8. TC15 auto mode app_path precedence
-9. TC16 local port mismatch fast skip
+3. TC11 local enable
+4. TC05 local disable
+5. TC02 remote inspect
+6. TC14 local write fallback to remote API
+7. TC15 auto mode app_path precedence
+8. TC16 local port mismatch fast skip

@@ -21,11 +21,9 @@ Define the V1 operation contract used by `nocobase-plugin-manage` without changi
 
 - CLI inspect/mutation commands are registered in `packages/core/server/src/commands/pm.ts`:
 - `pm list`
-- `pm add`
 - `pm enable`
 - `pm disable`
 - Resource actions are exposed in `packages/core/server/src/plugin-manager/options/resource.ts`:
-- `pm:add`
 - `pm:enable`
 - `pm:disable`
 - `pm:list`
@@ -47,7 +45,6 @@ Use NocoBase action routing style with `/api/` prefix.
 | get one plugin | `/api/pm:get?filterByTk=<plugin>` | use plugin alias or package name |
 | list enabled (client lane) | `/api/pm:listEnabled` | includes plugin URL for client lane |
 | list enabled (client-v2 lane) | `/api/pm:listEnabledV2` | filters by `client-v2.js` entry |
-| add plugin (remote) | `/api/pm:add` | async trigger to `runAsCLI(['pm','add',...])` |
 | enable plugin (remote) | `/api/pm:enable?filterByTk=<plugin>` | async trigger to `runAsCLI(['pm','enable',...])` |
 | disable plugin (remote) | `/api/pm:disable?filterByTk=<plugin>` | async trigger to `runAsCLI(['pm','disable',...])` |
 
@@ -61,7 +58,6 @@ Notes:
 | Action | Command |
 |---|---|
 | list all plugin info | `yarn nocobase pm list` |
-| add plugin | `yarn nocobase pm add <plugin> [--registry=<url>] [--version=<v>] [--auth-token=<token>]` |
 | enable plugin | `yarn nocobase pm enable <plugin>` |
 | disable plugin | `yarn nocobase pm disable <plugin>` |
 
@@ -74,7 +70,6 @@ Default compose service is `app` unless explicitly overridden.
 | Action | Command |
 |---|---|
 | list all plugin info | `docker compose exec -T <service> yarn nocobase pm list` |
-| add plugin | `docker compose exec -T <service> yarn nocobase pm add <plugin> [--registry=<url>] [--version=<v>] [--auth-token=<token>]` |
 | enable plugin | `docker compose exec -T <service> yarn nocobase pm enable <plugin>` |
 | disable plugin | `docker compose exec -T <service> yarn nocobase pm disable <plugin>` |
 
@@ -93,7 +88,7 @@ If marker block is missing or JSON parse fails, fallback to API inspect (`pm:lis
 
 ## Invocation Patterns
 
-### Local inspect/install/enable/disable
+### Local inspect/enable/disable
 
 ```json
 {
@@ -110,11 +105,11 @@ If marker block is missing or JSON parse fails, fallback to API inspect (`pm:lis
 }
 ```
 
-### Remote inspect/install/enable/disable
+### Remote inspect/enable/disable
 
 ```json
 {
-  "action": "install",
+  "action": "enable",
   "target": {
     "mode": "remote",
     "base_url": "https://demo.example.com"
@@ -124,11 +119,6 @@ If marker block is missing or JSON parse fails, fallback to API inspect (`pm:lis
     "token_env": "NOCOBASE_TOKEN_DEMO"
   },
   "plugins": ["@nocobase/plugin-example"],
-  "options": {
-    "registry": "https://registry.npmjs.org",
-    "version": "latest",
-    "auth_token_env": null
-  },
   "execution_mode": "safe"
 }
 ```
@@ -160,7 +150,7 @@ When channel resolves to `local`, resolve execution backend with this priority:
 1. explicit `execution_backend` (if not `auto`)
 2. for `inspect`, local Docker backend (`docker_cli`) when compose environment is available and service exists (default `app`)
 3. for `inspect`, local host backend (`host_cli`) when `yarn nocobase` is available
-4. for `install/enable/disable`, deterministic fallback chain: `docker_cli -> remote_api -> manual fallback`
+4. for `enable/disable`, deterministic fallback chain: `docker_cli -> remote_api -> manual fallback`
 5. if both docker and remote_api write paths are unavailable/failed, stop and return rich fallback hints
 
 Fast docker eligibility check for local write actions:
@@ -179,7 +169,6 @@ Local channel semantics note:
 ## Verification Rules
 
 - Always capture pre-state in `safe` mode.
-- For `install`, treat success as plugin becoming discoverable in local `pm list` snapshot (or remote `pm:list`/`pm:get`).
 - For `enable`, treat success as `enabled=true` in local `pm list` snapshot (or remote `pm:get`).
 - For `disable`, treat success as `enabled=false` in local `pm list` snapshot (or remote `pm:get`).
 - Poll interval: 2 seconds.
@@ -201,5 +190,5 @@ Local channel semantics note:
 - `API keys URL`: `<base_url>/admin/settings/api-keys`
 - when `base_url` is unknown, use default `http://127.0.0.1:13000`
 - `Manual activation`: enable target plugin in plugin manager UI, restart app, rerun inspect/postcheck
-- `Remote API fallback`: when local docker write fails, retry `pm:add/pm:enable/pm:disable` via target API before manual fallback
+- `Remote API fallback`: when local docker write fails, retry `pm:enable/pm:disable` via target API before manual fallback
 - `CLI runtime dependency special case`: enable `@nocobase/plugin-api-doc` and `@nocobase/plugin-api-keys`, restart app, then hand off runtime refresh to `nocobase-env-bootstrap` / `nocobase-acl-manage`
