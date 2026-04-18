@@ -382,7 +382,18 @@ export async function deployProject(
       const pageInfo = activePages.find(p => p.key === rkey);
       if (pageInfo) {
         try { await deployOnePage(ctx, pageInfo, state, null); }
-        catch (e) { log(`  ✗ page ${pageInfo.title}: ${e instanceof Error ? e.message.slice(0, 200) : e}`); }
+        catch (e) {
+          const err = e as any;
+          const apiData = err.response?.data ? ` body=${JSON.stringify(err.response.data).slice(0, 300)}` : '';
+          const apiUrl = err.response?.config?.url ? ` [${err.response.config.method} ${err.response.config.url}]` : (err.config?.url ? ` [${err.config.method} ${err.config.url}]` : '');
+          log(`  ✗ page ${pageInfo.title}: ${err.message || e}${apiUrl}${apiData}`);
+          if (process.env.NB_DEBUG) {
+            log(`    [debug] err keys: ${Object.keys(err || {}).join(',') || '(none)'}`);
+            log(`    [debug] err.status=${err.status} err.code=${err.code} err.name=${err.name} isAxios=${err.isAxiosError}`);
+            if (err.response) log(`    [debug] resp status=${err.response.status} url=${err.response.config?.url}`);
+            log(`    [debug] stack: ${(err.stack || '').split('\n').slice(0, 6).join(' || ')}`);
+          }
+        }
       }
     }
   }
@@ -842,7 +853,14 @@ async function deployGroup(
         try {
           await deployOnePage(ctx, pageInfo, state, state.group_id!);
         } catch (e) {
-          log(`  ✗ page ${pageInfo.title}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+          const err = e as any;
+          const apiData = err.response?.data ? ` body=${JSON.stringify(err.response.data).slice(0, 300)}` : '';
+          const apiUrl = err.response?.config?.url ? ` [${err.response.config.method} ${err.response.config.url}]` : (err.config?.url ? ` [${err.config.method} ${err.config.url}]` : '');
+          log(`  ✗ page ${pageInfo.title}: ${err.message || e}${apiUrl}${apiData}`);
+          if (process.env.NB_DEBUG) {
+            log(`    [debug] keys: ${Object.keys(err || {}).join(',') || '(none)'}`);
+            log(`    [debug] stack: ${(err.stack || '').split('\n').slice(0, 6).join(' || ')}`);
+          }
         }
         // Set sort to match declaration order
         const pageKey = pageInfo.key;
@@ -871,7 +889,18 @@ async function deployGroup(
         const pageInfo = pages.find(p => p.title === sc.title);
         if (pageInfo) {
           try { await deployOnePage(ctx, pageInfo, state, subGroupId); }
-          catch (e) { log(`  ✗ page ${pageInfo.title}: ${e instanceof Error ? e.message.slice(0, 200) : e}`); }
+          catch (e) {
+          const err = e as any;
+          const apiData = err.response?.data ? ` body=${JSON.stringify(err.response.data).slice(0, 300)}` : '';
+          const apiUrl = err.response?.config?.url ? ` [${err.response.config.method} ${err.response.config.url}]` : (err.config?.url ? ` [${err.config.method} ${err.config.url}]` : '');
+          log(`  ✗ page ${pageInfo.title}: ${err.message || e}${apiUrl}${apiData}`);
+          if (process.env.NB_DEBUG) {
+            log(`    [debug] err keys: ${Object.keys(err || {}).join(',') || '(none)'}`);
+            log(`    [debug] err.status=${err.status} err.code=${err.code} err.name=${err.name} isAxios=${err.isAxiosError}`);
+            if (err.response) log(`    [debug] resp status=${err.response.status} url=${err.response.config?.url}`);
+            log(`    [debug] stack: ${(err.stack || '').split('\n').slice(0, 6).join(' || ')}`);
+          }
+        }
           // Set sort on sub-group child
           const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;

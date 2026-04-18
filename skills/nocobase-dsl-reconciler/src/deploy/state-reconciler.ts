@@ -137,5 +137,56 @@ export async function reconcileStateWithLive(
   if (dead.length) {
     log(`  state reconcile: dropped ${dead.length}/${refs.size} zombie UID(s) (not in live NB)`);
   }
-  return { checked: refs.size, dropped: dead.length };
+
+  // Also validate route_ids / group_ids (integer primary keys from
+  // desktopRoutes, NOT flowModel UIDs). When my orphan cleaner deletes
+  // a route's schema flowModel, NB cascades the route row itself too —
+  // so state.yaml's numeric route_id/group_ids go stale the same way
+  // UIDs do. The symptom is "flowSurfaces menu parent route 'N' not
+  // found" on the next push's createMenu call.
+  let routesDropped = 0;
+  try {
+    const r = await nb.http.get(`${nb.baseUrl}/api/desktopRoutes:list`, { params: { paginate: 'false' } });
+    const liveIds = new Set<number>(((r.data?.data || []) as Record<string, unknown>[]).map(x => x.id as number));
+
+    // Top-level group_id
+    const topGroupId = (state as Record<string, unknown>).group_id as number | undefined;
+    if (topGroupId && !liveIds.has(topGroupId)) {
+      delete (state as Record<string, unknown>).group_id;
+      routesDropped++;
+    }
+    // group_ids map
+    const groupIds = (state as Record<string, unknown>).group_ids as Record<string, number> | undefined;
+    if (groupIds) {
+      for (const k of Object.keys(groupIds)) {
+        if (groupIds[k] && !liveIds.has(groupIds[k])) {
+          delete groupIds[k];
+          routesDropped++;
+        }
+      }
+    }
+    // _subgroup_* scattered top-level keys
+    for (const k of Object.keys(state as Record<string, unknown>)) {
+      if (!k.startsWith('_subgroup_')) continue;
+      const v = (state as Record<string, unknown>)[k];
+      if (typeof v === 'number' && !liveIds.has(v)) {
+        delete (state as Record<string, unknown>)[k];
+        routesDropped++;
+      }
+    }
+    // Per-page route_id
+    const pages = (state.pages || {}) as Record<string, Record<string, unknown>>;
+    for (const [, ps] of Object.entries(pages)) {
+      const rid = ps.route_id as number | undefined;
+      if (rid && !liveIds.has(rid)) {
+        delete ps.route_id;
+        routesDropped++;
+      }
+    }
+    if (routesDropped) log(`  state reconcile: dropped ${routesDropped} zombie route_id(s) (routes no longer in NB)`);
+  } catch (e) {
+    // Non-fatal; next push's createMenu will re-error visibly with our new catch
+  }
+
+  return { checked: refs.size, dropped: dead.length + routesDropped };
 }
