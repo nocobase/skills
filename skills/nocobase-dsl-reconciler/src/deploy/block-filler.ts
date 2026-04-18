@@ -84,12 +84,56 @@ export async function fillBlock(
 
   // ── Template reference ──
   const templateRef = bs.templateRef;
-  if (templateRef?.targetUid && FORM_BLOCK_TYPES.has(btype)) {
+  if (templateRef?.targetUid && (FORM_BLOCK_TYPES.has(btype) || btype === 'reference')) {
     try {
       const formData = await nb.get({ uid: blockUid });
       const blockUse = (formData.tree as { use?: string }).use || '';
       if (blockUse === 'ReferenceBlockModel') {
-        log(`      = templateRef: ${templateRef.templateName || templateRef.templateUid} (reference block)`);
+        // Existing reference block — rebind if its useTemplate points at a
+        // stale template uid. Happens after duplicate-project + rerun: the
+        // block was created against an older template uid, now the DSL
+        // resolves to a different one. Without this, the reference renders
+        // the stale template forever.
+        //
+        // Read the RAW row via flowModels:get — flowSurfaces:get has been
+        // observed to return a rendered/merged view where stepParams aren't
+        // the literal DB record, making drift invisible to a naive diff.
+        try {
+          const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: blockUid } });
+          const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+          const sp = ((rawOpts?.stepParams as Record<string, unknown>) || {}) as Record<string, unknown>;
+          const rs = ((sp.referenceSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
+          const curUT = (rs.useTemplate as Record<string, unknown> | undefined);
+          const curUid = curUT?.templateUid as string | undefined;
+          if (curUid && curUid !== templateRef.templateUid) {
+            rs.useTemplate = {
+              ...(curUT || {}),
+              templateUid: templateRef.templateUid,
+              templateName: templateRef.templateName,
+              targetUid: templateRef.targetUid,
+              mode: templateRef.mode || 'reference',
+            };
+            if (rs.target && typeof rs.target === 'object') {
+              (rs.target as Record<string, unknown>).targetUid = templateRef.targetUid;
+            }
+            sp.referenceSettings = rs;
+            await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+              uid: blockUid,
+              use: blockUse,
+              parentId: (rawOpts?.parentId as string) || undefined,
+              subKey: (rawOpts?.subKey as string) || undefined,
+              subType: (rawOpts?.subType as string) || undefined,
+              sortIndex: (rawOpts?.sortIndex as number) || 0,
+              flowRegistry: (rawOpts?.flowRegistry as Record<string, unknown>) || {},
+              stepParams: sp,
+            });
+            log(`      ~ templateRef: rebound ${curUid.slice(0, 8)} → ${(templateRef.templateUid || '').slice(0, 8)} (${templateRef.templateName || ''})`);
+          } else {
+            log(`      = templateRef: ${templateRef.templateName || templateRef.templateUid} (reference block)`);
+          }
+        } catch (e) {
+          log(`      ! templateRef rebind: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+        }
       } else {
         const formGrid = formData.tree.subModels?.grid;
         if (formGrid && !Array.isArray(formGrid)) {
