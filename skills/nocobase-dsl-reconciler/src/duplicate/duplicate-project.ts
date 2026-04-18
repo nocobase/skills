@@ -177,6 +177,18 @@ function rewriteCollectionRefs(
       out[k] = collMap.get(v);
       continue;
     }
+    // Association references like `nb_crm_leads.comments` — the value is
+    // `<collectionName>.<fieldName>`. Rewrite the prefix when collMap has the
+    // collection. Without this comments / mailMessages / o2m blocks in a
+    // duplicate still point at the source's collection (e.g. the duplicate
+    // CommentsBlock for nb_crm_leads_copy ends up bound to nb_crm_leads).
+    if ((k === 'associationName' || k === 'associationField') && typeof v === 'string' && v.includes('.')) {
+      const [head, ...rest] = v.split('.');
+      if (collMap.has(head)) {
+        out[k] = `${collMap.get(head)}.${rest.join('.')}`;
+        continue;
+      }
+    }
     // SQL bodies — substitute table names (word-boundary match) AND auto-suffix trigger names
     if (k === 'sql' && typeof v === 'string') {
       let sql = v;
