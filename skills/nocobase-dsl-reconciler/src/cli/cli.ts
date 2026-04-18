@@ -55,11 +55,11 @@ const WORKSPACE_ROOT = path.resolve(
  *   - A local `.git/` makes deployment data live in its own timeline,
  *     completely decoupled from tool-source commits.
  */
-function ensureProjectGit(absDir: string, log: (msg: string) => void = () => {}): void {
+async function ensureProjectGit(absDir: string, log: (msg: string) => void = () => {}): Promise<void> {
   const gitDir = path.join(absDir, '.git');
   if (fs.existsSync(gitDir)) return;
   if (!fs.existsSync(absDir)) return;  // dir doesn't exist yet (e.g. fresh pull about to write)
-  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  const { execSync } = await import('node:child_process');
   try {
     execSync('git init -b main', { cwd: absDir, stdio: 'pipe' });
     execSync('git add -A', { cwd: absDir, stdio: 'pipe' });
@@ -115,7 +115,7 @@ async function main() {
       await cmdRollback(args.slice(1));
       break;
     case 'scaffold':
-      cmdScaffold(args.slice(1));
+      await cmdScaffold(args.slice(1));
       break;
     case 'verify-data':
       await cmdVerifyData(args.slice(1));
@@ -383,7 +383,7 @@ async function cmdDeployProject(args: string[]) {
   // the project if missing, so this works the very first time and stays
   // decoupled from any parent repo above workspaces/.
   if (!planOnly) {
-    ensureProjectGit(absDir, console.log);
+    await ensureProjectGit(absDir, console.log);
     const { execSync } = await import('node:child_process');
     try {
       execSync('git rev-parse --git-dir', { cwd: absDir, stdio: 'pipe' });
@@ -773,7 +773,7 @@ async function cmdGraph(args: string[]) {
   console.log(`Saved _graph.yaml`);
 }
 
-function cmdScaffold(args: string[]) {
+async function cmdScaffold(args: string[]) {
   const dirArg = args[0];
   const name = args[1];
   if (!dirArg || !name) {
@@ -806,7 +806,7 @@ function cmdScaffold(args: string[]) {
   }
   const dir = resolveWorkspacePath(dirArg);
   scaffold(dir, name, pages, collections);
-  ensureProjectGit(dir, console.log);
+  await ensureProjectGit(dir, console.log);
 }
 
 async function cmdExportProject(args: string[]) {
@@ -820,7 +820,7 @@ async function cmdExportProject(args: string[]) {
   const group = groupIdx >= 0 ? args[groupIdx + 1] : undefined;
   const nb = await NocoBaseClient.create();
   await exportProject(nb, { outDir, group });
-  ensureProjectGit(outDir, console.log);
+  await ensureProjectGit(outDir, console.log);
 }
 
 async function cmdSync(args: string[]) {
@@ -917,7 +917,7 @@ async function cmdDuplicateProject(args: string[]) {
   const r = await duplicateProject({ source: src, target: dst, keySuffix, titlePrefix, collectionSuffix, force });
   console.log(`  ✓ ${r.yamlFiles} YAML files rewritten, ${r.jsFiles} JS files patched, ${r.uidsRemapped} UIDs remapped`);
   if (r.keysReassigned) console.log(`  ✓ ${r.keysReassigned} route keys reassigned, ${r.dirsRenamed} dirs renamed`);
-  ensureProjectGit(dst, console.log);
+  await ensureProjectGit(dst, console.log);
   console.log(`\n  Next: cli push ${path.relative(WORKSPACE_ROOT, dst) || dst} --force`);
 }
 

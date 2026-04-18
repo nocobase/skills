@@ -291,6 +291,15 @@ async function deploySingleWorkflow(
   existingState: WorkflowState | undefined,
   log: (msg: string) => void,
 ): Promise<WorkflowState> {
+  // Deploy approval-style UI subtrees from ui/*.yaml BEFORE saving the
+  // workflow. After duplicate-project, workflow.config.approvalUid /
+  // taskCardUid point at NEW UIDs that don't exist on NB yet — we have
+  // to create those FlowModel trees first or the workflow's references
+  // dangle. No-op when no ui/ dir exists (= non-approval workflow or
+  // workflows authored before this feature).
+  const uiDeployed = await deployApprovalUIs(nb, wfDir, log);
+  if (uiDeployed) log(`    deployed ${uiDeployed} approval UI node(s) from ui/`);
+
   const existing = titleToExisting.get(spec.title);
 
   let workflowId: number;
@@ -483,4 +492,82 @@ async function deploySingleWorkflow(
     key: workflowKey,
     nodes: nodeStates,
   };
+}
+
+/**
+ * Deploy approval-style UI subtrees to NocoBase before saving the
+ * workflow. Walks workflows/<slug>/ui/*.yaml; for each tree, recursively
+ * upserts every FlowModel node via flowModels:save preserving the DSL's
+ * UIDs (so `workflow.config.approvalUid: <uid>` resolves to the model
+ * we just created).
+ *
+ * Idempotent: re-running upserts the same nodes by uid.
+ * Returns the total node count saved across all ui files.
+ */
+async function deployApprovalUIs(
+  nb: NocoBaseClient,
+  wfDir: string,
+  log: (msg: string) => void,
+): Promise<number> {
+  const uiDir = path.join(wfDir, 'ui');
+  if (!fs.existsSync(uiDir)) return 0;
+  const files = fs.readdirSync(uiDir).filter(f => f.endsWith('.yaml'));
+  if (!files.length) return 0;
+
+  let total = 0;
+  for (const file of files) {
+    const tree = loadYaml<Record<string, unknown>>(path.join(uiDir, file));
+    if (!tree?.uid) continue;
+    try {
+      total += await saveFlowModelTree(nb, tree, undefined, log);
+    } catch (e) {
+      log(`    ✗ ui/${file}: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+    }
+  }
+  return total;
+}
+
+/**
+ * Recursively flowModels:save a tree. parentUid threads down so each child
+ * gets its parent linkage set. Walks subModels (object or array form).
+ */
+async function saveFlowModelTree(
+  nb: NocoBaseClient,
+  node: Record<string, unknown>,
+  parentUid: string | undefined,
+  log: (msg: string) => void,
+): Promise<number> {
+  const uid = node.uid as string;
+  if (!uid) return 0;
+
+  // findOne tree returns subKey/subType/stepParams/etc. at the TOP level of
+  // each node (not under .options) — NB needs them at the same place when
+  // we save, otherwise nested children hit a 500 from null subKey.
+  const saveData: Record<string, unknown> = {
+    uid,
+    use: (node.use || '') as string,
+    sortIndex: (node.sortIndex ?? 0) as number,
+    stepParams: (node.stepParams || {}) as Record<string, unknown>,
+    flowRegistry: (node.flowRegistry || {}) as Record<string, unknown>,
+  };
+  if (node.subKey) saveData.subKey = node.subKey;
+  if (node.subType) saveData.subType = node.subType;
+  if (parentUid) saveData.parentId = parentUid;
+
+  await nb.models.save(saveData);
+
+  let count = 1;
+  const subs = (node.subModels || {}) as Record<string, unknown>;
+  for (const childList of Object.values(subs)) {
+    if (Array.isArray(childList)) {
+      for (const child of childList) {
+        if (child && typeof child === 'object') {
+          count += await saveFlowModelTree(nb, child as Record<string, unknown>, uid, log);
+        }
+      }
+    } else if (childList && typeof childList === 'object') {
+      count += await saveFlowModelTree(nb, childList as Record<string, unknown>, uid, log);
+    }
+  }
+  return count;
 }

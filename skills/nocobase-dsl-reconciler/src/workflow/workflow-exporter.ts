@@ -373,8 +373,16 @@ async function exportSingleWorkflow(
     }
   } catch { /* skip */ }
 
+  // Export approval-style UIs: every approvalUid / taskCardUid in the
+  // workflow points to a FlowModel subtree (the audience-specific form).
+  // Capture each into workflows/<slug>/ui/<purpose>.yaml so duplicate +
+  // deploy can carry them forward. Multi-approval-node compatible:
+  // trigger UIs + per-node UIs all get distinct purpose names.
+  const uiCount = await exportWorkflowApprovalUIs(nb, wfDir, spec, log);
+  const uiSummary = uiCount ? `, ${uiCount} approval UI(s)` : '';
+
   const nodeCount = apiNodes.length;
-  log(`  + ${slug}: ${nodeCount} node(s), type=${wf.type}, enabled=${wf.enabled}`);
+  log(`  + ${slug}: ${nodeCount} node(s), type=${wf.type}, enabled=${wf.enabled}${uiSummary}`);
 
   // Build state
   const nodeStates: Record<string, { id: number; key: string }> = {};
@@ -389,4 +397,62 @@ async function exportSingleWorkflow(
   };
 
   return { slug, state, spec };
+}
+
+/**
+ * Export approval-flow UIs (approval forms + task cards) attached to a
+ * workflow. Walks workflow.spec for every `approvalUid` / `taskCardUid`,
+ * fetches the FlowModel tree, and writes it to ui/<purpose>.yaml.
+ *
+ * Naming:
+ *   trigger.approvalUid     → ui/trigger_form.yaml
+ *   trigger.taskCardUid     → ui/trigger_card.yaml
+ *   nodes.<key>.approvalUid → ui/<key>_form.yaml
+ *   nodes.<key>.taskCardUid → ui/<key>_card.yaml
+ *
+ * Multi-approval-node compatible: every approval node gets its own pair.
+ * Returns the number of UIs successfully exported.
+ */
+async function exportWorkflowApprovalUIs(
+  nb: NocoBaseClient,
+  wfDir: string,
+  spec: WorkflowSpec,
+  log: (msg: string) => void,
+): Promise<number> {
+  const targets: { uid: string; purpose: string }[] = [];
+
+  // Trigger-side UIs (initiator's apply form + own task card)
+  const trigCfg = (spec.trigger || {}) as Record<string, unknown>;
+  if (typeof trigCfg.approvalUid === 'string') targets.push({ uid: trigCfg.approvalUid, purpose: 'trigger_form' });
+  if (typeof trigCfg.taskCardUid === 'string') targets.push({ uid: trigCfg.taskCardUid, purpose: 'trigger_card' });
+
+  // Per-node UIs — each approval node has its own pair
+  for (const [nodeKey, node] of Object.entries(spec.nodes || {})) {
+    if (!node || typeof node !== 'object') continue;
+    if ((node as NodeSpec).type !== 'approval') continue;
+    const cfg = ((node as NodeSpec).config || {}) as Record<string, unknown>;
+    if (typeof cfg.approvalUid === 'string') targets.push({ uid: cfg.approvalUid, purpose: `${nodeKey}_form` });
+    if (typeof cfg.taskCardUid === 'string') targets.push({ uid: cfg.taskCardUid, purpose: `${nodeKey}_card` });
+  }
+
+  if (!targets.length) return 0;
+
+  const uiDir = path.join(wfDir, 'ui');
+  fs.mkdirSync(uiDir, { recursive: true });
+
+  let ok = 0;
+  for (const t of targets) {
+    try {
+      const tree = await nb.models.findOne(t.uid);
+      if (!tree) {
+        log(`    ⚠ approval UI [${t.purpose}] uid=${t.uid} not found on NB — skipped`);
+        continue;
+      }
+      saveYaml(path.join(uiDir, `${t.purpose}.yaml`), tree);
+      ok++;
+    } catch (e) {
+      log(`    ✗ approval UI [${t.purpose}]: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
+    }
+  }
+  return ok;
 }
