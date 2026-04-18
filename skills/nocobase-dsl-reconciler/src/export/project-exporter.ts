@@ -565,15 +565,39 @@ async function exportSingleTab(
     const spec = { ...exported.spec };
     delete spec._popups;
 
-    // ReferenceBlockModel: look up templateUid from flowModelTemplateUsages
+    // ReferenceBlockModel: look up templateUid.
+    //
+    // Two sources, in order:
+    //   1. flowModelTemplateUsages — the normal path.
+    //   2. The block's own stepParams.referenceSettings.useTemplate.templateUid
+    //      — fallback when usages is missing (NocoBase's cascade bug:
+    //      flowModelTemplateUsages rows aren't always in sync with the
+    //      ReferenceBlockModel's own useTemplate binding; older bindings
+    //      set directly via UI never land in usages). Without this fallback
+    //      the exporter writes bare `type: reference` and the downstream
+    //      duplicate-project / push roundtrip loses the template pointer,
+    //      deploying blank reference blocks.
     if (spec.type === 'reference' && items[i].uid) {
       try {
+        let templateUid: string | undefined;
         const usageResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
           params: { 'filter[modelUid]': items[i].uid, paginate: 'false' },
         });
         const usages = usageResp.data.data || [];
-        if (usages.length) {
-          const templateUid = usages[0].templateUid;
+        if (usages.length) templateUid = usages[0].templateUid as string;
+        if (!templateUid) {
+          // Fallback: read useTemplate straight from the block's options via
+          // flowModels:get (flowSurfaces:get returns a rendered view that
+          // doesn't always preserve stepParams literally).
+          try {
+            const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: items[i].uid } });
+            const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+            const rs = ((rawOpts?.stepParams as Record<string, unknown>)?.referenceSettings as Record<string, unknown>) || {};
+            const ut = (rs.useTemplate as Record<string, unknown>) || {};
+            if (ut.templateUid) templateUid = ut.templateUid as string;
+          } catch { /* best effort */ }
+        }
+        if (templateUid) {
           // Try simplified ref: templates/xxx.yaml
           const tplFile = lookupTemplateFile(templateUid, outDir);
           if (tplFile) {
@@ -937,15 +961,29 @@ async function exportGridBlocks(
     const spec = { ...exported.spec };
     delete spec._popups;
 
-    // ReferenceBlockModel: look up templateUid from flowModelTemplateUsages
+    // ReferenceBlockModel: look up templateUid. Primary source:
+    // flowModelTemplateUsages. Fallback: block's own stepParams.useTemplate
+    // (NocoBase's cascade bug leaves usages rows out of sync with the
+    // actual ReferenceBlockModel binding). See the tab-level variant
+    // above for full context.
     if (spec.type === 'reference' && items[i].uid) {
       try {
+        let templateUid: string | undefined;
         const usageResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplateUsages:list`, {
           params: { 'filter[modelUid]': items[i].uid, paginate: 'false' },
         });
         const usages = usageResp.data.data || [];
-        if (usages.length) {
-          const templateUid = usages[0].templateUid;
+        if (usages.length) templateUid = usages[0].templateUid as string;
+        if (!templateUid) {
+          try {
+            const raw = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: items[i].uid } });
+            const rawOpts = raw.data?.data as Record<string, unknown> | undefined;
+            const rs = ((rawOpts?.stepParams as Record<string, unknown>)?.referenceSettings as Record<string, unknown>) || {};
+            const ut = (rs.useTemplate as Record<string, unknown>) || {};
+            if (ut.templateUid) templateUid = ut.templateUid as string;
+          } catch { /* best effort */ }
+        }
+        if (templateUid) {
           // Try simplified ref: templates/xxx.yaml
           const tplFile = lookupTemplateFile(templateUid, projectDir || jsDir);
           if (tplFile) {
