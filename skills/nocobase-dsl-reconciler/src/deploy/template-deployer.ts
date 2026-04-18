@@ -323,7 +323,7 @@ async function syncTemplateContent(
           const { deployDividers } = await import('./fillers/divider-filler');
           const { applyFieldLayout } = await import('./fillers/field-layout');
           const fCtx: DeployContext = { nb, log, force: false };
-          await deployDividers(fCtx, newGridUid, content as any, {});
+          await deployDividers(fCtx, newGridUid, content as any, {}, modDir);
           await applyFieldLayout(fCtx, newGridUid, fieldLayout, content as any);
         }
         await applyTemplateSubTables(nb, targetUid, content, log);
@@ -339,7 +339,7 @@ async function syncTemplateContent(
         const { deployDividers } = await import('./fillers/divider-filler');
         const { applyFieldLayout } = await import('./fillers/field-layout');
         const fCtx: DeployContext = { nb, log, force: false };
-        await deployDividers(fCtx, gridUid, content as any, {});
+        await deployDividers(fCtx, gridUid, content as any, {}, modDir);
         await applyFieldLayout(fCtx, gridUid, fieldLayout, content as any);
       }
       await applyTemplateSubTables(nb, targetUid, content, log);
@@ -817,7 +817,7 @@ async function createBlockTemplate(
           const { deployDividers } = await import('./fillers/divider-filler');
           const { applyFieldLayout } = await import('./fillers/field-layout');
           const fCtx: DeployContext = { nb, log, force: false };
-          await deployDividers(fCtx, formGridUid, content as any, {});
+          await deployDividers(fCtx, formGridUid, content as any, {}, tplDir);
           // Apply layout
           await applyFieldLayout(fCtx, formGridUid, fieldLayout, content as any);
           log(`    ~ template field_layout applied (${fieldLayout.length} rows)`);
