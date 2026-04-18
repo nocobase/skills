@@ -234,7 +234,7 @@ async function deployInlinePopup(
   // ─── Path B: legacy inline popup (no _templateMeta) ───
   if (popupTabs?.length) {
     // Multi-tab popup → use deployPopup
-    const { deployPopup } = await import('../popup-deployer');
+    const { deployPopup } = await import('../popups/popup-deployer');
     await deployPopup(ctx, fieldUid, `${fp}.popup`, {
       target: '',
       mode: (inlinePopup.mode || ps?.mode || 'drawer') as 'drawer' | 'dialog',

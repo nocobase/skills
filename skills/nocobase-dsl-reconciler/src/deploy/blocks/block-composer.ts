@@ -9,12 +9,12 @@
  * - details block: edit/view actions must go to recordActions (not actions)
  * - edit/view NOT in COMPOSE_ACTIONS — only created via save_model when spec declares them
  */
-import type { BlockSpec, FieldSpec, LayoutRow } from '../types/spec';
+import type { BlockSpec, FieldSpec, LayoutRow } from '../../types/spec';
 import {
   COMPOSE_BLOCK_TYPES as COMPOSE_TYPES,
   LEGACY_BLOCK_TYPES as LEGACY_TYPES,
   COMPOSE_ACTION_TYPES as COMPOSE_ACTIONS,
-} from '../utils/block-types';
+} from '../../utils/block-types';
 
 // Don't filter system fields — if spec declares them, compose should include them.
 // Original build mode adds them automatically, but copy mode needs explicit fields.

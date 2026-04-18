@@ -23,7 +23,6 @@ src/
 │   ├── collection-deployer.ts # collections:apply (upsert)
 │   ├── column-reorder.ts     # Table column ordering via moveNode
 │   ├── spec-validator.ts     # Pre-deploy YAML validation
-│   ├── scaffold.ts           # Project skeleton generator
 │   └── fillers/              # Content fillers (one concern per file)
 │       ├── action-filler.ts  # Actions: string/compact/full formats → addAction or save_model
 │       ├── ai-button.ts      # AI employee button stepParams builder

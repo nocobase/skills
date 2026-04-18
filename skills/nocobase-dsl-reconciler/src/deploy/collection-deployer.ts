@@ -8,6 +8,7 @@
  */
 import type { NocoBaseClient } from '../client';
 import type { CollectionDef, FieldDef } from '../types/spec';
+import { catchSwallow } from '../utils/swallow';
 
 /**
  * Convert our DSL FieldDef to collections:apply field format.
@@ -160,7 +161,7 @@ async function ensureCollectionLegacy(
     try {
       await nb.http.post(`${nb.baseUrl}/api/collections:update?filterByTk=${name}`, { titleField: tf });
       log(`  = collection: ${name} (titleField: ${tf})`);
-    } catch { /* best effort */ }
+    } catch (e) { catchSwallow(e, 'best effort'); }
   } else {
     log(`  ⚠ collection ${name}: no titleField (add a name or title field, or set titleField in YAML)`);
   }
@@ -180,7 +181,7 @@ async function ensureCollectionLegacy(
               }, { params: { filterByTk: fd.name } });
               log(`    ~ ${name}.${fd.name} enum updated`);
             }
-          } catch { /* skip */ }
+          } catch (e) { catchSwallow(e, 'skip'); }
         }
         continue;
       }
@@ -237,7 +238,7 @@ export async function ensureAllCollections(
           });
           log(`    + ${name}.${fkName} (auto-created FK for ${fd.name})`);
         }
-      } catch { /* best effort */ }
+      } catch (e) { catchSwallow(e, 'best effort'); }
 
       // Validate target collection has titleField
       try {
@@ -246,7 +247,29 @@ export async function ensureAllCollections(
         if (coll && !coll.titleField) {
           log(`    ⚠ ${name}.${fd.name} → ${fd.target} has no titleField (relation will show ID)`);
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
+    }
+  }
+
+  // Apply collection.triggers — raw SQL DDL that travels with the collection.
+  // We do this AFTER all collections+fields exist so the SQL can reference
+  // any column. drop+create per object so reruns are idempotent.
+  for (const [name, def] of entries) {
+    if (!def.triggers?.length) continue;
+    log(`    triggers on ${name}: applying ${def.triggers.length}`);
+    const { execSql, dropSqlObject } = await import('../utils/sql-exec');
+    for (const t of def.triggers) {
+      try {
+        if (t.drop) {
+          execSql(t.drop);
+        } else {
+          dropSqlObject(t.name, name, t.kind);
+        }
+        execSql(t.sql);
+        log(`      + ${t.name} (${t.kind || 'sql'})`);
+      } catch (e) {
+        log(`      ✗ ${t.name}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+      }
     }
   }
 

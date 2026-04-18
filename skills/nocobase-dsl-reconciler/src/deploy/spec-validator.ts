@@ -9,6 +9,8 @@ import * as path from 'node:path';
 import type { PageSpec, BlockSpec, PopupSpec } from '../types/spec';
 import type { PageInfo } from './page-discovery';
 import { loadYaml } from '../utils/yaml';
+import { catchSwallow } from '../utils/swallow';
+import { buildCollectionMetadata } from './collection-metadata';
 
 export interface SpecIssue {
   level: 'error' | 'warn';
@@ -39,7 +41,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         defaultsPopupColls.add(coll);
         if (typeof tplPath === 'string') defaultsPopupPaths.set(coll, tplPath);
       }
-    } catch { /* malformed defaults caught elsewhere */ }
+    } catch (e) { catchSwallow(e, 'malformed defaults caught elsewhere'); }
   }
 
   // Collect every `clickToOpen: <string-path>` value across pages + popups.
@@ -67,57 +69,33 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
     }
     for (const p of page.popups || []) {
       for (const b of (p.blocks || []) as Record<string, unknown>[]) scanFieldsForClickToOpen(b.fields);
+      // Popup YAMLs with `tabs:` nest their blocks one level deeper. Without
+      // this branch, click-to-open bindings inside tabbed popups (the common
+      // case in CRM — e.g. leads table.name popup's contact_information
+      // details block pointing at leads_email.yaml) stay invisible to the
+      // validator and trigger false "never inlined" errors.
+      for (const t of ((p as Record<string, unknown>).tabs || []) as Record<string, unknown>[]) {
+        for (const b of (t.blocks || []) as Record<string, unknown>[]) scanFieldsForClickToOpen(b.fields);
+      }
     }
   }
 
-  // Build collection metadata: known names + m2o target map
-  const collDir = path.join(projectDir, 'collections');
-  const knownColls = new Set<string>();
-  const collM2oTargets = new Map<string, Map<string, string>>(); // coll → { fieldName → targetColl }
-  const collToMany = new Map<string, Map<string, 'o2m' | 'm2m'>>(); // coll → { fieldName → relation-kind }
-  const collTitleFields = new Map<string, string>(); // coll → titleField name
-  if (fs.existsSync(collDir)) {
-    for (const f of fs.readdirSync(collDir).filter(f => f.endsWith('.yaml'))) {
-      try {
-        const c = loadYaml<Record<string, unknown>>(path.join(collDir, f));
-        if (!c?.name) continue;
-        const collName = c.name as string;
-        knownColls.add(collName);
-        collTitleFields.set(collName, (c.titleField || 'name') as string);
-        const m2oMap = new Map<string, string>();
-        const toManyMap = new Map<string, 'o2m' | 'm2m'>();
-        const fks = new Set<string>();
-        // Rule: collection YAML must not declare NocoBase's auto-managed system
-        // columns. The deployer silently filters them, but callers benefit from
-        // knowing the YAML is polluted — these entries are often copy-paste
-        // residue from pulled specs that forgot to strip them.
-        const SYS_COLS = new Set(['id', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'createdById', 'updatedById']);
-        for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
-          if (SYS_COLS.has(fd.name as string)) {
-            issues.push({ level: 'warn', page: `collection "${collName}"`, message: `field "${fd.name}" is a NocoBase system column — remove from YAML (auto-managed)` });
-          }
-          if (fd.interface === 'm2o' && fd.target) {
-            m2oMap.set(fd.name as string, fd.target as string);
-            const fk = (fd.foreignKey as string) || `${fd.name}Id`;
-            fks.add(fk);
-          }
-          if (fd.interface === 'o2m') toManyMap.set(fd.name as string, 'o2m');
-          if (fd.interface === 'm2m') toManyMap.set(fd.name as string, 'm2m');
-        }
-        if (toManyMap.size) collToMany.set(collName, toManyMap);
-        // Rule: don't redefine auto-created FK columns (e.g. category_id alongside category m2o)
-        // Downgraded to warning — NocoBase tolerates the duplicate column (the
-        // m2o relation continues to work via its own FK), and existing CRM
-        // exports include both forms. Blocking deploy on this is too strict.
-        for (const fd of ((c.fields || []) as Record<string, unknown>[])) {
-          if (fks.has(fd.name as string) && fd.interface !== 'm2o') {
-            issues.push({ level: 'warn', page: `collection "${collName}"`, message: `field "${fd.name}" conflicts with m2o's foreignKey — safe to remove (FK is auto-created by NocoBase)` });
-          }
-        }
-        if (m2oMap.size) collM2oTargets.set(collName, m2oMap);
-      } catch { /* skip */ }
+  // Build collection metadata (single pass, reusable snapshot).
+  // See deploy/collection-metadata.ts — the validator consumes SYS_COLS and
+  // FK-conflict issues via onIssue; other deploy-time consumers (m2o popup
+  // binder, orphan pruner) can share the same snapshot without re-parsing.
+  const meta = buildCollectionMetadata(projectDir, (mi) => {
+    if (mi.kind === 'system-column') {
+      issues.push({ level: 'warn', page: `collection "${mi.collection}"`, message: `field "${mi.field}" is a NocoBase system column — remove from YAML (auto-managed)` });
+    } else if (mi.kind === 'fk-field-conflict') {
+      // Rule: don't redefine auto-created FK columns (e.g. category_id alongside category m2o).
+      // Downgraded to warning — NocoBase tolerates the duplicate column (the
+      // m2o relation continues to work via its own FK), and existing CRM
+      // exports include both forms. Blocking deploy on this is too strict.
+      issues.push({ level: 'warn', page: `collection "${mi.collection}"`, message: `field "${mi.field}" conflicts with m2o's foreignKey — safe to remove (FK is auto-created by NocoBase)` });
     }
-  }
+  });
+  const { knownColls, m2oTargets: collM2oTargets, toManyRelations: collToMany, titleFields: collTitleFields } = meta;
 
   // Error: defaults.yaml popup templates with no inline usage. The deployer's
   // template pipeline leaves them as "deferred" forever — they're never
@@ -284,7 +262,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
                 const context = isM2o ? `m2o field → target "${expectedColl}"` : `row field → own "${expectedColl}"`;
                 issues.push({ level: 'error', page: page.title, block: key, message: `field "${fieldName}": clickToOpen template is for "${tplColl}" but field expects ${context}` });
               }
-            } catch { /* skip parse errors — caught at deploy */ }
+            } catch (e) { catchSwallow(e, 'skip parse errors — caught at deploy'); }
           }
         }
       }
@@ -362,14 +340,16 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
       const chartBlocks = allBlocks.filter(b => b.type === 'chart');
       const jsBlocks = allBlocks.filter(b => b.type === 'jsBlock');
 
-      // Must have >= 5 chart blocks
+      // Recommend >= 5 chart blocks (warn only — small dashboards with 2-3
+      // charts are valid for modules with fewer measurable metrics).
       if (chartBlocks.length < 5) {
-        issues.push({ level: 'error', page: page.title, message: `dashboard must have >= 5 chart blocks (has ${chartBlocks.length}). Add more charts with SQL + render config.` });
+        issues.push({ level: 'warn', page: page.title, message: `dashboard has ${chartBlocks.length} chart block${chartBlocks.length === 1 ? '' : 's'} — CRM-scale analytics pages usually ship 5+. Fine for small modules.` });
       }
 
-      // Must have KPI cards (JS blocks) at the top
+      // Recommend KPI card JS blocks at the top (warn only — some dashboards
+      // are charts-only and that's a valid design).
       if (!jsBlocks.length) {
-        issues.push({ level: 'error', page: page.title, message: 'dashboard must have KPI card JS blocks at the top — copy CRM pattern (js: ./js/kpi_xxx.js)' });
+        issues.push({ level: 'warn', page: page.title, message: 'dashboard has no KPI card JS blocks — consider adding summary cards at the top (see templates/crm/pages/main/overview/js/overview_jsBlock.js).' });
       }
 
       // Validate chart configs
@@ -584,10 +564,12 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
       }
     }
 
-    // ── Rule: filterForm max 3 fields ──
+    // ── Rule: filterForm recommends <= 3 fields ──
+    // Was an error — downgraded to warn. 4-5 filters (amount range + status
+    // + date + owner) is common and valid UX; only flag as a layout hint.
     const filterFields = (bs.fields || []).filter(f => typeof f === 'string' || (typeof f === 'object' && (f as Record<string, unknown>).field));
     if (filterFields.length > 3) {
-      issues.push({ level: 'error', page: pageTitle, block: key, message: `filterForm has too many filter fields (${filterFields.length}) — max 3 recommended for layout` });
+      issues.push({ level: 'warn', page: pageTitle, block: key, message: `filterForm has ${filterFields.length} filter fields — 3 or fewer tend to render better; consider grouping or moving to advanced filter.` });
     }
 
     // ── Rule 2: filterForm MUST have JS stats button group ──
@@ -607,7 +589,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
             if (/ctx\.render\s*\(\s*null\s*\)/.test(content) || content.startsWith('// TODO')) {
               issues.push({ level: 'error', page: pageTitle, block: key, message: `js_items "${file}" is a placeholder — see templates/crm/js/ for implementation` });
             }
-          } catch { /* file not found — will be caught at deploy time */ }
+          } catch (e) { catchSwallow(e, 'file not found — will be caught at deploy time'); }
         }
       }
     }
@@ -653,7 +635,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
             issues.push({ level: 'error', page: pageTitle, block: key, message: `chart SQL "${sqlFile}" contains demo data — replace with real queries` });
           }
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
   }
 
@@ -718,7 +700,7 @@ function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], pr
           if (content) {
             validateBlock(content as any, `${pageTitle} popup [${tpl.name || bAny.ref}]`, [], issues, projectDir, knownColls, collToMany);
           }
-        } catch { /* skip malformed */ }
+        } catch (e) { catchSwallow(e, 'skip malformed'); }
       }
     } else {
       validateBlock(bs, `${pageTitle} popup`, [], issues, projectDir, knownColls, collToMany);

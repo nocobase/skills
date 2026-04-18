@@ -26,14 +26,18 @@ import { buildGraph } from '../graph/graph-builder';
 import { slugify } from '../utils/slugify';
 import { ensureAllCollections } from './collection-deployer';
 import { deploySurface, type SurfaceOpts } from './surface-deployer';
-import { deployPopup, type PopupOpts } from './popup-deployer';
-import { expandPopups } from './popup-expander';
-import { deployTemplates, resetTemplateCreationTracking, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
-import { resetM2oCache } from './block-filler';
-import { resetPromotedPopupCache } from './fillers/click-to-open';
+import { deployPopup, type PopupOpts } from './popups/popup-deployer';
+import { expandPopups } from './popups/popup-expander';
+import { deployTemplates, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './templates/template-deployer';
+import { resetAllCaches } from './cache-manager';
+import { catchSwallow } from '../utils/swallow';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { rewriteWorkflowKeys, type WorkflowKeyMap } from './rewrite-workflow-keys';
+import { rewriteTemplateUids } from './templates/template-uid-rewriter';
+import { ensurePopupBindings } from './popups/popup-bindings';
+import { extractBlockState, buildPopupTargetFields } from './blocks/block-state-extractor';
+import { cleanupDuplicatePages, syncMenuOrder, syncRoutesYaml, enablePageTabs } from './routes/route-lifecycle';
 import { verifySqlFromPages } from './sql-verifier';
 import { discoverPages, routeKey, type RouteEntry, type PageInfo } from './page-discovery';
 import { RefResolver } from '../refs';
@@ -232,10 +236,8 @@ export async function deployProject(
   // ── 3. Connect + deploy ──
   const nb = await NocoBaseClient.create();
   const ctx = createDeployContext(nb, opts, log);
-  // Reset per-deploy caches (template list, failed fallback collections, created UIDs)
-  resetM2oCache();
-  resetPromotedPopupCache();
-  resetTemplateCreationTracking();
+  // Reset per-deploy caches (m2o metadata, promoted popups, created templates)
+  resetAllCaches();
   log(`\n  Connected to ${nb.baseUrl}`);
 
   // State
@@ -243,6 +245,19 @@ export async function deployProject(
   const state: ModuleState = fs.existsSync(stateFile)
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
+
+  // Reconcile state.yaml against live NB: state holds UIDs from the last
+  // push, but NB may have been rolled back / wiped since. Dead UIDs cause
+  // zombie updateModel calls later. Drop them now so deployer treats those
+  // positions as "create fresh" instead of "update ghost".
+  if (!opts.planOnly) {
+    try {
+      const { reconcileStateWithLive } = await import('./state-reconciler');
+      await reconcileStateWithLive(nb, state, log);
+    } catch (e) {
+      log(`  . state reconcile: ${e instanceof Error ? e.message.slice(0, 80) : e} (continuing)`);
+    }
+  }
 
   // ── Incremental scope (opt-in via --incremental) ──
   // Use the scope computed earlier (during plan preview). When NOTHING
@@ -337,7 +352,7 @@ export async function deployProject(
       if (t.name && t.uid) templateNameMap.set(t.name, t.uid);
       if (t.name && t.targetUid) templateNameToTarget.set(t.name, t.targetUid);
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'name→uid template map: flowModelTemplates:list unavailable, rewrites fall back to uid-only'); }
 
   // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
   rewriteTemplateUids(pages, templateUidMap, templateNameMap, templateNameToTarget);
@@ -367,7 +382,21 @@ export async function deployProject(
       if (state.group_id) state.group_ids[rkey] = state.group_id;
     } else if (routeEntry.type === 'flowPage') {
       const pageInfo = activePages.find(p => p.key === rkey);
-      if (pageInfo) await deployOnePage(ctx, pageInfo, state, null);
+      if (pageInfo) {
+        try { await deployOnePage(ctx, pageInfo, state, null); }
+        catch (e) {
+          const err = e as any;
+          const apiData = err.response?.data ? ` body=${JSON.stringify(err.response.data).slice(0, 300)}` : '';
+          const apiUrl = err.response?.config?.url ? ` [${err.response.config.method} ${err.response.config.url}]` : (err.config?.url ? ` [${err.config.method} ${err.config.url}]` : '');
+          log(`  ✗ page ${pageInfo.title}: ${err.message || e}${apiUrl}${apiData}`);
+          if (process.env.NB_DEBUG) {
+            log(`    [debug] err keys: ${Object.keys(err || {}).join(',') || '(none)'}`);
+            log(`    [debug] err.status=${err.status} err.code=${err.code} err.name=${err.name} isAxios=${err.isAxiosError}`);
+            if (err.response) log(`    [debug] resp status=${err.response.status} url=${err.response.config?.url}`);
+            log(`    [debug] stack: ${(err.stack || '').split('\n').slice(0, 6).join(' || ')}`);
+          }
+        }
+      }
     }
   }
 
@@ -430,7 +459,7 @@ export async function deployProject(
 
   // Re-run m2o popup binding on all page blocks (popup templates may not have existed during fillBlock)
   log(`\n  ── Post-deploy: m2o popup binding ──`);
-  const { enableM2oClickToOpen } = await import('./block-filler');
+  const { enableM2oClickToOpen } = await import('./blocks/block-filler');
   for (const [pageKey, pageState] of Object.entries(state.pages)) {
     const pageInfo = pages.find(p => p.key === pageKey);
     if (!pageInfo) continue;
@@ -476,7 +505,7 @@ export async function deployProject(
   // Persist UIDs created during this deploy so a future rollback can remove them.
   // We do NOT auto-delete here — a user's manually created template may be 0-usage
   // but legitimate. Cleanup happens only via explicit `rollback` CLI command.
-  const { listCreatedThisRun } = await import('./template-deployer');
+  const { listCreatedThisRun } = await import('./templates/template-deployer');
   const createdUids = listCreatedThisRun();
   if (createdUids.length) {
     (state as any)._last_deploy_created_templates = createdUids;
@@ -528,89 +557,6 @@ export async function deployProject(
   // Post-deploy git sync is handled by CLI (cmdDeployProject → deploy-sync worktree)
 }
 
-// ── Block state extraction from live tree ──
-
-function extractBlockState(
-  liveTab: Record<string, unknown>,
-  specBlocks: BlockSpec[],
-): Record<string, BlockState> {
-  const existing: Record<string, BlockState> = {};
-  const tabSub = liveTab.subModels as Record<string, unknown> | undefined;
-  const tabGrid = tabSub?.grid as Record<string, unknown> | undefined;
-  const gridSub = tabGrid?.subModels as Record<string, unknown> | undefined;
-  const items = gridSub?.items;
-  const itemArr = (Array.isArray(items) ? items : []) as Record<string, unknown>[];
-  const candidates = [...specBlocks];
-
-  for (const item of itemArr) {
-    const uid = item.uid as string || '';
-    const use = item.use as string || '';
-    if (!uid) continue;
-
-    const matched = candidates.find(b =>
-      use === BLOCK_TYPE_TO_MODEL[b.type] || use.toLowerCase().includes(b.type.toLowerCase()),
-    );
-    if (!matched) continue;
-
-    const key = matched.key || matched.type;
-    if (existing[key]) continue;
-
-    const itemSub = item.subModels as Record<string, unknown> | undefined;
-    // Block's own grid (for form/details/filterForm internal items), not the page grid
-    const blockOwnGrid = itemSub?.grid as Record<string, unknown> | undefined;
-    const blockGridUid = (blockOwnGrid?.uid as string) || '';
-    const entry: BlockState = { uid, type: matched.type, grid_uid: blockGridUid };
-
-    // Extract fields (table columns or form grid items)
-    const columns = itemSub?.columns;
-    const colArr = (Array.isArray(columns) ? columns : []) as Record<string, unknown>[];
-    if (colArr.length) {
-      entry.fields = {};
-      for (const col of colArr) {
-        const fp = ((col.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
-          ?.init as Record<string, unknown>;
-        const fieldPath = (fp?.fieldPath || '') as string;
-        if (fieldPath) entry.fields[fieldPath] = { wrapper: col.uid as string || '', field: '' };
-      }
-    }
-    const blockGrid = itemSub?.grid as Record<string, unknown> | undefined;
-    const bgItems = (blockGrid?.subModels as Record<string, unknown> | undefined)?.items;
-    const bgArr = (Array.isArray(bgItems) ? bgItems : []) as Record<string, unknown>[];
-    if (bgArr.length && !entry.fields) {
-      entry.fields = {};
-      for (const gi of bgArr) {
-        const fp = ((gi.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
-          ?.init as Record<string, unknown>;
-        const fieldPath = (fp?.fieldPath || '') as string;
-        if (fieldPath) entry.fields[fieldPath] = { wrapper: gi.uid as string || '', field: '' };
-      }
-    }
-
-    // Extract actions
-    for (const actKey of ['actions', 'recordActions'] as const) {
-      const acts = itemSub?.[actKey];
-      const actArr = (Array.isArray(acts) ? acts : []) as Record<string, unknown>[];
-      if (actArr.length) {
-        const stateKey = actKey === 'recordActions' ? 'record_actions' : 'actions';
-        if (!(entry as any)[stateKey]) (entry as any)[stateKey] = {};
-        for (const a of actArr) {
-          const aUid = a.uid as string || '';
-          const aUse = a.use as string || '';
-          const aType = aUse.replace('ActionModel', '').replace('Action', '');
-          const aKey = aType.charAt(0).toLowerCase() + aType.slice(1);
-          if (aUid) (entry as any)[stateKey][aKey] = { uid: aUid };
-        }
-      }
-    }
-
-    existing[key] = entry;
-    const idx = candidates.indexOf(matched);
-    if (idx >= 0) candidates.splice(idx, 1);
-  }
-
-  return existing;
-}
-
 // ── Template UID rewriting ──
 
 /**
@@ -619,100 +565,8 @@ function extractBlockState(
  *   1. templateRef.templateUid — block reference specs
  *   2. popupSettings.popupTemplateUid — field popup specs
  */
-function rewriteTemplateUids(
-  pages: PageInfo[],
-  uidMap: TemplateUidMap,
-  nameMap: Map<string, string> = new Map(),
-  nameToTarget: Map<string, string> = new Map(),
-): void {
-  for (const page of pages) {
-    rewriteInBlocks(page.layout.blocks || [], uidMap, nameMap, nameToTarget);
-    if (page.layout.tabs) {
-      for (const tab of page.layout.tabs) {
-        rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
-      }
-    }
-    for (const popup of page.popups) {
-      rewriteInBlocks((popup as any).blocks || [], uidMap, nameMap, nameToTarget);
-      if ((popup as any).tabs) {
-        for (const tab of (popup as any).tabs) {
-          rewriteInBlocks((tab as any).blocks || [], uidMap, nameMap, nameToTarget);
-        }
-      }
-    }
-  }
-}
-
-function rewriteInBlocks(
-  blocks: any[],
-  uidMap: TemplateUidMap,
-  nameMap: Map<string, string> = new Map(),
-  nameToTarget: Map<string, string> = new Map(),
-): void {
-  for (const block of blocks) {
-    // Case 1: templateRef (reference blocks)
-    if (block.templateRef) {
-      // Rewrite by UID map
-      if (block.templateRef.templateUid) {
-        const newUid = uidMap.get(block.templateRef.templateUid);
-        if (newUid) block.templateRef.templateUid = newUid;
-      }
-      // If templateUid still empty, look up by name from live templates
-      if (!block.templateRef.templateUid && block.templateRef.templateName) {
-        const byName = nameMap.get(block.templateRef.templateName);
-        if (byName) block.templateRef.templateUid = byName;
-      }
-      // Also try _refName (legacy)
-      if (!block.templateRef.templateUid && block._refName) {
-        const byName = nameMap.get(block._refName);
-        if (byName) block.templateRef.templateUid = byName;
-      }
-      // Rewrite targetUid (DSL-declared)
-      if (block.templateRef.targetUid) {
-        const newTarget = uidMap.get(block.templateRef.targetUid);
-        if (newTarget) block.templateRef.targetUid = newTarget;
-      }
-      // If targetUid still missing but we know the templateName, fill it from
-      // the live template. Required for fresh ref blocks (no uid in DSL): the
-      // reference block needs a targetUid to mirror, otherwise NocoBase shows
-      // an empty card.
-      if (!block.templateRef.targetUid && block.templateRef.templateName) {
-        const byName = nameToTarget.get(block.templateRef.templateName);
-        if (byName) block.templateRef.targetUid = byName;
-      }
-      delete block._refName;
-      delete block._refColl;
-    }
-
-    // Case 2: fields with popupSettings.popupTemplateUid
-    if (Array.isArray(block.fields)) {
-      for (const f of block.fields) {
-        if (typeof f !== 'object' || !f) continue;
-        const ps = f.popupSettings;
-        if (ps?.popupTemplateUid) {
-          const newUid = uidMap.get(ps.popupTemplateUid);
-          if (newUid) ps.popupTemplateUid = newUid;
-        }
-      }
-    }
-
-    // Case 3: popupTemplate on blocks (e.g. popup-deployer path)
-    if ((block as any).popupTemplate?.uid) {
-      const newUid = uidMap.get((block as any).popupTemplate.uid);
-      if (newUid) (block as any).popupTemplate.uid = newUid;
-    }
-
-    // Recurse into nested blocks (tabs, popups)
-    if (Array.isArray(block.blocks)) {
-      rewriteInBlocks(block.blocks, uidMap, nameMap, nameToTarget);
-    }
-    if (Array.isArray(block.tabs)) {
-      for (const tab of block.tabs) {
-        rewriteInBlocks((tab as any).blocks || [], uidMap);
-      }
-    }
-  }
-}
+// Template UID rewriting: see ./template-uid-rewriter.ts
+// (pre-deploy pass that remaps DSL UIDs → live UIDs across pages/popups/tabs)
 
 // ── Git helpers ──
 
@@ -823,7 +677,18 @@ async function deployGroup(
     if (child.type === 'flowPage') {
       const pageInfo = pages.find(p => p.title === child.title);
       if (pageInfo) {
-        await deployOnePage(ctx, pageInfo, state, state.group_id!);
+        try {
+          await deployOnePage(ctx, pageInfo, state, state.group_id!);
+        } catch (e) {
+          const err = e as any;
+          const apiData = err.response?.data ? ` body=${JSON.stringify(err.response.data).slice(0, 300)}` : '';
+          const apiUrl = err.response?.config?.url ? ` [${err.response.config.method} ${err.response.config.url}]` : (err.config?.url ? ` [${err.config.method} ${err.config.url}]` : '');
+          log(`  ✗ page ${pageInfo.title}: ${err.message || e}${apiUrl}${apiData}`);
+          if (process.env.NB_DEBUG) {
+            log(`    [debug] keys: ${Object.keys(err || {}).join(',') || '(none)'}`);
+            log(`    [debug] stack: ${(err.stack || '').split('\n').slice(0, 6).join(' || ')}`);
+          }
+        }
         // Set sort to match declaration order
         const pageKey = pageInfo.key;
         const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
@@ -850,7 +715,19 @@ async function deployGroup(
         const sc = subChildren[si];
         const pageInfo = pages.find(p => p.title === sc.title);
         if (pageInfo) {
-          await deployOnePage(ctx, pageInfo, state, subGroupId);
+          try { await deployOnePage(ctx, pageInfo, state, subGroupId); }
+          catch (e) {
+          const err = e as any;
+          const apiData = err.response?.data ? ` body=${JSON.stringify(err.response.data).slice(0, 300)}` : '';
+          const apiUrl = err.response?.config?.url ? ` [${err.response.config.method} ${err.response.config.url}]` : (err.config?.url ? ` [${err.config.method} ${err.config.url}]` : '');
+          log(`  ✗ page ${pageInfo.title}: ${err.message || e}${apiUrl}${apiData}`);
+          if (process.env.NB_DEBUG) {
+            log(`    [debug] err keys: ${Object.keys(err || {}).join(',') || '(none)'}`);
+            log(`    [debug] err.status=${err.status} err.code=${err.code} err.name=${err.name} isAxios=${err.isAxiosError}`);
+            if (err.response) log(`    [debug] resp status=${err.response.status} url=${err.response.config?.url}`);
+            log(`    [debug] stack: ${(err.stack || '').split('\n').slice(0, 6).join(' || ')}`);
+          }
+        }
           // Set sort on sub-group child
           const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
@@ -897,7 +774,7 @@ async function deployOnePage(
                 const tabGrid = (firstTab.subModels as Record<string, unknown> | undefined)?.grid as Record<string, unknown> | undefined;
                 gridUid = (tabGrid?.uid as string) || '';
               }
-            } catch { /* skip */ }
+            } catch (e) { catchSwallow(e, 'live page read for tab/grid uid: schema malformed or API drift — falls through to createPage'); }
             if (tabUid) {
               pageState = {
                 route_id: livePage.id,
@@ -910,7 +787,7 @@ async function deployOnePage(
             }
           }
         }
-      } catch { /* skip — will create new */ }
+      } catch (e) { catchSwallow(e, 'live-route lookup before createPage: tolerate and fall through to create'); }
     }
     if (!pageState?.tab_uid) {
       const result = await nb.createPage(pageInfo.title, parentRouteId ?? undefined, pageInfo.icon);
@@ -1102,9 +979,9 @@ async function deployPageBlueprint(
         const tabs = pageData.tree.subModels?.tabs;
         const tabArr = Array.isArray(tabs) ? tabs : tabs ? [tabs] : [];
         if (tabArr.length) tabUid = (tabArr[0] as Record<string, unknown>).uid as string || '';
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'blueprint page tab read: tabUid stays empty, caller falls back'); }
       return { id: livePage.id, schemaUid: livePage.schemaUid, tabUid };
-    } catch { return null; }
+    } catch (e) { catchSwallow(e, 'blueprint candidate search: no match is normal on first deploy'); return null; }
   };
 
   if (!pageState?.page_uid) {
@@ -1228,7 +1105,8 @@ async function deployPageBlueprint(
     const apiMsg = err.response?.data?.errors?.[0]?.message || err.message || String(e);
     log(`  ! blueprint failed for ${pageInfo.title}: ${apiMsg.slice(0, 120)}`);
     log(`    falling back to legacy deploy...`);
-    await deployOnePage(ctx, pageInfo, state, groupId);
+    try { await deployOnePage(ctx, pageInfo, state, groupId); }
+    catch (e2) { log(`  ✗ page ${pageInfo.title}: ${e2 instanceof Error ? e2.message.slice(0, 200) : e2}`); }
   }
 }
 
@@ -1333,7 +1211,7 @@ async function deployPagePopups(
             if (fieldPath) bv.fields[fieldPath] = { wrapper: col.uid as string || '', field: '' };
           }
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'live table columns reflection: bv.fields stays empty, subsequent filler will rediscover'); }
     }
   }
   state.pages[pageKey] = pageState;
@@ -1362,327 +1240,4 @@ async function deployPagePopups(
   state.pages[pageKey] = pageState;
 }
 
-/**
- * Extract popup targets from popup specs — both fields and recordActions.
- * Used to prevent auto-fill from creating default content when a popup YAML handles it.
- *
- * Returns: Set containing field paths ("name") and recordAction markers ("recordAction:edit").
- */
-function buildPopupTargetFields(popups: PopupSpec[]): Set<string> {
-  const result = new Set<string>();
-  for (const ps of popups) {
-    const target = ps.target || '';
-    const mf = target.match(/\.fields\.([^.]+)$/);
-    if (mf) result.add(mf[1]);
-    const mr = target.match(/\.recordActions\.([^.]+)$/);
-    if (mr) result.add(`recordAction:${mr[1]}`);
-  }
-  return result;
-}
-
-/**
- * Remove duplicate pages (same title) within a group — keep the latest (highest id).
- */
-async function cleanupDuplicatePages(
-  nb: NocoBaseClient,
-  groupId: number,
-  groupTitle: string,
-  pageTitle: string,
-  log: (msg: string) => void,
-): Promise<void> {
-  try {
-    const liveRoutes = await nb.http.get(`${nb.baseUrl}/api/desktopRoutes:list`, { params: { paginate: 'false', tree: 'true' } });
-    const allGroups = (liveRoutes.data.data || []) as any[];
-    const liveGroup = allGroups.find((r: any) => r.id === groupId || (r.type === 'group' && r.title === groupTitle));
-    if (!liveGroup?.children) return;
-    // Find all children (including sub-groups) with matching title
-    const duplicates = liveGroup.children.filter(
-      (c: any) => c.title === pageTitle && c.type !== 'tabs' && c.type !== 'group',
-    );
-    if (duplicates.length <= 1) return;
-    // Sort by id descending — keep the latest
-    duplicates.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
-    for (let i = 1; i < duplicates.length; i++) {
-      const dup = duplicates[i];
-      try {
-        await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:destroy`, null, {
-          params: { 'filter[id]': dup.id },
-        });
-        log(`  - removed duplicate page: ${pageTitle} (id=${dup.id})`);
-      } catch (e) {
-        log(`  ! cleanup duplicate ${pageTitle}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-      }
-    }
-  } catch (e) {
-    log(`  ! duplicate cleanup: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-  }
-}
-
-/**
- * Set sort on deployed routes to match routes.yaml declaration order.
- */
-async function syncMenuOrder(
-  nb: NocoBaseClient,
-  state: ModuleState,
-  routes: RouteEntry[],
-  log: (msg: string) => void,
-): Promise<void> {
-  try {
-    const groupEntries = routes.filter(r => r.type === 'group');
-    if (!groupEntries.length) return;
-
-    const allRoutes = await nb.http.get(`${nb.baseUrl}/api/desktopRoutes:list`, { params: { paginate: 'false', tree: 'true' } });
-    const liveGroups = (allRoutes.data.data || []).filter((r: any) => r.type === 'group');
-    let changed = 0;
-
-    const syncRoute = async (spec: RouteEntry, live: any, sortIdx: number) => {
-      const patch: Record<string, unknown> = {};
-      if (live.sort !== sortIdx) patch.sort = sortIdx;
-      if (spec.icon && live.icon !== spec.icon) patch.icon = spec.icon;
-      if (spec.hidden !== undefined && live.hidden !== spec.hidden) patch.hidden = spec.hidden;
-      if (Object.keys(patch).length) {
-        await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`, patch, { params: { 'filter[id]': live.id } });
-        changed++;
-      }
-    };
-
-    for (const groupEntry of groupEntries) {
-      if (!groupEntry.children?.length) continue;
-
-      // Prefer matching by state.group_ids[key] (stable across title changes), fall back to title.
-      const gKey = routeKey(groupEntry);
-      const stateGroupId = state.group_ids?.[gKey];
-      let liveGroup = stateGroupId ? liveGroups.find((g: any) => g.id === stateGroupId) : undefined;
-      if (!liveGroup) liveGroup = liveGroups.find((g: any) => g.title === groupEntry.title);
-      if (!liveGroup?.children?.length) continue;
-
-      const liveChildren = liveGroup.children as { id: number; title: string; type: string; sort?: number; children?: any[] }[];
-
-      for (let i = 0; i < groupEntry.children.length; i++) {
-        const specChild = groupEntry.children[i];
-        const liveChild = liveChildren.find(c => c.title === specChild.title);
-        if (!liveChild) continue;
-        await syncRoute(specChild, liveChild, i + 1);
-        // Sub-group children
-        if (specChild.type === 'group' && specChild.children?.length && liveChild.children?.length) {
-          for (let j = 0; j < specChild.children.length; j++) {
-            const specSub = specChild.children[j];
-            const liveSub = liveChild.children.find((c: any) => c.title === specSub.title);
-            if (liveSub) await syncRoute(specSub, liveSub, j + 1);
-          }
-        }
-      }
-    }
-    if (changed) log(`  menu: ${changed} routes reordered`);
-  } catch (e) {
-    log(`  ! menu order: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-  }
-}
-
-/**
- * Re-sync the deployed group's children/icons back into routes.yaml so the
- * file stays in step with what's actually live. Identity is matched by `key`
- * (= route.key || slugify(title)), so titles can change freely without
- * losing the entry.
- */
-async function syncRoutesYaml(
-  nb: NocoBaseClient,
-  root: string,
-  routeEntry: RouteEntry,
-  log: (msg: string) => void,
-): Promise<void> {
-  try {
-    nb.routes.clearCache();
-    const liveRoutes = await nb.routes.list();
-
-    // Match live group by stored title (DSL is source of truth for naming).
-    const liveGroup = liveRoutes.find(r => r.type === 'group' && r.title === routeEntry.title);
-    if (!liveGroup) { log(`\n  routes.yaml sync: group "${routeEntry.title}" not found in live`); return; }
-
-    // Build updated entry from live state. Preserve declared key so identity
-    // is stable regardless of how the title changes later.
-    const buildEntry = (r: any, declaredKey: string | undefined, declaredTitle?: string): Record<string, unknown> => {
-      const entry: Record<string, unknown> = {};
-      if (declaredKey) entry.key = declaredKey;
-      entry.title = declaredTitle ?? r.title;
-      if (r.type === 'group') entry.type = 'group';
-      if (r.icon) entry.icon = r.icon;
-      const seenChildren = new Set<string>();
-      const children = (r.children || [])
-        .filter((c: any) => c.type !== 'tabs')
-        .filter((c: any) => {
-          if (seenChildren.has(c.title || '')) return false;
-          seenChildren.add(c.title || '');
-          return true;
-        })
-        .map((c: any) => {
-          const ce: Record<string, unknown> = { title: c.title };
-          if (c.type === 'group') ce.type = 'group';
-          if (c.icon) ce.icon = c.icon;
-          const seenSub = new Set<string>();
-          const sub = (c.children || [])
-            .filter((s: any) => s.type !== 'tabs')
-            .filter((s: any) => {
-              if (seenSub.has(s.title || '')) return false;
-              seenSub.add(s.title || '');
-              return true;
-            })
-            .map((s: any) => {
-              const se: Record<string, unknown> = { title: s.title };
-              if (s.type === 'group') se.type = 'group';
-              if (s.icon) se.icon = s.icon;
-              return se;
-            });
-          if (sub.length) ce.children = sub;
-          return ce;
-        });
-      if (children.length) entry.children = children;
-      return entry;
-    };
-
-    // Read existing routes.yaml, update only the matching group entry by key.
-    const routesFile = path.join(root, 'routes.yaml');
-    let existing: Record<string, unknown>[] = [];
-    try { existing = loadYaml<Record<string, unknown>[]>(routesFile) || []; } catch { /* fresh */ }
-
-    const ourKey = routeKey(routeEntry);
-    const updatedEntry = buildEntry(liveGroup, routeEntry.key, routeEntry.title);
-    const idx = existing.findIndex(e => {
-      const er = e as { key?: string; title?: string; type?: string };
-      return routeKey({ key: er.key, title: er.title || '' }) === ourKey && er.type === 'group';
-    });
-    if (idx >= 0) {
-      existing[idx] = updatedEntry;
-    } else {
-      existing.push(updatedEntry);
-    }
-
-    fs.writeFileSync(routesFile, dumpYaml(existing));
-    log('\n  routes.yaml synced');
-  } catch (e) {
-    log(`\n  ! routes sync: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-  }
-}
-
-/**
- * Enable multi-tab mode on a page: update both the route and the RootPageModel.
- */
-async function enablePageTabs(
-  nb: NocoBaseClient,
-  routeId: number,
-  pageUid: string,
-  log: (msg: string) => void,
-): Promise<void> {
-  try {
-    // 1. Route
-    await nb.http.post(`${nb.baseUrl}/api/desktopRoutes:update`,
-      { enableTabs: true },
-      { params: { 'filter[id]': routeId } },
-    );
-    // 2. RootPageModel — both props AND stepParams.pageSettings.general
-    if (pageUid) {
-      const fmResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, {
-        params: { filterByTk: pageUid },
-      });
-      const fm = fmResp.data?.data || {};
-      // props.enableTabs
-      await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-        uid: pageUid,
-        props: { ...(fm.props || {}), enableTabs: true },
-      });
-      // stepParams.pageSettings.general.enableTabs
-      const ps = fm.stepParams?.pageSettings?.general || {};
-      if (!ps.enableTabs) {
-        await nb.updateModel(pageUid, {
-          pageSettings: { general: { ...ps, enableTabs: true } },
-        });
-      }
-    }
-  } catch (e) {
-    log(`    ! enableTabs: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-  }
-}
-
-/**
- * Post-deploy: ensure popup action/field hosts have filterByTk in openView.
- *
- * Checks all deployed popups in state:
- * - recordActions.* and fields.* → must have filterByTk='{{ctx.view.inputArgs.filterByTk}}'
- * - actions.* (addNew) → no filterByTk needed
- */
-async function ensurePopupBindings(
-  nb: NocoBaseClient,
-  state: ModuleState,
-  log: (msg: string) => void,
-): Promise<void> {
-  let fixed = 0;
-  try {
-    for (const [, pageState] of Object.entries(state.pages || {})) {
-      const ps = pageState as Record<string, unknown>;
-      const popups = (ps.popups || {}) as Record<string, Record<string, unknown>>;
-      for (const [popupKey, popupState] of Object.entries(popups)) {
-        // Only recordActions and fields need filterByTk
-        const needsRecord = popupKey.includes('recordActions.') || popupKey.includes('fields.');
-        if (!needsRecord) continue;
-
-        const targetUid = popupState.target_uid as string;
-        if (!targetUid) continue;
-
-        try {
-          const fm = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: targetUid } });
-          const data = fm.data?.data;
-          if (!data) continue;
-          const ov = data.stepParams?.popupSettings?.openView;
-          if (!ov) continue;
-
-          // Fix missing filterByTk on host
-          if (!ov.filterByTk) {
-            ov.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
-            await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-              uid: targetUid, use: data.use, parentId: data.parentId,
-              subKey: data.subKey, subType: data.subType,
-              sortIndex: data.sortIndex || 0, flowRegistry: data.flowRegistry || {},
-              stepParams: data.stepParams,
-            });
-            fixed++;
-          }
-        } catch { /* skip */ }
-      }
-    }
-    if (fixed) log(`  popup filterByTk: ${fixed} hosts fixed`);
-
-    // Fix block template targets: edit/detail templates need filterByTk
-    // (created on temp page without popup context, so target block has no filterByTk)
-    let blockFixed = 0;
-    const tplResp = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, { params: { paginate: false } });
-    const NO_FILTER_MODELS = new Set(['CreateFormModel']);
-    for (const t of (tplResp.data?.data || []) as Record<string, unknown>[]) {
-      if (t.type !== 'block' || !t.targetUid) continue;
-      if (NO_FILTER_MODELS.has(t.useModel as string)) continue; // addNew doesn't need filterByTk
-      try {
-        const fm = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: t.targetUid } });
-        const d = fm.data?.data;
-        if (!d) continue;
-        const res = d.stepParams?.resourceSettings?.init || {};
-        if (res.filterByTk === '{{ctx.view.inputArgs.filterByTk}}' && res.binding === 'currentRecord') continue;
-        const sp = d.stepParams || {};
-        if (!sp.resourceSettings) sp.resourceSettings = {};
-        if (!sp.resourceSettings.init) sp.resourceSettings.init = {};
-        sp.resourceSettings.init.filterByTk = '{{ctx.view.inputArgs.filterByTk}}';
-        sp.resourceSettings.init.binding = 'currentRecord';
-        if (!sp.resourceSettings.init.dataSourceKey) sp.resourceSettings.init.dataSourceKey = 'main';
-        if (!sp.resourceSettings.init.collectionName) sp.resourceSettings.init.collectionName = t.collectionName;
-        await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
-          uid: t.targetUid as string, use: d.use, parentId: d.parentId,
-          subKey: d.subKey, subType: d.subType,
-          sortIndex: d.sortIndex || 0, flowRegistry: d.flowRegistry || {},
-          stepParams: sp,
-        });
-        blockFixed++;
-      } catch { /* skip */ }
-    }
-    if (blockFixed) log(`  block template filterByTk: ${blockFixed} targets fixed`);
-  } catch (e) {
-    log(`  ! popup bindings: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
-  }
-}
+// Post-deploy popup filterByTk binding: see ./popup-bindings.ts
