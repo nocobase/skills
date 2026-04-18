@@ -74,6 +74,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
   const collDir = path.join(projectDir, 'collections');
   const knownColls = new Set<string>();
   const collM2oTargets = new Map<string, Map<string, string>>(); // coll → { fieldName → targetColl }
+  const collToMany = new Map<string, Map<string, 'o2m' | 'm2m'>>(); // coll → { fieldName → relation-kind }
   const collTitleFields = new Map<string, string>(); // coll → titleField name
   if (fs.existsSync(collDir)) {
     for (const f of fs.readdirSync(collDir).filter(f => f.endsWith('.yaml'))) {
@@ -84,6 +85,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
         knownColls.add(collName);
         collTitleFields.set(collName, (c.titleField || 'name') as string);
         const m2oMap = new Map<string, string>();
+        const toManyMap = new Map<string, 'o2m' | 'm2m'>();
         const fks = new Set<string>();
         // Rule: collection YAML must not declare NocoBase's auto-managed system
         // columns. The deployer silently filters them, but callers benefit from
@@ -99,7 +101,10 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
             const fk = (fd.foreignKey as string) || `${fd.name}Id`;
             fks.add(fk);
           }
+          if (fd.interface === 'o2m') toManyMap.set(fd.name as string, 'o2m');
+          if (fd.interface === 'm2m') toManyMap.set(fd.name as string, 'm2m');
         }
+        if (toManyMap.size) collToMany.set(collName, toManyMap);
         // Rule: don't redefine auto-created FK columns (e.g. category_id alongside category m2o)
         // Downgraded to warning — NocoBase tolerates the duplicate column (the
         // m2o relation continues to work via its own FK), and existing CRM
@@ -159,7 +164,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
 
     // Check each block
     for (const bs of allBlocks) {
-      validateBlock(bs, page.title, page.popups, issues, projectDir, knownColls);
+      validateBlock(bs, page.title, page.popups, issues, projectDir, knownColls, collToMany);
     }
 
     // Check resource_binding.associationName format across all blocks + popup
@@ -204,7 +209,7 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
 
     // Check popups
     for (const ps of page.popups) {
-      validatePopup(ps, page.title, issues, projectDir, knownColls);
+      validatePopup(ps, page.title, issues, projectDir, knownColls, collToMany);
       // Catch dead popup files: target=$SELF.<block>.fields.<field> where the
       // block doesn't declare that field. The deploy would log "ref not found
       // — popup NOT created" buried in the post-deploy errors. Surface it
@@ -454,7 +459,7 @@ function validateLayoutSpec(
   }
 }
 
-function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
+function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], issues: SpecIssue[], projectDir: string, knownColls?: Set<string>, collToMany?: Map<string, Map<string, 'o2m' | 'm2m'>>): void {
   const key = bs.key || bs.type;
 
   // ── Rule: ref: resolution failed ──
@@ -478,6 +483,39 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
         level: 'error', page: pageTitle, block: key,
         message: 'reference block requires `ref: templates/block/<file>.yaml` OR `templateRef: {templateUid, templateName, targetUid}`. A bare `type: reference` deploys an empty ReferenceBlockModel (visually blank).',
       });
+    }
+  }
+
+  // ── Rule: o2m/m2m in createForm/editForm MUST declare type explicitly ──
+  // Bare `- taskname` listing of an o2m/m2m field defaults to
+  // RecordSelectFieldModel (a "pick existing records" picker). Users
+  // almost always want either:
+  //   - type: subTable + columns:  → inline editable rows
+  //   - type: subForm + mode: inline/collapse + fields: → inline form
+  //   - explicit acknowledgement of the picker (via { field: x, mode: 'picker' })
+  // Otherwise the form surprises the author (they declared `- tasks`
+  // expecting a sub-table and got a single-line record picker).
+  if ((bs.type === 'createForm' || bs.type === 'editForm') && collToMany && bs.coll) {
+    const m = collToMany.get(bs.coll);
+    if (m) {
+      for (const f of bs.fields || []) {
+        const name = typeof f === 'string' ? f : ((f as Record<string, unknown>).field as string || '');
+        const rel = name && m.get(name);
+        if (!rel) continue;
+        const explicit = typeof f === 'object' && (
+          (f as Record<string, unknown>).type === 'subTable'
+          || (f as Record<string, unknown>).type === 'subForm'
+          || (f as Record<string, unknown>).mode === 'picker'
+        );
+        if (!explicit) {
+          issues.push({
+            level: 'warn',
+            page: pageTitle,
+            block: key,
+            message: `${bs.type} field "${name}" (${rel}) has no explicit render type — defaults to record-picker. For inline editing, declare \`{ field: ${name}, type: subTable, columns: [...] }\` (like CRM quotations \`items\`). For explicit picker, add \`{ field: ${name}, mode: picker }\` to silence this.`,
+          });
+        }
+      }
     }
   }
 
@@ -658,7 +696,7 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
   // must use the FK column (assigneeId) not the relation name (assignee)
 }
 
-function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string, knownColls?: Set<string>): void {
+function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], projectDir: string, knownColls?: Set<string>, collToMany?: Map<string, Map<string, 'o2m' | 'm2m'>>): void {
   // Reject deprecated popup: template path syntax
   if ('popup' in (ps as Record<string, unknown>)) {
     issues.push({ level: 'error', page: pageTitle, message: `popup "${ps.target}": use "blocks: [ref: ...]" instead of "popup: <path>"` });
@@ -678,17 +716,17 @@ function validatePopup(ps: PopupSpec, pageTitle: string, issues: SpecIssue[], pr
           const tpl = loadYaml<Record<string, unknown>>(tplPath);
           const content = tpl.content as Record<string, unknown>;
           if (content) {
-            validateBlock(content as any, `${pageTitle} popup [${tpl.name || bAny.ref}]`, [], issues, projectDir, knownColls);
+            validateBlock(content as any, `${pageTitle} popup [${tpl.name || bAny.ref}]`, [], issues, projectDir, knownColls, collToMany);
           }
         } catch { /* skip malformed */ }
       }
     } else {
-      validateBlock(bs, `${pageTitle} popup`, [], issues, projectDir, knownColls);
+      validateBlock(bs, `${pageTitle} popup`, [], issues, projectDir, knownColls, collToMany);
     }
   }
   for (const tab of tabs) {
     for (const bs of (tab.blocks || [])) {
-      validateBlock(bs, `${pageTitle} popup tab`, [], issues, projectDir, knownColls);
+      validateBlock(bs, `${pageTitle} popup tab`, [], issues, projectDir, knownColls, collToMany);
     }
     const tLayout = (tab as { layout?: unknown[] }).layout;
     if (tLayout) validateLayoutSpec(tLayout, pageTitle, `popup [${ps.target}] tab "${tab.title || ''}"`, issues);

@@ -277,34 +277,45 @@ type conflicts:
 - m2m join tables: `through: nb_x_y` is auto-created; don't write a
   collection YAML for it
 
-### o2m / m2m fields render as inline sub-tables in forms
+### Inline sub-table on o2m/m2m fields needs EXPLICIT `type: subTable`
 
-When an o2m or m2m field is listed in a `createForm` / `editForm` /
-`details` block's `fields:`, the deployer renders it **automatically as
-an inline editable sub-table** (rows in the parent form can be
-added/edited in place, no separate popup).
+By default, an o2m/m2m field listed in a form renders as a
+**RecordSelect** widget ("pick existing records"). To get inline
+editable rows (the canonical master-child UX), declare the field as
+an object with `type: subTable` + `columns:`:
 
 ```yaml
-# templates/block/form_add_new_projects.yaml
-content:
-  type: createForm
-  coll: nb_pm_projects
-  fields: [name, code, status, ..., tasks]   # ← tasks is o2m → nb_pm_tasks
-  field_layout:
-    - '--- Task Planning ---'
-    - - tasks                                # takes full row, renders as grid
+# Right — inline editable sub-table with columns
+fields:
+  - name
+  - code
+  - ...
+  - field: tasks
+    type: subTable
+    columns:
+      - field: title
+      - field: status
+      - field: assignee
+      - field: due_date
 ```
 
-Canonical CRM example:
+```yaml
+# Wrong — renders as "select existing task" picker, not editable rows
+fields:
+  - name
+  - code
+  - tasks           # ← bare string = RecordSelectFieldModel default
+```
+
+Put the field in `field_layout` normally (usually full-row, width 16+
+so columns fit). Canonical CRM example:
 `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml`
-(quotations has `items` o2m rendered inline in the quotation create-form).
-Also `templates/crm/pages/main/products/` for the products → pricing-tiers
-master-child pattern.
+(quotations `items` → 10-column inline sub-table for quote line items).
 
 This is different from a *popup sub-list* (standalone `type: table`
 block inside a popup, bound via `resource_binding.sourceId +
 associationName`). That one is a separate block with its own add/edit
-popup — used when you want a full table UX, not inline editing.
+popup — use when you want a full table UX, not inline editing.
 
 ### `foreignKey` flips meaning
 
