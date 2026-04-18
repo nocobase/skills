@@ -766,6 +766,25 @@ async function createBlockTemplate(
   // Strip resource_binding for template compose — temp page has no record context.
   // The binding will be set when the template is actually used in a popup.
   const { resource_binding, ...contentForCompose } = content;
+  // Strip NocoBase system fields (createdAt, createdBy, …) from compose payload:
+  // /api/collections/<coll>/fields:list doesn't register them, so
+  // flowSurfaces:compose (and :addField) reject them with "field not found"
+  // and the whole template creation fails. Users can add these columns via the
+  // UI after deploy if needed. Tracked: Orders' Table template used to
+  // silently skip-create because of a DSL `createdAt` column reference.
+  const SYS_FIELDS = new Set(['id','createdAt','updatedAt','createdBy','updatedBy','createdById','updatedById','sort']);
+  const strippedSys: string[] = [];
+  if (Array.isArray(contentForCompose.fields)) {
+    (contentForCompose.fields as unknown[]) = (contentForCompose.fields as unknown[]).filter(f => {
+      const fp = typeof f === 'string' ? f : ((f as Record<string, unknown>)?.field as string) || ((f as Record<string, unknown>)?.fieldPath as string) || '';
+      if (fp && SYS_FIELDS.has(fp)) { strippedSys.push(fp); return false; }
+      return true;
+    });
+  }
+  if (Array.isArray(contentForCompose.column_order)) {
+    (contentForCompose.column_order as unknown[]) = (contentForCompose.column_order as unknown[]).filter(c => typeof c !== 'string' || !SYS_FIELDS.has(c));
+  }
+  if (strippedSys.length) log(`    ~ template "${name}": deferring sys fields ${strippedSys.join(',')} (not composable — add via UI if needed)`);
   const composeBlock = toComposeBlock(contentForCompose as any, collName);
   if (!composeBlock) {
     // Fallback: block type not supported by compose — use direct model creation
