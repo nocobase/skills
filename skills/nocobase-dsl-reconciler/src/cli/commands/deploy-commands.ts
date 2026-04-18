@@ -1,6 +1,6 @@
 /**
  * Deploy-family CLI commands: push, deploy (legacy), deploy-acl,
- * deploy-workflows, scaffold, rollback, clean.
+ * deploy-workflows, rollback, clean.
  *
  * Extracted from cli.ts — behaviour unchanged, only relocation.
  */
@@ -14,7 +14,6 @@ import { deploySurface } from '../../deploy/surface-deployer';
 import { deployPopup } from '../../deploy/popups/popup-deployer';
 import { reorderTableColumns } from '../../deploy/column-reorder';
 import { postVerify } from '../../deploy/post-verify';
-import { scaffold } from '../../deploy/scaffold';
 import { deployProject } from '../../deploy/project-deployer';
 import { deployAcl } from '../../acl/acl-deployer';
 import { deployWorkflows } from '../../workflow/workflow-deployer';
@@ -342,42 +341,6 @@ async function deepCleanTemplates(nb: NocoBaseClient): Promise<void> {
   }
   console.log(`  deleted ${delT}/${zeroUse.length} zero-usage templates`);
   console.log(`  templates remaining: ${fresh.length - delT}`);
-}
-
-export async function cmdScaffold(args: string[]) {
-  const dirArg = args[0];
-  const name = args[1];
-  if (!dirArg || !name) {
-    console.error('Usage: cli.ts scaffold <dir> <module-name> [--pages P1,P2,...] [--collections C1,C2,...]');
-    console.error('\nOptions:');
-    console.error('  --pages        Comma-separated page names (default: Dashboard,Main)');
-    console.error('  --collections  Comma-separated collection names (default: auto from pages)');
-    console.error('\nExample:');
-    console.error('  cli.ts scaffold /tmp/pm PM --pages Dashboard,Projects,Tasks --collections nb_pm_projects,nb_pm_tasks');
-    process.exit(1);
-  }
-  const pagesIdx = args.indexOf('--pages');
-  const collIdx = args.indexOf('--collections');
-  const collections = collIdx >= 0 && args[collIdx + 1]
-    ? args[collIdx + 1].split(',').map(s => s.trim())
-    : undefined;
-  let pages: string[];
-  if (pagesIdx >= 0 && args[pagesIdx + 1]) {
-    pages = args[pagesIdx + 1].split(',').map(s => s.trim());
-  } else if (collections?.length) {
-    // Auto-derive page names from collection names: nb_erp_purchase_orders → PurchaseOrders
-    // Always include Dashboard as first page
-    const prefix = `nb_${name.toLowerCase()}_`;
-    pages = ['Dashboard', ...collections.map(c => {
-      const short = c.startsWith(prefix) ? c.slice(prefix.length) : c;
-      return short.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
-    })];
-  } else {
-    pages = ['Dashboard', 'Main'];
-  }
-  const dir = resolveWorkspacePath(dirArg);
-  scaffold(dir, name, pages, collections);
-  await ensureProjectGit(dir, console.log);
 }
 
 export async function cmdDeployAcl(args: string[]) {

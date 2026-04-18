@@ -4,7 +4,7 @@
  *
  * Each command is implemented in src/cli/commands/ grouped by intent:
  *   - deploy-commands.ts   push, deploy, deploy-acl, deploy-workflows,
- *                          scaffold, rollback, clean
+ *                          rollback, clean
  *   - export-commands.ts   pull, export, export-acl, export-workflows, graph
  *   - verify-commands.ts   verify-sql, verify-data, validate-workflows
  *   - project-commands.ts  sync, diff, duplicate-project
@@ -14,7 +14,7 @@
  */
 import {
   cmdDeploy, cmdDeployProject, cmdDeployAcl, cmdDeployWorkflows,
-  cmdScaffold, cmdRollback, cmdClean,
+  cmdRollback, cmdClean,
 } from './commands/deploy-commands';
 import {
   cmdExport, cmdExportProject, cmdExportAcl, cmdExportWorkflows, cmdGraph,
@@ -26,7 +26,7 @@ import {
   cmdSync, cmdCompare, cmdDuplicateProject,
 } from './commands/project-commands';
 
-const COMMANDS_HELP = 'Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, clean, scaffold, verify-sql, verify-data, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare';
+const COMMANDS_HELP = 'Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, clean, verify-sql, verify-data, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -47,7 +47,6 @@ async function main() {
     case 'push':               await cmdDeployProject(rest); break;
     case 'rollback':           await cmdRollback(rest); break;
     case 'clean':              await cmdClean(rest); break;
-    case 'scaffold':           await cmdScaffold(rest); break;
     case 'deploy-acl':         await cmdDeployAcl(rest); break;
     case 'deploy-workflows':   await cmdDeployWorkflows(rest); break;
 
