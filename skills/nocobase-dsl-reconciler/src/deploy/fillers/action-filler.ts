@@ -12,6 +12,7 @@
  */
 import type { BlockSpec } from '../../types/spec';
 import type { BlockState } from '../../types/state';
+import type { NocoBaseClient } from '../../client';
 import type { DeployContext } from './types';
 import { generateUid } from '../../utils/uid';
 import { buildAiButton } from './ai-button';
