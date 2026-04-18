@@ -83,6 +83,12 @@ export async function ensureCollection(
       sortable: true,
       filterTargetKey: 'id',
       ...(titleField ? { titleField } : {}),
+      // Template ('comment' / 'tree' / 'calendar' / etc.) controls which
+      // NocoBase plugin blocks the collection unlocks. Default 'general'
+      // is fine for plain CRUD; without the right template,
+      // CommentsBlock / CalendarBlock / TreeBlock refuse to bind to
+      // duplicated collections ("not a comment collection" error).
+      ...(def.template ? { template: def.template } : {}),
     });
     if (!titleField) {
       log(`  ⚠ collection ${name}: no titleField (add a name/title field, or set titleField explicitly)`);

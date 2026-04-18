@@ -1465,6 +1465,13 @@ async function exportCollections(
       name,
       title: c.title || name,
     };
+    // NocoBase collection template — picks plugin behaviour beyond plain
+    // CRUD. Only emit when not the default ('general') so YAML stays clean.
+    // Without this, duplicates land as 'general' and plugin blocks
+    // (CommentsBlock / CalendarBlock / TreeBlock) refuse to bind:
+    // "current collection is not a comment collection".
+    const tpl = c.template as string | undefined;
+    if (tpl && tpl !== 'general') collDef.template = tpl;
     if (c.titleField) collDef.titleField = c.titleField;
     collDef.fields = fields;
 

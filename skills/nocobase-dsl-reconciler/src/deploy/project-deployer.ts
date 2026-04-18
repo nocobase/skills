@@ -90,6 +90,7 @@ export async function deployProject(
         titleField: (coll.titleField as string) || undefined,
         fields: (coll.fields as CollectionDef['fields']) || [],
         triggers: (coll.triggers as CollectionDef['triggers']) || undefined,
+        template: (coll.template as string) || undefined,
       };
     }
   }

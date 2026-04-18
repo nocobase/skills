@@ -273,6 +273,15 @@ export interface SqlObjectDef {
 }
 
 export interface CollectionDef {
+  /**
+   * NocoBase collection template — picks plugin behaviour beyond plain CRUD:
+   *   - 'general' (default): regular collection
+   *   - 'comment': enables CommentsBlock (timeline UI, parent-record binding)
+   *   - 'tree' / 'calendar' / 'expression' / 'sql' / 'view' / others
+   * Without the right template, plugin blocks (CommentsBlock, CalendarBlock,
+   * etc.) refuse to bind: "current collection is not a comment collection".
+   */
+  template?: string;
   title: string;
   titleField?: string;
   fields: FieldDef[];
