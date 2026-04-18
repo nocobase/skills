@@ -533,11 +533,17 @@ export async function syncReferenceBlockBinding(
     const rs = ((sp.referenceSettings as Record<string, unknown>) || {}) as Record<string, unknown>;
     const curUT = (rs.useTemplate as Record<string, unknown> | undefined);
     const curUid = curUT?.templateUid as string | undefined;
-    // Skip only when binding already matches DSL. If curUid is missing
-    // (orphan ReferenceBlockModel from a prior deploy where template
-    // creation failed and the block got left without a binding), fall
-    // through and write the binding now.
-    if (curUid && curUid === templateRef.templateUid) return;
+    const curTarget = curUT?.targetUid as string | undefined;
+    // Skip only when BOTH templateUid and targetUid already match DSL. If
+    // curUid is missing (orphan ReferenceBlockModel from a prior deploy
+    // where template creation failed and the block got left without a
+    // binding), fall through and write the binding now. Also rebind when
+    // only targetUid drifted — common after our resolver started carrying
+    // targetUid: an earlier push wrote templateUid but stale targetUid;
+    // without this check the user sees the OLD template content.
+    const uidMatches = curUid && curUid === templateRef.templateUid;
+    const targetMatches = !templateRef.targetUid || curTarget === templateRef.targetUid;
+    if (uidMatches && targetMatches) return;
     rs.useTemplate = {
       ...(curUT || {}),
       templateUid: templateRef.templateUid,

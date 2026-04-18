@@ -388,9 +388,16 @@ function resolveBlockRefs(blocks: unknown[], projectRoot: string): unknown[] {
       if (extraKey === 'reference' && template.type === 'block') {
         const templateUid = (template.uid as string) || '';
         const templateName = (template.name as string) || '';
+        // targetUid is required for the rebind path: ReferenceBlockModel
+        // mirrors the template's TARGET tree, so without it useTemplate
+        // gets templateUid + a stale targetUid (whatever was already on the
+        // live block) and the user sees old template content despite the
+        // rebind log saying "rebound A → B".
+        const targetUid = (template.targetUid as string) || '';
         const ref: Record<string, unknown> = { mode: 'reference' };
         if (templateUid) ref.templateUid = templateUid;
         if (templateName) ref.templateName = templateName;
+        if (targetUid) ref.targetUid = targetUid;
         return {
           type: 'reference',
           key: 'reference',
