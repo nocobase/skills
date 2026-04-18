@@ -32,6 +32,23 @@ The pre-deploy spec validator catches most structural mistakes with a
 clear error message. **Trust the validator**: when it errors, fix what
 it says rather than guessing — don't grep through `src/deploy/*.ts`.
 
+## When NOT to use this skill
+
+Hand off to the matching skill when the user's request is orthogonal:
+
+| User asks for… | Skill |
+|---|---|
+| One-off live-UI tweak on an already-running page (move / reorder / reconfigure a single block, field, action) — **no DSL commit wanted** | `nocobase-ui-builder` |
+| ACL / role permissions / route permissions | `nocobase-acl-manage` |
+| Workflow create / update / revision / execution | `nocobase-workflow-manage` (this skill only wires the trigger button; authoring the graph goes there) |
+| Collection / field / relation authoring outside a DSL project | `nocobase-data-modeling` |
+| Plugin development (`.tsx` components, server code) | `nocobase-plugin-development` |
+| Install / enable plugin | `nocobase-plugin-manage` |
+| Environment setup / app install / upgrade | `nocobase-env-bootstrap` |
+
+Any change that should live as a committed YAML file under
+`workspaces/<project>/` — stays here.
+
 ## Environment
 
 ```bash
@@ -150,9 +167,61 @@ Tips:
   `clickToOpen: templates/popup/popup_detail_<target>.yaml` OR add
   `popups.<target>: ...` in `defaults.yaml`. Validator errors otherwise.
 
+#### Per-row actions (`recordActions`)
+
+By default a table's row-action column is empty — NB won't render
+any action buttons unless `recordActions:` lists them. "Just edit
+and delete" is a common but weak default: for most list tables the
+user actually wants a **one-click state change** (Mark Done,
+Approve, Archive) sitting next to edit.
+
+Decision order:
+
+1. **Is there a boolean / enum status field?** → add `updateRecord`
+   with `linkageRules` to show the matching button only when the
+   record is in the right state. One button per state transition
+   (Mark Done hidden when already done; Reopen hidden when not done).
+2. **Does the record need a second detail/form view different from
+   the default edit popup?** → `popup` with `templateRef`.
+3. **Tree/hierarchy collection?** → add `addChild`.
+4. **Need to navigate elsewhere with this record's id/filter?** →
+   `link` with `url: /admin/...?filter={{ctx.record.id}}`.
+5. **Want to let the user clone a complex record?** → `duplicate`.
+6. **Need to start a workflow manually?** → `workflowTrigger`.
+
+**Prefer `updateRecord + linkageRules` over custom JS buttons** for
+state changes. linkageRules covers 80% of row-level UX (conditional
+show/hide, field-based gating, role checks via `ctx.user`) without
+touching JS. JS actions are only needed for multi-step logic
+(query, then update, then navigate) and are not currently
+deployable by this reconciler.
+
+Full per-row action palette (declared in `recordActions:`):
+
+| DSL `type` | Purpose | CRM reference |
+|---|---|---|
+| `edit` | Edit popup (default shape) | many |
+| `view` | Read-only detail popup | `templates/crm/templates/popup/opportunity_view.yaml` |
+| `delete` | Single-row delete with confirm | many |
+| `updateRecord` | Assign fields + optional linkageRules — the state-change workhorse | `templates/crm/pages/main/overview/layout.yaml` (Done / Undone pair) |
+| `popup` | Open a custom popup with `templateRef` (form/detail different from edit) | `templates/crm/pages/main/leads/popups/table.name.yaml` |
+| `link` | Navigate to another admin page, carrying record context in URL | `templates/crm/pages/lookup/layout.yaml` |
+| `addChild` | Tree collection: add a child node under this row | `templates/crm/pages/main/products/tab_categories/layout.yaml` |
+| `duplicate` | Clone the record into a new form | — |
+| `workflowTrigger` | Manually trigger a workflow on this record | (toolbar in `templates/crm/pages/main/customers/tab_customers/layout.yaml` — same shape works per-row) |
+| `historyExpand` / `historyCollapse` | Record-history plugin inline expand | — |
+| `ai` | AI employee button (tasks_file + employee) | `templates/crm/pages/main/leads/layout.yaml` (toolbar — same shape per-row) |
+
+Toolbar actions (declared in block-level `actions:`) use the same
+type names plus `filter`, `refresh`, `addNew`, `bulkDelete`,
+`export`, `import`. Not every type makes sense in both contexts —
+`updateRecord` as a toolbar action would apply to *no* specific row,
+so put it in `recordActions`.
+
 **Goal of Round 2**: all pages have working CRUD — add / edit / view
-popups wired correctly. Validator clean, NB UI shows no "Collection
-may have been deleted" banners.
+popups wired correctly, row-action columns reflect real per-record
+operations (not just edit+delete). Validator clean, NB UI shows no
+"Collection may have been deleted" banners.
 
 ### Round 2': Test data (parallel with Round 2)
 
@@ -337,6 +406,7 @@ push and pull are both one-way. Round-tripping = push + pull + git diff.
 | Chart SQL failed | Seed data first; quote field names like `"createdAt"` |
 | m2o link 400 in UI | Missing `defaults.yaml` `popups:` binding for target collection |
 | `Collection X not found in data source main` | `associationName` used a short name — use the full collection name (`nb_pm_projects.tasks`, not `project.tasks`). See `templates/crm/pages/main/customers/tab_customers/popups/` |
+| Per-row column shows only edit+delete (or stale buttons that your DSL no longer lists) | `recordActions` missing — see Round 2 "Per-row actions". **Removing** an action from DSL does not delete it from NB; the deployer is additive. Remove the button in the NB UI by hand, or wait for the reconciler's delete support. |
 
 ---
 
