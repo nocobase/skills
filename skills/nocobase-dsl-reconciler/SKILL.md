@@ -277,45 +277,23 @@ type conflicts:
 - m2m join tables: `through: nb_x_y` is auto-created; don't write a
   collection YAML for it
 
-### Inline sub-table on o2m/m2m fields needs EXPLICIT `type: subTable`
+### Two shapes for displaying related records — pick the right one
 
-By default, an o2m/m2m field listed in a form renders as a
-**RecordSelect** widget ("pick existing records"). To get inline
-editable rows (the canonical master-child UX), declare the field as
-an object with `type: subTable` + `columns:`:
+| Shape | DSL | Use when |
+|---|---|---|
+| **Inline sub-table** inside a form | `{ field: tasks, type: subTable, columns: [...] }` in a createForm/editForm's `fields:` | Child rows entered alongside the parent (invoice + line items, project + planned tasks). Editable grid in the same form. |
+| **Standalone list/table block** referencing the parent | `type: table` block in a popup / tab, with `resource_binding.sourceId + associationName` | Children viewed separately from the parent (project detail popup showing the task list, customer tab showing orders). Has its own filter/add-new/popups. |
 
-```yaml
-# Right — inline editable sub-table with columns
-fields:
-  - name
-  - code
-  - ...
-  - field: tasks
-    type: subTable
-    columns:
-      - field: title
-      - field: status
-      - field: assignee
-      - field: due_date
-```
+Both pull/push support both shapes end-to-end. Pick by UX intent:
+inline-editing → sub-table; separate-browse → standalone block.
 
-```yaml
-# Wrong — renders as "select existing task" picker, not editable rows
-fields:
-  - name
-  - code
-  - tasks           # ← bare string = RecordSelectFieldModel default
-```
+Bare `- tasks` in a form defaults to a **RecordSelect picker** ("pick
+existing record"), which is rarely what you want for master-child. The
+validator warns when this is ambiguous.
 
-Put the field in `field_layout` normally (usually full-row, width 16+
-so columns fit). Canonical CRM example:
-`templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml`
-(quotations `items` → 10-column inline sub-table for quote line items).
-
-This is different from a *popup sub-list* (standalone `type: table`
-block inside a popup, bound via `resource_binding.sourceId +
-associationName`). That one is a separate block with its own add/edit
-popup — use when you want a full table UX, not inline editing.
+Canonical CRM examples:
+- Inline sub-table: `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` (`items` → 10-column editable grid)
+- Standalone block: `templates/crm/pages/main/customers/tab_customers/popups/table.name.yaml` (customer detail popup + nested orders/contacts tables)
 
 ### `foreignKey` flips meaning
 
