@@ -6,6 +6,7 @@ DEFAULT_PORT="${1:-13000}"
 INSTALL_METHOD="${2:-${INSTALL_METHOD:-docker}}"
 DB_MODE="${3:-${DB_MODE:-bundled}}"
 DB_DIALECT_INPUT="${4:-${DB_DIALECT:-}}"
+DB_DATABASE_MODE_INPUT="${5:-${DB_DATABASE_MODE:-existing}}"
 MCP_REQUIRED="${MCP_REQUIRED:-0}"
 MCP_AUTH_MODE="${MCP_AUTH_MODE:-none}"
 MCP_URL="${MCP_URL:-}"
@@ -39,6 +40,15 @@ case "$DB_MODE" in
   *)
     printf '[fail] INPUT-002: Invalid DB_MODE "%s".\n' "$DB_MODE"
     printf '  fix: Use one of bundled/existing.\n'
+    exit 1
+    ;;
+esac
+
+case "$DB_DATABASE_MODE_INPUT" in
+  existing|create) ;;
+  *)
+    printf '[fail] INPUT-004: Invalid DB_DATABASE_MODE "%s".\n' "$DB_DATABASE_MODE_INPUT"
+    printf '  fix: Use one of existing/create.\n'
     exit 1
     ;;
 esac
@@ -210,6 +220,79 @@ tcp_reachable() {
   return 2
 }
 
+escape_sql_literal() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
+quote_postgres_identifier() {
+  local raw="$1"
+  local escaped
+  escaped="$(printf '%s' "$raw" | sed 's/"/""/g')"
+  printf '"%s"' "$escaped"
+}
+
+quote_mysql_identifier() {
+  local raw="$1"
+  local escaped
+  escaped="$(printf '%s' "$raw" | sed 's/`/``/g')"
+  printf '`%s`' "$escaped"
+}
+
+ensure_db_created_if_requested() {
+  if [[ "$DB_DATABASE_MODE_RESOLVED" != "create" ]]; then
+    record pass DB-CREATE-001 "Database creation mode is existing; creation step skipped."
+    return 0
+  fi
+
+  if [[ "$DB_DIALECT_RESOLVED" == "postgres" ]]; then
+    if ! has_cmd psql; then
+      record fail DB-CREATE-001 "db_database_mode=create requires psql client for postgres." "Install PostgreSQL client tools and retry."
+      return 1
+    fi
+
+    local db_literal db_identifier exists
+    db_literal="$(escape_sql_literal "$DB_DATABASE_RESOLVED")"
+    db_identifier="$(quote_postgres_identifier "$DB_DATABASE_RESOLVED")"
+    exists="$(PGPASSWORD="$DB_PASSWORD_RESOLVED" psql -h "$DB_HOST_RESOLVED" -p "$DB_PORT_RESOLVED" -U "$DB_USER_RESOLVED" -d postgres -tA -v ON_ERROR_STOP=1 -c "SELECT 1 FROM pg_database WHERE datname='${db_literal}' LIMIT 1;" 2>/dev/null | tr -d '[:space:]')"
+
+    if [[ "$exists" == "1" ]]; then
+      record pass DB-CREATE-001 "Target database already exists (${DB_DATABASE_RESOLVED})."
+      return 0
+    fi
+
+    if PGPASSWORD="$DB_PASSWORD_RESOLVED" psql -h "$DB_HOST_RESOLVED" -p "$DB_PORT_RESOLVED" -U "$DB_USER_RESOLVED" -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${db_identifier};" >/dev/null 2>&1; then
+      record pass DB-CREATE-001 "Created target database (${DB_DATABASE_RESOLVED})."
+      return 0
+    fi
+
+    record fail DB-CREATE-001 "Failed to create target database (${DB_DATABASE_RESOLVED})." "Check DB_USER permissions (CREATE DATABASE) or create database manually, then retry."
+    return 1
+  fi
+
+  if ! has_cmd mysql; then
+    record fail DB-CREATE-001 "db_database_mode=create requires mysql client for mysql/mariadb." "Install mysql client tools and retry."
+    return 1
+  fi
+
+  local db_literal db_identifier exists
+  db_literal="$(escape_sql_literal "$DB_DATABASE_RESOLVED")"
+  db_identifier="$(quote_mysql_identifier "$DB_DATABASE_RESOLVED")"
+  exists="$(MYSQL_PWD="$DB_PASSWORD_RESOLVED" mysql --protocol=TCP -h "$DB_HOST_RESOLVED" -P "$DB_PORT_RESOLVED" -u "$DB_USER_RESOLVED" --connect-timeout=5 --batch --skip-column-names -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='${db_literal}' LIMIT 1;" 2>/dev/null | tr -d '\r\n')"
+
+  if [[ "$exists" == "$DB_DATABASE_RESOLVED" ]]; then
+    record pass DB-CREATE-001 "Target database already exists (${DB_DATABASE_RESOLVED})."
+    return 0
+  fi
+
+  if MYSQL_PWD="$DB_PASSWORD_RESOLVED" mysql --protocol=TCP -h "$DB_HOST_RESOLVED" -P "$DB_PORT_RESOLVED" -u "$DB_USER_RESOLVED" --connect-timeout=5 -e "CREATE DATABASE IF NOT EXISTS ${db_identifier};" >/dev/null 2>&1; then
+    record pass DB-CREATE-001 "Created target database (${DB_DATABASE_RESOLVED})."
+    return 0
+  fi
+
+  record fail DB-CREATE-001 "Failed to create target database (${DB_DATABASE_RESOLVED})." "Check DB_USER permissions (CREATE DATABASE) or create database manually, then retry."
+  return 1
+}
+
 http_status() {
   local url="$1"
   local token="${2:-}"
@@ -263,6 +346,7 @@ if is_method_create_or_git; then
 elif is_method_docker && [[ "$DB_MODE_RESOLVED" == "bundled" ]] && has_external_db_inputs; then
   DB_MODE_RESOLVED='existing'
 fi
+DB_DATABASE_MODE_RESOLVED="$DB_DATABASE_MODE_INPUT"
 
 if [[ -z "$DB_PORT_RESOLVED" ]]; then
   if [[ "$DB_DIALECT_RESOLVED" == "postgres" ]]; then
@@ -274,6 +358,7 @@ fi
 
 printf 'db_mode: %s\n' "$DB_MODE_RESOLVED"
 printf 'db_dialect: %s\n' "$DB_DIALECT_RESOLVED"
+printf 'db_database_mode: %s\n' "$DB_DATABASE_MODE_RESOLVED"
 if [[ -n "$DB_HOST_RESOLVED" ]]; then
   printf 'db_host: %s\n' "$DB_HOST_RESOLVED"
 fi
@@ -415,6 +500,7 @@ if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
   else
     record pass DB-REQ-002 "External DB required fields are present."
     if [[ "$DB_PORT_RESOLVED" =~ ^[0-9]+$ ]]; then
+      db_create_ready=1
       if tcp_reachable "$DB_HOST_RESOLVED" "$DB_PORT_RESOLVED"; then
         record pass DB-CONN-001 "Database endpoint is reachable (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED})."
       else
@@ -425,9 +511,14 @@ if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
           record fail DB-CONN-001 "Database endpoint is not reachable (${DB_HOST_RESOLVED}:${DB_PORT_RESOLVED})." "Start database service or install one: PostgreSQL ${POSTGRES_INSTALL_URL} | MySQL ${MYSQL_INSTALL_URL} | MariaDB ${MARIADB_INSTALL_URL}"
         fi
         emit_db_install_action
+        db_create_ready=0
       fi
 
-      if [[ "$DB_DIALECT_RESOLVED" == "postgres" ]]; then
+      if [[ "$db_create_ready" == "1" ]] && ! ensure_db_created_if_requested; then
+        db_create_ready=0
+      fi
+
+      if [[ "$db_create_ready" == "1" && "$DB_DIALECT_RESOLVED" == "postgres" ]]; then
         if has_cmd psql; then
           if PGPASSWORD="$DB_PASSWORD_RESOLVED" psql -h "$DB_HOST_RESOLVED" -p "$DB_PORT_RESOLVED" -U "$DB_USER_RESOLVED" -d "$DB_DATABASE_RESOLVED" -c "select 1;" -tA >/dev/null 2>&1; then
             record pass DB-AUTH-001 "PostgreSQL auth probe succeeded."
@@ -437,7 +528,7 @@ if [[ "$DB_MODE_RESOLVED" == "existing" ]]; then
         else
           record warn DB-AUTH-001 "psql client is not available; skipped PostgreSQL auth probe." "Install psql for stronger preflight verification."
         fi
-      elif [[ "$DB_DIALECT_RESOLVED" == "mysql" || "$DB_DIALECT_RESOLVED" == "mariadb" ]]; then
+      elif [[ "$db_create_ready" == "1" && ( "$DB_DIALECT_RESOLVED" == "mysql" || "$DB_DIALECT_RESOLVED" == "mariadb" ) ]]; then
         if has_cmd mysql; then
           if MYSQL_PWD="$DB_PASSWORD_RESOLVED" mysql --protocol=TCP -h "$DB_HOST_RESOLVED" -P "$DB_PORT_RESOLVED" -u "$DB_USER_RESOLVED" -D "$DB_DATABASE_RESOLVED" --connect-timeout=5 -e "SELECT 1;" >/dev/null 2>&1; then
             record pass DB-AUTH-001 "MySQL/MariaDB auth probe succeeded."

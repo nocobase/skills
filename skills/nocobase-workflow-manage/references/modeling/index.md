@@ -1,6 +1,6 @@
 ---
 title: Workflow Architecture and Core Concepts
-description: Core data models, version control rules, variable syntax, status codes, and sync/async mode descriptions for workflows.
+description: Core data models, version control rules, variable syntax, and status codes for workflows.
 ---
 
 # Workflow Architecture and Core Concepts
@@ -46,18 +46,9 @@ For complete syntax rules, all variable groups, and usage examples, see [Common 
 
 If a variable points to a data table structure, the internal property paths match the table field names.
 
-## Sync and Async Modes
+## Execution Mode
 
-The `sync` field of a workflow determines the execution mode and **cannot be changed after creation**:
-
-| Mode | `sync` | Description |
-|---|---|---|
-| Async | `false` | Enters a queue after triggering, executes in the background, and does not block the request. Suitable for most scenarios. |
-| Sync | `true` | Executes immediately within the current request after triggering, and results can be returned directly to the caller. Suitable for scenarios requiring instant feedback (e.g., Webhooks, pre-operation interception). |
-
-Some trigger types have fixed execution modes (e.g., `schedule` can only be async); refer to the specific trigger documentation for details.
-
-In most cases, async mode is recommended for better performance and user experience. Use sync mode only when necessary for immediate feedback in the same action.
+The workflow execution mode is defined by the `sync` field on the `workflows` record. For the canonical description of sync vs async behavior, modeling guidance, and trigger capability constraints, see [workflows.md - Execution Mode](workflows.md#execution-mode).
 
 ## Status Codes
 

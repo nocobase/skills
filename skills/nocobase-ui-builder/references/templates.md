@@ -1,10 +1,10 @@
 # Templates
 
-Read this file when the task involves saving a reusable UI template, searching/selecting templates, applying a template during `add*` / `compose`, switching popup-template targets, converting a reference to copy mode, or reasoning about template `usageCount`.
+Read this file when the task involves saving a reusable UI template, searching/selecting templates, applying a template during `add*` / `compose`, editing content under an existing template reference, switching popup-template targets, converting a reference to copy mode, or reasoning about template `usageCount`.
 
 Canonical front door is `nocobase-ctl flow-surfaces`. JSON examples below default to the CLI raw body unless a block is explicitly labeled as MCP fallback. For CLI/MCP envelope mapping, see [tool-shapes.md](./tool-shapes.md). For popup-specific rules, see [popup.md](./popup.md). For general execution order, see [execution-checklist.md](./execution-checklist.md).
 
-This file is the single normative template-selection source for `nocobase-ui-builder`. If another reference file summarizes template behavior and conflicts with this file, follow this file and shorten the other file instead of duplicating rules.
+This file is the single normative template-selection and existing-reference edit-routing source for `nocobase-ui-builder`. If another reference file summarizes template behavior and conflicts with this file, follow this file and shorten the other file instead of duplicating rules.
 
 ## Public page blueprint vs low-level template APIs
 
@@ -36,6 +36,7 @@ This file is the single normative template-selection source for `nocobase-ui-bui
 Treat the task as entering the template path when it matches one of these scenes:
 
 - a relation/display field should click and open a standard details popup
+- business wording such as "all relation data should open detail popups", "relation displays inside the details block should also open popups", or "the popup should show that related record in a details block" counts as a strong cue for relation-details popup reuse when the same page contains both table/list-style relation displays and details-style relation displays
 - a standard CRUD-style popup should be reused under a known opener, for example `view`, `edit`, `addNew`, or another confirmed popup-capable action/field
 - a repeated form field layout should be reused under a host with compatible live collection/root-use context
 - the same task contains two or more structurally matching popup / block / fields scenes
@@ -57,9 +58,10 @@ Use structural signatures rather than wording alone when deciding whether two sc
 - `block`: compare block type, primary collection/resource/binding/association context, field order, record actions/actions, and behavior-changing settings. Ignore page-local titles, keys, and uids.
 - `popup`: compare opener type, popup block tree, primary resource/binding/association context, field order, and actions/recordActions. Ignore outer page metadata.
 - `fields`: compare host collection/root-use context, field order, renderer/popup/template behavior, and relevant field settings. Ignore host title and outer layout shell.
+- For standard relation-details popups, a table-cell/display-field opener and a details/read-only-field opener on the same page should still count as the same repeated popup scene when the relation/association context and popup details content are otherwise the same. Do not let that lightweight opener-shell difference block template probing or popup template seeding.
 - Only scenes with the same signature count as repeated. Similar wording alone is not enough when fields, actions, or data source semantics differ.
 
-Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and if semantic ranking still ties, use the smaller uid as the deterministic final tie-break. If the scene is repeated, or if it is a single standard reusable scene with strong context, and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
+Multiple discovered/available templates do **not** by themselves make the task inline-only. If the scene is reusable, rank candidates first, directly bind one highest-probability winner when the ranking is clear, and if semantic ranking still ties, preserve backend order and keep the first compatible row. If the scene is repeated, or if it is a single standard reusable scene with strong context, and contextual probing still finds no usable template, bootstrap the first concrete scene and save it as a template after successful readback instead of dropping the reuse plan.
 
 ## Path Boundaries
 
@@ -70,6 +72,21 @@ Multiple discovered/available templates do **not** by themselves make the task i
 - Do not bind `template` / `popup.template` from loose text search alone. Keyword-only search remains discovery-only. Binding still requires one contextual `list-templates` result that the backend marks usable for the planned scene.
 - If both live context and planning context are too weak to describe the intended reusable scene, template search stays discovery-only and the write path should remain unresolved or inline/non-template by default.
 
+## Popup Write Fallback
+
+- `list-templates` remains the planning truth source. `popup.tryTemplate` is only the write-time fallback that lets the backend attempt direct popup-template reuse when planning already decided the scene is eligible but the request does not carry one explicit popup template binding.
+- When no explicit `popup.template` is present, default to `popup.tryTemplate=true` for popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action / field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup blocks/layout may still remain as the miss fallback.
+- When the user explicitly wants the new local popup itself to become a reusable template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths instead of planning a second `save-template` call.
+- When contextual probing found no usable popup template and the current write already includes the first repeated popup as explicit local `popup.blocks`, prefer `popup.saveAsTemplate={ name, description }` on that first popup instead of deferring template creation to a second step after readback. This is the default bootstrap path for same-page repeated popup scenes too, especially repeated relation/details popups.
+- `popup.saveAsTemplate` requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
+- Backend matching stays server-owned:
+  - non-relation popup scene -> match non-relation popup templates only
+  - relation popup scene -> prefer the same relation / association-field popup template first, then fall back to a non-relation popup template
+  - if multiple candidates are still usable, the backend selects the first returned row; do not recreate or override that ranking in the skill
+- `popup.tryTemplate=true` does not replace contextual `list-templates`. Use contextual probing for planning, identity resolution, and user-visible decisions; use `popup.tryTemplate=true` only as the execution fallback when the write has no explicit `popup.template`.
+- If `popup.tryTemplate=true` misses and the request also includes local popup blocks/layout, the local popup content still wins. If it misses and there is no local popup content, let the normal backend fallback path continue instead of inventing a popup locally.
+- `popup.saveAsTemplate` only bootstraps that first local popup. Do not assume later sibling popups in the same request can already bind the freshly created template; keep later same-request siblings on `popup.tryTemplate=true`, local inline fallback, or a planned post-write localized rebind when one shared template reference must be visible immediately after the run.
+
 ## Task-level Multi-page Orchestration
 
 - `applyBlueprint` still creates or replaces one page at a time. If the user asks for several pages, decompose the task into sequential page runs.
@@ -78,6 +95,7 @@ Multiple discovered/available templates do **not** by themselves make the task i
 - Use `save-template` on that concrete scene, not on the page as a whole.
 - A same-task seed does **not** bypass contextual availability. Later pages must still call `list-templates` with the later page's live or planning context before binding.
 - If no same-task seed or existing template is contextually usable yet and the task contains a repeated scene, the first successful concrete block/popup/fields scene becomes the bootstrap source: save it immediately after readback, and when supported prefer `save-template(saveMode="convert")` so the first repeated instance also becomes a template reference.
+- For popup scenes only, if that first bootstrap source is already being created through a popup-capable write with explicit local `popup.blocks`, prefer the create-time shortcut `popup.saveAsTemplate={ name, description }` over a later standalone `save-template` call.
 - If no same-task seed or existing template is contextually usable and the scene appears only once, stay inline/non-template only when the scene is one-off/custom or the planning context is still weak. For single standard reusable scenes with strong context, prefer bootstrap-after-first-write instead.
 
 ### Same-task live reuse loop
@@ -115,7 +133,7 @@ Enter this table only when the task already matches a repeat-eligible reusable s
 | whole-page or localized flow | no explicit template, single occurrence only but one-off/custom | yes live/planned context | `0` | inline/non-template |
 | whole-page or localized flow | no explicit template | yes live/planned context | `1` | select that template, then choose `reference` or `copy` |
 | whole-page or localized flow | no explicit template | yes live/planned context | `>1`, stable best candidate exists | auto-select the best candidate, then choose `reference` or `copy` |
-| whole-page or localized flow | no explicit template | yes live/planned context | `>1`, semantic ranking still tied after ranking | auto-select the smallest uid as the final deterministic tie-break |
+| whole-page or localized flow | no explicit template | yes live/planned context | `>1`, semantic ranking still tied after ranking | preserve backend order and auto-select the first compatible row |
 
 ## Automatic Selection Rule
 
@@ -127,7 +145,7 @@ Use the decision table above as the normative router. When the chosen row still 
 4. filter to the intended `type` / `usage` / opener/resource context
 5. keep only rows with `available = true`
 6. rank the remaining candidates using the stable best-candidate rule below
-7. automatic binding is allowed when one top candidate wins that ranking, or when the remaining semantic tie is resolved by the smallest uid
+7. automatic binding is allowed when one top candidate wins that ranking, or when the remaining semantic tie is resolved by backend order and the first compatible row
 
 Interpretation rules:
 
@@ -140,7 +158,7 @@ Interpretation rules:
 - If zero candidates are `available = true` and the task already contains a repeated popup / block / fields scene, bootstrap the first concrete repeated scene and save it as a template after successful readback instead of dropping the reuse plan.
 - If zero candidates are `available = true` and the scene appears only once, continue without a template only when it is one-off/custom or the context is still weak. For a single standard reusable scene with strong context, bootstrap it after the first successful write and save the template immediately.
 - If multiple candidates are `available = true`, do **not** stop early just because the count is greater than one. First apply the stable best-candidate ranking and directly bind the highest-probability winner when it is clear.
-- If the top candidates still tie on semantic ranking, use the smaller uid as the final deterministic tie-break instead of inventing another heuristic.
+- If the top candidates still tie on semantic ranking, keep the backend returned order and use the first compatible row instead of inventing another heuristic.
 
 ## Stable Best-candidate Ranking
 
@@ -153,9 +171,9 @@ When more than one `available = true` candidate remains, rank them in this exact
 5. better name/description match to the current business scene and entity wording
 6. exact remaining structure match for the planned scene (`collection`, `resource`, `association`, `root use`, and equivalent backend-supported context filters)
 7. higher `usageCount`
-8. smaller template `uid` as the final deterministic tie-break
+8. backend returned order as the final deterministic tie-break
 
-If the available data still leaves the top candidates equal on semantic ranking after steps 1-7, use step 8 (`smaller template uid`) as the final deterministic winner.
+If the available data still leaves the top candidates equal on semantic ranking after steps 1-7, use step 8 (backend returned order) and keep the first compatible row as the final deterministic winner.
 
 ## Default Model Behavior
 
@@ -164,9 +182,9 @@ If the available data still leaves the top candidates equal on semantic ranking 
 3. If no explicit template was provided and the request falls into a repeat-eligible scene, call `list-templates` first. This applies to whole-page drafts too.
 4. Prefer rows with `available = true`, then rank them with the stable best-candidate rule. Auto-bind when one winner remains.
 5. Once one concrete template is both resolved and contextually usable, decide `mode`. Default selected templates to `reference`; switch to `copy` only when the request clearly asks for local customization / detachment.
-6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, or it contains one single standard reusable scene with strong context, bootstrap the earliest concrete scene and save it as a template after successful readback so later matching scenes can reuse it. Prefer `saveMode="convert"` when supported so the first reusable instance also becomes a template reference.
+6. If no concrete template was selected because zero usable templates exist but the task already contains a repeated popup/block/fields scene, or it contains one single standard reusable scene with strong context, bootstrap the earliest concrete scene and save it as a template so later matching scenes can reuse it. For popup-capable writes that already carry explicit local `popup.blocks`, prefer create-time `popup.saveAsTemplate={ name, description }`; otherwise save it after successful readback. Prefer `saveMode="convert"` when supported so the first reusable instance also becomes a template reference.
 7. Otherwise, if no concrete template was selected, or current-context availability is not proven, stay inline/non-template unless the user explicitly requires that template and is waiting on a compatibility explanation.
-8. If the top candidates still tie on semantic ranking, use the smaller uid as the final deterministic winner instead of falling back to inline content or asking.
+8. If the top candidates still tie on semantic ranking, keep the backend returned order and use the first compatible row as the final deterministic winner instead of falling back to inline content or asking.
 9. Only use documented template entry points (`list-templates`, `get-template`, `save-template`, `update-template`, `destroy-template`, `convert-template-to-copy`, `add-*`, `compose`, `configure`). Do not patch hidden template fields manually.
 
 ## Search and Selection
@@ -212,6 +230,7 @@ When the skill auto-creates a template because a repeated scene had no usable ex
 - Keep `name` human-facing and concise, for example `角色表格`, `角色详情弹窗`, or `User edit form fields`.
 - Put most structural and search information in `description`, not in `name`.
 - `description` should include the reusable scene, collection/resource/association context, key fields, key actions/recordActions, default mode, and an `auto-generated by nocobase-ui-builder` marker when that template was created automatically.
+- For popup seeds, include the opener/resource or relation context in `name`/`description`, for example `角色详情弹窗` or `借阅记录-图书详情弹窗`, so later contextual `list-templates` search can rank it higher.
 - Avoid timestamps or hashes in `name` unless they are the minimum needed to resolve a real name collision after signature comparison.
 
 ## Read or Refine Template Metadata
@@ -231,6 +250,42 @@ Choose the mode only after a template is actually selected:
 - use inline/non-template content when the scene appears only once, the context is discovery-only, no template is available, or the scene is obviously one-off/custom
 
 Do not silently turn a clear local-customization request into `reference`.
+
+## Existing-reference Edit Routing
+
+This section governs **localized edits on existing surfaces that already expose a template reference**. It is separate from template discovery/selection for new bindings.
+
+Default principles:
+
+- If the user is editing template-owned content under an existing template reference, default to editing the **template source**.
+- Page-scoped wording such as "这个页面里的字段", "把这个页面的 X 去掉", or a direct page URL does **not** by itself mean local-only behavior. If live readback shows the edited content belongs to a referenced template subtree, keep the default route on the template source.
+- Keep current host / opener / `openView` wrapper settings local to the current instance unless the user explicitly asks to change the shared template instead.
+- Only use `convert-template-to-copy` when the user clearly wants local-only behavior, detachment, or copy mode.
+- Do not use `copy` as a safety fallback just because the user did not mention templates explicitly, because the request was phrased around one page, or because detaching feels safer.
+- If live readback still cannot distinguish template-owned content from current-instance host / opener / `openView` config, stop and clarify instead of auto-detaching to `copy`.
+- Popup-template switching through `configure(changes.openView.template)` is a separate route from editing the current template source.
+- Current local helper/template-selection flow only covers template discovery/binding. It does **not** decide localized existing-reference edit routing.
+
+Template-owned content defaults:
+
+- popup inner blocks, fields, details items, layout, and actions
+- structure/layout/fields/actions inside a referenced block template
+- imported form-grid fields inside a referenced fields template
+
+Host-local defaults:
+
+- current opener title, drawer/modal mode, size, and outer `openView` wrapper config
+- `clickToOpen` and similar current-instance trigger behavior
+- parent-page placement, sibling order, or other surrounding layout outside the referenced template subtree
+
+Use this routing table before writing:
+
+| user intent on an existing reference | result | default write target |
+| --- | --- | --- |
+| edit template-owned popup / block / fields content | `edit-template-source` | resolve the template through `get-template`, then write the template `targetUid` subtree |
+| edit current-instance opener/host config only | `edit-host-local-config` | keep the write on the current live opener / host target |
+| switch an existing popup opener to another popup template | `switch-template-reference` | `configure(changes.openView.template)` on the current opener |
+| explicit “只改当前这个” / “不要影响别处” / `copy` / detach intent | `detach-to-copy` | `convert-template-to-copy`, then edit the detached local content |
 
 ## CLI-first Request Shapes
 
@@ -440,9 +495,13 @@ Use popup templates through the popup-capable creation entry points:
 - `add-field` / `add-fields` via `popup.template`
 - `compose` action / field specs via `popup.template`
 
+When the goal is "create this popup and immediately keep it as a reusable template seed", use `popup.saveAsTemplate={ name, description }` on those same create-time popup entry points and on whole-page `applyBlueprint` inline popup specs. The backend will save the local popup as a popup template and convert the created popup to that template reference immediately.
+
 Use inline `popup.blocks/layout` only when the user wants local popup content rather than template reuse.
 
 For public `applyBlueprint`, keep the same rule: use inline `popup` / `popup.template` only, never low-level popup-retarget config shapes.
+
+When no explicit `popup.template` is present, prefer `popup.tryTemplate=true` on those popup-capable write paths instead of inventing a guessed template uid. Local popup content may remain as the miss fallback. Keep the final planning/preview explanation grounded in contextual `list-templates`, not in local compatibility guesses.
 
 ## Update an Existing Popup Template Reference
 
@@ -455,6 +514,8 @@ Use this when the user says things like:
 
 Do not generalize this rule to block or fields-template references. Those should not be treated as freely retargetable after creation.
 
+When the caller wants the backend to attempt automatic popup-template reuse on an existing opener without naming one exact template, `flowSurfaces apply` popup specs and low-level `configure(changes.openView.tryTemplate=true)` are the corresponding execution fallback paths. Keep planning/identity decisions on `list-templates`; use `openView.tryTemplate` only as the write-time fallback.
+
 ## Reference vs Copy
 
 ### `reference`
@@ -462,7 +523,8 @@ Do not generalize this rule to block or fields-template references. Those should
 - Keeps a live link to the saved template
 - Usually increases `usageCount`
 - Block / fields references should not be retargeted by arbitrary config writes
-- Referenced popup content is effectively read-only until you either detach it or switch popup template through the supported popup-config path
+- Referenced content is not edited as ad-hoc local inline content; default localized edits should resolve to the template source unless the user explicitly asks for local-only behavior
+- Popup openers may still switch to another popup template through the supported popup-config path when the user explicitly asks to switch templates
 
 ### `copy`
 
@@ -482,8 +544,8 @@ Supported result `type` values:
 
 Default guidance:
 
-- For block / fields references: this is the normal escape hatch before editing the reused content
-- For popup references: use this when the user wants to edit popup inner blocks locally, or when an explicit detach is preferable to switching templates
+- For block / fields references: use this only when the user explicitly wants local-only edits or detachment from the shared template
+- For popup references: use this only when the user explicitly wants current-instance popup content to diverge locally, or when detach is preferable to switching templates
 
 After conversion:
 
@@ -508,7 +570,8 @@ When removing pages, tabs, popup tabs, blocks, fields, or popup openers that car
 - Do not write raw template uid/mode fields directly into low-level step params or model settings
 - Do not use `openView.uid` as the default popup reuse mechanism
 - Do not assume block, fields, and popup templates share the same retargeting rules after creation
-- Do not mutate popup inner blocks of a referenced popup template directly; detach first unless the requested change is specifically switching to another popup template through the supported config path
+- Do not assume every edit on a referenced template should start by detaching to `copy`
+- Do not treat referenced popup/block/fields content as anonymous local inline content; either resolve and edit the template source, switch templates through the supported popup-config path, or detach only for explicit local-only intent
 - Do not skip `list-templates` when template discovery is the real task
 - Do not skip whole-page template probing just because there is no live `target.uid`
 - Do not auto-bind a template from loose discovery results in whole-page `create` / `replace`; binding must still come from one contextual backend result plus the stable best-candidate rule

@@ -1,0 +1,62 @@
+# JS Reference Index
+
+Read this file when you need the copied upstream JS docs for capability discovery, `ctx.*` API lookup, or scenario examples.
+
+This file is the bridge between two layers:
+
+- Patched upstream snapshot in [`./upstream-js/`](./upstream-js/interface-builder/runjs.md): product/runtime capability docs copied from the source repo and lightly adapted with skill-mode guardrails, useful for examples, `ctx` APIs, and scenario descriptions.
+- Skill contract in [js.md](./js.md), [runjs-runtime.md](./runjs-runtime.md), and [reaction.md](./reaction.md): validator rules, model selection, CLI/runtime constraints, and actual write payload rules.
+
+The patched upstream snapshot is still only a progressive-disclosure reference layer. It does **not** replace the skill write contract.
+
+## Quick Route
+
+| Need | Read first | Then |
+| --- | --- | --- |
+| which JS authoring surface exists at all | [upstream-js/interface-builder/runjs.md](./upstream-js/interface-builder/runjs.md) | [upstream-js/runjs/index.md](./upstream-js/runjs/index.md) |
+| JS Block code | [upstream-js/interface-builder/blocks/other-blocks/js-block.md](./upstream-js/interface-builder/blocks/other-blocks/js-block.md) | specific `ctx` pages under [`upstream-js/runjs/context/`](./upstream-js/runjs/context/render.md) |
+| JS Action code | [upstream-js/interface-builder/actions/types/js-action.md](./upstream-js/interface-builder/actions/types/js-action.md) | [upstream-js/runjs/context/request.md](./upstream-js/runjs/context/request.md), [upstream-js/runjs/context/form.md](./upstream-js/runjs/context/form.md), [upstream-js/runjs/context/resource.md](./upstream-js/runjs/context/resource.md) as needed |
+| action-bar custom JS item | [upstream-js/interface-builder/actions/types/js-item.md](./upstream-js/interface-builder/actions/types/js-item.md) | matching `ctx` pages under [`upstream-js/runjs/context/`](./upstream-js/runjs/context/render.md) |
+| form custom JS item | [upstream-js/interface-builder/fields/specific/js-item.md](./upstream-js/interface-builder/fields/specific/js-item.md) | [upstream-js/runjs/context/form.md](./upstream-js/runjs/context/form.md) and [upstream-js/runjs/context/render.md](./upstream-js/runjs/context/render.md) |
+| JS Field / editable field | [upstream-js/interface-builder/fields/specific/js-field.md](./upstream-js/interface-builder/fields/specific/js-field.md) | [upstream-js/runjs/context/get-value.md](./upstream-js/runjs/context/get-value.md), [upstream-js/runjs/context/set-value.md](./upstream-js/runjs/context/set-value.md), [upstream-js/runjs/context/form.md](./upstream-js/runjs/context/form.md) |
+| JS Column | [upstream-js/interface-builder/fields/specific/js-column.md](./upstream-js/interface-builder/fields/specific/js-column.md) | [upstream-js/runjs/context/render.md](./upstream-js/runjs/context/render.md), [upstream-js/runjs/context/resource.md](./upstream-js/runjs/context/resource.md) |
+| Event Flow `Execute JavaScript` | [upstream-js/interface-builder/event-flow.md](./upstream-js/interface-builder/event-flow.md) | return to [settings.md](./settings.md) for `set-event-flows` before writing |
+| Linkage / field values / action state JS | [upstream-js/interface-builder/linkage-rule.md](./upstream-js/interface-builder/linkage-rule.md) | [upstream-js/interface-builder/blocks/block-settings/field-linkage-rule.md](./upstream-js/interface-builder/blocks/block-settings/field-linkage-rule.md), [upstream-js/interface-builder/blocks/block-settings/block-linkage-rule.md](./upstream-js/interface-builder/blocks/block-settings/block-linkage-rule.md), [upstream-js/interface-builder/actions/action-settings/linkage-rule.md](./upstream-js/interface-builder/actions/action-settings/linkage-rule.md), then [reaction.md](./reaction.md) |
+| available variables in UI-builder scenarios | [upstream-js/interface-builder/variables.md](./upstream-js/interface-builder/variables.md) | relevant `ctx` pages when code needs the runtime equivalent |
+
+## `ctx.*` Lookup
+
+When you already know the scenario and only need a specific runtime API:
+
+- rendering: [ctx.render()](./upstream-js/runjs/context/render.md), [ctx.element](./upstream-js/runjs/context/element.md)
+- form state: [ctx.form](./upstream-js/runjs/context/form.md), [ctx.getValue()](./upstream-js/runjs/context/get-value.md), [ctx.setValue()](./upstream-js/runjs/context/set-value.md)
+- requests/resources: [ctx.request()](./upstream-js/runjs/context/request.md), [ctx.initResource()](./upstream-js/runjs/context/init-resource.md), [ctx.resource](./upstream-js/runjs/context/resource.md), [ctx.makeResource()](./upstream-js/runjs/context/make-resource.md)
+- navigation/view metadata: [ctx.route](./upstream-js/runjs/context/route.md), [ctx.router](./upstream-js/runjs/context/router.md), [ctx.view](./upstream-js/runjs/context/view.md)
+- external modules/libs: [ctx.importAsync()](./upstream-js/runjs/context/import-async.md), [ctx.requireAsync()](./upstream-js/runjs/context/require-async.md), [ctx.libs](./upstream-js/runjs/context/libs.md)
+- feedback/i18n: [ctx.message](./upstream-js/runjs/context/message.md), [ctx.notification](./upstream-js/runjs/context/notification.md), [ctx.t()](./upstream-js/runjs/context/t.md), [ctx.i18n](./upstream-js/runjs/context/i18n.md)
+- model/context shape: [ctx.model](./upstream-js/runjs/context/model.md), [ctx.blockModel](./upstream-js/runjs/context/block-model.md), [ctx.collection](./upstream-js/runjs/context/collection.md), [ctx.collectionField](./upstream-js/runjs/context/collection-field.md)
+
+## Skill-Mode Rewrites
+
+When reading copied upstream docs, rewrite the following patterns before you treat them as final skill output:
+
+- strict render models must end in an explicit `ctx.render(...)`; do not ship examples that only mutate `ctx.element.innerHTML`, `replaceChildren(...)`, or DOM nodes without a final render call
+- do not emit `ctx.openView(...)` as final code under this skill; the local validator blocks it. Prefer field popup / popup action / event-flow configuration outside JS
+- for `ctx.request()` / `ctx.api.request()`, use `http/https` URLs under skill-mode; for NocoBase resource access prefer `ctx.initResource(...) + ctx.resource` or `ctx.makeResource(...)`
+- prefer `ctx.initResource(...)` + `ctx.resource` over upstream examples that use `ctx.createResource(...)` or `ctx.useResource(...)`
+
+## Progressive Disclosure Order
+
+1. Start in [js.md](./js.md) to decide the correct JS model and skill-side constraints.
+2. Open the matching upstream scenario page under [`./upstream-js/interface-builder/`](./upstream-js/interface-builder/runjs.md) for examples and expected runtime behavior.
+3. Open only the needed `ctx` pages under [`./upstream-js/runjs/context/`](./upstream-js/runjs/context/render.md).
+4. Return to [runjs-runtime.md](./runjs-runtime.md) before validation.
+5. Return to [settings.md](./settings.md) before any event-flow write.
+6. Return to [reaction.md](./reaction.md) before any linkage / field-value / action-state write.
+
+## Important Boundary
+
+- The upstream snapshot describes product/runtime behavior and authoring examples.
+- The skill contract is stricter in several places: validator gate, runtime-model choice, skill-mode network policy, and strict `ctx.render(...)` requirements. Those rules stay in [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md).
+- Event Flow `Execute JavaScript` and linkage-rule pages are reference material for author intent and available context, not the final write contract for this skill.
+- For actual field value, linkage, block linkage, or action linkage payloads, [reaction.md](./reaction.md) remains authoritative.

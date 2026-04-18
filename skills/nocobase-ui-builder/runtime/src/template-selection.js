@@ -678,14 +678,15 @@ export function selectTemplateDecision({
   const sceneSearchTerms =
     probe?.querySummary?.searchTerms?.length ? probe.querySummary.searchTerms : buildDerivedSearchTerms(scene);
   const rankedCandidates = usableCandidates
-    .map((candidate) => ({
+    .map((candidate, index) => ({
       candidate,
+      index,
       scoreVector: buildScoreVector(candidate, scene, explicit, sceneSearchTerms),
     }))
     .sort((left, right) => {
       const byScore = compareScoreVectors(left.scoreVector, right.scoreVector);
       if (byScore !== 0) return byScore;
-      return left.candidate.uid.localeCompare(right.candidate.uid);
+      return left.index - right.index;
     });
 
   const best = rankedCandidates[0];

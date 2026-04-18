@@ -22,13 +22,15 @@ If users do not specify details, default behavior is:
 - `db_mode=bundled`
 - `db_dialect=postgres`
 - `db_underscored=false`
-- `release_channel=latest`
+- `release_channel=latest` (fallback default)
 - `port=13000`
 - `cli_env_name=local`
 - `cli_auth_mode=oauth`
 - `cli_token_env=NOCOBASE_API_TOKEN`
 
 The default flow does **not** ask whether MCP should be connected.
+
+For docker install, when user does not explicitly provide `release_channel`, the skill must ask one short clarification first and recommend `alpha` because current AI build capabilities are more complete in alpha.
 
 ## Docker Local-First Rule
 
@@ -58,13 +60,13 @@ Install script writes `.nocobase-install-method` in the app directory (`docker`,
 Windows:
 
 ```powershell
-powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-underscored <true|false> --project-name <name>
+powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
 
 Linux/macOS:
 
 ```bash
-bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-underscored <true|false> --project-name <name>
+bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
 
 Database policy:
@@ -72,6 +74,9 @@ Database policy:
 - `docker` default uses bundled DB (`db_mode=bundled`).
 - If user provides DB connection inputs on docker path, script auto-switches to `db_mode=existing`.
 - `create-nocobase-app` / `git` always require external DB (`db_mode=existing`) with `db_dialect=postgres|mysql|mariadb`.
+- For external DB mode, choose `db_database_mode`:
+  - `existing`: connect to the provided database directly.
+  - `create`: create database first, then connect/verify.
 - For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask user `DB_UNDERSCORED` preference. Default is `false`.
 - If DB is not available, stop and ask user to install one:
   - PostgreSQL: <https://www.postgresql.org/download/>
@@ -82,11 +87,12 @@ Database policy:
 ## Quick Install Flow
 
 1. Run preflight and ensure no blocking failure.
-2. Pick local compose template by `db_mode + db_dialect`.
-3. Set required variables (`APP_KEY` required and random, optional `APP_PORT`, optional `NOCOBASE_APP_IMAGE`; for local DB hosts confirm `DB_UNDERSCORED`, default `false`).
-4. Run local install script for docker path.
-5. Verify logs and login URL.
-6. Run CLI bootstrap final stage:
+2. If docker `release_channel` is missing from user input, ask one short clarification and recommend `alpha`; accept `alpha/latest/beta`.
+3. Pick local compose template by `db_mode + db_dialect`.
+4. Set required variables (`APP_KEY` required and random, optional `APP_PORT`, optional `NOCOBASE_APP_IMAGE`; for local DB hosts confirm `DB_UNDERSCORED`, default `false`).
+5. Run local install script for docker path.
+6. Verify logs and login URL.
+7. Run CLI bootstrap final stage:
 - ensure dependency plugins are active first (auth-mode bundle):
   - oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
   - token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
@@ -107,25 +113,26 @@ $env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
 export APP_KEY="$(openssl rand -hex 32)"
 ```
 
-Docker install script example:
+Docker install script example (recommended when AI build capabilities are needed):
 
 ```bash
-bash scripts/install.sh --method docker --target-dir . --release-channel latest --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
+bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
 ```
 
 Docker with existing DB example:
 
 ```bash
-bash scripts/install.sh --method docker --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase
+bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase
 ```
 
 Preflight examples with explicit method:
 
 ```bash
 bash scripts/preflight.sh 13000 docker bundled postgres
-bash scripts/preflight.sh 13000 docker existing postgres
-bash scripts/preflight.sh 13000 create-nocobase-app existing postgres
-bash scripts/preflight.sh 13000 git existing mysql
+bash scripts/preflight.sh 13000 docker existing postgres existing
+bash scripts/preflight.sh 13000 docker existing postgres create
+bash scripts/preflight.sh 13000 create-nocobase-app existing postgres create
+bash scripts/preflight.sh 13000 git existing mysql existing
 ```
 
 ## Upgrade Script Entrypoints

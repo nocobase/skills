@@ -24,7 +24,7 @@ description: "Intercepts before data operation requests are executed, suitable f
 | --- | --- | --- | --- | --- |
 | collection | string | - | Yes | The data table to monitor, format is `"<dataSource>:<collection>"` (e.g., `"posts"` / `"mysql:orders"`; `dataSource` can be omitted when using the main data source). |
 | global | boolean | false | No | Trigger mode: `false` Local mode (requires button binding), `true` Global mode (automatically effective for selected actions). |
-| actions | string[] | - | Required only in Global mode | Action types to monitor in Global mode, supported: `"create"`, `"update"`, `"destroy"`. |
+| actions | string[] | - | Required only in Global mode | Action types to monitor in Global mode, supported: `"create"`, `"update"`, `"destroy"`. Commonly, only one action is used in one workflow, and this could make the logic clear. |
 
 ## Trigger Mode Details
 
@@ -44,9 +44,40 @@ description: "Intercepts before data operation requests are executed, suitable f
 - Global mode workflows execute in ascending order of workflow ID.
 - Once any workflow intercepts the request, subsequent workflows are not executed.
 
+## UI Setup for Local Mode
+
+When `global = false`, this trigger only runs on buttons that are explicitly bound to the workflow.
+
+- Supported UI entry points:
+  - Create-form `Submit` / `Save` buttons.
+  - Edit-form `Submit` / `Save` buttons.
+  - Record-level `Update data` actions that submit an edit form.
+  - `Delete` buttons.
+- Not supported:
+  - `Trigger workflow` buttons. Those are reserved for the `custom-action` trigger.
+- If the page or button still needs to be added, use:
+  - [UI builder recipe - forms and actions](../../../nocobase-ui-builder/references/recipes/forms-and-actions.md)
+  - [UI builder settings - add-action](../../../nocobase-ui-builder/references/settings.md#add-action)
+  - [UI builder settings - add-record-action](../../../nocobase-ui-builder/references/settings.md#add-record-action)
+
+### Binding Steps
+
+1. Create the workflow as `request-interception`, configure `collection`, and keep `global = false`.
+2. Enable the workflow; disabled workflows are not selectable from the binding dialog.
+3. Open the target page/block and locate the button whose request should be intercepted.
+4. Open the button settings and choose `Bind workflows`.
+5. Add a binding row.
+6. Select the enabled pre-action workflow whose `config.collection` matches the selected context collection.
+7. Save the binding and page/schema changes, then test both pass-through and intercepted cases from the UI.
+
+### Global Mode Note
+
+When `global = true`, no UI binding is needed. Any matching request on the configured collection and selected `actions` set is intercepted automatically.
+
 ## Interception Mechanism
-- Flow completes normally (status: resolved): The request is allowed through, and the original operation continues.
-- Flow is terminated by an "End Process" node with failure status: The request is intercepted, returning a 400 error with relevant error messages.
+- Flow completes normally (status: resolved, and without any end nodes executed): The request is allowed through, and the original operation continues.
+- Flow is terminated by an "End Process" node with failure status: The request is intercepted, returning a 400 error with relevant error messages. This is most commonly used to block requests that fail validation or do not meet certain business requirements.
+- Flow is terminated by an "End Process" node with success status: The request is intercepted, returning a 200 with relevant success messages. This can be used to block default operations while still returning a successful response, for example, to implement custom logic that prevents certain updates without treating them as errors.
 - Flow execution error: Returns a 500 error.
 
 ## Example Configuration

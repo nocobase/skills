@@ -9,9 +9,10 @@ MCP checks are executed only for explicit `task=mcp-connect`.
 
 Preflight must run with explicit `install_method` context:
 
-- Windows: `powershell -File scripts/preflight.ps1 -InstallMethod <docker|create-nocobase-app|git> -DbMode <bundled|existing> -DbDialect <postgres|mysql|mariadb>`
-- Linux/macOS: `bash scripts/preflight.sh 13000 <docker|create-nocobase-app|git> <bundled|existing> <postgres|mysql|mariadb>`
+- Windows: `powershell -File scripts/preflight.ps1 -InstallMethod <docker|create-nocobase-app|git> -DbMode <bundled|existing> -DbDialect <postgres|mysql|mariadb> -DbDatabaseMode <existing|create>`
+- Linux/macOS: `bash scripts/preflight.sh 13000 <docker|create-nocobase-app|git> <bundled|existing> <postgres|mysql|mariadb> <existing|create>`
 - When `DbMode=existing`, `DbDialect` must be `postgres`, `mysql`, or `mariadb`.
+- When `DbMode=existing`, `DbDatabaseMode=create` means create database first, then run auth/connectivity checks.
 
 ## Blocking Checks
 
@@ -40,6 +41,9 @@ Preflight must run with explicit `install_method` context:
   - `DB_USER`
   - `DB_PASSWORD`
 - For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), confirm `DB_UNDERSCORED` preference. Default: `false`.
+- For external DB mode, choose DB bootstrap mode:
+  - `existing`: verify existing database directly.
+  - `create`: create database first, then verify connectivity/auth.
 - Verify DB endpoint reachability (`DB_HOST:DB_PORT`) before install.
 - If DB is missing, stop and provide official install guidance:
   - PostgreSQL: <https://www.postgresql.org/download/>

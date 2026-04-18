@@ -24,7 +24,7 @@ Choosing different processing branches based on status/level, similar to switch/
 ### Structure of conditions item
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| uid | string | None | No | Unique identifier for the conditional branch, mainly used for front-end display; recommended to provide. |
+| uid | string | None | No | Unique identifier for the conditional branch, mainly used for front-end display; recommended to provide. If no value already exists, follow [nocobase-utils UID generation](../../../nocobase-utils/references/uid/index.md) to resolve the shared helper path first, then run `node <resolved-path-to-uid.js>` and write the generated value into the config. |
 | title | string | None | No | Title of the conditional branch; defaults to "Condition X" if not set. |
 | engine | string | basic | Yes | Calculation engine: `basic`, `math.js`, `formula.js`. See [evaluator engine reference](../../../nocobase-utils/references/evaluators/index.md) for engine selection guidance. |
 | calculation | object | None | Yes (engine=basic) | Used when `engine=basic`, structure same as `calculation` in the Condition node. |
@@ -38,12 +38,20 @@ Choosing different processing branches based on status/level, similar to switch/
 - Each branchIndex value can appear at most once.
 - When adding a new condition branch, pick the next integer after the current maximum.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
+## UID-backed Configuration Rule
+
+- Keep an existing `conditions[].uid` value if the source payload already has one.
+- Otherwise generate it first by following [nocobase-utils UID generation](../../../nocobase-utils/references/uid/index.md). Do not leave placeholder values such as `c1` or `condition-1` in the final payload when a real config UID is needed.
+
 ## Example Configuration
 ```json
 {
   "conditions": [
     {
-      "uid": "c1",
+      "uid": "<pre-generated uid if missing>",
       "title": "Approved",
       "engine": "basic",
       "calculation": {
@@ -59,7 +67,7 @@ Choosing different processing branches based on status/level, similar to switch/
       }
     },
     {
-      "uid": "c2",
+      "uid": "<pre-generated uid if missing>",
       "title": "Total > 1000",
       "engine": "math.js",
       "expression": "{{ $context.data.total }} > 1000"

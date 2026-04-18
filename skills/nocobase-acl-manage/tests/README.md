@@ -23,6 +23,27 @@ node ./scripts/run-ctl.mjs -- --help
 node ./scripts/run-ctl.mjs -- env update -e local
 ```
 
+Before ACL writes, run execution guard in one locked base-dir:
+
+```bash
+node ./scripts/run-ctl.mjs --base-dir . -- env -s project
+node ./scripts/run-ctl.mjs --base-dir . -- acl --help
+node ./scripts/run-ctl.mjs --base-dir . -- acl roles --help
+```
+
+If guard fails, stop writes and follow recovery guidance. Do not create temporary executor scripts.
+
+Verify wrapper payload guard for independent resource writes (expected to fail fast before execution):
+
+```bash
+node ./scripts/run-ctl.mjs -- acl roles data-source-resources update --data-source-key main --role-name reader --collection-name users --filter-by-tk 1 --body '{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}' -j
+```
+
+Expected behavior:
+
+- command is blocked by wrapper validation
+- error message indicates missing `scopeId` for scoped action and provides correction hints
+
 Use `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=.` to verify current env context before ACL writes.
 
 If there is no current env, bootstrap first:

@@ -33,13 +33,13 @@ Use skill-local scripts and templates directly:
 Windows:
 
 ```powershell
-powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-underscored <true|false> --project-name <name>
+powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
 
 Linux/macOS:
 
 ```bash
-bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-underscored <true|false> --project-name <name>
+bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
 
 Do not fetch install command snippets from web pages during execution.
@@ -60,20 +60,36 @@ Post-install marker:
 1. `docker` default: `db_mode=bundled` (uses bundled db service template).
 2. `docker` with user DB inputs (`DB_HOST` etc.) or explicit `db_mode=existing`: switch to external DB template.
 3. `create-nocobase-app` / `git`: always require external DB (`db_mode=existing`), and must use `db_dialect=postgres|mysql|mariadb`.
-4. For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask `DB_UNDERSCORED` preference; default to `false` when omitted.
-5. When DB is missing, stop and ask user to install PostgreSQL, MySQL, or MariaDB first:
+4. For external DB mode, choose `db_database_mode`:
+- `existing`: verify existing database directly.
+- `create`: create database first, then run auth/connectivity checks.
+5. For local DB hosts (`localhost`, `127.0.0.1`, `::1`, `host.docker.internal`), ask `DB_UNDERSCORED` preference; default to `false` when omitted.
+6. When DB is missing, stop and ask user to install PostgreSQL, MySQL, or MariaDB first:
 - PostgreSQL: <https://www.postgresql.org/download/>
 - MySQL install docs: <https://dev.mysql.com/doc/en/installing.html>
 - MySQL downloads: <https://dev.mysql.com/downloads/mysql>
 - MariaDB downloads: <https://mariadb.org/download/>
+
+## Docker Release Channel Clarification
+
+For `task=install` with `install_method=docker`:
+
+1. If user explicitly provides `release_channel`, keep it and do not re-ask.
+2. If user does not provide channel, ask one short clarification question before install:
+- "Docker default is `latest`, but current AI build capabilities are more complete in `alpha`. Install `alpha` now?"
+3. Accept only `alpha`, `latest`, or `beta`.
+4. If user emphasizes stability/production preference, choose `latest`.
+5. Record `release_channel_source` as `user_explicit`, `clarified`, or `default_fallback`.
 
 ## Quick Mode (Recommended)
 
 Inputs:
 
 - release channel (`latest`, `beta`, `alpha`)
+- for docker when channel is not explicit, ask clarification and recommend `alpha`
 - database mode (`bundled` default for docker)
 - database dialect (`postgres`, `mysql`, `mariadb`; default `postgres`)
+- database bootstrap mode (`db_database_mode`: `existing` or `create`)
 - target directory
 
 Flow:
@@ -95,10 +111,10 @@ $env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
 export APP_KEY="$(openssl rand -hex 32)"
 ```
 
-Core command pattern (Docker):
+Core command pattern (Docker, recommended when AI build capabilities are needed):
 
 ```bash
-bash scripts/install.sh --method docker --target-dir . --release-channel latest --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
+bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
 ```
 
 ## Standard Mode

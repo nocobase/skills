@@ -24,6 +24,9 @@ Calling multiple third-party interfaces simultaneously and aggregating the resul
 The parallel node opens multiple branches:
 - `branchIndex` is a positive integer (starting from 1), with each branch corresponding to a parallel process.
 
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
 ## Example Configuration
 ```json
 {

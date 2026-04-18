@@ -6,6 +6,16 @@ All operations should use CLI commands instead of MCP JSON-RPC.
 Execute ACL commands through skill-local wrapper:
 
 - `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`
+- wrapper passthrough must start with a command token (for example `env`, `acl`, `resource`) before flags.
+- do not start passthrough with flags such as `-e/-t/-j`; this is an invalid command assembly.
+- wrong: `node ./scripts/run-ctl.mjs -- -e local`
+- correct: `node ./scripts/run-ctl.mjs -- resource list --resource users -e local -j`
+- wrapper must preflight-validate independent resource policy writes:
+  - target commands: `acl roles data-source-resources create|update`
+  - require `--body` JSON with `usingActionsConfig=true` and non-empty `actions[]`
+  - require non-empty `fields[]` for `create/view/update/export/importXlsx`
+  - require non-null positive `scopeId` for `view/update/destroy/export/importXlsx`
+  - fail fast before CLI execution when payload is malformed
 
 Resolve current env context through bootstrap skill app-manage:
 
@@ -17,6 +27,7 @@ Because runtime commands are generated from swagger, command names can vary by b
 
 Prerequisite gate before runtime discovery:
 
+0. Lock one `base-dir` for the whole task (do not switch base-dir mid-task).
 1. Run `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<target_dir>` to get `current_env_name`.
 2. If there is no current env, add/use one first:
    - local URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<local_url> app_scope=project target_dir=<target_dir>`
@@ -27,6 +38,10 @@ Prerequisite gate before runtime discovery:
    - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
    - restart app before rerun.
 5. If output shows `401/403/Auth required`, ensure `@nocobase/plugin-api-keys` is active and refresh token env first.
+6. If `acl --help` or `acl roles --help` still fails in this same `base-dir`, fail closed:
+   - stop write execution
+   - emit recovery guidance
+   - do not use temporary script-file execution as a fallback path
 
 Resolution order:
 
@@ -202,7 +217,7 @@ Execution chain:
 4. resolve full-field defaults from collection metadata when user did not provide field restrictions
 5. show pre-write confirmation summary
 6. `roles_data_source_resources_get` (for each resolved collection)
-7. `roles_data_source_resources_create` or `roles_data_source_resources_update` (for each resolved collection)
+7. `roles_data_source_resources_create` or `roles_data_source_resources_update` (for each resolved collection) with one complete payload (`usingActionsConfig=true` + final `actions[]` with resolved `scopeId` and explicit `fields[]` where applicable)
 8. `roles_data_source_resources_get` readback
 
 ## D) User Domain
@@ -251,6 +266,9 @@ Risk tasks are computed by combining read commands:
 - resolve all required logical commands before write operations
 - for scope=`all|own`, require non-null scope binding in write payload (`scopeId`)
 - for field-configurable actions with default-all behavior, require explicit non-empty `fields` arrays in write payload
+- for `permission.data-source.resource.set`, require `usingActionsConfig=true` in the same write payload that carries `actions[]`
+- do not split resource writes into staged patches (for example, first write `actions`, then patch `usingActionsConfig` or `fields` later)
+- wrapper preflight must reject malformed independent-resource payloads (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, or `fields`) before execution
 - if user asks for `all permissions`, expanded runtime action set must be shown and confirmed before write
 - do not execute `permission.data-source.resource.set` writes until resolved collections are confirmed by user
 - never execute guarded fallback path unless explicitly enabled
