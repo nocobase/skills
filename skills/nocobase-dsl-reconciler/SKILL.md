@@ -130,7 +130,7 @@ Per page, for each block:
 |---|---|
 | Main list table + filter | `templates/crm/pages/main/leads/layout.yaml` |
 | Multi-tab page | `templates/crm/pages/main/customers/` (`page.yaml` + `tab_*/layout.yaml`) |
-| Create-form template (with sub-table for o2m) | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` |
+| Create-form template (with inline sub-table for o2m children) | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` — `items` is an o2m field listed in `fields:` and rendered as an inline editable sub-table by the deployer. Also see `templates/crm/pages/main/products/` for the canonical "master record + editable child rows" UX (products own pricing tiers via o2m). |
 | Detail-popup template | `templates/crm/templates/popup/activity_view.yaml` |
 | m2o auto-popup bindings | `templates/crm/defaults.yaml` |
 | Parent-detail + child-list popup | `templates/crm/pages/main/customers/tab_customers/popups/` |
@@ -276,6 +276,35 @@ type conflicts:
   `owner_id`; don't add a second `owner_id: integer` row
 - m2m join tables: `through: nb_x_y` is auto-created; don't write a
   collection YAML for it
+
+### o2m / m2m fields render as inline sub-tables in forms
+
+When an o2m or m2m field is listed in a `createForm` / `editForm` /
+`details` block's `fields:`, the deployer renders it **automatically as
+an inline editable sub-table** (rows in the parent form can be
+added/edited in place, no separate popup).
+
+```yaml
+# templates/block/form_add_new_projects.yaml
+content:
+  type: createForm
+  coll: nb_pm_projects
+  fields: [name, code, status, ..., tasks]   # ← tasks is o2m → nb_pm_tasks
+  field_layout:
+    - '--- Task Planning ---'
+    - - tasks                                # takes full row, renders as grid
+```
+
+Canonical CRM example:
+`templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml`
+(quotations has `items` o2m rendered inline in the quotation create-form).
+Also `templates/crm/pages/main/products/` for the products → pricing-tiers
+master-child pattern.
+
+This is different from a *popup sub-list* (standalone `type: table`
+block inside a popup, bound via `resource_binding.sourceId +
+associationName`). That one is a separate block with its own add/edit
+popup — used when you want a full table UX, not inline editing.
 
 ### `foreignKey` flips meaning
 

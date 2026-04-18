@@ -509,6 +509,34 @@ export async function deploySurface(
         }
       }
 
+      // Add fields. The compose API skipped this block (sourceId contained a
+      // template var, so toComposeBlock returned null). Without this pass the
+      // sub-table / detail / form renders as an empty shell (no columns at
+      // all), which is what the user sees as "detail popup tables have no
+      // fields". For FIELD-BEARING block types, walk bs.fields and call
+      // addField per entry.
+      const FIELD_BEARING = new Set(['table', 'list', 'gridCard', 'details', 'createForm', 'editForm', 'filterForm']);
+      if (FIELD_BEARING.has(bs.type) && Array.isArray(bs.fields) && bs.fields.length) {
+        if (!blocksState[key].fields) blocksState[key].fields = {};
+        for (const f of bs.fields) {
+          const fp = typeof f === 'string' ? f : (f.field || f.fieldPath || '');
+          if (!fp || fp.startsWith('[')) continue;  // skip JS column markers
+          try {
+            const result = await nb.surfaces.addField(newUid, fp);
+            blocksState[key].fields![fp] = {
+              wrapper: result.wrapperUid || result.uid || '',
+              field: result.fieldUid || '',
+            };
+          } catch (e) {
+            log(`      . addField ${key}.${fp}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+          }
+        }
+        if (bs.type === 'table') {
+          await applyColumnSettings(nb, newUid, bs.fields);
+        }
+        log(`      + save_model fields: ${Object.keys(blocksState[key].fields || {}).length} added`);
+      }
+
       // Auto-create default columns for mailMessages (standard columns, not in DSL)
       if (bs.type === 'mailMessages') {
         const DEFAULT_MAIL_COLUMNS: { fieldPath: string; model: string; width?: number }[] = [

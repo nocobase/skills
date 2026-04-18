@@ -136,6 +136,27 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
       ? tabs.flatMap(t => t.blocks || [])
       : blocks;
 
+    // ── Hint: data-list pages should use multi-tab format ──
+    // Flat layout.yaml with a single table + filterForm is OK for 1-entity
+    // pages, but pages listing records benefit from tabs (All / Mine /
+    // Archive / etc.) once they have any status/ownership slicing. The CRM
+    // customers page shows this pattern. Warn only — single-tab is valid.
+    const isListPage = !tabs && blocks.some(b => b.type === 'table');
+    const hasFilterSelects = blocks.some(b =>
+      b.type === 'filterForm' && (b.fields || []).some(f =>
+        typeof f === 'object' && ['status', 'stage', 'state'].some(k =>
+          ((f as Record<string, unknown>).field as string || '').toLowerCase().includes(k),
+        ),
+      ),
+    );
+    if (isListPage && hasFilterSelects) {
+      issues.push({
+        level: 'warn',
+        page: page.title,
+        message: `single-tab page with a status/stage filter — consider tabs (tab_active, tab_archived, ...). See templates/crm/pages/main/customers/ for the page.yaml + tab_*/layout.yaml pattern.`,
+      });
+    }
+
     // Check each block
     for (const bs of allBlocks) {
       validateBlock(bs, page.title, page.popups, issues, projectDir, knownColls);
@@ -423,6 +444,27 @@ function validateBlock(bs: BlockSpec, pageTitle: string, popups: PopupSpec[], is
       issues.push({
         level: 'error', page: pageTitle, block: key,
         message: 'reference block requires `ref: templates/block/<file>.yaml` OR `templateRef: {templateUid, templateName, targetUid}`. A bare `type: reference` deploys an empty ReferenceBlockModel (visually blank).',
+      });
+    }
+  }
+
+  // ── Rule: field-bearing blocks MUST declare at least one field ──
+  // Table / list / details / createForm / editForm with `fields: []` (or no
+  // `fields:` at all) deploys as an empty shell — no columns visible, UI
+  // just shows "No data" without even column headers. Happens most often
+  // on nested popup blocks where the author forgot to copy fields from a
+  // reference layout. Surface pre-deploy.
+  const FIELD_BEARING_BLOCKS = new Set(['table', 'list', 'gridCard', 'details', 'createForm', 'editForm']);
+  if (FIELD_BEARING_BLOCKS.has(bs.type)) {
+    const hasFields = Array.isArray(bs.fields) && bs.fields.length > 0;
+    // templateRef (reference block) is exempt — fields come from the template
+    const isRef = bs.templateRef?.templateUid || (bs as Record<string, unknown>)._reference;
+    if (!hasFields && !isRef) {
+      issues.push({
+        level: 'error',
+        page: pageTitle,
+        block: key,
+        message: `${bs.type} block "${key}" has no fields declared — deploys as an empty shell. Add "fields: [<name>, ...]" (matching the block's collection).`,
       });
     }
   }
