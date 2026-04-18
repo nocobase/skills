@@ -30,6 +30,7 @@ import { deployPopup, type PopupOpts } from './popup-deployer';
 import { expandPopups } from './popup-expander';
 import { deployTemplates, resetTemplateCreationTracking, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
 import { resetM2oCache } from './block-filler';
+import { resetPromotedPopupCache } from './fillers/click-to-open';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { verifySqlFromPages } from './sql-verifier';
@@ -148,10 +149,17 @@ export async function deployProject(
     const specErrors = specIssues.filter(i => i.level === 'error');
     const specWarnings = specIssues.filter(i => i.level === 'warn');
     if (specErrors.length) {
-      log('\n  ── Spec Validation ERRORS (blocking deployment) ──');
+      log('\n  ── Spec Validation ERRORS ──');
       for (const e of specErrors) log(`  ✗ [${e.page}${e.block ? '/' + e.block : ''}] ${e.message}`);
-      log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors before deploying.`);
-      process.exit(1);
+      // --force lets duplicates of legacy projects push without first fixing
+      // every spec issue inherited from the source. New projects should still
+      // see these as blocking — running without --force preserves that.
+      if (opts.force) {
+        log(`\n  ${specErrors.length} errors bypassed (--force). ${specWarnings.length} warnings.`);
+      } else {
+        log(`\n  ${specErrors.length} errors, ${specWarnings.length} warnings. Fix errors or rerun with --force to push anyway.`);
+        process.exit(1);
+      }
     }
     if (specWarnings.length) {
       log('\n  ── Spec Warnings ──');
@@ -209,6 +217,7 @@ export async function deployProject(
   const ctx = createDeployContext(nb, opts, log);
   // Reset per-deploy caches (template list, failed fallback collections, created UIDs)
   resetM2oCache();
+  resetPromotedPopupCache();
   resetTemplateCreationTracking();
   log(`\n  Connected to ${nb.baseUrl}`);
 

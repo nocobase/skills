@@ -21,6 +21,16 @@ import type { BlockState } from '../../types/state';
 import type { DeployContext, PopupContext } from './types';
 // loadTemplateContent no longer needed — popup templates kept as references
 
+// Per-deploy cache of popup template file paths already promoted to live
+// flowModelTemplates. Keyed by the template file path (relative to project
+// root). Prevents re-promoting the same template when a second field
+// references it — second field just binds by popupTemplateUid via Path 0.
+const _promotedPopupCache = new Map<string, { templateUid: string; targetUid: string }>();
+
+export function resetPromotedPopupCache(): void {
+  _promotedPopupCache.clear();
+}
+
 export async function deployClickToOpen(
   ctx: DeployContext,
   bs: BlockSpec,
@@ -98,6 +108,40 @@ export async function deployClickToOpen(
 
         // ── Path 1: Inline popup content (highest priority) ──
         if (inlinePopup && (inlinePopup.blocks || inlinePopup.tabs)) {
+          // If a prior field this deploy-run already promoted this popup
+          // template file to a live flowModelTemplate, skip re-inlining and
+          // bind via popupTemplateUid (Path 0 behaviour) — saves duplicate
+          // compose work and keeps all references pointing at one template.
+          const tplMeta = inlinePopup._templateMeta as Record<string, unknown> | undefined;
+          const tplPath = tplMeta?.path as string | undefined;
+          const cached = tplPath ? _promotedPopupCache.get(tplPath) : undefined;
+          if (cached) {
+            try {
+              const fieldResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fieldUid } });
+              const fieldData = fieldResp.data.data;
+              if (fieldData) {
+                const sp = fieldData.stepParams || {};
+                sp.popupSettings = { openView: {
+                  collectionName: popupColl, dataSourceKey: 'main',
+                  mode: (ps?.mode || 'drawer') as string, size: (ps?.size || 'large') as string,
+                  popupTemplateUid: cached.templateUid,
+                  ...(cached.targetUid ? { uid: cached.targetUid } : {}),
+                  popupTemplateHasFilterByTk: false,
+                  popupTemplateHasSourceId: false,
+                } };
+                sp.displayFieldSettings = { clickToOpen: { clickToOpen: true } };
+                await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+                  uid: fieldUid, use: fieldData.use, parentId: fieldData.parentId,
+                  subKey: fieldData.subKey, subType: fieldData.subType,
+                  stepParams: sp, sortIndex: fieldData.sortIndex || 0, flowRegistry: fieldData.flowRegistry || {},
+                });
+                log(`      ~ clickToOpen: ${fp} (bound to promoted template: ${cached.templateUid.slice(0, 8)})`);
+                continue;
+              }
+            } catch (e) {
+              log(`      ! clickToOpen ${fp} cached-promote bind: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+            }
+          }
           await deployInlinePopup(ctx, fieldUid, fp, inlinePopup, ps, popupColl, coll, mod, popupContext);
           continue;
         }
@@ -210,6 +254,98 @@ async function deployInlinePopup(
   };
   log(`      ~ clickToOpen: ${fp} (inline popup: ${popupTabs?.length || 0} tabs, ${popupBlocks?.length || 0} blocks)`);
   await nb.updateModel(fieldUid, update);
+
+  // Promote the just-inlined popup into a live flowModelTemplate so
+  // defaults.yaml m2o auto-binding can find it (by collection + type=popup)
+  // and bind other m2o fields to it. Only fires when the inline popup
+  // originated from a `templates/popup/*.yaml` file tagged with _templateMeta
+  // by page-discovery. Cached by template path so subsequent fields pointing
+  // to the same file skip inline entirely (see Path 1 cache check).
+  const meta = inlinePopup._templateMeta as Record<string, unknown> | undefined;
+  if (meta?.path && meta.name) {
+    const tplPath = meta.path as string;
+    if (!_promotedPopupCache.has(tplPath)) {
+      try {
+        // Check if a template with this name+coll already exists (idempotent re-deploys)
+        let templateUid = '';
+        let targetUid = '';
+        try {
+          const existing = await nb.http.get(`${nb.baseUrl}/api/flowModelTemplates:list`, {
+            params: { paginate: false, 'filter[name]': meta.name as string, 'filter[collectionName]': popupColl },
+          });
+          const row = (existing.data?.data || [])[0] as Record<string, unknown> | undefined;
+          if (row?.uid) {
+            templateUid = row.uid as string;
+            targetUid = (row.targetUid as string) || '';
+          }
+        } catch { /* fall through to convert */ }
+
+        if (!templateUid) {
+          const saveResult = await nb.surfaces.saveTemplate({
+            target: { uid: fieldUid },
+            name: meta.name as string,
+            description: meta.name as string,
+            type: 'popup',
+            collectionName: popupColl,
+            dataSourceKey: 'main',
+            saveMode: 'convert',
+          }) as Record<string, unknown>;
+          templateUid = (saveResult.uid || saveResult.templateUid) as string;
+          targetUid = (saveResult.targetUid as string) || '';
+          if (templateUid) log(`      + popup template: ${meta.name} (promoted: ${templateUid.slice(0, 8)})`);
+        } else {
+          log(`      = popup template: ${meta.name} (reused: ${templateUid.slice(0, 8)})`);
+        }
+
+        if (templateUid) {
+          _promotedPopupCache.set(tplPath, { templateUid, targetUid });
+          // Update THIS field to reference the template by uid (stable across redeploys).
+          // Also destroy the orphaned inline page underneath the field — clicking
+          // openView.uid=targetUid would otherwise still resolve to the stale
+          // inline tree (NocoBase looks up ChildPage by the host field's subtree
+          // when openView.uid matches).
+          try {
+            const fieldResp = await nb.http.get(`${nb.baseUrl}/api/flowModels:get`, { params: { filterByTk: fieldUid } });
+            const fieldData = fieldResp.data.data;
+            if (fieldData) {
+              const sp = fieldData.stepParams || {};
+              sp.popupSettings = { openView: {
+                collectionName: popupColl, dataSourceKey: 'main',
+                mode: (inlinePopup.mode || ps?.mode || 'drawer') as string,
+                size: (inlinePopup.size || ps?.size || 'medium') as string,
+                popupTemplateUid: templateUid,
+                ...(targetUid ? { uid: targetUid } : {}),
+                popupTemplateHasFilterByTk: false,
+                popupTemplateHasSourceId: false,
+              } };
+              sp.displayFieldSettings = { clickToOpen: { clickToOpen: true } };
+              await nb.http.post(`${nb.baseUrl}/api/flowModels:save`, {
+                uid: fieldUid, use: fieldData.use, parentId: fieldData.parentId,
+                subKey: fieldData.subKey, subType: fieldData.subType,
+                stepParams: sp, sortIndex: fieldData.sortIndex || 0, flowRegistry: fieldData.flowRegistry || {},
+              });
+            }
+            // Destroy the stale inline ChildPage (if any) now that the field
+            // points at a template's targetUid. Leaving it causes NocoBase to
+            // render the inline tree instead of the template on click.
+            try {
+              const tree = await nb.get({ uid: fieldUid });
+              const page = tree.tree.subModels?.page as Record<string, unknown> | undefined;
+              const pageUid = page?.uid as string | undefined;
+              if (pageUid && pageUid !== targetUid) {
+                await nb.http.post(`${nb.baseUrl}/api/flowModels:destroy`, {}, { params: { filterByTk: pageUid } }).catch(() => {});
+                log(`      ~ cleared stale inline page ${pageUid.slice(0, 8)}`);
+              }
+            } catch { /* best-effort */ }
+          } catch (e) {
+            log(`      ! rebinding ${fp} to promoted template: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+          }
+        }
+      } catch (e) {
+        log(`      ! popup promote ${meta.name}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
+      }
+    }
+  }
 }
 
 async function checkExistingPopup(nb: NocoBaseClient, fieldUid: string): Promise<boolean> {

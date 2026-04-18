@@ -276,6 +276,29 @@ function resolveClickToOpenPaths(blocks: BlockSpec[], projRoot: string): void {
           (fo.popupSettings as Record<string, unknown>).popupTemplateUid = tpl.uid;
           continue;
         }
+        // Fresh popup template (type: popup, no uid) — inline content directly
+        // as the popup spec (NOT wrapped as a single block) and preserve the
+        // template metadata so click-to-open can promote the inlined popup
+        // into a live flowModelTemplate after deploy (enabling defaults.yaml
+        // m2o auto-binding to find it).
+        if (tpl.type === 'popup') {
+          const popupContent = (tpl.content && typeof tpl.content === 'object')
+            ? tpl.content as Record<string, unknown>
+            : {};
+          fo.popup = {
+            ...popupContent,
+            // Surface the template's target collection so click-to-open binds
+            // the inline popup to the correct collection (otherwise it falls
+            // back to the host block's collection — wrong for m2o → users).
+            collectionName: tpl.collectionName || popupContent.collectionName || popupContent.coll,
+            _templateMeta: {
+              name: tpl.name,
+              collectionName: tpl.collectionName,
+              path: refPath,
+            },
+          };
+          continue;
+        }
         const content = (tpl.content && typeof tpl.content === 'object')
           ? tpl.content as Record<string, unknown>
           : tpl;
