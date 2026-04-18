@@ -11,13 +11,25 @@ allowed-tools: shell, local file reads, local file writes
 
 ## Golden rule
 
-`templates/crm/` is the canonical reference library. Before writing any
-non-trivial file, **open the closest CRM example and adapt it**. This
-manual only covers workflow and gotchas — syntax lives in the template.
+`templates/crm/` is the canonical reference library. Treat it as a
+**read-only lookup** — when you're unsure how a field, block, or popup
+is shaped, open the closest CRM example and copy the relevant snippet
+into your own new file. Do **not** bulk-copy CRM files/directories into
+your workspace unless the exception below applies.
+
+**Exception — whole-page copy is OK for complex prebuilt pages:**
+dashboards (`pages/main/analytics`), overviews with KPI jsBlocks
+(`pages/main/overview`). These are scoped `pages/<one-page>/` subtrees
+where the end-to-end plumbing (SQLs + render JS + jsBlocks + grid
+widths) is expensive to rebuild from scratch. See Round 4.
+
+Never `cp -r` at the CRM workspace / collections / routes.yaml level —
+that drags unrelated leads/opportunities/orders state into your project
+and forces you to fight hundreds of irrelevant errors.
 
 The pre-deploy spec validator catches most structural mistakes with a
 clear error message. **Trust the validator**: when it errors, fix what
-it says rather than guessing.
+it says rather than guessing — don't grep through `src/deploy/*.ts`.
 
 ## Environment
 
@@ -54,20 +66,22 @@ Workspace path: `cli push myapp` resolves to `workspaces/myapp/`.
 Override with `NB_WORKSPACE_ROOT=/some/path`. Each project auto `git init`s
 on first push/pull.
 
-**Open the right CRM reference before you write:**
+**Open the right CRM reference and hand-write your own adapted version
+(read-only lookup — do not copy the file into your workspace):**
 
-| Building | Open this CRM file |
+| Building | Open this CRM file for reference |
 |---|---|
-| Full project layout | `templates/crm/` (root) |
 | A standard list page (table + filter + popups) | `templates/crm/pages/main/leads/` |
 | A multi-tab page | `templates/crm/pages/main/customers/` |
-| A dashboard (jsBlock, KPI cards, grid widths) | `templates/crm/pages/main/overview/` |
-| Charts & analytics | `templates/crm/pages/main/analytics/` |
 | Collection DSL | `templates/crm/collections/*.yaml` |
 | Block templates (forms/details) | `templates/crm/templates/block/` |
 | Popup templates | `templates/crm/templates/popup/` |
 | Menu tree | `templates/crm/routes.yaml` |
 | m2o auto-popup bindings | `templates/crm/defaults.yaml` |
+
+Pages where whole-folder `cp -r` IS appropriate (see Round 4):
+- Dashboard: `templates/crm/pages/main/analytics/`
+- Overview with KPIs: `templates/crm/pages/main/overview/`
 
 Deploy: `npx tsx cli/cli.ts push <name> --force`.
 The validator blocks bad DSL with specific messages. Fix those and re-push.
