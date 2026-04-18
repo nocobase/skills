@@ -28,9 +28,9 @@ import { ensureAllCollections } from './collection-deployer';
 import { deploySurface, type SurfaceOpts } from './surface-deployer';
 import { deployPopup, type PopupOpts } from './popup-deployer';
 import { expandPopups } from './popup-expander';
-import { deployTemplates, resetTemplateCreationTracking, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
-import { resetM2oCache } from './block-filler';
-import { resetPromotedPopupCache } from './fillers/click-to-open';
+import { deployTemplates, cleanStaleTemplateUsages, type TemplateUidMap, type PendingPopupTemplate } from './template-deployer';
+import { resetAllCaches } from './cache-manager';
+import { catchSwallow } from '../utils/swallow';
 import { reorderTableColumns } from './column-reorder';
 import { postVerify } from './post-verify';
 import { rewriteWorkflowKeys, type WorkflowKeyMap } from './rewrite-workflow-keys';
@@ -232,10 +232,8 @@ export async function deployProject(
   // ── 3. Connect + deploy ──
   const nb = await NocoBaseClient.create();
   const ctx = createDeployContext(nb, opts, log);
-  // Reset per-deploy caches (template list, failed fallback collections, created UIDs)
-  resetM2oCache();
-  resetPromotedPopupCache();
-  resetTemplateCreationTracking();
+  // Reset per-deploy caches (m2o metadata, promoted popups, created templates)
+  resetAllCaches();
   log(`\n  Connected to ${nb.baseUrl}`);
 
   // State
@@ -350,7 +348,7 @@ export async function deployProject(
       if (t.name && t.uid) templateNameMap.set(t.name, t.uid);
       if (t.name && t.targetUid) templateNameToTarget.set(t.name, t.targetUid);
     }
-  } catch { /* skip */ }
+  } catch (e) { catchSwallow(e, 'name→uid template map: flowModelTemplates:list unavailable, rewrites fall back to uid-only'); }
 
   // Rewrite template UIDs in page specs (old exported UIDs → new deployed UIDs)
   rewriteTemplateUids(pages, templateUidMap, templateNameMap, templateNameToTarget);
@@ -947,7 +945,7 @@ async function deployOnePage(
                 const tabGrid = (firstTab.subModels as Record<string, unknown> | undefined)?.grid as Record<string, unknown> | undefined;
                 gridUid = (tabGrid?.uid as string) || '';
               }
-            } catch { /* skip */ }
+            } catch (e) { catchSwallow(e, 'live page read for tab/grid uid: schema malformed or API drift — falls through to createPage'); }
             if (tabUid) {
               pageState = {
                 route_id: livePage.id,
@@ -960,7 +958,7 @@ async function deployOnePage(
             }
           }
         }
-      } catch { /* skip — will create new */ }
+      } catch (e) { catchSwallow(e, 'live-route lookup before createPage: tolerate and fall through to create'); }
     }
     if (!pageState?.tab_uid) {
       const result = await nb.createPage(pageInfo.title, parentRouteId ?? undefined, pageInfo.icon);
@@ -1152,9 +1150,9 @@ async function deployPageBlueprint(
         const tabs = pageData.tree.subModels?.tabs;
         const tabArr = Array.isArray(tabs) ? tabs : tabs ? [tabs] : [];
         if (tabArr.length) tabUid = (tabArr[0] as Record<string, unknown>).uid as string || '';
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'blueprint page tab read: tabUid stays empty, caller falls back'); }
       return { id: livePage.id, schemaUid: livePage.schemaUid, tabUid };
-    } catch { return null; }
+    } catch (e) { catchSwallow(e, 'blueprint candidate search: no match is normal on first deploy'); return null; }
   };
 
   if (!pageState?.page_uid) {
@@ -1384,7 +1382,7 @@ async function deployPagePopups(
             if (fieldPath) bv.fields[fieldPath] = { wrapper: col.uid as string || '', field: '' };
           }
         }
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'live table columns reflection: bv.fields stays empty, subsequent filler will rediscover'); }
     }
   }
   state.pages[pageKey] = pageState;
@@ -1594,7 +1592,7 @@ async function syncRoutesYaml(
     // Read existing routes.yaml, update only the matching group entry by key.
     const routesFile = path.join(root, 'routes.yaml');
     let existing: Record<string, unknown>[] = [];
-    try { existing = loadYaml<Record<string, unknown>[]>(routesFile) || []; } catch { /* fresh */ }
+    try { existing = loadYaml<Record<string, unknown>[]>(routesFile) || []; } catch (e) { catchSwallow(e, 'routes.yaml missing on first push — start with empty list'); }
 
     const ourKey = routeKey(routeEntry);
     const updatedEntry = buildEntry(liveGroup, routeEntry.key, routeEntry.title);
@@ -1697,7 +1695,7 @@ async function ensurePopupBindings(
             });
             fixed++;
           }
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'popup host filterByTk fix: target may have drifted, continue with next host'); }
       }
     }
     if (fixed) log(`  popup filterByTk: ${fixed} hosts fixed`);
@@ -1730,7 +1728,7 @@ async function ensurePopupBindings(
           stepParams: sp,
         });
         blockFixed++;
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'block template filterByTk fix: per-template failure is non-fatal, continue'); }
     }
     if (blockFixed) log(`  block template filterByTk: ${blockFixed} targets fixed`);
   } catch (e) {
