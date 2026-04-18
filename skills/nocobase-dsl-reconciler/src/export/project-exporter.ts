@@ -1441,9 +1441,21 @@ async function exportCollections(
       fields = ((fResp.data?.data || []) as Record<string, unknown>[])
         .filter((f: any) => f.interface && !SYSTEM_FIELDS.has(f.name as string))
         .map((f: any) => {
+          // NB stores `interface` (UI hint) and `type` (actual DB column type)
+          // separately and lets them diverge — e.g. interface=snowflakeId on a
+          // bigInt column. When they disagree, the deploy side trusts interface
+          // and recreates the column with the WRONG SQL type, breaking m2o
+          // relations (varchar FK against bigint id → "operator does not
+          // exist: bigint = character varying"). Coerce interface to match
+          // the live `type` so a fresh push reproduces the actual schema.
+          let iface = f.interface as string;
+          const dbType = (f.type as string) || '';
+          if (dbType === 'bigInt' && (iface === 'snowflakeId' || iface === 'uuid' || iface === 'nanoid')) {
+            iface = 'integer';
+          }
           const entry: Record<string, unknown> = {
             name: f.name,
-            interface: f.interface,
+            interface: iface,
           };
           if (f.title) entry.title = f.title;
           // Relations
