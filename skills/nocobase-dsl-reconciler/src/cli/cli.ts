@@ -100,7 +100,7 @@ async function main() {
 
   if (!command) {
     console.log('Usage: cli.ts <command> [options]');
-    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, scaffold, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
+    console.log('Commands: push, pull, diff, duplicate-project, deploy, deploy-project, rollback, clean, scaffold, verify-sql, export, export-project, sync, graph, export-acl, deploy-acl, export-workflows, deploy-workflows, validate-workflows, compare');
     process.exit(1);
   }
 
@@ -113,6 +113,9 @@ async function main() {
       break;
     case 'rollback':
       await cmdRollback(args.slice(1));
+      break;
+    case 'clean':
+      await cmdClean(args.slice(1));
       break;
     case 'scaffold':
       await cmdScaffold(args.slice(1));
@@ -403,6 +406,16 @@ async function cmdDeployProject(args: string[]) {
  * and destroys each UID in NocoBase. Use before `git revert` if you want the
  * live instance to match the reverted YAML state.
  */
+async function cmdClean(args: string[]) {
+  const dryRun = args.includes('--dry-run');
+  const nb = await NocoBaseClient.create();
+  const { cleanOrphanModels } = await import('../deploy/orphan-cleaner');
+  const result = await cleanOrphanModels(nb, { dryRun }, console.log);
+  if (dryRun && result.orphans) {
+    console.log('  (dry-run — rerun without --dry-run to actually delete)');
+  }
+}
+
 async function cmdRollback(args: string[]) {
   const dir = args[0];
   const clean = args.includes('--clean');  // also prune orphan flowModels + stale usage records
@@ -990,5 +1003,19 @@ async function cmdVerifyData(args: string[]) {
   const result = await verifyData(resolveWorkspacePath(dirArg));
   if (result.failed > 0) process.exit(1);
 }
+
+// Last-resort safety net. Unhandled rejections (e.g. deep inside a filler
+// that didn't wrap an await) used to kill the whole push silently —
+// bun/node default is to exit with no message. Log + exit 1 so operators
+// see the cause. Does NOT mask bugs: per-page / per-collection try/catch
+// still catches everything they can; this only triggers when they miss.
+process.on('unhandledRejection', (reason) => {
+  console.error('\n  ✗ unhandled rejection:', reason instanceof Error ? (reason.stack || reason.message) : reason);
+  process.exit(1);
+});
+process.on('uncaughtException', (err) => {
+  console.error('\n  ✗ uncaught exception:', err.stack || err.message);
+  process.exit(1);
+});
 
 main().catch(e => { console.error(e.message || e); process.exit(1); });

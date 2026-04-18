@@ -244,6 +244,19 @@ export async function deployProject(
     ? loadYaml<ModuleState>(stateFile)
     : { pages: {} };
 
+  // Reconcile state.yaml against live NB: state holds UIDs from the last
+  // push, but NB may have been rolled back / wiped since. Dead UIDs cause
+  // zombie updateModel calls later. Drop them now so deployer treats those
+  // positions as "create fresh" instead of "update ghost".
+  if (!opts.planOnly) {
+    try {
+      const { reconcileStateWithLive } = await import('./state-reconciler');
+      await reconcileStateWithLive(nb, state, log);
+    } catch (e) {
+      log(`  . state reconcile: ${e instanceof Error ? e.message.slice(0, 80) : e} (continuing)`);
+    }
+  }
+
   // ── Incremental scope (opt-in via --incremental) ──
   // Use the scope computed earlier (during plan preview). When NOTHING
   // changed (no pages, no collections, no templates, no workflows),
@@ -367,7 +380,10 @@ export async function deployProject(
       if (state.group_id) state.group_ids[rkey] = state.group_id;
     } else if (routeEntry.type === 'flowPage') {
       const pageInfo = activePages.find(p => p.key === rkey);
-      if (pageInfo) await deployOnePage(ctx, pageInfo, state, null);
+      if (pageInfo) {
+        try { await deployOnePage(ctx, pageInfo, state, null); }
+        catch (e) { log(`  ✗ page ${pageInfo.title}: ${e instanceof Error ? e.message.slice(0, 200) : e}`); }
+      }
     }
   }
 
@@ -823,7 +839,11 @@ async function deployGroup(
     if (child.type === 'flowPage') {
       const pageInfo = pages.find(p => p.title === child.title);
       if (pageInfo) {
-        await deployOnePage(ctx, pageInfo, state, state.group_id!);
+        try {
+          await deployOnePage(ctx, pageInfo, state, state.group_id!);
+        } catch (e) {
+          log(`  ✗ page ${pageInfo.title}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+        }
         // Set sort to match declaration order
         const pageKey = pageInfo.key;
         const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
@@ -850,7 +870,8 @@ async function deployGroup(
         const sc = subChildren[si];
         const pageInfo = pages.find(p => p.title === sc.title);
         if (pageInfo) {
-          await deployOnePage(ctx, pageInfo, state, subGroupId);
+          try { await deployOnePage(ctx, pageInfo, state, subGroupId); }
+          catch (e) { log(`  ✗ page ${pageInfo.title}: ${e instanceof Error ? e.message.slice(0, 200) : e}`); }
           // Set sort on sub-group child
           const pageKey = pageInfo.key;
           const routeId = (state.pages[pageKey] as Record<string, unknown>)?.route_id as number | undefined;
@@ -1228,7 +1249,8 @@ async function deployPageBlueprint(
     const apiMsg = err.response?.data?.errors?.[0]?.message || err.message || String(e);
     log(`  ! blueprint failed for ${pageInfo.title}: ${apiMsg.slice(0, 120)}`);
     log(`    falling back to legacy deploy...`);
-    await deployOnePage(ctx, pageInfo, state, groupId);
+    try { await deployOnePage(ctx, pageInfo, state, groupId); }
+    catch (e2) { log(`  ✗ page ${pageInfo.title}: ${e2 instanceof Error ? e2.message.slice(0, 200) : e2}`); }
   }
 }
 

@@ -56,12 +56,17 @@ export class LegacyModelsApi {
       }
     }
 
-    // Fallback: GET → deep merge → save
+    // Fallback: GET → deep merge → save.
+    // Return null (not throw) when the node doesn't exist — callers read
+    // UIDs from state.yaml, which can go stale after a NB rollback / manual
+    // cleanup. An updateModel on a zombie UID used to crash the whole push
+    // via unhandled rejection; now it's a no-op that callers can check.
+    // Explicit errors (HTTP 4xx/5xx) still throw via axios.
     const getResp = await this.http.get(`${this.baseUrl}/api/flowModels:get`, {
       params: { filterByTk: uid },
     });
     if (!getResp.data?.data) {
-      throw new Error(`flowModels:get ${uid} → ${getResp.status}`);
+      return null;
     }
     const current = getResp.data.data;
 
