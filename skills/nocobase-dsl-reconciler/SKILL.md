@@ -36,10 +36,51 @@ export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:1
 
 ## Workflow
 
-### Round 0: Design — MUST confirm with user first
+Build in rounds — don't mix. Each round produces a deployable state.
 
-List collections, fields, relationships. Wait for user confirmation
-before writing files. See the `nocobase-data-modeling` skill.
+```
+Round 0  System architecture (written design, user confirms)
+Round 0.5 Session setup (sub-agent CWD only)
+Round 1  Scaffold: collections + routes + empty pages, push
+Round 2  Fill pages: blocks, layouts, popups, block templates, push
+         (in parallel) Round 2': seed test data via API
+Round 3  JS: where CRM has it, you probably need it too
+```
+
+### Round 0: System architecture — MUST confirm with user
+
+Write a design doc (markdown, not YAML) covering:
+
+1. **Collections** — every table, its fields, and its relations.
+   See `nocobase-data-modeling` skill for field-interface reference.
+2. **Page list** — every page you will create, with a one-line
+   purpose each. Group by menu section.
+3. **Navigation wiring** — which m2o fields open which popup
+   templates; which pages link to each other.
+
+Output this as `DESIGN.md` in the project root. **Wait for user
+confirmation** before touching YAML files. A single design pass saves
+3× redesigns in the next rounds.
+
+Example skeleton:
+
+```markdown
+## Collections
+- nb_lib_books (title, author, isbn, category, status, loans: o2m → nb_lib_loans)
+- nb_lib_members (name, email, phone, join_date, loans: o2m → nb_lib_loans)
+- nb_lib_loans (loan_no, book: m2o, member: m2o, borrowed_at, due_date, returned_at, status)
+
+## Pages (under menu "Library")
+- Books list — browse + search books, add new
+- Members list — browse members, their loan history
+- Loans list — active/overdue loans, return action
+- Dashboard — KPIs + charts (optional, Round 3)
+
+## Navigation
+- books.table.title → books detail popup (shared template)
+- loans.table.book → books detail popup (shared via defaults.yaml)
+- loans.table.member → members detail popup (shared via defaults.yaml)
+```
 
 ### Round 0.5: Session setup (sub-agent spawns only)
 
@@ -56,39 +97,61 @@ Skip the `cd` and the agent inherits the launcher's CWD (often a parent
 project root), creating files in the wrong place. It can't recover from
 this mid-session — by the time it reads the prompt, CWD is already wrong.
 
-### Round 1: Create files + deploy
+### Round 1: Scaffold — collections + routes + empty pages
+
+First deployable state. Don't fill page content yet; get the skeleton
+working end-to-end.
+
+Files to write:
+
+| File | Contents | CRM reference |
+|---|---|---|
+| `collections/<coll>.yaml` per table | name, titleField, fields (with select options, m2o target, o2m foreignKey) | `templates/crm/collections/nb_crm_leads.yaml` |
+| `routes.yaml` | group → children tree for every page in DESIGN.md | `templates/crm/routes.yaml` (shape only) |
+| `pages/<group>/<page>/layout.yaml` per page | One placeholder `table` block per page, no popups yet | (leave minimal) |
 
 Workspace path: `cli push myapp` resolves to `workspaces/myapp/`.
 Override with `NB_WORKSPACE_ROOT=/some/path`. Each project auto `git init`s
 on first push/pull.
 
-**Before writing each piece, open the matching CRM file to see the
-shape — then hand-write your own adapted version in your workspace:**
+Deploy: `npx tsx cli/cli.ts push <name> --force`.
+
+**Goal of Round 1**: the validator passes; menu tree renders; every
+page shows an empty-ish table with the right collection. No popups,
+no forms, no JS yet.
+
+### Round 2: Page content — blocks + popups + templates
+
+Now fill each page. Do this page-by-page, deploying after each.
+
+Per page, for each block:
 
 | Building | Reference this CRM file |
 |---|---|
-| A standard list page (table + filter + popups) | `templates/crm/pages/main/leads/layout.yaml` |
-| A multi-tab page | `templates/crm/pages/main/customers/` (see `page.yaml` + `tab_*/layout.yaml`) |
-| A collection with relations & selects | `templates/crm/collections/nb_crm_leads.yaml` |
-| A create-form template (with sub-table) | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` |
-| A detail-popup template | `templates/crm/templates/popup/activity_view.yaml` |
-| Menu tree shape | `templates/crm/routes.yaml` (just the *shape* — your `routes.yaml` lists *your* pages) |
+| Main list table + filter | `templates/crm/pages/main/leads/layout.yaml` |
+| Multi-tab page | `templates/crm/pages/main/customers/` (`page.yaml` + `tab_*/layout.yaml`) |
+| Create-form template (with sub-table for o2m) | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` |
+| Detail-popup template | `templates/crm/templates/popup/activity_view.yaml` |
 | m2o auto-popup bindings | `templates/crm/defaults.yaml` |
+| Parent-detail + child-list popup | `templates/crm/pages/main/customers/tab_customers/popups/` |
+| addNew + field click-popup pattern | `templates/crm/pages/main/leads/popups/` |
 
-Tips for adapting:
-- Copy the 10–30 lines you need from the CRM file into your new file,
-  then change collection / field / title / route names.
-- Don't copy `uid:` / `targetUid:` / `route_id:` — those are runtime
-  IDs from CRM's deployed state. Leave them out; the deployer assigns
-  fresh ones.
+Tips:
+- Copy the 10–30 lines you need from the CRM file, then change
+  collection / field / title names. **Do not copy whole files.**
+- Don't copy `uid:` / `targetUid:` / `route_id:` — runtime IDs that
+  the deployer assigns fresh.
+- For every m2o field displayed in a table, either set
+  `clickToOpen: templates/popup/popup_detail_<target>.yaml` OR add
+  `popups.<target>: ...` in `defaults.yaml`. Validator errors otherwise.
 
-Deploy: `npx tsx cli/cli.ts push <name> --force`.
-The validator blocks bad DSL with specific messages. Fix those and re-push.
+**Goal of Round 2**: all pages have working CRUD — add / edit / view
+popups wired correctly. Validator clean, NB UI shows no "Collection
+may have been deleted" banners.
 
-### Round 2: Test data
+### Round 2': Test data (parallel with Round 2)
 
-`cli seed` was retired (too many false-positive FK warnings). Insert data
-ad-hoc via API or SQL:
+Can run concurrently with page-filling. Insert data via API:
 
 ```bash
 TOKEN=$(curl -sS -X POST $NB_URL/api/auth:signIn \
@@ -102,26 +165,37 @@ curl -sS -X POST $NB_URL/api/<collection>:create -H "Authorization: Bearer $TOKE
   -H 'Content-Type: application/json' -d '{...fields..., "owner":{"id": <real-user-id>}}'
 ```
 
-Parent tables first; fill every FK on children (leaving it null orphans
-the row). Then:
+Parent tables first; fill every FK on children (leaving it null
+orphans the row). Then:
 
 ```bash
 npx tsx cli/cli.ts verify-data <name>     # FK & completeness check
 ```
 
-### Round 3: Popups + details
+Why parallel: Round 3 JS (charts, KPIs) needs data to render
+anything. Start the seed once you have collections (end of Round 1);
+by the time Round 2 finishes pages, you have records to test against.
 
-Edit templates and popup bindings, then `push --force`. See
-`templates/crm/pages/main/leads/popups/` for the `addNew` + `fields.<x>`
-pattern, and `templates/crm/pages/main/customers/tab_customers/popups/`
-for the parent-detail + child-list pattern.
+### Round 3: JS — where CRM uses it, you probably need it
 
-### Round 4: JS + Charts + Dashboard (optional)
+Now that CRUD + data work, audit where JavaScript adds value. **Walk the
+CRM template and ask "does the CRM have JS here?" for each spot in your
+project.** Three typical JS opportunities:
 
-**Dashboards look bad when designed freehand — mirror the CRM shape.**
-Open the reference layout first, copy its **block count, ordering, and
-grid widths** into your own `layout.yaml`; then fill in leaf files with
-your content.
+| Spot | CRM has JS? | Your project likely needs JS if... |
+|---|---|---|
+| **Field renderer / column** (e.g. color-coded status tag, days-until-due badge) | ✅ in most list tables | Any field whose display depends on a derived value (date math, status-to-color, multi-field composite) |
+| **Block** (KPI card, custom widget inside a form) | ✅ overview, analytics, per-form tips | A summary widget, inline chart, or "helper panel" that reads from multiple collections |
+| **Dashboard page** (whole page of charts + KPIs) | ✅ analytics page | Module has ≥3 measurable metrics users care about; validator **requires** ≥5 charts on pages titled "Dashboard" / "Analytics" |
+
+Start by grepping the matching CRM page and its `js/` + `charts/`
+folders to confirm where the CRM adds JS. Then write YOUR JS file
+adapted from the single-file table below.
+
+**Dashboards specifically look bad when designed freehand — mirror the
+CRM shape.** Open the reference layout first, copy its **block count,
+ordering, and grid widths** into your own `layout.yaml`; then fill in
+leaf files with your content.
 
 | Reference layout | What to mirror |
 |---|---|
