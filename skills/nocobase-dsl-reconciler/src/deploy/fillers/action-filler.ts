@@ -228,12 +228,18 @@ function buildUpdateRecordStepParams(spec: Record<string, unknown>): Record<stri
   else general.title = '';
   if (tooltip) general.tooltip = tooltip;
 
-  // Build linkageRules: from hiddenWhen/disabledWhen shorthand, or pass through raw linkageRules
+  // Build linkageRules: from hiddenWhen/disabledWhen shorthand, or pass through raw linkageRules.
+  // NB reads buttonSettings.linkageRules as a FLAT array (see
+  // plugin-flow-engine/server/flow-surfaces/catalog.ts: `linkageRules: ARRAY_SCHEMA`
+  // and core/client/flow/actions/linkageRulesRefresh.tsx: getStepParams(flowKey, stepKey)
+  // returns the array directly). If the DSL wraps rules in `{value: [...]}` (legacy
+  // export shape), unwrap here before writing to NB — otherwise the runtime receives
+  // an object and treats it as "no rules", so hide/disable conditions never fire.
   const builtRules = buildLinkageRules(hiddenWhen, disabledWhen);
-  const rawRules = spec.linkageRules as Record<string, unknown> | undefined;
-  const finalRules = builtRules || rawRules || null;
+  const rawRules = spec.linkageRules as unknown;
+  const rulesArray = builtRules || normaliseRulesArray(rawRules);
   const stepParams: Record<string, unknown> = {
-    buttonSettings: { general, ...(finalRules ? { linkageRules: finalRules } : {}) },
+    buttonSettings: { general, ...(rulesArray?.length ? { linkageRules: rulesArray } : {}) },
   };
   if (assign && Object.keys(assign).length) {
     stepParams.assignSettings = { assignFieldValues: { assignedValues: assign } };
@@ -241,10 +247,19 @@ function buildUpdateRecordStepParams(spec: Record<string, unknown>): Record<stri
   return stepParams;
 }
 
+function normaliseRulesArray(raw: unknown): Record<string, unknown>[] | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw as Record<string, unknown>[];
+  if (typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).value)) {
+    return (raw as Record<string, unknown>).value as Record<string, unknown>[];
+  }
+  return null;
+}
+
 function buildLinkageRules(
   hiddenWhen?: Record<string, unknown>,
   disabledWhen?: Record<string, unknown>,
-): Record<string, unknown> | null {
+): Record<string, unknown>[] | null {
   const rules: Record<string, unknown>[] = [];
   if (hiddenWhen && Object.keys(hiddenWhen).length) {
     rules.push({
@@ -260,7 +275,7 @@ function buildLinkageRules(
       actions: [{ name: 'linkageSetActionProps', params: { value: 'disabled' } }],
     });
   }
-  return rules.length ? { value: rules } : null;
+  return rules.length ? rules : null;
 }
 
 function buildCondition(when: Record<string, unknown>): Record<string, unknown> {
