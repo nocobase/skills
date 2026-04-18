@@ -9,370 +9,203 @@ allowed-tools: shell, local file reads, local file writes
 
 # NocoBase Application Builder
 
+## Golden rule
+
+`templates/crm/` is the canonical reference library. Before writing any
+non-trivial file, **open the closest CRM example and adapt it**. This
+manual only covers workflow and gotchas — syntax lives in the template.
+
+The pre-deploy spec validator catches most structural mistakes with a
+clear error message. **Trust the validator**: when it errors, fix what
+it says rather than guessing.
+
 ## Environment
 
 ```bash
-# All commands run from src/
 cd <skill-dir>/src
-
-# Environment variables
 export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
 ```
 
-## Build Workflow
+## Workflow
 
-### Round 0: Design (must confirm first)
+### Round 0: Design — MUST confirm with user first
 
-List collections, fields, and relationships. Wait for user confirmation before proceeding. Refer to the `nocobase-data-modeling` skill for data modeling details.
+List collections, fields, relationships. Wait for user confirmation
+before writing files. See the `nocobase-data-modeling` skill.
 
-### Round 0.5: Session setup (for whoever launches the agent)
+### Round 0.5: Session setup (sub-agent spawns only)
 
-If you are spawning a sub-agent (kimi TUI, Claude Code subprocess, etc.) to
-run this skill, the agent's process CWD becomes its default file write
-target. Set that BEFORE launching:
+If you're launching a sub-agent (kimi TUI, Claude Code subprocess, etc.),
+its process CWD becomes its default write target. **Set it before launch:**
 
 ```bash
-mkdir -p <user-workdir>          # idempotent
-cd <user-workdir>                # session inherits this
-kimi --yolo                      # or claude, codex, etc.
+mkdir -p <user-workdir>
+cd <user-workdir>
+kimi --yolo       # or claude, codex
 ```
 
-If you skip the cd, the agent inherits whatever CWD the launcher had
-(often a parent project root) and starts creating files / running
-`npx create-*-app` there — the wrong place. **The agent itself can't
-recover from this** because by the time it reads the prompt, its CWD is
-already wrong; it'll either pollute the parent or get confused trying to
-`cd` mid-session.
+Skip the `cd` and the agent inherits the launcher's CWD (often a parent
+project root), creating files in the wrong place. It can't recover from
+this mid-session — by the time it reads the prompt, CWD is already wrong.
 
-### Round 1: Create Files + Deploy
+### Round 1: Create files + deploy
 
-1. **Working directory**: use the **path the user gave you**. If they didn't
-   give one, ask. Do NOT default to `/tmp/myapp/` — that path is just an
-   example below; reusing it overwrites whatever someone else put there.
-2. Write files following the structure in `templates/crm/` (full reference below)
-3. Deploy: `npx tsx cli/cli.ts push <user-dir> --force`
+Workspace path: `cli push myapp` resolves to `workspaces/myapp/`.
+Override with `NB_WORKSPACE_ROOT=/some/path`. Each project auto `git init`s
+on first push/pull.
 
-**Two identifiers, two purposes**: every route has both a `key` (identity)
-and a `title` (display).
+**Open the right CRM reference before you write:**
+
+| Building | Open this CRM file |
+|---|---|
+| Full project layout | `templates/crm/` (root) |
+| A standard list page (table + filter + popups) | `templates/crm/pages/main/leads/` |
+| A multi-tab page | `templates/crm/pages/main/customers/` |
+| A dashboard (jsBlock, KPI cards, grid widths) | `templates/crm/pages/main/overview/` |
+| Charts & analytics | `templates/crm/pages/main/analytics/` |
+| Collection DSL | `templates/crm/collections/*.yaml` |
+| Block templates (forms/details) | `templates/crm/templates/block/` |
+| Popup templates | `templates/crm/templates/popup/` |
+| Menu tree | `templates/crm/routes.yaml` |
+| m2o auto-popup bindings | `templates/crm/defaults.yaml` |
+
+Deploy: `npx tsx cli/cli.ts push <name> --force`.
+The validator blocks bad DSL with specific messages. Fix those and re-push.
+
+### Round 2: Test data
+
+`cli seed` was retired (too many false-positive FK warnings). Insert data
+ad-hoc via API or SQL:
+
+```bash
+TOKEN=$(curl -sS -X POST $NB_URL/api/auth:signIn \
+  -H 'Content-Type: application/json' -H 'X-Authenticator: basic' \
+  -d '{"account":"'$NB_USER'","password":"'$NB_PASSWORD'"}' \
+  | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["token"])')
+
+# Always GET existing record IDs first — they're snowflake integers
+# (e.g. 359571523764224), NEVER 1/2/3.
+curl -sS -X POST $NB_URL/api/<collection>:create -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{...fields..., "owner":{"id": <real-user-id>}}'
+```
+
+Parent tables first; fill every FK on children (leaving it null orphans
+the row). Then:
+
+```bash
+npx tsx cli/cli.ts verify-data <name>     # FK & completeness check
+```
+
+### Round 3: Popups + details
+
+Edit templates and popup bindings, then `push --force`. See
+`templates/crm/pages/main/leads/popups/` for the `addNew` + `fields.<x>`
+pattern, and `templates/crm/pages/main/customers/tab_customers/popups/`
+for the parent-detail + child-list pattern.
+
+### Round 4: JS + Charts (optional)
+
+**Copy existing JS, don't write from scratch.**
+
+| Need | Copy from |
+|---|---|
+| KPI cards / dashboard hero | `templates/crm/pages/main/overview/js/` |
+| Charts | `templates/crm/pages/main/analytics/js/` |
+| Filter stat buttons | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js` |
+
+SQL charts: save + run as a two-step pattern —
+`ctx.sql.save({uid, sql})` then `ctx.sql.runById(uid)`.
+
+## Core concepts
+
+### Two identifiers: `key` and `title`
+
+`key` = lower_snake_ascii identity — drives directory names under `pages/`
+and entries in `state.yaml`. Always write it explicitly when the title
+isn't pure ASCII (Chinese/spaces slugify to gibberish).
+
+`title` = display text as the user wants it shown.
 
 ```yaml
-# routes.yaml
-- key: it_ops              # ascii slug — drives state.yaml + pages/ dir naming
-  title: IT 运维             # display name — can be Chinese, with spaces, anything
+- key: it_ops
+  title: IT 运维
   type: group
   children:
     - key: tickets
       title: 工单
 ```
 
-- `key` is REQUIRED for non-trivial titles. Defaults to `slugify(title)` when
-  omitted, so an English title `Projects` gets `key: projects` automatically.
-  But a Chinese title `工单` would slugify to a hash-y string — write the key
-  explicitly. **Page directories are named after the key** (`pages/it_ops/tickets/`).
-- `title` is what NocoBase shows in the menu. Don't translate it — leave the
-  user's wording.
+### Two popup modes: `key: reference` vs bare `ref:`
 
-**Don't pull in source code.** This skill is a manual. Source files in
-`src/`, `workspaces/`, examples in `templates/crm/` are reference material
-when something is unclear, but you should not need to grep through `.ts`
-files to learn how the DSL works. If you find yourself reading `.ts`,
-something in this manual is missing — note what was missing and tell the
-user.
-
-### Round 2: Test Data + Verification
-
-1. Insert test data: `npx tsx cli/cli.ts seed /tmp/myapp`
-   (or manually via API — but use real IDs from GET responses, NOT 1/2/3)
-2. Verify data integrity: `npx tsx cli/cli.ts verify-data /tmp/myapp`
-   Checks: record completeness, FK references, select values
-
-### Round 3: Popups + Details
-
-Edit popup/block templates → `deploy --force`
-
-### Round 4: JS + Charts (optional)
-
-Copy JS files from a page's `pages/<group>/<page>/js/` directory in the CRM template and modify — do not write from scratch.
-
-## Reference Files
-
-| What you need | Where to look |
-|---------------|---------------|
-| Full project structure | `templates/crm/` — 20+ page CRM |
-| Collection field syntax | `templates/crm/collections/*.yaml` |
-| Page layout syntax | `templates/crm/pages/main/*/layout.yaml` |
-| Block template syntax | `templates/crm/templates/block/*.yaml` |
-| Popup template syntax | `templates/crm/templates/popup/*.yaml` |
-| routes.yaml | `templates/crm/routes.yaml` |
-| defaults.yaml | `templates/crm/defaults.yaml` |
-| KPI / chart JS | `templates/crm/pages/main/analytics/js/analytics_jsBlock*.js` |
-| Filter stats JS | `templates/crm/pages/main/customers/tab_customers/js/customers_customers_filterForm_*.js` |
-| Seed data command | `npx tsx cli/cli.ts seed /tmp/myapp` |
-| Field type reference | "Field Type Reference" section below |
-
-## File Structure
-
-```
-/tmp/myapp/
-├── collections/*.yaml          # Collections
-├── templates/block/*.yaml      # Form/detail templates
-├── templates/popup/*.yaml      # Popup templates
-├── pages/<group>/<page>/
-│   ├── layout.yaml             # Page (blocks + layout)
-│   ├── js/*.js                 # JS blocks
-│   └── popups/*.yaml           # Popup bindings
-├── routes.yaml                 # Menu tree
-├── defaults.yaml               # m2o auto-popups
-└── state.yaml                  # Auto-managed, do not edit manually
-```
-
-## Popup File Format
-
-Popup files in `popups/` define what opens when a user clicks an action button.
-
-### Two ways to use a template — pick the right one
-
-**Way A — `key: reference` (use this for shared forms)**
-
-The popup block becomes a *reference* to the template. Edit the template
-once, every popup that references it updates. NB tracks usage. This is what
-you want for "the same Add/Edit form appears in 5 popups".
+**`key: reference`** — popup block is a *reference* to the template.
+Editing the template updates every popup that references it. Use for any
+shared Add/Edit form.
 
 ```yaml
-# popups/table.addNew.yaml
-target: $SELF.table.actions.addNew
 blocks:
   - ref: templates/block/form_add_new_tickets.yaml
-    key: reference                # ← REQUIRED — turns this into a real ref
+    key: reference           # REQUIRED for shared refs
 ```
 
-```yaml
-# templates/block/form_add_new_tickets.yaml — NO uid needed for fresh templates
-name: 'Form (Add new): Tickets'   # ← REQUIRED — the deploy looks up by name
-type: block                        # ← REQUIRED
-collectionName: it_tickets         # ← REQUIRED for fields validation
-content:
-  key: createForm
-  type: createForm
-  coll: it_tickets
-  fields: [title, description, urgency, status]
-  field_layout:
-    - '--- Basics ---'
-    - - title
-      - status
-  actions: [submit]
-```
+**Bare `ref:`** (no `key: reference`) — template content is *inlined*
+per popup; each copy is independent. Use only to factor a bulky block
+out of the page file.
 
-After deploy, check the template `usageCount` is **>= 1**. If still 0, the
-ref didn't bind — most often because `key: reference` was forgotten or the
-template file is missing the `name`/`type`/`collectionName` header.
+After deploy, a shared template's `usageCount` should be ≥ 1. If it
+stays at 0, `key: reference` was forgotten.
 
-**Way B — bare `ref:` (use this only to factor out repeated chunks)**
+### Auto-created columns — do NOT declare them
 
-Without `key: reference`, the template content gets *inlined* into the
-popup. Each popup ends up owning its own copy. Useful only when the
-"template" is just a tidy way to keep a complex block out of the page file.
+NocoBase auto-creates these; declaring them causes silent filtering or
+type conflicts:
 
-```yaml
-target: $SELF.table.actions.addNew
-blocks:
-  - ref: templates/block/form_add_new_tickets.yaml
-    # no key: reference → inlined, template usage stays 0
-```
+- System columns: `id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`
+- m2o / o2m FK columns: declaring `owner: m2o → users` auto-creates
+  `owner_id`; don't add a second `owner_id: integer` row
+- m2m join tables: `through: nb_x_y` is auto-created; don't write a
+  collection YAML for it
 
-### Embedding a child list inside a detail popup
+### `foreignKey` flips meaning
 
-This is *the* canonical "click row to see details + child records" pattern.
-Two blocks in the popup: a `details` for the parent record + a `table` for
-the o2m children.
+On **m2o**, `foreignKey` names the FK column on the *current* table
+(`owner: m2o, foreignKey: owner_id` → `owner_id` on SELF).
 
-```yaml
-# popups/table.fields.title.yaml — opens when clicking the title in table
-target: $SELF.table.fields.title
-mode: drawer
-coll: it_tickets
-blocks:
-  - key: details
-    type: details
-    coll: it_tickets
-    resource_binding:
-      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'   # mandatory in popups
-    fields: [title, reporter_name, urgency, status, description, assignee, createdAt]
-    field_layout:
-      - '--- 基本信息 ---'
-      - - title
-        - status
-      - - urgency
-        - assignee
-      - '--- 描述 ---'
-      - - description
-  - key: comments
-    type: table
-    coll: it_comments
-    resource_binding:
-      sourceId: '{{ctx.view.inputArgs.filterByTk}}'    # bind to parent record
-      associationName: ticket.comments                  # parent.assoc field name
-    fields:
-      - field: content
-        ellipsis: true
-      - createdBy
-      - createdAt
-    actions: [addNew]                                   # users can add new comments
-layout:
-  - - details
-  - - comments
-```
+On **o2m**, `foreignKey` names the FK column on the *target* table
+(`tasks: o2m → nb_pm_tasks, foreignKey: project_id` → `project_id` on
+`nb_pm_tasks`).
 
-Key points for the child block:
-- `resource_binding.sourceId + associationName` is what scopes the child
-  list to the parent record. Without these, you'll see *all* comments, not
-  just this ticket's.
-- `associationName` format is `<parent_collection_alias>.<o2m_field_name>`.
-  In the parent collection's o2m field this is the field name (`comments`).
-- The o2m must already be declared on the parent collection
-  (`comments: o2m → it_comments, foreignKey: ticket_id`).
-
-### Other popup tricks
-
-```yaml
-# clickToOpen on a table field — wires the cell to a popup target
-fields:
-  - field: title
-    clickToOpen: true
-```
-
-## Field Type Reference
-
-All supported field interfaces are defined in `src/types/spec.ts` (`FieldInterface` type).
-
-For detailed field capabilities, relation rules, and compact payload guidance, see:
-`../nocobase-data-modeling/references/field-capabilities.md`
-
-Quick reference for common types used in collection YAML:
-
-| interface | Required params |
-|-----------|-----------------|
-| input, textarea, email, phone, url | — |
-| integer, number, percent, checkbox | — |
-| select, multipleSelect, radioGroup | `options: [{value, label}]` |
-| dateOnly, datetime, time | — |
-| markdown, richText, attachment | — |
-| m2o | `target: collection_name` |
-| o2m | `target: collection_name`, `foreignKey: field_name` |
-| m2m | `target: collection_name`, `through: join_table` |
-
-> System columns (`id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`) are auto-created — do NOT define them.
-
-### ⛔ The auto-FK trap (most common collection-YAML mistake)
-
-**Don't declare both an m2o field AND its `_id` integer twin.** NocoBase
-creates the `_id` column automatically when you declare an m2o.
-
-```yaml
-# WRONG — `applicant_id` is created twice; seed data writes to one and reads
-# the other, leaving every row with applicant=null
-- name: applicant_id
-  interface: integer
-- name: applicant
-  interface: m2o
-  target: users
-
-# RIGHT — just declare the m2o; NocoBase mints the `_id` column
-- name: applicant
-  interface: m2o
-  target: users
-```
-
-Same rule for `o2m` (parent owns the relation; child gets the FK column auto)
-and `m2m` (both sides; the join table is auto). The `_id` column does exist
-on the live table — you just don't write it in the DSL because doing so
-shadows the real FK.
-
-## Key Rules
-
-1. **select must have options** — `options: [{value, label}]`
-2. **collection must have titleField** — auto-set if a `name` field exists
-3. **filterForm search fields must have filterPaths** — `filterPaths: [name]`. For
-   multi-target lookups (one filter feeding several tables with different
-   columns) use `targets: [{block: all_leads, paths: [name, lead_no]}, ...]`
-   instead — `filterPaths` broadcasts the same paths to every target which
-   blows up if a column doesn't exist in all of them.
-4. **field_layout must have sections** — `'--- Section Name ---'`
-5. **layout must be declared** — required when there is more than 1 block
-6. **actions are auto-populated** — no need to write actions/recordActions
-7. **`key` (lower_snake_ascii) is identity, `title` is display** — directories
-   under `pages/` are named by `key`, NOT by title. Always set `key` when the
-   title is not pure ascii (e.g. Chinese).
-8. **Templates: `name` is the link**, `uid` is optional. Fresh templates can omit
-   the top-level `uid` — the deploy resolves by name. After first deploy, pull
-   will write the assigned uid back so subsequent deploys are stable.
-9. **`key: reference` is what makes a popup ref shared**. Without it, the
-   template content gets inlined per popup and `usageCount` stays 0.
-10. **JS: copy from templates** — copy from a page's `pages/<group>/<page>/js/` directory in the CRM template and modify
-11. **SQL: two-step pattern** — `ctx.sql.save({uid, sql}) + ctx.sql.runById(uid)`
-12. **Parent tables first** — seed data: insert tables without foreign keys first.
-    For o2m/m2o relations, the seed must fill the FK column (e.g. `ticket_id`)
-    on the child rows — leaving it null produces orphaned children.
-13. **Do NOT define system columns** — never include `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `id` in collection YAML (auto-created by NocoBase)
-14. **`<user-dir>` is workspace-relative** — `cli push myapp` resolves to
-    `<reconciler>/workspaces/myapp/`. Absolute paths must already live inside
-    workspaces/. Override the root with `NB_WORKSPACE_ROOT=/some/path`.
-15. **Each project gets its own git repo** — auto `git init` on first
-    push/pull/duplicate-project. The parent skills repo's `.gitignore` hides
-    workspaces/, so deployment data and tool source stay decoupled.
-16. **Tables that should NOT auto-load** — set `dataLoadingMode: manual` on
-    the table block. The DSL omits this field when default (auto).
-17. **Approval workflows carry their own UIs** — `workflows/<slug>/ui/*.yaml`
-    holds the trigger form, task cards, and per-node approval forms. They
-    pull/push automatically; no need to declare manually unless you want a
-    custom shape.
-
-## Common Errors
-
-| Error | Fix |
-|-------|-----|
-| `fields not in collection` | Field names in collection YAML don't match NocoBase |
-| `titleField is missing` | Add `titleField: name` to collection YAML |
-| Only some pages deployed | routes.yaml title doesn't match pages directory name |
-| `filterTargetKey is not defined` | Re-deploy with --force |
-| `Request failed 400` | Check field definitions in collection YAML |
-| Chart SQL failed | Insert test data first; quote field names e.g. `"createdAt"` |
-| `Block references fields not in` | Remove non-existent fields from layout.yaml |
-| `string violation` on create | Collection has wrong field types — remove `createdAt`/`updatedAt` from YAML and re-deploy |
-
-## Command Reference
+## Command reference
 
 ```bash
 cd <skill-dir>/src
-export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
+export NB_USER=... NB_PASSWORD=... NB_URL=...
 
-# Deploy local DSL → NocoBase  (DSL is source of truth).
-# <user-dir> is resolved under workspaces/ — `push myapp` = workspaces/myapp.
-npx tsx cli/cli.ts push <user-dir> --force
-npx tsx cli/cli.ts push <user-dir> --group <route-key>     # only one subtree
-npx tsx cli/cli.ts push <user-dir> --incremental           # skip unchanged
-                                                            # pages/colls/tpls/wfs
-                                                            # (uses git diff vs
-                                                            # state.last_deployed_sha)
+npx tsx cli/cli.ts push <name> --force          # deploy DSL → NocoBase
+npx tsx cli/cli.ts push <name> --group <key>    # only one subtree
+npx tsx cli/cli.ts push <name> --incremental    # skip unchanged (git diff)
 
-# Pull live NocoBase → local DSL  (covers menu, pages, popups, templates,
-#                                  collections, defaults, layouts, event flows)
-npx tsx cli/cli.ts pull <user-dir>
+npx tsx cli/cli.ts pull <name>                  # NocoBase → DSL (full round-trip)
+npx tsx cli/cli.ts diff <left> <right>          # compare two DSL trees
+npx tsx cli/cli.ts duplicate-project <src> <dst> --key-suffix _v2
 
-# Compare two DSL trees with UID/path normalization
-npx tsx cli/cli.ts diff <left-dir> <right-dir>
-
-# Duplicate a project to a new isolated module (new keys, optional title prefix)
-npx tsx cli/cli.ts duplicate-project <src> <dst> --key-suffix _v2 --title-prefix "V2 - "
-
-# Verify data integrity (FK references, field completeness)
-npx tsx cli/cli.ts verify-data <user-dir>
-
-# (Removed: `cli seed` — generate test data ad-hoc with AI / SQL instead;
-#  the previous template-based seeder produced too many false-positive FK
-#  warnings to be useful.)
+npx tsx cli/cli.ts verify-data <name>           # FK / completeness check
 ```
 
-> Don't add an auto-sync between push and pull. Push is one-way DSL→NB; pull
-> is one-way NB→DSL. Round-tripping is `push` + `pull` + `git diff`. See
-> `src/PHILOSOPHY.md` for why.
+push and pull are both one-way. Round-tripping = push + pull + git diff.
+
+## Common errors
+
+| Error | Fix |
+|-------|-----|
+| `fields not in collection` | Field names don't match the collection YAML |
+| `titleField is missing` | Set `titleField: <field>` or add a `name`/`title` field |
+| Only some pages deployed | `key` mismatch with a `pages/<key>/` directory |
+| `string violation` on create | `createdAt`/`updatedAt` declared in YAML — remove |
+| Chart SQL failed | Seed data first; quote field names like `"createdAt"` |
+| m2o link 400 in UI | Missing `defaults.yaml` `popups:` binding for target collection |
+| `Collection X not found in data source main` | `associationName` used a short name — use the full collection name (`nb_pm_projects.tasks`, not `project.tasks`). See `templates/crm/pages/main/customers/tab_customers/popups/` |
+
+---
+
+If any of the above contradicts what you observe at runtime, the manual
+is stale — note what was missing and tell the user.

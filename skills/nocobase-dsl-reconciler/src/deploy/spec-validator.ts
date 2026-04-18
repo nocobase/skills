@@ -141,6 +141,35 @@ export function validatePageSpecs(pages: PageInfo[], projectDir: string): SpecIs
       validateBlock(bs, page.title, page.popups, issues, projectDir, knownColls);
     }
 
+    // Check resource_binding.associationName format across all blocks + popup
+    // blocks on this page. Must be "<full-collection-name>.<o2m-field>" — a
+    // common mistake is using the short reverse-name ("project.tasks" instead
+    // of "nb_pm_projects.tasks"), which NocoBase can't resolve at runtime
+    // ("Collection project not found in data source main"). Accept any
+    // collection in knownColls + NocoBase system collections.
+    const SYS_COLLS = new Set(['users', 'roles', 'dataSources', 'collections', 'uiSchemas', 'applicationPlugins', 'mailMessages']);
+    const scanAssoc = (blks: unknown[] | undefined, blockKeyFallback = ''): void => {
+      if (!Array.isArray(blks)) return;
+      for (const b of blks) {
+        if (!b || typeof b !== 'object') continue;
+        const bo = b as Record<string, unknown>;
+        const rb = (bo.resource_binding || {}) as Record<string, unknown>;
+        const assoc = rb.associationName;
+        if (typeof assoc !== 'string' || !assoc.includes('.')) continue;
+        const [prefix] = assoc.split('.');
+        if (!knownColls.has(prefix) && !SYS_COLLS.has(prefix)) {
+          issues.push({
+            level: 'error',
+            page: page.title,
+            block: (bo.key as string) || blockKeyFallback,
+            message: `associationName "${assoc}" uses short name "${prefix}" — must be the full collection name. If the o2m field lives on collection "nb_xxx_yyy", use "nb_xxx_yyy.${assoc.split('.').slice(1).join('.')}".`,
+          });
+        }
+      }
+    };
+    scanAssoc(allBlocks as unknown[]);
+    for (const p of page.popups) scanAssoc((p.blocks || []) as unknown[], p.target || '');
+
     // Validate the page/tab-level `layout:` specs
     if ((page.layout as { layout?: unknown[] }).layout) {
       validateLayoutSpec((page.layout as { layout: unknown[] }).layout, page.title, 'page', issues);
