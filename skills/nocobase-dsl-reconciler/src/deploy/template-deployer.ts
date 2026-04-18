@@ -326,6 +326,7 @@ async function syncTemplateContent(
           await deployDividers(fCtx, newGridUid, content as any, {});
           await applyFieldLayout(fCtx, newGridUid, fieldLayout, content as any);
         }
+        await applyTemplateSubTables(nb, targetUid, content, log);
       }
     } finally {
       await deleteTempPage(nb, tempPage);
@@ -341,6 +342,7 @@ async function syncTemplateContent(
         await deployDividers(fCtx, gridUid, content as any, {});
         await applyFieldLayout(fCtx, gridUid, fieldLayout, content as any);
       }
+      await applyTemplateSubTables(nb, targetUid, content, log);
     }
   }
 
@@ -348,6 +350,35 @@ async function syncTemplateContent(
   // fieldLinkageRules, fieldValueRules, event_flows — they must be set
   // explicitly so copied form templates show/hide/compute fields correctly.
   await applyTemplateExtras(nb, targetUid, content, log, indent, modDir);
+}
+
+/**
+ * Mirror of applySubTableFields for template-deploy paths. The block-filler
+ * runs sub-table conversion only on PAGE block instances; templates flow
+ * through this file's compose+copy path which doesn't go through fillBlock,
+ * so without this helper a template form's sub-table columns get dropped on
+ * push (NB falls back to default RecordSelect picker for o2m fields).
+ */
+async function applyTemplateSubTables(
+  nb: NocoBaseClient,
+  blockUid: string,
+  content: Record<string, unknown>,
+  log: (msg: string) => void,
+): Promise<void> {
+  const btype = content.type as string;
+  if (btype !== 'createForm' && btype !== 'editForm') return;
+  const fields = (content.fields as unknown[] | undefined) || [];
+  const hasSubTable = fields.some(f => typeof f === 'object' && f !== null && (f as { type?: string }).type === 'subTable');
+  if (!hasSubTable) return;
+  const coll = content.coll as string | undefined;
+  if (!coll) return;
+  try {
+    const { applySubTableFields } = await import('./fillers/sub-table');
+    const ctx = { nb, log, force: false } as DeployContext;
+    await applySubTableFields(ctx, blockUid, coll, content as any);
+  } catch (e) {
+    log(`    . template sub-table: ${e instanceof Error ? e.message.slice(0, 80) : e}`);
+  }
 }
 
 async function applyTemplateExtras(
@@ -766,6 +797,7 @@ async function createBlockTemplate(
           await applyFieldLayout(fCtx, formGridUid, fieldLayout, content as any);
           log(`    ~ template field_layout applied (${fieldLayout.length} rows)`);
         }
+        await applyTemplateSubTables(nb, blockUid, content, log);
       } catch (e) {
         log(`    . template field_layout: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
       }
