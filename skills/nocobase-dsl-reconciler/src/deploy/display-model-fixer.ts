@@ -27,11 +27,16 @@ export const DISPLAY_MODEL_MAP: Record<string, string> = {
   icon: 'DisplayTextFieldModel',
   collection: 'DisplayTextFieldModel',    // collection-name picker
 
-  // Rich / url
+  // URL / rich text
   url: 'DisplayURLFieldModel',
   richText: 'DisplayHtmlFieldModel',
-  vditor: 'DisplayHtmlFieldModel',
-  markdown: 'DisplayHtmlFieldModel',
+  // vditor / markdown are rendered by NB with the plain DisplayTextFieldModel
+  // (confirmed from live NB — no DisplayVditorFieldModel or
+  // DisplayMarkdownFieldModel instance seen). Listing them here and forcing
+  // them to a Html model would fail the save; the default text model is
+  // what NB's compose already picks, so a no-op entry is the right answer.
+  vditor: 'DisplayTextFieldModel',
+  markdown: 'DisplayTextFieldModel',
 
   // Enum-ish
   select: 'DisplayEnumFieldModel',
@@ -69,6 +74,25 @@ export const DISPLAY_MODEL_MAP: Record<string, string> = {
   obo: 'DisplayTextFieldModel',
   o2m: 'DisplayNumberFieldModel',
   m2m: 'DisplayNumberFieldModel',
+
+  // Attachment is an m2m to the internal `attachments` collection under the
+  // hood — display as a count is consistent with m2m. NB has no dedicated
+  // DisplayAttachmentFieldModel; editable forms use UploadFieldModel.
+  attachment: 'DisplayNumberFieldModel',
+  // Sub-table — an inline m2m/o2m rendered as nested rows. Read-only view
+  // shows row count, same as the parent relation.
+  subTable: 'DisplayNumberFieldModel',
+
+  // Cascade — enum-flavoured multi-level select (china-region, custom
+  // cascader). Rendered as a single "A / B / C" string.
+  chinaRegion: 'DisplayEnumFieldModel',
+  cascader: 'DisplayEnumFieldModel',
+  cascadeSelect: 'DisplayEnumFieldModel',
+
+  // Formula / roles / space — display as plain text; NB's compose default is
+  // already correct. Listed for documentation.
+  formula: 'DisplayTextFieldModel',
+  roles: 'DisplayTextFieldModel',
 
   // User / audit fields resolve to the user record's display name.
   createdBy: 'DisplaySubItemFieldModel',
