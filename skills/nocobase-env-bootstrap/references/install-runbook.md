@@ -221,18 +221,11 @@ For install tasks, run this section as the default final stage after app startup
 1. Resolve local API URL:
 - `http://localhost:<port>/api`
 
-2. Ensure CLI dependency plugin bundle is active before runtime refresh:
-- oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
-- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
-- Preferred activation command (oauth):
-- `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
-- If plugin state changed, restart app before running CLI bootstrap chain.
-
-3. Auth mode behavior:
+2. Auth mode behavior:
 - default bootstrap mode is oauth.
 - oauth mode probes `/.well-known/oauth-authorization-server`, runs `env auth`, then `env update`.
 - token mode requires token env (default `NOCOBASE_API_TOKEN`) and keeps strict local-vs-remote token rules.
-- in token mode, if token env is missing, `cli-postcheck` will try automatic API key generation first (local `yarn nocobase generate-api-key`, then `docker compose exec` fallback); only when automatic path fails, fallback to manual token creation/export.
+- in token mode, if no token is available, auto-generate first: `yarn nocobase generate-api-key -n cli_auto_token -u nocobase -r root -e 30d --silent` (or docker compose exec equivalent); only when automatic path fails, ask user to create token manually.
 
 3a. Before running CLI bootstrap in OAuth mode, display login credentials:
 - Account: `admin@nocobase.com` (or configured `INIT_ROOT_EMAIL`)
@@ -251,18 +244,12 @@ nocobase-ctl env update -e local -s project
 nocobase-ctl env -s project
 ```
 
-Note: install/upgrade final-stage bootstrap should call `nocobase-ctl` directly. `cli-postcheck.mjs` is only the orchestration shell around this direct CLI chain.
-
-5. Scripted command pattern:
+5. Token mode command sequence:
 
 ```bash
-node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>
-```
-
-Token mode uses a separate command pattern:
-
-```bash
-node ./scripts/cli-postcheck.mjs --auth-mode token --token-env NOCOBASE_API_TOKEN --base-dir <app_dir> --ctl-dir <workspace_root>
+nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project
+nocobase-ctl env update -e local -s project
+nocobase-ctl env -s project
 ```
 
 ## Optional MCP Stage (Explicit Only)

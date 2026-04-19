@@ -301,4 +301,4 @@ Actions:
    - docker: `docker compose exec -T app yarn nocobase generate-api-key -n cli_auto_token -u admin@nocobase.com -r root -e 30d --silent`
 2. If the app install has not completed, run `nocobase install` first and wait for it to finish.
 3. If admin email was customized during install, pass the actual email as `-u <email>`.
-4. After token is generated, set `NOCOBASE_API_TOKEN=<token>` and rerun `node ./scripts/cli-postcheck.mjs`.
+4. After token is generated, run: `nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project` then `nocobase-ctl env update -e local -s project`.

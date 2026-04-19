@@ -69,15 +69,15 @@ Preflight must run with explicit `install_method` context:
 
 7. CLI bootstrap prerequisites
 - Verify `nocobase-ctl` or `nbctl` is available in PATH.
-- Verify `node` is available for script orchestration (`preflight`, `install`, `upgrade`, `cli-postcheck`).
+- Verify `node` is available for script orchestration (`preflight`, `install`, `upgrade`).
 - Verify auth mode for CLI bootstrap (`oauth` default).
 - For token mode, verify token env exists or can be generated later (default `NOCOBASE_API_TOKEN`).
 - For running targets (upgrade/diagnose), verify CLI dependency plugins:
 - oauth mode: `@nocobase/plugin-api-doc` (`swagger:get` source for `env update`) + `@nocobase/plugin-idp-oauth`
 - token mode: `@nocobase/plugin-api-doc` (`swagger:get` source for `env update`) + `@nocobase/plugin-api-keys` (token generation/refresh path)
 - If dependency plugins are missing, apply activation sequence:
-- oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth -> restart app -> rerun cli-postcheck`
-- token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys -> restart app -> rerun cli-postcheck`
+- oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth -> restart app -> rerun CLI bootstrap`
+- token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys -> restart app -> rerun CLI bootstrap`
 
 ## MCP Blocking Checks (explicit `task=mcp-connect` only)
 

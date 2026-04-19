@@ -28,21 +28,18 @@ interface:
     MySQL install docs https://dev.mysql.com/doc/en/installing.html ;
     MySQL downloads https://dev.mysql.com/downloads/mysql ;
     MariaDB downloads https://mariadb.org/download/ .
-    Before CLI runtime refresh, ensure CLI dependency plugins are active by auth mode:
-    oauth(default): @nocobase/plugin-api-doc + @nocobase/plugin-idp-oauth; token: @nocobase/plugin-api-doc + @nocobase/plugin-api-keys
-    (use $nocobase-plugin-manage activation path and restart app if plugin state changed).
-    For install/upgrade final-stage CLI bootstrap, call `nocobase-ctl` directly (or use `node ./scripts/cli-postcheck.mjs ...`, which now calls `nocobase-ctl` directly).
+    For install/upgrade final-stage CLI bootstrap, call `nocobase-ctl` directly.
     OAuth bootstrap order is mandatory and must never be reordered:
     `nocobase-ctl env add --name <env> --base-url <url> -s <scope>` -> `nocobase-ctl env auth -e <env> -s <scope>` -> `nocobase-ctl env update -e <env> -s <scope>` -> `nocobase-ctl env -s <scope>`.
     Never run `env update` as a pre-check before the first successful OAuth authorization for a newly added env. `env update` before `env auth` will fail with unauthenticated/EMPTY_TOKEN and is not a signal to reorder the flow.
     If the browser opens an OAuth error page such as `missing required parameter 'client_id'`, do not treat that as proof that the app metadata is broken. The authorization URL comes from the `nocobase-ctl env auth` OAuth flow itself, not from this skill. If `nocobase-ctl env auth` prints that URL in command output, use that same URL manually; otherwise continue from the browser flow opened by `env auth` and rerun it in an interactive terminal if needed. Treat this as a likely browser-launch or command-line URL handling issue rather than server-side truncation. Windows is only a common trigger, not the only platform where this can happen.
-    For app environment management outside final-stage bootstrap, use direct `nocobase-ctl` commands: `env add`, `env auth`, `env update`, `env use`, `env list`.
+    For app environment management outside final-stage bootstrap, use direct `nocobase-ctl` commands: `env add`, `env auth`, `env update`, `env use`, `env remove`, `env list`.
     App env add defaults to oauth mode. In token mode, token must be auto-generated via `yarn nocobase generate-api-key` or `docker compose exec`; for remote hosts, token must be manually provided by user.
     Env add is only successful when `env update` connectivity verification also succeeds.
-    After app startup/upgrade succeeds, bootstrap local CLI env via cli-postcheck
-    (`node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>` for oauth, or `node ./scripts/cli-postcheck.mjs --auth-mode token --token-env NOCOBASE_API_TOKEN --base-dir <app_dir> --ctl-dir <workspace_root>` for token mode).
-    In token mode only, cli-postcheck must auto-try API token generation first (local `yarn nocobase generate-api-key`, docker compose fallback)
-    and only ask user for manual token when automatic path fails.
+    After app startup/upgrade succeeds, bootstrap local CLI env by running these commands directly:
+    OAuth mode: `nocobase-ctl env add --name local --base-url http://localhost:<port>/api -s project` -> `nocobase-ctl env auth -e local -s project` -> `nocobase-ctl env update -e local -s project` -> `nocobase-ctl env -s project`.
+    Token mode: `nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project` -> `nocobase-ctl env update -e local -s project` -> `nocobase-ctl env -s project`.
+    In token mode, if no token is available, auto-generate first: local `yarn nocobase generate-api-key -n cli_auto_token -u nocobase -r root -e 30d --silent` or docker `docker compose exec -T app yarn nocobase generate-api-key ...`; ask user manually only when automatic path fails.
 
 policy:
   allow_implicit_invocation: true

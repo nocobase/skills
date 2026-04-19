@@ -95,11 +95,6 @@ Database policy:
 5. Run local install script for docker path.
 6. Verify logs and login URL.
 7. Run CLI bootstrap final stage:
-- ensure dependency plugins are active first (auth-mode bundle):
-  - oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
-  - token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
-  - preferred command (oauth): `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
-  - if plugin state changed, restart app before `env update`
 - `nocobase-ctl env add --name local --base-url http://localhost:13000/api -s project`
 - `nocobase-ctl env auth -e local -s project`
 - `nocobase-ctl env update -e local -s project`
@@ -186,28 +181,29 @@ Upgrade safety rules:
 
 For install/upgrade flows, local CLI bootstrap is executed as the final stage by default.
 
+OAuth mode (default):
 ```bash
-node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>
+nocobase-ctl env add --name local --base-url http://localhost:<port>/api -s project
+nocobase-ctl env auth -e local -s project
+nocobase-ctl env update -e local -s project
+nocobase-ctl env -s project
 ```
 
-Token mode uses a separate command shape:
-
+Token mode:
 ```bash
-node ./scripts/cli-postcheck.mjs --auth-mode token --token-env NOCOBASE_API_TOKEN --base-dir <app_dir> --ctl-dir <workspace_root>
+nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project
+nocobase-ctl env update -e local -s project
+nocobase-ctl env -s project
 ```
 
-CLI bootstrap responsibilities:
-
-- ensure runtime dependency plugins are active by auth mode
-  - oauth (default): `api-doc`, `idp-oauth`
-  - token: `api-doc`, `api-keys`
-- add or update local env definition (`env add`)
-- complete OAuth login (`env auth`) when auth mode is oauth
-- refresh runtime command cache (`env update`)
-- read back configured env (`nocobase-ctl env -s project`)
-- expose machine-readable current env context for downstream skills
-
-In token mode, if token env is missing, `cli-postcheck` tries automatic token generation first; only when that fails should you manually activate `@nocobase/plugin-api-keys` and provide token.
+In token mode, if no token is available, auto-generate first:
+```bash
+# local (create-app/git)
+yarn nocobase generate-api-key -n cli_auto_token -u nocobase -r root -e 30d --silent
+# docker
+docker compose exec -T app yarn nocobase generate-api-key -n cli_auto_token -u nocobase -r root -e 30d --silent
+```
+Ask user manually only when automatic path fails.
 
 ## App Environment Management Task
 
@@ -229,6 +225,11 @@ nocobase-ctl env update -e staging -s project
 Switch env:
 ```bash
 nocobase-ctl env use staging -s project
+```
+
+Remove env:
+```bash
+nocobase-ctl env remove -e staging -s project
 ```
 
 List / read current:

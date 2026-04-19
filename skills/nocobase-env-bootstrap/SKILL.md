@@ -120,11 +120,11 @@ Default behavior when user says "you decide":
 - MariaDB downloads: `https://mariadb.org/download/`
 - App env auth-mode rule is mandatory:
 - default add mode is `oauth` (unless token args are provided without explicit auth-mode).
-- oauth mode requires dependency bundle `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth` and interactive `env auth`.
+- oauth mode uses interactive `env auth` flow.
 - token mode local URL (strict): host in `localhost`, `127.0.0.1`, `::1`, `*.localhost`, or `host.docker.internal` -> token must be auto-generated via `yarn nocobase generate-api-key` or `docker compose exec` (never use placeholder token).
 - token mode remote URL: token must be manually provided by user (`app_token` or token env).
 - **OAuth no-auto-fallback rule (mandatory)**: if `cli_auth_mode=oauth` and OAuth bootstrap fails or times out, **never automatically switch to token mode**. Show the `login_command` output to the user and ask: "OAuth authorization did not complete. Do you want to retry OAuth or switch to token mode?" Only switch auth mode after explicit user confirmation.
-- For install flows, always run CLI environment bootstrap as final stage through direct `nocobase-ctl` commands (`env add`, `env auth`, `env update`) or the wrapper script `node ./scripts/cli-postcheck.mjs ...` which now calls `nocobase-ctl` directly.
+- For install flows, always run CLI environment bootstrap as final stage through direct `nocobase-ctl` commands: `env add`, `env auth`, `env update`.
 - If token mode is used and `cli_token_env` is missing during CLI bootstrap, attempt automatic token generation first; ask user manually only when automatic path fails.
 - If required inputs are missing or ambiguous, stop and ask one short clarification question.
 - If any required path is invalid or not writable, stop and request a valid writable path before continuing.
@@ -177,19 +177,10 @@ Default behavior when user says "you decide":
 - Remind user: "Please log in to the app with the credentials above when the browser opens. The OAuth authorization page will appear automatically after login."
 - Do NOT output the app login URL here — follow the OAuth authorization flow triggered by `env auth`. If `env auth` prints an authorization URL in terminal output, that is the only URL the user should follow.
 - This ensures the user has an active session when `env auth` triggers the OAuth callback, avoiding auth timeout.
-- Ensure CLI dependency plugin bundle is active before CLI runtime refresh:
-- oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
-- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
-- Preferred activation path:
-- oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
-- token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
-- If plugin state changed, restart app before `nocobase-ctl env update ...`.
 - Always run CLI bootstrap as final stage for install/upgrade:
-- OAuth mode (default): `node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>`
-- Token mode: `node ./scripts/cli-postcheck.mjs --auth-mode token --token-env <cli_token_env> --base-dir <app_dir> --ctl-dir <workspace_root>`
-  - `--base-dir` = app directory (where docker-compose.yml / yarn nocobase lives); for docker this is `targetDir`, for create-nocobase-app this is the generated project dir
-  - `--ctl-dir` = workspace root (parent of app dir, where `.nocobase-ctl/config.json` should be stored); this is the directory the agent/user is working from, NOT the app dir itself
-- CLI bootstrap target command:
+- OAuth mode (default): run commands below interactively
+- Token mode: provide `--token <token>` in `env add`, skip `env auth`
+- CLI bootstrap command sequence:
 - `nocobase-ctl env add --name <cli_env_name> --base-url http://localhost:<port>/api -s project`
 - OAuth bootstrap order is mandatory and must never be reordered:
 - `nocobase-ctl env add --name <cli_env_name> --base-url http://localhost:<port>/api -s project`
@@ -269,13 +260,13 @@ Confirmation template:
 - Method and release channel are explicitly confirmed or defaulted.
 - Install commands are recorded and reproducible.
 - Install core success is determined by app startup and login readiness.
-- CLI final stage runs for install/upgrade and successfully creates/updates local env via direct `nocobase-ctl env add/auth/update` commands (or `cli-postcheck`, which orchestrates that chain).
+- CLI final stage runs for install/upgrade and successfully creates/updates local env via direct `nocobase-ctl env add/auth/update` commands.
 - App env add (via direct `nocobase-ctl` commands) enforces auth-mode rules correctly (`oauth` default; token mode for manual token supply).
 - App env add is not considered success unless `env update` connectivity verification succeeds.
 - CLI runtime refresh (`nocobase-ctl env update ...`) succeeds for the bootstrap env.
 - If runtime refresh fails with `swagger:get` 404 or API documentation disabled, skill applies plugin activation sequence and retries.
-- OAuth path confirms `@nocobase/plugin-idp-oauth` is active before OAuth metadata/auth verification.
-- Token acquisition path confirms `@nocobase/plugin-api-keys` is active before generating/providing token.
+- OAuth path completes `env auth` without plugin-enable steps (plugins are default-on; if `idp-oauth` is inactive, error is surfaced and plugin activation is applied as recovery).
+- Token acquisition path completes without plugin-enable steps (plugins are default-on; if `api-keys` is inactive, error is surfaced and plugin activation is applied as recovery).
 - Readback confirms expected env name/base URL/scope and current env selection.
 - Upgrade path includes backup confirmation.
 - Upgrade path includes script-level confirmation gate (`--confirm-upgrade true`) after plan readback.
