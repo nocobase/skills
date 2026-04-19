@@ -11,11 +11,11 @@ Bootstrap and verify NocoBase MCP connectivity so downstream development workflo
 3. RPC Contract
 4. Initialize and Session Strategy
 5. Activation Gate
-6. Post-Start Gate Command
+6. Post-Start Validation
 7. API Key Path
 8. OAuth Path
 9. Package Scope Control
-10. Client Templates and Fixed Scripts
+10. Client Templates
 11. Verification Checklist
 12. Failure Handling
 13. Reference Files
@@ -105,11 +105,11 @@ Admin URL templates (replace `<base_url>` with actual app base URL):
 - Fixed execution sequence:
 - 1) run `Use $nocobase-plugin-manage enable <activation_plugin_bundle>`
 - 2) restart app immediately
-- 3) rerun postcheck
+- 3) rerun validation
 - If plugin-manage returns backend unavailable/unreachable, output rich fallback hints directly:
 - plugin manager URL
 - API keys URL
-- manual activation + restart + rerun postcheck steps
+- manual activation + restart + rerun validation steps
 - Only if runtime action path is unavailable, fallback to manual activation in NocoBase admin.
 - User steps:
 - Open plugin manager URL.
@@ -129,34 +129,23 @@ Admin URL templates (replace `<base_url>` with actual app base URL):
 
 3. Do not continue downstream MCP-dependent development when any activation blocker exists.
 
-## Post-Start Gate Command
+## Post-Start Validation
 
-Run MCP postcheck after app startup and before client `mcp add`.
+Run MCP endpoint/auth validation after app startup and before client `mcp add`.
 
-1. Windows:
+1. Endpoint route probe:
+- API key mode: call MCP endpoint with bearer token header.
+- OAuth/none mode: call MCP endpoint without bearer token and check route status first.
 
-```powershell
-powershell -File scripts/mcp-postcheck.ps1 -Port 13000 -McpAuthMode api-key -McpTokenEnv NOCOBASE_API_TOKEN
-```
-
-2. Linux/macOS:
-
-```bash
-MCP_AUTH_MODE=api-key MCP_TOKEN_ENV=NOCOBASE_API_TOKEN bash scripts/mcp-postcheck.sh 13000
-```
-
-3. Gate interpretation:
-- If output contains `action_required: activate_plugin`, run fixed sequence `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart_app -> rerun_postcheck` first.
-- Do not run alternative diagnostics before the fixed sequence above is completed.
-- If output contains `action_required: restart_app`, restart app and rerun postcheck.
-- Do not request token/manual API-key step while endpoint blocker (`activate_plugin` or `restart_app`) is unresolved.
-- If output contains `action_required: provide_api_token`, it means automatic token generation/refresh failed; then ask user to create/regenerate API key manually and send token value.
-- If output contains protocol failure (`MCP-PROTO-*`), fix request shape/headers first.
-- After user confirms activation or provides token, rerun postcheck until pass.
+2. Gate interpretation:
+- If probe returns `404`, run fixed sequence `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart_app -> rerun_validation` first.
+- If probe returns `503` or `5xx`, restart app and rerun validation.
+- If probe returns `401/403` in API key mode, refresh/regenerate API key token first, then retry.
+- If probe reveals protocol failure (`MCP-PROTO-*`), fix request shape/headers first.
 
 ## API Key Path
 
-1. Preferred: let `mcp-postcheck` auto-generate/auto-refresh token.
+1. Preferred: use CLI token generation/refresh path (`nocobase generate-api-key`) when available.
 2. Fallback: export API token env var manually (default: `NOCOBASE_API_TOKEN`).
 3. Add MCP server in client with bearer token env var.
 4. Probe MCP endpoint with token and confirm it no longer fails for auth reasons.
@@ -175,17 +164,7 @@ $env:NOCOBASE_API_TOKEN="<your_api_key>"
 codex mcp add nocobase --url http://<host>:<port>/api/mcp --bearer-token-env-var NOCOBASE_API_TOKEN
 ```
 
-Auto-token flags (optional):
-
-```powershell
-powershell -File scripts/mcp-postcheck.ps1 -Port 13000 -McpAuthMode api-key -McpTokenEnv NOCOBASE_API_TOKEN -AutoApiKeyName mcp_auto_token -AutoApiKeyUsername nocobase -AutoApiKeyRole root -AutoApiKeyExpiresIn 30d
-```
-
-For non-codex clients, generate fixed templates from the helper script in this skill:
-
-```powershell
-powershell -File scripts/render-mcp-client-template.ps1 -Client opencode -BaseUrl http://127.0.0.1:13000 -McpAuthMode api-key -TokenEnv NOCOBASE_API_TOKEN
-```
+For non-codex clients, copy a fixed template from [MCP Client Templates](mcp-client-templates.md) and only adjust endpoint/auth values.
 
 ## OAuth Path
 
@@ -208,30 +187,18 @@ Use `x-mcp-packages` to limit exposed package capabilities.
 2. Restricted mode: provide comma-separated package list.
 3. Always echo effective package scope in final output evidence.
 
-## Client Templates and Fixed Scripts
+## Client Templates
 
-Use these scripts to avoid client-specific config mistakes.
+Use fixed templates to avoid client-specific config mistakes.
 
-1. Windows template generator:
-
-```powershell
-powershell -File scripts/render-mcp-client-template.ps1 -Client <codex|claude|opencode|vscode|windsurf|cline> -BaseUrl <app_base_url> -McpAuthMode <api-key|oauth|none> -McpScope <main|non-main> -McpAppName <app_name_if_non_main> -TokenEnv NOCOBASE_API_TOKEN -McpPackages "<pkg1,pkg2>"
-```
-
-2. Linux/macOS template generator:
-
-```bash
-bash scripts/render-mcp-client-template.sh <codex|claude|opencode|vscode|windsurf|cline> <app_base_url> <api-key|oauth|none> <main|non-main> <app_name_if_non_main> NOCOBASE_API_TOKEN "<pkg1,pkg2>"
-```
-
-3. Template reference:
+1. Template reference:
 - [MCP Client Templates](mcp-client-templates.md)
 
-4. `opencode` note:
+2. `opencode` note:
 - Use remote MCP config with explicit `Accept: application/json, text/event-stream`.
 - API token placeholder format is `{env:NOCOBASE_API_TOKEN}` (different from `${NOCOBASE_API_TOKEN}` used by some other clients).
 
-5. Web fallback rule (explicit):
+3. Web fallback rule (explicit):
 - Always try fixed template output first.
 - If target client is not covered by fixed templates, or template output still fails after one complete retry (`initialize -> tools/list` with confirmed endpoint/auth), switch to WebFetch lookup.
 - WebFetch lookup must prioritize official sources only:
@@ -249,7 +216,7 @@ bash scripts/render-mcp-client-template.sh <codex|claude|opencode|vscode|windsur
 3. Activation blockers are resolved:
 - `MCP Server` plugin activated.
 - `API Keys` plugin activated for API key mode.
-4. Post-start gate command is executed and passes.
+4. Post-start validation is executed and passes.
 5. Protocol chain probe passes (`initialize`, `tools/list`, and at least one `tools/call` probe when available).
 6. Client command and endpoint values are recorded.
 7. Final output contains endpoint, auth mode, package scope, and next action.
@@ -258,15 +225,15 @@ bash scripts/render-mcp-client-template.sh <codex|claude|opencode|vscode|windsur
 
 1. `404` on endpoint:
 - Root-cause hypothesis: MCP route not active.
-- Action: run fixed sequence `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun postcheck`.
+- Action: run fixed sequence `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun validation`.
 
 2. `401/403` in API key mode:
 - Root-cause hypothesis: activation bundle incomplete or token invalid.
-- Action: ensure activation bundle includes `@nocobase/plugin-api-keys` (plugin-manage first, manual fallback only if backend unavailable), then rerun `mcp-postcheck` to trigger auto-refresh via CLI `generate-api-key`; only if gate emits `action_required: provide_api_token`, switch to manual token regeneration and retry.
+- Action: ensure activation bundle includes `@nocobase/plugin-api-keys` (plugin-manage first, manual fallback only if backend unavailable), then refresh token via `nocobase generate-api-key` when available; if it still fails, switch to manual token regeneration and retry validation.
 
 3. `503` on endpoint:
 - Root-cause hypothesis: app is still preparing or reload not completed.
-- Action: restart app and wait for startup completion, then rerun postcheck.
+- Action: restart app and wait for startup completion, then rerun validation.
 
 4. Network timeout:
 - Root-cause hypothesis: service not reachable or proxy/firewall issue.

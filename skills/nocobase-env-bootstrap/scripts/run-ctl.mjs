@@ -27,6 +27,7 @@ function printHelp() {
 function parseArgs(argv) {
   let prefer = 'auto';
   let baseDir = process.cwd();
+  let ctlDir = null; // null means: use baseDir as default
   let debug = false;
   const ctlArgs = [];
   let passThrough = false;
@@ -84,6 +85,21 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === '--ctl-dir') {
+      const value = argv[i + 1];
+      if (!value) {
+        throw new Error('Missing value for --ctl-dir');
+      }
+      ctlDir = value;
+      i += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--ctl-dir=')) {
+      ctlDir = arg.slice('--ctl-dir='.length);
+      continue;
+    }
+
     ctlArgs.push(arg);
   }
 
@@ -99,6 +115,8 @@ function parseArgs(argv) {
     prefer,
     debug,
     baseDir: path.resolve(baseDir),
+    ctlDir: path.resolve(ctlDir),
+    ctlDir: path.resolve(ctlDir !== null ? ctlDir : baseDir),
     ctlArgs,
   };
 }
@@ -176,21 +194,25 @@ function buildResolverOrder(prefer) {
   if (prefer === 'local') {
     return ['local', 'global'];
   }
+  // auto: when an explicit local path override is set via env, prefer local first
+  if (process.env.NOCOBASE_CTL_ROOT || process.env.NOCOBASE_CTL_RUN_JS) {
+    return ['local', 'global'];
+  }
   return ['global', 'local'];
 }
 
-function runCtl(resolution, ctlArgs, baseDir) {
+function runCtl(resolution, ctlArgs, ctlDir) {
   if (resolution.type === 'global') {
     return spawnSync(resolution.command, ctlArgs, {
       stdio: 'inherit',
-      cwd: baseDir,
+      cwd: ctlDir,
       env: process.env,
     });
   }
 
   return spawnSync(process.execPath, [resolution.runJs, ...ctlArgs], {
     stdio: 'inherit',
-    cwd: baseDir,
+    cwd: ctlDir,
     env: process.env,
   });
 }
@@ -242,7 +264,7 @@ function main() {
     }
   }
 
-  const result = runCtl(chosen, options.ctlArgs, options.baseDir);
+  const result = runCtl(chosen, options.ctlArgs, options.ctlDir);
   if (result.error) {
     console.error(`run-ctl error: ${result.error.message}`);
     console.error(`Install guide: ${INSTALL_URL}`);

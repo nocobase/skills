@@ -255,16 +255,13 @@ function ensureFileExists(filePath, reason) {
   }
 }
 
-function readInstallMethodMarker(projectDir) {
-  const markerPath = path.join(projectDir, '.nocobase-install-method');
-  if (!fs.existsSync(markerPath)) {
+function readInstallMethodFromDotEnv(projectDir) {
+  const envPath = path.join(projectDir, '.env');
+  const method = dotEnvValue(envPath, 'NOCOBASE_INSTALL_METHOD').trim().toLowerCase();
+  if (!RESOLVED_METHODS.has(method)) {
     return '';
   }
-  const marker = fs.readFileSync(markerPath, 'utf8').trim().toLowerCase();
-  if (!RESOLVED_METHODS.has(marker)) {
-    return '';
-  }
-  return marker;
+  return method;
 }
 
 function resolveUpgradeMethod(projectDir, methodInput) {
@@ -275,11 +272,11 @@ function resolveUpgradeMethod(projectDir, methodInput) {
     };
   }
 
-  const markerMethod = readInstallMethodMarker(projectDir);
-  if (markerMethod) {
+  const envMethod = readInstallMethodFromDotEnv(projectDir);
+  if (envMethod) {
     return {
-      method: markerMethod,
-      source: '.nocobase-install-method',
+      method: envMethod,
+      source: '.env:NOCOBASE_INSTALL_METHOD',
     };
   }
 
@@ -329,6 +326,23 @@ function removeNodeModules(projectDir, options) {
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function dotEnvValue(filePath, key) {
+  if (!fs.existsSync(filePath)) {
+    return '';
+  }
+  const content = fs.readFileSync(filePath, 'utf8');
+  const pattern = new RegExp(`^\\s*${escapeRegex(key)}\\s*=\\s*(.*)$`, 'm');
+  const match = content.match(pattern);
+  if (!match) {
+    return '';
+  }
+  const raw = match[1].trim();
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1);
+  }
+  return raw;
 }
 
 function upsertDotEnv(filePath, key, value) {

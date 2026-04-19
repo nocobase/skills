@@ -167,13 +167,13 @@ Checks:
 
 Actions:
 
-1. Run fixed sequence only: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun postcheck`.
+1. Run fixed sequence only: `Use $nocobase-plugin-manage enable <activation_plugin_bundle> -> restart app -> rerun validation`.
 2. Activation bundle by auth mode:
 - `api-key` (default): `@nocobase/plugin-mcp-server @nocobase/plugin-api-keys`
 - `oauth`: `@nocobase/plugin-mcp-server @nocobase/plugin-idp-oauth`
 - `none`: `@nocobase/plugin-mcp-server`
 3. Do not run alternative diagnostics before the fixed sequence is completed.
-4. If endpoint remains `404` or becomes `503`, repeat restart + postcheck loop.
+4. If endpoint remains `404` or becomes `503`, repeat restart + validation loop.
 5. Re-check endpoint and rerun client MCP add/connect command.
 
 ---
@@ -193,9 +193,9 @@ Checks:
 Actions:
 
 1. Ensure activation bundle includes `@nocobase/plugin-api-keys` (run plugin-manage bundle first; use manual plugin page only when backend unavailable).
-2. Run `mcp-postcheck` automatic refresh path (CLI `generate-api-key`) to regenerate token and update env var.
+2. Run CLI token refresh path (`nocobase generate-api-key`) when available, and update token env var.
 3. Retry MCP probe and client connect command.
-4. If automatic refresh fails, fallback to manual API keys page regeneration and rerun postcheck.
+4. If automatic refresh fails, fallback to manual API keys page regeneration and rerun validation.
 
 ---
 
@@ -261,12 +261,44 @@ Checks:
 
 Actions:
 
-1. Generate fresh client template via fixed script:
-- Windows: `powershell -File scripts/render-mcp-client-template.ps1 -Client <client> ...`
-- Linux/macOS: `bash scripts/render-mcp-client-template.sh <client> ...`
+1. Generate fresh client template from [MCP Client Templates](mcp-client-templates.md) for your client type.
 2. Reapply template without manual edits first.
-3. Rerun `mcp-postcheck` and then client connect.
+3. Rerun MCP endpoint/auth validation and then client connect.
 4. If still failing, capture one full initialize request/response pair including request headers.
 5. If failure remains after one complete retry and endpoint/auth are confirmed, switch to web lookup for that client:
 - prioritize official docs, official GitHub repo docs, and release notes
 - then apply validated config and keep source links in diagnosis output
+---
+
+## NB-ENV-012: CLI token generation fails on fresh install (user not found / app not initialized)
+
+Symptoms:
+
+- CLI bootstrap stage fails with "user not found", "user does not exist", or similar.
+- Agent tried to generate API key via MCP tool calls step-by-step (asking for `name`, `role`, `username` sequentially) instead of CLI.
+- Fresh install where NocoBase `install` command has not completed yet.
+- `generate-api-key` CLI fails even though Docker container is running.
+
+Root causes:
+
+- **Wrong execution path**: API key was created via MCP tool call (requires authenticated user context) instead of CLI (`yarn nocobase generate-api-key` / `docker compose exec`). These are not equivalent — the CLI bypasses auth and acts on DB directly.
+- **Wrong username**: Default `admin@nocobase.com` may differ from the configured admin email, or the app install step has not yet created any user.
+- **Wrong timing**: `generate-api-key` CLI was called before `nocobase install` finished. Until install completes, no app users exist.
+
+Checks:
+
+1. Confirm the app `install` command has completed (not just `up -d` / container started).
+   - Docker: `docker compose logs app | grep -i "install\|ready\|started"` — look for install-complete signal.
+   - create-app/git: confirm `yarn nocobase install` returned exit 0.
+2. Confirm the app HTTP endpoint is reachable: `curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>/api/health` should return `200`.
+3. Confirm admin user exists: try `curl http://localhost:<port>/api/auth:check` — a 401 (not 503/ECONNREFUSED) means the app is ready.
+4. Confirm the username passed to `generate-api-key` matches the actual admin email (default: `admin@nocobase.com`).
+
+Actions:
+
+1. **Never call MCP tools to create API keys during bootstrap.** Use only the CLI path:
+   - local (create-app/git): `yarn nocobase generate-api-key -n cli_auto_token -u admin@nocobase.com -r root -e 30d --silent`
+   - docker: `docker compose exec -T app yarn nocobase generate-api-key -n cli_auto_token -u admin@nocobase.com -r root -e 30d --silent`
+2. If the app install has not completed, run `nocobase install` first and wait for it to finish.
+3. If admin email was customized during install, pass the actual email as `-u <email>`.
+4. After token is generated, set `NOCOBASE_API_TOKEN=<token>` and rerun `node ./scripts/cli-postcheck.mjs`.

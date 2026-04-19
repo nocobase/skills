@@ -53,11 +53,13 @@ For create-app and git install, use local templates:
 
 Install execution should use local scripts and templates directly; do not search web pages for install command snippets during execution.
 
-Install script writes `.nocobase-install-method` in the app directory (`docker`, `create-nocobase-app`, or `git`) for later upgrade auto-detection.
+Install script writes `NOCOBASE_INSTALL_METHOD` into the app `.env` file (`docker`, `create-nocobase-app`, or `git`) for later upgrade auto-detection.
 
 ## Install Script Entrypoints
 
 Windows:
+
+Run these commands from the `nocobase-env-bootstrap` skill root.
 
 ```powershell
 powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
@@ -98,10 +100,11 @@ Database policy:
   - token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
   - preferred command (oauth): `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
   - if plugin state changed, restart app before `env update`
-- `node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --auth-mode oauth --scope project --base-dir .`
-- `node ./scripts/env-manage.mjs current --scope project --base-dir .`
+- `nocobase-ctl env add --name local --base-url http://localhost:13000/api -s project`
+- `nocobase-ctl env auth -e local -s project`
+- `nocobase-ctl env update -e local -s project`
+- `nocobase-ctl env -s project`
 
-`env-manage add` includes strict connectivity verification (`env update`) and fails when update fails.
 
 APP_KEY examples:
 
@@ -139,7 +142,7 @@ bash scripts/preflight.sh 13000 git existing mysql existing
 
 `--method` is optional for upgrade. Default is `auto`, and the script resolves method in this order:
 
-1. `.nocobase-install-method` marker file
+1. `.env` key `NOCOBASE_INSTALL_METHOD`
 2. project files (`.git + package.json` => `git`; `package.json` => `create-nocobase-app`; compose file => `docker`)
 3. fail with explicit error when directory shape is ambiguous or unsupported
 
@@ -183,16 +186,14 @@ Upgrade safety rules:
 
 For install/upgrade flows, local CLI bootstrap is executed as the final stage by default.
 
-Windows:
-
-```powershell
-powershell -File scripts/cli-postcheck.ps1 -Port 13000 -EnvName local -AuthMode oauth -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir .
+```bash
+node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>
 ```
 
-Linux/macOS:
+Token mode uses a separate command shape:
 
 ```bash
-AUTH_MODE=oauth bash scripts/cli-postcheck.sh 13000 local NOCOBASE_API_TOKEN project .
+node ./scripts/cli-postcheck.mjs --auth-mode token --token-env NOCOBASE_API_TOKEN --base-dir <app_dir> --ctl-dir <workspace_root>
 ```
 
 CLI bootstrap responsibilities:
@@ -203,45 +204,38 @@ CLI bootstrap responsibilities:
 - add or update local env definition (`env add`)
 - complete OAuth login (`env auth`) when auth mode is oauth
 - refresh runtime command cache (`env update`)
-- read back configured env (`node ./scripts/env-manage.mjs current --scope project --base-dir .`)
+- read back configured env (`nocobase-ctl env -s project`)
 - expose machine-readable current env context for downstream skills
 
 In token mode, if token env is missing, `cli-postcheck` tries automatic token generation first; only when that fails should you manually activate `@nocobase/plugin-api-keys` and provide token.
 
 ## App Environment Management Task
 
-When user asks to add/switch/check environment directly, use `task=app-manage`.
+When user asks to add/switch/check environment directly, use direct `nocobase-ctl` commands:
 
-Add env:
-
+OAuth add env:
 ```bash
-node ./scripts/env-manage.mjs add --name staging --url https://demo.example.com/api --auth-mode oauth --scope project --base-dir .
+nocobase-ctl env add --name staging --base-url https://demo.example.com/api -s project
+nocobase-ctl env auth -e staging -s project
+nocobase-ctl env update -e staging -s project
 ```
 
-Token mode add env (remote + manual token):
-
+Token add env (remote, manual token via env var):
 ```bash
-node ./scripts/env-manage.mjs add --name staging --url https://demo.example.com/api --auth-mode token --token-env NOCOBASE_API_TOKEN --scope project --base-dir .
+nocobase-ctl env add --name staging --base-url https://demo.example.com/api --token <token> -s project
+nocobase-ctl env update -e staging -s project
 ```
 
 Switch env:
-
 ```bash
-node ./scripts/env-manage.mjs use --name staging --scope project --base-dir .
+nocobase-ctl env use staging -s project
 ```
 
-Read current env:
-
+List / read current:
 ```bash
-node ./scripts/env-manage.mjs current --scope project --base-dir .
+nocobase-ctl env list -s project
+nocobase-ctl env -s project
 ```
-
-Auth mode policy:
-
-- default mode is oauth; env-manage probes OAuth metadata and completes `env auth`
-- oauth dependency bundle: `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
-- token mode local URL (`localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`): token mandatory, auto-acquired by env-manage (no placeholder token allowed)
-- token mode remote URL: manual token required
 
 ## Optional MCP Flow (Explicit Only)
 
@@ -252,7 +246,7 @@ Run MCP flow only when user explicitly requests `task=mcp-connect`.
 For explicit MCP task:
 
 - follow [MCP Runbook](mcp-runbook.md)
-- run `scripts/mcp-postcheck.ps1` or `scripts/mcp-postcheck.sh`
+- run post-start validation steps from MCP runbook
 - use fixed activation sequence when endpoint is not ready
 
 ## First Login Reminder

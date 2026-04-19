@@ -32,6 +32,8 @@ Use skill-local scripts and templates directly:
 
 Windows:
 
+Run these commands from the `nocobase-env-bootstrap` skill root.
+
 ```powershell
 powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
@@ -52,8 +54,8 @@ Do not fetch install command snippets from web pages during execution.
 
 Post-install marker:
 
-- Install script writes `.nocobase-install-method` in app directory.
-- Upgrade script uses this marker first when `--method` is omitted (`auto` mode).
+- Install script writes `NOCOBASE_INSTALL_METHOD` into the app `.env` file.
+- Upgrade script uses this `.env` key when `--method` is omitted (`auto` mode).
 
 ## Database Mode Policy
 
@@ -232,27 +234,35 @@ For install tasks, run this section as the default final stage after app startup
 - token mode requires token env (default `NOCOBASE_API_TOKEN`) and keeps strict local-vs-remote token rules.
 - in token mode, if token env is missing, `cli-postcheck` will try automatic API key generation first (local `yarn nocobase generate-api-key`, then `docker compose exec` fallback); only when automatic path fails, fallback to manual token creation/export.
 
+3a. Before running CLI bootstrap in OAuth mode, display login credentials:
+- Account: `admin@nocobase.com` (or configured `INIT_ROOT_EMAIL`)
+- Password: `admin123` (or configured `INIT_ROOT_PASSWORD`)
+- Tell user: "When the browser opens, log in with the credentials above. The OAuth authorization page will appear automatically after login."
+- Do NOT output the app login URL — follow the OAuth authorization flow started by `env auth`. If `env auth` prints an authorization URL in command output, use that same URL; outputting a separate login URL risks the user navigating there instead and missing the authorization callback.
+- Rationale: `env auth` opens a browser OAuth flow immediately. If the user has no active session, the browser will redirect to the login page first. Showing credentials upfront prevents the user from being stuck on the login page without knowing what to enter.
+- Always include password rotation reminder.
+
 4. Run CLI bootstrap command chain:
 
 ```bash
-node ./scripts/env-manage.mjs add --name local --url http://localhost:13000/api --auth-mode oauth --scope project --base-dir .
-node ./scripts/env-manage.mjs current --scope project --base-dir .
+nocobase-ctl env add --name local --base-url http://localhost:13000/api -s project
+nocobase-ctl env auth -e local -s project
+nocobase-ctl env update -e local -s project
+nocobase-ctl env -s project
 ```
 
-Note: `env-manage add` now always includes `env update` connectivity verification internally.
+Note: install/upgrade final-stage bootstrap should call `nocobase-ctl` directly. `cli-postcheck.mjs` is only the orchestration shell around this direct CLI chain.
 
 5. Scripted command pattern:
 
-Windows:
-
-```powershell
-powershell -File scripts/cli-postcheck.ps1 -Port 13000 -EnvName local -AuthMode oauth -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir .
+```bash
+node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>
 ```
 
-Linux/macOS:
+Token mode uses a separate command pattern:
 
 ```bash
-AUTH_MODE=oauth bash scripts/cli-postcheck.sh 13000 local NOCOBASE_API_TOKEN project .
+node ./scripts/cli-postcheck.mjs --auth-mode token --token-env NOCOBASE_API_TOKEN --base-dir <app_dir> --ctl-dir <workspace_root>
 ```
 
 ## Optional MCP Stage (Explicit Only)
@@ -263,7 +273,7 @@ Only run MCP stage when user explicitly requests `task=mcp-connect`.
 
 When explicit MCP task is requested:
 
-1. Run MCP runbook + postcheck.
+1. Run MCP runbook + post-start validation.
 2. Apply fixed activation sequence for endpoint blockers.
 3. Generate client template only within explicit MCP task scope.
 

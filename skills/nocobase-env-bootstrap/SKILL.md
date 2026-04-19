@@ -19,7 +19,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 - Install and initialize NocoBase with Docker, create-nocobase-app, or Git method.
 - Start NocoBase in one environment (local machine or single server).
 - After successful install, automatically bootstrap local `nocobase-ctl` environment (`local`) for downstream CLI-first skills.
-- Provide reusable app environment management actions (`add`, `use`, `current`, `list`) through skill-local wrapper script for downstream skills.
+- Provide reusable app environment management actions (`add`, `use`, `current`, `list`) through skill-local helper scripts for downstream skills.
 - Run safe single-instance upgrades with explicit pre-check and post-check gates.
 - Diagnose and fix high-frequency setup and runtime failures.
 
@@ -87,8 +87,12 @@ Default behavior when user says "you decide":
 - Max clarification rounds: `2`
 - Max questions per round: `3`
 - Never run mutable actions (`install/upgrade`) until all required inputs for the selected `task` are resolved.
-- Docker release-channel clarification gate is mandatory for install:
-- when `task=install` and `install_method=docker`, if user did not explicitly specify `release_channel`, ask one short question before install:
+- Docker clarification gate is mandatory for install (ask both in the same round, max 2 questions):
+- **DB mode question** (always ask when `install_method=docker` and user did not explicitly specify `db_mode`):
+- "Use Docker's built-in database (bundled, simpler) or connect your existing database (PostgreSQL / MySQL / MariaDB)?"
+- bundled: proceed with default template.
+- existing: ask for `db_host`, `db_port`, `db_database`, `db_user`, `db_password`, and `db_dialect` before continuing.
+- **Release channel question** (always ask when user did not explicitly specify `release_channel`):
 - "Docker default is `latest`, but current AI build capabilities are more complete in `alpha`. Install `alpha` now?"
 - accepted values: `alpha` / `latest` / `beta`.
 - if user explicitly indicates stability or production preference, select `latest`.
@@ -117,12 +121,10 @@ Default behavior when user says "you decide":
 - App env auth-mode rule is mandatory:
 - default add mode is `oauth` (unless token args are provided without explicit auth-mode).
 - oauth mode requires dependency bundle `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth` and interactive `env auth`.
-- token mode local URL (strict): host in `localhost`, `127.0.0.1`, `::1`, `*.localhost`, or `host.docker.internal` -> token is mandatory but auto-acquired by `env-manage` (never use placeholder token).
+- token mode local URL (strict): host in `localhost`, `127.0.0.1`, `::1`, `*.localhost`, or `host.docker.internal` -> token must be auto-generated via `yarn nocobase generate-api-key` or `docker compose exec` (never use placeholder token).
 - token mode remote URL: token must be manually provided by user (`app_token` or token env).
-- For install flows, always run CLI environment bootstrap (`node ./scripts/env-manage.mjs add ...`) as final stage.
-- Before running `env update`, ensure CLI dependency plugins are active by auth mode:
-- oauth: `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
-- token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
+- **OAuth no-auto-fallback rule (mandatory)**: if `cli_auth_mode=oauth` and OAuth bootstrap fails or times out, **never automatically switch to token mode**. Show the `login_command` output to the user and ask: "OAuth authorization did not complete. Do you want to retry OAuth or switch to token mode?" Only switch auth mode after explicit user confirmation.
+- For install flows, always run CLI environment bootstrap as final stage through direct `nocobase-ctl` commands (`env add`, `env auth`, `env update`) or the wrapper script `node ./scripts/cli-postcheck.mjs ...` which now calls `nocobase-ctl` directly.
 - If token mode is used and `cli_token_env` is missing during CLI bootstrap, attempt automatic token generation first; ask user manually only when automatic path fails.
 - If required inputs are missing or ambiguous, stop and ask one short clarification question.
 - If any required path is invalid or not writable, stop and request a valid writable path before continuing.
@@ -136,9 +138,14 @@ Default behavior when user says "you decide":
 - user explicit input > docker channel clarification answer > default fallback `latest`.
 
 2. Run preflight gate before install/upgrade.
+- Node.js availability guard (mandatory before running any script, all methods including docker):
+     - Run `node -v` in terminal; if the command fails or version is below 20, emit inline:
+       `[fail] DEP-NODE-001: Node.js not detected or below v20. fix: Install Node.js >= 20 from https://nodejs.org/en/download`
+       and stop the flow immediately regardless of install method.
+- nocobase-ctl availability guard (mandatory before install/upgrade final stage):
+       - Preflight must detect `nocobase-ctl` or `nbctl` in PATH; if missing, stop and ask user to install it from `https://github.com/nocobase/nocobase-ctl` before continuing.
 - For install/upgrade, run core checks only:
-- Windows: execute `powershell -File scripts/preflight.ps1 -InstallMethod <install_method> -DbMode <db_mode> -DbDialect <db_dialect> -DbHost <db_host> -DbPort <db_port> -DbDatabase <db_database> -DbDatabaseMode <db_database_mode> -DbUser <db_user> -DbPassword <db_password>`.
-- Linux/macOS: execute `bash scripts/preflight.sh <port> <install_method> <db_mode> <db_dialect> <db_database_mode>` with `DB_HOST/DB_PORT/DB_DATABASE/DB_USER/DB_PASSWORD` in environment.
+     - Unified (all OS): `node ./scripts/preflight.mjs --port <port> --install-method <install_method> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password>`.
 - Classify findings into `fail`, `warn`, and `pass`.
 - Treat dependency/runtime/path/network blockers as immediate blockers.
 
@@ -146,7 +153,7 @@ Default behavior when user says "you decide":
 - `quick`: Docker-first path with minimal questions.
 - `quick` + docker install: if user did not provide channel, ask the mandatory docker channel clarification and recommend `alpha`.
 - `standard`: user chooses method and database dialect.
-- `rescue`: collect diagnostics (`powershell -File scripts/collect-diagnostics.ps1` on Windows, `bash scripts/collect-diagnostics.sh` on Linux/macOS), map findings to troubleshooting entries, then apply the smallest safe fix first.
+- `rescue`: collect diagnostics (`node ./scripts/collect-diagnostics.mjs`), map findings to troubleshooting entries, then apply the smallest safe fix first.
 - Install execution policy:
 - Use local scripts and templates only.
 - Docker path uses `assets/docker-templates/`.
@@ -156,32 +163,45 @@ Default behavior when user says "you decide":
 4. Execute task-specific runbook.
 - For install: follow [Install Runbook](references/install-runbook.md).
 - For install command execution, use local script:
-- Windows: `powershell -File scripts/install.ps1 --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
-- Linux/macOS: `bash scripts/install.sh --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
+       - Unified (all OS, run from `nocobase-env-bootstrap` skill root): `node ./scripts/install.mjs --method <install_method> --target-dir <target_dir> --release-channel <release_channel> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password> --db-underscored <db_underscored> --project-name <project_name>`
 - For upgrade: follow [Upgrade Runbook](references/upgrade-runbook.md) and execute local script:
-- Windows: `powershell -File scripts/upgrade.ps1 --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
-- Linux/macOS: `bash scripts/upgrade.sh --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
+       - Unified (all OS, run from `nocobase-env-bootstrap` skill root): `node ./scripts/upgrade.mjs --method <install_method|auto> --target-dir <target_dir> --backup-confirmed true --confirm-upgrade true --target-version <target_version> --restart-mode <restart_mode> --clean-retry <clean_retry> --allow-dirty <allow_dirty>`
 - For diagnose: follow [Troubleshooting KB](references/troubleshooting.md).
-- For app environment management (`task=app-manage`): follow [App Environment Manage](references/app-env-manage.md).
 
 5. Run post-check gate and bootstrap CLI environment.
 - Verify service availability, login path, basic plugin/runtime health, and error logs.
 - For install, app startup and login readiness complete core install flow.
+- **Before running CLI bootstrap in OAuth mode, always display login credentials to the user:**
+- Account: `admin@nocobase.com` (or configured `INIT_ROOT_EMAIL`)
+- Password: `admin123` (or configured `INIT_ROOT_PASSWORD`)
+- Remind user: "Please log in to the app with the credentials above when the browser opens. The OAuth authorization page will appear automatically after login."
+- Do NOT output the app login URL here — follow the OAuth authorization flow triggered by `env auth`. If `env auth` prints an authorization URL in terminal output, that is the only URL the user should follow.
+- This ensures the user has an active session when `env auth` triggers the OAuth callback, avoiding auth timeout.
 - Ensure CLI dependency plugin bundle is active before CLI runtime refresh:
 - oauth (default): `@nocobase/plugin-api-doc` + `@nocobase/plugin-idp-oauth`
 - token: `@nocobase/plugin-api-doc` + `@nocobase/plugin-api-keys`
 - Preferred activation path:
 - oauth: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-idp-oauth`
 - token: `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
-- If plugin state changed, restart app before `node ./scripts/run-ctl.mjs -- env update ...`.
+- If plugin state changed, restart app before `nocobase-ctl env update ...`.
 - Always run CLI bootstrap as final stage for install/upgrade:
-- Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName <cli_env_name> -AuthMode <cli_auth_mode> -TokenEnv <cli_token_env> -Scope project -BaseDir <target_dir>`
-- Linux/macOS: `AUTH_MODE=<cli_auth_mode> bash scripts/cli-postcheck.sh <port> <cli_env_name> <cli_token_env> project <target_dir>`
+- OAuth mode (default): `node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>`
+- Token mode: `node ./scripts/cli-postcheck.mjs --auth-mode token --token-env <cli_token_env> --base-dir <app_dir> --ctl-dir <workspace_root>`
+  - `--base-dir` = app directory (where docker-compose.yml / yarn nocobase lives); for docker this is `targetDir`, for create-nocobase-app this is the generated project dir
+  - `--ctl-dir` = workspace root (parent of app dir, where `.nocobase-ctl/config.json` should be stored); this is the directory the agent/user is working from, NOT the app dir itself
 - CLI bootstrap target command:
-- `node ./scripts/env-manage.mjs add --name <cli_env_name> --url http://localhost:<port>/api --auth-mode <cli_auth_mode> --scope project --base-dir <target_dir>`
-- After env add succeeds, run runtime refresh for downstream command readiness:
-- `node ./scripts/run-ctl.mjs -- env update -e <cli_env_name> -s project`
-- Perform immediate readback (`node ./scripts/env-manage.mjs current --scope project --base-dir <target_dir>`) and include expected vs actual values.
+- `nocobase-ctl env add --name <cli_env_name> --base-url http://localhost:<port>/api -s project`
+- OAuth bootstrap order is mandatory and must never be reordered:
+- `nocobase-ctl env add --name <cli_env_name> --base-url http://localhost:<port>/api -s project`
+- `nocobase-ctl env auth -e <cli_env_name> -s project`
+- `nocobase-ctl env update -e <cli_env_name> -s project`
+- `nocobase-ctl env -s project`
+- Never run `env update` before the first successful `env auth` for a newly added OAuth env. A pre-auth `env update` failure (`EMPTY_TOKEN`, unauthenticated, swagger:get auth failure) does not justify changing the order.
+- For OAuth mode, run `nocobase-ctl env auth -e <cli_env_name> -s project` interactively immediately after `env add`.
+- After auth/add succeeds, run runtime refresh for downstream command readiness:
+- `nocobase-ctl env update -e <cli_env_name> -s project`
+- Perform immediate readback (`nocobase-ctl env -s project`) and include expected vs actual values.
+- Browser-launch note: if the auto-opened browser page shows `missing required parameter 'client_id'`, the URL to trust is the one used by `nocobase-ctl env auth` itself. If `nocobase-ctl env auth` prints that authorization URL in command output, use it manually; otherwise rerun `env auth` in an interactive terminal and continue with the browser flow it opens. Treat this as a likely browser-launch or command-line URL handling problem, not as evidence that OAuth metadata or app registration is truncated. Windows is a common trigger, but this rule is not Windows-specific.
 
 6. Report output.
 - Include command list executed.
@@ -214,7 +234,6 @@ Default behavior when user says "you decide":
 | [assets/install-templates.md](assets/install-templates.md) | create-app/git install | local command/env template mapping and channel defaults |
 | [references/preflight-checklist.md](references/preflight-checklist.md) | before install/upgrade | dependency, path, network, and port checks |
 | [references/install-runbook.md](references/install-runbook.md) | install and first startup | docker/create-app/git execution guide |
-| [references/app-env-manage.md](references/app-env-manage.md) | `task=app-manage` | add/use/current/list contract with oauth/token auth-mode policy |
 | [references/upgrade-runbook.md](references/upgrade-runbook.md) | single-instance upgrade | pre-check, execution, post-check, rollback guidance |
 | [references/troubleshooting.md](references/troubleshooting.md) | diagnose and recovery | high-frequency issue decision table |
 
@@ -250,11 +269,10 @@ Confirmation template:
 - Method and release channel are explicitly confirmed or defaulted.
 - Install commands are recorded and reproducible.
 - Install core success is determined by app startup and login readiness.
-- CLI final stage runs for install/upgrade and successfully creates/updates local env via skill-local env helper (`node ./scripts/env-manage.mjs add ...`).
-- `task=app-manage` supports `add/use/current/list` through `node ./scripts/env-manage.mjs ...`.
-- App env add enforces auth-mode rules correctly (`oauth` default with metadata/auth flow; token mode keeps local-vs-remote token policy).
+- CLI final stage runs for install/upgrade and successfully creates/updates local env via direct `nocobase-ctl env add/auth/update` commands (or `cli-postcheck`, which orchestrates that chain).
+- App env add (via direct `nocobase-ctl` commands) enforces auth-mode rules correctly (`oauth` default; token mode for manual token supply).
 - App env add is not considered success unless `env update` connectivity verification succeeds.
-- CLI runtime refresh (`node ./scripts/run-ctl.mjs -- env update ...`) succeeds for the bootstrap env.
+- CLI runtime refresh (`nocobase-ctl env update ...`) succeeds for the bootstrap env.
 - If runtime refresh fails with `swagger:get` 404 or API documentation disabled, skill applies plugin activation sequence and retries.
 - OAuth path confirms `@nocobase/plugin-idp-oauth` is active before OAuth metadata/auth verification.
 - Token acquisition path confirms `@nocobase/plugin-api-keys` is active before generating/providing token.
@@ -314,7 +332,6 @@ For `install` tasks, `recommended next action` must include:
 - [Install Templates](assets/install-templates.md): local command templates for create-app/git plus channel mapping overrides.
 - [Preflight Checklist](references/preflight-checklist.md): use before any mutable action.
 - [Install Runbook](references/install-runbook.md): use for install and startup flows.
-- [App Environment Manage](references/app-env-manage.md): use for app env add/use/current/list operations and oauth/token policy.
 - [Upgrade Runbook](references/upgrade-runbook.md): use for safe single-instance upgrades.
 - [Troubleshooting KB](references/troubleshooting.md): use for high-frequency failures.
 - [NocoBase Docker Installation](https://docs.nocobase.com/cn/get-started/installation/docker): primary Docker install reference. [verified: 2026-04-08]

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import crypto from 'node:crypto';
+import http from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +20,7 @@ function printHelp() {
   const help = [
     'Usage:',
     '  node ./scripts/install.mjs [options]',
+    '  (run from the nocobase-env-bootstrap skill root)',
     '',
     'Options:',
     '  --method <docker|create-nocobase-app|git>   Installation method. Default: docker',
@@ -624,14 +626,14 @@ function ensureDir(dirPath) {
   }
 }
 
-function writeInstallMethodMarker(projectDir, method, options) {
-  const markerPath = path.join(projectDir, '.nocobase-install-method');
+function writeInstallMethodMetadata(projectDir, method, options) {
+  const envPath = path.join(projectDir, '.env');
   if (options.dryRun) {
-    console.log(`~ (${projectDir}) write ${markerPath}: ${method}`);
+    console.log(`~ (${projectDir}) update ${envPath}: NOCOBASE_INSTALL_METHOD=${method}`);
     return;
   }
-  fs.writeFileSync(markerPath, `${method}\n`, 'utf8');
-  console.log(`install_method_marker: ${markerPath}`);
+  upsertDotEnv(envPath, 'NOCOBASE_INSTALL_METHOD', method);
+  console.log(`install_method_env: ${envPath}`);
 }
 
 function escapeRegex(value) {
@@ -712,7 +714,39 @@ function resolveSkillPaths() {
   };
 }
 
-function installDocker(options, paths) {
+function waitForAppReady(port, timeoutMs = 120000, intervalMs = 3000) {
+  return new Promise((resolve, reject) => {
+    const url = `http://127.0.0.1:${port}/`;
+    const deadline = Date.now() + timeoutMs;
+    let attempt = 0;
+
+    const probe = () => {
+      attempt += 1;
+      process.stdout.write(`app_readiness_probe: attempt=${attempt} url=${url}\n`);
+      const req = http.request(url, { method: 'GET', timeout: 5000 }, (res) => {
+        // Any HTTP response (including redirects and login pages) means the app is up
+        process.stdout.write(`app_ready: status=${res.statusCode} after ${attempt} probe(s)\n`);
+        res.resume();
+        resolve();
+      });
+      req.on('error', (err) => scheduleNext(err.code || err.message));
+      req.on('timeout', () => { req.destroy(); scheduleNext('timeout'); });
+      req.end();
+    };
+
+    const scheduleNext = (reason) => {
+      if (Date.now() + intervalMs > deadline) {
+        reject(new Error(`App did not become ready within ${timeoutMs / 1000}s (last reason: ${reason}). Check docker compose logs.`));
+        return;
+      }
+      setTimeout(probe, intervalMs);
+    };
+
+    probe();
+  });
+}
+
+async function installDocker(options, paths) {
   ensureCommand('docker', 'docker method requires docker and docker compose');
 
   ensureDir(options.targetDir);
@@ -749,8 +783,11 @@ function installDocker(options, paths) {
     runCommand('docker', ['compose', 'pull'], options.targetDir, options);
   }
   runCommand('docker', ['compose', 'up', '-d'], options.targetDir, options);
+  if (!options.dryRun) {
+    await waitForAppReady(options.port);
+  }
   runCommand('docker', ['compose', 'logs', '--tail=200', 'app'], options.targetDir, options);
-  writeInstallMethodMarker(options.targetDir, 'docker', options);
+  writeInstallMethodMetadata(options.targetDir, 'docker', options);
 
   console.log('method_result: docker install commands completed.');
 }
@@ -830,7 +867,7 @@ function installCreateApp(options, paths) {
   } else {
     console.log(`next_command: (cd ${appDir} && yarn dev)`);
   }
-  writeInstallMethodMarker(appDir, 'create-nocobase-app', options);
+  writeInstallMethodMetadata(appDir, 'create-nocobase-app', options);
 
   console.log('method_result: create-nocobase-app install commands completed.');
 }
@@ -898,12 +935,12 @@ function installGit(options, paths) {
   } else {
     console.log(`next_command: (cd ${appDir} && yarn dev)`);
   }
-  writeInstallMethodMarker(appDir, 'git', options);
+  writeInstallMethodMetadata(appDir, 'git', options);
 
   console.log('method_result: git install commands completed.');
 }
 
-function main() {
+async function main() {
   let options;
   try {
     options = parseArgs(process.argv.slice(2));
@@ -927,7 +964,7 @@ function main() {
     ensureExternalDatabaseReady(options);
 
     if (options.method === 'docker') {
-      installDocker(options, paths);
+      await installDocker(options, paths);
     } else if (options.method === 'create-nocobase-app') {
       installCreateApp(options, paths);
     } else {

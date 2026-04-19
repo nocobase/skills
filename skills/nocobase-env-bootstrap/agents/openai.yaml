@@ -4,10 +4,10 @@ interface:
   default_prompt: >
     Use $nocobase-env-bootstrap to run preflight checks, install, upgrade, diagnose, or app-manage this NocoBase environment.
     Execute local scripts/templates only and do not fetch web install/upgrade command snippets at runtime.
-    Install entrypoints:
+    Install entrypoints (relative paths below assume cwd is the `nocobase-env-bootstrap` skill root):
     Windows `powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --db-mode <bundled|existing> --db-underscored <true|false> ...`;
     Linux/macOS `bash scripts/install.sh --method <docker|create-nocobase-app|git> --db-mode <bundled|existing> --db-underscored <true|false> ...`.
-    Upgrade entrypoints:
+    Upgrade entrypoints (relative paths below assume cwd is the `nocobase-env-bootstrap` skill root):
     Windows `powershell -File scripts/upgrade.ps1 --method <auto|docker|create-nocobase-app|git> --target-dir <dir> --backup-confirmed true --confirm-upgrade true --target-version <version> --restart-mode <manual|dev|start|pm2> --clean-retry <true|false> --allow-dirty <true|false>`;
     Linux/macOS `bash scripts/upgrade.sh --method <auto|docker|create-nocobase-app|git> --target-dir <dir> --backup-confirmed true --confirm-upgrade true --target-version <version> --restart-mode <manual|dev|start|pm2> --clean-retry <true|false> --allow-dirty <true|false>`.
     Upgrade method defaults to `auto` and should be resolved from project marker/files.
@@ -31,15 +31,16 @@ interface:
     Before CLI runtime refresh, ensure CLI dependency plugins are active by auth mode:
     oauth(default): @nocobase/plugin-api-doc + @nocobase/plugin-idp-oauth; token: @nocobase/plugin-api-doc + @nocobase/plugin-api-keys
     (use $nocobase-plugin-manage activation path and restart app if plugin state changed).
-    Run all nocobase-ctl commands through the skill-local wrapper `node ./scripts/run-ctl.mjs -- <args>` so global/local installation differences are handled automatically.
-    For app environment management, always use skill-local helper `node ./scripts/env-manage.mjs <add|use|current|list> ...`.
-    App env add defaults to oauth mode; if token args are provided without explicit auth mode, env-manage switches to token mode.
-    In token mode, local URL token policy is strict: for `localhost`, `127.0.0.1`, `::1`, `*.localhost`, `host.docker.internal`,
-    token is mandatory but auto-acquired by env-manage (never placeholder); for remote hosts, token must be manually provided by user.
+    For install/upgrade final-stage CLI bootstrap, call `nocobase-ctl` directly (or use `node ./scripts/cli-postcheck.mjs ...`, which now calls `nocobase-ctl` directly).
+    OAuth bootstrap order is mandatory and must never be reordered:
+    `nocobase-ctl env add --name <env> --base-url <url> -s <scope>` -> `nocobase-ctl env auth -e <env> -s <scope>` -> `nocobase-ctl env update -e <env> -s <scope>` -> `nocobase-ctl env -s <scope>`.
+    Never run `env update` as a pre-check before the first successful OAuth authorization for a newly added env. `env update` before `env auth` will fail with unauthenticated/EMPTY_TOKEN and is not a signal to reorder the flow.
+    If the browser opens an OAuth error page such as `missing required parameter 'client_id'`, do not treat that as proof that the app metadata is broken. The authorization URL comes from the `nocobase-ctl env auth` OAuth flow itself, not from this skill. If `nocobase-ctl env auth` prints that URL in command output, use that same URL manually; otherwise continue from the browser flow opened by `env auth` and rerun it in an interactive terminal if needed. Treat this as a likely browser-launch or command-line URL handling issue rather than server-side truncation. Windows is only a common trigger, not the only platform where this can happen.
+    For app environment management outside final-stage bootstrap, use direct `nocobase-ctl` commands: `env add`, `env auth`, `env update`, `env use`, `env list`.
+    App env add defaults to oauth mode. In token mode, token must be auto-generated via `yarn nocobase generate-api-key` or `docker compose exec`; for remote hosts, token must be manually provided by user.
     Env add is only successful when `env update` connectivity verification also succeeds.
     After app startup/upgrade succeeds, bootstrap local CLI env via cli-postcheck
-    (Windows: `powershell -File scripts/cli-postcheck.ps1 -Port <port> -EnvName local -AuthMode oauth -TokenEnv NOCOBASE_API_TOKEN -Scope project -BaseDir <target_dir>`;
-    Linux/macOS: `AUTH_MODE=oauth bash scripts/cli-postcheck.sh <port> local NOCOBASE_API_TOKEN project <target_dir>`).
+    (`node ./scripts/cli-postcheck.mjs --base-dir <app_dir> --ctl-dir <workspace_root>` for oauth, or `node ./scripts/cli-postcheck.mjs --auth-mode token --token-env NOCOBASE_API_TOKEN --base-dir <app_dir> --ctl-dir <workspace_root>` for token mode).
     In token mode only, cli-postcheck must auto-try API token generation first (local `yarn nocobase generate-api-key`, docker compose fallback)
     and only ask user for manual token when automatic path fails.
 
