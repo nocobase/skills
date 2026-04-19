@@ -234,7 +234,7 @@ For explicit MCP task:
 
 If root credentials were not customized, provide:
 
-- account: `admin@nocobase.com`
+- account: `nocobase`
 - password: `admin123`
 
 Then remind users to rotate the password immediately.

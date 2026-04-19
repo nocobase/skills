@@ -199,7 +199,7 @@ Template sources:
 Next-step instruction rule:
 
 1. If initial root credentials are not customized in install flow, use default credentials:
-- Account: `admin@nocobase.com`
+- Account: `nocobase`
 - Password: `admin123`
 2. If root credentials are customized by env/flags, output configured account and password source.
 3. Always add password rotation reminder after first successful login.
@@ -218,7 +218,7 @@ For install tasks, run this section as the default final stage after app startup
 - in token mode, if no token is available, auto-generate first: `yarn nocobase generate-api-key -n cli_auto_token -u nocobase -r root -e 30d --silent` (or docker compose exec equivalent); only when automatic path fails, ask user to create token manually.
 
 3a. Before running CLI bootstrap in OAuth mode, display login credentials:
-- Account: `admin@nocobase.com` (or configured `INIT_ROOT_EMAIL`)
+- Account: `nocobase` (or configured `INIT_ROOT_EMAIL`)
 - Password: `admin123` (or configured `INIT_ROOT_PASSWORD`)
 - Tell user: "When the browser opens, log in with the credentials above. The OAuth authorization page will appear automatically after login."
 - Do NOT output the app login URL — follow the OAuth authorization flow started by `env auth`. If `env auth` prints an authorization URL in command output, use that same URL; outputting a separate login URL risks the user navigating there instead and missing the authorization callback.

@@ -183,7 +183,7 @@ Default behavior when user says "you decide":
 - Verify service availability, login path, basic plugin/runtime health, and error logs.
 - For install, app startup and login readiness complete core install flow.
 - **Before running CLI bootstrap in OAuth mode, always display login credentials to the user:**
-- Account: `admin@nocobase.com` (or configured `INIT_ROOT_EMAIL`)
+- Account: `nocobase` (or configured `INIT_ROOT_EMAIL`)
 - Password: `admin123` (or configured `INIT_ROOT_PASSWORD`)
 - Remind user: "Please log in to the app with the credentials above when the browser opens. The OAuth authorization page will appear automatically after login."
 - Do NOT output the app login URL here — follow the OAuth authorization flow triggered by `env auth`. If `env auth` prints an authorization URL in terminal output, that is the only URL the user should follow.
@@ -227,7 +227,7 @@ Default behavior when user says "you decide":
 - `auth_mode` (for add)
 - `token_mode` (for add)
 - For `install` success paths, include first-login credentials:
-- if root credentials were not explicitly customized, show default `admin@nocobase.com` / `admin123` and remind user to rotate password.
+- if root credentials were not explicitly customized, show default `nocobase` / `admin123` and remind user to rotate password.
 - if customized, show configured login account and password source.
 - Include one clear next action.
 
