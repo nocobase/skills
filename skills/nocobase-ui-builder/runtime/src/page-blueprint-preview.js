@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { cloneSerializable, ensureArray, isPlainObject, trimToLength, unique } from './utils.js';
 import { summarizeTemplateDecision } from './template-decision-summary.js';
 
@@ -30,6 +34,50 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setActionLinkageRules',
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
+const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
+const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
+const COMMON_ANT_DESIGN_ICON_NAMES = new Set([
+  'AppstoreOutlined',
+  'BankOutlined',
+  'BellOutlined',
+  'BookOutlined',
+  'BuildOutlined',
+  'CalendarOutlined',
+  'CloudOutlined',
+  'CodeOutlined',
+  'CompassOutlined',
+  'ContactsOutlined',
+  'ControlOutlined',
+  'CreditCardOutlined',
+  'CustomerServiceOutlined',
+  'DashboardOutlined',
+  'DatabaseOutlined',
+  'EditOutlined',
+  'FileOutlined',
+  'FilterOutlined',
+  'FormOutlined',
+  'GlobalOutlined',
+  'HomeOutlined',
+  'InboxOutlined',
+  'MailOutlined',
+  'NotificationOutlined',
+  'PieChartOutlined',
+  'ProjectOutlined',
+  'ReadOutlined',
+  'SafetyOutlined',
+  'ScheduleOutlined',
+  'SearchOutlined',
+  'SettingOutlined',
+  'ShopOutlined',
+  'SolutionOutlined',
+  'StockOutlined',
+  'SyncOutlined',
+  'TableOutlined',
+  'TagOutlined',
+  'TeamOutlined',
+  'ToolOutlined',
+  'UserOutlined',
+]);
 const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
   'collection',
   'binding',
@@ -39,6 +87,7 @@ const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
 ]);
 const ADD_CHILD_RECORD_ACTION_MESSAGE =
   '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
+const ANT_DESIGN_ICON_NAMES = loadAntDesignIconNames();
 
 function normalizeText(value, fallback = '') {
   const source = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -58,6 +107,54 @@ function normalizeApplyBlueprintToken(value, fallback = 'item') {
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
   return normalized || fallback;
+}
+
+function loadAntDesignIconNames() {
+  const iconDir = resolveAntDesignIconDirectory();
+  if (!iconDir) {
+    return COMMON_ANT_DESIGN_ICON_NAMES;
+  }
+  try {
+    const names = fs
+      .readdirSync(iconDir)
+      .filter((entry) => entry.endsWith('.js'))
+      .map((entry) => entry.replace(/\.js$/, ''))
+      .filter(Boolean);
+    return names.length ? new Set(names) : COMMON_ANT_DESIGN_ICON_NAMES;
+  } catch {
+    return COMMON_ANT_DESIGN_ICON_NAMES;
+  }
+}
+
+function resolveAntDesignIconDirectory() {
+  const startDir = path.dirname(fileURLToPath(import.meta.url));
+  const visited = new Set();
+  let currentDir = startDir;
+
+  while (currentDir && !visited.has(currentDir)) {
+    visited.add(currentDir);
+    const candidates = [
+      path.join(currentDir, 'node_modules', '@ant-design', 'icons-svg', 'lib', 'asn'),
+      path.join(currentDir, 'nocobase', 'node_modules', '@ant-design', 'icons-svg', 'lib', 'asn'),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+
+  return '';
+}
+
+function isValidAntDesignIconName(value) {
+  const normalized = normalizeText(value);
+  return !!normalized && ANT_DESIGN_ICON_NAMES.has(normalized);
 }
 
 function buildScopedKey(scopePrefix, localKey) {
@@ -136,6 +233,7 @@ function buildReactionTargetRegistry(blueprint) {
         actionTargets.set(actionTarget, {
           path: `tabs[${tabIndex}].blocks[${blockIndex}].actions[${actionIndex}]`,
           requiresExplicitKey: !tabInfo.explicit || !blockInfo.explicit || !actionInfo.explicit,
+          hostBlockType: normalizeText(block.type),
         });
       }
 
@@ -146,6 +244,7 @@ function buildReactionTargetRegistry(blueprint) {
         actionTargets.set(actionTarget, {
           path: `tabs[${tabIndex}].blocks[${blockIndex}].recordActions[${actionIndex}]`,
           requiresExplicitKey: !tabInfo.explicit || !blockInfo.explicit || !actionInfo.explicit,
+          hostBlockType: normalizeText(block.type),
         });
       }
     }
@@ -976,6 +1075,115 @@ function countNonFilterBlocks(blocks) {
   return ensureArray(blocks).filter((block) => isPlainObject(block) && !isFilterBlock(block)).length;
 }
 
+function resolveBlueprintFieldLocalKey(field, index) {
+  if (typeof field === 'string') return normalizeText(field);
+  if (!isPlainObject(field)) return '';
+  const explicitKey = normalizeText(field.key);
+  if (explicitKey) return explicitKey;
+  const fieldPath = normalizeText(field.field);
+  if (fieldPath) return fieldPath;
+  const syntheticType = normalizeText(field.type);
+  return syntheticType ? `${syntheticType}_${index + 1}` : '';
+}
+
+function analyzeFieldsLayoutDocument(layout, fields, warnings = []) {
+  if (!isPlainObject(layout) || !Array.isArray(layout.rows) || !layout.rows.length) {
+    return null;
+  }
+
+  const fieldsByKey = new Map();
+  ensureArray(fields).forEach((field, index) => {
+    const key = resolveBlueprintFieldLocalKey(field, index);
+    if (!key || fieldsByKey.has(key)) return;
+    fieldsByKey.set(key, { field, index });
+  });
+
+  const rows = [];
+  const unknownRefs = [];
+  const unsupportedCells = [];
+  const invalidSpans = [];
+  const invalidRows = [];
+  const duplicateRefs = [];
+  const placedKeys = new Set();
+  const placementCounts = new Map();
+
+  layout.rows.forEach((row, rowIndex) => {
+    if (!Array.isArray(row) || !row.length) {
+      invalidRows.push({ rowIndex });
+      rows.push({ items: [] });
+      return;
+    }
+    const items = [];
+    row.forEach((cell, cellIndex) => {
+      if (typeof cell === 'string') {
+        const key = normalizeText(cell);
+        if (!key) {
+          warnings.push(`fieldsLayout row ${rowIndex + 1} contains an unsupported cell and was skipped.`);
+          unsupportedCells.push({ rowIndex, cellIndex });
+          return;
+        }
+        if (!fieldsByKey.has(key)) {
+          warnings.push(`fieldsLayout row ${rowIndex + 1} references missing field key "${key}".`);
+          unknownRefs.push({ rowIndex, cellIndex, key });
+        } else {
+          const nextCount = (placementCounts.get(key) || 0) + 1;
+          placementCounts.set(key, nextCount);
+          if (nextCount > 1) {
+            duplicateRefs.push({ rowIndex, cellIndex, key });
+          }
+          placedKeys.add(key);
+          items.push({ key });
+        }
+        return;
+      }
+
+      if (isPlainObject(cell) && normalizeText(cell.key)) {
+        const key = normalizeText(cell.key);
+        const hasSpan = Object.prototype.hasOwnProperty.call(cell, 'span');
+        const spanIsValid = !hasSpan || (typeof cell.span === 'number' && Number.isFinite(cell.span));
+        const span = spanIsValid && hasSpan ? String(cell.span) : '';
+        if (!spanIsValid) {
+          warnings.push(`fieldsLayout row ${rowIndex + 1} contains a non-numeric span and was flagged.`);
+          invalidSpans.push({ rowIndex, cellIndex });
+        }
+        if (!fieldsByKey.has(key)) {
+          warnings.push(`fieldsLayout row ${rowIndex + 1} references missing field key "${key}".`);
+          unknownRefs.push({ rowIndex, cellIndex, key });
+        } else {
+          const nextCount = (placementCounts.get(key) || 0) + 1;
+          placementCounts.set(key, nextCount);
+          if (nextCount > 1) {
+            duplicateRefs.push({ rowIndex, cellIndex, key });
+          }
+          placedKeys.add(key);
+          items.push({ key, span });
+        }
+        return;
+      }
+
+      warnings.push(`fieldsLayout row ${rowIndex + 1} contains an unsupported cell and was skipped.`);
+      unsupportedCells.push({ rowIndex, cellIndex });
+    });
+
+    rows.push({ items });
+  });
+
+  const unplacedFields = [...fieldsByKey.entries()]
+    .filter(([key]) => !placedKeys.has(key))
+    .map(([key, meta]) => ({ key, index: meta.index }));
+
+  return {
+    rows,
+    fieldsByKey,
+    unknownRefs,
+    unsupportedCells,
+    invalidSpans,
+    invalidRows,
+    duplicateRefs,
+    unplacedFields,
+  };
+}
+
 function hasActionType(actions, expectedType) {
   const normalizedExpectedType = normalizeLowerText(expectedType);
   return ensureArray(actions).some((action) => {
@@ -1118,23 +1326,57 @@ function validateCreateMenuIcons(blueprint, state) {
     return;
   }
   const group = isPlainObject(blueprint?.navigation?.group) ? blueprint.navigation.group : null;
-  if (group && !normalizeText(group.routeId) && !normalizeText(group.icon)) {
+  const groupRouteId = normalizeText(group?.routeId);
+  if (group && !groupRouteId) {
+    if (!normalizeText(group.icon)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        'navigation.group.icon',
+        'missing-menu-group-icon',
+        'Creating a new menu group requires navigation.group.icon so first-level and second-level groups do not render without an icon.',
+      );
+    } else if (!isValidAntDesignIconName(group.icon)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        'navigation.group.icon',
+        'invalid-menu-group-icon',
+        'navigation.group.icon must be one valid Ant Design icon name such as AppstoreOutlined.',
+      );
+    }
+  } else if (group && normalizeText(group.icon) && !isValidAntDesignIconName(group.icon)) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       'navigation.group.icon',
-      'missing-menu-group-icon',
-      'Creating a new menu group requires navigation.group.icon so the first or second level menu does not render without an icon.',
+      'invalid-menu-group-icon',
+      'navigation.group.icon must be one valid Ant Design icon name such as AppstoreOutlined.',
     );
   }
   const item = isPlainObject(blueprint?.navigation?.item) ? blueprint.navigation.item : null;
-  if (item && !normalizeText(item.icon)) {
+  if (!item) {
+    return;
+  }
+  if (!normalizeText(item.icon)) {
+    if (!groupRouteId) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        'navigation.item.icon',
+        'missing-menu-item-icon',
+        'Creating a new top-level or second-level menu item requires navigation.item.icon. When attaching under one existing deep group via navigation.group.routeId, the local preview tolerates omission because it cannot infer the live depth.',
+      );
+    }
+    return;
+  }
+  if (!isValidAntDesignIconName(item.icon)) {
     pushValidationError(
       state.errors,
       state.seenErrors,
       'navigation.item.icon',
-      'missing-menu-item-icon',
-      'Creating a new menu item requires navigation.item.icon so first and second level menus always carry an icon.',
+      'invalid-menu-item-icon',
+      'navigation.item.icon must be one valid Ant Design icon name such as TeamOutlined.',
     );
   }
 }
@@ -1290,6 +1532,114 @@ function validateActions(items, path, state, { recordActions = false } = {}) {
   }
 }
 
+function validateBlockFieldsLayout(block, path, state) {
+  if (!hasOwn(block, 'fieldsLayout')) {
+    return;
+  }
+  if (!isPlainObject(block.fieldsLayout)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout`,
+      'invalid-fields-layout-object',
+      'fieldsLayout must stay one object when present on a field-grid block.',
+    );
+    return;
+  }
+  if (!FIELD_GRID_BLOCK_TYPES.has(normalizeText(block.type))) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout`,
+      'unsupported-fields-layout-host',
+      'fieldsLayout is supported only on createForm, editForm, details, or filterForm blocks.',
+    );
+    return;
+  }
+  if (ensureArray(block.fields).length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout`,
+      'fields-layout-requires-fields',
+      'fieldsLayout requires a non-empty fields[] on the same block.',
+    );
+    return;
+  }
+
+  const analysis = analyzeFieldsLayoutDocument(block.fieldsLayout, block.fields, []);
+  if (!analysis) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout`,
+      'invalid-fields-layout-rows',
+      'fieldsLayout must contain one non-empty rows array.',
+    );
+    return;
+  }
+
+  analysis.invalidRows.forEach(({ rowIndex }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout.rows[${rowIndex}]`,
+      'fields-layout-invalid-row',
+      'Each fieldsLayout row must be one non-empty array.',
+    );
+  });
+
+  analysis.unsupportedCells.forEach(({ rowIndex, cellIndex }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout.rows[${rowIndex}][${cellIndex}]`,
+      'fields-layout-contains-unsupported-cell',
+      'Each fieldsLayout cell must be either one field key string or one object containing key/span.',
+    );
+  });
+
+  analysis.invalidSpans.forEach(({ rowIndex, cellIndex }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout.rows[${rowIndex}][${cellIndex}].span`,
+      'fields-layout-invalid-span',
+      'fieldsLayout object cells must use a numeric span when span is present.',
+    );
+  });
+
+  analysis.unknownRefs.forEach(({ rowIndex, cellIndex, key }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout.rows[${rowIndex}][${cellIndex}]`,
+      'fields-layout-references-unknown-field',
+      `fieldsLayout references unknown field key "${key}".`,
+    );
+  });
+
+  analysis.duplicateRefs.forEach(({ rowIndex, cellIndex, key }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout.rows[${rowIndex}][${cellIndex}]`,
+      'fields-layout-duplicate-field-placement',
+      `Field "${key}" may appear only once in fieldsLayout rows.`,
+    );
+  });
+
+  analysis.unplacedFields.forEach(({ index, key }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fields[${index}]`,
+      'fields-layout-missing-field-placement',
+      `Field "${key}" must appear exactly once in fieldsLayout rows.`,
+    );
+  });
+}
+
 function validateBlock(block, path, state) {
   if (!isPlainObject(block)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-block', 'Every block must be one object.');
@@ -1305,6 +1655,8 @@ function validateBlock(block, path, state) {
       'Block-level layout is not allowed; move layout to tab.layout or popup.layout.',
     );
   }
+
+  validateBlockFieldsLayout(block, path, state);
 
   if (isPlaceholderBlock(block)) {
     pushValidationError(
@@ -1465,6 +1817,8 @@ function validateReaction(blueprint, state) {
     }
 
     const target = normalizeText(item.target);
+    const registry = BLOCK_REACTION_TYPES.has(type) ? state.reactionTargetRegistry.blockTargets : state.reactionTargetRegistry.actionTargets;
+    const targetMeta = target ? registry.get(target) : null;
     if (!target) {
       pushValidationError(
         state.errors,
@@ -1504,6 +1858,11 @@ function validateReaction(blueprint, state) {
         if (
           BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES.has(type)
           && conditionSourcePath.startsWith('formValues.')
+          && !(
+            type === 'setActionLinkageRules'
+            && targetMeta
+            && FORM_ACTION_HOST_BLOCK_TYPES.has(normalizeText(targetMeta.hostBlockType))
+          )
         ) {
           pushValidationError(
             state.errors,
@@ -1530,8 +1889,6 @@ function validateReaction(blueprint, state) {
         state.reactionSlotKeys.add(slotKey);
       }
 
-      const registry = BLOCK_REACTION_TYPES.has(type) ? state.reactionTargetRegistry.blockTargets : state.reactionTargetRegistry.actionTargets;
-      const targetMeta = registry.get(target);
       if (!targetMeta) {
         pushValidationError(
           state.errors,

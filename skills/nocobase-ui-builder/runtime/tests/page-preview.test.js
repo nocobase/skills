@@ -1360,6 +1360,69 @@ test('prepareApplyBlueprintRequest requires icons for newly created menu group a
   assert.ok(result.errors.some((issue) => issue.ruleId === 'missing-menu-item-icon'));
 });
 
+test('prepareApplyBlueprintRequest rejects menu icons that are not valid Ant Design icon names', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      group: { title: 'Workspace', icon: 'NotARealIconOutlined' },
+      item: { title: 'Employees', icon: 'StillFakeOutlined' },
+    },
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-menu-group-icon'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-menu-item-icon'));
+});
+
+test('prepareApplyBlueprintRequest tolerates missing item icon when attaching under one existing menu group route', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      group: { routeId: 12 },
+      item: { title: 'Employees' },
+    },
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+});
+
 test('prepareApplyBlueprintRequest rejects explicit single-column multi-block layouts and missing data titles', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -1574,6 +1637,224 @@ test('prepareApplyBlueprintRequest rejects unsupported layout cells and requires
   assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-missing-block-placement' && issue.path === 'tabs[0].blocks[1]'));
 });
 
+test('prepareApplyBlueprintRequest accepts fieldsLayout on field-grid blocks and keeps it in the normalized cli body', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fields: [
+              { key: 'nicknameField', field: 'nickname' },
+              { key: 'statusField', field: 'status' },
+              { key: 'phoneField', field: 'phone' },
+            ],
+            fieldsLayout: {
+              rows: [['nicknameField'], [{ key: 'statusField', span: 12 }, { key: 'phoneField', span: 12 }]],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [['nicknameField'], [{ key: 'statusField', span: 12 }, { key: 'phoneField', span: 12 }]],
+  });
+});
+
+test('prepareApplyBlueprintRequest rejects fieldsLayout on blocks without an inner field grid', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+            fieldsLayout: {
+              rows: [['nickname']],
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'unsupported-fields-layout-host' && issue.path === 'tabs[0].blocks[0].fieldsLayout',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects fieldsLayout rows that place one field more than once and omit another field', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fields: [
+              { key: 'nicknameField', field: 'nickname' },
+              { key: 'statusField', field: 'status' },
+            ],
+            fieldsLayout: {
+              rows: [['nicknameField', 'nicknameField']],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'fields-layout-duplicate-field-placement'
+        && issue.path === 'tabs[0].blocks[0].fieldsLayout.rows[0][1]',
+    ),
+  );
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'fields-layout-missing-field-placement' && issue.path === 'tabs[0].blocks[0].fields[1]',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects non-numeric fieldsLayout spans', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fields: [
+              { key: 'nicknameField', field: 'nickname' },
+              { key: 'statusField', field: 'status' },
+            ],
+            fieldsLayout: {
+              rows: [[{ key: 'nicknameField', span: '12' }, { key: 'statusField', span: 12 }]],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'fields-layout-invalid-span'
+        && issue.path === 'tabs[0].blocks[0].fieldsLayout.rows[0][0].span',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects fieldsLayout without sibling fields[]', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fieldsLayout: {
+              rows: [['nicknameField']],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'fields-layout-requires-fields' && issue.path === 'tabs[0].blocks[0].fieldsLayout',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects empty fieldsLayout rows', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fields: [
+              { key: 'nicknameField', field: 'nickname' },
+              { key: 'statusField', field: 'status' },
+            ],
+            fieldsLayout: {
+              rows: [[]],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'fields-layout-invalid-row' && issue.path === 'tabs[0].blocks[0].fieldsLayout.rows[0]',
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest allows filter plus one business block without explicit layout', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -1651,6 +1932,86 @@ test('prepareApplyBlueprintRequest requires filter blocks to occupy the first ex
   assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-layout-must-lead'));
 });
 
+test('prepareApplyBlueprintRequest accepts multiple filter blocks in the first explicit layout row when each targets its own same-run table', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      item: { title: 'Employees', icon: 'TeamOutlined' },
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        layout: {
+          rows: [
+            [{ key: 'usersFilter', span: 12 }, { key: 'rolesFilter', span: 12 }],
+            [{ key: 'usersTable', span: 12 }, { key: 'rolesTable', span: 12 }],
+            [{ key: 'usersForm', span: 12 }, { key: 'rolesForm', span: 12 }],
+          ],
+        },
+        blocks: [
+          {
+            key: 'usersFilter',
+            type: 'filterForm',
+            title: 'Users filters',
+            collection: 'users',
+            fields: [
+              { key: 'usernameFilter', field: 'username', target: 'usersTable' },
+              { key: 'nicknameFilter', field: 'nickname', target: 'usersTable' },
+            ],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'rolesFilter',
+            type: 'filterForm',
+            title: 'Roles filters',
+            collection: 'roles',
+            fields: [
+              { key: 'titleFilter', field: 'title', target: 'rolesTable' },
+              { key: 'nameFilter', field: 'name', target: 'rolesTable' },
+            ],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Users table',
+            collection: 'users',
+            fields: ['username'],
+          },
+          {
+            key: 'rolesTable',
+            type: 'table',
+            title: 'Roles table',
+            collection: 'roles',
+            fields: ['title'],
+          },
+          {
+            key: 'usersForm',
+            type: 'createForm',
+            title: 'Users form',
+            collection: 'users',
+            fields: ['username'],
+            actions: ['submit'],
+          },
+          {
+            key: 'rolesForm',
+            type: 'createForm',
+            title: 'Roles form',
+            collection: 'roles',
+            fields: ['title'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+});
+
 test('prepareApplyBlueprintRequest requires collapse action on filter blocks with four or more fields', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -1675,6 +2036,69 @@ test('prepareApplyBlueprintRequest requires collapse action on filter blocks wit
 
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-collapse-required' && issue.path === 'tabs[0].blocks[0].actions'));
+});
+
+test('prepareApplyBlueprintRequest accepts whole-page submit guards when the form submit action has an explicit key', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [
+            {
+              key: 'disableSubmitUntilReady',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$empty',
+                  },
+                  {
+                    path: 'formValues.email',
+                    operator: '$empty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username', 'email'],
+            actions: [
+              {
+                key: 'submitAction',
+                type: 'submit',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
 });
 
 test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', () => {

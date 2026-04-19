@@ -48,8 +48,9 @@ The public `applyBlueprint` payload is:
 - only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission
 - `rules: []` clears the targeted reaction slot
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
+- `fieldsLayout` is allowed only on `createForm`, `editForm`, `details`, and `filterForm`; it references field keys inside that one block and must place every keyed field exactly once
 - if `layout` is present, it must be an object
-- in `create`, any newly created `navigation.group` / `navigation.item` must include one semantic Ant Design icon
+- in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
 - when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
 - explicit `layout` may reference only real block keys, and every keyed block in that tab/popup must be placed by the layout
 - if a `filterForm` contains 4 or more fields, its actions must include `collapse`
@@ -190,6 +191,7 @@ For `replace` runs:
 - if the current page has `enableTabs = false` and the new blueprint contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
+- `fieldsLayout` cells use the same public shape, but only inside field-grid blocks and only for field keys from that one block
 - `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
 - skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write

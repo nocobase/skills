@@ -15,7 +15,7 @@ Stay on this route when the user is asking for a full page or one route-backed t
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
-5. For `create`, any newly created `navigation.group` / `navigation.item` must include one semantic Ant Design icon. Do not draft new first-level or second-level menu entries without `icon`.
+5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
 6. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
@@ -25,8 +25,10 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - when the filter has fewer than 4 fields, add `actions: ["submit", "reset"]`
    - when the filter has 4 or more fields, add `actions: ["submit", "reset", "collapse"]`
    - point each filter field `target` at a same-blueprint table key as a plain string block key
+   - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 8. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
+   - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
 9. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
@@ -55,7 +57,9 @@ These are still whole-page requests, not a separate route.
   - `main.primaryCreateForm`
   - `main.primaryTable.viewAction`
   - `main.secondaryTable.protectedDeleteAction`
+- When a form action must be targeted by `reaction.items[]`, do not leave that action as a plain string. Upgrade it to one keyed action object in the first-pass blueprint, for example `{ "key": "submitAction", "type": "submit" }`, then target `main.primaryCreateForm.submitAction`.
 - For `filterForm`, keep the field `target` on a same-blueprint string block key. Do not mix public whole-page `target` with low-level `defaultTargetUid`.
+- Do not treat "two filter forms targeting two different tables" as a contract gap by itself. Try the direct public whole-page shape first.
 - When a `filterForm` has 4 or more fields, include `collapse` in its filter-form action family. Keep the filter block alone in the first layout row when an explicit layout is present.
 - When one tab or popup contains multiple non-filter blocks, explicit layout is no longer optional. The layout must reference real keyed blocks and place every keyed block.
 - For computed defaults, autofill, block visibility, or action guards that belong to the page being created now, prefer top-level `reaction.items[]` in that same blueprint rather than a second live-edit phase.
@@ -125,6 +129,7 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
 - [js.md](./js.md) if JS, charts, or `ctx.*` enters the page
 
 For artifact-only drafting, you usually do not need [page-blueprint.md](./page-blueprint.md), [ascii-preview.md](./ascii-preview.md), [helper-contracts.md](./helper-contracts.md), or [tool-shapes.md](./tool-shapes.md).
+For benchmark-style management pages with paired filters / tables / forms, you usually also do not need [page-blueprint.md](./page-blueprint.md) or [tool-shapes.md](./tool-shapes.md) before the first draft. Stay on this file plus [blocks/filter-form.md](./blocks/filter-form.md), [popup.md](./popup.md), and [reaction-quick.md](./reaction-quick.md) unless one concrete shape is still unresolved.
 
 ## Switch away when
 

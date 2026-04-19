@@ -446,13 +446,28 @@ CLI request body:
   "mode": "append",
   "blocks": [
     {
+      "key": "employeeFilter",
+      "type": "filterForm",
+      "resource": {
+        "dataSourceKey": "main",
+        "collectionName": "employees"
+      },
+      "fields": [
+        { "fieldPath": "nickname", "target": "employeesTable" },
+        { "fieldPath": "status", "target": "employeesTable" }
+      ],
+      "fieldsLayout": {
+        "rows": [[{ "key": "nickname", "span": 12 }, { "key": "status", "span": 12 }]]
+      }
+    },
+    {
       "key": "employeesTable",
       "type": "table",
       "resource": {
         "dataSourceKey": "main",
         "collectionName": "employees"
       },
-      "fields": ["nickname"]
+      "fields": ["nickname", "status"]
     }
   ]
 }
@@ -460,6 +475,9 @@ CLI request body:
 
 Notes:
 
+- `fieldsLayout` is available on `compose` only for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block.
+- Each `fieldsLayout` row must be non-empty, every keyed field must be placed exactly once, and object-cell `span` must be numeric.
+- `addBlock` does not accept `fieldsLayout`; when the first write must shape a field grid directly, prefer `compose` over `addBlock`.
 - `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless a stronger explicit template/save-template decision already exists.
 - After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
 

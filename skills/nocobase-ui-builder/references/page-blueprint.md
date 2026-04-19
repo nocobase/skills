@@ -11,7 +11,7 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 - `version` stays `"1"`.
 - `mode` is either `"create"` or `"replace"`.
 - `create` creates a new menu item + page.
-- In `create`, any newly created `navigation.group` or `navigation.item` must include one semantic Ant Design icon.
+- In `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
 - Tabs are interpreted in array order. In `replace`, blueprint tabs map to existing route-backed tab slots by index.
@@ -20,6 +20,7 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
+- `fieldsLayout` is available only on `createForm`, `editForm`, `details`, and `filterForm` blocks. It uses the same `{ rows: [[...]] }` shape as page/popup layout, but references field keys inside that block.
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
@@ -79,7 +80,7 @@ Envelope boundary:
 - `version`: currently only `"1"`
 - `mode`: `"create" | "replace"`
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
-- `navigation`: only for `create`; controls menu group/item metadata, and any newly created group/item must include `icon`
+- `navigation`: only for `create`; controls menu group/item metadata. Newly created groups must include `icon`, and newly created top-level or second-level items must also include `icon`.
 - `page`: page-level metadata
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `reaction`: optional whole-page interaction authoring section
@@ -109,7 +110,8 @@ Envelope boundary:
 
 ### `navigation.item` semantics
 
-- In `create`, a new `navigation.item` must include both `title` and `icon`.
+- In `create`, a new top-level or second-level `navigation.item` must include both `title` and `icon`.
+- When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep `icon` by default; the local preview tolerates omission because it cannot prove whether that live target is already third-level or deeper.
 - Replacing the page does not use `navigation.item` to mutate existing menu metadata.
 
 ## 3. Create Example
@@ -155,7 +157,13 @@ Envelope boundary:
           "key": "employeeForm",
           "type": "createForm",
           "collection": "employees",
-          "fields": ["nickname", "status"],
+          "fields": [
+            { "key": "nicknameField", "field": "nickname" },
+            { "key": "statusField", "field": "status" }
+          ],
+          "fieldsLayout": {
+            "rows": [[{ "key": "nicknameField", "span": 12 }, { "key": "statusField", "span": 12 }]]
+          },
           "actions": ["submit"]
         },
         {

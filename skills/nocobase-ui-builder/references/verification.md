@@ -86,7 +86,7 @@ After a reaction write, confirm at least:
 
 If you hand-write a readback bundle or a short persisted verification note, start with a stable public summary instead of depending on raw model names or loose full-tree dumps.
 
-- always include page identity under `page` when page-level create / replace happened
+- always include page identity under `page` when page-level create / replace happened, especially `page.pageSchemaUid`, `page.title` or `page.pageTitle`, and `page.menuGroupTitle`
 - use `root`, `tables`, `popups`, `forms`, and `reactions` only when those sections matter to what you changed
 - prefer normalized public type labels such as `table`, `details`, `editForm`, `filterForm`, `createForm`
 - if root-level content matters, keep `root.blockTypes`, `root.collections`, `root.fields`, and `root.actionTitles` explicit even when the raw live root only says `type: "page"`

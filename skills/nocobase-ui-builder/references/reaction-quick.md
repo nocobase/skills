@@ -21,6 +21,7 @@ For artifact-only localized reaction drafting, stay on this file. Do not enumera
   - `main.recordCreateForm`
   - `main.recordsTable.refreshAction`
   - `main.rolesTable.protectedDeleteAction`
+- if a create/edit form submit action must be enabled / disabled in that same first-pass blueprint, do not leave the form action as plain `"submit"`. Upgrade it to one keyed action object such as `{ "key": "submitAction", "type": "submit" }`, then target `main.recordCreateForm.submitAction`
 - open [reaction.md](./reaction.md) only when you need the full payload recipes
 
 Whole-page-first rule:
@@ -178,6 +179,8 @@ Give the guarded action an explicit key first, then target it through the same-r
 }
 ```
 
+The same rule applies to form submit guards. If a `createForm` / `editForm` submit button must be disabled until fields are ready, key that submit action in the first blueprint and target it directly through `reaction.items[]` instead of waiting for a second-phase `add-action`.
+
 ## Live edit recipes
 
 For computed form fields such as "derive `name` from `title`" or "derive `nickname` from `username` / email", use the `fieldLinkage` capability and an `assignField` action with `value.source = "runjs"`:
@@ -222,7 +225,8 @@ For a form-scoped helper item, use this exact decision order:
 2. inspect the live scene or catalog sections for the intended helper host
 3. if that create/edit form scene exposes `fields` / `actions` / `node` but not `blocks`, model the helper as a `jsItem` or other field-like helper in the same form scene
 4. in that no-`blocks` case, add the helper with `flow-surfaces add-field --type jsItem` and make the JSItem render nothing until the source form value is present; do not try `setFieldState` against the JSItem because current live `fieldLinkage` target fields only include real collection fields
-5. only when a real target block exposes `blockLinkage` and can read the needed `formValues.*` path from that same live scene, write `set-block-linkage-rules`
+5. when that JSItem render-null pattern is the intended helper toggle, treat the helper as configured in your readback/evidence summary; do not mark the outcome false only because no separate advanced reaction write targeted the JSItem
+6. only when a real target block exposes `blockLinkage` and can read the needed `formValues.*` path from that same live scene, write `set-block-linkage-rules`
 
 Verified CLI shape for a form-scoped helper item:
 
