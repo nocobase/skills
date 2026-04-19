@@ -13,7 +13,7 @@ describe.sequential(suite.describeTitle, () => {
     suite.runCase({
       id: 'TC-TRIGGER-ACTION-001',
       description: 'Create workflow triggered after order creation',
-      prompt: '创建一个在创建订单提交后执行的工作流',
+      prompt: '创建一个在新增订单提交后执行的工作流',
       scenario: 'create',
       expectedConfig: {
         collection: 'orders',
@@ -49,7 +49,7 @@ describe.sequential(suite.describeTitle, () => {
     suite.runCase({
       id: 'TC-TRIGGER-ACTION-003',
       description: 'Create workflow triggered only by specific button/operation',
-      prompt: '创建一个任何新增订单表单提交后执行的工作流',
+      prompt: '创建一个仅在新增订单表单提交后执行的工作流',
       scenario: 'create',
       expectedConfig: {
         collection: 'orders',
