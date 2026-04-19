@@ -7,32 +7,72 @@
 import type { NocoBaseClient } from '../client';
 import type { FlowModelNode } from '../types/api';
 
+// NocoBase interface → the Display*FieldModel NB uses when rendering that
+// field inside a read-only surface (table cell, details item). When compose
+// defaults a field to DisplayTextFieldModel but the interface deserves a
+// richer widget (date picker, enum chips, color swatch, etc.), the fixer
+// swaps in the right model. Unknown interfaces stay as plain text — safe
+// fallback, not a bug.
 export const DISPLAY_MODEL_MAP: Record<string, string> = {
+  // Text-ish (default fine — kept here for documentation completeness).
   input: 'DisplayTextFieldModel',
   textarea: 'DisplayTextFieldModel',
   email: 'DisplayTextFieldModel',
   phone: 'DisplayTextFieldModel',
+  password: 'DisplayTextFieldModel',
+  sequence: 'DisplayTextFieldModel',      // auto-generated code string
+  snowflakeId: 'DisplayTextFieldModel',   // id / hash
+  uuid: 'DisplayTextFieldModel',
+  nanoid: 'DisplayTextFieldModel',
+  icon: 'DisplayTextFieldModel',
+  collection: 'DisplayTextFieldModel',    // collection-name picker
+
+  // Rich / url
   url: 'DisplayURLFieldModel',
+  richText: 'DisplayHtmlFieldModel',
+  vditor: 'DisplayHtmlFieldModel',
+  markdown: 'DisplayHtmlFieldModel',
+
+  // Enum-ish
   select: 'DisplayEnumFieldModel',
   radioGroup: 'DisplayEnumFieldModel',
   multipleSelect: 'DisplayEnumFieldModel',
   checkboxGroup: 'DisplayEnumFieldModel',
+
+  // Boolean
   checkbox: 'DisplayCheckboxFieldModel',
+
+  // Numeric
   integer: 'DisplayNumberFieldModel',
   number: 'DisplayNumberFieldModel',
   percent: 'DisplayPercentFieldModel',
+  sort: 'DisplayNumberFieldModel',        // sort index is a number
+
+  // Date / time — several NB variants all render as a formatted date.
   date: 'DisplayDateTimeFieldModel',
+  dateOnly: 'DisplayDateTimeFieldModel',
   datetime: 'DisplayDateTimeFieldModel',
+  datetimeNoTz: 'DisplayDateTimeFieldModel',
+  unixTimestamp: 'DisplayDateTimeFieldModel',
   createdAt: 'DisplayDateTimeFieldModel',
   updatedAt: 'DisplayDateTimeFieldModel',
   time: 'DisplayTimeFieldModel',
+
+  // Color / JSON
   color: 'DisplayColorFieldModel',
+  json: 'DisplayJSONFieldModel',
+
+  // Relations — m2o/o2o/obo/oho show the target's title; o2m/m2m show count.
   m2o: 'DisplayTextFieldModel',
+  o2o: 'DisplayTextFieldModel',
+  oho: 'DisplayTextFieldModel',
+  obo: 'DisplayTextFieldModel',
   o2m: 'DisplayNumberFieldModel',
+  m2m: 'DisplayNumberFieldModel',
+
+  // User / audit fields resolve to the user record's display name.
   createdBy: 'DisplaySubItemFieldModel',
   updatedBy: 'DisplaySubItemFieldModel',
-  richText: 'DisplayHtmlFieldModel',
-  json: 'DisplayJSONFieldModel',
 };
 
 export async function fixDisplayModels(
