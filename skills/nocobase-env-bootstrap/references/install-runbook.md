@@ -240,6 +240,13 @@ For install tasks, run this section as the default final stage after app startup
 ```bash
 nocobase-ctl env add --name local --base-url http://localhost:13000/api -s project
 nocobase-ctl env auth -e local -s project
+```
+
+`env auth` is a blocking command that self-terminates when OAuth completes. After printing the authorization URL it blocks waiting for the browser callback. When the user finishes the browser flow, `env auth` exits on its own.
+- **REQUIRED**: run `env auth` and do nothing until it exits. No messages, no other commands, no timeout logic.
+- **FORBIDDEN**: running `env update` before `env auth` exits; asking the user if they finished; treating a long wait as failure; interrupting the process.
+
+```bash
 nocobase-ctl env update -e local -s project
 nocobase-ctl env -s project
 ```
