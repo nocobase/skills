@@ -1,0 +1,80 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_starter_tasks
+    fields:
+      - field: title
+        label: Search
+        filterPaths:
+          - title
+          - description
+      - field: status
+      - field: priority
+    field_layout:
+      - - title
+        - status
+        - priority
+  - key: table
+    type: table
+    coll: nb_starter_tasks
+    fields:
+      - field: title
+        clickToOpen: templates/popup/popup_detail_tasks.yaml
+      - field: status
+        width: 110
+      - field: priority
+        width: 110
+      - field: due_date
+        width: 120
+      - field: estimate_hours
+        width: 110
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - type: updateRecord
+        key: updateRecord_start
+        icon: playcircleoutlined
+        tooltip: Start
+        style: link
+        assign:
+          status: in_progress
+        linkageRules:
+          value:
+            - title: hide unless todo
+              enable: true
+              condition:
+                logic: $and
+                items:
+                  - path: '{{ ctx.record.status }}'
+                    operator: $ne
+                    value: todo
+              actions:
+                - name: linkageSetActionProps
+                  params:
+                    value: hidden
+      - type: updateRecord
+        key: updateRecord_done
+        icon: checkcircleoutlined
+        tooltip: Mark Done
+        style: link
+        assign:
+          status: done
+        linkageRules:
+          value:
+            - title: hide when not in_progress
+              enable: true
+              condition:
+                logic: $and
+                items:
+                  - path: '{{ ctx.record.status }}'
+                    operator: $ne
+                    value: in_progress
+              actions:
+                - name: linkageSetActionProps
+                  params:
+                    value: hidden
+layout:
+  - - filterForm
+  - - table

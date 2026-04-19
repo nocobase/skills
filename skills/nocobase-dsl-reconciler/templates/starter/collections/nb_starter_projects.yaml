@@ -1,0 +1,55 @@
+name: nb_starter_projects
+title: Projects
+titleField: name
+fields:
+  - name: name
+    interface: input
+  - name: code
+    interface: input
+  - name: status
+    interface: select
+    options:
+      - value: planned
+        label: Planned
+        color: blue
+      - value: active
+        label: Active
+        color: orange
+      - value: done
+        label: Done
+        color: green
+      - value: archived
+        label: Archived
+        color: default
+  - name: priority
+    interface: select
+    options:
+      - value: low
+        label: Low
+        color: default
+      - value: medium
+        label: Medium
+        color: blue
+      - value: high
+        label: High
+        color: red
+  - name: start_date
+    interface: date
+  - name: end_date
+    interface: date
+  - name: owner
+    interface: m2o
+    target: users
+    foreignKey: owner_id
+  - name: members
+    interface: m2m
+    target: users
+    through: nb_starter_project_members
+    foreignKey: project_id
+    otherKey: user_id
+  - name: tasks
+    interface: o2m
+    target: nb_starter_tasks
+    foreignKey: project_id
+  - name: description
+    interface: textarea

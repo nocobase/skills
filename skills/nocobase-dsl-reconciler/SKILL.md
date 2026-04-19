@@ -1,25 +1,39 @@
 ---
 name: nocobase-dsl-reconciler
 description: >-
-  Build or extend NocoBase applications from YAML DSL + JS specs. Canonical
-  skill for creating new pages, menus, modules, or whole systems — and for
-  adding collections, tables, sub-tables, popups, dashboards, approval
-  workflows, or recordActions to an existing DSL project. Use for anything
-  that produces/changes files under `workspaces/<project>/` and gets
-  deployed via `cli push`. For one-off live-UI edits without DSL, see
-  `nocobase-ui-builder` instead.
+  **Opt-in DSL path** for NocoBase app building. Use ONLY when the user
+  explicitly asks for YAML / DSL / committed-to-git / `cli push` / spec
+  files — e.g. "use the DSL reconciler", "I want YAML I can commit",
+  "build this as a workspaces/ project". For any other UI authoring
+  request (new page, new block, tweak an existing screen), default to
+  `nocobase-ui-builder` instead — this reconciler is still in active
+  development and has rough edges that the live-UI path avoids.
+
+  When the user opts in: produces/changes files under `workspaces/<project>/`,
+  supports new pages, menus, modules, whole systems, collections, tables,
+  sub-tables, popups, dashboards, approval workflows, recordActions, and
+  deploys them via `cli push`.
 argument-hint: "[system-name]"
 allowed-tools: shell, local file reads, local file writes
+version: 0.1.0
 ---
 
-# NocoBase Application Builder
+# NocoBase Application Builder (DSL path)
+
+## Before you use this skill
+
+This is the **opt-in DSL path**. Default is `nocobase-ui-builder`.
+Stay on this skill only when the user explicitly wants YAML files they
+can commit + `cli push`. If you arrived here from a generic "build me a
+NocoBase app" request without the user naming DSL/YAML/git, switch to
+`nocobase-ui-builder` instead — it's the default entry point.
 
 ## Golden rule
 
 `templates/crm/` is a **read-only reference library**. When you're
 unsure how a specific field, block, or popup is shaped, open the
 closest CRM example, read it, then write your own adapted version in
-your workspace. Per-scenario pointers live in Rounds 1/3/4 below.
+your workspace. Per-scenario pointers live in the workflow sections below.
 
 **Never** copy CRM files wholesale into your workspace. Do not
 `cp -r templates/crm/...` to get started, do not duplicate
@@ -56,35 +70,106 @@ cd <skill-dir>/src
 export NB_USER=admin@nocobase.com NB_PASSWORD=admin123 NB_URL=http://localhost:14000
 ```
 
-## Workflow
+## Quick start — new build
 
-Build in rounds — don't mix. Each round produces a deployable state.
+**Default path for "build me a NocoBase app"**: copy the starter and
+modify it. Do not hand-write the skeleton; do not study CRM first.
 
+```bash
+cd <skill-dir>/src
+cp -r ../templates/starter ../workspaces/<name>
+
+# First push: --copy bypasses validation rules that only matter once
+# popups exist (m2o popup binding, clickToOpen file presence). The
+# starter ships with its own popups so the first push is actually fully
+# valid — --copy is for your *extensions* before popups are wired.
+npx tsx cli/cli.ts push <name> --force
 ```
-Round 0  System architecture (written design, user confirms)
-Round 0.5 Session setup (sub-agent CWD only)
-Round 1  Scaffold: collections + routes + empty pages, push
-Round 2  Fill pages: blocks, layouts, popups, block templates, push
-         (in parallel) Round 2': seed test data via API
-Round 3  JS: where CRM has it, you probably need it too
-```
 
-### Round 0: System architecture — MUST confirm with user
+The starter is a complete minimal CRUD — 1 collection (Projects),
+1 Dashboard page (4 KPI tiles + 2 charts), 1 list page with
+filterForm / table / addNew popup / detail popup / 2 updateRecord
+recordActions. Push as-is → visible in NB → then edit.
 
-Write a design doc (markdown, not YAML) covering:
+### Customizing the starter (the agile loop)
+
+Iterate one concern at a time, push between each:
+
+1. **Rename identifiers** to match the user's domain.
+   - `collections/nb_starter_projects.yaml` → your collection name
+     (match the `nb_<module>_<entity>` convention)
+   - `routes.yaml`: change "Starter" / "Projects" titles
+   - `pages/starter/` directory name if you want (match `routes.yaml`
+     key)
+   - Find-replace `nb_starter_projects` across all files
+2. **Adjust the field list** in your collection YAML to match the
+   user's entity. Update `pages/<...>/layout.yaml` `fields:` and the
+   popup templates' `field_layout:` accordingly.
+3. **Add a 2nd entity** only when the first one works end-to-end.
+   Create a new `collections/*.yaml` + `pages/<module>/<entity>/` dir,
+   copy `pages/starter/projects/layout.yaml` as a starting point.
+4. **Extend incrementally**: add a tab, a chart, a workflow trigger.
+   Push after every change. See "Advanced patterns" below for which
+   CRM file matches which pattern.
+
+**Never write the whole module in one shot.** For customer-facing
+builds — land the skeleton, show the user, gather feedback, iterate.
+The starter push takes minutes; a hand-built module takes hours.
+
+### Fast-track: when `--copy` helps
+
+Pass `--copy` when the workspace has **no popup files yet** (early
+stage — validator would fire errors about "m2o field X has no popup
+binding" that the user will fix in the next push). The reconciler
+auto-bypasses spec errors in this state. Once any `popups/*.yaml`
+exists, drop `--copy` and let validation run.
+
+## Incremental edits — existing workspace
+
+- **Add** a block / field / action / popup → write the DSL → push.
+- **Remove** from DSL → push. The reconciler destroys the matching
+  live model on the NB side and cleans `state.yaml`. Manual NB-UI
+  authored elements (not tracked in `state.yaml`) are left alone.
+- **Rename** → not supported automatically. Delete + re-add.
+
+Targeted pushes:
+- `--group <key>` scopes to one menu subtree
+- `--page <key>` scopes to one page
+- `--incremental` skips pages whose DSL hasn't changed since last push
+
+**For pure live-UI tweaks without a DSL commit, hand off to
+`nocobase-ui-builder` instead** (see the routing table above).
+
+## Advanced workflow — when the starter isn't enough
+
+Triggers for going beyond the agile starter loop:
+
+- More than ~3 collections with cross-relations (m2m, tree structures)
+- Dedicated workflow / approval / permission logic that the user wants
+  designed up-front
+- Multi-tab pages, sub-tables, or cross-module navigation
+- Dashboard with bespoke KPIs mapped to the user's domain language
+
+Progression: Round 0 design → Round 1 scaffold → Round 2 fill →
+Round 2' seed → Round 3 JS. Each round is a deployable state.
+
+### Round 0: System architecture — confirm with user
+
+Write a `DESIGN.md` (markdown, not YAML) covering:
 
 1. **Collections** — every table, its fields, and its relations.
    See `nocobase-data-modeling` skill for field-interface reference.
-2. **Page list** — every page you will create, with a one-line
-   purpose each. Group by menu section.
+2. **Page list** — every page, one-line purpose each, grouped by menu.
 3. **Navigation wiring** — which m2o fields open which popup
    templates; which pages link to each other.
 
-Output this as `DESIGN.md` in the project root. **Wait for user
-confirmation** before touching YAML files. A single design pass saves
-3× redesigns in the next rounds.
+Wait for user confirmation before writing YAML. A single design pass
+saves 3× redesigns.
 
-Example skeleton:
+Skip Round 0 if the user's ask fits the starter shape (single entity,
+basic CRUD).
+
+Example:
 
 ```markdown
 ## Collections
@@ -96,7 +181,7 @@ Example skeleton:
 - Books list — browse + search books, add new
 - Members list — browse members, their loan history
 - Loans list — active/overdue loans, return action
-- Dashboard — KPIs + charts (optional, Round 3)
+- Dashboard — KPIs + charts
 
 ## Navigation
 - books.table.title → books detail popup (shared template)
@@ -104,10 +189,10 @@ Example skeleton:
 - loans.table.member → members detail popup (shared via defaults.yaml)
 ```
 
-### Round 0.5: Session setup (sub-agent spawns only)
+### Round 0.5: Sub-agent CWD (only when spawning)
 
-If you're launching a sub-agent (kimi TUI, Claude Code subprocess, etc.),
-its process CWD becomes its default write target. **Set it before launch:**
+If launching a sub-agent (kimi TUI, Claude Code subprocess), its
+CWD becomes the default write target. **Set it before launch:**
 
 ```bash
 mkdir -p <user-workdir>
@@ -115,54 +200,42 @@ cd <user-workdir>
 kimi --yolo       # or claude, codex
 ```
 
-Skip the `cd` and the agent inherits the launcher's CWD (often a parent
-project root), creating files in the wrong place. It can't recover from
-this mid-session — by the time it reads the prompt, CWD is already wrong.
+Skip the `cd` and the agent writes to the parent project root.
 
-### Round 1: Scaffold — collections + routes + empty pages
+### Round 1: Scaffold — still start from the starter
 
-First deployable state. Don't fill page content yet; get the skeleton
-working end-to-end.
+Even in the advanced path, don't hand-write `routes.yaml` +
+`collections/*.yaml` from scratch. Copy the starter, then grow:
 
-Files to write:
+| Step | What to do |
+|---|---|
+| Base | `cp -r templates/starter workspaces/<name>` — push once |
+| Add collection | Write `collections/<next_coll>.yaml` (format matches starter's). Match `nb_<module>_<entity>` convention. |
+| Add page | `mkdir pages/<module>/<page>/` + `layout.yaml`; mirror starter's projects layout. |
+| Update routes | Add entry under the existing group in `routes.yaml`. |
+| Deploy | `cli push <name> --force` after each collection/page addition |
 
-| File | Contents | CRM reference |
-|---|---|---|
-| `collections/<coll>.yaml` per table | name, titleField, fields (with select options, m2o target, o2m foreignKey) | `templates/crm/collections/nb_crm_leads.yaml` |
-| `routes.yaml` | group → children tree for every page in DESIGN.md | `templates/crm/routes.yaml` (shape only) |
-| `pages/<group>/<page>/layout.yaml` per page | One placeholder `table` block per page, no popups yet | (leave minimal) |
+CRM references (consult only when stuck on structure):
+- `templates/crm/collections/nb_crm_leads.yaml` — collection format
+- `templates/crm/routes.yaml` — multi-group routes (shape only)
 
-Workspace path: `cli push myapp` resolves to `workspaces/myapp/`.
-Override with `NB_WORKSPACE_ROOT=/some/path`. Each project auto `git init`s
-on first push/pull.
+### Round 2: Fill content — blocks, popups, templates
 
-Deploy: `npx tsx cli/cli.ts push <name> --force`.
+For each page beyond the starter basics:
 
-**Goal of Round 1**: the validator passes; menu tree renders; every
-page shows an empty-ish table with the right collection. No popups,
-no forms, no JS yet.
-
-### Round 2: Page content — blocks + popups + templates
-
-Now fill each page. Do this page-by-page, deploying after each.
-
-Per page, for each block:
-
-| Building | Reference this CRM file |
+| Building | CRM reference |
 |---|---|
 | Main list table + filter | `templates/crm/pages/main/leads/layout.yaml` |
 | Multi-tab page | `templates/crm/pages/main/customers/` (`page.yaml` + `tab_*/layout.yaml`) |
-| Create-form template (with inline sub-table for o2m children) | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` — `items` is an o2m field listed in `fields:` and rendered as an inline editable sub-table by the deployer. Also see `templates/crm/pages/main/products/` for the canonical "master record + editable child rows" UX (products own pricing tiers via o2m). |
+| Create-form with inline sub-table for o2m children | `templates/crm/templates/block/form_add_new_opportunities_quotations_quotations.yaml` — `items` is an o2m field listed in `fields:` and rendered as an inline editable sub-table. Also `templates/crm/pages/main/products/` for master/child UX. |
 | Detail-popup template | `templates/crm/templates/popup/activity_view.yaml` |
 | m2o auto-popup bindings | `templates/crm/defaults.yaml` |
 | Parent-detail + child-list popup | `templates/crm/pages/main/customers/tab_customers/popups/` |
 | addNew + field click-popup pattern | `templates/crm/pages/main/leads/popups/` |
 
-Tips:
-- Copy the 10–30 lines you need from the CRM file, then change
-  collection / field / title names. **Do not copy whole files.**
-- Don't copy `uid:` / `targetUid:` / `route_id:` — runtime IDs that
-  the deployer assigns fresh.
+Rules for copying from CRM:
+- Copy 10–30 lines, adapt names. **Never copy whole files.**
+- Don't copy `uid:` / `targetUid:` / `route_id:` — deployer assigns fresh.
 - For every m2o field displayed in a table, either set
   `clickToOpen: templates/popup/popup_detail_<target>.yaml` OR add
   `popups.<target>: ...` in `defaults.yaml`. Validator errors otherwise.
@@ -406,7 +479,7 @@ push and pull are both one-way. Round-tripping = push + pull + git diff.
 | Chart SQL failed | Seed data first; quote field names like `"createdAt"` |
 | m2o link 400 in UI | Missing `defaults.yaml` `popups:` binding for target collection |
 | `Collection X not found in data source main` | `associationName` used a short name — use the full collection name (`nb_pm_projects.tasks`, not `project.tasks`). See `templates/crm/pages/main/customers/tab_customers/popups/` |
-| Per-row column shows only edit+delete (or stale buttons that your DSL no longer lists) | `recordActions` missing — see Round 2 "Per-row actions". **Removing** an action from DSL does not delete it from NB; the deployer is additive. Remove the button in the NB UI by hand, or wait for the reconciler's delete support. |
+| Per-row column shows only edit+delete | `recordActions` missing — see "Per-row actions" below for what to add. Removing an action/field/column from the DSL now *does* destroy it on the NB side on next push. |
 
 ---
 

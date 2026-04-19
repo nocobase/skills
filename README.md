@@ -11,8 +11,8 @@ This repository provides reusable NocoBase skills for coding agent CLIs such as 
 - `nocobase-mcp-setup`: configures NocoBase as an MCP server for your coding agent CLI.
 - `nocobase-data-modeling`: runs data modeling operations through MCP tools.
 - `nocobase-workflow-manage`: creates and manages NocoBase workflows through MCP tools.
-- `nocobase-ui-builder`: builds and updates Modern page (v2) UI structures through MCP tools.
-- `nocobase-dsl-reconciler`: builds complete NocoBase applications from YAML DSL specs — collections, pages, forms, popups, charts, and dashboards in one go. Use this when building a new system/module from scratch.
+- `nocobase-ui-builder`: **default** entry point for any NocoBase UI authoring — new pages, new blocks, menu items, and localized edits. Works directly against the live app via MCP / `nocobase-ctl flow-surfaces`, no DSL file commit needed.
+- `nocobase-dsl-reconciler`: **opt-in** YAML-DSL path for building whole NocoBase applications from spec files committed to git and deployed via `cli push`. Use **only** when the user explicitly asks for DSL / YAML / committable spec files — this reconciler is still under active development and has rough edges the live-UI path avoids.
 
 ## Installation
 
@@ -107,22 +107,36 @@ Use your CLI's MCP configuration mechanism with the same NocoBase MCP endpoint a
 
 3. Build your application.
 
-**Option A: Build a complete system from scratch** (recommended for new projects)
+**Default path: live UI authoring via `nocobase-ui-builder`**
 
-Use `nocobase-dsl-reconciler` — it generates collections, pages, forms, popups, and dashboards from YAML specs:
-
-```text
-Build me a project management system with projects, tasks, and team members.
-```
-
-The agent will design data tables, generate YAML files, deploy to NocoBase, and insert test data — all in one flow.
-
-**Option B: Incremental changes via MCP**
-
-For smaller changes to existing systems (add a field, tweak a page), use MCP-based skills directly:
+For any NocoBase UI request — build a new page, add blocks, adjust an
+existing screen, set up linkage rules — ask the agent in plain
+business language. The skill routes through the MCP / `flow-surfaces`
+transport directly against the running app:
 
 ```text
-I am building a CRM, design and create collections.
+I'm building a CRM — create a Contacts page with a filter, a table, and an Add New popup.
 ```
 
-After the MCP connection is ready, most NocoBase APIs can be called through MCP tools.
+```text
+Add a Sales Dashboard tab with 4 KPI cards and 2 charts.
+```
+
+```text
+On the leads table, the owner column should open the user's profile popup.
+```
+
+Incremental tweaks work the same way — just describe what you want.
+
+**Opt-in path: DSL specs via `nocobase-dsl-reconciler`**
+
+Use this only when you explicitly want YAML spec files committed to
+git (for CI/CD, version-controlled deployments, or replicating an app
+across environments). You must name the DSL path in your request:
+
+```text
+Use the DSL reconciler to build a project management system — I want YAML specs I can commit.
+```
+
+The reconciler is still under active development; prefer the default
+live-UI path unless the spec-file workflow is a hard requirement.

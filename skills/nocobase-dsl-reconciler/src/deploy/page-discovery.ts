@@ -404,12 +404,22 @@ function resolveBlockRefs(blocks: unknown[], projectRoot: string): unknown[] {
         if (templateUid) ref.templateUid = templateUid;
         if (templateName) ref.templateName = templateName;
         if (targetUid) ref.targetUid = targetUid;
+        // Stash the template's field list + layout so downstream
+        // (popup-expander) can derive edit/detail popups with the same
+        // fields when only addNew is authored as a ref.
+        const content = (template.content && typeof template.content === 'object')
+          ? template.content as Record<string, unknown>
+          : {};
         return {
           type: 'reference',
           key: 'reference',
           templateRef: ref,
           coll: (template.collectionName as string) || undefined,
           _fromRef: refPath,
+          _refContent: {
+            fields: content.fields,
+            field_layout: content.field_layout,
+          },
         };
       }
 

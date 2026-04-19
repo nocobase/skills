@@ -1,16 +1,17 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  Use for LOCALIZED live-UI tweaks against an already-running NocoBase app:
-  move / reorder / reconfigure a single block, field, action, or reaction
-  rule on an existing page; inspect current schema via `nocobase-ctl
-  flow-surfaces`. Scope is per-node edits through flow-surfaces APIs.
+  **DEFAULT entry point for any NocoBase UI authoring or tweak** — new
+  pages, new blocks, new menu items, AND localized edits (move / reorder /
+  reconfigure a single block, field, action, or reaction rule) on an
+  already-running NocoBase app. Goes through `nocobase-ctl flow-surfaces`
+  against the live app; no DSL file commit required.
 
-  For BUILDING new pages, menus, modules, or whole systems (multi-page,
-  multi-collection, scaffolding a CRM / project management / library app
-  from scratch, adding a Dashboard / sub-table / approval workflow),
-  use `nocobase-dsl-reconciler` instead — it produces YAML DSL files
-  committable to git and deployable via `cli push`.
+  Only hand off to `nocobase-dsl-reconciler` when the user **explicitly
+  asks for** DSL / YAML / committed-to-git / `cli push` workflow (e.g. "use
+  the DSL reconciler", "I want YAML files", "commit the spec"). The DSL
+  reconciler is in active development and has rough edges; prefer this
+  skill unless the user opts in.
 
   Does not handle ACL, data modeling, workflow orchestration, browser
   reproduction, page error postmortems, or non-Modern-page navigation.
