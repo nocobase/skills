@@ -29,6 +29,14 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
   'setBlockLinkageRules',
   'setActionLinkageRules',
 ]);
+const FILTER_BLOCK_TYPES = new Set(['filterForm']);
+const RESOURCE_BLOCK_SHORTHAND_KEYS = new Set([
+  'collection',
+  'binding',
+  'dataSourceKey',
+  'associationPathName',
+  'associationField',
+]);
 const ADD_CHILD_RECORD_ACTION_MESSAGE =
   '`addChild` must stay under `recordActions`; whole-page blueprint drafts may still author it there, but final apply only works when the live target `catalog.recordActions` exposes it for a tree collection table with `treeTable` enabled.`';
 
@@ -236,6 +244,41 @@ function getFactsPageTitle(blueprint) {
 
 function getCollectionLabel(node) {
   return normalizeText(node?.collection) || normalizeText(node?.resource?.collectionName) || normalizeText(node?.resource?.collection);
+}
+
+function hasResourceBinding(node) {
+  if (!isPlainObject(node)) return false;
+  if (isPlainObject(node.resource) && Object.keys(node.resource).length > 0) {
+    return true;
+  }
+  for (const key of RESOURCE_BLOCK_SHORTHAND_KEYS) {
+    if (normalizeText(node[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isTemplateBackedBlock(block) {
+  return hasTemplateDocument(block?.template);
+}
+
+function isFilterBlock(block) {
+  return FILTER_BLOCK_TYPES.has(normalizeText(block?.type));
+}
+
+function isDataBlock(block) {
+  return hasResourceBinding(block);
+}
+
+function collectLayoutRowKeys(row) {
+  return ensureArray(row)
+    .map((cell) => {
+      if (typeof cell === 'string') return normalizeText(cell);
+      if (isPlainObject(cell)) return normalizeText(cell.key);
+      return '';
+    })
+    .filter(Boolean);
 }
 
 function describeResource(node) {
@@ -852,6 +895,103 @@ function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
   return lines.join('\n').trimEnd();
 }
 
+function validateMultiBlockDataTitles(blocks, path, state) {
+  const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
+  if (normalizedBlocks.length <= 1) {
+    return;
+  }
+
+  normalizedBlocks.forEach((block, index) => {
+    if (!isDataBlock(block) || isTemplateBackedBlock(block) || normalizeText(block.title)) {
+      return;
+    }
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}[${index}].title`,
+      'multi-block-data-title-required',
+      'When one tab or popup contains multiple blocks, every data block with a resource must include a title unless it is template-backed.',
+    );
+  });
+}
+
+function validateExplicitLayoutRules(layout, blocks, path, state) {
+  if (!isPlainObject(layout) || !Array.isArray(layout.rows) || layout.rows.length === 0) {
+    return;
+  }
+  const keyedBlocks = ensureArray(blocks)
+    .filter((block) => isPlainObject(block) && normalizeText(block.key))
+    .map((block) => [normalizeText(block.key), block]);
+  const blockMap = new Map(keyedBlocks);
+  if (blockMap.size <= 1) {
+    return;
+  }
+
+  const rows = layout.rows.map((row) => collectLayoutRowKeys(row).filter((key) => blockMap.has(key)));
+  const filterKeys = ensureArray(blocks)
+    .filter((block) => isPlainObject(block) && isFilterBlock(block) && normalizeText(block.key))
+    .map((block) => normalizeText(block.key));
+
+  if (filterKeys.length > 0) {
+    const firstRow = rows[0] || [];
+    const firstRowContainsOnlyFilters = firstRow.length > 0 && firstRow.every((key) => filterKeys.includes(key));
+    const allFiltersPlacedFirst = filterKeys.every((key) => firstRow.includes(key));
+    if (!firstRowContainsOnlyFilters || !allFiltersPlacedFirst) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.rows[0]`,
+        'filter-layout-must-lead',
+        'Filter blocks should occupy the top row alone when an explicit layout is provided.',
+      );
+    }
+  }
+
+  const nonFilterRows = rows
+    .map((row) => row.filter((key) => !filterKeys.includes(key)))
+    .filter((row) => row.length > 0);
+  const nonFilterBlockCount = ensureArray(blocks).filter((block) => isPlainObject(block) && !isFilterBlock(block)).length;
+  const isSingleColumnMultiBlock =
+    nonFilterBlockCount > 1
+    && nonFilterRows.length >= nonFilterBlockCount
+    && nonFilterRows.every((row) => row.length <= 1);
+  if (isSingleColumnMultiBlock) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.rows`,
+      'single-column-multi-block-layout',
+      'When multiple non-filter blocks share one tab or popup, the explicit layout must not place every block on its own row.',
+    );
+  }
+}
+
+function validateCreateMenuIcons(blueprint, state) {
+  if (normalizeLowerText(blueprint?.mode) !== 'create') {
+    return;
+  }
+  const group = isPlainObject(blueprint?.navigation?.group) ? blueprint.navigation.group : null;
+  if (group && !normalizeText(group.routeId) && !normalizeText(group.icon)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'navigation.group.icon',
+      'missing-menu-group-icon',
+      'Creating a new menu group requires navigation.group.icon so the first or second level menu does not render without an icon.',
+    );
+  }
+  const item = isPlainObject(blueprint?.navigation?.item) ? blueprint.navigation.item : null;
+  if (item && !normalizeText(item.icon)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'navigation.item.icon',
+      'missing-menu-item-icon',
+      'Creating a new menu item requires navigation.item.icon so first and second level menus always carry an icon.',
+    );
+  }
+}
+
 function validatePopupDocument(popup, path, state) {
   if (!isPlainObject(popup)) {
     pushValidationError(state.errors, state.seenErrors, path, 'invalid-popup', 'Popup must be one object.');
@@ -951,6 +1091,9 @@ function validatePopupDocument(popup, path, state) {
   for (const [index, block] of ensureArray(popup.blocks).entries()) {
     validateBlock(block, `${path}.blocks[${index}]`, state);
   }
+
+  validateMultiBlockDataTitles(popup.blocks, `${path}.blocks`, state);
+  validateExplicitLayoutRules(popup.layout, popup.blocks, `${path}.layout`, state);
 }
 
 function validateCustomEditPopup(popup, path, state) {
@@ -1096,6 +1239,9 @@ function validateTab(tab, index, state) {
   for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
     validateBlock(block, `${path}.blocks[${blockIndex}]`, state);
   }
+
+  validateMultiBlockDataTitles(tab.blocks, `${path}.blocks`, state);
+  validateExplicitLayoutRules(tab.layout, tab.blocks, `${path}.layout`, state);
 }
 
 function validateReaction(blueprint, state) {
@@ -1296,6 +1442,8 @@ function validateBlueprint(blueprint, options = {}) {
       'Replace mode requires target.pageSchemaUid.',
     );
   }
+
+  validateCreateMenuIcons(blueprint, state);
 
   const expectedOuterTabs = getExpectedOuterTabs(options);
   if (!Array.isArray(blueprint.tabs) || blueprint.tabs.length !== expectedOuterTabs) {

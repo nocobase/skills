@@ -123,7 +123,7 @@ function checkLineBudgets(context, failures) {
     ['references/index.md', 150],
   ]);
   const exemptPrefixes = [
-    'references/upstream-js/',
+    'runtime/reference-assets/upstream-js/',
   ];
   const exemptExact = new Set([
     'references/blocks/chart.md',
@@ -205,6 +205,9 @@ function checkRootIndexMirrorsSubindexes(context, failures) {
   for (const directoryName of ROOT_INDEX_MIRROR_DIRS) {
     const subindexPath = path.join(context.referencesRoot, directoryName, 'index.md');
     if (!fs.existsSync(subindexPath)) {
+      continue;
+    }
+    if (rootIndexLinks.has(subindexPath)) {
       continue;
     }
 

@@ -4,7 +4,7 @@
 
 The JS Block is a highly flexible "custom rendering block" that allows you to write JavaScript directly to generate interfaces, bind events, call data APIs, or integrate third-party libraries. It is suitable for personalized visualizations, temporary experiments, and lightweight extension scenarios that are difficult to cover with built-in blocks.
 
-> Local skill note: treat this page as a product/runtime reference. Validate final code with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer popup actions, field popups, or event flows outside the JS snippet.
+> Local skill note: treat this page as a product/runtime reference. Validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer popup actions, field popups, or event flows outside the JS snippet.
 
 ## Runtime Context API
 

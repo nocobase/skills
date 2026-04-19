@@ -1,6 +1,6 @@
 # Block Linkage Rules
 
-> Local skill note: for final skill writes, use [reaction.md](../../../../reaction.md). If a rule uses JavaScript, validate it with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md) before writing.
+> Local skill note: for final skill writes, use [reaction.md](../../../../../../references/reaction.md). If a rule uses JavaScript, validate it with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md) before writing.
 
 ## Introduction
 

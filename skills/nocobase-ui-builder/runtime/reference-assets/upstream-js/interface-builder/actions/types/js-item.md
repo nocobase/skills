@@ -4,7 +4,7 @@
 
 JS Item is used to render a custom action item in an action bar. You can write JavaScript / JSX directly to output any UI, such as buttons, button groups, dropdown menus, helper text, status tags, or small interactive components, and handle logic inside the component, including API calls, opening views, reading the current record, or refreshing block data.
 
-> Local skill note: validate final code with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md). If a user wants to open a popup or drawer, prefer popup actions or event flows outside the JS snippet instead of direct `ctx.openView(...)` output.
+> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). If a user wants to open a popup or drawer, prefer popup actions or event flows outside the JS snippet instead of direct `ctx.openView(...)` output.
 
 It can be used in form toolbars, table toolbars (collection-level), table row actions (record-level), and similar locations. It is especially suitable for these scenarios:
 

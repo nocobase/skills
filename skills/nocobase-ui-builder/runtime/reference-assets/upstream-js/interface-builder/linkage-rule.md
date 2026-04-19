@@ -4,7 +4,7 @@
 
 In NocoBase, Linkage Rules are a mechanism used to control the interactive behavior of front-end interface elements. It allows users to adjust the display and behavioral logic of blocks, fields, and actions in the interface based on different conditions, achieving a flexible, low-code interactive experience. This feature is continuously being iterated and optimized.
 
-> Local skill note: this page is reference material for product behavior. For final skill writes, return to [reaction.md](../../reaction.md). If a linkage rule contains JavaScript, validate that code with [js.md](../../js.md) and [runjs-runtime.md](../../runjs-runtime.md) before writing.
+> Local skill note: this page is reference material for product behavior. For final skill writes, return to [reaction.md](../../../../references/reaction.md). If a linkage rule contains JavaScript, validate that code with [js.md](../../../../references/js.md) and [runjs-runtime.md](../../../../references/runjs-runtime.md) before writing.
 
 By configuring linkage rules, you can achieve things like:
 

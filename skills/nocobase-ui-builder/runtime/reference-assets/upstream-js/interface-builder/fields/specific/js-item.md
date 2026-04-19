@@ -4,7 +4,7 @@
 
 JS Item is used for "custom items" (not bound to a field) in a form. You can use JavaScript/JSX to render any content (such as tips, statistics, previews, buttons, etc.) and interact with the form and record context. It is suitable for scenarios like real-time previews, instructional tips, and small interactive components.
 
-> Local skill note: validate final code with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md). If a user wants to open a popup or drawer, prefer a configured popup action or event flow outside the JS snippet instead of direct `ctx.openView(...)`.
+> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). If a user wants to open a popup or drawer, prefer a configured popup action or event flow outside the JS snippet instead of direct `ctx.openView(...)`.
 
 
 ![jsitem-add-20251929](https://static-docs.nocobase.com/jsitem-add-20251929.png)

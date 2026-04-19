@@ -4,7 +4,7 @@
 
 Event flow allows you to trigger custom actions when certain events occur, such as form changes. Beyond forms, pages, blocks, buttons, and fields can all use event flows to configure custom operations.
 
-> Local skill note: this page explains product behavior and available step types. For actual skill writes, return to [settings.md](../../settings.md) for the `set-event-flows` write contract, [cli-command-surface.md](../../cli-command-surface.md) and [runtime-playbook.md](../../runtime-playbook.md) for routing, [transport-crosswalk.md](../../transport-crosswalk.md) for MCP fallback naming, and [js.md](../../js.md) plus [runjs-runtime.md](../../runjs-runtime.md) before validating any `Execute JavaScript` step code.
+> Local skill note: this page explains product behavior and available step types. For actual skill writes, return to [settings.md](../../../../references/settings.md) for the `set-event-flows` write contract, [cli-command-surface.md](../../../../references/cli-command-surface.md) and [runtime-playbook.md](../../../../references/runtime-playbook.md) for routing, [transport-crosswalk.md](../../../../references/transport-crosswalk.md) for MCP fallback naming, and [js.md](../../../../references/js.md) plus [runjs-runtime.md](../../../../references/runjs-runtime.md) before validating any `Execute JavaScript` step code.
 
 ## How to use
 

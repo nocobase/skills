@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
-const DEFAULT_ADMIN_BASE = 'http://127.0.0.1:23000';
 const DEFAULT_TIMEOUT_MS = 15000;
 const BROWSER_EXECUTABLE_CANDIDATES = [
   process.env.CHROME_EXECUTABLE_PATH || '',
@@ -78,6 +77,11 @@ function normalizeRequiredText(value, label) {
 
 function normalizeOptionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+export function resolveRequiredAdminBase(flags = {}, env = process.env) {
+  const resolvedAdminBase = normalizeOptionalText(flags?.['admin-base']) || normalizeOptionalText(env?.NOCOBASE_ADMIN_BASE) || undefined;
+  return normalizeRequiredText(resolvedAdminBase, 'admin base');
 }
 
 function buildCwdRequire(cwd) {
@@ -559,7 +563,7 @@ async function runSuite(flags) {
   const suiteSummaryFile = path.resolve(normalizeRequiredText(flags['suite-summary-file'], 'suite summary file'));
   const suiteSummary = readJson(suiteSummaryFile);
   const outDir = path.resolve(normalizeOptionalText(flags['out-dir']) || path.join(path.dirname(suiteSummaryFile), 'browser-smoke'));
-  const adminBase = normalizeOptionalText(flags['admin-base']) || DEFAULT_ADMIN_BASE;
+  const adminBase = resolveRequiredAdminBase(flags);
   ensureDir(outDir);
 
   const executablePath = resolveBrowserExecutablePath();

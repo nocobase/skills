@@ -18,7 +18,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
   - localized existing-surface edit
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
-- If real fields or relations matter, gather live schema first with `collections:get(appends=["fields"])`. Drop any field whose `interface` is empty / null before authoring.
+- If real fields or relations matter, gather live schema first with `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`, and only then to MCP `collections:get(appends=["fields"])`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
@@ -29,7 +29,8 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 ## 2. Template Decision Gate
 
 - Enter the template path only after the structural route is clear.
-- For repeat-eligible popup / block / fields scenes, and for one standard reusable scene with strong context, contextual `list-templates` is mandatory before binding a template or finalizing inline fallback.
+- For repeat-eligible popup / block / fields scenes, and for one standard reusable scene with strong context, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback.
+- Fresh whole-page `create` work with explicit local popup / block content, no existing template reference, and no reuse / save-template ask should stay inline and skip template routing.
 - Keyword-only search stays discovery-only; it is not enough to prove a binding choice.
 - When no explicit `popup.template` is present, treat `popup.tryTemplate=true` as the write fallback, not as the planning truth source.
 - If there is no explicit local popup content, let the backend miss path continue; if there is local popup content, keep that content as the fallback.
@@ -83,10 +84,10 @@ Use this path when the user wants to change only part of an existing surface.
 
 ## 6. Schema / Capability Reads
 
-- Use `collections:list` only to narrow candidates.
-- Use `collections:get(appends=["fields"])` as the authoring truth.
-- Do not use `collections.fields:list` for page authoring / field discovery.
-- Use `collections.fields:get` only for known single-field follow-up.
+- Use `nocobase-ctl data-modeling collections list -j` only to narrow candidates; on MCP fallback, use `collections:list`.
+- Use `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the authoring truth. If that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`, and only then MCP `collections:get(appends=["fields"])`.
+- Do not use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring / field discovery.
+- Use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up, or MCP `collections.fields:get` only when already on MCP fallback.
 - If required schema is missing, stop and hand off to `nocobase-data-modeling`.
 
 ## 7. Stop / Handoff

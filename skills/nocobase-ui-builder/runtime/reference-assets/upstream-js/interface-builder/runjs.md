@@ -1,6 +1,6 @@
 # Online Write & Run JS
 
-> Local skill note: this page is a copied runtime-reference snapshot. Before writing final code for this skill, return to [js.md](../../js.md), [runjs-runtime.md](../../runjs-runtime.md), and [js-reference-index.md](../../js-reference-index.md).
+> Local skill note: this page is a copied runtime-reference snapshot. Before writing final code for this skill, return to [js.md](../../../../references/js.md), [runjs-runtime.md](../../../../references/runjs-runtime.md), and [js-reference-index.md](../../../../references/js-reference-index.md).
 
 In NocoBase, **RunJS** provides a lightweight extension method suitable for scenarios of **quick experimentation and temporary logic processing**. Without creating plugins or modifying source code, you can personalize interfaces or interactions through JavaScript.
 

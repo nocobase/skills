@@ -453,8 +453,8 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
       version: '1',
       mode: 'create',
       navigation: {
-        group: { title: 'Workspace' },
-        item: { title: 'Employees' },
+        group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+        item: { title: 'Employees', icon: 'TeamOutlined' },
       },
       page: { title: 'Employees' },
       tabs: [
@@ -489,8 +489,8 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
     version: '1',
     mode: 'create',
     navigation: {
-      group: { title: 'Workspace' },
-      item: { title: 'Employees' },
+      group: { title: 'Workspace', icon: 'AppstoreOutlined' },
+      item: { title: 'Employees', icon: 'TeamOutlined' },
     },
     page: { title: 'Employees' },
     tabs: [
@@ -522,6 +522,7 @@ test('prepareApplyBlueprintRequest returns normalized templateDecision when prov
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
               recordActions: [
@@ -578,6 +579,7 @@ test('prepareApplyBlueprintRequest rejects selected templateDecision values that
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
               recordActions: [
@@ -634,6 +636,7 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values on m
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
               recordActions: [
@@ -698,6 +701,7 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values when
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
               recordActions: [
@@ -763,6 +767,7 @@ test('prepareApplyBlueprintRequest accepts discovery-only templateDecision on mi
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
             },
@@ -816,6 +821,7 @@ test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision 
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
               recordActions: [
@@ -878,6 +884,7 @@ test('prepareApplyBlueprintRequest accepts not-repeat-eligible templateDecision 
             {
               key: 'usersTable',
               type: 'table',
+              title: 'Employees table',
               collection: 'users',
               fields: ['nickname', 'email'],
               recordActions: [
@@ -1304,6 +1311,119 @@ test('prepareApplyBlueprintRequest rejects high-risk first-write blueprint mista
   assert.ok(result.errors.some((issue) => issue.ruleId === 'illegal-tab-key' && issue.path === 'tabs[1].pageSchemaUid'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'placeholder-tab'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'placeholder-block'));
+});
+
+test('prepareApplyBlueprintRequest requires icons for newly created menu group and item writes', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      group: { title: 'Workspace' },
+      item: { title: 'Employees' },
+    },
+    page: {
+      title: 'Employees',
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'missing-menu-group-icon'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'missing-menu-item-icon'));
+});
+
+test('prepareApplyBlueprintRequest rejects explicit single-column multi-block layouts and missing data titles', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      item: { title: 'Employees', icon: 'TeamOutlined' },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['mainTable'], ['summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required' && issue.path === 'tabs[0].blocks[0].title'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'multi-block-data-title-required' && issue.path === 'tabs[0].blocks[1].title'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'single-column-multi-block-layout'));
+});
+
+test('prepareApplyBlueprintRequest requires filter blocks to occupy the first explicit layout row alone', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    navigation: {
+      item: { title: 'Employees', icon: 'TeamOutlined' },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['mainTable'], ['filters', 'summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-layout-must-lead'));
 });
 
 test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', () => {

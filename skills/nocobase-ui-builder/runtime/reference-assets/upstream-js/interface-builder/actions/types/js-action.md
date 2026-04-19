@@ -4,7 +4,7 @@
 
 JS Action is used to execute JavaScript when a button is clicked, allowing for custom business logic. It can be used in form toolbars, table toolbars (collection-level), table rows (record-level), and other locations to perform operations like validation, showing notifications, making API calls, opening pop-ups/drawers, and refreshing data.
 
-> Local skill note: validate final code with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md). Under this skill, prefer full `http/https` request URLs and use popup actions, field popups, or event flows instead of emitting direct `ctx.openView(...)` as the final answer.
+> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, prefer full `http/https` request URLs and use popup actions, field popups, or event flows instead of emitting direct `ctx.openView(...)` as the final answer.
 
 
 ![jsaction-add-20251029](https://static-docs.nocobase.com/jsaction-add-20251029.png)

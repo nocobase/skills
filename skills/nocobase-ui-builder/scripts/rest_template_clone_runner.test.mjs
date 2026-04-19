@@ -11,6 +11,7 @@ import {
   discoverTemplatePayloadFile,
   normalizeFilterItemFieldModelUses,
   normalizeUrlBase,
+  resolveRequiredUrlBase,
   unwrapResponseEnvelope,
   validateReadbackContract,
 } from './rest_template_clone_runner.mjs';
@@ -83,6 +84,12 @@ test('normalizeUrlBase accepts both origin and /admin URL forms', () => {
     apiBase: 'http://127.0.0.1:23000',
     adminBase: 'http://127.0.0.1:23000/admin',
   });
+});
+
+test('resolveRequiredUrlBase requires an explicit flag or NOCOBASE_URL_BASE', () => {
+  assert.equal(resolveRequiredUrlBase('http://example.test/admin', {}), 'http://example.test/admin');
+  assert.equal(resolveRequiredUrlBase('', { NOCOBASE_URL_BASE: 'http://example.test' }), 'http://example.test');
+  assert.throws(() => resolveRequiredUrlBase('', {}), /url base is required/i);
 });
 
 test('validateReadbackContract checks visible tabs and filterManager entry count', () => {

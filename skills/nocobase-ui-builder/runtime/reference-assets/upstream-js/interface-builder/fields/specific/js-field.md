@@ -4,7 +4,7 @@
 
 The JS Field is used to custom render content in a field's position using JavaScript. It is commonly used in details blocks, read-only items in forms, or as "Other custom items" in table columns. It is suitable for personalized displays, combining derived information, rendering status badges, rich text, or charts.
 
-> Local skill note: validate final code with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
+> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
 
 
 ![jsfield-readonly-add-20251029](https://static-docs.nocobase.com/jsfield-readonly-add-20251029.png)

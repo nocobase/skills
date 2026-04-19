@@ -219,23 +219,29 @@ The skill may use:
 - `flow_surfaces_catalog` when current-target capability is the question
 - `flow_surfaces_get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
 - `flow_surfaces_context` when popup/context variables or lower-level raw variable paths are the question
-- `collections:list` to narrow candidate collections
-- `collections:get(appends=["fields"])` as the default field truth
-- `collections.fields:get` only for known single-field follow-up when extra detail is still needed
+- CLI-first collection metadata reads:
+  - `nocobase-ctl data-modeling collections list -j` to narrow candidate collections
+  - `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the default field truth
+  - `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j` when the `data-modeling collections` command family is unavailable
+  - `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up when extra detail is still needed
+- MCP fallback collection metadata reads only after the CLI path is unavailable or has been repaired unsuccessfully:
+  - `collections:list`
+  - `collections:get(appends=["fields"])`
+  - `collections.fields:get` when the field name is already known and that MCP surface is available
 
 ### Field/schema fact priority
 
 When field truth matters:
 
-1. `collections:list` narrows candidates only
-2. `collections:get(appends=["fields"])` is the default truth for scalar fields, relation fields, interface, and association metadata; it is the only default field truth for UI authoring
-3. Do **not** use `collections.fields:list` for page authoring; treat it as a compact browse view, not as authoring truth
-4. `collections.fields:get` is optional follow-up only when the field name is already known and one field still needs confirmation
+1. `nocobase-ctl data-modeling collections list -j` narrows candidates only; on MCP fallback, `collections:list` serves the same purpose
+2. `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` is the default truth for scalar fields, relation fields, interface, and association metadata; if that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback should the skill use `collections:get(appends=["fields"])`
+3. Do **not** use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring; treat them as compact browse views, not as authoring truth
+4. Known single-field follow-up may use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j`, or `collections.fields:get` only when the skill is already on MCP fallback
 5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
 
 Field addability rule:
 
-- A field is authorable into page-blueprint `fields[]` only if `collections:get(appends=["fields"])` shows a non-empty `interface` for that field.
+- A field is authorable into page-blueprint `fields[]` only if the live collection metadata truth above shows a non-empty `interface` for that field.
 - If a field exists but `interface` is empty / null there, do **not** author it into any `details` / `table` / `editForm` / `createForm` / nested-popup block `fields[]`.
 - If a field only needs normal display/edit behavior, keep it as a simple string entry in blueprint `fields[]`; only upgrade it to an object when a documented public field behavior is needed.
 - Schema existence alone is not enough for UI authoring. Example: a field like `roles.description` may exist in collection metadata, but if its `interface` is `null`, the skill must omit it instead of attempting `addField` / `applyBlueprint` authoring.

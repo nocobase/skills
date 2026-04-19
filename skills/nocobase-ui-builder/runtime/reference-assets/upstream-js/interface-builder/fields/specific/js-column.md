@@ -4,7 +4,7 @@
 
 JS Column is used for "custom columns" in tables, rendering the content of each row's cell via JavaScript. It is not bound to a specific field and is suitable for scenarios such as derived columns, combined displays across fields, status badges, action buttons, and remote data aggregation.
 
-> Local skill note: validate final code with [js.md](../../../../js.md) and [runjs-runtime.md](../../../../runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
+> Local skill note: validate final code with [js.md](../../../../../../references/js.md) and [runjs-runtime.md](../../../../../../references/runjs-runtime.md). Under this skill, do not emit direct `ctx.openView(...)` as the final answer; prefer clickable-field popups, popup actions, or event flows outside the JS snippet.
 
 
 ![jscolumn-add-20251029](https://static-docs.nocobase.com/jscolumn-add-20251029.png)

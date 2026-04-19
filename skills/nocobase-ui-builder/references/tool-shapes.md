@@ -2,6 +2,8 @@
 
 This file summarizes the request shapes most often needed by this skill.
 
+Do not open this file until you are preparing the real CLI body or MCP fallback envelope. For the common local helper surface first, use [helper-contracts.md](./helper-contracts.md).
+
 Use it with:
 
 - [cli-command-surface.md](./cli-command-surface.md) for canonical CLI command families
@@ -27,7 +29,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs or placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
-- For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing inline fallback; keyword-only search stays discovery-only.
+- For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 
