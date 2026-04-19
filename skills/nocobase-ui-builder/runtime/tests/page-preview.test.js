@@ -624,6 +624,9 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values on m
       tabs: [
         {
           title: 'Overview',
+          layout: {
+            rows: [[{ key: 'profileForm', span: 12 }, { key: 'usersTable', span: 12 }]],
+          },
           blocks: [
             {
               key: 'profileForm',
@@ -689,6 +692,9 @@ test('prepareApplyBlueprintRequest accepts selected templateDecision values when
       tabs: [
         {
           title: 'Overview',
+          layout: {
+            rows: [[{ key: 'profileForm', span: 12 }, { key: 'usersTable', span: 12 }]],
+          },
           blocks: [
             {
               key: 'profileForm',
@@ -754,6 +760,9 @@ test('prepareApplyBlueprintRequest accepts discovery-only templateDecision on mi
       tabs: [
         {
           title: 'Overview',
+          layout: {
+            rows: [[{ key: 'profileForm', span: 12 }, { key: 'usersTable', span: 12 }]],
+          },
           blocks: [
             {
               key: 'profileForm',
@@ -808,6 +817,9 @@ test('prepareApplyBlueprintRequest accepts inline-non-template templateDecision 
       tabs: [
         {
           title: 'Overview',
+          layout: {
+            rows: [[{ key: 'profileForm', span: 12 }, { key: 'usersTable', span: 12 }]],
+          },
           blocks: [
             {
               key: 'profileForm',
@@ -871,6 +883,9 @@ test('prepareApplyBlueprintRequest accepts not-repeat-eligible templateDecision 
       tabs: [
         {
           title: 'Overview',
+          layout: {
+            rows: [[{ key: 'profileForm', span: 12 }, { key: 'usersTable', span: 12 }]],
+          },
           blocks: [
             {
               key: 'profileForm',
@@ -1382,6 +1397,179 @@ test('prepareApplyBlueprintRequest rejects explicit single-column multi-block la
   assert.ok(result.errors.some((issue) => issue.ruleId === 'single-column-multi-block-layout'));
 });
 
+test('prepareApplyBlueprintRequest requires explicit layout when multiple non-filter blocks share one tab', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'multi-block-layout-required' && issue.path === 'tabs[0].layout'));
+});
+
+test('prepareApplyBlueprintRequest rejects explicit layout rows that reference unknown block keys', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['bogus']],
+        },
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-references-unknown-block' && issue.path === 'tabs[0].layout.rows[0][0]'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-missing-block-placement' && issue.path === 'tabs[0].blocks[0]'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-missing-block-placement' && issue.path === 'tabs[0].blocks[1]'));
+});
+
+test('prepareApplyBlueprintRequest requires block keys whenever explicit layout is provided', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['mainTable']],
+        },
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-block-key-required' && issue.path === 'tabs[0].blocks[1].key'));
+});
+
+test('prepareApplyBlueprintRequest rejects unsupported layout cells and requires every keyed block to be placed', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [[{ uid: 'mainTable' }]],
+        },
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-contains-unsupported-cell' && issue.path === 'tabs[0].layout.rows[0][0]'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-missing-block-placement' && issue.path === 'tabs[0].blocks[0]'));
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-missing-block-placement' && issue.path === 'tabs[0].blocks[1]'));
+});
+
+test('prepareApplyBlueprintRequest allows filter plus one business block without explicit layout', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname', 'email', 'phone'],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+});
+
 test('prepareApplyBlueprintRequest requires filter blocks to occupy the first explicit layout row alone', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -1424,6 +1612,32 @@ test('prepareApplyBlueprintRequest requires filter blocks to occupy the first ex
 
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-layout-must-lead'));
+});
+
+test('prepareApplyBlueprintRequest requires collapse action on filter blocks with four or more fields', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname', 'email', 'phone', 'department.title'],
+            actions: ['submit', 'reset'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-collapse-required' && issue.path === 'tabs[0].blocks[0].actions'));
 });
 
 test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', () => {
@@ -1486,6 +1700,63 @@ test('prepareApplyBlueprintRequest validates custom edit popups and popup layout
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((issue) => issue.ruleId === 'invalid-layout-object' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout'));
   assert.ok(result.errors.some((issue) => issue.ruleId === 'custom-edit-popup-edit-form-count'));
+});
+
+test('prepareApplyBlueprintRequest requires explicit layout when multiple non-filter blocks share one popup', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Users table',
+            collection: 'users',
+            fields: ['nickname', 'email'],
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userDetails',
+                      type: 'details',
+                      title: 'User profile',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                    {
+                      key: 'userRoles',
+                      type: 'table',
+                      title: 'Roles',
+                      resource: {
+                        binding: 'associatedRecords',
+                        associationField: 'roles',
+                        collectionName: 'roles',
+                      },
+                      fields: ['title'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'multi-block-layout-required' && issue.path === 'tabs[0].blocks[0].recordActions[0].popup.layout',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the normalized cli body', () => {

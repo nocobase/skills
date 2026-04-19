@@ -32,6 +32,8 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
+- For localized create/append writes, backend may merge default actions after write: `table` / `list` / `gridCard` often fill `filter` + `addNew` + `refresh`, and `details` often fills `edit`. Do not assume the request body is the final action list; read back the persisted surface before adding more actions or popup wiring.
+- When the intended UX is "click the shown title/name to open details", prefer field popup / `clickToOpen` / `openView` semantics and avoid adding a redundant `view` record action unless the user explicitly asked for a button/action column.
 
 Safe mental model:
 
@@ -455,6 +457,11 @@ CLI request body:
   ]
 }
 ```
+
+Notes:
+
+- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless a stronger explicit template/save-template decision already exists.
+- After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
 
 ### `configure`
 

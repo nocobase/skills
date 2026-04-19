@@ -68,7 +68,7 @@ function createSkillFixture({
   return skillRoot;
 }
 
-test('collectDocsContractFailures reports root index entries missing from a mirrored subindex', () => {
+test('collectDocsContractFailures skips mirrored-leaf enforcement when the subindex itself is linked from root index', () => {
   const skillRoot = createSkillFixture({
     rootJsLeafDocs: ['js-models/js-block.md'],
     jsSubindexLeafDocs: ['js-block.md', 'js-editable-field.md'],
@@ -76,9 +76,7 @@ test('collectDocsContractFailures reports root index entries missing from a mirr
 
   const failures = collectDocsContractFailures({ skillRoot });
 
-  assert.deepEqual(failures, [
-    'references/index.md is missing leaf doc listed by references/js-models/index.md: references/js-models/js-editable-field.md',
-  ]);
+  assert.deepEqual(failures, []);
 });
 
 test('collectDocsContractFailures passes when root index mirrors the leaf docs listed by subindex', () => {

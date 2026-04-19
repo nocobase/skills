@@ -11,15 +11,16 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 - `version` stays `"1"`.
 - `mode` is either `"create"` or `"replace"`.
 - `create` creates a new menu item + page.
+- In `create`, any newly created `navigation.group` or `navigation.item` must include one semantic Ant Design icon.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
 - Tabs are interpreted in array order. In `replace`, blueprint tabs map to existing route-backed tab slots by index.
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
+- Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
-- If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
+- If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
@@ -43,8 +44,8 @@ Envelope boundary:
   "version": "1",
   "mode": "create",
   "navigation": {
-    "group": { "title": "Workspace" },
-    "item": { "title": "Employees" }
+    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": {
     "title": "Employees",
@@ -78,7 +79,7 @@ Envelope boundary:
 - `version`: currently only `"1"`
 - `mode`: `"create" | "replace"`
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
-- `navigation`: only for `create`; controls menu group/item metadata
+- `navigation`: only for `create`; controls menu group/item metadata, and any newly created group/item must include `icon`
 - `page`: page-level metadata
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `reaction`: optional whole-page interaction authoring section
@@ -98,12 +99,18 @@ Envelope boundary:
 - Prefer `navigation.group.routeId` when the destination menu group is already known.
 - `navigation.group.routeId` is exact targeting only; do not mix it with `icon`, `tooltip`, or `hideInMenu`.
 - `navigation.group.title` is for new-group creation or title-only unique same-title reuse.
+- When `navigation.group.title` creates a new group, `navigation.group.icon` is required.
 - When `routeId` is omitted and `title` matches:
   - zero existing groups -> create a new group
   - one existing group -> reuse that group
   - multiple existing groups -> reject and require `routeId`
 - If same-title reuse hits an existing group, keep it title-only.
 - If an existing group's metadata must change, do not rely on applyBlueprint create; use low-level `updateMenu` instead.
+
+### `navigation.item` semantics
+
+- In `create`, a new `navigation.item` must include both `title` and `icon`.
+- Replacing the page does not use `navigation.item` to mutate existing menu metadata.
 
 ## 3. Create Example
 
@@ -112,8 +119,8 @@ Envelope boundary:
   "version": "1",
   "mode": "create",
   "navigation": {
-    "group": { "title": "Workspace" },
-    "item": { "title": "Employees" }
+    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": {
     "title": "Employees",

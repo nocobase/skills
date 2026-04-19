@@ -15,28 +15,31 @@ Stay on this route when the user is asking for a full page or one route-backed t
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
-5. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
+5. For `create`, any newly created `navigation.group` / `navigation.item` must include one semantic Ant Design icon. Do not draft new first-level or second-level menu entries without `icon`.
+6. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
-6. If the page explicitly asks for filtering, keep a real `filterForm` in that first-pass blueprint:
+7. If the page explicitly asks for filtering, keep a real `filterForm` in that first-pass blueprint:
    - add non-empty filter `fields`
-   - add `actions: ["submit", "reset"]`
+   - when the filter has fewer than 4 fields, add `actions: ["submit", "reset"]`
+   - when the filter has 4 or more fields, add `actions: ["submit", "reset", "collapse"]`
    - point each filter field `target` at a same-blueprint table key as a plain string block key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
-7. Keep popup semantics close to the opener:
+8. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
+9. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-8. After any create/init step, normalize locators before follow-up reads or localized writes:
+10. After any create/init step, normalize locators before follow-up reads or localized writes:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nocobase-ctl flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
-9. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
-10. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-11. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope.
-12. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
+11. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
+12. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
+13. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope.
+14. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails
 
@@ -53,6 +56,8 @@ These are still whole-page requests, not a separate route.
   - `main.primaryTable.viewAction`
   - `main.secondaryTable.protectedDeleteAction`
 - For `filterForm`, keep the field `target` on a same-blueprint string block key. Do not mix public whole-page `target` with low-level `defaultTargetUid`.
+- When a `filterForm` has 4 or more fields, include `collapse` in its filter-form action family. Keep the filter block alone in the first layout row when an explicit layout is present.
+- When one tab or popup contains multiple non-filter blocks, explicit layout is no longer optional. The layout must reference real keyed blocks and place every keyed block.
 - For computed defaults, autofill, block visibility, or action guards that belong to the page being created now, prefer top-level `reaction.items[]` in that same blueprint rather than a second live-edit phase.
 - If a create/edit form helper depends on `formValues.*`, prefer a helper host that belongs to that same form scene. If the live scene exposes `fields` / `actions` / `node` but not `blocks`, model the helper as a `jsItem` or other field-like helper rather than a separate sibling block.
 - A first-pass miss is not enough to abandon whole-page authoring. Treat it as either:
@@ -83,8 +88,8 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
   "version": "1",
   "mode": "create",
   "navigation": {
-    "group": { "title": "Workspace" },
-    "item": { "title": "Support tickets" }
+    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
+    "item": { "title": "Support tickets", "icon": "InboxOutlined" }
   },
   "page": { "title": "Support tickets" },
   "tabs": [

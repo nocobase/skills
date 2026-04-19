@@ -516,51 +516,105 @@ function getPopupTriggers(block) {
   return triggers;
 }
 
-function getLayoutRowDescriptor(row, rowIndex, blocksByKey, warnings) {
-  const cells = [];
-  const renderedKeys = [];
-
-  for (const cell of ensureArray(row)) {
-    if (typeof cell === 'string') {
-      const key = normalizeText(cell);
-      if (!key) continue;
-      if (!blocksByKey.has(key)) warnings.push(`Layout row ${rowIndex + 1} references missing block key "${key}".`);
-      cells.push(`[${key}]`);
-      renderedKeys.push({ key });
-      continue;
-    }
-
-    if (isPlainObject(cell) && normalizeText(cell.key)) {
-      const key = normalizeText(cell.key);
-      const span =
-        typeof cell.span === 'number' && Number.isFinite(cell.span) ? String(cell.span) : normalizeText(cell.span);
-      if (!blocksByKey.has(key)) warnings.push(`Layout row ${rowIndex + 1} references missing block key "${key}".`);
-      cells.push(span ? `[${key} span=${span}]` : `[${key}]`);
-      renderedKeys.push({ key, span });
-      continue;
-    }
-
-    warnings.push(`Layout row ${rowIndex + 1} contains an unsupported cell and was skipped.`);
+function analyzeLayoutDocument(layout, blocks, warnings = []) {
+  if (!isPlainObject(layout) || !Array.isArray(layout.rows) || !layout.rows.length) {
+    return null;
   }
 
+  const normalizedBlocks = ensureArray(blocks).filter((block) => isPlainObject(block));
+  const blocksByKey = new Map();
+  const keylessBlocks = [];
+  normalizedBlocks.forEach((block, index) => {
+    const key = normalizeText(block?.key);
+    if (key) {
+      blocksByKey.set(key, block);
+      return;
+    }
+    keylessBlocks.push({ index, block });
+  });
+
+  const rows = [];
+  const unknownRefs = [];
+  const unsupportedCells = [];
+  const placedKeys = new Set();
+
+  layout.rows.forEach((row, rowIndex) => {
+    const cells = [];
+    const items = [];
+
+    ensureArray(row).forEach((cell, cellIndex) => {
+      if (typeof cell === 'string') {
+        const key = normalizeText(cell);
+        if (!key) {
+          warnings.push(`Layout row ${rowIndex + 1} contains an unsupported cell and was skipped.`);
+          unsupportedCells.push({ rowIndex, cellIndex });
+          return;
+        }
+        if (!blocksByKey.has(key)) {
+          warnings.push(`Layout row ${rowIndex + 1} references missing block key "${key}".`);
+          unknownRefs.push({ rowIndex, cellIndex, key });
+        } else {
+          placedKeys.add(key);
+          items.push({ key });
+        }
+        cells.push(`[${key}]`);
+        return;
+      }
+
+      if (isPlainObject(cell) && normalizeText(cell.key)) {
+        const key = normalizeText(cell.key);
+        const span =
+          typeof cell.span === 'number' && Number.isFinite(cell.span) ? String(cell.span) : normalizeText(cell.span);
+        if (!blocksByKey.has(key)) {
+          warnings.push(`Layout row ${rowIndex + 1} references missing block key "${key}".`);
+          unknownRefs.push({ rowIndex, cellIndex, key });
+        } else {
+          placedKeys.add(key);
+          items.push({ key, span });
+        }
+        cells.push(span ? `[${key} span=${span}]` : `[${key}]`);
+        return;
+      }
+
+      warnings.push(`Layout row ${rowIndex + 1} contains an unsupported cell and was skipped.`);
+      unsupportedCells.push({ rowIndex, cellIndex });
+    });
+
+    rows.push({
+      label: cells.join(' '),
+      items,
+    });
+  });
+
+  const blockEntries = normalizedBlocks.map((block, index) => ({
+    block,
+    index,
+    key: normalizeText(block?.key),
+  }));
+  const unplacedBlocks = blockEntries.filter(({ key }) => key && !placedKeys.has(key));
+  const filterKeys = blockEntries
+    .filter(({ block, key }) => key && isFilterBlock(block))
+    .map(({ key }) => key);
+  const nonFilterRows = rows
+    .map((row) => row.items.map((item) => item.key).filter((key) => !filterKeys.includes(key)))
+    .filter((row) => row.length > 0);
+
   return {
-    label: cells.join(' '),
-    items: renderedKeys,
+    rows,
+    blockMap: blocksByKey,
+    keylessBlocks,
+    unknownRefs,
+    unsupportedCells,
+    unplacedBlocks,
+    filterKeys,
+    nonFilterRows,
+    nonFilterBlockCount: countNonFilterBlocks(normalizedBlocks),
   };
 }
 
 function collectLayoutOrder(layout, blocks, warnings) {
-  const blocksByKey = new Map();
-  for (const block of ensureArray(blocks)) {
-    const key = normalizeText(block?.key);
-    if (key) blocksByKey.set(key, block);
-  }
-
-  if (!isPlainObject(layout) || !Array.isArray(layout.rows) || !layout.rows.length || !blocksByKey.size) {
-    return null;
-  }
-
-  return layout.rows.map((row, rowIndex) => getLayoutRowDescriptor(row, rowIndex, blocksByKey, warnings));
+  const analysis = analyzeLayoutDocument(layout, blocks, warnings);
+  return analysis?.rows || null;
 }
 
 function buildBlockHeader(block, options = {}) {
@@ -915,27 +969,92 @@ function validateMultiBlockDataTitles(blocks, path, state) {
   });
 }
 
-function validateExplicitLayoutRules(layout, blocks, path, state) {
-  if (!isPlainObject(layout) || !Array.isArray(layout.rows) || layout.rows.length === 0) {
+function countNonFilterBlocks(blocks) {
+  return ensureArray(blocks).filter((block) => isPlainObject(block) && !isFilterBlock(block)).length;
+}
+
+function hasActionType(actions, expectedType) {
+  const normalizedExpectedType = normalizeLowerText(expectedType);
+  return ensureArray(actions).some((action) => {
+    const actionType =
+      typeof action === 'string' ? normalizeLowerText(action) : isPlainObject(action) ? normalizeLowerText(action.type) : '';
+    return actionType === normalizedExpectedType;
+  });
+}
+
+function validateMultiBlockLayoutRequirement(layout, blocks, path, state) {
+  if (countNonFilterBlocks(blocks) <= 1) {
     return;
   }
-  const keyedBlocks = ensureArray(blocks)
-    .filter((block) => isPlainObject(block) && normalizeText(block.key))
-    .map((block) => [normalizeText(block.key), block]);
-  const blockMap = new Map(keyedBlocks);
-  if (blockMap.size <= 1) {
+  if (analyzeLayoutDocument(layout, blocks, [])) {
+    return;
+  }
+  if (typeof layout !== 'undefined' && !isPlainObject(layout)) {
+    return;
+  }
+  pushValidationError(
+    state.errors,
+    state.seenErrors,
+    path,
+    'multi-block-layout-required',
+    'When multiple non-filter blocks share one tab or popup, provide explicit layout instead of relying on the default single-column stacking.',
+  );
+}
+
+function validateExplicitLayoutRules(layout, blocks, path, blocksPath, state) {
+  const analysis = analyzeLayoutDocument(layout, blocks, []);
+  if (!analysis) {
     return;
   }
 
-  const rows = layout.rows.map((row) => collectLayoutRowKeys(row).filter((key) => blockMap.has(key)));
-  const filterKeys = ensureArray(blocks)
-    .filter((block) => isPlainObject(block) && isFilterBlock(block) && normalizeText(block.key))
-    .map((block) => normalizeText(block.key));
+  analysis.keylessBlocks.forEach(({ index }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${blocksPath}[${index}].key`,
+      'layout-block-key-required',
+      'Every block referenced by explicit layout must include a non-empty key.',
+    );
+  });
 
-  if (filterKeys.length > 0) {
-    const firstRow = rows[0] || [];
-    const firstRowContainsOnlyFilters = firstRow.length > 0 && firstRow.every((key) => filterKeys.includes(key));
-    const allFiltersPlacedFirst = filterKeys.every((key) => firstRow.includes(key));
+  analysis.unknownRefs.forEach(({ rowIndex, cellIndex, key }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.rows[${rowIndex}][${cellIndex}]`,
+      'layout-references-unknown-block',
+      `Layout references unknown block key "${key}".`,
+    );
+  });
+
+  analysis.unsupportedCells.forEach(({ rowIndex, cellIndex }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.rows[${rowIndex}][${cellIndex}]`,
+      'layout-contains-unsupported-cell',
+      'Each layout cell must be either one block key string or one object containing key/span.',
+    );
+  });
+
+  analysis.unplacedBlocks.forEach(({ index, key }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${blocksPath}[${index}]`,
+      'layout-missing-block-placement',
+      `Block "${key}" must appear exactly once in explicit layout rows.`,
+    );
+  });
+
+  if (analysis.blockMap.size <= 1) {
+    return;
+  }
+
+  if (analysis.filterKeys.length > 0) {
+    const firstRow = analysis.rows[0]?.items.map((item) => item.key) || [];
+    const firstRowContainsOnlyFilters = firstRow.length > 0 && firstRow.every((key) => analysis.filterKeys.includes(key));
+    const allFiltersPlacedFirst = analysis.filterKeys.every((key) => firstRow.includes(key));
     if (!firstRowContainsOnlyFilters || !allFiltersPlacedFirst) {
       pushValidationError(
         state.errors,
@@ -947,14 +1066,10 @@ function validateExplicitLayoutRules(layout, blocks, path, state) {
     }
   }
 
-  const nonFilterRows = rows
-    .map((row) => row.filter((key) => !filterKeys.includes(key)))
-    .filter((row) => row.length > 0);
-  const nonFilterBlockCount = ensureArray(blocks).filter((block) => isPlainObject(block) && !isFilterBlock(block)).length;
   const isSingleColumnMultiBlock =
-    nonFilterBlockCount > 1
-    && nonFilterRows.length >= nonFilterBlockCount
-    && nonFilterRows.every((row) => row.length <= 1);
+    analysis.nonFilterBlockCount > 1
+    && analysis.nonFilterRows.length >= analysis.nonFilterBlockCount
+    && analysis.nonFilterRows.every((row) => row.length <= 1);
   if (isSingleColumnMultiBlock) {
     pushValidationError(
       state.errors,
@@ -964,6 +1079,25 @@ function validateExplicitLayoutRules(layout, blocks, path, state) {
       'When multiple non-filter blocks share one tab or popup, the explicit layout must not place every block on its own row.',
     );
   }
+}
+
+function validateFilterBlockRules(blocks, path, state) {
+  ensureArray(blocks).forEach((block, index) => {
+    if (!isPlainObject(block) || !isFilterBlock(block) || isTemplateBackedBlock(block)) {
+      return;
+    }
+    const fieldCount = ensureArray(block.fields).length;
+    if (fieldCount < 4 || hasActionType(block.actions, 'collapse')) {
+      return;
+    }
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}[${index}].actions`,
+      'filter-collapse-required',
+      'Filter blocks with 4 or more fields must include a collapse action so the default filter area does not stay fully expanded.',
+    );
+  });
 }
 
 function validateCreateMenuIcons(blueprint, state) {
@@ -1093,7 +1227,9 @@ function validatePopupDocument(popup, path, state) {
   }
 
   validateMultiBlockDataTitles(popup.blocks, `${path}.blocks`, state);
-  validateExplicitLayoutRules(popup.layout, popup.blocks, `${path}.layout`, state);
+  validateMultiBlockLayoutRequirement(popup.layout, popup.blocks, `${path}.layout`, state);
+  validateExplicitLayoutRules(popup.layout, popup.blocks, `${path}.layout`, `${path}.blocks`, state);
+  validateFilterBlockRules(popup.blocks, `${path}.blocks`, state);
 }
 
 function validateCustomEditPopup(popup, path, state) {
@@ -1241,7 +1377,9 @@ function validateTab(tab, index, state) {
   }
 
   validateMultiBlockDataTitles(tab.blocks, `${path}.blocks`, state);
-  validateExplicitLayoutRules(tab.layout, tab.blocks, `${path}.layout`, state);
+  validateMultiBlockLayoutRequirement(tab.layout, tab.blocks, `${path}.layout`, state);
+  validateExplicitLayoutRules(tab.layout, tab.blocks, `${path}.layout`, `${path}.blocks`, state);
+  validateFilterBlockRules(tab.blocks, `${path}.blocks`, state);
 }
 
 function validateReaction(blueprint, state) {

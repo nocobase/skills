@@ -35,11 +35,15 @@ Use this file only when the task is whole-page authoring. If the request is real
 10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 11. Assemble the final blueprint using [page-blueprint.md](./page-blueprint.md).
 12. Before the real write, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+    - in `create`, every newly created `navigation.group` / `navigation.item` carries one semantic Ant Design icon
     - tabs count matches the request
     - every `tab.blocks` is non-empty
     - no block contains `layout`
+    - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
     - block `key` values are unique
+    - any explicit `layout` references only real keyed blocks and places every keyed block exactly once
     - every chosen field has a non-empty live `interface`
+    - any `filterForm` with 4 or more fields includes `collapse`
     - every custom `edit` popup contains exactly one `editForm`
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
 14. Then open [tool-shapes.md](./tool-shapes.md) and send the blueprint itself as the CLI raw body. Only in MCP fallback should that same object be wrapped under `requestBody`.
@@ -53,7 +57,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 - If visible same-title groups already exist, reuse one; do not create another same-title group just to disambiguate.
 - If the user says clicking a shown record or relation record opens details, prefer a field popup rather than inventing a button.
 - Keep `fields[]` as simple strings unless a field object is actually needed.
-- Omit `layout` when it is not essential or not fully decided.
+- Omit `layout` only when the tab/popup contains at most one non-filter block. Otherwise decide the layout explicitly instead of relying on default vertical stacking.
 - Keep low-level selectors such as `uid`, `ref`, or `$ref` out of the blueprint.
 
 ## Prewrite Output

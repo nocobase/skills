@@ -24,6 +24,7 @@ Read this file when you already know you need to add something into a content ar
 
 - the block already exists and the user wants a button-like operation
 - examples: `addNew`, `view`, `edit`, custom `popup`, `submit` on `createForm` / `editForm`, `reset` only when the live target / catalog explicitly shows it is supported, js action, and `addChild` under `recordActions`
+- if the requirement is really "click a title/name-like field to open details", prefer a field popup / clickable-field route instead of adding a redundant `view` action first
 
 ## 3. Data-bound vs Non-data Blocks
 
@@ -47,3 +48,6 @@ Read this file when you already know you need to add something into a content ar
 - `view` / `edit` / `addNew` may create or use popup behavior; see [popup.md](./popup.md).
 - `addChild` is a record action, not a block action.
 - For the canonical `addChild` placement and live-target rule, follow [normative-contract.md](./normative-contract.md).
+- For localized writes, API may auto-merge default actions: `table` / `list` / `gridCard` commonly fill `filter` + `addNew` + `refresh`, and `details` commonly fills `edit`. Do not fight that completion with duplicate follow-up writes; read back first.
+- When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` or `popup.saveAsTemplate` decision already exists.
+- If click-to-open already covers the requested details behavior on a shown Name/Title-like field, avoid adding a separate `view` record action unless the user explicitly asked for a button/action column.

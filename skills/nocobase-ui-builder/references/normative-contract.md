@@ -48,7 +48,11 @@ The public `applyBlueprint` payload is:
 - only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission
 - `rules: []` clears the targeted reaction slot
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
-- if `layout` is present, it must be an object; when layout is still uncertain, omit it instead of guessing
+- if `layout` is present, it must be an object
+- in `create`, any newly created `navigation.group` / `navigation.item` must include one semantic Ant Design icon
+- when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
+- explicit `layout` may reference only real block keys, and every keyed block in that tab/popup must be placed by the layout
+- if a `filterForm` contains 4 or more fields, its actions must include `collapse`
 - generic `form` is not a public applyBlueprint block type; use `editForm` or `createForm`
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
 - for normal single-page requests, default to exactly one real tab; do not carry empty / placeholder tabs in the draft
@@ -188,6 +192,7 @@ For `replace` runs:
 - layout cells are only block key strings or `{ key, span }`
 - `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
+- skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write
 - in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, applyBlueprint reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
 - at the skill-authoring layer, if one or more visible same-title menu groups already exist, do **not** create another same-title group for disambiguation; prefer the exact known `routeId`, otherwise reuse one existing group deterministically from the live menu tree and disclose that chosen routeId in the prewrite preview
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`

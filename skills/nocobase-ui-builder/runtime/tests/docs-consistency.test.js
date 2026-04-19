@@ -293,6 +293,26 @@ function assertOpenAIGuardrails(text) {
   assert.match(text, /popup\.tryTemplate/i, 'openai prompt should mention popup.tryTemplate fallback');
   assert.match(text, /popup\.saveAsTemplate/i, 'openai prompt should mention popup.saveAsTemplate');
   assert.match(text, /openView\.tryTemplate|apply .*popup/i, 'openai prompt should mention existing-opener tryTemplate guidance');
+  assert.match(
+    text,
+    /navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,80}(?:semantic )?Ant Design `?icon`?|semantic Ant Design `?icon`?/i,
+    'openai prompt should require semantic icons for newly created menu groups and items',
+  );
+  assert.match(
+    text,
+    /multi[- ]non[- ]filter[\s\S]{0,120}explicit keyed `?layout`?|explicit keyed `?layout`?[\s\S]{0,120}multi[- ]non[- ]filter/i,
+    'openai prompt should require explicit keyed layout for multi-block tab or popup scopes',
+  );
+  assert.match(
+    text,
+    /filter[\s\S]{0,80}row 1|filter alone in row 1|filter blocks? should sit alone/i,
+    'openai prompt should keep the filter-first-row guardrail visible',
+  );
+  assert.match(
+    text,
+    /filterForm[\s\S]{0,80}4\+ fields[\s\S]{0,80}`?collapse`?|`?collapse`?[\s\S]{0,80}filterForm[\s\S]{0,80}4\+ fields/i,
+    'openai prompt should require collapse for larger filter forms',
+  );
   assert.match(text, /template source/i, 'openai prompt should mention template-source editing for existing references');
   assert.match(text, /local-only intent|local customization/i, 'openai prompt should mention explicit local-only intent before copy');
   assert.match(
@@ -600,6 +620,21 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     /routeId[\s\S]{0,120}pageSchemaUid[\s\S]{0,260}never pass a desktop-route `?id`? as `?target\.uid`?/i,
     'whole-page-quick should normalize route ids into pageSchemaUid/live uid before follow-up writes',
   );
+  assert.match(
+    wholePageQuick,
+    /semantic Ant Design icon|navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,80}icon/i,
+    'whole-page-quick should require semantic icons for new create navigation',
+  );
+  assert.match(
+    wholePageQuick,
+    /multiple non-filter blocks[\s\S]{0,120}explicit `?layout`?|explicit `?layout`?[\s\S]{0,120}multiple non-filter blocks/i,
+    'whole-page-quick should require explicit layout for multi-block scopes',
+  );
+  assert.match(
+    wholePageQuick,
+    /filter blocks? should sit alone in the first row|filter alone in the first row/i,
+    'whole-page-quick should keep the filter-first-row layout guidance',
+  );
 
   const localEditQuick = read('references/local-edit-quick.md');
   assert.match(localEditQuick, /\[runtime-playbook\.md\]/i);
@@ -684,6 +719,16 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(filterForm, /public whole-page contract|能力不足时如何降级/i);
   assert.match(
     filterForm,
+    /少于 4 个[\s\S]{0,80}`submit`[\s\S]{0,40}`reset`|fewer than 4 fields/i,
+    'filter-form should document the <4 fields action baseline',
+  );
+  assert.match(
+    filterForm,
+    /大于等于 4 个[\s\S]{0,80}`submit`[\s\S]{0,40}`reset`[\s\S]{0,40}`collapse`|4 or more fields/i,
+    'filter-form should document the 4+ fields collapse requirement',
+  );
+  assert.match(
+    filterForm,
     /自动补齐|归一化|canonical/i,
     'filter-form should describe canonicalized filterManager wiring for stable same-run targets',
   );
@@ -706,6 +751,69 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /prepare-write/i);
   assert.match(helperContracts, /prepareApplyBlueprintRequest/i);
   assert.match(helperContracts, /nb-runjs/i);
+});
+
+test('whole-page authoring docs keep menu, layout, and filter gates aligned with runtime', () => {
+  const pageIntent = read('references/page-intent.md');
+  assert.match(
+    pageIntent,
+    /navigation\.group[\s\S]{0,80}navigation\.item[\s\S]{0,120}semantic Ant Design icon/i,
+    'page-intent should require semantic icons for create navigation',
+  );
+  assert.match(
+    pageIntent,
+    /multiple non-filter blocks[\s\S]{0,120}explicit `?layout`?/i,
+    'page-intent should require explicit layout for multi-block scopes',
+  );
+  assert.match(
+    pageIntent,
+    /layout[\s\S]{0,120}real keyed blocks[\s\S]{0,120}places every keyed block/i,
+    'page-intent should require explicit layouts to reference and place keyed blocks correctly',
+  );
+  assert.match(
+    pageIntent,
+    /filterForm[\s\S]{0,80}4 or more fields[\s\S]{0,80}`?collapse`?/i,
+    'page-intent should require collapse for larger filter forms',
+  );
+  assert.doesNotMatch(
+    pageIntent,
+    /Omit `?layout` when it is not essential or not fully decided/i,
+    'page-intent should no longer allow generic layout omission for multi-block scopes',
+  );
+
+  const asciiPreview = read('references/ascii-preview.md');
+  assert.match(
+    asciiPreview,
+    /at most one non-filter block[\s\S]{0,120}vertical order/i,
+    'ascii-preview should limit vertical-order fallback to valid single-block scopes',
+  );
+  assert.match(
+    asciiPreview,
+    /prepare-write validation failure|validation failure/i,
+    'ascii-preview should treat missing multi-block layout as a gate failure, not a valid default',
+  );
+
+  const normative = read('references/normative-contract.md');
+  assert.match(
+    normative,
+    /newly created `?navigation\.group`?[\s\S]{0,80}`?navigation\.item`?[\s\S]{0,80}semantic Ant Design icon/i,
+    'normative contract should require semantic icons for new create navigation',
+  );
+  assert.match(
+    normative,
+    /multiple non-filter blocks[\s\S]{0,120}explicit `?layout`? is required/i,
+    'normative contract should require explicit layout for multi-block scopes',
+  );
+  assert.match(
+    normative,
+    /explicit `?layout`? may reference only real block keys[\s\S]{0,120}every keyed block/i,
+    'normative contract should require explicit layout to place keyed blocks',
+  );
+  assert.match(
+    normative,
+    /filterForm[\s\S]{0,80}4 or more fields[\s\S]{0,80}`?collapse`?/i,
+    'normative contract should require collapse for larger filter forms',
+  );
 });
 
 test('general skill docs stay env-neutral while helper scripts avoid fixed local server defaults', () => {
