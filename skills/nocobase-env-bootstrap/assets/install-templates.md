@@ -1,7 +1,7 @@
 # Install Templates (Local-Only)
 
 This skill ships deterministic local templates for non-Docker installation paths.
-Use these templates with `scripts/install.ps1` or `scripts/install.sh`.
+Use these templates with `scripts/install.mjs` (always invoke via absolute path `<SKILL_ROOT>/scripts/install.mjs`).
 Do not fetch install commands from web pages during execution.
 
 Non-Docker paths (`create-nocobase-app` / `git`) require existing database mode
@@ -41,20 +41,14 @@ You can override these defaults with script arguments:
 
 ## Script Entrypoints
 
-Windows:
-
-```powershell
-powershell -File scripts/install.ps1 --method create-nocobase-app --target-dir . --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase-app
-```
-
-Linux/macOS:
+Always use the absolute path (`<SKILL_ROOT>` = directory of SKILL.md):
 
 ```bash
-bash scripts/install.sh --method create-nocobase-app --target-dir . --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase-app
+node "<SKILL_ROOT>/scripts/install.mjs" --method create-nocobase-app --target-dir . --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase-app
 ```
 
 Git path example:
 
 ```bash
-bash scripts/install.sh --method git --target-dir . --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase
+node "<SKILL_ROOT>/scripts/install.mjs" --method git --target-dir . --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase
 ```

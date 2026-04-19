@@ -6,7 +6,7 @@
 
 - preflight checks
 - install in a single environment
-- app environment management (`task=app-manage`: add/use/current/list)
+- app environment management (`task=app-manage`: add/use/current/list/remove)
 - upgrade safety gates
 - environment troubleshooting
 - automatic local CLI environment bootstrap for downstream skills
@@ -57,18 +57,10 @@ Install script writes `NOCOBASE_INSTALL_METHOD` into the app `.env` file (`docke
 
 ## Install Script Entrypoints
 
-Windows:
-
-Run these commands from the `nocobase-env-bootstrap` skill root.
+All scripts must be invoked with their **absolute path** (`<SKILL_ROOT>` = directory of SKILL.md). Never use relative paths — they break when cwd differs.
 
 ```powershell
-powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
-```
-
-Linux/macOS:
-
-```bash
-bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
+node "<SKILL_ROOT>/scripts/install.mjs" --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
 
 Database policy:
@@ -111,62 +103,50 @@ $env:APP_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
 export APP_KEY="$(openssl rand -hex 32)"
 ```
 
-Docker install script example (recommended when AI build capabilities are needed):
+Docker install example:
 
 ```bash
-bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
+node "<SKILL_ROOT>/scripts/install.mjs" --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
 ```
 
 Docker with existing DB example:
 
 ```bash
-bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase
+node "<SKILL_ROOT>/scripts/install.mjs" --method docker --target-dir . --release-channel alpha --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase
 ```
 
-Preflight examples with explicit method:
+Preflight examples:
 
 ```bash
-bash scripts/preflight.sh 13000 docker bundled postgres
-bash scripts/preflight.sh 13000 docker existing postgres existing
-bash scripts/preflight.sh 13000 docker existing postgres create
-bash scripts/preflight.sh 13000 create-nocobase-app existing postgres create
-bash scripts/preflight.sh 13000 git existing mysql existing
+node "<SKILL_ROOT>/scripts/preflight.mjs" --port 13000 --install-method docker --db-mode bundled --db-dialect postgres
+node "<SKILL_ROOT>/scripts/preflight.mjs" --port 13000 --install-method docker --db-mode existing --db-dialect postgres --db-database-mode existing
+node "<SKILL_ROOT>/scripts/preflight.mjs" --port 13000 --install-method docker --db-mode existing --db-dialect postgres --db-database-mode create
+node "<SKILL_ROOT>/scripts/preflight.mjs" --port 13000 --install-method create-nocobase-app --db-mode existing --db-dialect postgres --db-database-mode create
+node "<SKILL_ROOT>/scripts/preflight.mjs" --port 13000 --install-method git --db-mode existing --db-dialect mysql --db-database-mode existing
 ```
 
 ## Upgrade Script Entrypoints
 
-`--method` is optional for upgrade. Default is `auto`, and the script resolves method in this order:
-
-1. `.env` key `NOCOBASE_INSTALL_METHOD`
-2. project files (`.git + package.json` => `git`; `package.json` => `create-nocobase-app`; compose file => `docker`)
-3. fail with explicit error when directory shape is ambiguous or unsupported
-
-Windows:
-
-```powershell
-powershell -File scripts/upgrade.ps1 --method <auto|docker|create-nocobase-app|git> --target-dir <dir> --backup-confirmed true --confirm-upgrade true --target-version <version> --restart-mode <manual|dev|start|pm2> --clean-retry <true|false> --allow-dirty <true|false>
-```
-
-Linux/macOS:
+`--method` is optional for upgrade. Default is `auto`.
 
 ```bash
-bash scripts/upgrade.sh --method <auto|docker|create-nocobase-app|git> --target-dir <dir> --backup-confirmed true --confirm-upgrade true --target-version <version> --restart-mode <manual|dev|start|pm2> --clean-retry <true|false> --allow-dirty <true|false>
+node "<SKILL_ROOT>/scripts/upgrade.mjs" --method <auto|docker|create-nocobase-app|git> --target-dir <dir> --backup-confirmed true --confirm-upgrade true --target-version <version> --restart-mode <manual|dev|start|pm2> --clean-retry <true|false> --allow-dirty <true|false>
 ```
 
 Examples:
 
 ```bash
 # Auto-detect method + fixed-version upgrade
-node scripts/upgrade.mjs --target-dir . --backup-confirmed true --confirm-upgrade true --target-version 2.1.0-alpha.16
+node "<SKILL_ROOT>/scripts/upgrade.mjs" --target-dir . --backup-confirmed true --confirm-upgrade true --target-version 2.1.0-alpha.16
 
 # create-nocobase-app upgrade to specific version
-node scripts/upgrade.mjs --method create-nocobase-app --target-dir ./my-nocobase-app --backup-confirmed true --confirm-upgrade true --target-version 2.1.0-alpha.16
+node "<SKILL_ROOT>/scripts/upgrade.mjs" --method create-nocobase-app --target-dir ./my-nocobase-app --backup-confirmed true --confirm-upgrade true --target-version 2.1.0-alpha.16
 
 # git upgrade with clean-retry fallback
-node scripts/upgrade.mjs --method git --target-dir ./my-nocobase --backup-confirmed true --confirm-upgrade true --clean-retry true
+node "<SKILL_ROOT>/scripts/upgrade.mjs" --method git --target-dir ./my-nocobase --backup-confirmed true --confirm-upgrade true --clean-retry true
 
 # Preview plan without execution
-node scripts/upgrade.mjs --target-dir ./my-nocobase --backup-confirmed true --dry-run
+node "<SKILL_ROOT>/scripts/upgrade.mjs" --target-dir ./my-nocobase --backup-confirmed true --dry-run
 ```
 
 Upgrade safety rules:

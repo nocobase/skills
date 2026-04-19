@@ -28,20 +28,10 @@ Install and start NocoBase in one environment with minimal friction, then bootst
 
 ## Local Script Entrypoints
 
-Use skill-local scripts and templates directly:
-
-Windows:
-
-Run these commands from the `nocobase-env-bootstrap` skill root.
-
-```powershell
-powershell -File scripts/install.ps1 --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
-```
-
-Linux/macOS:
+Use skill-local scripts and templates directly. Always use **absolute paths** (`<SKILL_ROOT>` = directory of SKILL.md):
 
 ```bash
-bash scripts/install.sh --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
+node "<SKILL_ROOT>/scripts/install.mjs" --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
 ```
 
 Do not fetch install command snippets from web pages during execution.
@@ -116,7 +106,7 @@ export APP_KEY="$(openssl rand -hex 32)"
 Core command pattern (Docker, recommended when AI build capabilities are needed):
 
 ```bash
-bash scripts/install.sh --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
+node "<SKILL_ROOT>/scripts/install.mjs" --method docker --target-dir . --release-channel alpha --db-mode bundled --db-dialect postgres --db-underscored false --project-name my-nocobase
 ```
 
 ## Standard Mode
@@ -161,7 +151,7 @@ Database requirement:
 Typical command pattern:
 
 ```bash
-bash scripts/install.sh --method create-nocobase-app --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase-app --run-mode none
+node "<SKILL_ROOT>/scripts/install.mjs" --method create-nocobase-app --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase-app --run-mode none
 cd my-nocobase-app
 yarn dev
 ```
@@ -188,7 +178,7 @@ Database requirement:
 Typical command pattern:
 
 ```bash
-bash scripts/install.sh --method git --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase --run-mode none
+node "<SKILL_ROOT>/scripts/install.mjs" --method git --target-dir . --release-channel latest --db-mode existing --db-dialect postgres --db-host 127.0.0.1 --db-port 5432 --db-database nocobase --db-user nocobase --db-password your_password --db-underscored false --project-name my-nocobase --run-mode none
 cd my-nocobase
 yarn dev
 ```

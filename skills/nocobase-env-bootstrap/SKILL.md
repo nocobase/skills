@@ -1,6 +1,6 @@
 ---
 name: nocobase-env-bootstrap
-description: "Use when users need to prepare a NocoBase environment, install and start an app, bootstrap local nocobase-ctl runtime, manage app environments (add/use/current/list), upgrade a single instance, or diagnose environment-level failures."
+description: "Use when users need to prepare a NocoBase environment, install and start an app, bootstrap local nocobase-ctl runtime, manage app environments (add/use/current/list/remove), upgrade a single instance, or diagnose environment-level failures."
 argument-hint: "[mode: quick|standard|rescue] [task: preflight|install|upgrade|diagnose|app-manage] [target-dir]"
 allowed-tools: Bash, Read, Write, Grep, Glob
 owner: platform-tools
@@ -19,7 +19,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 - Install and initialize NocoBase with Docker, create-nocobase-app, or Git method.
 - Start NocoBase in one environment (local machine or single server).
 - After successful install, automatically bootstrap local `nocobase-ctl` environment (`local`) for downstream CLI-first skills.
-- Provide reusable app environment management actions (`add`, `use`, `current`, `list`) through skill-local helper scripts for downstream skills.
+- Provide reusable app environment management actions (`add`, `use`, `current`, `list`, `remove`) through direct `nocobase-ctl` commands for downstream skills.
 - Run safe single-instance upgrades with explicit pre-check and post-check gates.
 - Diagnose and fix high-frequency setup and runtime failures.
 
@@ -60,7 +60,7 @@ Help users set up NocoBase smoothly from zero to running by handling environment
 | `cli_env_name` | no | `local` | non-empty slug | "Which local nocobase-ctl env name should be created?" |
 | `cli_auth_mode` | no | `oauth` | one of `oauth/token` | "Use OAuth mode (default) or token mode for CLI env bootstrap?" |
 | `cli_token_env` | no | `NOCOBASE_API_TOKEN` | valid env variable name | "Which env var stores API token when token mode is used?" |
-| `app_env_action` | only when `task=app-manage` | `current` | one of `add/use/current/list` | "Which app environment action should run: add, use, current, or list?" |
+| `app_env_action` | only when `task=app-manage` | `current` | one of `add/use/current/list/remove` | "Which app environment action should run: add, use, current, list, or remove?" |
 | `app_env_name` | conditional | none | required for `app_env_action=add/use` | "Which environment name should be used?" |
 | `app_base_url` | conditional | none | required for `app_env_action=add`; valid HTTP/HTTPS URL | "Which application URL should be used for env add?" |
 | `app_scope` | no | `project` | one of `project/global` | "Should this env action use project or global scope?" |
@@ -153,7 +153,7 @@ Default behavior when user says "you decide":
 - nocobase-ctl availability guard (mandatory before install/upgrade final stage):
        - Preflight must detect `nocobase-ctl` or `nbctl` in PATH; if missing, stop and ask user to install it from `https://github.com/nocobase/nocobase-ctl` before continuing.
 - For install/upgrade, run core checks only:
-     - Unified (all OS): `node ./scripts/preflight.mjs --port <port> --install-method <install_method> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password>`.
+     - Unified (all OS): `node "<SKILL_ROOT>/scripts/preflight.mjs" --port <port> --install-method <install_method> --db-mode <db_mode> --db-dialect <db_dialect> --db-host <db_host> --db-port <db_port> --db-database <db_database> --db-database-mode <db_database_mode> --db-user <db_user> --db-password <db_password>`.
 - Classify findings into `fail`, `warn`, and `pass`.
 - Treat dependency/runtime/path/network blockers as immediate blockers.
 
@@ -161,7 +161,7 @@ Default behavior when user says "you decide":
 - `quick`: Docker-first path with minimal questions.
 - `quick` + docker install: if user did not provide channel, ask the mandatory docker channel clarification and recommend `alpha`.
 - `standard`: user chooses method and database dialect.
-- `rescue`: collect diagnostics (`node ./scripts/collect-diagnostics.mjs`), map findings to troubleshooting entries, then apply the smallest safe fix first.
+- `rescue`: collect diagnostics (`node "<SKILL_ROOT>/scripts/collect-diagnostics.mjs"`), map findings to troubleshooting entries, then apply the smallest safe fix first.
 - Install execution policy:
 - Use local scripts and templates only.
 - Docker path uses `assets/docker-templates/`.
