@@ -48,13 +48,17 @@ Use this path when the user is describing one entire page.
 2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
-5. Keep `layout` only on `tabs[]` or inline `popup`. If unsure, omit it.
+5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
 6. Before the first write, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+   - in `create`, every newly created `navigation.group` / `navigation.item` carries a semantic Ant Design icon
    - tabs count matches the request
    - every `tab.blocks` is non-empty
    - no block contains `layout`
    - block `key` values are unique
+   - any explicit `layout` references only real keyed blocks, places every keyed block exactly once, and does not duplicate one block across multiple cells
+   - if one tab or popup contains multiple non-filter blocks, it has explicit `layout`
    - every chosen field has a non-empty live `interface`
+   - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
 7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same blueprint.
 8. In CLI-first execution, pass the page blueprint itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.

@@ -85,7 +85,7 @@ Correct CLI body:
   "mode": "create",
   "navigation": {
     "group": { "routeId": 12 },
-    "item": { "title": "Employees" }
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": { "title": "Employees" },
   "tabs": [
@@ -108,7 +108,7 @@ Correct MCP fallback envelope:
     "mode": "create",
     "navigation": {
       "group": { "routeId": 12 },
-      "item": { "title": "Employees" }
+      "item": { "title": "Employees", "icon": "TeamOutlined" }
     },
     "page": { "title": "Employees" },
     "tabs": [

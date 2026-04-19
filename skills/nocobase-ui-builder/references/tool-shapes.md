@@ -28,7 +28,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs or placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
 - Default blueprint `fields[]` entries to simple strings. Only use a field object when `popup`, `target`, `renderer`, or field-specific `type` is required.
-- `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. If you are unsure, omit it.
+- `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit keyed layout is required.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
 - When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
@@ -230,7 +230,7 @@ CLI request body:
   "mode": "create",
   "navigation": {
     "group": { "routeId": 12 },
-    "item": { "title": "Employees" }
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": {
     "title": "Employees",

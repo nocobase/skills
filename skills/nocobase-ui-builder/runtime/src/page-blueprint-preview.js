@@ -271,16 +271,6 @@ function isDataBlock(block) {
   return hasResourceBinding(block);
 }
 
-function collectLayoutRowKeys(row) {
-  return ensureArray(row)
-    .map((cell) => {
-      if (typeof cell === 'string') return normalizeText(cell);
-      if (isPlainObject(cell)) return normalizeText(cell.key);
-      return '';
-    })
-    .filter(Boolean);
-}
-
 function describeResource(node) {
   if (!isPlainObject(node?.resource)) return '';
   const binding = normalizeText(node.resource.binding || node.resource.resourceBinding);
@@ -536,7 +526,9 @@ function analyzeLayoutDocument(layout, blocks, warnings = []) {
   const rows = [];
   const unknownRefs = [];
   const unsupportedCells = [];
+  const duplicateRefs = [];
   const placedKeys = new Set();
+  const placementCounts = new Map();
 
   layout.rows.forEach((row, rowIndex) => {
     const cells = [];
@@ -554,6 +546,11 @@ function analyzeLayoutDocument(layout, blocks, warnings = []) {
           warnings.push(`Layout row ${rowIndex + 1} references missing block key "${key}".`);
           unknownRefs.push({ rowIndex, cellIndex, key });
         } else {
+          const nextCount = (placementCounts.get(key) || 0) + 1;
+          placementCounts.set(key, nextCount);
+          if (nextCount > 1) {
+            duplicateRefs.push({ rowIndex, cellIndex, key });
+          }
           placedKeys.add(key);
           items.push({ key });
         }
@@ -569,6 +566,11 @@ function analyzeLayoutDocument(layout, blocks, warnings = []) {
           warnings.push(`Layout row ${rowIndex + 1} references missing block key "${key}".`);
           unknownRefs.push({ rowIndex, cellIndex, key });
         } else {
+          const nextCount = (placementCounts.get(key) || 0) + 1;
+          placementCounts.set(key, nextCount);
+          if (nextCount > 1) {
+            duplicateRefs.push({ rowIndex, cellIndex, key });
+          }
           placedKeys.add(key);
           items.push({ key, span });
         }
@@ -605,6 +607,7 @@ function analyzeLayoutDocument(layout, blocks, warnings = []) {
     keylessBlocks,
     unknownRefs,
     unsupportedCells,
+    duplicateRefs,
     unplacedBlocks,
     filterKeys,
     nonFilterRows,
@@ -1034,6 +1037,16 @@ function validateExplicitLayoutRules(layout, blocks, path, blocksPath, state) {
       `${path}.rows[${rowIndex}][${cellIndex}]`,
       'layout-contains-unsupported-cell',
       'Each layout cell must be either one block key string or one object containing key/span.',
+    );
+  });
+
+  analysis.duplicateRefs.forEach(({ rowIndex, cellIndex, key }) => {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.rows[${rowIndex}][${cellIndex}]`,
+      'layout-duplicate-block-placement',
+      `Block "${key}" may appear only once in explicit layout rows.`,
     );
   });
 

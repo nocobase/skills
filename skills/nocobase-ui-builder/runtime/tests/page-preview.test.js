@@ -1466,6 +1466,43 @@ test('prepareApplyBlueprintRequest rejects explicit layout rows that reference u
   assert.ok(result.errors.some((issue) => issue.ruleId === 'layout-missing-block-placement' && issue.path === 'tabs[0].blocks[1]'));
 });
 
+test('prepareApplyBlueprintRequest rejects explicit layout rows that place one block more than once', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        layout: {
+          rows: [['mainTable', 'mainTable'], ['summaryDetails']],
+        },
+        blocks: [
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+          {
+            key: 'summaryDetails',
+            type: 'details',
+            title: 'Employee summary',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some((issue) => issue.ruleId === 'layout-duplicate-block-placement' && issue.path === 'tabs[0].layout.rows[0][1]'),
+  );
+});
+
 test('prepareApplyBlueprintRequest requires block keys whenever explicit layout is provided', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',

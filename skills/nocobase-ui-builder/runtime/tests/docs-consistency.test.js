@@ -754,6 +754,18 @@ test('quick route docs stay discoverable and point to the deeper references', ()
 });
 
 test('whole-page authoring docs keep menu, layout, and filter gates aligned with runtime', () => {
+  const skill = read('SKILL.md');
+  assert.match(
+    skill,
+    /at most one non-filter block[\s\S]{0,120}explicit layout is required|explicit layout is required[\s\S]{0,120}at most one non-filter block/i,
+    'SKILL.md should only allow layout omission for single non-filter-block scopes',
+  );
+  assert.doesNotMatch(
+    skill,
+    /If unsure, omit it\./i,
+    'SKILL.md should not keep the generic omit-layout fallback',
+  );
+
   const pageIntent = read('references/page-intent.md');
   assert.match(
     pageIntent,
@@ -813,6 +825,40 @@ test('whole-page authoring docs keep menu, layout, and filter gates aligned with
     normative,
     /filterForm[\s\S]{0,80}4 or more fields[\s\S]{0,80}`?collapse`?/i,
     'normative contract should require collapse for larger filter forms',
+  );
+  assert.match(
+    normative,
+    /"item": \{ "title": "Employees", "icon": "TeamOutlined" \}/i,
+    'normative contract create examples should show icon on new navigation.item',
+  );
+
+  const toolShapes = read('references/tool-shapes.md');
+  assert.match(
+    toolShapes,
+    /at most one non-filter block[\s\S]{0,120}explicit keyed layout is required|explicit keyed layout is required[\s\S]{0,120}at most one non-filter block/i,
+    'tool-shapes should only allow layout omission for single non-filter-block scopes',
+  );
+  assert.doesNotMatch(
+    toolShapes,
+    /If you are unsure, omit it\./i,
+    'tool-shapes should not keep the generic omit-layout fallback',
+  );
+  assert.match(
+    toolShapes,
+    /"item": \{ "title": "Employees", "icon": "TeamOutlined" \}/i,
+    'tool-shapes create example should show icon on new navigation.item',
+  );
+
+  const executionChecklist = read('references/execution-checklist.md');
+  assert.match(
+    executionChecklist,
+    /at most one non-filter block[\s\S]{0,120}explicit layout is required|explicit layout is required[\s\S]{0,120}at most one non-filter block/i,
+    'execution-checklist should only allow layout omission for single non-filter-block scopes',
+  );
+  assert.doesNotMatch(
+    executionChecklist,
+    /If unsure, omit it\./i,
+    'execution-checklist should not keep the generic omit-layout fallback',
   );
 });
 
