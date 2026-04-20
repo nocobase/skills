@@ -164,9 +164,15 @@ so round-tripping keeps YAML minimal.
 ## Frozen versions
 
 If a workflow has been executed (`versionStats.executed > 0`), the deployer
-creates a new revision via `workflows:revision` before touching it. The new
-version inherits the same `key`; any page action referencing
-`workflowKey: <key>` continues to resolve.
+creates a new revision via `workflows:revision` with body `{current: true}`
+before touching it. NB atomically flips `current` across versions: the old
+row becomes inactive (`current=false`, `enabled=false`), the new row becomes
+the live version. The new version inherits the same `key`, so any page action
+referencing `workflowKey: <key>` keeps working.
+
+Verified end-to-end: push a spec at an executed workflow → deployer logs
+`* <slug>: frozen (executed=N) — created revision #<id> (now current)`,
+then applies the DSL changes to the fresh revision.
 
 ## Minimal example
 

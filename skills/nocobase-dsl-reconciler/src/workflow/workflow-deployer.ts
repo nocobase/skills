@@ -249,6 +249,9 @@ export async function deployWorkflows(
 
   // Fetch existing workflows for matching by title. Pull versionStats so the
   // deployer can detect frozen versions (executed > 0) and revision them.
+  // The workflow row's own `executed` column is usually in sync with
+  // versionStats.executed, but we append versionStats to match upstream's
+  // documented convention.
   const existingResp = await nb.http.get(`${nb.baseUrl}/api/workflows:list`, {
     params: { filter: { current: true }, paginate: false, appends: ['versionStats'] },
   });
@@ -338,18 +341,26 @@ async function deploySingleWorkflow(
 
   let existing = titleToExisting.get(spec.title);
 
-  // Revision guard — frozen versions (executed > 0) can't be mutated in place;
-  // NB enforces revisioning. Create a new revision that inherits the same
-  // workflow `key`, swap to the returned id, and operate on that from now on.
-  if (existing && (existing.versionStats?.executed ?? 0) > 0) {
-    const revResp = await nb.http.post(`${nb.baseUrl}/api/workflows:revision`, {}, {
+  // Revision guard — frozen versions (executed > 0) can't be mutated in place.
+  // NB's workflows:revision clones the workflow + nodes into a new row with the
+  // same `key`; passing body `{current: true}` flips `current` atomically so the
+  // new version becomes the live one (old becomes disabled + current=false).
+  // Without `current: true`, the new row stays inactive and the old keeps
+  // serving — which means every subsequent push would re-revision the same old
+  // frozen row, multiplying versions.
+  // versionStats and the workflow row's own `executed` column are normally in
+  // sync; fall back to the row value if versionStats is missing (older NB
+  // versions, or an append that didn't resolve).
+  const executedCount = existing?.versionStats?.executed ?? (existing as { executed?: number } | undefined)?.executed ?? 0;
+  if (existing && executedCount > 0) {
+    const revResp = await nb.http.post(`${nb.baseUrl}/api/workflows:revision`, { current: true }, {
       params: { filterByTk: existing.id, filter: { key: existing.key } },
     });
     const revived = revResp.data?.data;
     if (!revived?.id) {
       throw new Error(`Failed to revision frozen workflow "${spec.title}" (${existing.id})`);
     }
-    log(`  * ${slug}: frozen (executed=${existing.versionStats?.executed}) — created revision #${revived.id}`);
+    log(`  * ${slug}: frozen (executed=${executedCount}) — created revision #${revived.id} (now current)`);
     // The new revision shares the same key; operate on it instead of the old row.
     existing = { ...existing, id: revived.id, key: revived.key ?? existing.key, versionStats: { executed: 0 } };
   }
