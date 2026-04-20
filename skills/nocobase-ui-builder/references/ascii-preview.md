@@ -37,7 +37,8 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 - summarize fields / actions / recordActions instead of dumping every property
 - default field/action summary should show a few items and collapse the rest as `+N more`
 - if `tab.layout.rows` / `popup.layout.rows` exists, show **row grouping** only; do not attempt pixel-accurate column drawing
-- if no layout is present, render blocks in vertical order
+- if no layout is present on a scope that legitimately contains at most one non-filter block, render blocks in vertical order
+- if a draft omits layout even though the scope has multiple non-filter blocks, keep the preview readable but treat that as a prepare-write validation failure rather than a valid default layout choice
 
 ## 4. Popup depth
 

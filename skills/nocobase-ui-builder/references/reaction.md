@@ -1,6 +1,6 @@
 # Reaction Authoring
 
-Use this file when the user asks for interaction logic such as:
+Use this file for interaction logic:
 
 - default values
 - computed field values
@@ -8,41 +8,38 @@ Use this file when the user asks for interaction logic such as:
 - block show / hide
 - action visible / enabled / disabled
 
-Canonical front door is `nocobase-ctl flow-surfaces`. This file keeps the backend reaction families and payload rules. Use CLI `--help` to discover the exact generated subcommand/flag surface, then come back here for the rule details.
+Canonical front door is `nocobase-ctl flow-surfaces`. Use CLI `--help` to confirm the current subcommand surface, then return here for the payload rules. Start with [reaction-quick.md](./reaction-quick.md) when the common route is enough.
 
-For localized CLI discovery/writes, send the raw business object through `--body` / `--body-file`. Only in MCP fallback should that same object be wrapped under `requestBody`.
-
-This file is intentionally progressive: start from the quick route, then open only the recipe you need.
-
-Use this file as the detailed reaction reference. Other skill references should mainly route here rather than restating all payload rules.
+For localized CLI writes, pass the raw business object through `--body` / `--body-file`. Only in MCP fallback should that same object be wrapped under `requestBody`.
 
 ## 1. Quick Route
 
 ### Whole-page authoring
 
-If the interaction logic belongs to the same page you are building now:
+If the interaction logic belongs to the page you are building now:
 
-- use `nocobase-ctl flow-surfaces apply-blueprint` with top-level `reaction.items[]`
-- each reaction item only accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
-- target the block/action by the same-run local key / bind key
-- give every referenced tab / block / action an explicit stable `key` path in the same blueprint
-- in whole-page `replace`, those explicit keys only need to be stable within the current write; prefer role-suffixed or page-scoped names such as `mainTab`, `usersTableBlock`, `createFormBlock`, `submitAction`, and `maintainAction` over bare generic keys like `main`, `usersTable`, or `submit`
-- for `setActionLinkageRules`, prefer a keyed action object instead of a generated fallback key such as `submit_1`
-- keep structure and reaction in one blueprint when possible
+- use `nocobase-ctl flow-surfaces apply-blueprint`
+- write reactions in top-level `reaction.items[]`
+- each item accepts `type`, `target`, `rules`, and optional `expectedFingerprint`
+- target blocks/actions by stable same-run keys or public paths
+- keep structure, popup, and reaction in one blueprint when possible
+- do not switch to a separate live reaction phase unless a verified public whole-page contract gap forces it
 
 ### Localized edit on an existing live page
 
-If you need to add or change interaction logic on an existing surface:
+If the page already exists:
 
-1. `nocobase-ctl flow-surfaces get-reaction-meta`
+1. run `nocobase-ctl flow-surfaces get-reaction-meta`
 2. choose the capability by `kind`
 3. reuse its `fingerprint`
 4. call the matching `nocobase-ctl flow-surfaces set-*`
 
+Do not lock the target before step 1. The chosen target must expose the source path needed by the rule in the returned scene/capability. If it does not, move the target or restructure the page/popup first.
+
 ### Discovery priority
 
-- first choice: `getReactionMeta`
-- second choice: `flow_surfaces_context` only when you still need raw ctx variable paths beyond the returned metadata
+- first choice: `get-reaction-meta`
+- second choice: `flow_surfaces_context` only when you still need raw `ctx.*` paths
 
 ## 2. Decision Guide
 
@@ -56,13 +53,14 @@ If you need to add or change interaction logic on an existing surface:
 
 Notes:
 
-- `fieldValue` v1 is form-only (`createForm` / `editForm` scenes).
-- For form `fieldValue` and form `fieldLinkage`, the public target is still the **form block** key/uid, not the inner grid uid.
+- `fieldValue` v1 is form-only.
+- For form `fieldValue` and `fieldLinkage`, target the outer form block uid rather than the inner grid uid.
 - `rules: []` means full clear of that reaction slot.
+- If a create/edit form scene exposes `fields` / `actions` / `node` but not `blocks`, keep form-scoped helper/reference content as `jsItem` or another field-like helper in that same scene. Current live `fieldLinkage` target fields are real collection fields, so do not assume `setFieldState` can target the JSItem; prefer a JSItem that self-renders based on `ctx.formValues`.
 
 ## 3. Discovery Flow
 
-Localized reaction edits should follow this CLI request body:
+Use this body for localized discovery:
 
 ```json
 {
@@ -70,9 +68,7 @@ Localized reaction edits should follow this CLI request body:
 }
 ```
 
-Only in MCP fallback should that same business object be wrapped under `requestBody`.
-
-Read `capabilities[]`:
+Read `capabilities[]` for:
 
 - `kind`
 - `resolvedScene`
@@ -85,19 +81,15 @@ Read `capabilities[]`:
 
 Use `conditionMeta.operatorsByPath` and `supportedActions` instead of guessing condition operators or action names.
 
-Use `flow_surfaces_context` only when you still need deeper raw paths such as:
-
-- `params.query.*`
-- `record.*`
-- nested popup/item context not obvious from `getReactionMeta`
-
 ## 4. Common Recipes
 
-### 4.1 Set default value on a form field
+### 4.1 Set a default value on a form field
 
-Use `fieldValue` when the intent is "this form field should default to X".
+Use `fieldValue` when the intent is “this field defaults to X”.
 
-Whole-page blueprint fragment:
+Use `value.source = "literal"` for static defaults. Reserve `path` or `runjs` for derived defaults.
+
+Blueprint fragment:
 
 ```json
 {
@@ -111,10 +103,7 @@ Whole-page blueprint fragment:
             "key": "defaultStatus",
             "targetPath": "status",
             "mode": "default",
-            "value": {
-              "source": "literal",
-              "value": "draft"
-            }
+            "value": { "source": "literal", "value": "draft" }
           }
         ]
       }
@@ -127,14 +116,6 @@ Localized write:
 
 ```json
 {
-  "target": { "uid": "employee-form-uid" }
-}
-```
-
-then:
-
-```json
-{
   "target": { "uid": "employee-form-uid" },
   "expectedFingerprint": "<from getReactionMeta>",
   "rules": [
@@ -142,238 +123,193 @@ then:
       "key": "defaultStatus",
       "targetPath": "status",
       "mode": "default",
-      "value": {
-        "source": "literal",
-        "value": "draft"
-      }
+      "value": { "source": "literal", "value": "draft" }
     }
   ]
 }
 ```
 
-Verification:
+### 4.2 Compute fields from other values
 
-- write result returns `resolvedScene: "form"`
-- readback stores rules under the form grid slot, not the outer form step root
-
-### 4.2 Compute two form fields from other values
-
-Use `fieldLinkage` when the intent is "when A/B changes, compute C/D".
-
-Preferred pattern:
+Use `fieldLinkage` when the intent is “when A/B changes, recompute C/D”.
 
 - simple copy -> `source: "path"`
-- formula / branching / multi-target -> `source: "runjs"`
-
-Whole-page blueprint fragment:
+- formulas or branching -> `source: "runjs"`
+- keep one business intent in one rule
+- one `assignField` action can update multiple target fields
+- select the `fieldLinkage` capability by `kind` from `get-reaction-meta`; do not reuse a nearby `blockLinkage` fingerprint from the same target
+- if the server returns `FLOW_SURFACE_REACTION_FINGERPRINT_CONFLICT`, refresh `get-reaction-meta` for the same target and retry with the refreshed `fieldLinkage` fingerprint
 
 ```json
 {
-  "reaction": {
-    "items": [
-      {
-        "type": "setFieldLinkageRules",
-        "target": "main.employeeForm",
-        "rules": [
-          {
-            "key": "recomputeTotals",
-            "when": {
-              "logic": "$and",
-              "items": [
-                {
-                  "path": "formValues.amount",
-                  "operator": "$notEmpty"
-                }
-              ]
-            },
-            "then": [
-              {
-                "type": "assignField",
-                "items": [
-                  {
-                    "targetPath": "subtotal",
-                    "value": {
-                      "source": "runjs",
-                      "version": "v2",
-                      "code": "const amount = Number(ctx.formValues?.amount || 0); return amount;"
-                    }
-                  },
-                  {
-                    "targetPath": "total",
-                    "value": {
-                      "source": "runjs",
-                      "version": "v2",
-                      "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
-                    }
-                  }
-                ]
-              }
-            ]
-          }
+  "target": { "uid": "employee-form-uid" },
+  "expectedFingerprint": "<from getReactionMeta>",
+  "rules": [
+    {
+      "key": "recomputeTotals",
+      "when": {
+        "logic": "$and",
+        "items": [
+          { "path": "formValues.amount", "operator": "$notEmpty" }
         ]
-      }
-    ]
-  }
+      },
+      "then": [
+        {
+          "type": "assignField",
+          "items": [
+            {
+              "targetPath": "subtotal",
+              "value": {
+                "source": "runjs",
+                "version": "v2",
+                "code": "return Number(ctx.formValues?.amount || 0);"
+              }
+            },
+            {
+              "targetPath": "total",
+              "value": {
+                "source": "runjs",
+                "version": "v2",
+                "code": "const amount = Number(ctx.formValues?.amount || 0); const taxRate = Number(ctx.formValues?.taxRate || 0); return amount + amount * taxRate;"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
 ```
-
-Why this pattern:
-
-- one linkage rule groups one business intent
-- one `assignField` action can update multiple target fields
-- `runjs` handles formulas better than trying to encode everything as raw path copies
 
 ### 4.3 Toggle block visibility
 
-Use `blockLinkage` when the target is the block itself rather than an inner field.
-
-Whole-page blueprint fragment:
+Use `blockLinkage` when the target is the block itself:
 
 ```json
 {
-  "reaction": {
-    "items": [
-      {
-        "type": "setBlockLinkageRules",
-        "target": "main.employeesTable",
-        "rules": [
-          {
-            "key": "hideTable",
-            "when": {
-              "logic": "$and",
-              "items": [
-                {
-                  "path": "params.query.hideTable",
-                  "operator": "$isTruly"
-                }
-              ]
-            },
-            "then": [
-              {
-                "type": "setBlockState",
-                "state": "hidden"
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Typical condition sources:
-
-- `params.query.*`
-- `record.*`
-- scene-specific form values exposed by the resolved capability
-
-When a whole-page block/action linkage needs sibling form values:
-
-- do not assume the target block/action `when.items[].path` can always use `formValues.*`
-- for cross-block form-driven visibility/state, prefer `then: [{ type: \"runjs\" ... }]` or the backend-normalized `linkageRunjs` path that reads `ctx.formValues` directly inside the action payload
-- keep `when` empty if the live condition context does not expose that form path
-- use `$notEmpty`, not `$isNotEmpty`
-
-### 4.4 Disable or hide an action
-
-Use `actionLinkage` for button state:
-
-```json
-{
-  "target": { "uid": "refresh-action-uid" },
+  "target": { "uid": "employees-table-uid" },
   "expectedFingerprint": "<from getReactionMeta>",
   "rules": [
     {
-      "key": "disableRefresh",
+      "key": "hideTable",
       "when": {
         "logic": "$and",
         "items": [
-          {
-            "path": "params.query.readonly",
-            "operator": "$isTruly"
-          }
+          { "path": "params.query.hideTable", "operator": "$isTruly" }
         ]
       },
       "then": [
-        {
-          "type": "setActionState",
-          "state": "disabled"
-        }
+        { "type": "setBlockState", "state": "hidden" }
       ]
     }
   ]
 }
 ```
 
-### 4.5 Localized field linkage on details / subForm hosts
+### 4.4 Form-scoped helper item
 
-`fieldLinkage` is not form-only. For localized edits on `details` or `subForm`, still start with `getReactionMeta`, then target the **host block uid**, not one inner field uid.
+When a form-value-driven helper/reference area must stay scoped to a create/edit form, check `catalog` on the outer form block first. If `catalog.fields[]` exposes `jsItem` and `catalog.blocks[]` is empty, add a JSItem to the form instead of creating an unrelated page-level block.
 
-Typical localized flow:
+Verified CLI shape:
 
-```json
-{
-  "target": { "uid": "employee-details-uid" }
-}
+```bash
+nocobase-ctl flow-surfaces add-field -e <env> -j \
+  --target '{"uid":"users-create-form-uid"}' \
+  --type jsItem \
+  --settings '{"label":"角色治理提示","showLabel":false,"extra":"选择角色后显示角色治理说明","version":"v2","code":"const roles = ctx.formValues?.roles; const selected = Array.isArray(roles) ? roles.length > 0 : Boolean(roles); if (!selected) { ctx.render(null); return; } ctx.render(\"已选择角色，可查看角色治理提示。\");"}'
 ```
 
-then:
+This counts as the helper toggle: hidden state is represented by `ctx.render(null)` while `roles` is empty, and visible state by rendering content after roles are selected. Do not write `setFieldLinkageRules` against the JSItem uid or `jsItem` pseudo path unless `get-reaction-meta.targetFields` explicitly lists that target.
+
+### 4.5 Disable or hide an action
+
+Use `actionLinkage` when the target is an action:
+
+- first create or identify the concrete live action target
+- run `get-reaction-meta` on that action and reuse the returned `fingerprint`
+- do not write `actionLinkage` to a conceptual action that has not been created yet
+- for table record delete guards, create the delete record action first if it is missing
+- for form submit guards, create the submit form action first if it is missing
 
 ```json
 {
-  "target": { "uid": "employee-details-uid" },
+  "target": { "uid": "submit-action-uid" },
   "expectedFingerprint": "<from getReactionMeta>",
   "rules": [
     {
-      "key": "hideArchivedReason",
+      "key": "disableSubmitWhenArchived",
       "when": {
         "logic": "$and",
         "items": [
-          {
-            "path": "record.status",
-            "operator": "$eq",
-            "value": "archived"
-          }
+          { "path": "record.status", "operator": "$eq", "value": "archived" }
         ]
       },
       "then": [
-        {
-          "type": "setFieldState",
-          "fieldPaths": ["archivedReason"],
-          "state": "hidden"
-        }
+        { "type": "setActionState", "state": "disabled" }
       ]
     }
   ]
 }
 ```
 
-Use the same host-oriented pattern for `subForm`:
+Concrete record-delete guard path:
 
-- target the subForm host uid
-- read `supportedActions`, `targetFields`, and `conditionMeta` from `getReactionMeta`
-- do not guess one inner field uid as the write target
+```bash
+nocobase-ctl flow-surfaces add-record-action -e <env> -j \
+  --target '{"uid":"roles-table-uid"}' \
+  --type delete \
+  --settings '{"title":"删除"}'
+
+nocobase-ctl flow-surfaces get-reaction-meta -e <env> -j \
+  --target '{"uid":"delete-action-uid"}'
+
+nocobase-ctl flow-surfaces set-action-linkage-rules -e <env> -j \
+  --target '{"uid":"delete-action-uid"}' \
+  --expected-fingerprint "<fingerprint>" \
+  --rules '[{"key":"disableProtectedRoleDelete","title":"Disable protected roles","when":{"logic":"$or","items":[{"path":"record.name","operator":"$eq","value":"root"},{"path":"record.name","operator":"$eq","value":"admin"},{"path":"record.name","operator":"$eq","value":"administrator"},{"path":"record.name","operator":"$eq","value":"member"}]},"then":[{"type":"setActionState","state":"disabled"}]}]'
+```
+
+Check `conditionMeta.operatorsByPath` first. Record-scoped delete actions should expose the clicked role under `record.*`, so prefer supported record paths such as `record.name`.
+
+Concrete submit guard path:
+
+```bash
+nocobase-ctl flow-surfaces add-action -e <env> -j \
+  --target '{"uid":"users-create-form-uid"}' \
+  --type submit \
+  --settings '{"title":"提交"}'
+
+nocobase-ctl flow-surfaces get-reaction-meta -e <env> -j \
+  --target '{"uid":"submit-action-uid"}'
+
+nocobase-ctl flow-surfaces set-action-linkage-rules -e <env> -j \
+  --target '{"uid":"submit-action-uid"}' \
+  --expected-fingerprint "<fingerprint>" \
+  --rules '[{"key":"disableSubmitUntilReady","title":"Disable submit until key fields ready","when":{"logic":"$or","items":[{"path":"formValues.username","operator":"$empty"},{"path":"formValues.roles","operator":"$eq","value":null}]},"then":[{"type":"setActionState","state":"disabled"}]}]'
+```
+
+### 4.6 Details / subForm hosts
+
+For details or `subForm` linkage:
+
+- still start from `get-reaction-meta`
+- use the returned `resolvedScene` / `resolvedSlot`
+- keep the write target on the public host uid the backend expects
+- avoid guessing raw nested slot paths
 
 ## 5. Guardrails
 
-- Always start localized reaction work with `getReactionMeta`.
-- Reuse `expectedFingerprint` from the exact capability you are updating.
-- Do not guess `resolvedScene`, `resolvedSlot`, `supportedActions`, or valid condition operators.
-- For whole-page `applyBlueprint`, reaction targets must be same-run local keys / bind keys, not live uids.
-- For whole-page `applyBlueprint`, each reaction item only accepts `type`, `target`, `rules`, and optional `expectedFingerprint`; do not add extra keys such as item-level `key`.
-- For whole-page `applyBlueprint`, the local prepare-write gate should reject unsupported item types, non-array `rules`, duplicate `(type, target)` slots, missing / unknown targets, and targets that rely on generated fallback keys instead of explicit stable keys.
-- For localized edits, reaction targets must be real live uids.
-- For form `fieldValue` / `fieldLinkage`, do not target the inner grid uid manually.
-- `rules: []` is a full clear, not a partial patch.
-- When conditions need deeper runtime facts than `getReactionMeta` exposes, use `flow_surfaces_context` as a supplement, not as the default discovery step.
+- Use reaction APIs for default values, linkage, computed values, and state. Do not guess raw `configure` keys.
+- Reuse the returned `fingerprint` on every `set-*` write.
+- Keep whole-page reactions attached to stable local keys so the same write can reference them deterministically.
+- If a visibility/enabled-state rule depends on form values, prefer a sibling block/action in the same page or popup scene. Do not assume a nested popup-local block can read a form path unless `get-reaction-meta` proves it.
+- If a create/edit form scene does not expose `blocks`, do not force a helper/reference area into a standalone block just because the business wording says "area". Reshape it into a form-scoped helper item first.
+- For action guards, do not guess the action target from wording alone. Confirm the live action target first, then write `setActionLinkageRules` with its returned `fingerprint`.
+- Use `flow_surfaces_context` only when `get-reaction-meta` is insufficient.
+- For RunJS values, validate through the skill's JS path instead of inventing ad-hoc code shapes.
 
 ## 6. When Not To Use Reaction
 
-Do not use reaction when the request is only:
-
-- static form layout
-- pageSize / sorting / fixed display settings
-- basic semantic `configure` changes with no conditional behavior
-
-Those stay on normal `configure` / `updateSettings` / structural blueprint paths.
+- static labels, titles, or layout-only changes
+- plain block/field/action insertion with no runtime logic
+- permission or workflow behavior that belongs to another skill

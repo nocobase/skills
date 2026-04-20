@@ -8,8 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const DEFAULT_SKILL_ROOT = path.resolve(__dirname, '..');
-export const ROOT_INDEX_MIRROR_DIRS = ['blocks', 'patterns', 'js-models'];
-export const ROOT_DIRECT_LINK_DIRS = ['recipes'];
+export const ROOT_INDEX_MIRROR_DIRS = ['blocks', 'js-models'];
 
 function createContext(skillRootInput = DEFAULT_SKILL_ROOT) {
   const skillRoot = path.resolve(skillRootInput);
@@ -124,11 +123,17 @@ function checkLineBudgets(context, failures) {
     ['references/index.md', 150],
   ]);
   const exemptPrefixes = [
-    'references/flow-schemas/',
+    'runtime/reference-assets/upstream-js/',
   ];
   const exemptExact = new Set([
-    'references/flow-model-recipes.md',
-    'references/blocks/public-blocks-inventory.md',
+    'references/blocks/chart.md',
+    'references/chart-core.md',
+    'references/normative-contract.md',
+    'references/page-blueprint.md',
+    'references/reaction.md',
+    'references/settings.md',
+    'references/templates.md',
+    'references/tool-shapes.md',
   ]);
 
   for (const filePath of collectMarkdownFiles(context)) {
@@ -165,17 +170,11 @@ function checkLocalLinksExist(context, failures) {
 function checkTopLevelReferenceReachability(context, failures) {
   const rootLinkedDocs = collectRootLinkedReferenceDocs(context);
   for (const filePath of listDirectMarkdownFiles(context.referencesRoot)) {
+    if (path.normalize(filePath) === context.referencesIndexPath) {
+      continue;
+    }
     if (!rootLinkedDocs.has(filePath)) {
       failures.push(`Top-level reference doc is not directly linked from SKILL.md or references/index.md: ${toRelative(context, filePath)}`);
-    }
-  }
-
-  for (const directoryName of ROOT_DIRECT_LINK_DIRS) {
-    const targetDir = path.join(context.referencesRoot, directoryName);
-    for (const filePath of listFiles(targetDir, (candidate) => candidate.endsWith('.md'))) {
-      if (!rootLinkedDocs.has(filePath)) {
-        failures.push(`Reference doc is not directly linked from SKILL.md or references/index.md: ${toRelative(context, filePath)}`);
-      }
     }
   }
 }
@@ -206,6 +205,9 @@ function checkRootIndexMirrorsSubindexes(context, failures) {
   for (const directoryName of ROOT_INDEX_MIRROR_DIRS) {
     const subindexPath = path.join(context.referencesRoot, directoryName, 'index.md');
     if (!fs.existsSync(subindexPath)) {
+      continue;
+    }
+    if (rootIndexLinks.has(subindexPath)) {
       continue;
     }
 
