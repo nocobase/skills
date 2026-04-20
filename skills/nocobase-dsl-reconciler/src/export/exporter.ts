@@ -25,7 +25,7 @@ export async function exportPageSurface(
   const grid = tree.subModels?.grid;
   if (!grid || Array.isArray(grid)) return { blocks: [], layout: [] };
 
-  const result = exportGrid(grid as FlowModelNode, jsDir, pageKey, true);
+  const result = await exportGrid(grid as FlowModelNode, jsDir, pageKey, true);
 
   // TODO: export page-level event flows (RootPageModel flowRegistry)
 
@@ -147,12 +147,12 @@ export async function exportAllPopups(
 
 // ── Internal helpers ──
 
-function exportGrid(
+async function exportGrid(
   grid: FlowModelNode,
   jsDir: string | null,
   prefix: string,
   resetKeys = false,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const items = grid.subModels?.items;
   const itemArr = (Array.isArray(items) ? items : []) as FlowModelNode[];
   const usedKeys = new Set<string>();
@@ -162,7 +162,7 @@ function exportGrid(
   const popupRefs: PopupRef[] = [];
 
   for (let i = 0; i < itemArr.length; i++) {
-    const exported = exportBlock(itemArr[i], jsDir, prefix, i, usedKeys);
+    const exported = await exportBlock(itemArr[i], jsDir, prefix, i, usedKeys);
     if (!exported) continue;
     blocks.push(exported.spec);
     blockUidToKey.set(itemArr[i].uid, exported.key);

@@ -15,298 +15,23 @@ import {
   MODEL_TO_ACTION_TYPE as ACTION_TYPE_MAP,
   SIMPLE_ACTION_TYPES,
 } from '../utils/block-types';
+import { safeWrite } from '../utils/safe-write';
+import { lookupTemplateFile } from '../utils/template-lookup';
+import {
+  simplifyPopup,
+  simplifyLinkAction,
+  simplifyAiAction,
+  simplifyReference,
+  simplifyJsBlock,
+  simplifyDataScope,
+  simplifyUpdateRecord,
+  resolveRuleFieldUids,
+} from './simplifiers';
 
-function ensureDir(filePath: string) {
-  const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
-}
-
-function safeWrite(filePath: string, content: string) {
-  ensureDir(filePath);
-  fs.writeFileSync(filePath, content);
-}
-
-export { TYPE_MAP };
-
-/**
- * Look up a template UID in templates/_index.yaml, walking up from a given directory.
- * Returns the file path (e.g. "templates/popup/leads_view.yaml") or null.
- */
-export function lookupTemplateFile(templateUid: string, fromDir: string): string | null {
-  for (let d = fromDir; d !== path.dirname(d); d = path.dirname(d)) {
-    const indexFile = path.join(d, 'templates', '_index.yaml');
-    if (!fs.existsSync(indexFile)) continue;
-    const index = loadYaml<Record<string, unknown>[]>(indexFile) || [];
-    const entry = index.find(t => t.uid === templateUid);
-    if (entry?.file) return `templates/${entry.file}`;
-    break;
-  }
-  return null;
-}
-
-/**
- * Simplify clickToOpen + popupSettings into popup shorthand.
- *
- * - With popup template → popup: templates/popup/xxx.yaml
- * - Default settings (drawer, large) → popup: true
- * - Non-default settings → popup: { mode, size }
- */
-export function simplifyPopup(
-  fieldSpec: Record<string, unknown>,
-  projectDir: string | null,
-): void {
-  if (!fieldSpec.clickToOpen && !fieldSpec.popupSettings) return;
-
-  const ps = fieldSpec.popupSettings as Record<string, unknown> | undefined;
-  const templateUid = ps?.popupTemplateUid as string | undefined;
-
-  // Remove original keys — replace with popup shorthand
-  delete fieldSpec.clickToOpen;
-  delete fieldSpec.popupSettings;
-
-  if (templateUid && projectDir) {
-    const tplFile = lookupTemplateFile(templateUid, projectDir);
-    if (tplFile) {
-      fieldSpec.popup = tplFile;
-      return;
-    }
-  }
-
-  // Check for non-default settings
-  const mode = (ps?.mode as string) || 'drawer';
-  const size = (ps?.size as string) || 'large';
-  const hasNonDefault = mode !== 'drawer' || size !== 'large';
-
-  if (hasNonDefault) {
-    const popupObj: Record<string, unknown> = {};
-    if (mode !== 'drawer') popupObj.mode = mode;
-    if (size !== 'large') popupObj.size = size;
-    fieldSpec.popup = popupObj;
-  } else {
-    fieldSpec.popup = true;
-  }
-}
-
-/**
- * Simplify a link action from full stepParams into shorthand.
- */
-function simplifyLinkAction(actionSpec: Record<string, unknown>): Record<string, unknown> {
-  const sp = actionSpec.stepParams as Record<string, unknown> | undefined;
-  if (!sp) return { link: {} };
-
-  const buttonSettings = sp.buttonSettings as Record<string, unknown> | undefined;
-  const general = (buttonSettings?.general || {}) as Record<string, unknown>;
-  const linkSettings = sp.linkButtonSettings as Record<string, unknown> | undefined;
-  const editLink = (linkSettings?.editLink || {}) as Record<string, unknown>;
-
-  const result: Record<string, unknown> = {};
-  if (general.title) result.title = general.title;
-  if (general.icon) result.icon = general.icon;
-  if (editLink.url) result.url = editLink.url;
-
-  return { link: result };
-}
-
-/**
- * Simplify an AI action into shorthand.
- * - Simple: ai: viz
- * - With tasks: ai: { employee: viz, tasks: ./ai/xxx.yaml }
- */
-function simplifyAiAction(actionSpec: Record<string, unknown>): Record<string, unknown> {
-  const employee = actionSpec.employee as string || '';
-  const tasksFile = actionSpec.tasks_file as string | undefined;
-
-  if (!tasksFile) {
-    return { ai: employee };
-  }
-  return { ai: { employee, tasks: tasksFile } };
-}
-
-/**
- * Simplify a reference block into shorthand.
- * - ref: templates/block/xxx.yaml
- */
-function simplifyReference(spec: Record<string, unknown>, projectDir: string | null): Record<string, unknown> | null {
-  const tplRef = spec.templateRef as Record<string, unknown> | undefined;
-  if (!tplRef?.templateUid) return null;
-
-  const templateUid = tplRef.templateUid as string;
-  if (projectDir) {
-    const tplFile = lookupTemplateFile(templateUid, projectDir);
-    if (tplFile) {
-      return { ref: tplFile };
-    }
-  }
-  // Fallback: keep templateRef as-is
-  return null;
-}
-
-/**
- * Simplify a jsBlock into shorthand.
- * - Simple (no desc): js: ./js/xxx.js
- * - With desc: js: { file: ./js/xxx.js, desc: Description }
- */
-function simplifyJsBlock(spec: Record<string, unknown>): Record<string, unknown> {
-  const file = spec.file as string | undefined;
-  const desc = spec.desc as string | undefined;
-
-  if (!file) return spec;
-
-  if (!desc) {
-    return { js: file };
-  }
-  return { js: { file, desc } };
-}
-
-/**
- * Simplify dataScope { logic: $and, items: [{path, operator, value}] }
- * into filter: { path.$op: value } shorthand.
- * Only simplifies flat $and conditions. Complex nested logic keeps original format.
- */
-/**
- * Replace field UIDs with field paths in linkage rule arrays.
- * Walks the rule tree replacing any UID string found in the map.
- */
-function resolveRuleFieldUids(
-  rules: Record<string, unknown>[],
-  uidMap: Map<string, string>,
-): Record<string, unknown>[] {
-  if (!uidMap.size) return rules;
-  const resolve = (obj: unknown): unknown => {
-    if (typeof obj === 'string') return uidMap.get(obj) || obj;
-    if (Array.isArray(obj)) return obj.map(resolve);
-    if (obj && typeof obj === 'object') {
-      const result: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-        if (k === 'fields' && Array.isArray(v)) {
-          result[k] = v.map(uid => typeof uid === 'string' ? (uidMap.get(uid) || uid) : uid);
-        } else {
-          result[k] = resolve(v);
-        }
-      }
-      return result;
-    }
-    return obj;
-  };
-  return rules.map(r => resolve(r) as Record<string, unknown>);
-}
-
-export function simplifyDataScope(dataScope: Record<string, unknown>): Record<string, unknown> | null {
-  const logic = dataScope.logic as string;
-  const items = dataScope.items as Record<string, unknown>[] | undefined;
-  if (logic !== '$and' || !Array.isArray(items)) return null;
-
-  const filter: Record<string, unknown> = {};
-  for (const item of items) {
-    const p = item.path as string;
-    const op = item.operator as string;
-    const val = item.value;
-    if (!p || !op) return null; // can't simplify
-    if (item.logic) return null; // nested condition — bail
-    filter[`${p}.${op}`] = val;
-  }
-  return filter;
-}
-
-/**
- * Simplify an updateRecord action from full stepParams into shorthand.
- */
-function simplifyUpdateRecord(actionSpec: Record<string, unknown>): Record<string, unknown> {
-  const sp = actionSpec.stepParams as Record<string, unknown> | undefined;
-  if (!sp) return actionSpec;
-
-  const buttonSettings = sp.buttonSettings as Record<string, unknown> | undefined;
-  const general = (buttonSettings?.general || {}) as Record<string, unknown>;
-  // assignSettings.assignFieldValues.assignedValues is the correct path
-  const assignSettings = sp.assignSettings as Record<string, unknown> | undefined;
-  const assignFieldValues = (assignSettings?.assignFieldValues || {}) as Record<string, unknown>;
-  const rawAssigned = assignFieldValues.assignedValues as Record<string, unknown> | undefined;
-  const triggerWorkflows = (sp.apply as Record<string, unknown>)?.triggerWorkflows;
-  const linkageRules = (buttonSettings?.linkageRules as Record<string, unknown> | undefined);
-
-  const result: Record<string, unknown> = {};
-
-  // Key
-  if (actionSpec.key) result.key = actionSpec.key;
-
-  // Button appearance
-  if (general.icon) result.icon = general.icon;
-  if (general.tooltip) result.tooltip = general.tooltip;
-  if (general.title) result.title = general.title;
-  const style = (general.type || general.buttonStyle) as string | undefined;
-  if (style && style !== 'default') result.style = style;
-  const danger = general.danger as boolean | undefined;
-  if (danger) result.danger = true;
-
-  // Assigned values — direct key:value map
-  if (rawAssigned && Object.keys(rawAssigned).length) {
-    result.assign = rawAssigned;
-  }
-
-  // Trigger workflows
-  if (triggerWorkflows) result.triggerWorkflows = triggerWorkflows;
-
-  // Linkage rules → hiddenWhen shorthand (simplified)
-  if (linkageRules) {
-    const rules = ((linkageRules as Record<string, unknown>).value || (linkageRules as Record<string, unknown>).rules) as Array<Record<string, unknown>> | undefined;
-    if (rules?.length) {
-      const hiddenWhen = extractHiddenWhen(rules);
-      if (hiddenWhen) result.hiddenWhen = hiddenWhen;
-      else result.linkageRules = stripDefaults(linkageRules);
-    }
-  }
-
-  // Secondary confirmation
-  const confirm = (general.secondConfirmation || general.confirm) as Record<string, unknown> | undefined;
-  if (confirm) result.confirm = confirm;
-
-  return { updateRecord: result };
-}
-
-/**
- * Try to extract simple hiddenWhen from linkageRules.
- * Returns simplified shorthand or null if too complex.
- */
-function extractHiddenWhen(rules: Array<Record<string, unknown>>): Record<string, unknown> | null {
-  // Only handle single rule with 'visible' property = false
-  if (rules.length !== 1) return null;
-  const rule = rules[0];
-  const properties = rule.properties as Array<Record<string, unknown>> | undefined;
-  if (!properties?.length) return null;
-
-  // Check for single property with visible=false (= hidden when condition is true)
-  const visibleProp = properties.find(p => p.type === 'visible' && p.value === false);
-  if (!visibleProp) return null;
-
-  const condition = rule.condition as Record<string, unknown> | undefined;
-  if (!condition) return null;
-
-  // Try to extract simple field conditions
-  const allOp = condition.$and as Array<Record<string, unknown>> | undefined;
-  const conditions = allOp || [condition];
-  const result: Record<string, unknown> = {};
-
-  for (const cond of conditions) {
-    // Each condition: { field: { operator: value } }
-    const entries = Object.entries(cond);
-    if (entries.length !== 1) return null;
-    const [field, ops] = entries[0];
-    if (field.startsWith('$')) return null;  // complex condition
-    if (typeof ops !== 'object' || ops === null) return null;
-    const opEntries = Object.entries(ops as Record<string, unknown>);
-    if (opEntries.length !== 1) return null;
-    const [op, val] = opEntries[0];
-    if (op === '$isTruly') {
-      result[field] = true;
-    } else if (op === '$isFalsy') {
-      result[field] = false;
-    } else {
-      result[field] = { [op]: val };
-    }
-  }
-
-  return Object.keys(result).length ? result : null;
-}
+// Re-export for callers that already import these from block-exporter.
+// Keeps the existing API surface stable; simplifiers.ts is an internal
+// grouping, not a public module boundary rewrite.
+export { TYPE_MAP, lookupTemplateFile, simplifyPopup, simplifyDataScope };
 
 export interface PopupRef {
   field: string;
@@ -328,14 +53,15 @@ export interface ExportedBlock {
  * @param projectDir - Project root directory for template lookups (optional).
  *                     When provided, enables popup/reference shorthand with template file paths.
  */
-export function exportBlock(
+export async function exportBlock(
   item: FlowModelNode,
   jsDir: string | null,
   prefix: string,
   index: number,
   usedKeys: Set<string>,
   projectDir: string | null = null,
-): ExportedBlock | null {
+  nb: NocoBaseClient | null = null,
+): Promise<ExportedBlock | null> {
   const use = item.use || '';
   const uid = item.uid;
   const sp = (item.stepParams || {}) as Record<string, unknown>;
@@ -427,6 +153,12 @@ export function exportBlock(
     if (tableSettings.sort) spec.sort = tableSettings.sort;
   }
 
+  // Table loading mode (manual / auto) lives in its own stepParams group.
+  // Default is "auto"; only export when overridden so YAML stays clean.
+  const dlms = sp.dataLoadingModeSettings as Record<string, unknown> | undefined;
+  const dlMode = (dlms?.dataLoadingMode as Record<string, unknown> | undefined)?.mode as string | undefined;
+  if (dlMode && dlMode !== 'auto') spec.dataLoadingMode = dlMode;
+
   const popupRefs: PopupRef[] = [];
 
   // ── JS Block ──
@@ -440,6 +172,27 @@ export function exportBlock(
         const fname = prefix ? `${prefix}_${key}.js` : `${key}.js`;
         safeWrite(path.join(jsDir, fname), stripAutoHeader(code));
         spec.file = `./js/${fname}`;
+      }
+    }
+  }
+
+  // ── Standalone markdown block ──
+  // MarkdownBlockModel stores its body in stepParams.markdownBlockSettings.editMarkdown.content.
+  // Externalise to <page-dir>/md/<block-key>.md when the body is multi-line so
+  // long markdown stays diff-friendly and editable in a real markdown editor.
+  if (btype === 'markdown') {
+    const mdContent = ((sp.markdownBlockSettings as Record<string, unknown>)
+      ?.editMarkdown as Record<string, unknown>)?.content as string || '';
+    if (mdContent) {
+      const inlineThreshold = 80;
+      const isLong = mdContent.includes('\n') || mdContent.length > inlineThreshold;
+      if (isLong && jsDir) {
+        const mdDir = path.join(path.dirname(jsDir), 'md');
+        const mdFname = prefix ? `${prefix}_${key}.md` : `${key}.md`;
+        safeWrite(path.join(mdDir, mdFname), mdContent);
+        spec.content_file = `./md/${mdFname}`;
+      } else {
+        spec.content = mdContent;
       }
     }
   }
@@ -519,7 +272,7 @@ export function exportBlock(
 
   // ── Form/detail fields ──
   if (['createForm', 'editForm', 'details', 'filterForm'].includes(btype)) {
-    const { fields, jsItems, fieldLayout, fieldPopups, templateRef } = exportFormContents(item, jsDir, prefix, key);
+    const { fields, jsItems, fieldLayout, fieldPopups, templateRef } = exportFormContents(item, jsDir, prefix, key, projectDir);
     if (fields.length) spec.fields = fields;
     if (jsItems.length) spec.js_items = jsItems;
     if (fieldLayout.length) spec.field_layout = fieldLayout;
@@ -534,16 +287,39 @@ export function exportBlock(
       // Treat the ListItemModel's grid like a form grid
       const fakeItem = { ...listItem, subModels: { ...listItem.subModels } } as FlowModelNode;
       // ListItemModel has grid in subModels.grid (same as form blocks)
-      const { fields, jsItems, fieldLayout, fieldPopups } = exportFormContents(fakeItem, jsDir, prefix, key);
+      const { fields, jsItems, fieldLayout, fieldPopups } = exportFormContents(fakeItem, jsDir, prefix, key, projectDir);
       if (fields.length) spec.fields = fields;
       if (jsItems.length) spec.js_items = jsItems;
       if (fieldLayout.length) spec.field_layout = fieldLayout;
       popupRefs.push(...fieldPopups);
+
+      // Per-row record actions live on ListItemModel.subModels.actions.
+      // Each action with subModels.page hosts a ChildPage popup (e.g. the
+      // detail drawer that opens when you click a row's "edit" / "view"
+      // button). Without traversing here the row popup never gets exported,
+      // so duplicate-project + push silently produces an empty drawer
+      // missing AI buttons / nested JS items / detail block content.
+      const itemActions = (listItem as FlowModelNode).subModels?.actions;
+      const itemActArr = (Array.isArray(itemActions) ? itemActions : []) as FlowModelNode[];
+      for (const act of itemActArr) {
+        const actPage = act.subModels?.page;
+        if (!actPage || (Array.isArray(actPage) ? !actPage.length : !(actPage as FlowModelNode).uid)) continue;
+        const actType = (ACTION_TYPE_MAP[act.use || ''] || 'popup');
+        // Target convention mirrors table recordActions:
+        //   $SELF.<block-key>.recordActions.<action-type>
+        // Deploy / popup-deployer already recognises this pattern.
+        popupRefs.push({
+          field: actType,
+          field_uid: act.uid,
+          block_key: key,
+          target: `$SELF.${key}.recordActions.${actType}`,
+        });
+      }
     }
   }
 
   // ── Actions ──
-  const { actions, recordActions, actionPopups } = exportActions(item, key, jsDir, prefix);
+  const { actions, recordActions, actionPopups } = await exportActions(item, key, jsDir, prefix, nb);
   if (actions.length) spec.actions = actions;
   // Merge block-level recordActions with actCol recordActions (from table export)
   // Deduplicate: if actCol already has a type with config, skip the simplified block-level version
@@ -864,6 +640,7 @@ function exportFormContents(
   jsDir: string | null,
   prefix: string,
   blockKey: string,
+  projectDir: string | null = null,
 ): { fields: unknown[]; jsItems: unknown[]; fieldLayout: unknown[]; fieldPopups: PopupRef[]; templateRef?: Record<string, unknown> } {
   const grid = item.subModels?.grid;
   if (!grid || Array.isArray(grid)) return { fields: [], jsItems: [], fieldLayout: [], fieldPopups: [] };
@@ -932,8 +709,19 @@ function exportFormContents(
 
       if (mdContent) {
         // MarkdownItem with template content (e.g. {{ ctx.popup.record.name }})
+        // Externalise long markdown to <page-dir>/md/<key>.md so YAML stays
+        // readable (detail popups often have multi-line markdown banners).
         const mdKey = `_md_${fields.length}`;
-        fields.push({ type: 'markdown', key: mdKey, content: mdContent });
+        const inlineThreshold = 80;
+        const isLong = mdContent.includes('\n') || mdContent.length > inlineThreshold;
+        if (isLong && jsDir) {
+          const mdDir = path.join(path.dirname(jsDir), 'md');
+          const mdFname = `${prefix}_${blockKey}_${mdKey}.md`;
+          safeWrite(path.join(mdDir, mdFname), mdContent);
+          fields.push({ type: 'markdown', key: mdKey, content_file: `./md/${mdFname}` });
+        } else {
+          fields.push({ type: 'markdown', key: mdKey, content: mdContent });
+        }
         uidToName.set(gi.uid, `[MD:${mdKey}]`);
       } else {
         uidToName.set(gi.uid, label ? `--- ${label} ---` : '---');
@@ -943,11 +731,73 @@ function exportFormContents(
       const fpInit = (sp.fieldSettings as Record<string, unknown>)?.init as Record<string, unknown>;
       const fieldPath = (fpInit?.fieldPath as string) || '';
       if (fieldPath) {
-        fields.push(fieldPath);
+        // Detect sub-table rendering: o2m/m2m field whose inner field model
+        // has SubTableColumnModel children (instead of being a plain
+        // RecordSelectFieldModel). Without capturing this, round-trip
+        // silently reverts the user's column choice to NB defaults.
+        const fieldSubForSt = gi.subModels?.field as FlowModelNode | undefined;
+        const stColumns = fieldSubForSt && !Array.isArray(fieldSubForSt)
+          ? ((fieldSubForSt as FlowModelNode).subModels?.columns as FlowModelNode[] | undefined)
+          : undefined;
+        const isSubTable = Array.isArray(stColumns) && stColumns.length > 0
+          && stColumns.some(c => c.use === 'SubTableColumnModel');
+        if (isSubTable) {
+          const cols: unknown[] = [];
+          for (const col of stColumns!) {
+            if (col.use !== 'SubTableColumnModel') continue;
+            const colField = col.subModels?.field as FlowModelNode | undefined;
+            const colFp = colField && !Array.isArray(colField)
+              ? (((colField as FlowModelNode).stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)?.init as Record<string, unknown>
+              : undefined;
+            const rawPath = (colFp?.fieldPath as string) || '';
+            if (!rawPath) continue;
+            // NB stores child fieldPath as `<parent>.<child>` — strip prefix
+            const stripped = rawPath.startsWith(`${fieldPath}.`)
+              ? rawPath.slice(fieldPath.length + 1)
+              : rawPath;
+            cols.push(stripped);
+          }
+          if (cols.length) {
+            fields.push({ field: fieldPath, type: 'subTable', columns: cols });
+            uidToName.set(gi.uid, fieldPath);
+            continue;
+          }
+        }
+
+        // Capture popupTemplateUid if the field's DisplayFieldModel has one.
+        // Details / form / list blocks bind click-to-open popups on field
+        // subModels (e.g. Leads Email template on a DisplayTextFieldModel
+        // inside DetailsItemModel). Without this, the explicit template
+        // binding is lost and the field falls back to `clickToOpen: true`.
+        const fieldSub = gi.subModels?.field;
+        const fieldSubSp = fieldSub && !Array.isArray(fieldSub)
+          ? ((fieldSub as FlowModelNode).stepParams as Record<string, unknown> | undefined)
+          : undefined;
+        const openView = (fieldSubSp?.popupSettings as Record<string, unknown> | undefined)
+          ?.openView as Record<string, unknown> | undefined;
+        const clickSettings = (fieldSubSp?.displayFieldSettings as Record<string, unknown> | undefined)
+          ?.clickToOpen as Record<string, unknown> | undefined;
+        const isClickable = clickSettings?.clickToOpen === true;
+        if (isClickable && openView?.popupTemplateUid) {
+          const fieldSpec: Record<string, unknown> = {
+            field: fieldPath,
+            clickToOpen: true,
+            popupSettings: {
+              collectionName: openView.collectionName || '',
+              mode: openView.mode || 'drawer',
+              size: openView.size || 'medium',
+              filterByTk: openView.filterByTk || '{{ ctx.record.id }}',
+              popupTemplateUid: openView.popupTemplateUid,
+            },
+          };
+          simplifyPopup(fieldSpec, projectDir);
+          fields.push(fieldSpec);
+        } else {
+          fields.push(fieldPath);
+        }
         uidToName.set(gi.uid, fieldPath);
 
         // Check for popup on field (in subModels.field.subModels.page)
-        const fieldSub = gi.subModels?.field;
         if (fieldSub && !Array.isArray(fieldSub)) {
           const fpage = (fieldSub as FlowModelNode).subModels?.page;
           if (fpage && !Array.isArray(fpage) && (fpage as FlowModelNode).uid) {
@@ -1061,24 +911,40 @@ function extractGridLayout(
 // ── Actions ──
 // ACTION_TYPE_MAP is imported from utils/block-types (MODEL_TO_ACTION_TYPE)
 
-function exportActions(
+async function exportActions(
   item: FlowModelNode,
   blockKey: string,
   jsDir: string | null = null,
   prefix = '',
-): { actions: unknown[]; recordActions: unknown[]; actionPopups: PopupRef[] } {
+  nb: NocoBaseClient | null = null,
+): Promise<{ actions: unknown[]; recordActions: unknown[]; actionPopups: PopupRef[] }> {
   const actions: unknown[] = [];
   const recordActions: unknown[] = [];
   const actionPopups: PopupRef[] = [];
 
+  const processedUids = new Set<string>();  // track to avoid duplicates from block + actionsColumn
+
   for (const subKey of ['actions', 'recordActions'] as const) {
     const raw = item.subModels?.[subKey];
-    const arr = (Array.isArray(raw) ? raw : []) as FlowModelNode[];
+    let arr = (Array.isArray(raw) ? raw : []) as FlowModelNode[];
+    // flowSurfaces:get tree caches compose-time sortIndex which may be stale.
+    // Re-fetch real sortIndex from DB for each action, then sort.
+    if (arr.length > 1 && nb) {
+      try {
+        for (const act of arr) {
+          const fd = await nb.http.get(nb.baseUrl + '/api/flowModels:get', { params: { filterByTk: act.uid } });
+          if (fd.data?.data?.sortIndex !== undefined) (act as any).sortIndex = fd.data.data.sortIndex;
+        }
+        arr.sort((a, b) => ((a as any).sortIndex ?? 999) - ((b as any).sortIndex ?? 999));
+      } catch { /* fallback to tree order */ }
+    }
     const target = subKey === 'actions' ? actions : recordActions;
 
     for (const act of arr) {
       const atype = ACTION_TYPE_MAP[act.use || ''];
       if (!atype) continue;
+      if (act.uid && processedUids.has(act.uid)) continue;
+      if (act.uid) processedUids.add(act.uid);
 
       // Complex actions — export as shorthand + files
       if (atype === 'ai') {
@@ -1187,10 +1053,21 @@ function exportActions(
         if (!col.use?.includes('TableActionsColumn')) continue;
         const colActs = col.subModels?.actions;
         const colActArr = (Array.isArray(colActs) ? colActs : []) as FlowModelNode[];
+        // Re-fetch real sortIndex for actionsColumn items too
+        if (colActArr.length > 1 && nb) {
+          try {
+            for (const act of colActArr) {
+              const fd = await nb.http.get(nb.baseUrl + '/api/flowModels:get', { params: { filterByTk: act.uid } });
+              if (fd.data?.data?.sortIndex !== undefined) (act as any).sortIndex = fd.data.data.sortIndex;
+            }
+            colActArr.sort((a, b) => ((a as any).sortIndex ?? 999) - ((b as any).sortIndex ?? 999));
+          } catch { /* fallback */ }
+        }
         for (const act of colActArr) {
           const atype = ACTION_TYPE_MAP[act.use || ''];
           if (!atype) continue;
-          if (!recordActions.includes(atype)) recordActions.push(atype);
+          if (act.uid && processedUids.has(act.uid)) continue;
+          if (act.uid) processedUids.add(act.uid);
           if (act.subModels?.page) {
             actionPopups.push({ field: atype, field_uid: act.uid, block_key: blockKey });
           }

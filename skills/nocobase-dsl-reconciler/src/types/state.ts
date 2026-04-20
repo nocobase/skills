@@ -27,6 +27,7 @@ export interface BlockState {
   record_actions?: Record<string, ActionState>;
   js_items?: Record<string, JsState>;
   js_columns?: Record<string, JsState>;
+  spec_hash?: string;  // hash of the block's declared DSL spec; when hash matches on redeploy, skip processing
 }
 
 export interface TabState {
@@ -57,7 +58,8 @@ export interface TemplateState {
 }
 
 export interface ModuleState {
-  group_id?: number;
-  pages: Record<string, PageState>;
+  group_id?: number;                           // current group being deployed (mutable cursor)
+  group_ids?: Record<string, number>;          // keyed by route.key (= route.key || slugify(title))
+  pages: Record<string, PageState>;            // keyed by route.key, NOT title
   template_uids?: Record<string, TemplateState>;  // key = "type:name" e.g. "block:Form: Tasks"
 }

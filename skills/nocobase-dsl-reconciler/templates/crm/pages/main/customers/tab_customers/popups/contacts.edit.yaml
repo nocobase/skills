@@ -1,0 +1,69 @@
+target: $SELF.contacts.recordActions.edit
+mode: drawer
+tabs:
+  - title: '{{t("Edit")}}'
+    blocks:
+      - key: details
+        type: details
+        coll: nb_crm_contacts
+        resource_binding:
+          filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+          associationName: nb_crm_customers.contacts
+          sourceId: '{{ctx.view.inputArgs.sourceId}}'
+        fields:
+          - type: markdown
+            key: _md_0
+            content_file: ./md/customers_customers_name_edit_tab0_details__md_0.md
+          - email
+          - phone
+          - salutation
+          - mobile
+          - title
+          - department
+          - wechat
+          - linkedin
+          - lead_source
+          - birthday
+          - address
+          - role
+          - level
+          - reports_to
+          - is_primary
+          - languages
+          - customer
+          - description
+        field_layout:
+          - - '[MD:_md_0]'
+          - - title
+            - salutation
+          - - customer
+            - department
+          - '--- Contact Details ---'
+          - - email
+          - - phone
+            - mobile
+          - - wechat
+            - linkedin
+          - - address
+          - '--- Role & Relationship ---'
+          - - role
+            - level
+          - - reports_to
+            - is_primary
+          - - birthday
+            - languages
+          - - lead_source
+          - '--- Other ---'
+          - - description
+        actions:
+          - edit
+  - title: Mails
+    blocks: []
+  - title: Activities
+    blocks:
+      - key: recordHistory
+        type: recordHistory
+        coll: nb_crm_contacts
+        actions:
+          - filter
+          - refresh

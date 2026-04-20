@@ -199,17 +199,26 @@ export interface DeployWorkflowsOptions {
  * Reads workflow.yaml files, creates/updates workflows and nodes,
  * writes back workflow-state.yaml for state tracking.
  */
+/**
+ * Re-export the canonical WorkflowKeyMap type so workflow callers don't have
+ * to reach into deploy/. Definition lives with the rewrite helper that
+ * actually consumes it.
+ */
+export type { WorkflowKeyMap } from '../deploy/rewrite-workflow-keys';
+import type { WorkflowKeyMap } from '../deploy/rewrite-workflow-keys';
+
 export async function deployWorkflows(
   nb: NocoBaseClient,
   projectDir: string,
   opts: DeployWorkflowsOptions = {},
-): Promise<void> {
+): Promise<WorkflowKeyMap> {
   const log = opts.log ?? console.log.bind(console);
   const wfBaseDir = path.join(projectDir, 'workflows');
+  const keyMap: WorkflowKeyMap = new Map();
 
   if (!fs.existsSync(wfBaseDir)) {
     log('  No workflows/ directory found, skipping workflow deploy');
-    return;
+    return keyMap;
   }
 
   // Find all workflow.yaml files
@@ -221,7 +230,7 @@ export async function deployWorkflows(
 
   if (!wfDirs.length) {
     log('  No workflow.yaml files found');
-    return;
+    return keyMap;
   }
 
   // Load existing state if any
@@ -267,15 +276,31 @@ export async function deployWorkflows(
     const wfDir = path.join(wfBaseDir, slug);
     const spec = loadYaml<WorkflowSpec>(path.join(wfDir, 'workflow.yaml'));
 
-    const state = await deploySingleWorkflow(
-      nb, spec, wfDir, slug, titleToExisting, stateFile.workflows[slug], log,
-    );
-    stateFile.workflows[slug] = state;
+    // Wrap per-workflow so one bad workflow (e.g. dangling approvalUid,
+    // unknown trigger type) doesn't tank the remaining 9 — we still want
+    // the keymap built for whatever DOES deploy, and we want page deploy
+    // to proceed.
+    try {
+      const state = await deploySingleWorkflow(
+        nb, spec, wfDir, slug, titleToExisting, stateFile.workflows[slug], log,
+      );
+      stateFile.workflows[slug] = state;
+
+      // Build cross-reference map: spec.key (DSL identity) → state.key (live NB
+      // key). Identity for source CRM redeploys; rewrite-only for Copy pushes
+      // where source key carries through but Copy gets a fresh key.
+      if (spec.key && state.key) {
+        keyMap.set(spec.key, state.key);
+      }
+    } catch (e) {
+      log(`  ✗ ${slug}: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
+    }
   }
 
   // Write updated state
   saveYaml(stateFilePath, stateFile);
   log(`  + workflow-state.yaml updated`);
+  return keyMap;
 }
 
 /**
@@ -291,6 +316,15 @@ async function deploySingleWorkflow(
   existingState: WorkflowState | undefined,
   log: (msg: string) => void,
 ): Promise<WorkflowState> {
+  // Deploy approval-style UI subtrees from ui/*.yaml BEFORE saving the
+  // workflow. After duplicate-project, workflow.config.approvalUid /
+  // taskCardUid point at NEW UIDs that don't exist on NB yet — we have
+  // to create those FlowModel trees first or the workflow's references
+  // dangle. No-op when no ui/ dir exists (= non-approval workflow or
+  // workflows authored before this feature).
+  const uiDeployed = await deployApprovalUIs(nb, wfDir, log);
+  if (uiDeployed) log(`    deployed ${uiDeployed} approval UI node(s) from ui/`);
+
   const existing = titleToExisting.get(spec.title);
 
   let workflowId: number;
@@ -483,4 +517,82 @@ async function deploySingleWorkflow(
     key: workflowKey,
     nodes: nodeStates,
   };
+}
+
+/**
+ * Deploy approval-style UI subtrees to NocoBase before saving the
+ * workflow. Walks workflows/<slug>/ui/*.yaml; for each tree, recursively
+ * upserts every FlowModel node via flowModels:save preserving the DSL's
+ * UIDs (so `workflow.config.approvalUid: <uid>` resolves to the model
+ * we just created).
+ *
+ * Idempotent: re-running upserts the same nodes by uid.
+ * Returns the total node count saved across all ui files.
+ */
+async function deployApprovalUIs(
+  nb: NocoBaseClient,
+  wfDir: string,
+  log: (msg: string) => void,
+): Promise<number> {
+  const uiDir = path.join(wfDir, 'ui');
+  if (!fs.existsSync(uiDir)) return 0;
+  const files = fs.readdirSync(uiDir).filter(f => f.endsWith('.yaml'));
+  if (!files.length) return 0;
+
+  let total = 0;
+  for (const file of files) {
+    const tree = loadYaml<Record<string, unknown>>(path.join(uiDir, file));
+    if (!tree?.uid) continue;
+    try {
+      total += await saveFlowModelTree(nb, tree, undefined, log);
+    } catch (e) {
+      log(`    ✗ ui/${file}: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+    }
+  }
+  return total;
+}
+
+/**
+ * Recursively flowModels:save a tree. parentUid threads down so each child
+ * gets its parent linkage set. Walks subModels (object or array form).
+ */
+async function saveFlowModelTree(
+  nb: NocoBaseClient,
+  node: Record<string, unknown>,
+  parentUid: string | undefined,
+  log: (msg: string) => void,
+): Promise<number> {
+  const uid = node.uid as string;
+  if (!uid) return 0;
+
+  // findOne tree returns subKey/subType/stepParams/etc. at the TOP level of
+  // each node (not under .options) — NB needs them at the same place when
+  // we save, otherwise nested children hit a 500 from null subKey.
+  const saveData: Record<string, unknown> = {
+    uid,
+    use: (node.use || '') as string,
+    sortIndex: (node.sortIndex ?? 0) as number,
+    stepParams: (node.stepParams || {}) as Record<string, unknown>,
+    flowRegistry: (node.flowRegistry || {}) as Record<string, unknown>,
+  };
+  if (node.subKey) saveData.subKey = node.subKey;
+  if (node.subType) saveData.subType = node.subType;
+  if (parentUid) saveData.parentId = parentUid;
+
+  await nb.models.save(saveData);
+
+  let count = 1;
+  const subs = (node.subModels || {}) as Record<string, unknown>;
+  for (const childList of Object.values(subs)) {
+    if (Array.isArray(childList)) {
+      for (const child of childList) {
+        if (child && typeof child === 'object') {
+          count += await saveFlowModelTree(nb, child as Record<string, unknown>, uid, log);
+        }
+      }
+    } else if (childList && typeof childList === 'object') {
+      count += await saveFlowModelTree(nb, childList as Record<string, unknown>, uid, log);
+    }
+  }
+  return count;
 }

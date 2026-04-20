@@ -7,6 +7,8 @@ export interface RouteInfo {
   parentId?: number | null;
   schemaUid?: string;
   icon?: string;
+  sort?: number;
+  hidden?: boolean;
   children?: RouteInfo[];
 }
 

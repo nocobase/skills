@@ -1,10 +1,10 @@
-- uid: 2iez14vyj03
-  name: 'Form (Add new): Members'
-  type: block
+- uid: 1lhnxnw13uq
+  name: 'Popup (Edit): Members'
+  type: popup
   collection: nb_pm_members
-  targetUid: rzfvozyjo4y
-  file: block/form_add_new_members.yaml
-  usageCount: 4
+  targetUid: kjfq36ws3gb
+  file: popup/popup_edit_members.yaml
+  usageCount: 1
 - uid: 2ufybtokgud
   name: Opportunity View
   type: popup
@@ -18,35 +18,35 @@
   collection: nb_crm_leads
   targetUid: bd7f0823f37
   file: block/form_add_new_nb_crm_leads.yaml
-  usageCount: 63
-- uid: 3jg6ftb9p0d
-  name: 'Detail: Milestones'
-  type: block
-  collection: nb_pm_milestones
-  targetUid: yi2yctc0goz
-  file: block/detail_milestones.yaml
-  usageCount: 4
-- uid: 4gzqnv1k1ae
-  name: 'Form (Add new): PO Items'
-  type: block
-  collection: nb_erp_po_items
-  targetUid: 34w8p7ciytm
-  file: block/form_add_new_po_items.yaml
+  usageCount: 64
+- uid: 3tom9uwel06
+  name: 'Popup (Detail): Projects'
+  type: popup
+  collection: nb_pm_projects
+  targetUid: 0mow4hfqqrh
+  file: popup/popup_detail_projects.yaml
   usageCount: 3
+- uid: 4woutkxn9vx
+  name: 'Popup (Detail): Tasks'
+  type: popup
+  collection: nb_pm_tasks
+  targetUid: y4yhqo2ea6j
+  file: popup/popup_detail_tasks.yaml
+  usageCount: 4
 - uid: 53hvsa4ggul
   name: Leads Email
   type: popup
   collection: nb_crm_leads
   targetUid: 6im0lrahx9q
   file: popup/leads_email.yaml
-  usageCount: 2
-- uid: 5qk00koytju
-  name: 'Popup (Detail): Suppliers'
+  usageCount: 3
+- uid: 581b3y9t87a
+  name: 'Popup (Edit): Entries'
   type: popup
-  collection: nb_erp_suppliers
-  targetUid: shrqlj9u3hj
-  file: popup/popup_detail_suppliers.yaml
-  usageCount: 2
+  collection: nb_pm_time_entries
+  targetUid: xx3ua2a52ir
+  file: popup/popup_edit_entries.yaml
+  usageCount: 1
 - uid: 5tpe5cpsnuf
   name: 'Form (Add new): Opportunities'
   type: block
@@ -61,76 +61,13 @@
   targetUid: yd6jc1cngly
   file: block/form_add_new_nb_test_tasks.yaml
   usageCount: 1
-- uid: 6kj9586my99
-  name: 'Form (Edit): Suppliers'
+- uid: 9sa8z6s4kub
+  name: 'Detail: Members'
   type: block
-  collection: nb_erp_suppliers
-  targetUid: pvmyuwjrugw
-  file: block/form_edit_suppliers.yaml
-  usageCount: 3
-- uid: 78p34st6lez
-  name: 'Form (Add new): Tasks'
-  type: block
-  collection: nb_pm_tasks
-  targetUid: 2sbe0r25ped
-  file: block/form_add_new_tasks.yaml
-  usageCount: 4
-- uid: 7l73s7s2lru
-  name: 'Form (Add new): Inventory'
-  type: block
-  collection: nb_erp_inventory
-  targetUid: 21nawf3teh6
-  file: block/form_add_new_inventory.yaml
-  usageCount: 3
-- uid: 7x2rqiz7g2w
-  name: 'Form (Edit): PO Items'
-  type: block
-  collection: nb_erp_po_items
-  targetUid: 8dvrvtwanne
-  file: block/form_edit_po_items.yaml
-  usageCount: 3
-- uid: 7zpgecv49m6
-  name: 'Popup (Detail): Nb Pm Projects'
-  type: popup
-  collection: nb_pm_projects
-  targetUid: civcg3lih82
-  file: popup/popup_detail_nb_pm_projects.yaml
-  usageCount: 8
-- uid: 8ttehiu82b5
-  name: 'Form (Edit): Products'
-  type: block
-  collection: nb_erp_products
-  targetUid: 6c77o4a35y8
-  file: block/form_edit_products.yaml
-  usageCount: 4
-- uid: 8zydeqvugkx
-  name: 'Popup (Detail): Nb Erp Products'
-  type: popup
-  collection: nb_erp_products
-  targetUid: el6xq14ahs5
-  file: popup/popup_detail_nb_erp_products.yaml
-  usageCount: 13
-- uid: 96n9kwjtgng
-  name: 'Form (Add new): Purchase Orders'
-  type: block
-  collection: nb_erp_purchase_orders
-  targetUid: cc1967syf1d
-  file: block/form_add_new_purchase_orders.yaml
-  usageCount: 3
-- uid: 9j08rnsawmo
-  name: 'Form (Edit): Purchase Orders'
-  type: block
-  collection: nb_erp_purchase_orders
-  targetUid: h9nm6ajf60r
-  file: block/form_edit_purchase_orders.yaml
-  usageCount: 3
-- uid: 9q4z0njuyvl
-  name: 'Form (Edit): Time Entries'
-  type: block
-  collection: nb_pm_time_entries
-  targetUid: af6t6spf93r
-  file: block/form_edit_time_entries.yaml
-  usageCount: 2
+  collection: nb_pm_members
+  targetUid: wophnkgz6xx
+  file: block/detail_members.yaml
+  usageCount: 1
 - uid: afkt6evyern
   name: 'Form (Add new): nb_crm_opportunity_stages'
   type: block
@@ -138,6 +75,13 @@
   targetUid: 064a59ddf9a
   file: block/form_add_new_nb_crm_opportunity_stages.yaml
   usageCount: 6
+- uid: b8yiiha802c
+  name: 'Detail: Tasks'
+  type: block
+  collection: nb_pm_tasks
+  targetUid: oy827m3x2hy
+  file: block/detail_tasks.yaml
+  usageCount: 1
 - uid: bj48v8jdky3
   name: JS block
   type: block
@@ -152,40 +96,19 @@
   targetUid: tje6b7z4j3y
   file: block/form_add_new_nb_test_projects.yaml
   usageCount: 1
-- uid: bl4h6xggjkj
-  name: 'Popup (Edit): Nb Erp Suppliers'
-  type: popup
-  collection: nb_erp_suppliers
-  targetUid: z5ljttb37ah
-  file: popup/popup_edit_nb_erp_suppliers.yaml
-  usageCount: 0
-- uid: blsojlqyr1f
-  name: 'Popup (Detail): Nb Pm Tasks'
-  type: popup
-  collection: nb_pm_tasks
-  targetUid: fzcvsa19ipy
-  file: popup/popup_detail_nb_pm_tasks.yaml
-  usageCount: 5
-- uid: bn96d4fi01z
-  name: 'Popup (Detail): Nb Erp Warehouses'
-  type: popup
-  collection: nb_erp_warehouses
-  targetUid: 5tfbukzom78
-  file: popup/popup_detail_nb_erp_warehouses.yaml
-  usageCount: 3
-- uid: coxmuthoi3w
-  name: 'Form (Edit): Inventory'
+- uid: bpoczlmfqmn
+  name: 'Form (Add new): Milestones'
   type: block
-  collection: nb_erp_inventory
-  targetUid: rlk3u5bctx0
-  file: block/form_edit_inventory.yaml
-  usageCount: 3
-- uid: duhqaxhpikb
-  name: 'Popup (Detail): Nb Pm Milestones'
-  type: popup
   collection: nb_pm_milestones
-  targetUid: kznfxdql4c3
-  file: popup/popup_detail_nb_pm_milestones.yaml
+  targetUid: wp7efts8wbz
+  file: block/form_add_new_milestones.yaml
+  usageCount: 1
+- uid: dyuoxodhcj6
+  name: 'Form (Edit): Milestones'
+  type: block
+  collection: nb_pm_milestones
+  targetUid: vm5proh5u24
+  file: block/form_edit_milestones.yaml
   usageCount: 2
 - uid: e2dlzncn3pu
   name: 'Form (Edit): Customers > Contacts (Contacts)'
@@ -194,27 +117,13 @@
   targetUid: 26a1e02dba7
   file: block/form_edit_customers_contacts_contacts.yaml
   usageCount: 16
-- uid: e9tlm7xcelt
-  name: 'Form (Add new): Bugs'
-  type: block
-  collection: nb_pm_bugs
-  targetUid: i9z9j0pujus
-  file: block/form_add_new_bugs.yaml
-  usageCount: 1
-- uid: eak7t164qfb
-  name: 'Detail: Warehouses'
-  type: block
-  collection: nb_erp_warehouses
-  targetUid: 7953d65gy2r
-  file: block/detail_warehouses.yaml
-  usageCount: 11
-- uid: fcflwbq5lwe
-  name: 'Popup (Detail): Nb Erp Purchase Orders'
+- uid: f2b0l9m5axf
+  name: 'Popup (Edit): Milestones'
   type: popup
-  collection: nb_erp_purchase_orders
-  targetUid: wke6h0sz3un
-  file: popup/popup_detail_nb_erp_purchase_orders.yaml
-  usageCount: 8
+  collection: nb_pm_milestones
+  targetUid: j0hxi99dkpv
+  file: popup/popup_edit_milestones.yaml
+  usageCount: 1
 - uid: fepx596jfd5
   name: Add new Activity
   type: popup
@@ -229,13 +138,6 @@
   targetUid: c0547bc25a4
   file: block/form_add_new_currencies.yaml
   usageCount: 5
-- uid: fhtku18kize
-  name: 'Detail: Inventory'
-  type: block
-  collection: nb_erp_inventory
-  targetUid: mweawgyzyrq
-  file: block/detail_inventory.yaml
-  usageCount: 4
 - uid: fpq7iu2da59
   name: 'Form (Add new): Activities'
   type: block
@@ -243,34 +145,6 @@
   targetUid: b9e42f19aab
   file: block/form_add_new_activities.yaml
   usageCount: 114
-- uid: fqhy6zqyudc
-  name: 'Detail: PO Items'
-  type: block
-  collection: nb_erp_po_items
-  targetUid: ninz8aeqwcr
-  file: block/detail_po_items.yaml
-  usageCount: 4
-- uid: fukw9kdlhlj
-  name: 'Form (Add new): Suppliers'
-  type: block
-  collection: nb_erp_suppliers
-  targetUid: 8umdcszaf6m
-  file: block/form_add_new_suppliers.yaml
-  usageCount: 3
-- uid: g72rfnd8100
-  name: 'Popup (Edit): Nb Erp Categories'
-  type: popup
-  collection: nb_erp_categories
-  targetUid: xisdth71s0v
-  file: popup/popup_edit_nb_erp_categories.yaml
-  usageCount: 0
-- uid: ge6ip6akzv3
-  name: 'Form (Edit): Warehouses'
-  type: block
-  collection: nb_erp_warehouses
-  targetUid: 5wcgr4kf8wk
-  file: block/form_edit_warehouses.yaml
-  usageCount: 3
 - uid: gn64s38sjki
   name: Activity View
   type: popup
@@ -285,27 +159,48 @@
   targetUid: c0141648ed2
   file: block/form_add_new_new_orders_from_quotations.yaml
   usageCount: 13
-- uid: gwhcrpkuj98
-  name: 'Form (Edit): Categories'
+- uid: gue1lmnb6dc
+  name: 'Popup (Add new): Members'
+  type: popup
+  collection: nb_pm_members
+  targetUid: ji0r295dxdq
+  file: popup/popup_add_new_members.yaml
+  usageCount: 1
+- uid: hr6f4cid3tx
+  name: 'Popup (Detail): Entries'
+  type: popup
+  collection: nb_pm_time_entries
+  targetUid: qmiqdvr3mcj
+  file: popup/popup_detail_entries.yaml
+  usageCount: 1
+- uid: j6wcp7ey1mi
+  name: 'Popup (Add new): Projects'
+  type: popup
+  collection: nb_pm_projects
+  targetUid: gt5vuqhn0q3
+  file: popup/popup_add_new_projects.yaml
+  usageCount: 1
+- uid: kr4tug9mak3
+  name: 'Popup (Edit): Tasks'
+  type: popup
+  collection: nb_pm_tasks
+  targetUid: 1tf90q2w7r4
+  file: popup/popup_edit_tasks.yaml
+  usageCount: 1
+- uid: ksdej6zqq7y
+  name: 'Detail: Time Entries'
   type: block
-  collection: nb_erp_categories
-  targetUid: os2c11tlydx
-  file: block/form_edit_categories.yaml
-  usageCount: 3
-- uid: ima8cfnxud6
-  name: 'Popup (Add new): Nb Erp Warehouses'
-  type: popup
-  collection: nb_erp_warehouses
-  targetUid: 9t3ni820eml
-  file: popup/popup_add_new_nb_erp_warehouses.yaml
-  usageCount: 0
-- uid: iu1mtnrwlpu
-  name: 'Popup (Add new): Nb Erp Categories'
-  type: popup
-  collection: nb_erp_categories
-  targetUid: 26rxs136hey
-  file: popup/popup_add_new_nb_erp_categories.yaml
-  usageCount: 0
+  collection: nb_pm_time_entries
+  targetUid: o4zctul9zgm
+  file: block/detail_time_entries.yaml
+  usageCount: 1
+- uid: l1declypil3
+  name: 'Detail: Projects'
+  type: block
+  collection: nb_pm_projects
+  targetUid: abxik2b89fp
+  file: block/detail_projects.yaml
+  usageCount: 1
 - uid: l74nolk778q
   name: '[JS Block]Activities Calendar'
   type: block
@@ -334,13 +229,6 @@
   targetUid: 6c640569c31
   file: block/details_quotations.yaml
   usageCount: 4
-- uid: lwp1fnapm4g
-  name: 'Popup (Detail): Nb Erp Categories'
-  type: popup
-  collection: nb_erp_categories
-  targetUid: 4832fwzatkm
-  file: popup/popup_detail_nb_erp_categories.yaml
-  usageCount: 1
 - uid: m39e2ahdwsf
   name: 'Table: Opportunities'
   type: block
@@ -348,13 +236,6 @@
   targetUid: 14beb930c5a
   file: block/table_opportunities.yaml
   usageCount: 38
-- uid: m7xay6qxehx
-  name: 'Popup (Detail): Categories'
-  type: popup
-  collection: nb_erp_categories
-  targetUid: y7qc4cxggxf
-  file: popup/popup_detail_categories.yaml
-  usageCount: 5
 - uid: mom6aqifosp
   name: Contact View
   type: popup
@@ -362,55 +243,34 @@
   targetUid: 43ca21fmix6
   file: popup/contact_view.yaml
   usageCount: 1
-- uid: mplcc4nhzp4
-  name: 'Form (Add new): Milestones'
+- uid: nahehx62yn5
+  name: 'Form (Edit): Tasks'
   type: block
-  collection: nb_pm_milestones
-  targetUid: gjd7g09o34y
-  file: block/form_add_new_milestones.yaml
-  usageCount: 4
-- uid: n5l6v6vklze
-  name: 'Detail: Members'
-  type: block
-  collection: nb_pm_members
-  targetUid: odhupaqt5d9
-  file: block/detail_members.yaml
-  usageCount: 4
-- uid: n61exffs02g
-  name: 'Detail: Purchase Orders'
-  type: block
-  collection: nb_erp_purchase_orders
-  targetUid: nxi5q3ft8gi
-  file: block/detail_purchase_orders.yaml
-  usageCount: 6
-- uid: napxc35pfag
-  name: 'Detail: Projects'
-  type: block
-  collection: nb_pm_projects
-  targetUid: 2x240ws6pbd
-  file: block/detail_projects.yaml
+  collection: nb_pm_tasks
+  targetUid: 7pax6bupfpl
+  file: block/form_edit_tasks.yaml
   usageCount: 2
-- uid: nf1p73see2e
+- uid: nasaoxhkp6o
   name: 'Form (Edit): Members'
   type: block
   collection: nb_pm_members
-  targetUid: 4npuel633ad
+  targetUid: tlppnn9wgxs
   file: block/form_edit_members.yaml
   usageCount: 2
-- uid: nhwq3li7p1i
-  name: 'Detail: Categories'
+- uid: npunu46v5aq
+  name: 'Popup (Add new): Entries'
+  type: popup
+  collection: nb_pm_time_entries
+  targetUid: ofgobj26n09
+  file: popup/popup_add_new_entries.yaml
+  usageCount: 1
+- uid: nykn04s2sjy
+  name: 'Form (Edit): Time Entries'
   type: block
-  collection: nb_erp_categories
-  targetUid: gf7ru4l9ll7
-  file: block/detail_categories.yaml
-  usageCount: 11
-- uid: o7mksg323jv
-  name: 'Form (Add new): Categories'
-  type: block
-  collection: nb_erp_categories
-  targetUid: mo7vmazek5r
-  file: block/form_add_new_categories.yaml
-  usageCount: 3
+  collection: nb_pm_time_entries
+  targetUid: idontlv9sil
+  file: block/form_edit_time_entries.yaml
+  usageCount: 2
 - uid: odc3k4if9n5
   name: 'Form (Add new): Opportunities > Quotations (Quotations)'
   type: block
@@ -418,75 +278,47 @@
   targetUid: 005986ec9fd
   file: block/form_add_new_opportunities_quotations_quotations.yaml
   usageCount: 22
-- uid: oi1u3z8hdye
-  name: 'Popup (Add new): Nb Erp Suppliers'
-  type: popup
-  collection: nb_erp_suppliers
-  targetUid: a8ig70ksqsz
-  file: popup/popup_add_new_nb_erp_suppliers.yaml
-  usageCount: 0
-- uid: okcbi2fvcpg
-  name: 'Popup (Edit): Nb Erp Warehouses'
-  type: popup
-  collection: nb_erp_warehouses
-  targetUid: 5wg0l9qi957
-  file: popup/popup_edit_nb_erp_warehouses.yaml
-  usageCount: 0
-- uid: otisd5s4c26
-  name: 'Detail: Time Entries'
+- uid: ofjq5s4okjz
+  name: 'Form (Edit): Projects'
   type: block
-  collection: nb_pm_time_entries
-  targetUid: 0pb3at31qh0
-  file: block/detail_time_entries.yaml
-  usageCount: 4
-- uid: po6i8mu44e2
-  name: 'Detail: Suppliers'
-  type: block
-  collection: nb_erp_suppliers
-  targetUid: 3l52wzx8lac
-  file: block/detail_suppliers.yaml
-  usageCount: 11
-- uid: qch23vcyvxu
-  name: 'Popup (Detail): Nb Erp Inventory'
+  collection: nb_pm_projects
+  targetUid: mbmyuezgjiw
+  file: block/form_edit_projects.yaml
+  usageCount: 2
+- uid: pbtedi2nlpi
+  name: 'Popup (Edit): Projects'
   type: popup
-  collection: nb_erp_inventory
-  targetUid: evwf1l0dkmx
-  file: popup/popup_detail_nb_erp_inventory.yaml
+  collection: nb_pm_projects
+  targetUid: opkoloba75s
+  file: popup/popup_edit_projects.yaml
   usageCount: 1
-- uid: qgngawzwzw1
+- uid: psc47ak50zb
   name: 'Form (Add new): Time Entries'
   type: block
   collection: nb_pm_time_entries
-  targetUid: dij8tugppke
+  targetUid: byzmxdqqq6k
   file: block/form_add_new_time_entries.yaml
-  usageCount: 4
-- uid: qjkgw2dxsjn
-  name: 'Popup (Detail): Warehouses'
-  type: popup
-  collection: nb_erp_warehouses
-  targetUid: vaunvlc8i39
-  file: popup/popup_detail_warehouses.yaml
-  usageCount: 6
-- uid: rbe7cfhaihq
-  name: 'Popup (Detail): Nb Pm Time Entries'
-  type: popup
-  collection: nb_pm_time_entries
-  targetUid: cc18k3vuyq8
-  file: popup/popup_detail_nb_pm_time_entries.yaml
-  usageCount: 2
-- uid: rk5um6komzw
-  name: 'Detail: Tasks'
+  usageCount: 1
+- uid: qjjq5pwpxlq
+  name: 'Detail: Milestones'
+  type: block
+  collection: nb_pm_milestones
+  targetUid: unolyvmalp3
+  file: block/detail_milestones.yaml
+  usageCount: 1
+- uid: rmwjdy07klk
+  name: 'Form (Add new): Tasks'
   type: block
   collection: nb_pm_tasks
-  targetUid: ezykpr7ig82
-  file: block/detail_tasks.yaml
-  usageCount: 19
-- uid: rvfovfog6r0
-  name: 'Popup (Detail): Nb Erp Po Items'
+  targetUid: uwdlif07qe6
+  file: block/form_add_new_tasks.yaml
+  usageCount: 1
+- uid: spncb27xyh1
+  name: 'Popup (Detail): Milestones'
   type: popup
-  collection: nb_erp_po_items
-  targetUid: dtlkduukkbx
-  file: popup/popup_detail_nb_erp_po_items.yaml
+  collection: nb_pm_milestones
+  targetUid: q0hfq3xpgkg
+  file: popup/popup_detail_milestones.yaml
   usageCount: 1
 - uid: sqw522ocqwx
   name: Contacts View in Page
@@ -495,27 +327,34 @@
   targetUid: zxsog8ixwmu
   file: popup/contacts_view_in_page.yaml
   usageCount: 5
-- uid: syf8jo7to5f
-  name: 'Form (Add new): Products'
+- uid: svd7qva1n07
+  name: 'Form (Add new): Members'
   type: block
-  collection: nb_erp_products
-  targetUid: e00evvwrxyg
-  file: block/form_add_new_products.yaml
-  usageCount: 4
-- uid: vcywqnpvvs8
+  collection: nb_pm_members
+  targetUid: etfqfnnluen
+  file: block/form_add_new_members.yaml
+  usageCount: 1
+- uid: ugr26dob75f
   name: 'Form (Add new): Projects'
   type: block
   collection: nb_pm_projects
-  targetUid: 50uyiee14mq
+  targetUid: wazniejagf8
   file: block/form_add_new_projects.yaml
-  usageCount: 4
-- uid: vi528winmf0
-  name: 'Popup (Detail): Nb Pm Members'
+  usageCount: 1
+- uid: uihv9mohfqj
+  name: 'Popup (Add new): Tasks'
   type: popup
-  collection: nb_pm_members
-  targetUid: 3untj6lg7c4
-  file: popup/popup_detail_nb_pm_members.yaml
-  usageCount: 9
+  collection: nb_pm_tasks
+  targetUid: 2fokyzmxe0y
+  file: popup/popup_add_new_tasks.yaml
+  usageCount: 1
+- uid: uwy04y2xqp7
+  name: 'Popup (Add new): Milestones'
+  type: popup
+  collection: nb_pm_milestones
+  targetUid: 5ml2xvg048r
+  file: popup/popup_add_new_milestones.yaml
+  usageCount: 1
 - uid: vj6vwmysk9t
   name: 'Email table: Mail messages'
   type: block
@@ -523,20 +362,6 @@
   targetUid: cb09a1ee275
   file: block/email_table_mail_messages.yaml
   usageCount: 3
-- uid: w0ua8jmlyml
-  name: 'Popup (Detail): Nb Erp Suppliers'
-  type: popup
-  collection: nb_erp_suppliers
-  targetUid: bp6iw1b7cfy
-  file: popup/popup_detail_nb_erp_suppliers.yaml
-  usageCount: 1
-- uid: w551j2zg2va
-  name: 'Detail: Products'
-  type: block
-  collection: nb_erp_products
-  targetUid: xcfxkxe7ymt
-  file: block/detail_products.yaml
-  usageCount: 10
 - uid: wew44bhsga9
   name: Customer View
   type: popup
@@ -551,13 +376,6 @@
   targetUid: 001b8d6c620
   file: block/form_add_new_nb_crm_customers.yaml
   usageCount: 29
-- uid: wrn5jpetfr4
-  name: 'Form (Edit): Milestones'
-  type: block
-  collection: nb_pm_milestones
-  targetUid: 5jy93lb090w
-  file: block/form_edit_milestones.yaml
-  usageCount: 2
 - uid: wutkljuh1tj
   name: 'Form (Add new): nb_crm_products'
   type: block
@@ -565,13 +383,13 @@
   targetUid: e2c05329a23
   file: block/form_add_new_nb_crm_products.yaml
   usageCount: 71
-- uid: yak2gvfn8gc
-  name: 'Form (Edit): Tasks'
-  type: block
-  collection: nb_pm_tasks
-  targetUid: h16z4cpfkbf
-  file: block/form_edit_tasks.yaml
-  usageCount: 2
+- uid: xpb4j0299pe
+  name: 'Popup (Detail): Members'
+  type: popup
+  collection: nb_pm_members
+  targetUid: 0mywxh2ecz6
+  file: popup/popup_detail_members.yaml
+  usageCount: 3
 - uid: yjwjoi4erle
   name: 'Table: Orders'
   type: block
@@ -585,21 +403,7 @@
   collection: nb_crm_leads
   targetUid: 4tqukehsmqm
   file: popup/leads_view.yaml
-  usageCount: 26
-- uid: zcy3145h9jh
-  name: 'Form (Edit): Projects'
-  type: block
-  collection: nb_pm_projects
-  targetUid: bckzrog1y48
-  file: block/form_edit_projects.yaml
-  usageCount: 2
-- uid: zhrjluez5e0
-  name: 'Form (Add new): Warehouses'
-  type: block
-  collection: nb_erp_warehouses
-  targetUid: rh81px8oe6o
-  file: block/form_add_new_warehouses.yaml
-  usageCount: 3
+  usageCount: 25
 - uid: zq14gdeeqvp
   name: Add new opportunity
   type: popup

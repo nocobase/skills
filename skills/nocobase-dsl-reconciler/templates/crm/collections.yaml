@@ -1,0 +1,2763 @@
+nb_crm_opportunity_users:
+  fields:
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    user_id:
+      interface: integer
+      type: bigInt
+    role:
+      interface: select
+      type: string
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+nb_crm_contacts:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    name:
+      interface: input
+      type: string
+    salutation:
+      interface: select
+      type: string
+    email:
+      interface: input
+      type: string
+    phone:
+      interface: input
+      type: string
+    mobile:
+      interface: input
+      type: string
+    title:
+      interface: input
+      type: string
+    department:
+      interface: input
+      type: string
+    customer_id:
+      interface: integer
+      type: bigInt
+    role:
+      interface: select
+      type: string
+    is_primary:
+      interface: checkbox
+      type: boolean
+    reports_to_id:
+      interface: integer
+      type: bigInt
+    wechat:
+      interface: input
+      type: string
+    linkedin:
+      interface: input
+      type: string
+    owner_id:
+      interface: integer
+      type: bigInt
+    lead_source:
+      interface: select
+      type: string
+    birthday:
+      interface: date
+      type: dateOnly
+    languages:
+      interface: input
+      type: string
+    level:
+      interface: select
+      type: string
+    address:
+      interface: textarea
+      type: text
+    description:
+      interface: textarea
+      type: text
+    user_id:
+      interface: integer
+      type: bigInt
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    activities:
+      interface: o2m
+      type: hasMany
+      foreignKey: contact_id
+      target: nb_crm_activities
+    contact_mail:
+      interface: o2m
+      type: hasMany
+      foreignKey: contact_id
+      target: nb_crm_v_mail_contact
+    reports_to:
+      interface: m2o
+      type: belongsTo
+      foreignKey: reports_to_id
+      target: nb_crm_contacts
+    contact_no:
+      interface: sequence
+      type: string
+    owner:
+      interface: m2o
+      type: belongsTo
+      foreignKey: owner_id
+      target: users
+    tags:
+      interface: m2m
+      type: belongsToMany
+      foreignKey: contact_id
+      target: nb_crm_tags
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+nb_crm_product_categories:
+  fields:
+    parentId:
+      interface: snowflakeId
+      type: snowflakeId
+    parent:
+      interface: m2o
+      type: belongsTo
+      foreignKey: parentId
+      target: nb_crm_product_categories
+    children:
+      interface: o2m
+      type: hasMany
+      foreignKey: parentId
+      target: nb_crm_product_categories
+    id:
+      interface: snowflakeId
+      type: snowflakeId
+    createdAt:
+      interface: createdAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    name:
+      interface: input
+      type: string
+    description:
+      interface: textarea
+      type: text
+    sort_order:
+      interface: integer
+      type: integer
+    category_code:
+      interface: sequence
+      type: string
+    products:
+      interface: o2m
+      type: hasMany
+      foreignKey: category_id
+      target: nb_crm_products
+v_nb_crm_lead_lookup:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    lead_no:
+      interface: sequence
+      type: string
+    name:
+      interface: input
+      type: string
+    company:
+      interface: input
+      type: string
+    email:
+      interface: input
+      type: string
+    phone:
+      interface: input
+      type: string
+    mobile_phone:
+      interface: input
+      type: string
+    industry:
+      interface: select
+      type: string
+    source:
+      interface: select
+      type: string
+    rating:
+      interface: select
+      type: string
+    status:
+      interface: select
+      type: string
+    is_converted:
+      interface: checkbox
+      type: boolean
+    owner:
+      interface: obo
+      type: belongsTo
+    createdAt:
+      interface: createdAt
+      type: date
+    owner_id:
+      interface: integer
+      type: bigInt
+    owner_name:
+      interface: input
+      type: string
+recordFieldHistories:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    fieldPath:
+      interface: input
+      type: string
+    options:
+      interface: input
+      type: json
+    before:
+      interface: textarea
+      type: json
+    after:
+      interface: textarea
+      type: json
+    requestId:
+      interface: input
+      type: string
+    uuid:
+      interface: input
+      type: string
+    recordHistory:
+      interface: m2o
+      type: belongsTo
+      foreignKey: uuid
+      target: recordHistories
+    createdAt:
+      interface: createdAt
+      type: date
+nb_cbo_currencies:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    code:
+      interface: input
+      type: string
+    name:
+      interface: input
+      type: string
+    symbol:
+      interface: input
+      type: string
+    decimal_places:
+      interface: integer
+      type: integer
+    is_active:
+      interface: checkbox
+      type: boolean
+    sort_order:
+      interface: integer
+      type: integer
+    createdAt:
+      interface: datetime
+      type: datetimeTz
+    updatedAt:
+      interface: datetime
+      type: datetimeTz
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt
+    quotations:
+      interface: o2m
+      type: hasMany
+      foreignKey: currency_id
+      target: nb_crm_quotations
+    priceTiers:
+      interface: o2m
+      type: hasMany
+      foreignKey: currency_id
+      target: nb_crm_price_tiers
+    current_rate:
+      interface: number
+      type: decimal
+nb_crm_competitors:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    name:
+      interface: input
+      type: string
+    website:
+      interface: textarea
+      type: text
+    strengths:
+      interface: textarea
+      type: text
+    weaknesses:
+      interface: textarea
+      type: text
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    description:
+      interface: textarea
+      type: text
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    opportunity:
+      interface: m2o
+      type: belongsTo
+      foreignKey: opportunity_id
+      target: nb_crm_opportunities
+mailMessageLabels:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    label:
+      interface: input
+      type: string
+    color:
+      interface: colorSelect
+      type: string
+    description:
+      interface: textarea
+      type: text
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: ''
+      type: context
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: ''
+      type: context
+nb_crm_quotations:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    quotation_no:
+      interface: sequence
+      type: string
+    version:
+      interface: integer
+      type: integer
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    contact_id:
+      interface: integer
+      type: bigInt
+    name:
+      interface: input
+      type: string
+    exchange_rate:
+      interface: number
+      type: decimal
+    subtotal:
+      interface: number
+      type: decimal
+    discount_rate:
+      interface: percent
+      type: decimal
+    discount_amount:
+      interface: number
+      type: decimal
+    shipping_handling:
+      interface: number
+      type: decimal
+    tax_rate:
+      interface: percent
+      type: decimal
+    tax_amount:
+      interface: number
+      type: decimal
+    total_amount:
+      interface: number
+      type: decimal
+    total_amount_usd:
+      interface: number
+      type: decimal
+    status:
+      interface: input
+      type: string
+    submitted_at:
+      interface: datetime
+      type: datetimeTz
+    approved_by:
+      interface: integer
+      type: bigInt
+    approved_at:
+      interface: datetime
+      type: datetimeTz
+    sent_at:
+      interface: datetime
+      type: datetimeTz
+    customer_response_at:
+      interface: datetime
+      type: datetimeTz
+    valid_until:
+      interface: date
+      type: dateOnly
+    payment_terms:
+      interface: textarea
+      type: text
+    terms_condition:
+      interface: textarea
+      type: text
+    address:
+      interface: textarea
+      type: text
+    description:
+      interface: textarea
+      type: text
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    owner_id:
+      interface: integer
+      type: bigInt
+    rejected_at:
+      interface: datetime
+      type: datetimeTz
+    expired_at:
+      interface: datetime
+      type: datetimeTz
+    orders:
+      interface: o2m
+      type: hasMany
+      foreignKey: quotation_id
+      target: nb_crm_orders
+    contact:
+      interface: m2o
+      type: belongsTo
+      foreignKey: contact_id
+      target: nb_crm_contacts
+    currency_id:
+      interface: integer
+      type: bigInt
+    currencyInfo:
+      interface: m2o
+      type: belongsTo
+      foreignKey: currency_id
+      target: nb_cbo_currencies
+    opportunity:
+      interface: m2o
+      type: belongsTo
+      foreignKey: opportunity_id
+      target: nb_crm_opportunities
+    items:
+      interface: o2m
+      type: hasMany
+      foreignKey: quotation_id
+      target: nb_crm_quotation_items
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+nb_crm_payments:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    order_id:
+      interface: integer
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    payment_no:
+      interface: sequence
+      type: string
+    amount:
+      interface: number
+      type: decimal
+    currency:
+      interface: select
+      type: string
+    payment_method:
+      interface: select
+      type: string
+    payment_date:
+      interface: dateOnly
+      type: dateOnly
+    bank_account:
+      interface: input
+      type: string
+    bank_name:
+      interface: input
+      type: string
+    notes:
+      interface: textarea
+      type: text
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    order:
+      interface: m2o
+      type: belongsTo
+      foreignKey: order_id
+      target: nb_crm_orders
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+roles:
+  fields:
+    name:
+      interface: input
+      type: uid
+    title:
+      interface: input
+      type: string
+    description:
+      interface: ''
+      type: string
+    strategy:
+      interface: ''
+      type: json
+    default:
+      interface: ''
+      type: boolean
+    hidden:
+      interface: ''
+      type: boolean
+    allowConfigure:
+      interface: ''
+      type: boolean
+    allowNewMenu:
+      interface: ''
+      type: boolean
+    menuUiSchemas:
+      interface: ''
+      type: belongsToMany
+      foreignKey: roleName
+      target: uiSchemas
+    resources:
+      interface: ''
+      type: hasMany
+      foreignKey: roleName
+      target: dataSourcesRolesResources
+    snippets:
+      interface: ''
+      type: set
+    users:
+      interface: ''
+      type: belongsToMany
+      foreignKey: roleName
+      target: users
+    sort:
+      interface: ''
+      type: sort
+    desktopRoutes:
+      interface: ''
+      type: belongsToMany
+      foreignKey: roleName
+      target: desktopRoutes
+    mobileRoutes:
+      interface: ''
+      type: belongsToMany
+      foreignKey: roleName
+      target: mobileRoutes
+    allowNewMobileMenu:
+      interface: ''
+      type: boolean
+    aiEmployees:
+      interface: ''
+      type: belongsToMany
+      foreignKey: roleName
+      target: aiEmployees
+    allowNewAiEmployee:
+      interface: ''
+      type: boolean
+nb_crm_orders:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    quotation_id:
+      interface: integer
+      type: bigInt
+    order_no:
+      interface: sequence
+      type: string
+    customer_id:
+      interface: integer
+      type: bigInt
+    contact_id:
+      interface: integer
+      type: bigInt
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    currency:
+      interface: select
+      type: string
+    exchange_rate:
+      interface: number
+      type: decimal
+    order_amount:
+      interface: number
+      type: decimal
+    paid_amount:
+      interface: number
+      type: decimal
+    unpaid_amount:
+      interface: number
+      type: decimal
+    status:
+      interface: input
+      type: string
+    payment_status:
+      interface: select
+      type: string
+    order_date:
+      interface: date
+      type: dateOnly
+    delivery_date:
+      interface: date
+      type: dateOnly
+    actual_delivery_date:
+      interface: date
+      type: dateOnly
+    shipping_address:
+      interface: textarea
+      type: text
+    logistics_company:
+      interface: input
+      type: string
+    tracking_no:
+      interface: input
+      type: string
+    owner_id:
+      interface: integer
+      type: bigInt
+    terms_condition:
+      interface: textarea
+      type: text
+    description:
+      interface: textarea
+      type: text
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    comments:
+      interface: o2m
+      type: hasMany
+      foreignKey: order_id
+      target: nb_crm_comments
+    items:
+      interface: o2m
+      type: hasMany
+      foreignKey: order_id
+      target: nb_crm_order_items
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+    quotation:
+      interface: m2o
+      type: belongsTo
+      foreignKey: quotation_id
+      target: nb_crm_quotations
+    payments:
+      interface: o2m
+      type: hasMany
+      foreignKey: order_id
+      target: nb_crm_payments
+    opportunity:
+      interface: m2o
+      type: belongsTo
+      foreignKey: opportunity_id
+      target: nb_crm_opportunities
+    owner:
+      interface: m2o
+      type: belongsTo
+      foreignKey: owner_id
+      target: users
+departments:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    title:
+      interface: input
+      type: string
+    isLeaf:
+      interface: ''
+      type: boolean
+    parent:
+      interface: m2o
+      type: belongsTo
+      foreignKey: parentId
+      target: departments
+    children:
+      interface: ''
+      type: hasMany
+      foreignKey: parentId
+      target: departments
+    members:
+      interface: ''
+      type: belongsToMany
+      foreignKey: departmentId
+      target: users
+    roles:
+      interface: m2m
+      type: belongsToMany
+      foreignKey: departmentId
+      target: roles
+    owners:
+      interface: m2m
+      type: belongsToMany
+      foreignKey: departmentId
+      target: users
+    sort:
+      interface: ''
+      type: sort
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: ''
+      type: context
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: ''
+      type: context
+nb_crm_tags:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    label:
+      interface: input
+      type: string
+    color:
+      interface: input
+      type: string
+    tag_type:
+      interface: select
+      type: string
+    description:
+      interface: textarea
+      type: text
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+nb_crm_lead_tags:
+  fields:
+    lead_id:
+      interface: integer
+      type: bigInt
+    tag_id:
+      interface: integer
+      type: bigInt
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+mailMessages:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    email:
+      interface: input
+      type: string
+    mailId:
+      interface: input
+      type: string
+    rawId:
+      interface: input
+      type: string
+    boxType:
+      interface: select
+      type: string
+    originalBoxType:
+      interface: ''
+      type: string
+    isRead:
+      interface: select
+      type: boolean
+    isDraft:
+      interface: checkbox
+      type: boolean
+    from:
+      interface: input
+      type: text
+    fromUser:
+      interface: ''
+      type: jsonb
+    to:
+      interface: input
+      type: text
+    toUsers:
+      interface: ''
+      type: jsonb
+    cc:
+      interface: input
+      type: text
+    ccUsers:
+      interface: ''
+      type: jsonb
+    bcc:
+      interface: ''
+      type: text
+    bccUsers:
+      interface: ''
+      type: jsonb
+    date:
+      interface: datetime
+      type: date
+    subject:
+      interface: input
+      type: text
+    replyTo:
+      interface: ''
+      type: text
+    conversationId:
+      interface: ''
+      type: string
+    relatedMessageIds:
+      interface: ''
+      type: json
+    relatedMessageLatestDate:
+      interface: datetime
+      type: date
+    parentId:
+      interface: ''
+      type: bigInt
+    children:
+      interface: ''
+      type: hasMany
+      foreignKey: parentId
+      target: mailMessages
+    bodyText:
+      interface: input
+      type: text
+    bodyHtml:
+      interface: input
+      type: text
+    attachments:
+      interface: ''
+      type: json
+    raw:
+      interface: ''
+      type: json
+    user:
+      interface: m2o
+      type: belongsTo
+      foreignKey: userId
+      target: users
+    labels:
+      interface: m2m
+      type: belongsToMany
+      foreignKey: mailMsgId
+      target: mailMessageLabels
+    isTodo:
+      interface: checkbox
+      type: boolean
+    note:
+      interface: o2m
+      type: hasMany
+      foreignKey: mailMessageId
+      target: mailMessageNotes
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    scheduleSendAt:
+      interface: datetime
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: ''
+      type: context
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: ''
+      type: context
+nb_crm_v_mail_contact:
+  fields:
+    contact_id:
+      interface: integer
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    mail_id:
+      interface: integer
+      type: bigInt
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+    sales_user_id:
+      interface: integer
+      type: bigInt
+    sales_dept_id:
+      interface: ''
+      type: bigInt
+    mail_date:
+      interface: datetime
+      type: date
+    role:
+      interface: ''
+      type: text
+    contact:
+      interface: m2o
+      type: belongsTo
+      foreignKey: contact_id
+      target: nb_crm_contacts
+    mails:
+      interface: m2o
+      type: belongsTo
+      foreignKey: mail_id
+      target: mailMessages
+nb_crm_quotation_items:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    quotation_id:
+      interface: integer
+      type: bigInt
+    product_id:
+      interface: integer
+      type: bigInt
+    product_name:
+      interface: input
+      type: string
+    product_code:
+      interface: input
+      type: string
+    specification:
+      interface: input
+      type: string
+    unit:
+      interface: input
+      type: string
+    quantity:
+      interface: integer
+      type: integer
+    list_price:
+      interface: number
+      type: decimal
+    unit_price:
+      interface: number
+      type: decimal
+    tier_applied:
+      interface: integer
+      type: integer
+    discount_rate:
+      interface: percent
+      type: decimal
+    line_amount:
+      interface: number
+      type: decimal
+    service_date:
+      interface: date
+      type: dateOnly
+    sort_order:
+      interface: integer
+      type: integer
+    description:
+      interface: textarea
+      type: text
+    is_deleted:
+      interface: checkbox
+      type: boolean
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    tierInfo:
+      interface: m2o
+      type: belongsTo
+      foreignKey: tier_applied
+      target: nb_crm_price_tiers
+    quotation:
+      interface: m2o
+      type: belongsTo
+      foreignKey: quotation_id
+      target: nb_crm_quotations
+    product:
+      interface: m2o
+      type: belongsTo
+      foreignKey: product_id
+      target: nb_crm_products
+nb_crm_products:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    name:
+      interface: input
+      type: string
+    product_code:
+      interface: sequence
+      type: string
+    description:
+      interface: textarea
+      type: text
+    category_id:
+      interface: integer
+      type: bigInt
+    product_family:
+      interface: input
+      type: string
+    specification:
+      interface: select
+      type: string
+    unit:
+      interface: input
+      type: string
+    base_currency:
+      interface: select
+      type: string
+    list_price:
+      interface: number
+      type: decimal
+    cost_price:
+      interface: number
+      type: decimal
+    min_price:
+      interface: number
+      type: decimal
+    has_tiered_pricing:
+      interface: checkbox
+      type: boolean
+    active:
+      interface: checkbox
+      type: boolean
+    is_archived:
+      interface: checkbox
+      type: boolean
+    stock_qty:
+      interface: integer
+      type: integer
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    category:
+      interface: m2o
+      type: belongsTo
+      foreignKey: category_id
+      target: nb_crm_product_categories
+    price_tiers:
+      interface: o2m
+      type: hasMany
+      foreignKey: product_id
+      target: nb_crm_price_tiers
+nb_crm_mail_associations:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    mail_message_id:
+      interface: integer
+      type: bigInt
+    lead_id:
+      interface: integer
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    contact_id:
+      interface: integer
+      type: bigInt
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    ai_summary:
+      interface: textarea
+      type: text
+    ai_sentiment:
+      interface: select
+      type: string
+    ai_category:
+      interface: select
+      type: string
+    ai_importance:
+      interface: integer
+      type: bigInt
+    tags:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+v_nb_crm_customer_lookup:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    account_number:
+      interface: sequence
+      type: string
+    name:
+      interface: input
+      type: string
+    phone:
+      interface: input
+      type: string
+    industry:
+      interface: select
+      type: string
+    level:
+      interface: select
+      type: string
+    type:
+      interface: select
+      type: string
+    status:
+      interface: select
+      type: string
+    country:
+      interface: input
+      type: string
+    website:
+      interface: textarea
+      type: text
+    owner:
+      interface: obo
+      type: belongsTo
+    createdAt:
+      interface: createdAt
+      type: date
+    owner_id:
+      interface: integer
+      type: bigInt
+    owner_name:
+      interface: input
+      type: string
+nb_cbo_regions:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    code_alpha2:
+      interface: input
+      type: string
+    code_alpha3:
+      interface: input
+      type: string
+    code_numeric:
+      interface: input
+      type: string
+    name:
+      interface: input
+      type: string
+    is_active:
+      interface: checkbox
+      type: boolean
+    sort_order:
+      interface: integer
+      type: bigInt
+    createdAt:
+      interface: datetime
+      type: date
+    updatedAt:
+      interface: datetime
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt
+nb_crm_merge_operations:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    operator_id:
+      interface: integer
+      type: bigInt
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    status:
+      interface: select
+      type: string
+    detail_json:
+      interface: json
+      type: json
+    operation_time:
+      interface: datetime
+      type: date
+    operator:
+      interface: m2o
+      type: belongsTo
+      foreignKey: operator_id
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+    updatedById:
+      interface: integer
+      type: bigInt
+    merge_operation_items:
+      interface: o2m
+      type: hasMany
+      foreignKey: merge_operation_id
+      target: nb_crm_merge_operation_items
+v_nb_crm_contact_lookup:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    contact_no:
+      interface: sequence
+      type: string
+    name:
+      interface: input
+      type: string
+    email:
+      interface: input
+      type: string
+    phone:
+      interface: input
+      type: string
+    mobile:
+      interface: input
+      type: string
+    title:
+      interface: input
+      type: string
+    department:
+      interface: input
+      type: string
+    is_primary:
+      interface: checkbox
+      type: boolean
+    customer:
+      interface: obo
+      type: belongsTo
+    owner:
+      interface: obo
+      type: belongsTo
+    createdAt:
+      interface: createdAt
+      type: date
+    customer_id:
+      interface: integer
+      type: bigInt
+    customer_name:
+      interface: input
+      type: string
+    owner_id:
+      interface: integer
+      type: bigInt
+    owner_name:
+      interface: input
+      type: string
+nb_crm_customer_shares:
+  fields:
+    id:
+      interface: id
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    shared_with_user_id:
+      interface: integer
+      type: bigInt
+    shared_by_user_id:
+      interface: integer
+      type: bigInt
+    permission_level:
+      interface: select
+      type: string
+    shared_at:
+      interface: datetime
+      type: date
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+nb_crm_exchange_rates:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    currency_code:
+      interface: input
+      type: string
+    rate_to_usd:
+      interface: number
+      type: decimal
+    effective_date:
+      interface: date
+      type: dateOnly
+    source:
+      interface: input
+      type: string
+    createdAt:
+      interface: datetime
+      type: datetimeTz
+    updatedAt:
+      interface: datetime
+      type: datetimeTz
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt
+    currency:
+      interface: obo
+      type: belongsTo
+      foreignKey: currency_code
+      target: nb_cbo_currencies
+nb_crm_price_tiers:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    product_id:
+      interface: integer
+      type: bigInt
+    min_quantity:
+      interface: integer
+      type: integer
+    max_quantity:
+      interface: integer
+      type: integer
+    unit_price:
+      interface: number
+      type: decimal
+    tier_description:
+      interface: input
+      type: string
+    requires_approval:
+      interface: checkbox
+      type: boolean
+    effective_from:
+      interface: date
+      type: dateOnly
+    effective_to:
+      interface: date
+      type: dateOnly
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    discount_rate:
+      interface: percent
+      type: decimal
+    quotationItems:
+      interface: o2m
+      type: hasMany
+      foreignKey: tier_applied
+      target: nb_crm_quotation_items
+    currency_id:
+      interface: integer
+      type: bigInt
+    currencyInfo:
+      interface: m2o
+      type: belongsTo
+      foreignKey: currency_id
+      target: nb_cbo_currencies
+    product:
+      interface: m2o
+      type: belongsTo
+      foreignKey: product_id
+      target: nb_crm_products
+nb_crm_contact_tags:
+  fields:
+    contact_id:
+      interface: integer
+      type: bigInt
+    tag_id:
+      interface: integer
+      type: bigInt
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+nb_crm_opportunity_stages:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    code:
+      interface: input
+      type: string
+    name:
+      interface: input
+      type: string
+    sort_order:
+      interface: integer
+      type: integer
+    win_probability:
+      interface: integer
+      type: integer
+    is_won:
+      interface: checkbox
+      type: boolean
+    is_lost:
+      interface: checkbox
+      type: boolean
+    is_active:
+      interface: checkbox
+      type: boolean
+    color:
+      interface: color
+      type: string
+    description:
+      interface: textarea
+      type: text
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    space:
+      interface: space
+      type: belongsTo
+      foreignKey: spaceName
+      target: spaces
+    spaceName:
+      interface: input
+      type: string
+nb_crm_opportunities:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    name:
+      interface: input
+      type: string
+    amount:
+      interface: number
+      type: decimal
+    currency:
+      interface: select
+      type: string
+    exchange_rate:
+      interface: number
+      type: decimal
+    amount_usd:
+      interface: number
+      type: decimal
+    customer_id:
+      interface: integer
+      type: bigInt
+    contact_id:
+      interface: integer
+      type: bigInt
+    stage:
+      interface: select
+      type: string
+    stage_sort:
+      interface: integer
+      type: integer
+    win_probability:
+      interface: percent
+      type: decimal
+    ai_win_probability:
+      interface: percent
+      type: decimal
+    expected_close_date:
+      interface: date
+      type: dateOnly
+    actual_close_date:
+      interface: date
+      type: dateOnly
+    owner_id:
+      interface: integer
+      type: bigInt
+    last_activity_at:
+      interface: datetime
+      type: datetimeTz
+    stagnant_days:
+      interface: integer
+      type: integer
+    loss_reason:
+      interface: textarea
+      type: text
+    competitor_id:
+      interface: integer
+      type: bigInt
+    lead_source:
+      interface: select
+      type: string
+    campaign_id:
+      interface: integer
+      type: bigInt
+    expected_revenue:
+      interface: number
+      type: decimal
+    description:
+      interface: textarea
+      type: text
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    opportunity_no:
+      interface: sequence
+      type: string
+    stage_entered_at:
+      interface: datetime
+      type: datetimeTz
+    days_in_stage:
+      interface: integer
+      type: integer
+    ai_analyzed_at:
+      interface: datetime
+      type: datetimeTz
+    ai_confidence:
+      interface: percent
+      type: decimal
+    ai_trend:
+      interface: input
+      type: string
+    ai_risk_factors:
+      interface: json
+      type: json
+    ai_recommendations:
+      interface: json
+      type: json
+    ai_predicted_close:
+      interface: date
+      type: dateOnly
+    ai_next_best_action:
+      interface: textarea
+      type: text
+    ai_nba_generated_at:
+      interface: datetime
+      type: datetimeTz
+    comments:
+      interface: o2m
+      type: hasMany
+      foreignKey: opportunity_id
+      target: nb_crm_comments
+    attachments:
+      interface: attachment
+      type: belongsToMany
+      foreignKey: f_ov8wv6xxxmg
+      target: attachments
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+    activities:
+      interface: o2m
+      type: hasMany
+      foreignKey: opportunity_id
+      target: nb_crm_activities
+    owner:
+      interface: m2o
+      type: belongsTo
+      foreignKey: owner_id
+      target: users
+    quotations:
+      interface: o2m
+      type: hasMany
+      foreignKey: opportunity_id
+      target: nb_crm_quotations
+    competitors:
+      interface: o2m
+      type: hasMany
+      foreignKey: opportunity_id
+      target: nb_crm_competitors
+    contact:
+      interface: m2o
+      type: belongsTo
+      foreignKey: contact_id
+      target: nb_crm_contacts
+users:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    nickname:
+      interface: input
+      type: string
+    username:
+      interface: input
+      type: string
+    email:
+      interface: email
+      type: string
+    phone:
+      interface: input
+      type: string
+    password:
+      interface: password
+      type: password
+    passwordChangeTz:
+      interface: ''
+      type: bigInt
+    appLang:
+      interface: ''
+      type: string
+    resetToken:
+      interface: ''
+      type: string
+    systemSettings:
+      interface: ''
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    sort:
+      interface: ''
+      type: sort
+    roles:
+      interface: m2m
+      type: belongsToMany
+      foreignKey: userId
+      target: roles
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: ''
+      type: context
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: ''
+      type: context
+    aiEmployees:
+      interface: ''
+      type: belongsToMany
+      foreignKey: userId
+      target: aiEmployees
+    departments:
+      interface: m2m
+      type: belongsToMany
+      foreignKey: userId
+      target: departments
+    mainDepartment:
+      interface: m2o
+      type: belongsTo
+      foreignKey: mainDepartmentId
+      target: departments
+nb_crm_comments:
+  fields:
+    content:
+      interface: vditor
+      type: text
+    id:
+      interface: snowflakeId
+      type: snowflakeId
+    createdAt:
+      interface: createdAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedAt:
+      interface: updatedAt
+      type: date
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt
+    lead:
+      interface: m2o
+      type: belongsTo
+      foreignKey: lead_id
+      target: nb_crm_leads
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+    lead_id:
+      interface: integer
+      type: bigInt
+    opportunity:
+      interface: m2o
+      type: belongsTo
+      foreignKey: opportunity_id
+      target: nb_crm_opportunities
+    customer_id:
+      interface: integer
+      type: bigInt
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    order:
+      interface: m2o
+      type: belongsTo
+      foreignKey: order_id
+      target: nb_crm_orders
+    order_id:
+      interface: integer
+      type: bigInt
+nb_crm_activities:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    lead_id:
+      interface: integer
+      type: bigInt
+    contact_id:
+      interface: integer
+      type: bigInt
+    type:
+      interface: select
+      type: string
+    subject:
+      interface: input
+      type: string
+    content:
+      interface: markdown
+      type: text
+    customer_id:
+      interface: integer
+      type: bigInt
+    opportunity_id:
+      interface: integer
+      type: bigInt
+    mail_message_id:
+      interface: integer
+      type: bigInt
+    activity_date:
+      interface: datetime
+      type: datetimeTz
+    duration:
+      interface: integer
+      type: integer
+    owner_id:
+      interface: integer
+      type: bigInt
+    ai_summary:
+      interface: textarea
+      type: text
+    ai_next_action:
+      interface: textarea
+      type: text
+    ai_sentiment:
+      interface: select
+      type: string
+    reminder_at:
+      interface: datetime
+      type: datetimeTz
+    is_completed:
+      interface: checkbox
+      type: boolean
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    lead:
+      interface: m2o
+      type: belongsTo
+      foreignKey: lead_id
+      target: nb_crm_leads
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+    opportunity:
+      interface: m2o
+      type: belongsTo
+      foreignKey: opportunity_id
+      target: nb_crm_opportunities
+    owner:
+      interface: m2o
+      type: belongsTo
+      foreignKey: owner_id
+      target: users
+    contact:
+      interface: m2o
+      type: belongsTo
+      foreignKey: contact_id
+      target: nb_crm_contacts
+nb_crm_leads:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    name:
+      interface: input
+      type: string
+    company:
+      interface: input
+      type: string
+    title:
+      interface: input
+      type: string
+    email:
+      interface: input
+      type: string
+    phone:
+      interface: input
+      type: string
+    mobile_phone:
+      interface: input
+      type: string
+    website:
+      interface: textarea
+      type: text
+    address:
+      interface: textarea
+      type: text
+    source:
+      interface: select
+      type: string
+    industry:
+      interface: select
+      type: string
+    annual_revenue:
+      interface: select
+      type: string
+    number_of_employees:
+      interface: select
+      type: string
+    status:
+      interface: select
+      type: string
+    rating:
+      interface: select
+      type: string
+    owner_id:
+      interface: integer
+      type: bigInt
+    ai_score:
+      interface: integer
+      type: integer
+    ai_convert_prob:
+      interface: percent
+      type: decimal
+    ai_best_contact_time:
+      interface: input
+      type: string
+    ai_tags:
+      interface: json
+      type: json
+    is_converted:
+      interface: checkbox
+      type: boolean
+    converted_at:
+      interface: datetime
+      type: datetimeTz
+    converted_customer_id:
+      interface: integer
+      type: bigInt
+    converted_contact_id:
+      interface: integer
+      type: bigInt
+    converted_opportunity_id:
+      interface: integer
+      type: bigInt
+    disqualification_reason:
+      interface: textarea
+      type: text
+    description:
+      interface: vditor
+      type: text
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    lead_no:
+      interface: sequence
+      type: string
+    lost_reason:
+      interface: textarea
+      type: text
+    ai_scored_at:
+      interface: datetime
+      type: datetimeTz
+    ai_next_best_action:
+      interface: textarea
+      type: text
+    ai_nba_generated_at:
+      interface: datetime
+      type: datetimeTz
+    comments:
+      interface: o2m
+      type: hasMany
+      foreignKey: lead_id
+      target: nb_crm_comments
+    activities:
+      interface: o2m
+      type: hasMany
+      foreignKey: lead_id
+      target: nb_crm_activities
+    owner:
+      interface: m2o
+      type: belongsTo
+      foreignKey: owner_id
+      target: users
+    converted_contact:
+      interface: m2o
+      type: belongsTo
+      foreignKey: converted_contact_id
+      target: nb_crm_contacts
+    converted_opportunity:
+      interface: m2o
+      type: belongsTo
+      foreignKey: converted_opportunity_id
+      target: nb_crm_opportunities
+    converted_customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: converted_customer_id
+      target: nb_crm_customers
+recordHistories:
+  fields:
+    uuid:
+      interface: input
+      type: string
+    requestId:
+      interface: input
+      type: string
+    recordId:
+      interface: input
+      type: string
+    collectionName:
+      interface: input
+      type: string
+    dataSourceKey:
+      interface: input
+      type: string
+    action:
+      interface: select
+      type: string
+    recordFieldHistory:
+      interface: o2m
+      type: hasMany
+      foreignKey: uuid
+      target: recordFieldHistories
+    user:
+      interface: m2o
+      type: belongsTo
+      foreignKey: userId
+      target: users
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    userId:
+      interface: ''
+      type: bigInt
+mailmessagelabelsMailmessagesRel:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    mailMessageId:
+      interface: integer
+      type: bigInt
+    mailMessageLabelId:
+      interface: integer
+      type: bigInt
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: ''
+      type: context
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: ''
+      type: context
+nb_crm_customers:
+  fields:
+    id:
+      interface: integer
+      type: snowflakeId
+    name:
+      interface: input
+      type: string
+    account_number:
+      interface: sequence
+      type: string
+    phone:
+      interface: input
+      type: string
+    website:
+      interface: textarea
+      type: text
+    address:
+      interface: textarea
+      type: text
+    industry:
+      interface: select
+      type: string
+    type:
+      interface: select
+      type: string
+    region:
+      interface: m2o
+      type: belongsTo
+      foreignKey: region_id
+      target: nb_cbo_regions
+    level:
+      interface: select
+      type: string
+    status:
+      interface: select
+      type: string
+    preferred_currency:
+      interface: select
+      type: string
+    owner_id:
+      interface: integer
+      type: bigInt
+    parent_id:
+      interface: integer
+      type: bigInt
+    ai_health_score:
+      interface: integer
+      type: integer
+    ai_churn_risk:
+      interface: percent
+      type: decimal
+    ai_tags:
+      interface: json
+      type: json
+    ai_best_contact_time:
+      interface: input
+      type: string
+    source_lead_id:
+      interface: integer
+      type: bigInt
+    description:
+      interface: textarea
+      type: text
+    is_deleted:
+      interface: checkbox
+      type: boolean
+    extra:
+      interface: json
+      type: json
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdById:
+      interface: integer
+      type: bigInt
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    region_id:
+      interface: integer
+      type: bigInt
+    country:
+      interface: input
+      type: string
+    ai_health_assessed_at:
+      interface: datetime
+      type: datetimeTz
+    ai_health_grade:
+      interface: input
+      type: string
+    ai_churn_risk_level:
+      interface: input
+      type: string
+    ai_health_dimensions:
+      interface: json
+      type: json
+    ai_recommendations:
+      interface: json
+      type: json
+    ai_next_best_action:
+      interface: textarea
+      type: text
+    ai_nba_generated_at:
+      interface: datetime
+      type: datetimeTz
+    comments:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_comments
+    annual_revenue:
+      interface: select
+      type: string
+    number_of_employees:
+      interface: select
+      type: string
+    merge_operation_items:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_merge_operation_items
+    contact_mail:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_v_mail_contact
+    owner:
+      interface: m2o
+      type: belongsTo
+      foreignKey: owner_id
+      target: users
+    parent:
+      interface: m2o
+      type: belongsTo
+      foreignKey: parent_id
+      target: nb_crm_customers
+    contacts:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_contacts
+    activities:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_activities
+    opportunities:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_opportunities
+    quotations:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_quotations
+    orders:
+      interface: o2m
+      type: hasMany
+      foreignKey: customer_id
+      target: nb_crm_orders
+nb_crm_merge_operation_items:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    createdAt:
+      interface: createdAt
+      type: date
+    merge_operation_id:
+      interface: integer
+      type: bigInt
+    customer_id:
+      interface: integer
+      type: bigInt
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    status:
+      interface: select
+      type: string
+    main_sort:
+      interface: sort
+      type: sort
+    createdById:
+      interface: integer
+      type: bigInt
+    merge_operation:
+      interface: m2o
+      type: belongsTo
+      foreignKey: merge_operation_id
+      target: nb_crm_merge_operations
+    updatedById:
+      interface: integer
+      type: bigInt
+    customer:
+      interface: m2o
+      type: belongsTo
+      foreignKey: customer_id
+      target: nb_crm_customers
+nb_crm_order_items:
+  fields:
+    id:
+      interface: id
+      type: snowflakeId
+    order_id:
+      interface: integer
+      type: bigInt
+    product_id:
+      interface: integer
+      type: bigInt
+    quotation_item_id:
+      interface: integer
+      type: bigInt
+    product_name:
+      interface: input
+      type: string
+    product_code:
+      interface: input
+      type: string
+    specification:
+      interface: input
+      type: string
+    unit:
+      interface: input
+      type: string
+    quantity:
+      interface: integer
+      type: integer
+    unit_price:
+      interface: number
+      type: decimal
+    line_amount:
+      interface: number
+      type: decimal
+    delivered_qty:
+      interface: integer
+      type: integer
+    sort_order:
+      interface: integer
+      type: integer
+    description:
+      interface: textarea
+      type: text
+    is_deleted:
+      interface: checkbox
+      type: boolean
+    createdAt:
+      interface: createdAt
+      type: date
+    updatedAt:
+      interface: updatedAt
+      type: date
+    createdBy:
+      interface: createdBy
+      type: belongsTo
+      foreignKey: createdById
+      target: users
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedBy:
+      interface: updatedBy
+      type: belongsTo
+      foreignKey: updatedById
+      target: users
+    updatedById:
+      interface: integer
+      type: bigInt
+    order:
+      interface: m2o
+      type: belongsTo
+      foreignKey: order_id
+      target: nb_crm_orders
+    product:
+      interface: m2o
+      type: belongsTo
+      foreignKey: product_id
+      target: nb_crm_products
+nb_crm_data_analysis:
+  fields:
+    id:
+      interface: integer
+      type: bigInt
+    name:
+      interface: input
+      type: string
+    collection:
+      interface: collection
+      type: string
+    sql:
+      interface: textarea
+      type: text
+    description:
+      interface: textarea
+      type: text
+    createdAt:
+      interface: datetime
+      type: datetimeTz
+    updatedAt:
+      interface: datetime
+      type: datetimeTz
+    createdById:
+      interface: integer
+      type: bigInt
+    updatedById:
+      interface: integer
+      type: bigInt

@@ -1,0 +1,211 @@
+title: New Quotation
+type: approval
+enabled: true
+key: h2txyim33ra
+options:
+  stackLimit: 1
+  deleteExecutionOnStatus: []
+trigger:
+  mode: 0
+  appends:
+    - orders
+    - opportunity
+    - currencyInfo
+    - customer
+    - contact
+    - items.createdBy
+    - items
+    - items.quotation
+    - items.product
+    - items.tierInfo
+    - items.updatedBy
+  collection: nb_crm_quotations
+  approvalUid: fc43jj22azq
+  centralized: true
+  taskCardUid: dbhviahl1mm
+  audienceType: 1
+  notifications: []
+  recordShowMode: false
+  useSameTaskTitle: false
+graph:
+  - pending_approval
+  - pending_approval --> manager_approval
+  - manager_approval --> [approved] update_record
+  - manager_approval --> [returned] draft_2
+  - manager_approval --> [rejected] draft
+nodes:
+  manager_approval:
+    type: approval
+    title: Manager Approval
+    config:
+      approvalUid: vd6bkws846f
+      branchMode: true
+      assignees:
+        - 5
+        - 1
+      negotiation: 0
+      order: false
+      title: Approval
+      notifications:
+        - channel: approval-todo-in-app-message
+          templateType: template
+          template: 343283765477376
+      actions:
+        - 2
+        - -1
+        - 1
+        - 8
+        - 99
+      taskCardUid: eezadvh2u6t
+  pending_approval:
+    type: update
+    title: Pending Approval
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: ihub5ifh1d3
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          h6txh3tu7np:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            properties:
+              e1ls6kez0ye:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                properties:
+                  status:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: status
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_quotations.status
+                    x-component-props:
+                      style:
+                        width: 100%
+                name: e1ls6kez0ye
+            name: h6txh3tu7np
+      collection: nb_crm_quotations
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+        values:
+          status: pending_approval
+  draft:
+    type: update
+    title: draft
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: j8tvajyam29
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          bci34u8m3cm:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            properties:
+              2ghzr87d57g:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                properties:
+                  status:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: status
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_quotations.status
+                    x-component-props:
+                      style:
+                        width: 100%
+                name: 2ghzr87d57g
+            name: bci34u8m3cm
+      collection: nb_crm_quotations
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+        values:
+          status: draft
+  draft_2:
+    type: update
+    title: draft
+    config:
+      usingAssignFormSchema: true
+      assignFormSchema:
+        _isJSONSchemaObject: true
+        version: '2.0'
+        name: 5nu91pwbcnb
+        type: void
+        x-component: Grid
+        x-initializer: assignFieldValuesForm:configureFields
+        properties:
+          dn2ui23rs1i:
+            _isJSONSchemaObject: true
+            version: '2.0'
+            type: void
+            x-component: Grid.Row
+            properties:
+              n817n48pc6h:
+                _isJSONSchemaObject: true
+                version: '2.0'
+                type: void
+                x-component: Grid.Col
+                properties:
+                  status:
+                    _isJSONSchemaObject: true
+                    version: '2.0'
+                    type: string
+                    name: status
+                    x-toolbar: FormItemSchemaToolbar
+                    x-settings: fieldSettings:FormItem
+                    x-component: AssignedField
+                    x-decorator: FormItem
+                    x-collection-field: nb_crm_quotations.status
+                    x-component-props:
+                      style:
+                        width: 100%
+                name: n817n48pc6h
+            name: dn2ui23rs1i
+      collection: nb_crm_quotations
+      params:
+        individualHooks: false
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+        values:
+          status: draft
+  update_record:
+    type: update
+    title: Update record
+    config:
+      $ref: components/update_record.yaml

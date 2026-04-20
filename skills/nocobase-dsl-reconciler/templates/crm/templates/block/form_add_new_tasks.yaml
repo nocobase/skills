@@ -1,9 +1,9 @@
-uid: 78p34st6lez
+uid: rmwjdy07klk
 name: 'Form (Add new): Tasks'
 type: block
 collectionName: nb_pm_tasks
 dataSourceKey: main
-targetUid: 2sbe0r25ped
+targetUid: uwdlif07qe6
 description: 'Form (Add new): Tasks'
 content:
   key: createForm
@@ -13,25 +13,18 @@ content:
     - name
     - project
     - assignee
-    - milestone
     - status
     - priority
     - due_date
-    - estimated_hours
     - description
   field_layout:
-    - '--- Task Info ---'
+    - '--- Basic Info ---'
     - - name
-    - - description
-    - '--- Assignment ---'
+      - status
     - - project
-      - milestone
-    - - assignee
-    - '--- Status ---'
-    - - status
-      - priority
-    - '--- Planning ---'
-    - - due_date
-      - estimated_hours
+      - assignee
+    - - priority
+      - due_date
+    - - description
   actions:
     - submit

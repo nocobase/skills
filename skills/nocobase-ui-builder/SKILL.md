@@ -1,11 +1,20 @@
 ---
 name: nocobase-ui-builder
 description: >-
-  Use when the task is NocoBase Modern page (v2) UI work on menus, pages, tabs,
-  popups, blocks, fields, actions, or reactions, including whole-page drafting,
-  create/replace work, or targeted edits on an existing Modern page surface.
-  Not for ACL, data modeling, workflows, browser reproduction, or non-Modern-page
-  navigation.
+  **DEFAULT entry point for any NocoBase UI authoring or tweak** — new
+  pages, new blocks, new menu items, AND localized edits (move / reorder /
+  reconfigure a single block, field, action, or reaction rule) on an
+  already-running NocoBase app. Goes through `nocobase-ctl flow-surfaces`
+  against the live app; no DSL file commit required.
+
+  Only hand off to `nocobase-dsl-reconciler` when the user **explicitly
+  asks for** DSL / YAML / committed-to-git / `cli push` workflow (e.g. "use
+  the DSL reconciler", "I want YAML files", "commit the spec"). The DSL
+  reconciler is in active development and has rough edges; prefer this
+  skill unless the user opts in.
+
+  Does not handle ACL, data modeling, workflow orchestration, browser
+  reproduction, page error postmortems, or non-Modern-page navigation.
 ---
 
 # Goal

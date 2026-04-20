@@ -1,6 +1,7 @@
 blocks:
-  - js: ./js/executive_jsBlock.js
+  - type: jsBlock
     key: jsBlock
+    file: ./js/executive_jsBlock.js
   - key: chart
     type: chart
     chart_config: ./charts/executive_chart.yaml

@@ -48,6 +48,6 @@ content:
     - - description
   actions:
     - submit
-    - ai:
-        employee: dex
-        tasks: ./ai/form_add_new_nb_crm_customers_createForm_tasks.yaml
+    - type: ai
+      employee: dex
+      tasks_file: ./ai/form_add_new_nb_crm_customers_createForm_tasks.yaml

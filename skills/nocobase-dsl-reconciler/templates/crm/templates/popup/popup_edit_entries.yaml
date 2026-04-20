@@ -1,0 +1,18 @@
+uid: 581b3y9t87a
+name: 'Popup (Edit): Entries'
+type: popup
+collectionName: nb_pm_time_entries
+dataSourceKey: main
+targetUid: xx3ua2a52ir
+description: 'Popup (Edit): Entries'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: nykn04s2sjy
+        templateName: 'Form (Edit): Time Entries'
+        targetUid: idontlv9sil
+        mode: reference
+  layout:
+    - - hkxgloc4
