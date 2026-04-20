@@ -52,6 +52,20 @@ Typical pattern:
 - keep tabs minimal
 - keep popup semantics close to the opener
 
-## 6. Selection Rule
+## 6. Multi-Workbench Whole-page
+
+Use when one page needs several coordinated work areas instead of one dominant CRUD block.
+
+Typical pattern:
+
+- top filter forms that drive one or more central tables
+- middle paired tables or details/table workbenches for adjacent entities
+- bottom quick create forms or helper forms for high-frequency actions
+- popup chains anchored to the owning table/details block, not scattered across the page
+- top-level `reaction.items[]` kept in the same whole-page blueprint when the interaction belongs to the page being created now
+- trigger this archetype from root-page density, not popup depth alone
+- keep it on the same whole-page route as simpler pages; this is a pattern, not a separate staged workflow
+
+## 7. Selection Rule
 
 Choose the simplest archetype that explains the user intent. Archetypes are starting patterns for public whole-page structure, not rigid templates and not low-level mutation plans.

@@ -15,6 +15,7 @@ For template-mode semantics and localized existing-reference edit routing, keep 
 - For menu questions, default to the visible menu tree first.
 - For initialized pages/popup trees, default to `nocobase-ctl flow-surfaces get` first.
 - Use `nocobase-ctl flow-surfaces describe-surface` only when its richer public tree is actually needed.
+- desktop-route `id` values from the menu tree are not flow-surface `uid` values. When the menu tree gives `{ id, schemaUid }`, carry `id` only as `routeId` context and use `schemaUid` as `pageSchemaUid` for page readback.
 - Do not describe a draft as if a write already succeeded.
 
 ### Draft Acceptance
@@ -80,6 +81,18 @@ After a reaction write, confirm at least:
 - the persisted rule slot exists where expected
 - for form `fieldValue` / `fieldLinkage`, rules land on the form-grid slot rather than the outer form step root
 - for clear operations, `rules: []` really leaves the persisted slot empty
+
+### Structured verification summary
+
+If you hand-write a readback bundle or a short persisted verification note, start with a stable public summary instead of depending on raw model names or loose full-tree dumps.
+
+- always include page identity under `page` when page-level create / replace happened, especially `page.pageSchemaUid`, `page.title` or `page.pageTitle`, and `page.menuGroupTitle`
+- use `root`, `tables`, `popups`, `forms`, and `reactions` only when those sections matter to what you changed
+- prefer normalized public type labels such as `table`, `details`, `editForm`, `filterForm`, `createForm`
+- if root-level content matters, keep `root.blockTypes`, `root.collections`, `root.fields`, and `root.actionTitles` explicit even when the raw live root only says `type: "page"`
+- for popup same-row layouts, surface a stable `sameRow: true` style proof instead of leaving a free-form layout string as the only evidence
+- when a critical outcome depends on a helper, guard, or computed field, surface one stable boolean or scalar outcome near the summary instead of burying the only proof inside richer nested metadata
+- when raw live readback is still useful, nest it under an extra key after the public summary instead of making raw model names the only proof
 
 ## 4. Popup-specific Checks
 

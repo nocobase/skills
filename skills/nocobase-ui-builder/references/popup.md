@@ -15,7 +15,7 @@ Template decision semantics live in [templates.md](./templates.md). Keep this fi
 - If popup resource binding matters, confirm it with live facts instead of guessing.
 - Reuse returned popup uids directly when a write establishes a popup subtree.
 - Do not invent `currentRecord` or `associatedRecords` support where the live capability does not expose it.
-- When a popup looks like a standard reusable scene, follow [templates.md](./templates.md) before choosing inline `popup` vs `popup.template`. For repeat-eligible popup scenes, contextual `list-templates` is mandatory before binding `popup.template` or finalizing inline fallback; keyword-only search stays discovery-only. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear.
+- When a popup looks like a standard reusable scene, follow [templates.md](./templates.md) before choosing inline `popup` vs `popup.template`. For repeat-eligible popup scenes, contextual `list-templates` is mandatory before binding `popup.template` or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. This applies to whole-page planning too; a live opener is helpful but not mandatory when the planned opener/resource scene is already clear. Fresh one-off pages with explicit local popup content, no existing template reference, and no reuse / save-template ask may keep the popup local and skip template routing.
 - When no explicit `popup.template` is present, default to `popup.tryTemplate=true` on create-time popup-capable write paths. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning truth source; `popup.tryTemplate=true` is only the execution fallback and should not replace contextual `list-templates`.
 - When the user explicitly wants the new local popup itself to become a reusable popup template seed immediately, use `popup.saveAsTemplate={ name, description }` on supported create-time popup writes instead of planning a separate save step. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 - This file keeps popup-specific hard boundaries only; template-selection details stay in [templates.md](./templates.md).
@@ -113,6 +113,129 @@ Notes:
 - the custom popup contains exactly one `editForm`
 - that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 - sibling blocks such as relation tables are allowed next to the `editForm`
+
+Common users/roles nested-detail pattern:
+
+```json
+{
+  "type": "view",
+  "title": "详情",
+  "popup": {
+    "title": "用户详情",
+    "blocks": [
+      {
+        "key": "userDetails",
+        "type": "details",
+        "resource": { "binding": "currentRecord", "collectionName": "users" },
+        "fields": [
+          "username",
+          "nickname",
+          "email",
+          "phone",
+          {
+            "field": "roles",
+            "popup": {
+              "title": "角色详情",
+              "blocks": [
+                {
+                  "key": "roleDetails",
+                  "type": "details",
+                  "resource": { "binding": "currentRecord", "collectionName": "roles" },
+                  "fields": ["title", "name"],
+                  "recordActions": [
+                    {
+                      "type": "edit",
+                      "title": "编辑",
+                      "popup": {
+                        "blocks": [
+                          {
+                            "key": "roleEditForm",
+                            "type": "editForm",
+                            "fields": ["title", "name"]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "recordActions": [
+          {
+            "type": "edit",
+            "title": "编辑",
+            "popup": {
+              "blocks": [
+                {
+                  "key": "userEditForm",
+                  "type": "editForm",
+                  "fields": ["username", "nickname", "email", "phone", "roles"]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "key": "rolesTable",
+        "type": "table",
+        "resource": {
+          "binding": "associatedRecords",
+          "associationField": "roles",
+          "collectionName": "roles"
+        },
+        "fields": [
+          {
+            "field": "title",
+            "popup": {
+              "title": "角色详情",
+              "blocks": [
+                {
+                  "key": "roleDetailsFromTable",
+                  "type": "details",
+                  "resource": { "binding": "currentRecord", "collectionName": "roles" },
+                  "fields": ["title", "name"],
+                  "recordActions": [
+                    {
+                      "type": "edit",
+                      "title": "编辑",
+                      "popup": {
+                        "blocks": [
+                          {
+                            "key": "roleEditFormFromTable",
+                            "type": "editForm",
+                            "fields": ["title", "name"]
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "name"
+        ]
+      }
+    ],
+    "layout": {
+      "rows": [[{ "key": "userDetails", "span": 12 }, { "key": "rolesTable", "span": 12 }]]
+    }
+  }
+}
+```
+
+Use this pattern when the task says:
+
+- root users table or details block
+- `详情` opens a current-user popup
+- the popup shows same-row user details plus related roles table
+- clicking a shown role opens role details
+- user and role details each need nested edit-form popups
+
+This pattern is intentionally local/non-template. On fresh one-off pages, do not detour into template routing unless the task explicitly asks for reuse or the live target already carries a template reference.
 
 ## 5. Low-level Popup Guidance
 

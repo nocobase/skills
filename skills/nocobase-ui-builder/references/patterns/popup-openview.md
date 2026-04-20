@@ -62,7 +62,7 @@ builder DSL 边界：
 - 如果弹窗入口来自表格里的关联标题列，不要默认让 `customer.name` 这种 dotted path 列自己承担 click-to-open；优先回到 [clickable-relation-column.md](clickable-relation-column.md) 的原生关系列方案
 - 多层 popup 时，每一层都要能说清楚“输入参数从哪一层来”
 - popup page 下的 block 一律假设自己依赖 `ctx.view.inputArgs`，不要擅自跨层偷用外层上下文
-- popup/openView 相关 payload 写前先跑 [payload-guard.md](payload-guard.md)
+- popup/openView 相关写入前先按 [../execution-checklist.md](../execution-checklist.md) 与 [../normative-contract.md](../normative-contract.md) 做自检
 - through / 中间表 popup 的 add/edit 动作，只有在用户明确要求打开浏览器或确认运行时动作可用性时，才需要一次最小 smoke；否则保持“模型树已落库，运行时未实测”
 
 ## 常见误区
@@ -92,6 +92,6 @@ builder DSL 边界：
 - [../blocks/create-form.md](../blocks/create-form.md)
 - [../blocks/edit-form.md](../blocks/edit-form.md)
 - [clickable-relation-column.md](clickable-relation-column.md)
-- [payload-guard.md](payload-guard.md)
+- [../execution-checklist.md](../execution-checklist.md)
 - [relation-context.md](relation-context.md)
 - [record-actions.md](record-actions.md)

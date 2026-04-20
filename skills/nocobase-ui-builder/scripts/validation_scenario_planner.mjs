@@ -8,6 +8,7 @@ import {
   inferChartSpecFromCollection,
   isRenderableChartSpec,
   normalizeVisualizationSpec,
+  shouldPreferJsBlockForAggregation,
 } from './visualization_contracts.mjs';
 
 function normalizeText(value) {
@@ -47,6 +48,32 @@ function containsText(target, keyword) {
 
 function hasAnyKeyword(text, keywords) {
   return (Array.isArray(keywords) ? keywords : []).some((keyword) => containsText(text, keyword));
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasNegatedKeyword(text, keywords) {
+  const normalizedText = normalizeText(text).toLowerCase();
+  if (!normalizedText) {
+    return false;
+  }
+  return (Array.isArray(keywords) ? keywords : []).some((keyword) => {
+    const normalizedKeyword = normalizeText(keyword).toLowerCase();
+    if (!normalizedKeyword) {
+      return false;
+    }
+    const escaped = escapeRegex(normalizedKeyword);
+    return [
+      new RegExp(`(?:不|不要|不用|无需|无须|别用|非|不是)\\s*${escaped}`, 'i'),
+      new RegExp(`(?:no|without)\\s+${escaped}`, 'i'),
+    ].some((pattern) => pattern.test(normalizedText));
+  });
+}
+
+function requestAvoidsCharts(requestText) {
+  return hasNegatedKeyword(requestText, ['chart', '图表', 'dashboard', '看板']);
 }
 
 function makePlanningBlocker(code, message, details = {}) {
@@ -239,6 +266,19 @@ function buildVisualizationBlock({
   requestText,
 }) {
   const collectionName = collectionMeta?.name || '';
+  if (shouldPreferJsBlockForAggregation({
+    requestText,
+    collectionMeta,
+    requestedFields: fields,
+    resolvedFields: fields,
+  })) {
+    return buildPublicUseBlock({
+      use: 'JSBlockModel',
+      title,
+      collectionName,
+      fields: resolveMetricFields(collectionMeta, fields),
+    });
+  }
   if (use === 'ChartBlockModel') {
     const chartSpec = inferChartSpecFromCollection({
       requestText,
@@ -1281,7 +1321,15 @@ export function splitValidationRequestIntoPageSpecs({ caseRequest, collectionsIn
 
 function pickPrimaryBlockDefinition(requestText, availableUses) {
   const normalizedAvailable = new Set(uniqueStrings(availableUses));
-  const matched = PRIMARY_BLOCK_DEFINITIONS.find((entry) => hasAnyKeyword(requestText, entry.keywords));
+  const matched = PRIMARY_BLOCK_DEFINITIONS.find((entry) => {
+    if (!hasAnyKeyword(requestText, entry.keywords)) {
+      return false;
+    }
+    if (entry.use === 'ChartBlockModel' && requestAvoidsCharts(requestText)) {
+      return false;
+    }
+    return true;
+  });
   if (matched && (matched.use === 'TableBlockModel' || matched.use === 'DetailsBlockModel' || matched.use === 'CreateFormModel' || matched.use === 'EditFormModel' || normalizedAvailable.has(matched.use))) {
     return matched;
   }
@@ -1954,6 +2002,7 @@ function buildLayoutCandidate({
   selected = false,
 }) {
   const clonedLayout = cloneJson(layout);
+  const effectivePrimaryBlock = findPrimaryBlockDefinitionByUse(findPrimaryBlockUseFromLayout(clonedLayout)) || primaryBlockDefinition;
   return {
     candidateId,
     title,
@@ -1964,7 +2013,7 @@ function buildLayoutCandidate({
     stabilityScore: Number.isFinite(stabilityScore) ? stabilityScore : null,
     selected,
     selectionMode,
-    primaryBlockType: primaryBlockDefinition.use,
+    primaryBlockType: effectivePrimaryBlock?.use || primaryBlockDefinition.use,
     targetCollections: collectionMeta ? [collectionMeta.name] : [],
     requestedFields,
     resolvedFields,
@@ -1991,11 +2040,34 @@ function buildLayoutCandidate({
   };
 }
 
+function findPrimaryBlockUseFromLayout(layout) {
+  const topLevelBlocks = [];
+  if (Array.isArray(layout?.blocks)) {
+    topLevelBlocks.push(...layout.blocks);
+  }
+  if (Array.isArray(layout?.tabs)) {
+    for (const tab of layout.tabs) {
+      if (Array.isArray(tab?.blocks)) {
+        topLevelBlocks.push(...tab.blocks);
+      }
+    }
+  }
+  for (const block of topLevelBlocks) {
+    const use = normalizeText(block?.use);
+    if (!use || use === 'FilterFormBlockModel') {
+      continue;
+    }
+    return use;
+  }
+  return '';
+}
+
 function findExplicitPublicUses(requestText, availableUses, primaryBlockUse) {
   const availableSet = new Set(uniqueStrings(availableUses));
   return PRIMARY_BLOCK_DEFINITIONS
     .filter((entry) => entry.kind === 'public-use' && entry.use !== primaryBlockUse)
     .filter((entry) => hasAnyKeyword(requestText, entry.keywords))
+    .filter((entry) => entry.use !== 'ChartBlockModel' || !requestAvoidsCharts(requestText))
     .filter((entry) => availableSet.has(entry.use))
     .map((entry) => entry.use);
 }
@@ -3081,7 +3153,7 @@ function buildScenarioSummary({
   eligibleUses = [],
   discardedUses = [],
 }) {
-  const effectivePrimaryBlock = primaryBlockDefinition || {
+  const effectivePrimaryBlock = findPrimaryBlockDefinitionByUse(findPrimaryBlockUseFromLayout(layout)) || primaryBlockDefinition || {
     use: '',
     archetypeId: 'unresolved-primary',
     archetypeLabel: '未解析主块',

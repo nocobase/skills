@@ -222,4 +222,4 @@ payload guard 应至少检查：
 
 - [../page-first-planning.md](../page-first-planning.md)
 - [grid-card.md](grid-card.md)
-- [public-blocks-inventory.md](public-blocks-inventory.md)
+- [../page-intent.md](../page-intent.md)

@@ -19,127 +19,64 @@ description: >-
 
 # Goal
 
-- Use `nocobase-ctl flow-surfaces` as the canonical front door for Modern page (v2) authoring.
-- Keep the current page blueprint, reaction, verification, and API payload docs as the authoring contract and fallback reference set.
-- Fall back to direct MCP/API invocation only when the CLI itself is unavailable in the current environment.
-- When one user request spans several pages, decompose it into ordered single-page runs; each page still follows the same template-probing, preview, write, and readback loop.
-- Users may describe blocks, relations, and operations in business language only. Infer the minimal reasonable structure from that request; do not inflate it into a pseudo-spec.
+- Canonical transport is `nocobase-ctl flow-surfaces`.
+- Prefer CLI first. Fall back to MCP only when the CLI is unavailable after env/runtime repair.
+- Keep routing intent-first: open one matching quick-route doc first, not the whole directory.
+- When a quick route already matches, stay on it. Do not enumerate the skill directory just to rediscover docs.
+- When the task is a partial-match or handoff-only request, answer from this skill's scope boundary directly. Do not inspect runtime, scripts, or helper docs just to justify the handoff.
+- Treat one user request that spans several pages as ordered single-page runs.
 
-# Transport Selection
+# Router
 
-- Prefer the `nocobase-ctl` CLI whenever it is available.
-- Canonical topic: `nocobase-ctl flow-surfaces`.
-- If `nocobase-ctl` is available but its env/runtime/auth is not ready, stop and guide the user to repair the CLI path (`env add/use/update`, token, or runtime refresh) instead of silently switching to MCP.
-- Only fall back to MCP when the CLI itself is unavailable or when the current environment cannot expose the runtime command surface through the CLI.
-- Before using a `flow-surfaces` subcommand you have not used yet in the current task, run `nocobase-ctl flow-surfaces --help` or `nocobase-ctl flow-surfaces <subcommand> --help` once and follow the generated help text for flags and examples.
-- `nb-page-preview` and `nb-runjs` are local helper CLIs only. They validate drafts and snippets; they are not the primary remote mutation transport.
+- whole-page authoring goes through `applyBlueprint`, `nocobase-ctl flow-surfaces apply-blueprint`, and [whole-page-quick.md](./references/whole-page-quick.md)
+- localized existing-surface edits go through low-level `flow-surfaces` and [local-edit-quick.md](./references/local-edit-quick.md)
+- reaction work starts with `get-reaction-meta`, `nocobase-ctl flow-surfaces get-reaction-meta`, writes through `set*Rules`, and [reaction-quick.md](./references/reaction-quick.md)
+- partial-match or boundary-only requests go through [boundary-quick.md](./references/boundary-quick.md) first
+- After that route is clear, if template / reference / `copy` routing is truly in scope, read [template-quick.md](./references/template-quick.md) first and then [templates.md](./references/templates.md) for the full decision matrix.
+- Do not open [tool-shapes.md](./references/tool-shapes.md) or [helper-contracts.md](./references/helper-contracts.md) until you are preparing a real CLI body, running the `prepare-write` gate, or validating a prepared write body.
+- If the task involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, JS actions, charts, or `ctx.*` API questions, read [js.md](./references/js.md) first and then [js-reference-index.md](./references/js-reference-index.md).
+- Before using a `flow-surfaces` subcommand you have not used yet in the current task, run `nocobase-ctl flow-surfaces --help` or `nocobase-ctl flow-surfaces <subcommand> --help`.
 
-# Start Here
+# Hard Rules
 
-- Hard rules before you write:
-  1. For real CLI writes, pass the page blueprint itself as the raw JSON body through `nocobase-ctl flow-surfaces apply-blueprint --body` / `--body-file`; only in MCP fallback should that same object be wrapped under `requestBody`, and it must remain an object.
-  2. For a normal single-page request, default to exactly **one tab**; any second tab is wrong unless the user explicitly asked for multiple route-backed tabs.
-  3. Do not add placeholder content such as `Summary` / `Later` / `Spare` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-  4. Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
-  5. For page authoring, field truth comes from `collections:get(appends=["fields"])`, not `collections.fields:list`.
-  6. A field is authorable into any block/form blueprint `fields[]` only when `collections:get(appends=["fields"])` shows a **non-empty `interface`** for that field. If `interface` is `null` / empty, the field exists in schema but is **not addable** in UI Builder authoring; omit it instead of guessing. This rule also applies to relation popups and nested popup blocks.
-  7. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object; if you keep `layout`, it must stay an object, and when unsure you should omit it.
-  8. If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field; only switch to a button or action column when the requirement explicitly asks for one.
-  9. If a destination menu group title already exists, never create another same-title group just to avoid ambiguity. Prefer an explicit `navigation.group.routeId`; otherwise reuse one existing visible same-title group deterministically from the live menu tree and disclose the chosen routeId in the prewrite preview.
-  10. Before the first `applyBlueprint`, run the local prepare-write gate on that same blueprint (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and finish **and pass** the authoring self-check: tabs count matches the request, every `tab.blocks` is non-empty, no empty tab exists, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a field object that is actually needed for `popup` / `target` / `renderer` / field-specific `type`, and every custom `edit` popup contains exactly one `editForm`. If the gate reports extra outer tabs, accidental outer `requestBody` wrappers, stringified fallback envelopes, illegal tab keys, block-level `layout`, or bad custom `edit` popups, rewrite locally before writing.
-  11. For any whole-page `applyBlueprint` task, before the first `applyBlueprint`, output one concise **ASCII-first** prewrite preview rendered from the same blueprint. Prefer the local prepare-write gate because it renders that preview and returns the normalized CLI body together: short intent summary + one ASCII wireframe, popup depth exactly one level deep, and full JSON hidden unless the user asks for it. This preview is mandatory even when you will execute immediately afterward. Only stop for confirmation when the request is ambiguous, high-impact, destructive, or the user explicitly asked to review first; otherwise show the preview and continue in the same run.
-  12. If the user asks for default values, linkage, computed values, show/hide, required/disabled, or action visibility/state, treat it as a reaction task first. Whole-page authoring goes through top-level `reaction.items[]`; localized edits go through `getReactionMeta` -> `set*Rules`. Do not start by guessing raw configure keys.
-  13. Keep task understanding intent-first. Decide the route before template details: whole-page authoring goes through `applyBlueprint`, localized existing-surface edits go through low-level `flow-surfaces` commands, and reaction work starts from `get-reaction-meta` / `set*Rules`. After that route is clear, use [templates.md](./references/templates.md) for template-specific decisions.
-  14. Keep template rules centralized in [templates.md](./references/templates.md). Do not restate the template selection matrix, popup-template fallbacks, or same-task template-seeding details here.
-  15. If live readback shows an existing template reference and the requested change touches template-owned popup / block / fields content, route through [templates.md](./references/templates.md) first and default that change to the template source. Keep current host/openView config edits local, and do not rewrite that existing referenced content through whole-page `applyBlueprint replace` or other shortcut fallback paths. Page-scoped wording alone is not local-only intent, so do not auto-detach to `copy`; if live readback still cannot separate template-owned vs host-local scope, clarify before writing.
-  16. If one task asks for several pages, split it into an ordered page plan first and execute one page per run; never author or imply a multi-page `applyBlueprint` payload.
-  17. Template seeding, `reference` / `copy` mode choice, and post-write reuse checks still follow [templates.md](./references/templates.md).
-  18. When the user's request is moderately ambiguous, infer only the minimal reasonable structure needed for the current page. Do not silently invent extra tabs, exact field sets, or rigid layouts unless the request or live facts require them.
-- Minimum read set:
-  1. Read [cli-transport.md](./references/cli-transport.md) first.
-  2. Read [cli-command-surface.md](./references/cli-command-surface.md) second.
-  3. Read [transport-crosswalk.md](./references/transport-crosswalk.md) third when you may need CLI <-> MCP fallback name translation.
-  4. Read [normative-contract.md](./references/normative-contract.md) fourth.
-  5. Read [execution-checklist.md](./references/execution-checklist.md) fifth.
-  5.5. If the request suggests reuse, or if a localized edit hits an existing template reference, read [templates.md](./references/templates.md) before deciding inline vs template, template-source vs host-local edit, or `copy` / detach. This also applies to whole-page `create` / `replace`.
-  5.6. If the task involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`, read [js.md](./references/js.md) before choosing the write path. If you need copied upstream `ctx.*` API docs or scenario examples, then read [js-reference-index.md](./references/js-reference-index.md). For existing-surface event-flow JavaScript, also read [settings.md](./references/settings.md) and treat `set-event-flows` as the low-level write path. For linkage / field-value / action-state JavaScript, return to [reaction.md](./references/reaction.md).
-  6. Then choose **one** path:
-     - whole-page `applyBlueprint` authoring -> [page-blueprint.md](./references/page-blueprint.md) + [tool-shapes.md](./references/tool-shapes.md) + [ascii-preview.md](./references/ascii-preview.md); if you are starting from business intent, also read [page-intent.md](./references/page-intent.md)
-     - whole-page `applyBlueprint` + interaction/reaction -> also read [reaction.md](./references/reaction.md)
-     - localized existing-surface edit -> [runtime-playbook.md](./references/runtime-playbook.md) + [tool-shapes.md](./references/tool-shapes.md), then read only the specific lower-level topic docs you need
-     - localized interaction/reaction edit -> also read [reaction.md](./references/reaction.md), and start with `getReactionMeta`
+1. For CLI writes, pass the business object itself as the raw JSON body. Only in MCP fallback should that same object be wrapped under `requestBody`, and it must stay an object.
+2. For a normal single-page request, default to exactly one real tab. Do not add empty tabs or placeholder `markdown` / note / banner blocks unless the user asked for them.
+3. Default blueprint `fields[]` entries to simple strings. Upgrade a field entry to an object only when `popup`, `target`, `renderer`, or a field-specific `type` is required.
+4. For page authoring, field truth comes from live collection metadata. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only in MCP fallback use `collections:get(appends=["fields"])`. Do not use `collections.fields:list` / `nocobase-ctl data-modeling collections fields list` as the authoring truth. Any field used in blueprint `fields[]` must have a non-empty `interface`.
+5. `layout` belongs only on `tabs[]` or inline `popup`, never on a block object. For `createForm`, `editForm`, `details`, and `filterForm`, use `fieldsLayout` when the blueprint must control the inner field grid directly. Omit page/popup `layout` only when that tab/popup has at most one non-filter block; otherwise explicit layout is required.
+6. If clicking a shown record or relation record should open details, prefer a field popup. Use a button or action column only when the request explicitly asks for one.
+7. If a destination menu group title already exists, never create another same-title group just to avoid ambiguity. Prefer an explicit `navigation.group.routeId`; otherwise reuse one visible same-title group deterministically and disclose the chosen routeId in the prewrite preview.
+8. In `applyBlueprint create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must carry one valid Ant Design icon name. When `navigation.item` is attached under an explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
+9. `navigation.group.routeId` and desktop-route `id` are navigation locators only. After create/init/readback, normalize to `pageSchemaUid` for page-level `flow-surfaces get`, and only use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, or `remove*`. Never pass a desktop-route `id` as `target.uid`.
+10. Before the first real whole-page `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or `prepareApplyBlueprintRequest(...)`) and show one ASCII-first prewrite preview from the same blueprint. For artifact-only drafts with no real write, draft `prewrite-preview.txt` directly from the same blueprint instead of attempting the local helper CLI.
+11. Treat default values, computed values, field/block/action state, and show/hide as reaction work first. Do not guess raw configure keys.
+12. If live readback shows an existing template reference and the requested change touches template-owned content, default to the template source. Keep host/openView config edits local. Page-scoped wording is not local-only intent, so do not auto-detach to `copy`; clarify before writing when scope is unresolved.
+13. In testing or multi-agent runs, do not perform destructive cleanup unless the user explicitly asked for deletion.
+14. When you summarize persisted readback for the user or for local helper artifacts, prefer one stable public summary with normalized type labels such as `table`, `details`, `editForm`, `filterForm`, and `createForm`; do not rely on raw model names alone. For page-level create / replace, keep `page.pageSchemaUid`, `page.title` or `page.pageTitle`, and `page.menuGroupTitle` explicit in that summary, and keep root actions under `root.actionTitles` instead of leaving `recordActionTitles` as the only proof.
+15. For reaction work, pick the final block/action target only after `get-reaction-meta` proves the required source path is available in that scene. On targets that expose multiple capabilities, select the write slot by matching `kind` first and then reuse that exact capability fingerprint; do not copy a nearby fingerprint from another `kind`. If the current target cannot expose the needed path, move the target or restructure the page/popup first instead of writing a guessed rule to an unsupported host.
+16. If a whole-page request explicitly includes filter / search / screening intent, read [references/blocks/filter-form.md](./references/blocks/filter-form.md) before finalizing the blueprint shape. Keep real `filterForm` blocks in the first-pass blueprint: include stable filter items, `submit` / `reset` actions, and same-blueprint string `target` block keys instead of low-level `defaultTargetUid` or raw block settings payloads.
+17. If a first-pass whole-page write still leaves `filterForm` as an empty shell or fails with a verified `filterForm`-specific shape/runtime error, treat that as a blueprint-or-contract problem first. Preserve the failing blueprint/readback evidence, then move to low-level `addBlock` / `addAction` / `addField` only when the failure proves the public whole-page contract cannot satisfy the request.
+18. If a create/edit form helper or reference depends on `formValues.*`, inspect catalog / `get-reaction-meta` before choosing the host. When that live scene exposes `fields` / `actions` / `node` but not `blocks`, model the helper as a `jsItem` or other field-like helper inside the same form scene, not as a standalone block; for current JSItem targets, implement hide/show by rendering `null` until the form value is present instead of assuming `setFieldState` can target the JSItem. When that render-null pattern is used successfully, treat it as a configured helper toggle in readback/evidence instead of marking the helper outcome false only because `fieldLinkage` cannot target the JSItem itself.
+19. Treat pages with multiple work areas, filter/search blocks, nested popups, or multiple reaction families as complex whole-page requests, not as a separate router path. They still stay on [whole-page-quick.md](./references/whole-page-quick.md) and still prefer one `applyBlueprint` request.
+20. For those complex whole-page requests, first-pass blueprint generation should include the structural blocks, inline popups, and top-level `reaction.items[]` together. Do not split the page into root-shell / popup / reaction phases just because the page is large.
+21. Use low-level `get-reaction-meta` + `set*Rules` or `add*` repair only for localized edits on an existing live page, or after a verified public whole-page contract gap. A first-pass creation miss is not enough by itself to change the default route.
+22. Stay env-neutral in the general skill contract. Use the current configured CLI env or explicit runtime flags instead of hard-coding local aliases or fixed URLs.
 
-## Routing
+# Read Paths
 
-- Task-level multi-page request -> decompose into ordered single-page whole-page or localized runs; each page remains one `applyBlueprint` write or one localized edit sequence.
-- Whole-page create or replace -> canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`; whole-page public write contract remains `applyBlueprint`, and the default prewrite surface is one ASCII wireframe rendered from that same blueprint.
-- Localized edit on an existing page/tab/popup/node -> canonical front door is the matching `nocobase-ctl flow-surfaces ...` command family (`compose`, `configure`, `add*`, `move*`, `remove*`, `create-page`, `update-menu`, and related operations).
-- Whole-page interaction / reaction authoring -> `nocobase-ctl flow-surfaces apply-blueprint` with top-level `reaction.items[]`.
-- Localized interaction / reaction edit -> `nocobase-ctl flow-surfaces get-reaction-meta` first, then the matching `set-field-value-rules` / `set-field-linkage-rules` / `set-block-linkage-rules` / `set-action-linkage-rules`.
-- `flow_surfaces_context` is only the lower-level supplement for reaction authoring. Do not use it as the first discovery step when `getReactionMeta` already covers the target.
-- For actual CLI invocation, prefer discovering the live command surface via `nocobase-ctl flow-surfaces --help` or `nocobase-ctl flow-surfaces <subcommand> --help`. Use [cli-command-surface.md](./references/cli-command-surface.md) as the stable family map and [tool-shapes.md](./references/tool-shapes.md) as the backend payload map.
-- Before every write or body-based read, verify two things first: the chosen CLI subcommand matches the live runtime command/help surface, and every `target.uid` / `locator.uid` comes from live readback rather than the invented literal `"root"`.
-- If the CLI path is unavailable, fall back to the exact MCP/tool-call envelope from `tool-shapes.md`.
-- `inspect` and page-blueprint drafting stay read-only until the user explicitly asks to write.
-- For page authoring / field selection, **never use `collections.fields:list`** as the field discovery tool. Use `collections:get(appends=["fields"])` as the only default field truth, and only use `collections.fields:get` for single-field follow-up when the field name is already known.
-- For page authoring / field selection, treat `collections:get(appends=["fields"])` as both the schema truth and the **UI addability gate**: if a field's `interface` is empty / null there, do not place it into any blueprint `fields[]`, even if the field is semantically important.
-- For `applyBlueprint(create)`, prefer `navigation.group.routeId` when an existing target group is already known; use `navigation.group.title` only for new-group creation or title-only unique same-title reuse. `routeId` is exact targeting only: do not mix it with group metadata, and use low-level `updateMenu` if an existing group's metadata must change.
-- If one or more visible same-title menu groups already exist, do **not** create a new same-title group for disambiguation. Reuse an existing group: prefer the exact known `routeId`, otherwise choose one deterministically from the live menu tree and state that chosen routeId in the prewrite preview.
-- For a normal single-page request, default to `tabs.length = 1`; side-by-side blocks and deep popup chains stay inside that tab unless the user explicitly asked for multiple route-backed tabs. Do not carry empty / placeholder tabs in that draft.
-- Do not add placeholder `Summary` / `Later` / `Spare` tabs or explanatory `markdown` / note / banner blocks just to explain future work or organize your thinking.
-- Default blueprint `fields[]` entries to simple strings. Only upgrade a field to an object when `popup`, `target`, `renderer`, or field-specific `type` is required.
-- Before the first `applyBlueprint`, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and complete the authoring self-check: tabs count matches the request, each `tab.blocks` is non-empty, there is no empty tab, no placeholder `markdown` / note / banner block exists, no block object contains `layout`, block `key` values are unique, every chosen field in blueprint `fields[]` has a non-empty live `interface`, every field entry is either a simple string or a required field object, and every custom `edit` popup has exactly one `editForm`. If the gate fails on extra outer tabs, accidental outer `requestBody` wrappers, stringified fallback envelopes, illegal tab keys, block-level `layout`, or bad custom `edit` popups, rewrite the blueprint before the first write instead of trial-and-error against the backend.
-- For any whole-page `applyBlueprint` authoring run, show one ASCII wireframe rendered from that same blueprint before the first write. Prefer the local prepare-write gate because it renders that preview and returns the normalized CLI body in one step. This preview is mandatory even when execution continues immediately. Keep popup expansion at one level, keep JSON hidden unless asked, stop only when confirmation is actually needed, and otherwise continue immediately after the preview.
-- In the public page blueprint, `layout` belongs only on `tabs[]` or inline `popup`; never put `layout` on a block object. If you are not sure the layout is correct, omit it.
-- If the user says clicking a shown record / relation record should open details, prefer a field popup / clickable field path; use a button or action column only when the user explicitly asks for one.
-- Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
-- For `edit` actions:
-  - standard single-form edit popup -> prefer backend default popup completion
-  - custom popup with sibling blocks / custom layout / deep nesting -> author explicit `popup.blocks` / `popup.layout`, and that custom popup must contain exactly one `editForm`
-- In testing / multi-agent runs, never do destructive cleanup (`destroyPage`, `remove*`, `resource_destroy`, etc.) unless the user explicitly asked for deletion.
+- Route unclear: [references/index.md](./references/index.md)
+- Whole-page draft/create/replace from business intent: [whole-page-quick.md](./references/whole-page-quick.md)
+- Localized existing-surface edit: [local-edit-quick.md](./references/local-edit-quick.md)
+- Whole-page or localized reaction change: [reaction-quick.md](./references/reaction-quick.md)
+- Partial-match handling and narrow handoff reports: [boundary-quick.md](./references/boundary-quick.md)
+- Reuse, template selection, or existing template reference edits: [template-quick.md](./references/template-quick.md)
+- Write-time helper CLIs / prewrite gate / helper return shapes for real writes: [helper-contracts.md](./references/helper-contracts.md)
+- JS or chart work: [js.md](./references/js.md) or [chart.md](./references/chart.md)
 
-## Scope & Handoff
+# Scope & Handoff
 
-- Only handle `menu-group / menu-item / page / tab / popup / content` surfaces that belong to Modern page (v2), plus block / field / action / layout / configuration inside those surfaces.
-- Do not handle non-Modern-page desktop routes, browser reproduction, ACL, workflow authoring, or collection schema mutation.
-- Explicit handoff:
-  - ACL / route permissions / role permissions -> `nocobase-acl-manage`
-  - collection / field / relation authoring -> `nocobase-data-modeling`
-  - workflow create / update / revision / execution -> `nocobase-workflow-manage`
-
-## Reference Map
-
-### Always
-
-- [cli-transport.md](./references/cli-transport.md): canonical transport selection and fallback rules.
-- [cli-command-surface.md](./references/cli-command-surface.md): CLI family map for `flow-surfaces`.
-- [transport-crosswalk.md](./references/transport-crosswalk.md): CLI command family <-> MCP fallback tool family naming map.
-- [normative-contract.md](./references/normative-contract.md): global contract and precedence.
-- [execution-checklist.md](./references/execution-checklist.md): default runbook.
-- [verification.md](./references/verification.md): readback rules.
-- [template-decision-summary.md](./references/template-decision-summary.md): final user-visible template path summary contract.
-
-### Whole-page `applyBlueprint` path
-
-- [page-blueprint.md](./references/page-blueprint.md): public page blueprint contract.
-- [page-intent.md](./references/page-intent.md): high-level page intent -> page blueprint authoring heuristics.
-- [page-archetypes.md](./references/page-archetypes.md): first-pass page patterns.
-- [ascii-preview.md](./references/ascii-preview.md): ASCII-first prewrite preview rules.
-- [reaction.md](./references/reaction.md): whole-page reaction/items authoring, recipes, and guardrails.
-- [tool-shapes.md](./references/tool-shapes.md): backend payload envelopes, `--body`/`--body-file` mapping, and MCP fallback shapes.
-
-### Localized low-level path
-
-- [runtime-playbook.md](./references/runtime-playbook.md): family/locator/write-target mental model.
-- [reaction.md](./references/reaction.md): localized reaction discovery/write route and common recipes.
-- [capabilities.md](./references/capabilities.md): block / field / action capability selection.
-- [settings.md](./references/settings.md): `configure` / `updateSettings` semantics.
-- [templates.md](./references/templates.md): template search / apply / save / detach rules.
-- [popup.md](./references/popup.md): popup semantics and guardrails.
-- [aliases.md](./references/aliases.md): narrowing ambiguous user wording.
-
-### Topic-specific
-
-- [chart.md](./references/chart.md): chart topic routing.
-- [js.md](./references/js.md): skill-side RunJS validator, runtime-model, and strict-render contract.
-- [js-reference-index.md](./references/js-reference-index.md): upstream JS capability snapshot map for JS Block / JS Action / JS Item / JS Field / JS Column / Event Flow / Linkage / `ctx.*` APIs.
+- Handle only Modern page (v2) menu/page/tab/popup/content surfaces and the block / field / action / layout / reaction work inside them.
+- For partial-match or boundary-report tasks, keep the Modern-page slice narrow and write the handoff report directly from this boundary list. Do not inspect runtime or scripts unless the request is explicitly about those mechanics.
+- Hand off ACL / route permissions / role permissions to `nocobase-acl-manage`.
+- Hand off collection / field / relation authoring to `nocobase-data-modeling`.
+- Hand off workflow create / update / revision / execution to `nocobase-workflow-manage`.

@@ -2,6 +2,8 @@
 
 This file provides the family / locator / write-target mental model for the skill.
 
+Start with [local-edit-quick.md](./local-edit-quick.md) when the request looks like a normal localized edit and you only need the default route first. Come here when the family / locator model itself is the blocker.
+
 Canonical front door is `nocobase-ctl`. The operation names below are the stable runtime families; discover the exact generated command shape through `nocobase-ctl flow-surfaces --help`.
 
 ## 1. Common Families
@@ -44,6 +46,9 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 ## 4. Targeting Notes
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
+- desktop-route `id` and `navigation.group.routeId` are navigation locators, not flow-surface `uid` values.
+- after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
+- only after `get` / `describe-surface` / create responses return a live `uid` should that value feed `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, or `remove*`.
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `applyBlueprint` is key-oriented and structure-first: layout and in-document targeting use local `key`, whole-page interaction logic may live only in top-level `reaction.items[]`, and you must not author `uid`, `ref`, or `$ref` selectors there.
 - public `applyBlueprint.reaction.items[]` also uses same-run local keys / bind keys, not live uids.
