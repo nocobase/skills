@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Delete every duplicate-project artefact from a running NocoBase instance:
-routes ("Copy - *"), workflows ("Copy - *"), collections (*_copy), and
-flowModelTemplates (*_copy or "Copy - " in name).
+routes ("Copy - *" / "[Copy] *"), workflows (same prefixes, including nested
+"Copy - [Copy] *"), collections (*_copy), and flowModelTemplates (*_copy or
+"Copy - " / "[Copy]" in name).
 
 Auth resolution order:
   1. NB_TOKEN env var
@@ -59,19 +60,24 @@ def req(method, path, body=None, params=None):
         print(f'  ! {method} {path}: HTTP {e.code} {body_text[:200]}', file=sys.stderr)
         return None
 
+def is_copy_title(t: str) -> bool:
+    """Match every copy flavour: 'Copy - X', '[Copy] X', 'Copy - [Copy] X'."""
+    t = t or ''
+    return t.startswith('Copy - ') or t.startswith('[Copy] ')
+
 print(f'=== Cleaning Copy artefacts from {BASE} ===')
 
-print('\n--- routes (top groups "Copy - *") ---')
+print('\n--- routes (top groups "Copy - *" / "[Copy] *") ---')
 routes = req('GET', '/api/desktopRoutes:list', params={'paginate': 'false'}) or {}
-top = [r for r in routes.get('data', []) if r.get('parentId') is None and (r.get('title') or '').startswith('Copy - ')]
+top = [r for r in routes.get('data', []) if r.get('parentId') is None and is_copy_title(r.get('title'))]
 for t in top:
     print(f'  DELETE route id={t["id"]} title={t["title"]!r}')
     req('POST', '/api/desktopRoutes:destroy', params={'filterByTk': t['id']})
 print(f'  ({len(top)} route(s))')
 
-print('\n--- workflows "Copy - *" ---')
+print('\n--- workflows "Copy - *" / "[Copy] *" ---')
 wfs = req('GET', '/api/workflows:list', params={'paginate': 'false'}) or {}
-copy_wfs = [w for w in wfs.get('data', []) if (w.get('title') or '').startswith('Copy - ')]
+copy_wfs = [w for w in wfs.get('data', []) if is_copy_title(w.get('title'))]
 for w in copy_wfs:
     print(f'  DELETE workflow id={w["id"]} title={w["title"]!r}')
     req('POST', '/api/workflows:destroy', params={'filterByTk': w['id']})
@@ -85,9 +91,12 @@ for c in copy_colls:
     req('POST', '/api/collections:destroy', params={'filterByTk': c['name']})
 print(f'  ({len(copy_colls)} collection(s))')
 
-print('\n--- flowModelTemplates (*_copy | "Copy - ") ---')
+print('\n--- flowModelTemplates (*_copy | "Copy - " | "[Copy]") ---')
 tpls = req('GET', '/api/flowModelTemplates:list', params={'pageSize': '500'}) or {}
-copy_tpls = [t for t in tpls.get('data', []) if (t.get('name') or '').endswith('_copy') or 'Copy - ' in (t.get('name') or '')]
+def is_copy_template(n: str) -> bool:
+    n = n or ''
+    return n.endswith('_copy') or 'Copy - ' in n or '[Copy]' in n
+copy_tpls = [t for t in tpls.get('data', []) if is_copy_template(t.get('name'))]
 for t in copy_tpls:
     print(f'  DELETE template name={t["name"]} uid={t.get("uid")}')
     req('POST', '/api/flowModelTemplates:destroy', params={'filterByTk': t['uid']})
