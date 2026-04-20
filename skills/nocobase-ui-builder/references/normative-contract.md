@@ -48,7 +48,12 @@ The public `applyBlueprint` payload is:
 - only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission
 - `rules: []` clears the targeted reaction slot
 - `layout` itself is only allowed on `tabs[]` and inline `popup` documents; do not place `layout` on individual blocks
-- if `layout` is present, it must be an object; when layout is still uncertain, omit it instead of guessing
+- `fieldsLayout` is allowed only on `createForm`, `editForm`, `details`, and `filterForm`; it references field keys inside that one block and must place every keyed field exactly once
+- if `layout` is present, it must be an object
+- in `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon
+- when one tab or popup contains multiple non-filter blocks, explicit `layout` is required instead of relying on default top-to-bottom stacking
+- explicit `layout` may reference only real block keys, and every keyed block in that tab/popup must be placed by the layout
+- if a `filterForm` contains 4 or more fields, its actions must include `collapse`
 - generic `form` is not a public applyBlueprint block type; use `editForm` or `createForm`
 - custom `edit` popups that provide `popup.blocks` must contain exactly one `editForm` block; that `editForm` may omit `resource` and inherit the opener's current-record context
 - for normal single-page requests, default to exactly one real tab; do not carry empty / placeholder tabs in the draft
@@ -81,7 +86,7 @@ Correct CLI body:
   "mode": "create",
   "navigation": {
     "group": { "routeId": 12 },
-    "item": { "title": "Employees" }
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": { "title": "Employees" },
   "tabs": [
@@ -104,7 +109,7 @@ Correct MCP fallback envelope:
     "mode": "create",
     "navigation": {
       "group": { "routeId": 12 },
-      "item": { "title": "Employees" }
+      "item": { "title": "Employees", "icon": "TeamOutlined" }
     },
     "page": { "title": "Employees" },
     "tabs": [
@@ -186,8 +191,10 @@ For `replace` runs:
 - if the current page has `enableTabs = false` and the new blueprint contains multiple tabs, `page.enableTabs: true` must be set explicitly
 - tab / block keys are optional in normal authoring; only add them when custom layout or in-document cross references need a stable local identifier
 - layout cells are only block key strings or `{ key, span }`
+- `fieldsLayout` cells use the same public shape, but only inside field-grid blocks and only for field keys from that one block
 - `layout` is only allowed on `tabs[]` and inline `popup` documents, never on individual blocks
 - if layout is omitted, the server auto-generates a simple top-to-bottom layout
+- skill-side authoring may omit layout only for scopes with at most one non-filter block; otherwise the draft must decide layout before write
 - in `create`, if an existing menu group is already known, prefer `navigation.group.routeId`; when only `navigation.group.title` is given, applyBlueprint reuses one unique same-title group, creates a new group if none exists, and rejects ambiguous multi-match titles
 - at the skill-authoring layer, if one or more visible same-title menu groups already exist, do **not** create another same-title group for disambiguation; prefer the exact known `routeId`, otherwise reuse one existing group deterministically from the live menu tree and disclose that chosen routeId in the prewrite preview
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
@@ -219,23 +226,29 @@ The skill may use:
 - `flow_surfaces_catalog` when current-target capability is the question
 - `flow_surfaces_get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
 - `flow_surfaces_context` when popup/context variables or lower-level raw variable paths are the question
-- `collections:list` to narrow candidate collections
-- `collections:get(appends=["fields"])` as the default field truth
-- `collections.fields:get` only for known single-field follow-up when extra detail is still needed
+- CLI-first collection metadata reads:
+  - `nocobase-ctl data-modeling collections list -j` to narrow candidate collections
+  - `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the default field truth
+  - `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j` when the `data-modeling collections` command family is unavailable
+  - `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up when extra detail is still needed
+- MCP fallback collection metadata reads only after the CLI path is unavailable or has been repaired unsuccessfully:
+  - `collections:list`
+  - `collections:get(appends=["fields"])`
+  - `collections.fields:get` when the field name is already known and that MCP surface is available
 
 ### Field/schema fact priority
 
 When field truth matters:
 
-1. `collections:list` narrows candidates only
-2. `collections:get(appends=["fields"])` is the default truth for scalar fields, relation fields, interface, and association metadata; it is the only default field truth for UI authoring
-3. Do **not** use `collections.fields:list` for page authoring; treat it as a compact browse view, not as authoring truth
-4. `collections.fields:get` is optional follow-up only when the field name is already known and one field still needs confirmation
+1. `nocobase-ctl data-modeling collections list -j` narrows candidates only; on MCP fallback, `collections:list` serves the same purpose
+2. `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` is the default truth for scalar fields, relation fields, interface, and association metadata; if that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback should the skill use `collections:get(appends=["fields"])`
+3. Do **not** use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring; treat them as compact browse views, not as authoring truth
+4. Known single-field follow-up may use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j`, or `collections.fields:get` only when the skill is already on MCP fallback
 5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
 
 Field addability rule:
 
-- A field is authorable into page-blueprint `fields[]` only if `collections:get(appends=["fields"])` shows a non-empty `interface` for that field.
+- A field is authorable into page-blueprint `fields[]` only if the live collection metadata truth above shows a non-empty `interface` for that field.
 - If a field exists but `interface` is empty / null there, do **not** author it into any `details` / `table` / `editForm` / `createForm` / nested-popup block `fields[]`.
 - If a field only needs normal display/edit behavior, keep it as a simple string entry in blueprint `fields[]`; only upgrade it to an object when a documented public field behavior is needed.
 - Schema existence alone is not enough for UI authoring. Example: a field like `roles.description` may exist in collection metadata, but if its `interface` is `null`, the skill must omit it instead of attempting `addField` / `applyBlueprint` authoring.

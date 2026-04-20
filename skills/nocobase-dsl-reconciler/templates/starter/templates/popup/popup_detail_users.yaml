@@ -1,0 +1,21 @@
+name: 'Popup (Detail): Users'
+type: popup
+collectionName: users
+content:
+  blocks:
+    - key: details
+      type: details
+      coll: users
+      resource_binding:
+        filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+      fields:
+        - nickname
+        - email
+        - phone
+        - createdAt
+      field_layout:
+        - '--- Profile ---'
+        - - nickname
+          - email
+        - - phone
+          - createdAt

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { normalizeUrlBase, unwrapResponseEnvelope } from './rest_template_clone_runner.mjs';
+import { normalizeUrlBase, resolveRequiredUrlBase, unwrapResponseEnvelope } from './rest_template_clone_runner.mjs';
 
 function usage() {
   return [
@@ -174,7 +174,7 @@ export async function exportLiveTemplate({
   title,
   target,
   outDir,
-  urlBase = 'http://127.0.0.1:23000',
+  urlBase,
   token = process.env.NOCOBASE_API_TOKEN,
 }) {
   const normalizedTarget = normalizeRequiredText(target, 'target');
@@ -238,7 +238,7 @@ export async function exportLiveTemplate({
 
 async function handleList(flags) {
   const token = normalizeRequiredText(process.env.NOCOBASE_API_TOKEN, 'NOCOBASE_API_TOKEN');
-  const { apiBase } = normalizeUrlBase(flags['url-base'] || 'http://127.0.0.1:23000');
+  const { apiBase } = normalizeUrlBase(resolveRequiredUrlBase(flags['url-base']));
   const routeTreeResult = await fetchAccessibleTree({ apiBase, token });
   const routeTree = Array.isArray(routeTreeResult.data) ? routeTreeResult.data : [];
   process.stdout.write(`${JSON.stringify({ templates: collectLiveTemplates(routeTree) }, null, 2)}\n`);
@@ -250,7 +250,7 @@ async function handleExport(flags) {
     title: flags.title,
     target: flags.target,
     outDir: flags['out-dir'],
-    urlBase: flags['url-base'] || 'http://127.0.0.1:23000',
+    urlBase: resolveRequiredUrlBase(flags['url-base']),
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }

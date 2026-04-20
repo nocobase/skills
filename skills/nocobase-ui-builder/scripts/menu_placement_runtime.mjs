@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { recordGroupRoute, reserveGroup } from './opaque_uid.mjs';
-import { buildMenuGroupReservationKey, normalizeMenuPlacement } from './spec_contracts.mjs';
+import { buildMenuGroupReservationKey, normalizeMenuPlacement } from './menu_placement_utils.mjs';
 
 function normalizeOptionalText(value) {
   return typeof value === 'string' ? value.trim() : '';

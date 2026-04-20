@@ -397,7 +397,7 @@ test('selectTemplateDecision keeps non-contextual probes discovery-only even wit
   assert.equal(result.templateDecision.reasonCode, 'missing-live-context');
 });
 
-test('selectTemplateDecision auto-selects the smallest uid when top candidates remain tied', () => {
+test('selectTemplateDecision preserves backend order when top candidates remain tied', () => {
   const scene = {
     templateType: 'popup',
     repeatEligible: true,
@@ -411,8 +411,8 @@ test('selectTemplateDecision auto-selects the smallest uid when top candidates r
     probe: buildProbe(scene),
     candidates: [
       {
-        uid: 'aaa-role-popup',
-        name: 'Role popup A',
+        uid: 'bbb-role-popup',
+        name: 'Role popup B',
         description: 'Role popup users.roles',
         type: 'popup',
         available: true,
@@ -420,8 +420,8 @@ test('selectTemplateDecision auto-selects the smallest uid when top candidates r
         usageCount: 5,
       },
       {
-        uid: 'bbb-role-popup',
-        name: 'Role popup B',
+        uid: 'aaa-role-popup',
+        name: 'Role popup A',
         description: 'Role popup users.roles',
         type: 'popup',
         available: true,
@@ -433,7 +433,7 @@ test('selectTemplateDecision auto-selects the smallest uid when top candidates r
 
   assert.equal(result.ok, true);
   assert.equal(result.outcome, 'selected');
-  assert.equal(result.selectedTemplate.uid, 'aaa-role-popup');
+  assert.equal(result.selectedTemplate.uid, 'bbb-role-popup');
 });
 
 test('selectTemplateDecision supports block fields templates and copy mode', () => {

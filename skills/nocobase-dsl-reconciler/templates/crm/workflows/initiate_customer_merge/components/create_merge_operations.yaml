@@ -1,0 +1,66 @@
+usingAssignFormSchema: true
+assignFormSchema:
+  _isJSONSchemaObject: true
+  version: '2.0'
+  name: 4x2d10vy9zd
+  type: void
+  x-component: Grid
+  x-initializer: assignFieldValuesForm:configureFields
+  properties:
+    1brjmhdra9n:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        gnsmy35h0pj:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            operator_id:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: operator_id
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_merge_operations.operator_id
+          name: gnsmy35h0pj
+      name: 1brjmhdra9n
+    11rucq3m1v5:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        vtuqv0gbrwz:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            status:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: status
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_merge_operations.status
+              x-component-props:
+                style:
+                  width: 100%
+          name: vtuqv0gbrwz
+      name: 11rucq3m1v5
+params:
+  appends: []
+  values:
+    operator_id: '{{$context.user.id}}'
+    status: pending
+collection: nb_crm_merge_operations

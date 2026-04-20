@@ -49,7 +49,7 @@ export async function verifySql(
         results.push({ label, ok: false, error: msg });
       } else {
         const rows = resp.data?.data?.length || 0;
-        results.push({ label, ok: rows > 0, rows, ...(rows === 0 ? { error: 'SQL 返回 0 行数据，请检查查询或插入测试数据' } : {}) });
+        results.push({ label, ok: rows > 0, rows, ...(rows === 0 ? { error: 'SQL returned 0 rows — check query or insert test data first' } : {}) });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

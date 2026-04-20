@@ -1,0 +1,525 @@
+scopes:
+  own_nb_crm_activities:
+    collection: nb_crm_activities
+    title: Own records
+    filter:
+      createdBy: true
+  own_nb_crm_comments:
+    collection: nb_crm_comments
+    title: Own records
+    filter:
+      createdBy: true
+  owner_contacts:
+    collection: nb_crm_contacts
+    title: Own contacts
+    filter:
+      $or:
+        - owner_id:
+            $eq: '{{$user.id}}'
+        - customer:
+            owner_id:
+              $eq: '{{$user.id}}'
+  1pmrrjvql73:
+    collection: nb_crm_customers
+    title: sales_customer
+    filter:
+      $and:
+        - owner_id:
+            $eq: '{{$user.id}}'
+  owner_leads:
+    collection: nb_crm_leads
+    title: Own leads
+    filter:
+      $and:
+        - owner_id:
+            $eq: '{{$user.id}}'
+  owner_opportunities:
+    collection: nb_crm_opportunities
+    title: Own opportunities
+    filter:
+      $and:
+        - owner_id:
+            $eq: '{{$user.id}}'
+  own_nb_crm_quotation_items:
+    collection: nb_crm_quotation_items
+    title: Own records
+    filter:
+      createdBy: true
+  owner_quotations:
+    collection: nb_crm_quotations
+    title: Own quotations
+    filter:
+      $and:
+        - owner_id:
+            $eq: '{{$user.id}}'
+roles:
+  admin:
+    title: '{{t("Admin")}}'
+    snippets:
+      - pm
+      - pm.*
+      - ui.*
+    allowConfigure: true
+    allowNewMenu: true
+    strategy:
+      actions:
+        - create
+        - view
+        - update
+        - destroy
+        - export
+        - importXlsx
+    pages:
+      - Lookup
+      - Main/**
+      - Other/**
+  customer:
+    title: Customer
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+  executive:
+    title: Executive
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - export
+    pages:
+      - Main/**
+  finance:
+    title: Finance
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - export
+    pages:
+      - Main/**
+      - Other/**
+    collections:
+      nb_crm_exchange_rates:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_order_items:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_orders:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_payments:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_quotation_items:
+        view:
+          scope: all
+        update:
+          scope: all
+      nb_crm_quotations:
+        view:
+          scope: all
+        update:
+          scope: all
+  marketing:
+    title: Marketing
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - create
+        - update:own
+    pages:
+      - Main/**
+      - Other/**
+    collections:
+      nb_crm_data_analysis:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_lead_tags:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_leads:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+  member:
+    title: '{{t("Member")}}'
+    default: true
+    snippets:
+      - '!pm'
+      - '!pm.*'
+      - '!ui.*'
+    allowNewMenu: true
+    strategy:
+      actions:
+        - view:own
+    pages:
+      - Lookup
+      - Main/**
+      - Other/**
+  product:
+    title: Product
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - create
+        - update
+    pages:
+      - Main/**
+    collections:
+      nb_crm_price_tiers:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_product_categories:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_products:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+  sales_manager:
+    title: Sales Manager
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - create
+        - view
+        - update
+        - destroy
+        - export
+    pages:
+      - Lookup
+      - Main/**
+      - Other/**
+  sales_representative:
+    title: Sales
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - create
+        - update:own
+    pages:
+      - Lookup
+      - Main/**
+      - Other/**
+    collections:
+      nb_crm_activities:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: own_nb_crm_activities
+        destroy:
+          scope: own_nb_crm_activities
+      nb_crm_comments:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: own_nb_crm_comments
+      nb_crm_contacts:
+        create:
+          scope: all
+        view:
+          scope: owner_contacts
+        update:
+          scope: owner_contacts
+      nb_crm_customers:
+        create:
+          scope: all
+        view:
+          scope: 1pmrrjvql73
+        update:
+          scope: 1pmrrjvql73
+        destroy:
+          scope: 1pmrrjvql73
+        export:
+          scope: 1pmrrjvql73
+        importXlsx:
+          scope: all
+      nb_crm_leads:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: owner_leads
+        destroy:
+          scope: owner_leads
+      nb_crm_opportunities:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: owner_opportunities
+      nb_crm_orders:
+        create:
+          scope: all
+        view:
+          scope: all
+      nb_crm_quotation_items:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: own_nb_crm_quotation_items
+        destroy:
+          scope: own_nb_crm_quotation_items
+      nb_crm_quotations:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: owner_quotations
+      v_nb_crm_contact_lookup:
+        view:
+          fields:
+            - contact_no
+            - createdAt
+            - customer
+            - customer_id
+            - customer_name
+            - department
+            - id
+            - is_primary
+            - mobile
+            - name
+            - owner
+            - owner_id
+            - owner_name
+            - title
+      v_nb_crm_customer_lookup:
+        view:
+          scope: all
+          fields:
+            - account_number
+            - country
+            - createdAt
+            - id
+            - industry
+            - level
+            - name
+            - owner
+            - owner_id
+            - owner_name
+            - status
+            - type
+      v_nb_crm_lead_lookup:
+        view:
+          scope: all
+          fields:
+            - company
+            - createdAt
+            - id
+            - industry
+            - is_converted
+            - lead_no
+            - mobile_phone
+            - name
+            - owner
+            - owner_id
+            - owner_name
+            - rating
+            - source
+            - status
+  support_manager:
+    title: Support Manager
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - create
+        - update
+        - export
+    pages:
+      - Main/**
+      - Other/**
+    collections:
+      nb_crm_activities:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_comments:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_contacts:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_customers:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_merge_operation_items:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+      nb_crm_merge_operations:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: all
+        destroy:
+          scope: all
+  technical:
+    title: Technical
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+    pages:
+      - Main/**
+  technical_support_specialist:
+    title: Support Specialist
+    snippets:
+      - '!ui.*'
+      - '!pm'
+      - '!pm.*'
+    strategy:
+      actions:
+        - view
+        - create
+        - update:own
+    pages:
+      - Main/**
+      - Other/**
+    collections:
+      nb_crm_activities:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: own_nb_crm_activities
+      nb_crm_comments:
+        create:
+          scope: all
+        view:
+          scope: all
+        update:
+          scope: own_nb_crm_comments
+      nb_crm_contacts:
+        create:
+          scope: all
+        view:
+          scope: owner_contacts
+        update:
+          scope: owner_contacts

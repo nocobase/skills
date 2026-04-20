@@ -10,9 +10,10 @@ Canonical front door is `nocobase-ctl flow-surfaces`. This file is for **low-lev
 2. Decision matrix
 3. Legal shapes of `settings`
 4. High-impact reminders
-5. Frequent templates
-6. When not to force something into `settings`
-7. Readback mental model
+5. Event-flow replacement
+6. Frequent templates
+7. When not to force something into `settings`
+8. Readback mental model
 
 ## Core Rules
 
@@ -40,6 +41,58 @@ Canonical front door is `nocobase-ctl flow-surfaces`. This file is for **low-lev
 - `set-layout` and `set-event-flows` are not ordinary patches. Both are high-impact full-replace APIs.
 - Do not default to them just because "only one layout item" or "only one flow" is changing. If the user is not asking for whole replacement, prefer `compose/add*`, `configure`, or `update-settings` instead.
 - Once you use them, read the full current state before writing, and validate against the full post-write state. Do not rely on local delta only.
+
+## Event-flow Replacement
+
+Use `set-event-flows` when the target already exists and the user explicitly accepts whole instance-level event-flow replacement.
+
+Core rules:
+
+- Preferred CLI family is `nocobase-ctl flow-surfaces set-event-flows`.
+- Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
+- Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
+- For `Execute JavaScript` steps, validate the code first through [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.
+- Do not invent event names, flow keys, step keys, or step payload shapes locally when the live readback has not shown them yet.
+- If `on` is an object instead of a bare string, preserve its `eventName / phase / flowKey / stepKey` structure from readback.
+
+CLI body shape:
+
+```json
+{
+  "target": { "uid": "submit-action-uid" },
+  "flowRegistry": {
+    "submitFlow": {
+      "key": "submitFlow",
+      "on": "click",
+      "steps": {
+        "runJsStep": {
+          "params": {
+            "code": "ctx.message.success(ctx.t('Saved'));\nawait ctx.resource?.refresh?.();"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- `submitFlow` and `runJsStep` above are placeholders for the live keys you first read back from the target.
+- When binding relative to a built-in flow or built-in step, `on` may need the object form:
+
+```json
+{
+  "on": {
+    "eventName": "submit",
+    "phase": "beforeStep",
+    "flowKey": "formSettings",
+    "stepKey": "refresh"
+  }
+}
+```
+
+- If the current target has no event-flow definitions yet, first create or inspect one through the live product/runtime path, then reuse that readback shape instead of guessing a brand-new step schema from prose alone.
 
 ## Legal Shapes of `settings`
 
@@ -210,6 +263,23 @@ Create a submit button and set its title and type directly:
 }
 ```
 
+When the action can open a popup, keep popup/template routing beside `settings`, not inside it:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "addNew",
+  "settings": {
+    "title": "Create user",
+    "icon": "PlusOutlined",
+    "type": "primary"
+  },
+  "popup": {
+    "tryTemplate": true
+  }
+}
+```
+
 Common action settings suitable for direct inline use:
 
 - `title`
@@ -227,6 +297,12 @@ Common action settings suitable for direct inline use:
 - `emailFieldNames`
 - `defaultSelectAllRecords`
 
+Notes:
+
+- `popup`, `popup.template`, `popup.tryTemplate`, and `popup.saveAsTemplate` are sibling write fields, not `settings` keys.
+- For popup-capable localized writes without an explicit `popup.template`, default to `popup.tryTemplate=true`.
+- If the first local popup should immediately become reusable, use `popup.saveAsTemplate={ name, description }` together with explicit local `popup.blocks`.
+
 ### `add-record-action`
 
 Create a record-level view action and give it a title directly:
@@ -237,6 +313,23 @@ Create a record-level view action and give it a title directly:
   "type": "view",
   "settings": {
     "title": "View"
+  }
+}
+```
+
+If the goal is a standard details popup on a shown title/name field, prefer field/openView configuration over a duplicated `view` record action. When a real record action is still needed, popup routing stays outside `settings`:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "edit",
+  "settings": {
+    "title": "Edit",
+    "icon": "EditOutlined",
+    "type": "primary"
+  },
+  "popup": {
+    "tryTemplate": true
   }
 }
 ```
@@ -252,6 +345,12 @@ Create a record-level view action and give it a title directly:
   }
 }
 ```
+
+Readback rule for localized creates:
+
+- `table` / `list` / `gridCard` may already come back with merged `filter` + `addNew` + `refresh`.
+- `details` may already come back with merged `edit`.
+- After `add-block`, `compose`, `add-action`, or `add-record-action`, inspect the persisted action list and popup/template binding before adding "missing" actions or extra popup writes.
 
 ## When Not to Force Something into `settings`
 

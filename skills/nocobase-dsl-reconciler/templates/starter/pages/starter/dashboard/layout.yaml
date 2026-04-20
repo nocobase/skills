@@ -1,0 +1,19 @@
+blocks:
+  - type: jsBlock
+    key: jsBlock
+    file: ./js/dashboard_jsBlock.js
+    desc: Project + task KPI cards
+  - key: chart_project_status
+    type: chart
+    chart_config: ./charts/status.yaml
+  - key: chart_project_priority
+    type: chart
+    chart_config: ./charts/priority.yaml
+  - key: chart_task_status
+    type: chart
+    chart_config: ./charts/tasks_by_status.yaml
+layout:
+  - - jsBlock
+  - - chart_project_status: 12
+    - chart_project_priority: 12
+  - - chart_task_status

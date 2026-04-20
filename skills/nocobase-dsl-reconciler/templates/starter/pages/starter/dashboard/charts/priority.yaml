@@ -1,0 +1,2 @@
+sql_file: ./charts/priority.sql
+render_file: ./charts/priority_render.js

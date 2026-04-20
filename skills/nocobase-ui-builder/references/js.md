@@ -1,16 +1,17 @@
 # JS
 
-Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md). For CLI usage, Node-version assumptions, repo-root command entry, and `--skill-mode`, see [runjs-runtime.md](./runjs-runtime.md).
+Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. For upstream capability docs, `ctx.*` API references, and scenario-level examples copied from the source docs, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md). For CLI usage, Node-version assumptions, repo-root command entry, and `--skill-mode`, see [runjs-runtime.md](./runjs-runtime.md).
 
 ## Contents
 
 1. Public JS capabilities
-2. RunJS Validator Gate
-3. Skill-to-Runtime mapping
-4. Container support matrix
-5. Code style and context
-6. Strict Render rules
-7. Execution reminders
+2. Reference layers
+3. RunJS Validator Gate
+4. Skill-to-Runtime mapping
+5. Container support matrix
+6. Code style and context
+7. Strict Render rules
+8. Execution reminders
 
 ## Public JS Capabilities
 
@@ -20,6 +21,12 @@ Read this file when the current write involves JS `code`, `renderer: "js"`, `jsB
 - standalone JS fields: `jsColumn` / `jsItem`
 - chart custom option: `visual.raw`
 - chart events: `events.raw`
+
+## Reference Layers
+
+- Patched source-doc snapshot and product/runtime examples live under [js-reference-index.md](./js-reference-index.md) and [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md). Use that layer when you need `ctx.*` API details, scenario examples, or the original JS authoring guidance from the source repo plus the local skill-mode guardrails layered on top.
+- Skill-side execution contract stays here and in [runjs-runtime.md](./runjs-runtime.md). Use this layer for validator gate, runtime-model selection, strict render rules, and skill-mode constraints.
+- For field values, linkage, block/action state, or whole-page/localized reaction writes, return to [reaction.md](./reaction.md). Upstream linkage/event-flow pages describe product behavior, but they do not replace the skill payload contract.
 
 ## RunJS Validator Gate
 
@@ -97,5 +104,7 @@ All of them obey the same rules:
 - Prefer `configure` for JS-related configuration.
 - `renderer: "js"` is not a standalone field type. `jsColumn` / `jsItem` are the standalone field types.
 - Standalone JS fields like `jsColumn` / `jsItem` may omit a real `fieldPath` at creation time. Only real-field `renderer: "js"` requires `fieldPath`.
+- For form-scoped helper text that should appear only after a form value is selected, prefer a `jsItem` that calls `ctx.render(null)` while hidden and `ctx.render(...)` when visible. Current live `fieldLinkage` does not expose JSItem pseudo paths as target fields.
+- When that render-null pattern is the intended helper toggle, treat it as successful helper-toggle proof in readback/evidence summaries; do not mark the helper outcome false only because there was no separate reaction write against the JSItem uid.
 - `filterForm` does not support `renderer: "js"`, `jsColumn`, or `jsItem`. If JS is required there, redesign as a block or action instead.
 - Any JS write must pass the RunJS validator gate before entering the MCP write flow.

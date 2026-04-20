@@ -11,5 +11,10 @@ content:
       coll: nb_crm_activities
       resource_binding:
         filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+      templateRef:
+        templateUid: fpq7iu2da59
+        templateName: 'Form (Add new): Activities'
+        targetUid: b9e42f19aab
+        mode: reference
       actions:
         - submit

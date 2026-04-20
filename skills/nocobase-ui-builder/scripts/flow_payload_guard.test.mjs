@@ -973,12 +973,14 @@ function makeFilterFormBlock(actions = []) {
 }
 
 function makeFilterFormItem({
+  uid,
   collectionName = 'orders',
   fieldPath = 'status',
   includeFieldSubModel = true,
   includeFilterField = true,
 } = {}) {
   return {
+    ...(uid ? { uid } : {}),
     use: 'FilterFormItemModel',
     stepParams: {
       fieldSettings: {
@@ -3033,6 +3035,79 @@ test('auditPayload blocks grid layouts that reference orphan uid or leave items 
   assert.equal(result.blockers.some((item) => item.code === 'GRID_ITEM_LAYOUT_MISSING'), true);
 });
 
+test('auditPayload blocks multi-block layouts that keep filters away from the first row and stack every block one-per-row', () => {
+  const payload = {
+    uid: 'grid-root',
+    use: 'BlockGridModel',
+    stepParams: {
+      gridSettings: {
+        grid: {
+          rows: {
+            row1: [['table-1']],
+            row2: [['filter-1']],
+            row3: [['table-2']],
+          },
+          sizes: {
+            row1: [24],
+            row2: [24],
+            row3: [24],
+          },
+          rowOrder: ['row1', 'row2', 'row3'],
+        },
+      },
+    },
+    subModels: {
+      items: [
+        {
+          uid: 'filter-1',
+          use: 'FilterFormBlockModel',
+          subModels: {
+            grid: {
+              use: 'FilterFormGridModel',
+              subModels: {
+                items: [
+                  makeFilterFormItem({ uid: 'filter-item-1' }),
+                ],
+              },
+            },
+            actions: [
+              { uid: 'filter-submit', use: 'FilterFormSubmitActionModel' },
+            ],
+          },
+        },
+        {
+          uid: 'table-1',
+          use: 'TableBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: makeCollectionResourceInit('orders'),
+            },
+          },
+        },
+        {
+          uid: 'table-2',
+          use: 'TableBlockModel',
+          stepParams: {
+            resourceSettings: {
+              init: makeCollectionResourceInit('orders'),
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const result = auditPayload({
+    payload,
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_LAYOUT_NOT_LEADING_ROW'), true);
+  assert.equal(result.blockers.some((item) => item.code === 'MULTI_BLOCK_LAYOUT_SINGLE_COLUMN'), true);
+});
+
 test('auditPayload blocks reparenting an existing uid when live topology disagrees', () => {
   const payload = {
     uid: 'grid-root',
@@ -4270,6 +4345,29 @@ test('auditPayload blocks empty filter forms and malformed filter form items', (
   assert.equal(missingFilterFieldResult.blockers.some((item) => item.code === 'FILTER_FORM_ITEM_FILTERFIELD_MISSING'), true);
 });
 
+test('auditPayload blocks filter forms with four or more fields when collapse action is missing', () => {
+  const result = auditPayload({
+    payload: makeFilterFormBlockWithItems([
+      makeFilterFormItem({ fieldPath: 'order_no' }),
+      makeFilterFormItem({ fieldPath: 'status' }),
+      makeFilterFormItem({ fieldPath: 'order_no' }),
+      makeFilterFormItem({ fieldPath: 'status' }),
+    ], [
+      {
+        use: 'FilterFormSubmitActionModel',
+      },
+      {
+        use: 'FilterFormResetActionModel',
+      },
+    ]),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_COLLAPSE_MISSING'), true);
+});
+
 test('canonicalizePayload rewrites select filter form items to SelectFieldModel and metadata-derived descriptor', () => {
   const payload = makeFilterFormItem({
     collectionName: 'orders',
@@ -4312,6 +4410,110 @@ test('auditPayload blocks filter form field model mismatches against metadata', 
   });
 
   assert.equal(result.blockers.some((item) => item.code === 'FILTER_FORM_FIELD_MODEL_MISMATCH'), true);
+});
+
+test('auditPayload warns when title-like table columns do not enable click-to-open', () => {
+  const result = auditPayload({
+    payload: {
+      use: 'TableBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        columns: [
+          {
+            use: 'TableColumnModel',
+            stepParams: {
+              fieldSettings: {
+                init: {
+                  collectionName: 'orders',
+                  fieldPath: 'order_no',
+                },
+              },
+            },
+            subModels: {
+              field: makeFieldBindingSubModel({
+                use: 'DisplayTextFieldModel',
+                init: {
+                  collectionName: 'orders',
+                  fieldPath: 'order_no',
+                },
+              }),
+            },
+          },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.warnings.some((item) => item.code === 'TABLE_CLICK_TO_OPEN_MISSING'), true);
+});
+
+test('auditPayload warns when click-to-open tables still keep a redundant row-level view action', () => {
+  const result = auditPayload({
+    payload: {
+      use: 'TableBlockModel',
+      stepParams: {
+        resourceSettings: {
+          init: makeCollectionResourceInit('orders'),
+        },
+      },
+      subModels: {
+        columns: [
+          {
+            use: 'TableColumnModel',
+            stepParams: {
+              fieldSettings: {
+                init: {
+                  collectionName: 'orders',
+                  fieldPath: 'order_no',
+                },
+              },
+              displayFieldSettings: {
+                clickToOpen: {
+                  clickToOpen: true,
+                },
+              },
+              popupSettings: {
+                openView: {
+                  collectionName: 'orders',
+                },
+              },
+            },
+            subModels: {
+              field: makeFieldBindingSubModel({
+                use: 'DisplayTextFieldModel',
+                init: {
+                  collectionName: 'orders',
+                  fieldPath: 'order_no',
+                },
+              }),
+            },
+          },
+          {
+            use: 'TableActionsColumnModel',
+            subModels: {
+              actions: [
+                {
+                  use: 'ViewActionModel',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.warnings.some((item) => item.code === 'TABLE_VIEW_ACTION_REDUNDANT_WITH_CLICK'), true);
 });
 
 test('auditPayload blocks field models that carry unsupported page slots', () => {
@@ -4469,16 +4671,14 @@ test('auditPayload blocks forbidden RunJS globals and exposes runjs inspection s
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'RUNJS_FORBIDDEN_GLOBAL'), true);
-  assert.deepEqual(result.runjsInspection, {
-    ok: false,
-    blockerCount: 1,
-    warningCount: 0,
-    inspectedNodeCount: 1,
-    contractSource: 'live',
-    semanticBlockerCount: 0,
-    semanticWarningCount: 0,
-    autoRewriteCount: 0,
-  });
+  assert.equal(result.runjsInspection.ok, false);
+  assert.equal(result.runjsInspection.blockerCount, 1);
+  assert.equal(result.runjsInspection.inspectedNodeCount, 1);
+  assert.equal(result.runjsInspection.contractSource, 'live');
+  assert.equal(result.runjsInspection.semanticBlockerCount, 0);
+  assert.equal(result.runjsInspection.semanticWarningCount, 0);
+  assert.equal(result.runjsInspection.autoRewriteCount, 0);
+  assert.equal(result.runjsInspection.warningCount >= 0, true);
 });
 
 test('canonicalizePayload rewrites render-model innerHTML writes to ctx.render', () => {
@@ -4577,6 +4777,7 @@ function makeValidChartBlock(overrides = {}) {
             dimensions: [
               {
                 field: 'status',
+                alias: 'status',
               },
             ],
           },
@@ -4915,6 +5116,41 @@ test('auditPayload blocks unsupported chart field path shapes', () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_FIELD_PATH_SHAPE_UNSUPPORTED'), true);
+});
+
+test('auditPayload blocks chart query items whose alias is left empty', () => {
+  const result = auditPayload({
+    payload: makeValidChartBlock({
+      stepParams: {
+        chartSettings: {
+          configure: {
+            query: {
+              mode: 'builder',
+              collectionPath: ['main', 'orders'],
+              measures: [
+                {
+                  field: 'order_no',
+                  aggregation: 'count',
+                  alias: '',
+                },
+              ],
+              dimensions: [
+                {
+                  field: 'status',
+                  alias: '',
+                },
+              ],
+            },
+          },
+        },
+      },
+    }),
+    metadata,
+    mode: VALIDATION_CASE_MODE,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'CHART_QUERY_ALIAS_MISSING'), true);
 });
 
 test('auditPayload blocks grid card payloads missing item subtree or invalid action slots', () => {

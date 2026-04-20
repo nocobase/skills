@@ -24,6 +24,7 @@ Read this file when you already know you need to add something into a content ar
 
 - the block already exists and the user wants a button-like operation
 - examples: `addNew`, `view`, `edit`, custom `popup`, `submit` on `createForm` / `editForm`, `reset` only when the live target / catalog explicitly shows it is supported, js action, and `addChild` under `recordActions`
+- if the requirement is really "click a title/name-like field to open details", prefer a field popup / clickable-field route instead of adding a redundant `view` action first
 
 ## 3. Data-bound vs Non-data Blocks
 
@@ -32,11 +33,11 @@ Read this file when you already know you need to add something into a content ar
 
 ## 4. Field Rules
 
-- Use `collections:get(appends=["fields"])` as the default field truth.
-- Do **not** use `collections.fields:list` for page authoring / field discovery; it is a compact browse view only.
-- Use `collections.fields:get` only for known single-field follow-up.
+- Use live collection metadata as the default field truth. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`.
+- Do **not** use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring / field discovery; they are compact browse views only.
+- Use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up, or `collections.fields:get` only when already on MCP fallback.
 - A field existing in collection schema does not automatically mean it is addable on the current UI target.
-- If `collections:get(appends=["fields"])` shows `interface: null` / empty, do not author that field into page-blueprint `fields[]`.
+- If the live collection metadata truth shows `interface: null` / empty, do not author that field into page-blueprint `fields[]`.
 - When current-target addability matters, read `catalog({ target, sections: ["fields"] })`.
 - Prefer display-ready field paths such as `department.title` over raw relation ids when the user is describing display semantics.
 
@@ -47,3 +48,6 @@ Read this file when you already know you need to add something into a content ar
 - `view` / `edit` / `addNew` may create or use popup behavior; see [popup.md](./popup.md).
 - `addChild` is a record action, not a block action.
 - For the canonical `addChild` placement and live-target rule, follow [normative-contract.md](./normative-contract.md).
+- For localized writes, API may auto-merge default actions: `table` / `list` / `gridCard` commonly fill `filter` + `addNew` + `refresh`, and `details` commonly fills `edit`. Do not fight that completion with duplicate follow-up writes; read back first.
+- When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` or `popup.saveAsTemplate` decision already exists.
+- If click-to-open already covers the requested details behavior on a shown Name/Title-like field, avoid adding a separate `view` record action unless the user explicitly asked for a button/action column.

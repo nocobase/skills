@@ -1,0 +1,2 @@
+sql_file: ./charts/tasks_by_status.sql
+render_file: ./charts/tasks_by_status_render.js

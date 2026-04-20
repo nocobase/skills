@@ -12,6 +12,13 @@
 export interface WorkflowSpec {
   title: string;
   type: string;                         // trigger type: collection, schedule, action, etc.
+  /**
+   * Source NB-runtime key — captured at pull time, becomes the DSL identity
+   * for cross-references (page actions' `workflowKey:` use this value).
+   * Deploy maps `spec.key → state.key` to rewrite references when the
+   * runtime key changes (e.g. duplicate-project creates a fresh workflow).
+   */
+  key?: string;
   sync?: boolean;
   enabled?: boolean;
   description?: string;

@@ -23,6 +23,8 @@ Excluded:
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
 | ACL-SMOKE-001 | cli | `node ./scripts/run-ctl.mjs -- --help` + `$nocobase-env-bootstrap task=app-manage app_env_action=current` availability | runtime |
+| ACL-SMOKE-002 | cli | execution guard fail-closed check (`env -s project`, `acl --help`, `acl roles --help`) in one locked base-dir | runtime |
+| ACL-SMOKE-003 | cli | wrapper payload guard rejects malformed `acl roles data-source-resources create|update --body` before execution | contract + runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -68,6 +70,7 @@ Optional:
 
 - execute through CLI only
 - no direct ACL REST fallback
+- no temporary executor scripts as fallback (`*.js`, `*.ps1`, `*.sh`)
 - keep high-impact writes behind explicit switches
 - restore global role mode when modified during tests
 - cleanup temporary test role when possible
@@ -81,3 +84,9 @@ Optional:
   - action `scopeId` is non-null and equals the resolved scope id
   - scope key matches expected built-in/custom scope
   - action field list length matches resolved collection field count for default-all actions
+- `ACL-SMOKE-002` must verify fail-closed behavior:
+  - when guard commands fail in the selected base-dir, runner stops writes and emits recovery guidance
+  - no ad-hoc script file is created to continue execution
+- `ACL-SMOKE-003` must verify wrapper payload guard behavior:
+  - malformed independent-resource write payload is blocked before CLI execution
+  - error output explains missing/invalid keys (`usingActionsConfig`, `actions`, `scopeId`, `fields`)

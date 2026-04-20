@@ -1,0 +1,10 @@
+# Each subdirectory under workspaces/ is a per-environment NocoBase project
+# (DSL + state.yaml). These are local deployment data, not tool source — keep
+# them out of the shared repo so individual users / branches / NB instances
+# don't conflict with each other.
+#
+# To track a specific project intentionally (e.g., a shared sample), add an
+# explicit allow-list line below.
+*
+!.gitignore
+!README.md

@@ -1,0 +1,31 @@
+name: 'Popup (Detail): Tasks'
+type: popup
+collectionName: nb_starter_tasks
+content:
+  blocks:
+    - key: details
+      type: details
+      coll: nb_starter_tasks
+      resource_binding:
+        filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+      fields:
+        - title
+        - status
+        - priority
+        - project
+        - assignee
+        - due_date
+        - estimate_hours
+        - description
+      field_layout:
+        - '--- Basic Info ---'
+        - - title
+        - - status
+          - priority
+        - '--- Assignment ---'
+        - - project
+          - assignee
+        - - due_date
+          - estimate_hours
+        - '--- Description ---'
+        - - description

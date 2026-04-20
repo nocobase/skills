@@ -1,0 +1,91 @@
+usingAssignFormSchema: true
+assignFormSchema:
+  _isJSONSchemaObject: true
+  version: '2.0'
+  name: f17y129791o
+  type: void
+  x-component: Grid
+  x-initializer: assignFieldValuesForm:configureFields
+  properties:
+    97b8exx3oui:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        0ph4mollqij:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            merge_operation_id:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: merge_operation_id
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_merge_operation_items.merge_operation_id
+          name: 0ph4mollqij
+      name: 97b8exx3oui
+    xt5wh16ufbq:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        zs2xf7flwz2:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            customer_id:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: customer_id
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_merge_operation_items.customer_id
+          name: zs2xf7flwz2
+      name: xt5wh16ufbq
+    4hrp9rf90hj:
+      _isJSONSchemaObject: true
+      version: '2.0'
+      type: void
+      x-component: Grid.Row
+      properties:
+        nixhyj7iciv:
+          _isJSONSchemaObject: true
+          version: '2.0'
+          type: void
+          x-component: Grid.Col
+          properties:
+            status:
+              _isJSONSchemaObject: true
+              version: '2.0'
+              type: string
+              name: status
+              x-toolbar: FormItemSchemaToolbar
+              x-settings: fieldSettings:FormItem
+              x-component: AssignedField
+              x-decorator: FormItem
+              x-collection-field: nb_crm_merge_operation_items.status
+              x-component-props:
+                style:
+                  width: 100%
+          name: nixhyj7iciv
+      name: 4hrp9rf90hj
+params:
+  appends: []
+  values:
+    merge_operation_id: '{{$jobsMapByNodeKey.create_merge_operations.id}}'
+    customer_id: '{{$scopes.loop.item.id}}'
+    status: pending
+collection: nb_crm_merge_operation_items

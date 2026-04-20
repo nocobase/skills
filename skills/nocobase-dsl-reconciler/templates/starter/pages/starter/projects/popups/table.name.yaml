@@ -1,0 +1,56 @@
+target: $SELF.table.fields.name
+mode: drawer
+coll: nb_starter_projects
+blocks:
+  - key: details
+    type: details
+    coll: nb_starter_projects
+    resource_binding:
+      filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+    fields:
+      - name
+      - code
+      - status
+      - priority
+      - start_date
+      - end_date
+      - owner
+      - members
+      - description
+    field_layout:
+      - '--- Basic Info ---'
+      - - name
+        - code
+      - - status
+        - priority
+      - '--- Schedule ---'
+      - - start_date
+        - end_date
+      - '--- Ownership ---'
+      - - owner
+      - - members
+      - '--- Description ---'
+      - - description
+  - key: tasks
+    type: table
+    title: Tasks
+    coll: nb_starter_tasks
+    resource_binding:
+      sourceId: '{{ctx.view.inputArgs.filterByTk}}'
+      associationName: nb_starter_projects.tasks
+    fields:
+      - field: title
+        clickToOpen: true
+      - field: status
+        width: 110
+      - field: priority
+        width: 110
+      - field: due_date
+        width: 120
+    actions:
+      - filter
+      - refresh
+      - addNew
+layout:
+  - - details
+  - - tasks

@@ -26,6 +26,7 @@ Canonical rule:
 | localized content compose | `nocobase-ctl flow-surfaces compose` | `flow_surfaces_compose` | [tool-shapes.md](./tool-shapes.md) |
 | semantic small update | `nocobase-ctl flow-surfaces configure` | `flow_surfaces_configure` | [tool-shapes.md](./tool-shapes.md) + [settings.md](./settings.md) |
 | path-level fine-grained patch | `nocobase-ctl flow-surfaces update-settings` | `flow_surfaces_update_settings` | [settings.md](./settings.md) |
+| event-flow replacement | `nocobase-ctl flow-surfaces set-event-flows` | `flow_surfaces_set_event_flows` | [settings.md](./settings.md) + [tool-shapes.md](./tool-shapes.md) + [js.md](./js.md) |
 | menu lifecycle | `nocobase-ctl flow-surfaces create-menu` / `update-menu` | `flow_surfaces_create_menu` / `flow_surfaces_update_menu` | [tool-shapes.md](./tool-shapes.md) |
 | page lifecycle | `nocobase-ctl flow-surfaces create-page` / `destroy-page` | `flow_surfaces_create_page` / `flow_surfaces_destroy_page` | [tool-shapes.md](./tool-shapes.md) |
 | tab lifecycle | `nocobase-ctl flow-surfaces add-tab` / `update-tab` / `move-tab` / `remove-tab` | `flow_surfaces_add_tab` / `flow_surfaces_update_tab` / `flow_surfaces_move_tab` / `flow_surfaces_remove_tab` | [tool-shapes.md](./tool-shapes.md) |

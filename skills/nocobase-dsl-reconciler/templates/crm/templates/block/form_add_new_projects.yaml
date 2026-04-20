@@ -1,9 +1,9 @@
-uid: vcywqnpvvs8
+uid: ugr26dob75f
 name: 'Form (Add new): Projects'
 type: block
 collectionName: nb_pm_projects
 dataSourceKey: main
-targetUid: 50uyiee14mq
+targetUid: wazniejagf8
 description: 'Form (Add new): Projects'
 content:
   key: createForm
@@ -11,28 +11,20 @@ content:
   coll: nb_pm_projects
   fields:
     - name
-    - key
+    - code
     - status
-    - priority
     - start_date
     - end_date
     - budget
-    - owner
     - description
   field_layout:
     - '--- Basic Info ---'
     - - name
+      - code
     - - status
-      - priority
-    - - owner
+      - budget
     - - start_date
       - end_date
-    - - budget
     - - description
-    - - key
-    - '--- Project Info ---'
-    - '--- Schedule ---'
-    - '--- Description ---'
-    - '--- Schedule & Budget ---'
   actions:
     - submit

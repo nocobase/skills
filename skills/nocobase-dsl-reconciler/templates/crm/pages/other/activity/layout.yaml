@@ -5,20 +5,6 @@ blocks:
     fields:
       - field: subject
         label: Search
-        filterPaths:
-          - subject
-          - content
-          - type
-          - customer.name
-          - customer.account_number
-          - customer.phone
-          - customer.website
-          - customer.address
-          - opportunity.opportunity_no
-          - opportunity.name
-          - contact.email
-          - contact.phone
-          - contact.mobile
     field_layout:
       - - subject
   - key: table
@@ -26,7 +12,7 @@ blocks:
     coll: nb_crm_activities
     fields:
       - field: subject
-        popup: templates/popup/activity_view.yaml
+        clickToOpen: true
       - type
       - activity_date
       - lead
@@ -38,9 +24,9 @@ blocks:
       - filter
       - refresh
       - addNew
-      - ai:
-          employee: viz
-          tasks: ./ai/activity_table_tasks.yaml
+      - type: ai
+        employee: viz
+        tasks_file: ./ai/activity_table_tasks.yaml
 layout:
   - - filterForm
   - - table

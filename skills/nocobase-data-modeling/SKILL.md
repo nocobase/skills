@@ -59,11 +59,13 @@ Do not prefer older low-level collection or nested field commands when the final
 # Core Rules
 
 1. Decide collection type first. Never infer `general`, `tree`, `file`, `calendar`, `sql`, `view`, or `inherit` from the name alone.
-2. Prefer the compact payloads supported by `collections apply` and `fields apply`. Let the server fill derived defaults.
-3. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
-4. Relations come after the base collection and scalar fields are correct.
-5. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
-6. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
+2. If the user explicitly asks for a file table, file collection, `template: "file"`, or uses wording such as "文件表", "合同文件", "扫描件", "证书文件", or "the file itself is the record", treat that as a binding collection-type requirement and choose `template: "file"` first.
+3. Do not reinterpret a file-first request as a `general` collection just because extra metadata fields are also needed.
+4. Prefer the compact payloads supported by `collections apply` and `fields apply`. Let the server fill derived defaults.
+5. Do not guess special capabilities. Check references first for plugin-backed fields, relation variants, special collection types, and view-backed models.
+6. Relations come after the base collection and scalar fields are correct.
+7. Prefer `collections get` for routine post-mutation read-back. Use the verification result returned by `collections apply` when normalized diagnostics are needed.
+8. If the requested behavior cannot be expressed through the final command surface in the chosen transport, stop and explain what is missing instead of silently falling back to an older path.
 
 ## Compact Payload Rules
 
@@ -170,6 +172,11 @@ After opening an index file, continue only into the matching subtype file that i
 - `sql`, `view`, `inherit`: only after capability and prerequisites are confirmed.
 
 Do not emulate `tree` or `file` with weaker general-table substitutes unless the user explicitly asks for that tradeoff.
+
+Explicit override rule:
+
+- If the request contains "file collection", "file table", "文件表", or equivalent wording that makes the file the primary record, this overrides any default bias toward `general`.
+- When the request mentions contracts as managed files, scanned documents, certificates, invoices, archives, or uploaded document records, default to `file` unless the user explicitly says the file is only a subordinate attachment on another business table.
 
 # Field and Relation Safeguards
 

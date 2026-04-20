@@ -145,20 +145,26 @@ export class CollectionsApi {
     return resp.data.data;
   }
 
-  async fieldMeta(coll: string): Promise<Record<string, { interface: string }>> {
-    const cached = this.fieldMetaCache.get(coll);
+  async fieldMeta(coll: string): Promise<Record<string, { interface: string; target?: string; foreignKey?: string; through?: string; type?: string }>> {
+    const cached = this.fieldMetaCache.get(coll) as any;
     if (cached) return cached;
 
     const resp = await this.http.get(
       `${this.baseUrl}/api/collections/${coll}/fields:list`,
       { params: { pageSize: '200' } },
     );
-    const fields: { name: string; interface?: string }[] = resp.data.data || [];
-    const meta: Record<string, { interface: string }> = {};
+    const fields: { name: string; interface?: string; target?: string; foreignKey?: string; through?: string; type?: string }[] = resp.data.data || [];
+    const meta: Record<string, { interface: string; target?: string; foreignKey?: string; through?: string; type?: string }> = {};
     for (const f of fields) {
-      meta[f.name] = { interface: f.interface || 'input' };
+      meta[f.name] = {
+        interface: f.interface || 'input',
+        ...(f.target ? { target: f.target } : {}),
+        ...(f.foreignKey ? { foreignKey: f.foreignKey } : {}),
+        ...(f.through ? { through: f.through } : {}),
+        ...(f.type ? { type: f.type } : {}),
+      };
     }
-    this.fieldMetaCache.set(coll, meta);
+    this.fieldMetaCache.set(coll, meta as any);
     return meta;
   }
 

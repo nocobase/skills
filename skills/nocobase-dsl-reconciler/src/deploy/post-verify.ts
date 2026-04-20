@@ -5,6 +5,7 @@ import type { NocoBaseClient } from '../client';
 import type { StructureSpec, EnhanceSpec, PopupSpec, CollectionDef } from '../types/spec';
 import type { ModuleState } from '../types/state';
 import { slugify } from '../utils/slugify';
+import { catchSwallow } from '../utils/swallow';
 
 export interface PostVerifyResult {
   errors: string[];
@@ -40,7 +41,7 @@ export async function postVerify(
           if (!sql) {
             errors.push(`Chart '${bs.key}' deployed but has NO SQL config — redeploy with --force`);
           }
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'skip'); }
       }
 
       if (bs.type === 'jsBlock') {
@@ -69,10 +70,10 @@ export async function postVerify(
                     warnings.push(`KPI '${bs.key}' SQL returns empty/zero — insert test data to see results`);
                   }
                 }
-              } catch { /* skip */ }
+              } catch (e) { catchSwallow(e, 'skip'); }
             }
           }
-        } catch { /* skip */ }
+        } catch (e) { catchSwallow(e, 'skip'); }
       }
     }
   }
@@ -129,7 +130,7 @@ export async function postVerify(
           );
         }
       }
-    } catch { /* skip */ }
+    } catch (e) { catchSwallow(e, 'skip'); }
   }
 
   // ── Filter-stats hint ──
@@ -160,13 +161,13 @@ export async function postVerify(
         selectFields = Object.entries(meta)
           .filter(([, v]) => v.interface === 'select')
           .map(([k]) => k);
-      } catch { /* skip */ }
+      } catch (e) { catchSwallow(e, 'skip'); }
     }
 
     if (selectFields.length) {
       warnings.push(
         `Page '${ps.page}' has select fields (${selectFields.slice(0, 3).join(', ')}) but no filter-stats jsBlock. `
-        + `TIP: cp templates/filter-stats.js js/filter_${slugify(ps.page)}.js — edit CONFIG then add jsBlock to structure.yaml`,
+        + `TIP: copy a filter-stats JS from templates/crm/pages/main/customers/tab_customers/js/ and add a jsBlock entry to layout.yaml`,
       );
     }
   }

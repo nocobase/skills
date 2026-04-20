@@ -1,22 +1,13 @@
 name: nb_cbo_regions
 title: Countries & Regions
+titleField: name
 fields:
   - name: code_numeric
     interface: input
-  - name: createdAt
-    interface: datetime
   - name: name
     interface: input
-  - name: updatedById
-    interface: integer
   - name: code_alpha2
     interface: input
-  - name: id
-    interface: integer
-  - name: updatedAt
-    interface: datetime
-  - name: createdById
-    interface: integer
   - name: sort_order
     interface: integer
   - name: is_active

@@ -1,10 +1,8 @@
 # Page Blueprint
 
-This file defines the simplified public **page-structure JSON blueprint** used by `applyBlueprint`.
+This file defines the simplified public page-structure JSON blueprint used by `applyBlueprint`.
 
-Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file defines the inner page document that the CLI eventually sends to the backend action.
-
-This file is for authoring the **inner page blueprint document**. It is **not** the primary CLI cookbook. For the actual CLI request-body shape, and for the MCP fallback envelope when needed, always read [tool-shapes.md](./tool-shapes.md).
+Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file owns the inner page document only; for CLI raw body and MCP fallback envelope details, always read [tool-shapes.md](./tool-shapes.md). For reusable popup / block / fields planning, read [templates.md](./templates.md) instead of restating that matrix here.
 
 ## 1. Core Rules
 
@@ -13,30 +11,31 @@ This file is for authoring the **inner page blueprint document**. It is **not** 
 - `version` stays `"1"`.
 - `mode` is either `"create"` or `"replace"`.
 - `create` creates a new menu item + page.
+- In `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon.
 - `replace` rewrites one existing page and therefore requires `target.pageSchemaUid`.
 - In `replace`, omitted page-level fields are left unchanged.
 - Tabs are interpreted in array order. In `replace`, blueprint tabs map to existing route-backed tab slots by index.
 - For a normal single-page request, default to exactly **one tab** unless the user explicitly asks for multiple route-backed tabs.
 - Do not add empty / placeholder tabs to a normal single-page draft.
 - Do not add placeholder `Summary` / `Later` / `备用` tabs or explanatory `markdown` / note / banner blocks unless the user explicitly asked for them.
-- Side-by-side blocks, relation tables, and nested popups normally stay inside that one tab.
-- Layout is optional; when omitted, the server auto-generates a simple top-to-bottom layout.
+- Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
-- If `layout` is present, it must be an object. When you are not sure the layout is correct, omit it instead of guessing.
+- `fieldsLayout` is available only on `createForm`, `editForm`, `details`, and `filterForm` blocks. It uses the same `{ rows: [[...]] }` shape as page/popup layout, but references field keys inside that block.
+- If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
-- Every field placed into any blueprint `fields[]` must come from live `collections:get(appends=["fields"])` truth and have a non-empty `interface`; do not place schema-only fields with `interface: null` / empty into block or form fields.
+- Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`. Do not place schema-only fields with `interface: null` / empty into block or form fields.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
-- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing inline content. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof.
+- For deciding whether to use `template` / `popup.template` at all, follow [templates.md](./templates.md). For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding one template or finalizing a reusable/template-backed path. Whole-page drafts may and should bind templates only after that flow yields one stable best candidate; keyword-only search is discovery-only and not binding proof. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
+- For whole-page inline popup specs, when no explicit `popup.template` is present, default to `popup.tryTemplate=true` as the write fallback. Local popup content may remain as the miss fallback. Keep `list-templates` as the planning truth source, and let the backend own the final relation-vs-non-relation popup-template match.
+- When the user explicitly wants the newly created local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on that inline popup instead of planning a separate save step. This requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
 - The blueprint stays public and declarative; it does not expose planning or execution internals.
 
-Important:
+Envelope boundary:
 
-- This file describes the **inner page blueprint document** only.
+- This file describes the inner page blueprint document only.
 - In CLI-first execution, pass this document itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
-- Only in MCP fallback should that same object be wrapped under `requestBody` as an **object**.
+- Only in MCP fallback should that same object be wrapped under `requestBody` as an object.
 - Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
-- Keep `requestBody` out of the inner blueprint itself; `requestBody` exists only in the MCP fallback tool-call envelope.
-- If the CLI returns request-body validation errors, first fix the raw body shape and chosen command. If MCP fallback returns `params/requestBody must be object` or `...must match exactly one schema in oneOf`, first fix the outer fallback envelope.
 - Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint and also as the CLI raw body.
 
 ## 2. Top-level Shape
@@ -46,8 +45,8 @@ Important:
   "version": "1",
   "mode": "create",
   "navigation": {
-    "group": { "title": "Workspace" },
-    "item": { "title": "Employees" }
+    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": {
     "title": "Employees",
@@ -81,7 +80,7 @@ Important:
 - `version`: currently only `"1"`
 - `mode`: `"create" | "replace"`
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
-- `navigation`: only for `create`; controls menu group/item metadata
+- `navigation`: only for `create`; controls menu group/item metadata. Newly created groups must include `icon`, and newly created top-level or second-level items must also include `icon`.
 - `page`: page-level metadata
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `reaction`: optional whole-page interaction authoring section
@@ -101,12 +100,19 @@ Important:
 - Prefer `navigation.group.routeId` when the destination menu group is already known.
 - `navigation.group.routeId` is exact targeting only; do not mix it with `icon`, `tooltip`, or `hideInMenu`.
 - `navigation.group.title` is for new-group creation or title-only unique same-title reuse.
+- When `navigation.group.title` creates a new group, `navigation.group.icon` is required.
 - When `routeId` is omitted and `title` matches:
   - zero existing groups -> create a new group
   - one existing group -> reuse that group
   - multiple existing groups -> reject and require `routeId`
 - If same-title reuse hits an existing group, keep it title-only.
 - If an existing group's metadata must change, do not rely on applyBlueprint create; use low-level `updateMenu` instead.
+
+### `navigation.item` semantics
+
+- In `create`, a new top-level or second-level `navigation.item` must include both `title` and `icon`.
+- When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep `icon` by default; the local preview tolerates omission because it cannot prove whether that live target is already third-level or deeper.
+- Replacing the page does not use `navigation.item` to mutate existing menu metadata.
 
 ## 3. Create Example
 
@@ -115,8 +121,8 @@ Important:
   "version": "1",
   "mode": "create",
   "navigation": {
-    "group": { "title": "Workspace" },
-    "item": { "title": "Employees" }
+    "group": { "title": "Workspace", "icon": "AppstoreOutlined" },
+    "item": { "title": "Employees", "icon": "TeamOutlined" }
   },
   "page": {
     "title": "Employees",
@@ -151,7 +157,13 @@ Important:
           "key": "employeeForm",
           "type": "createForm",
           "collection": "employees",
-          "fields": ["nickname", "status"],
+          "fields": [
+            { "key": "nicknameField", "field": "nickname" },
+            { "key": "statusField", "field": "status" }
+          ],
+          "fieldsLayout": {
+            "rows": [[{ "key": "nicknameField", "span": 12 }, { "key": "statusField", "span": 12 }]]
+          },
           "actions": ["submit"]
         },
         {

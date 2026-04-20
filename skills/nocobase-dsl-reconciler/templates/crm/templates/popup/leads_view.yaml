@@ -16,11 +16,7 @@ content:
           fields:
             - type: markdown
               key: _md_0
-              content: |+
-                {{ ctx.popup.record.lead_no }}
-
-                ##  {{ ctx.popup.record.name }}
-
+              content_file: ./md/leads_view_tab0_details__md_0.md
             - company
             - title
             - owner
@@ -230,8 +226,8 @@ content:
             - filter
             - refresh
             - addNew
-            - ai:
-                employee: ellis
-                tasks: ./ai/leads_view_tab2_mailMessages_tasks.yaml
+            - type: ai
+              employee: ellis
+              tasks_file: ./ai/leads_view_tab2_mailMessages_tasks.yaml
       layout:
         - - mailMessages

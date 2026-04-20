@@ -1,12 +1,12 @@
 export { validate, type ValidationResult } from './validator';
-export { toComposeBlock, COMPOSE_TYPES, LEGACY_TYPES, COMPOSE_ACTIONS } from './block-composer';
-export { expandPopups } from './popup-expander';
+export { toComposeBlock, COMPOSE_TYPES, LEGACY_TYPES, COMPOSE_ACTIONS } from './blocks/block-composer';
+export { expandPopups } from './popups/popup-expander';
 export { verifySql, verifySqlFromPages, type SqlVerifyResult } from './sql-verifier';
 export { reorderTableColumns } from './column-reorder';
 export { ensureCollection, ensureAllCollections } from './collection-deployer';
 export { postVerify, type PostVerifyResult } from './post-verify';
 export { fixDisplayModels, DISPLAY_MODEL_MAP } from './display-model-fixer';
-export { fillBlock } from './block-filler';
+export { fillBlock } from './blocks/block-filler';
 export { deploySurface } from './surface-deployer';
-export { deployPopup } from './popup-deployer';
+export { deployPopup } from './popups/popup-deployer';
 export { discoverPages, type RouteEntry, type PageInfo } from './page-discovery';

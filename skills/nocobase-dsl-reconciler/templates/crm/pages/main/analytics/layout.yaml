@@ -10,7 +10,8 @@ blocks:
         fieldModelProps:
           isRange: true
         source: []
-      - owner
+      - field: owner
+        label: Owner
     js_items:
       - key: js_0
         file: ./js/analytics_filterForm_js_0.js
@@ -19,14 +20,18 @@ blocks:
       - - date_range: 10
         - owner: 5
         - '[JS]': 5
-  - js: ./js/analytics_jsBlock.js
+  - type: jsBlock
     key: jsBlock
-  - js: ./js/analytics_jsBlock_2.js
+    file: ./js/analytics_jsBlock.js
+  - type: jsBlock
     key: jsBlock_2
-  - js: ./js/analytics_jsBlock_3.js
+    file: ./js/analytics_jsBlock_2.js
+  - type: jsBlock
     key: jsBlock_3
-  - js: ./js/analytics_jsBlock_4.js
+    file: ./js/analytics_jsBlock_3.js
+  - type: jsBlock
     key: jsBlock_4
+    file: ./js/analytics_jsBlock_4.js
   - key: chart
     type: chart
     chart_config: ./charts/analytics_chart.yaml

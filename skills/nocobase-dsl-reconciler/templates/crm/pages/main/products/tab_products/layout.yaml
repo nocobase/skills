@@ -1,14 +1,14 @@
 blocks:
-  - js:
-      file: ./js/products_products_category_tree_filter_product_category_sidebar.js
-      desc: Category Tree Filter - Product Category Sidebar
+  - type: jsBlock
     key: category_tree_filter_product_category_sidebar
+    file: ./js/products_products_category_tree_filter_product_category_sidebar.js
+    desc: Category Tree Filter - Product Category Sidebar
   - key: table
     type: table
     coll: nb_crm_products
     fields:
       - field: name
-        popup: true
+        clickToOpen: true
       - product_code
       - field: list_price
         width: 100

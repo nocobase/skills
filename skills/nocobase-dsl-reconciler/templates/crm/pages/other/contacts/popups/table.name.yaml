@@ -1,18 +1,23 @@
 target: $SELF.table.fields.name
 mode: drawer
 tabs:
-  - title: Tab0
+  - title: Details
     blocks:
       - key: details
         type: details
         coll: nb_crm_contacts
         resource_binding:
           filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
+        templateRef:
+          templateUid: llog4slwm27
+          templateName: 'Details: Customers > Contacts (Contacts)'
+          targetUid: thd2lhmr5v3
+          mode: reference
         actions:
           - edit
-  - title: Tab1
+  - title: Mails
     blocks: []
-  - title: Tab2
+  - title: Activieies
     blocks:
       - key: recordHistory
         type: recordHistory

@@ -22,8 +22,8 @@ content:
         - filter
         - refresh
         - addNew
-        - ai:
-            employee: ellis
-            tasks: ./ai/leads_email_mailMessages_tasks.yaml
+        - type: ai
+          employee: ellis
+          tasks_file: ./ai/leads_email_mailMessages_tasks.yaml
   layout:
     - - mailMessages

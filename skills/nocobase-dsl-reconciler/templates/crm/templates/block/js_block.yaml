@@ -4,7 +4,7 @@ type: block
 dataSourceKey: main
 targetUid: 4fb8ffb1c1b
 content:
-  js:
-    file: ./js/js_block_activity_calendar_block.js
-    desc: Activity Calendar Block
+  type: jsBlock
   key: activity_calendar_block
+  file: ./js/js_block_activity_calendar_block.js
+  desc: Activity Calendar Block

@@ -12,6 +12,7 @@ const CHANNELS = new Set(['latest', 'beta', 'alpha']);
 const DIALECTS = new Set(['postgres', 'mysql', 'mariadb']);
 const EXTERNAL_DB_DIALECTS = new Set(['postgres', 'mysql', 'mariadb']);
 const DB_MODES = new Set(['bundled', 'existing']);
+const DB_DATABASE_MODES = new Set(['existing', 'create']);
 const RUN_MODES = new Set(['none', 'dev', 'start']);
 
 function printHelp() {
@@ -29,6 +30,7 @@ function printHelp() {
     '  --db-host <host>                             DB host (required for existing mode)',
     '  --db-port <port>                             DB port (method/dialect default when omitted)',
     '  --db-database <name>                         DB database (required for existing mode)',
+    '  --db-database-mode <existing|create>         External DB handling. Default: existing',
     '  --db-user <user>                             DB user (required for existing mode)',
     '  --db-password <password>                     DB password (required for existing mode)',
     '  --db-underscored <true|false>                DB_UNDERSCORED preference. Default: false',
@@ -62,6 +64,7 @@ function parseArgs(argv) {
     dbHost: '',
     dbPort: '',
     dbDatabase: '',
+    dbDatabaseMode: 'existing',
     dbUser: '',
     dbPassword: '',
     dbUnderscored: null,
@@ -182,6 +185,15 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === '--db-database-mode') {
+      options.dbDatabaseMode = nextValue();
+      continue;
+    }
+    if (arg.startsWith('--db-database-mode=')) {
+      options.dbDatabaseMode = arg.slice('--db-database-mode='.length);
+      continue;
+    }
+
     if (arg === '--db-user') {
       options.dbUser = nextValue();
       continue;
@@ -275,6 +287,10 @@ function parseArgs(argv) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
+  options.dbDatabaseMode = String(options.dbDatabaseMode || process.env.DB_DATABASE_MODE || 'existing')
+    .trim()
+    .toLowerCase();
+
   if (!METHODS.has(options.method)) {
     throw new Error(`Invalid --method value: ${options.method}`);
   }
@@ -283,6 +299,9 @@ function parseArgs(argv) {
   }
   if (!DB_MODES.has(options.dbMode)) {
     throw new Error(`Invalid --db-mode value: ${options.dbMode}`);
+  }
+  if (!DB_DATABASE_MODES.has(options.dbDatabaseMode)) {
+    throw new Error(`Invalid --db-database-mode value: ${options.dbDatabaseMode}`);
   }
   if (!DIALECTS.has(options.dbDialect)) {
     throw new Error(`Invalid --db-dialect value: ${options.dbDialect}`);
@@ -475,6 +494,128 @@ function runCommand(command, args, cwd, options) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`Command failed (${result.status ?? 1}): ${printable}`);
   }
+}
+
+function runCommandCapture(command, args, cwd, options, extraEnv = {}) {
+  const printable = `${command} ${quoteArgs(args)}`.trim();
+  console.log(`+ (${cwd}) ${printable}`);
+  if (options.dryRun) {
+    return { stdout: '', stderr: '', status: 0 };
+  }
+  const result = spawnSync(commandBin(command), args, {
+    cwd,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if ((result.status ?? 1) !== 0) {
+    const stderr = (result.stderr || '').trim();
+    const detail = stderr ? `\n${stderr}` : '';
+    throw new Error(`Command failed (${result.status ?? 1}): ${printable}${detail}`);
+  }
+  return {
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    status: result.status ?? 0,
+  };
+}
+
+function escapeSqlLiteral(value) {
+  return String(value || '').replaceAll("'", "''");
+}
+
+function quotePostgresIdentifier(value) {
+  return `"${String(value || '').replaceAll('"', '""')}"`;
+}
+
+function quoteMysqlIdentifier(value) {
+  return `\`${String(value || '').replaceAll('`', '``')}\``;
+}
+
+function ensurePostgresDatabaseExists(options) {
+  ensureCommand('psql', 'db-database-mode=create for postgres requires psql client');
+  const cwd = fs.existsSync(options.targetDir) ? options.targetDir : process.cwd();
+
+  const querySql = `SELECT 1 FROM pg_database WHERE datname = '${escapeSqlLiteral(options.dbDatabase)}' LIMIT 1;`;
+  const check = runCommandCapture(
+    'psql',
+    ['-h', options.dbHost, '-p', options.dbPort, '-U', options.dbUser, '-d', 'postgres', '-tA', '-v', 'ON_ERROR_STOP=1', '-c', querySql],
+    cwd,
+    options,
+    { PGPASSWORD: options.dbPassword },
+  );
+
+  if (check.stdout.trim() === '1') {
+    console.log(`db_create_status: database "${options.dbDatabase}" already exists.`);
+    return;
+  }
+
+  const createSql = `CREATE DATABASE ${quotePostgresIdentifier(options.dbDatabase)};`;
+  runCommandCapture(
+    'psql',
+    ['-h', options.dbHost, '-p', options.dbPort, '-U', options.dbUser, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', createSql],
+    cwd,
+    options,
+    { PGPASSWORD: options.dbPassword },
+  );
+  console.log(`db_create_status: created database "${options.dbDatabase}".`);
+}
+
+function ensureMysqlLikeDatabaseExists(options) {
+  ensureCommand('mysql', 'db-database-mode=create for mysql/mariadb requires mysql client');
+  const cwd = fs.existsSync(options.targetDir) ? options.targetDir : process.cwd();
+
+  const baseArgs = [
+    '--protocol=TCP',
+    '-h',
+    options.dbHost,
+    '-P',
+    options.dbPort,
+    '-u',
+    options.dbUser,
+    '--connect-timeout=5',
+    '--batch',
+    '--skip-column-names',
+  ];
+
+  const querySql = `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '${escapeSqlLiteral(options.dbDatabase)}' LIMIT 1;`;
+  const check = runCommandCapture('mysql', [...baseArgs, '-e', querySql], cwd, options, {
+    MYSQL_PWD: options.dbPassword,
+  });
+
+  if (check.stdout.trim() === options.dbDatabase) {
+    console.log(`db_create_status: database "${options.dbDatabase}" already exists.`);
+    return;
+  }
+
+  const createSql = `CREATE DATABASE IF NOT EXISTS ${quoteMysqlIdentifier(options.dbDatabase)};`;
+  runCommandCapture('mysql', [...baseArgs, '-e', createSql], cwd, options, {
+    MYSQL_PWD: options.dbPassword,
+  });
+  console.log(`db_create_status: created database "${options.dbDatabase}".`);
+}
+
+function ensureExternalDatabaseReady(options) {
+  if (options.dbMode !== 'existing') {
+    return;
+  }
+
+  if (options.dbDatabaseMode !== 'create') {
+    console.log(`db_create_status: skipped (mode=${options.dbDatabaseMode}).`);
+    return;
+  }
+
+  if (options.dbDialect === 'postgres') {
+    ensurePostgresDatabaseExists(options);
+    return;
+  }
+
+  ensureMysqlLikeDatabaseExists(options);
 }
 
 function ensureDir(dirPath) {
@@ -779,9 +920,12 @@ function main() {
   console.log(`project_name: ${options.projectName}`);
   console.log(`db_mode: ${options.dbMode}`);
   console.log(`db_dialect: ${options.dbDialect}`);
+  console.log(`db_database_mode: ${options.dbDatabaseMode}`);
   console.log(`db_underscored: ${String(options.dbUnderscored)}`);
 
   try {
+    ensureExternalDatabaseReady(options);
+
     if (options.method === 'docker') {
       installDocker(options, paths);
     } else if (options.method === 'create-nocobase-app') {

@@ -7,6 +7,7 @@
 export type BlockType =
   | 'table' | 'filterForm' | 'createForm' | 'editForm' | 'details'
   | 'list' | 'gridCard' | 'jsBlock' | 'chart' | 'markdown' | 'iframe'
+  | 'map' | 'actionPanel'
   | 'comments' | 'recordHistory' | 'mailMessages' | 'reference';
 
 export type ActionType =
@@ -21,8 +22,16 @@ export interface FieldRef {
   field: string;                  // Field path (e.g. 'name', 'customer.name')
   fieldPath?: string;             // @deprecated — use `field` instead
   label?: string;                 // Display label (filterForm fields)
-  filterPaths?: string[];         // Target filter paths (filterForm fields)
-  clickToOpen?: boolean;          // Enable click-to-open popup
+  filterPaths?: string[];         // Flat filter paths — broadcast to all target blocks (legacy / single-target)
+  /**
+   * Per-target filter paths. When set, `filterPaths` is ignored and each
+   * entry binds the field to ONE specific target block by its `key`
+   * (matching another block in the same page's `blocks[]`). Required for
+   * multi-table lookups where each table has different filterable columns
+   * (e.g. leads has `account_number`, customers has `name` only).
+   */
+  targets?: { block: string; paths: string[] }[];
+  clickToOpen?: boolean | string;  // true = auto-detect popup; "path" = explicit template file
   width?: number;                 // Column width (default: auto/150, only export if non-default)
   ellipsis?: boolean;             // Ellipsis on overflow (default: true, only export if false)
   popupSettings?: {
@@ -32,6 +41,29 @@ export interface FieldRef {
     filterByTk?: string;
     popupTemplateUid?: string;    // Popup template reference
   };
+  /**
+   * When set, this o2m/m2m field renders as an inline editable sub-table
+   * (PatternFormFieldModel + SubTableColumnModel children) instead of the
+   * default RecordSelect picker. `columns` lists the child fields shown
+   * in each row. Each entry can be a plain field name string or a
+   * SubTableColumn object for column-level overrides.
+   */
+  type?: 'subTable' | 'subForm';
+  columns?: (string | SubTableColumn)[];
+  /**
+   * For sub-form rendering of m2o/o2o fields: list of child fields to
+   * inline-edit (vs. opening a popup). When omitted, falls back to NB
+   * default (collection's titleField).
+   */
+  fields?: (string | FieldRef)[];
+  mode?: 'inline' | 'collapse' | 'popup';
+}
+
+export interface SubTableColumn {
+  field: string;                  // Sub-field name (no parent prefix — e.g. `quantity`, NOT `items.quantity`)
+  width?: number;
+  readonly?: boolean;
+  hidden?: boolean;
 }
 
 export type FieldSpec = string | FieldRef;
@@ -128,8 +160,17 @@ export interface BlockSpec {
   event_flows?: EventFlowSpec[];
   resource?: ResourceSpec;
   resource_binding?: ResourceBinding;
+  filter?: Record<string, unknown>;     // Shorthand: { field.$op: value } — deployer converts to dataScope
   dataScope?: Record<string, unknown>;
   pageSize?: number;
+  dataLoadingMode?: 'auto' | 'manual';   // Table block: when 'manual', table only loads after user clicks Search
+  /**
+   * Standalone markdown block content. Either inline text (short hints) or
+   * `content_file: ./md/<name>.md` for longer prose. The deploy reads
+   * content_file relative to the project's page dir (modDir).
+   */
+  content?: string;
+  content_file?: string;
   sort?: Record<string, unknown>;
   tableSettings?: Record<string, unknown>;
   popups?: PopupSpec[];
@@ -151,7 +192,6 @@ export interface PopupSpec {
   layout?: LayoutRow[];
   auto?: ('edit' | 'detail')[];  // auto-derive edit/detail from addNew form
   view_field?: string;           // field name for detail popup clickToOpen (default: 'name')
-  popup?: string;                // sugar: template file path
 }
 
 // ── Tab spec ──
@@ -221,10 +261,34 @@ export interface FieldDef {
 
 // ── Collection def ──
 
+/** A raw SQL object (trigger, function, view, constraint...) that lives on
+ *  the collection's underlying table. Stored verbatim — we don't try to
+ *  abstract over PostgreSQL DDL because the surface area is too large
+ *  relative to the win. Ensure-style: drop+recreate by name on each deploy. */
+export interface SqlObjectDef {
+  name: string;            // identity for drop+recreate (must be unique within the collection)
+  kind?: 'trigger' | 'function' | 'view' | 'constraint' | 'index';  // hint only — sql is authoritative
+  sql: string;             // full DDL (CREATE OR REPLACE / CREATE INDEX / etc.)
+  drop?: string;           // DROP statement to run BEFORE sql; auto-derived if omitted
+}
+
 export interface CollectionDef {
+  /**
+   * NocoBase collection template — picks plugin behaviour beyond plain CRUD:
+   *   - 'general' (default): regular collection
+   *   - 'comment': enables CommentsBlock (timeline UI, parent-record binding)
+   *   - 'tree' / 'calendar' / 'expression' / 'sql' / 'view' / others
+   * Without the right template, plugin blocks (CommentsBlock, CalendarBlock,
+   * etc.) refuse to bind: "current collection is not a comment collection".
+   */
+  template?: string;
   title: string;
   titleField?: string;
   fields: FieldDef[];
+  /** Raw SQL DDL that travels with the collection — captured by pull, deployed
+   *  by push. Used for triggers / functions / db-level constraints that NB's
+   *  collection schema can't express. */
+  triggers?: SqlObjectDef[];
 }
 
 // ── Top-level structure.yaml ──

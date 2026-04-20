@@ -66,6 +66,8 @@ const ALREADY_ENABLED_PATTERNS = [
   'is enabled',
   'enabled already',
 ];
+const DEFAULT_OAUTH_AUTH_WAIT_MS = 120000;
+const DEFAULT_OAUTH_AUTH_POLL_MS = 1000;
 
 const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const RUN_CTL_PATH = path.join(THIS_DIR, 'run-ctl.mjs');
@@ -520,7 +522,7 @@ async function runCtlWithLiveOutput(ctlArgs, options) {
     const child = spawn(process.execPath, commandArgs, {
       cwd: options.baseDir,
       env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['inherit', 'pipe', 'pipe'],
     });
 
     child.stdout.on('data', (chunk) => {
@@ -726,6 +728,83 @@ function summarizeText(text, maxLength = 420) {
     return compact;
   }
   return `${compact.slice(0, maxLength)}...`;
+}
+
+function parsePositiveIntEnv(name, fallback) {
+  const raw = String(process.env[name] || '').trim();
+  if (!raw) {
+    return fallback;
+  }
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isFinite(value) || value < 0) {
+    return fallback;
+  }
+  return value;
+}
+
+function delay(ms) {
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForOauthAuthorization(options, envName, scope, initialResult = null) {
+  const timeoutMs = parsePositiveIntEnv('ENV_MANAGE_OAUTH_WAIT_MS', DEFAULT_OAUTH_AUTH_WAIT_MS);
+  const pollMs = Math.max(500, parsePositiveIntEnv('ENV_MANAGE_OAUTH_POLL_MS', DEFAULT_OAUTH_AUTH_POLL_MS));
+  const startAt = Date.now();
+  const attempts = [];
+  let lastResult = initialResult;
+
+  while (Date.now() - startAt < timeoutMs) {
+    await delay(pollMs);
+    const probeResult = runCtl(['env', 'update', '-e', envName, '-s', scope], options);
+    attempts.push(summarizeCommandResult(probeResult));
+    lastResult = probeResult;
+
+    if (probeResult.exitCode === 0) {
+      return {
+        attempted: true,
+        ok: true,
+        reason: 'oauth-authorization-detected',
+        waited_ms: Date.now() - startAt,
+        poll_ms: pollMs,
+        timeout_ms: timeoutMs,
+        attempt_count: attempts.length,
+        attempts,
+        result: probeResult,
+      };
+    }
+
+    const probeOutput = commandOutputText(probeResult);
+    if (!isAuthDependencyError(probeOutput)) {
+      return {
+        attempted: true,
+        ok: false,
+        reason: 'update-failed-with-non-auth-error',
+        waited_ms: Date.now() - startAt,
+        poll_ms: pollMs,
+        timeout_ms: timeoutMs,
+        attempt_count: attempts.length,
+        attempts,
+        result: probeResult,
+      };
+    }
+  }
+
+  return {
+    attempted: true,
+    ok: false,
+    reason: 'oauth-authorization-timeout',
+    waited_ms: Date.now() - startAt,
+    poll_ms: pollMs,
+    timeout_ms: timeoutMs,
+    attempt_count: attempts.length,
+    attempts,
+    result: lastResult,
+  };
 }
 
 function extractAuthorizationUrl(text) {
@@ -1564,6 +1643,7 @@ async function doAddOauthMode(options, normalized, dependencyPlugins, dockerTarg
     },
     oauth_auth_phase: null,
     update_phase: null,
+    oauth_authorization_wait: null,
   };
 
   const buildAddArgs = () => [
@@ -1705,6 +1785,33 @@ async function doAddOauthMode(options, normalized, dependencyPlugins, dockerTarg
         dependency_enable: dependencyEnable,
         env_update_retry: summarizeCommandResult(updateRetryResult),
       };
+    }
+  }
+
+  if (updateResult.exitCode !== 0) {
+    const initialFinalUpdateErrorText = commandOutputText(updateResult);
+    if (isAuthDependencyError(initialFinalUpdateErrorText)) {
+      const oauthAuthorizationWait = await waitForOauthAuthorization(
+        options,
+        options.name,
+        options.scope,
+        updateResult,
+      );
+      dependencyRecovery.oauth_authorization_wait = {
+        attempted: oauthAuthorizationWait.attempted,
+        ok: oauthAuthorizationWait.ok,
+        reason: oauthAuthorizationWait.reason,
+        waited_ms: oauthAuthorizationWait.waited_ms,
+        poll_ms: oauthAuthorizationWait.poll_ms,
+        timeout_ms: oauthAuthorizationWait.timeout_ms,
+        attempt_count: oauthAuthorizationWait.attempt_count,
+        attempts: oauthAuthorizationWait.attempts,
+      };
+      if (oauthAuthorizationWait.ok && oauthAuthorizationWait.result) {
+        updateResult = oauthAuthorizationWait.result;
+      } else if (oauthAuthorizationWait.result) {
+        updateResult = oauthAuthorizationWait.result;
+      }
     }
   }
 

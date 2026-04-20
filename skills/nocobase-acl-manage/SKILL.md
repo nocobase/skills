@@ -4,8 +4,8 @@ description: Task-driven ACL governance through nocobase-ctl CLI for role lifecy
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.3.0
-last-reviewed: 2026-04-14
+version: 2.4.2
+last-reviewed: 2026-04-17
 risk-level: high
 ---
 
@@ -34,6 +34,7 @@ Turn ACL and permission governance into a task-driven workflow so users can ask 
 
 - Do not bypass CLI by calling direct REST endpoints.
 - Do not mutate ACL through ad-hoc database operations.
+- Do not create temporary script files to execute ACL writes.
 - Do not hide high-impact blast radius (global mode, broad snippets, broad strategy actions).
 - Do not claim one-click coverage for workflows that require governance review.
 
@@ -114,6 +115,11 @@ Resource permission interaction policy:
 - `own` -> built-in scope `key=own` id in target data source
 - `custom` -> user-specified scope id (or resolved scope key)
 - do not leave action scope as `null` when user selected `all` or `own`
+- write completeness (hard rule):
+- for `permission.data-source.resource.set`, execute one complete write payload per target collection
+- the write payload must include `usingActionsConfig: true`
+- the same payload must include the final `actions[]` set, with resolved `scopeId` for `all|own` bindings and explicit non-empty `fields` arrays for field-configurable actions
+- do not stage writes as "set actions first, then patch fields/scope/usingActionsConfig"
 - before any write, show confirmation summary (data source + resolved collections + actions + scope)
 - if any required item is missing or unresolved, ask user first and do not write
 - default field rule: all fields
@@ -176,6 +182,24 @@ Default behavior when user says `you decide`:
 
 2. Capability gate (CLI).
 - confirm skill-local wrapper is available (`node ./scripts/run-ctl.mjs -- ...`)
+- command assembly guard (hard rule for wrapper calls):
+- wrapper passthrough form must be `node ./scripts/run-ctl.mjs -- <command> [subcommand ...] [flags ...]`
+- first passthrough token after `--` must be a command (for example `env`/`acl`/`resource`), not a flag such as `-e`/`-t`/`-j`
+- wrong: `node ./scripts/run-ctl.mjs -- -e local`
+- correct: `node ./scripts/run-ctl.mjs -- resource list --resource users -e local -j`
+- policy payload guard (hard rule for independent resource writes):
+- wrapper preflight must block `acl roles data-source-resources create|update` when `--body` is missing or invalid
+- for those writes, `--body` must include `usingActionsConfig: true` and non-empty `actions[]`
+- for actions `create/view/update/export/importXlsx`, each action must carry non-empty `fields[]`
+- for actions `view/update/destroy/export/importXlsx`, each action must carry non-null positive `scopeId`
+- if guard fails, stop before CLI execution and return a fixable error
+- lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
+- run execution guard sequence before ACL writes:
+- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- env -s project`
+- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl --help`
+- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl roles --help`
+- fail-closed policy:
+- if `acl --help` or `acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
 - confirm current env context through bootstrap skill app-manage (`$nocobase-env-bootstrap task=app-manage app_env_action=current target_dir=<target_dir> app_scope=project`)
 - if no env is configured/current, request env bootstrap through `$nocobase-env-bootstrap task=app-manage` (`app_env_action=add/use`)
 - if runtime command cache is missing/stale, run `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`
@@ -226,6 +250,8 @@ Hard restrictions:
 - never use direct HTTP fallback
 - never use direct database mutation
 - never use generic resource commands for ACL policy writes when ACL-specific runtime commands exist
+- never infer "ACL unsupported" without checking `acl --help` and `acl roles --help` in the same locked `base-dir`
+- never create temporary `.js/.ps1/.sh` executor scripts to bypass runtime command discovery
 
 # Safety Gate
 
@@ -257,11 +283,14 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - CLI capability gate passes (env context available via `$nocobase-env-bootstrap task=app-manage app_env_action=current`, runtime commands resolvable)
 - CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
 - runtime command names resolved from command map/help
+- execution guard evidence includes locked `base-dir` plus `env -s project`, `acl --help`, and `acl roles --help`
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
+- for `permission.data-source.resource.set`, readback confirms `usingActionsConfig=true` and action-level scope/fields in the same write cycle
 - for scope=`all|own`, readback shows non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
+- wrapper-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
 - global role-mode tasks do not require `role_name`
 - boundary messages are clear and actionable
 
@@ -276,10 +305,12 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 7. `permission.data-source.resource.set` with `view` and no field restrictions should apply full-field permission by default via explicit non-empty field lists.
 8. `permission.data-source.resource.set` with scope=`all` should write explicit built-in scope binding (non-null `scopeId` for key=`all`).
 9. `permission.data-source.resource.set` should require pre-write confirmation including data source + resolved collections + actions + scope.
-10. `user.assign-role` in strict mode should block when no dedicated membership command exists.
-11. `user.assign-role` with guarded fallback enabled should succeed with readback.
-12. `risk.assess-role` should return score + evidence + recommendations.
-13. Full-field default should preserve system fields in readback when metadata includes them.
+10. `permission.data-source.resource.set` should write independent policy in one complete payload (`usingActionsConfig + actions + scope + fields`), not multi-step patching.
+11. `user.assign-role` in strict mode should block when no dedicated membership command exists.
+12. `user.assign-role` with guarded fallback enabled should succeed with readback.
+13. `risk.assess-role` should return score + evidence + recommendations.
+14. Full-field default should preserve system fields in readback when metadata includes them.
+15. Wrong base-dir or missing runtime command cache must fail-closed with boundary message, not ad-hoc script fallback.
 
 # Reference Loading Map
 
@@ -287,8 +318,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 |---|---|---|
 | [references/intent-presets-v1.md](references/intent-presets-v1.md) | intent normalization and defaults | includes global role-mode wording |
 | [references/intent-to-tool-map-v1.md](references/intent-to-tool-map-v1.md) | runtime command resolution | maps logical tasks to CLI command patterns |
+| [references/execution-guard-template.md](references/execution-guard-template.md) | every ACL write task | fixed preflight command template for base-dir lock and fail-closed checks |
 | [references/result-format-v1.md](references/result-format-v1.md) | output rendering | includes risk cards and capability path |
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
+| [references/independent-permissions.md](references/independent-permissions.md) | resource-level permission writes | `usingActionsConfig + actions + fields + scope` complete-write policy |
 | [references/capability-test-plan.md](references/capability-test-plan.md) | capability matrix | aligned with v2 domains |
 | [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
 | [tests/README.md](tests/README.md) | runtime verification | runner and report usage |
@@ -297,8 +330,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 
 - [Intent Presets v1](references/intent-presets-v1.md)
 - [Intent To Tool Map v1](references/intent-to-tool-map-v1.md)
+- [Execution Guard Template](references/execution-guard-template.md)
 - [Result Format v1](references/result-format-v1.md)
 - [ACL Configuration Details](references/configuration.md)
+- [Table Independent Permissions](references/independent-permissions.md)
 - [ACL Capability Test Plan](references/capability-test-plan.md)
 - [ACL Refactor Plan v2](references/refactor-plan-v2.md)
 - [ACL Capability Tests](tests/README.md)

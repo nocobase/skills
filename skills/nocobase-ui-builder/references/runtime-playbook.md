@@ -2,6 +2,8 @@
 
 This file provides the family / locator / write-target mental model for the skill.
 
+Start with [local-edit-quick.md](./local-edit-quick.md) when the request looks like a normal localized edit and you only need the default route first. Come here when the family / locator model itself is the blocker.
+
 Canonical front door is `nocobase-ctl`. The operation names below are the stable runtime families; discover the exact generated command shape through `nocobase-ctl flow-surfaces --help`.
 
 ## 1. Common Families
@@ -34,6 +36,8 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | whole-page interaction / reaction authoring | `nocobase-ctl flow-surfaces apply-blueprint` |
 | create/move menu only | `nocobase-ctl flow-surfaces create-menu` / `update-menu` |
 | add/update content under an existing surface | `nocobase-ctl flow-surfaces compose` / `add-*` / `configure` / `update-settings` |
+| edit content under an existing template reference | `get` current target -> resolve [templates.md](./templates.md) routing -> template source write, host-local config write, popup-template switch, or explicit `convert-template-to-copy` |
+| replace existing instance-level event flows | `nocobase-ctl flow-surfaces set-event-flows` |
 | localized reaction edit | `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set-*` rules |
 | reorder/remove tab or popup tab | `nocobase-ctl flow-surfaces move-tab` / `remove-tab` / `move-popup-tab` / `remove-popup-tab` |
 | reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
@@ -42,6 +46,9 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 ## 4. Targeting Notes
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
+- desktop-route `id` and `navigation.group.routeId` are navigation locators, not flow-surface `uid` values.
+- after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
+- only after `get` / `describe-surface` / create responses return a live `uid` should that value feed `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, or `remove*`.
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `applyBlueprint` is key-oriented and structure-first: layout and in-document targeting use local `key`, whole-page interaction logic may live only in top-level `reaction.items[]`, and you must not author `uid`, `ref`, or `$ref` selectors there.
 - public `applyBlueprint.reaction.items[]` also uses same-run local keys / bind keys, not live uids.
@@ -52,6 +59,8 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 
 - If the request sounds like a **whole page**, route to page blueprint authoring first.
 - If the request sounds like **change one part of an existing page**, route to low-level APIs.
+- If a localized edit hits an existing template reference, route through [templates.md](./templates.md) before writing: template-owned edits default to the template source, host/openView config stays local, page-scoped wording alone does not justify `copy`, and unresolved scope should be clarified instead of auto-detaching.
+- If the request is about an existing target's event flow or `Execute JavaScript` step, route to `get` / `describe-surface` readback first, then `set-event-flows` with the full `flowRegistry`.
 - If the request is about default values, linkage, computed fields, show/hide, required/disabled, or action state, route to reaction authoring before considering raw configure keys.
 - For localized reaction work, do not start from `context`; start from `get-reaction-meta` and use `context` only when raw variable paths are still missing.
 - If the request crosses families or the target is not unique, narrow the target before writing.

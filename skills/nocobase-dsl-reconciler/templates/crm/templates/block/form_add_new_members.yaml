@@ -1,9 +1,9 @@
-uid: 2iez14vyj03
+uid: svd7qva1n07
 name: 'Form (Add new): Members'
 type: block
 collectionName: nb_pm_members
 dataSourceKey: main
-targetUid: rzfvozyjo4y
+targetUid: etfqfnnluen
 description: 'Form (Add new): Members'
 content:
   key: createForm
@@ -12,18 +12,13 @@ content:
   fields:
     - name
     - email
-    - role
-    - department
     - phone
-    - status
+    - role
   field_layout:
     - '--- Basic Info ---'
     - - name
-      - email
-    - - role
-      - department
-    - - status
-    - - phone
-    - '--- Member Info ---'
+      - role
+    - - email
+      - phone
   actions:
     - submit

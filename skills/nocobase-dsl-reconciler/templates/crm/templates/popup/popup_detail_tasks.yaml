@@ -1,0 +1,18 @@
+uid: 4woutkxn9vx
+name: 'Popup (Detail): Tasks'
+type: popup
+collectionName: nb_pm_tasks
+dataSourceKey: main
+targetUid: y4yhqo2ea6j
+description: 'Popup (Detail): Tasks'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: b8yiiha802c
+        templateName: 'Detail: Tasks'
+        targetUid: oy827m3x2hy
+        mode: reference
+  layout:
+    - - kjq5u3r1
