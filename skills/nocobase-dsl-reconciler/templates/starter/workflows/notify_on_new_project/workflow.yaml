@@ -1,0 +1,20 @@
+title: Notify on new project
+type: collection
+enabled: false
+trigger:
+  collection: nb_starter_projects
+  mode: 1  # 1=create, 2=update, 3=both, 4=delete, 7=all
+graph:
+  - notify
+nodes:
+  notify:
+    type: notification
+    config:
+      channelName: in-app-message
+      receivers:
+        - filter:
+            $and:
+              - id:
+                  $eq: '{{$context.data.owner_id}}'
+      title: 'New project: {{$context.data.name}}'
+      content: 'You created project "{{$context.data.name}}".'

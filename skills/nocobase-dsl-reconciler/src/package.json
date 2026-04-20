@@ -9,7 +9,8 @@
     "dev": "tsx src/cli/cli.ts",
     "deploy": "tsx src/cli/cli.ts deploy",
     "export": "tsx src/cli/cli.ts export",
-    "verify-sql": "tsx src/cli/cli.ts verify-sql"
+    "verify-sql": "tsx src/cli/cli.ts verify-sql",
+    "test:workflow": "tsx workflow/test-workflow.ts"
   },
   "dependencies": {
     "axios": "^1.7.0",

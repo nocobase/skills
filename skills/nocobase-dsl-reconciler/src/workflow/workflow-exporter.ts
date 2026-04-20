@@ -7,9 +7,9 @@
  * 3. Generate human-readable node names (slugified titles, deduped)
  * 4. Rewrite variable references: random keys → DSL names
  * 5. Emit Mermaid-inspired graph section + flat nodes map
- * 6. Write to workflows/<slug>/workflow.yaml + optional components/
+ * 6. Strip boilerplate defaults and write to workflows/<slug>/workflow.yaml
  *
- * See docs/workflow-dsl-design.md for the full format spec.
+ * Format + authoring guide: see ./DSL.md
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -17,6 +17,7 @@ import type { NocoBaseClient } from '../client';
 import { slugify } from '../utils/slugify';
 import { dumpYaml, saveYaml } from '../utils/yaml';
 import { validateWorkflow, formatValidationResult } from './validator';
+import { stripSpecDefaults } from './normalize';
 import type {
   ApiWorkflow,
   ApiFlowNode,
@@ -42,7 +43,7 @@ function branchLabel(parentType: string, branchIndex: number): string {
     case 'loop':
       return LOOP_LABELS[branchIndex] ?? String(branchIndex);
     case 'parallel':
-    case 'multi-conditions':
+    case 'multi-condition':
       return String(branchIndex);
     default:
       return String(branchIndex);
@@ -354,7 +355,7 @@ async function exportSingleWorkflow(
   // `key` snapshots the source NB-runtime key — page actions reference it via
   // `workflowKey:` and the deployer rewrites those refs (spec.key → state.key)
   // when the runtime key changes (e.g. after duplicate-project).
-  const spec: WorkflowSpec = {
+  const rawSpec: WorkflowSpec = {
     title: wf.title,
     type: wf.type,
     enabled: wf.enabled,
@@ -366,6 +367,10 @@ async function exportSingleWorkflow(
     graph: graphLines,
     nodes: nodesMap,
   };
+
+  // Strip boilerplate that the deployer would fill in anyway, so pulled YAML
+  // stays minimal and diffs focus on real changes.
+  const spec = stripSpecDefaults(rawSpec);
 
   // Write workflow.yaml
   saveYaml(path.join(wfDir, 'workflow.yaml'), spec);

@@ -3,15 +3,17 @@
  *
  * Idempotent: running twice produces the same result.
  * - New workflows: create shell → create nodes in topological order → enable
- * - Existing workflows (matched by title): update trigger config + upsert nodes
+ * - Existing workflows (matched by title): revision-if-frozen → update trigger
+ *   config + upsert nodes
  *
- * See docs/workflow-dsl-design.md §Import (Deploy) Strategy.
+ * Format + authoring guide: see ./DSL.md
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { NocoBaseClient } from '../client';
 import { loadYaml, saveYaml } from '../utils/yaml';
 import { validateWorkflow, formatValidationResult } from './validator';
+import { applySpecDefaults, applyNodeDefaults } from './normalize';
 import type {
   WorkflowSpec,
   NodeSpec,
@@ -177,7 +179,12 @@ function resolveConfig(
     const refPath = config.$ref as string;
     const fullPath = path.resolve(wfDir, refPath);
     if (fs.existsSync(fullPath)) {
-      return loadYaml<Record<string, unknown>>(fullPath);
+      const loaded = loadYaml<Record<string, unknown>>(fullPath);
+      // $ref contents bypass the earlier applySpecDefaults pass; re-apply
+      // node-type defaults here so refactored-into-$ref specs still deploy
+      // with the same boilerplate fill-in as inline specs.
+      const normalized = applyNodeDefaults({ ...nodeSpec, config: loaded });
+      return normalized.config;
     }
   }
   return config;
@@ -240,9 +247,10 @@ export async function deployWorkflows(
     stateFile = loadYaml<WorkflowStateFile>(stateFilePath);
   }
 
-  // Fetch existing workflows for matching by title
+  // Fetch existing workflows for matching by title. Pull versionStats so the
+  // deployer can detect frozen versions (executed > 0) and revision them.
   const existingResp = await nb.http.get(`${nb.baseUrl}/api/workflows:list`, {
-    params: { filter: { current: true }, paginate: false },
+    params: { filter: { current: true }, paginate: false, appends: ['versionStats'] },
   });
   const existingWfs = (existingResp.data?.data ?? []) as ApiWorkflow[];
   const titleToExisting = new Map<string, ApiWorkflow>();
@@ -274,7 +282,10 @@ export async function deployWorkflows(
 
   for (const slug of wfDirs) {
     const wfDir = path.join(wfBaseDir, slug);
-    const spec = loadYaml<WorkflowSpec>(path.join(wfDir, 'workflow.yaml'));
+    const rawSpec = loadYaml<WorkflowSpec>(path.join(wfDir, 'workflow.yaml'));
+    // Expand user-minimal spec into full NB shape (boilerplate defaults filled).
+    // User-provided keys always win.
+    const spec = applySpecDefaults(rawSpec);
 
     // Wrap per-workflow so one bad workflow (e.g. dangling approvalUid,
     // unknown trigger type) doesn't tank the remaining 9 — we still want
@@ -325,7 +336,23 @@ async function deploySingleWorkflow(
   const uiDeployed = await deployApprovalUIs(nb, wfDir, log);
   if (uiDeployed) log(`    deployed ${uiDeployed} approval UI node(s) from ui/`);
 
-  const existing = titleToExisting.get(spec.title);
+  let existing = titleToExisting.get(spec.title);
+
+  // Revision guard — frozen versions (executed > 0) can't be mutated in place;
+  // NB enforces revisioning. Create a new revision that inherits the same
+  // workflow `key`, swap to the returned id, and operate on that from now on.
+  if (existing && (existing.versionStats?.executed ?? 0) > 0) {
+    const revResp = await nb.http.post(`${nb.baseUrl}/api/workflows:revision`, {}, {
+      params: { filterByTk: existing.id, filter: { key: existing.key } },
+    });
+    const revived = revResp.data?.data;
+    if (!revived?.id) {
+      throw new Error(`Failed to revision frozen workflow "${spec.title}" (${existing.id})`);
+    }
+    log(`  * ${slug}: frozen (executed=${existing.versionStats?.executed}) — created revision #${revived.id}`);
+    // The new revision shares the same key; operate on it instead of the old row.
+    existing = { ...existing, id: revived.id, key: revived.key ?? existing.key, versionStats: { executed: 0 } };
+  }
 
   let workflowId: number;
   let workflowKey: string;
@@ -336,8 +363,10 @@ async function deploySingleWorkflow(
     workflowKey = existing.key;
 
     await nb.http.post(`${nb.baseUrl}/api/workflows:update`, {
+      title: spec.title,
       config: spec.trigger,
       sync: spec.sync ?? false,
+      ...(spec.description !== undefined ? { description: spec.description } : {}),
       ...(spec.options ? { options: spec.options } : {}),
     }, {
       params: { filterByTk: existing.id },
@@ -368,14 +397,22 @@ async function deploySingleWorkflow(
   const nodeNames = Object.keys(spec.nodes);
   const creationOrder = topologicalSort(chainHead, edges, nodeNames);
 
-  // Build upstream/branchIndex info from edges
-  // For each target node, find its edge (source = upstreamId, branchIndex)
+  // Build upstream/branchIndex info from edges.
+  // NB's model only allows one upstream per node (linked list + branchIndex),
+  // so merge-style graphs ("A -->X; B -->X") can't express rejoin in this
+  // DSL. Warn loudly so users route convergence via post-branch nodes instead
+  // of silently losing edges.
   const nodeUpstream = new Map<string, { upstream: string; branchIndex: number | null }>();
+  const dropped: string[] = [];
   for (const e of edges) {
-    // Only set upstream if target doesn't already have one (first edge wins)
     if (!nodeUpstream.has(e.target)) {
       nodeUpstream.set(e.target, { upstream: e.source, branchIndex: e.branchIndex });
+    } else {
+      dropped.push(`${e.source}-->${e.target}`);
     }
+  }
+  if (dropped.length) {
+    log(`  ⚠ ${slug}: merge-point edges dropped (NB has one upstream per node): ${dropped.join(', ')}`);
   }
 
   // Fetch existing nodes if updating
@@ -386,9 +423,20 @@ async function deploySingleWorkflow(
     });
     existingNodes = (nodesResp.data?.data ?? []) as ApiFlowNode[];
   }
-  const existingNodeByTitle = new Map<string, ApiFlowNode>();
+  // Prefer a position-based key so duplicate titles don't collapse. The DSL
+  // produces a unique (upstream-title, branchIndex, title) triple per node
+  // when the graph is well-formed; fall back to title-only for legacy nodes.
+  const existingByPosition = new Map<string, ApiFlowNode>();
+  const existingByTitle = new Map<string, ApiFlowNode[]>();
+  const existingById = new Map<number, ApiFlowNode>();
+  for (const n of existingNodes) existingById.set(n.id, n);
   for (const n of existingNodes) {
-    existingNodeByTitle.set(n.title, n);
+    const upTitle = n.upstreamId ? existingById.get(n.upstreamId)?.title ?? '' : '';
+    const posKey = `${upTitle}\t${n.branchIndex ?? ''}\t${n.title}`;
+    existingByPosition.set(posKey, n);
+    const bucket = existingByTitle.get(n.title) ?? [];
+    bucket.push(n);
+    existingByTitle.set(n.title, bucket);
   }
 
   // Create/update nodes in topological order
@@ -418,8 +466,18 @@ async function deploySingleWorkflow(
     const upstreamId = upInfo ? (nameToId.get(upInfo.upstream) ?? null) : null;
     const branchIndex = upInfo?.branchIndex ?? null;
 
-    // Check if node already exists (match by title within this workflow)
-    const existingNode = existingNodeByTitle.get(nodeSpec.title ?? name);
+    // Match an existing node by (upstream-title, branchIndex, title) so that
+    // two nodes sharing a title but on different branches don't collide.
+    // Fall back to title-only when the title is unique.
+    const title = nodeSpec.title ?? name;
+    const upInfoEx = nodeUpstream.get(name);
+    const upstreamTitle = upInfoEx
+      ? (spec.nodes[upInfoEx.upstream]?.title ?? upInfoEx.upstream)
+      : '';
+    const posKey = `${upstreamTitle}\t${upInfoEx?.branchIndex ?? ''}\t${title}`;
+    const byTitle = existingByTitle.get(title) ?? [];
+    const existingNode = existingByPosition.get(posKey)
+      ?? (byTitle.length === 1 ? byTitle[0] : undefined);
 
     if (existingNode) {
       // Update existing node config

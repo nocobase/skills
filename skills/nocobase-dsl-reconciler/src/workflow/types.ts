@@ -1,9 +1,9 @@
 /**
  * Workflow DSL types — workflow.yaml spec and API response shapes.
  *
- * Follows the design in docs/workflow-dsl-design.md:
- * - WorkflowSpec is the top-level YAML structure (human-authored or exported)
- * - NodeSpec describes a single node in the `nodes` map
+ * Format spec: see ./DSL.md (authoring guide + defaults + branch label table).
+ * - WorkflowSpec: top-level YAML (human-authored or exported)
+ * - NodeSpec: one entry in the `nodes` map
  * - API types mirror NocoBase's workflows:list and flow_nodes:list responses
  */
 
@@ -67,6 +67,7 @@ export interface ApiWorkflow {
   current: boolean;
   options?: Record<string, unknown>;
   allExecuted?: number;
+  versionStats?: { executed?: number };
   createdAt?: string;
   updatedAt?: string;
 }

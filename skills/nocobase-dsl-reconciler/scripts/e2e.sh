@@ -196,6 +196,51 @@ stage_4_data() {
   ok "data copy complete — $COPIED row(s) across 25+ tables, $MISMATCH tolerated mismatch(es)"
 }
 
+# ───── Stage 4b: workflow DSL round-trip ─────
+# Pushes the starter workflow, pulls it back, and asserts the core spec
+# survives normalization (defaults filled on push, stripped on pull → same
+# committed YAML). Catches regressions in applySpecDefaults / stripSpecDefaults.
+stage_4b_workflow_roundtrip() {
+  stage "Stage 4b: workflow DSL round-trip (starter)"
+  local WS_NAME="e2e_wf_$$"
+  local WS_DIR="$WORKSPACES_DIR/$WS_NAME"
+  local SRC_STARTER="$SKILL_ROOT/templates/starter"
+
+  [ -d "$SRC_STARTER/workflows" ] || { warn "starter has no workflows/; skipping"; return 0; }
+
+  # Fresh scratch workspace seeded from starter
+  rm -rf "$WS_DIR"
+  cp -r "$SRC_STARTER" "$WS_DIR"
+
+  if ! cli push "$WS_NAME" --force > "$E2E_DIR/wf-push.log" 2>&1; then
+    warn "see $E2E_DIR/wf-push.log"
+    rm -rf "$WS_DIR"
+    die "workflow push failed"
+  fi
+  local DEPLOYED
+  DEPLOYED=$(grep -cE '\+ [a-z_]+: created workflow' "$E2E_DIR/wf-push.log" || true)
+  info "workflows created: $DEPLOYED"
+  [ "$DEPLOYED" -ge 1 ] || { rm -rf "$WS_DIR"; die "no workflow created — deployer regression"; }
+
+  # Re-pull into the same workspace dir; workflow.yaml should match what we pushed
+  # after normalization passes are applied on both sides.
+  local REPULL="$E2E_DIR/wf-repull"
+  mkdir -p "$REPULL"
+  if ! cli_freeroot pull "$REPULL" > "$E2E_DIR/wf-pull.log" 2>&1; then
+    warn "see $E2E_DIR/wf-pull.log"
+    rm -rf "$WS_DIR"
+    die "workflow pull failed"
+  fi
+
+  local PULLED_WF
+  PULLED_WF=$(find "$REPULL/workflows" -name 'workflow.yaml' 2>/dev/null | wc -l | tr -d ' ')
+  info "workflow.yaml files pulled: $PULLED_WF"
+  [ "$PULLED_WF" -ge 1 ] || { rm -rf "$WS_DIR"; die "pull returned 0 workflow.yaml files"; }
+
+  rm -rf "$WS_DIR"
+  ok "workflow push + pull round-trip ran"
+}
+
 # ───── Stage 5: re-pull + coarse diff ─────
 stage_5_repull() {
   stage "Stage 5: re-pull $CRM_COPY_NAME and compare counts"
@@ -231,11 +276,12 @@ stage_5_repull() {
 
 # ───── Run ─────
 if [ "$OFFLINE" = "0" ]; then
-  run_stage "pull"       stage_1_pull
-  run_stage "duplicate"  stage_2_duplicate
-  run_stage "push"       stage_3_push
-  run_stage "data"       stage_4_data
-  run_stage "repull"     stage_5_repull
+  run_stage "pull"        stage_1_pull
+  run_stage "duplicate"   stage_2_duplicate
+  run_stage "push"        stage_3_push
+  run_stage "data"        stage_4_data
+  run_stage "workflow-rt" stage_4b_workflow_roundtrip
+  run_stage "repull"      stage_5_repull
 else
   run_stage "duplicate"  stage_2_duplicate
   info "--offline: ran stage 2 only (pure disk)"

@@ -26,23 +26,31 @@ export interface WorkflowValidationResult {
 
 // ── Known sets ──
 
+// Authoritative list lives in skills/nocobase-workflow-manage/references.
+// When upstream adds a node/trigger type, mirror the change here.
 const KNOWN_TRIGGER_TYPES = new Set([
-  'collection', 'schedule', 'action',
-  // Less common but valid
-  'form-event', 'approval',
+  // Built-in
+  'collection', 'schedule',
+  // Plugin-provided (core + AI)
+  'action', 'custom-action', 'request-interception', 'webhook', 'approval',
+  'ai-employee',
 ]);
 
 const KNOWN_NODE_TYPES = new Set([
-  'condition', 'multi-conditions',
-  'create', 'update', 'destroy', 'query',
-  'sql',
-  'manual', 'approval',
-  'notification',
+  // Built-in
+  'calculation', 'condition', 'multi-condition',
+  'query', 'create', 'update', 'destroy',
+  'end', 'output',
+  // Plugin-provided (core)
   'loop', 'parallel',
-  'delay', 'aggregate',
-  'request',
-  'calculation',
-  'output',
+  'request', 'mailer', 'notification', 'cc',
+  'delay', 'aggregate', 'sql',
+  'json-query', 'json-variable-mapping',
+  'script', 'manual',
+  'response-message', 'response',
+  'subflow', 'approval',
+  // Plugin-provided (AI)
+  'llm',
 ]);
 
 /** Valid mode bitmask values for collection trigger: 1,2,3,4,5,6,7 */
@@ -51,8 +59,10 @@ const VALID_COLLECTION_MODES = new Set([1, 2, 3, 4, 5, 6, 7]);
 // Node types that require a collection reference in config
 const COLLECTION_NODE_TYPES = new Set(['create', 'update', 'destroy', 'query']);
 
-// Node types that must have at least one branch
-const BRANCHING_NODE_TYPES = new Set(['condition', 'multi-conditions']);
+// Node types that branch; see workflow-deployer LABEL_TO_INDEX for label mapping
+const BRANCHING_NODE_TYPES = new Set([
+  'condition', 'multi-condition', 'loop', 'parallel', 'approval',
+]);
 
 // ── Variable extraction ──
 
@@ -250,13 +260,15 @@ export function validateWorkflow(
     for (const [name, nodeSpec] of Object.entries(spec.nodes)) {
       validateNode(name, nodeSpec, issues, collections);
 
-      // Check for duplicate titles (would cause update ambiguity)
+      // Duplicate titles are a redeploy risk. The deployer disambiguates by
+      // graph position (upstream + branchIndex) when it can, so this stays a
+      // warn — but rename one if you redeploy into an existing workflow.
       const title = nodeSpec.title ?? name;
       if (nodeTitles.has(title)) {
         issues.push({
           level: 'warn',
           path: `nodes.${name}.title`,
-          message: `duplicate node title "${title}" — deploy will match nodes by title, so duplicates cause ambiguity`,
+          message: `duplicate node title "${title}" — deployer disambiguates by graph position, but safer to rename.`,
         });
       }
       nodeTitles.add(title);
@@ -274,6 +286,11 @@ export function validateWorkflow(
   if (spec.graph && spec.nodes) {
     validateGraphStructure(spec, issues);
   }
+
+  // ─── 6. Filter-root lint ───
+  // NB filter/condition objects must root on $and or $or. Flat `{field: ...}`
+  // at the root is a silent footgun — the server accepts it but semantics differ.
+  validateFilterRoots(spec, issues);
 
   return {
     errors: issues,
@@ -484,19 +501,17 @@ function validateVariables(
     for (const v of vars) {
       const expr = v.expression;
 
-      // Check $context.data references are syntactically valid
-      if (expr.startsWith('$context.')) {
-        // $context.data.xxx — should have at least one field after data
-        if (expr.startsWith('$context.data') && expr === '$context.data') {
-          // bare $context.data is ok (references the whole record)
-        } else if (expr.startsWith('$context.') && !expr.startsWith('$context.data')) {
-          // Other $context sub-paths are valid but unusual
-          issues.push({
-            level: 'warn',
-            path: `nodes.${name}.config`,
-            message: `unusual variable reference "${v.raw}" — expected $context.data.xxx`,
-          });
-        }
+      // Known variable namespaces; anything else gets a single warn
+      // so typos surface but we don't spam. $context, $jobsMapByNodeKey, $scopes
+      // are handled with structural checks below; $system and $env are pass-through.
+      const KNOWN_NS = ['$context', '$jobsMapByNodeKey', '$scopes', '$system', '$env'];
+      const ns = expr.split('.')[0];
+      if (ns.startsWith('$') && !KNOWN_NS.includes(ns)) {
+        issues.push({
+          level: 'warn',
+          path: `nodes.${name}.config`,
+          message: `variable "${v.raw}" uses unknown namespace "${ns}" — known: ${KNOWN_NS.join(', ')}`,
+        });
       }
 
       // Check $jobsMapByNodeKey references point to valid node names
@@ -599,6 +614,25 @@ function validateGraphStructure(
     }
   }
 
+  // 4b. Merge-point detection — NB's model has one upstream per node, so
+  //     multiple edges targeting the same node silently drop all but the
+  //     first at deploy. Surface it here where it's fixable.
+  const targetCounts = new Map<string, string[]>();
+  for (const e of graphInfo.edges) {
+    const list = targetCounts.get(e.target) ?? [];
+    list.push(e.source);
+    targetCounts.set(e.target, list);
+  }
+  for (const [target, sources] of targetCounts) {
+    if (sources.length > 1) {
+      issues.push({
+        level: 'error',
+        path: 'graph',
+        message: `node "${target}" has ${sources.length} incoming edges (from ${sources.join(', ')}). NB only supports one upstream per node — merge branches after their last distinct step instead of rejoining in the graph.`,
+      });
+    }
+  }
+
   // 5. Validate branching nodes have branches in graph
   for (const [name, nodeSpec] of Object.entries(spec.nodes)) {
     if (BRANCHING_NODE_TYPES.has(nodeSpec.type)) {
@@ -610,6 +644,52 @@ function validateGraphStructure(
           message: `condition node "${name}" has no branch edges in graph (expected --> [yes]/[no] edges)`,
         });
       }
+    }
+  }
+}
+
+// ── Filter-root lint ──
+
+function isFlatFilterRoot(obj: unknown): boolean {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  const keys = Object.keys(obj as Record<string, unknown>);
+  if (!keys.length) return false;
+  return !keys.some(k => k === '$and' || k === '$or');
+}
+
+function walkForFilters(
+  value: unknown,
+  path: string,
+  visit: (filterObj: unknown, path: string) => void,
+  depth = 0,
+): void {
+  if (depth > 12 || value === null || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) walkForFilters(value[i], `${path}[${i}]`, visit, depth + 1);
+    return;
+  }
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if ((k === 'filter' || k === 'condition') && v && typeof v === 'object' && !Array.isArray(v)) {
+      visit(v, `${path}.${k}`);
+    }
+    walkForFilters(v, `${path}.${k}`, visit, depth + 1);
+  }
+}
+
+function validateFilterRoots(spec: WorkflowSpec, issues: ValidationIssue[]): void {
+  const check = (filterObj: unknown, path: string) => {
+    if (isFlatFilterRoot(filterObj)) {
+      issues.push({
+        level: 'error',
+        path,
+        message: 'filter/condition root must be wrapped in $and or $or (never a bare { field: ... })',
+      });
+    }
+  };
+  walkForFilters(spec.trigger, 'trigger', check);
+  if (spec.nodes) {
+    for (const [name, n] of Object.entries(spec.nodes)) {
+      if (n?.config) walkForFilters(n.config, `nodes.${name}.config`, check);
     }
   }
 }

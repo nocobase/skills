@@ -54,7 +54,7 @@ Hand off to the matching skill when the user's request is orthogonal:
 |---|---|
 | One-off live-UI tweak on an already-running page (move / reorder / reconfigure a single block, field, action) — **no DSL commit wanted** | `nocobase-ui-builder` |
 | ACL / role permissions / route permissions | `nocobase-acl-manage` |
-| Workflow create / update / revision / execution | `nocobase-workflow-manage` (this skill only wires the trigger button; authoring the graph goes there) |
+| Workflow authoring on a live NB instance (no YAML commit wanted) | `nocobase-workflow-manage` — live CLI/MCP, no YAML. This skill owns the committed YAML path; see the [Workflows](#workflows) section below. |
 | Collection / field / relation authoring outside a DSL project | `nocobase-data-modeling` |
 | Plugin development (`.tsx` components, server code) | `nocobase-plugin-development` |
 | Install / enable plugin | `nocobase-plugin-manage` |
@@ -448,6 +448,86 @@ On **m2o**, `foreignKey` names the FK column on the *current* table
 On **o2m**, `foreignKey` names the FK column on the *target* table
 (`tasks: o2m → nb_pm_tasks, foreignKey: project_id` → `project_id` on
 `nb_pm_tasks`).
+
+## Workflows
+
+Committed workflow YAML lives at
+`workspaces/<project>/workflows/<slug>/workflow.yaml`. Push deploys, pull
+exports, and each is one-way. Full format + authoring reference:
+**[src/workflow/DSL.md](src/workflow/DSL.md)**.
+
+Minimum shape — trigger type, collection, graph, per-node core config.
+Everything else (workflow `options`, pagination defaults, `dataSource: main`,
+`engine: basic`, …) is filled by the deployer.
+
+```yaml
+title: Notify on new project
+type: collection
+enabled: false
+trigger:
+  collection: nb_starter_projects
+  mode: 1                              # 1=create, 2=update, 3=both, 4=delete, 7=all
+graph:
+  - notify
+nodes:
+  notify:
+    type: notification
+    config:
+      channelName: in-app-message
+      title: 'New project: {{$context.data.name}}'
+      content: 'Created by {{$context.data.owner.nickname}}'
+      receivers:
+        - filter:
+            $and:
+              - id:
+                  $eq: '{{$context.data.owner_id}}'
+```
+
+The starter ships this file — `templates/starter/workflows/notify_on_new_project/`.
+
+### When authoring, hold to
+
+- Node names in `graph:` are DSL identities. Variable refs like
+  `{{$jobsMapByNodeKey.<name>.xxx}}` use the DSL name; the deployer rewrites
+  to the runtime key.
+- Every `filter:` / `condition:` object must root on `$and` or `$or` — a flat
+  `{field: ...}` at the root is rejected.
+- Merge points aren't supported — NB stores one upstream per node. If two
+  branches need to trigger the same action, put the action in both branches or
+  route to a downstream catch-all.
+- Frozen workflows (executed ≥ 1) are auto-revisioned on push; the workflow
+  `key` is stable so page-action references keep working.
+- Approval forms + task cards are FlowModel trees — DSL doesn't redesign that
+  surface. They live under `workflows/<slug>/ui/<purpose>.yaml` and are
+  round-tripped verbatim.
+
+### When authoring, don't
+
+- Don't reinvent field names. Use NB-native keys (`config.collection`,
+  `params.filter`, `params.values`, `channelName`, …) — no DSL sugar.
+- Don't hand-write `options.stackLimit` / `params.sort: []` / `dataSource: main`
+  etc. — the deployer fills them. Override only when you need something
+  non-default.
+- Don't copy whole CRM workflow files. Open the matching example, lift the
+  pattern (trigger shape, node types, graph edges), and rename in your own
+  file. Wholesale copies drag in irrelevant `approvalUid`s and UIs.
+
+### Node type cheat sheet
+
+`collection` / `schedule` / `action` / `approval` / `webhook` / `custom-action`
+/ `request-interception` (triggers) · `query` / `create` / `update` / `destroy`
+/ `sql` / `aggregate` / `condition` / `multi-condition` / `calculation` /
+`notification` / `mailer` / `cc` / `request` / `delay` / `loop` / `parallel` /
+`manual` / `approval` / `subflow` / `script` / `end` / `output` /
+`response` / `response-message` / `json-query` / `json-variable-mapping`.
+
+Core config required per type is in [DSL.md](src/workflow/DSL.md#nodes).
+
+### Handing off
+
+Use `nocobase-workflow-manage` instead when the user wants to tweak workflows
+directly on a running NB instance without a YAML commit — that skill is
+CLI/MCP-only and doesn't touch this project's file tree.
 
 ## Command reference
 
