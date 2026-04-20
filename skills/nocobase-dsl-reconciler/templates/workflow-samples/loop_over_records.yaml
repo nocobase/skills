@@ -1,0 +1,40 @@
+title: Loop Over Records
+type: schedule
+enabled: false
+description: Every midnight, archive invoices older than 1 year.
+trigger:
+  mode: 0
+  cron: '0 0 0 * * *'
+graph:
+  - list_old
+  - list_old --> batch
+  - batch --> [body] mark_archived
+nodes:
+  list_old:
+    type: query
+    config:
+      collection: nb_demo_invoices
+      multiple: true
+      params:
+        filter:
+          $and:
+            - status:
+                $eq: paid
+            - createdAt:
+                $lt: '{{$system.now}}'
+        pageSize: 200
+  batch:
+    type: loop
+    config:
+      target: '{{$jobsMapByNodeKey.list_old}}'
+  mark_archived:
+    type: update
+    config:
+      collection: nb_demo_invoices
+      params:
+        filter:
+          $and:
+            - id:
+                $eq: '{{$scopes.batch.item.id}}'
+        values:
+          status: archived

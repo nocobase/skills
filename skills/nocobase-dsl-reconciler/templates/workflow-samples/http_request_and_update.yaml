@@ -1,0 +1,35 @@
+title: HTTP Request and Update
+type: collection
+enabled: false
+description: On new invoice, hit an external pricing API and store the quote.
+trigger:
+  collection: nb_demo_invoices
+  mode: 1  # create
+graph:
+  - fetch_quote
+  - fetch_quote --> save_quote
+nodes:
+  fetch_quote:
+    type: request
+    config:
+      method: POST
+      url: https://pricing.example.com/quote
+      headers:
+        Content-Type: application/json
+        Authorization: 'Bearer {{$env.PRICING_API_TOKEN}}'
+      data:
+        sku: '{{$context.data.sku}}'
+        qty: '{{$context.data.qty}}'
+      timeout: 5000
+  save_quote:
+    type: update
+    config:
+      collection: nb_demo_invoices
+      params:
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+        values:
+          quoted_price: '{{$jobsMapByNodeKey.fetch_quote.data.price}}'
+          quoted_at: '{{$system.now}}'

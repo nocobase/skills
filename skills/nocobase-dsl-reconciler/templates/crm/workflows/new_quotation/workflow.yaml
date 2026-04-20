@@ -108,7 +108,7 @@ nodes:
           status: pending_approval
   draft:
     type: update
-    title: draft
+    title: Draft (rejected)
     config:
       usingAssignFormSchema: true
       assignFormSchema:
@@ -157,7 +157,7 @@ nodes:
           status: draft
   draft_2:
     type: update
-    title: draft
+    title: Draft (returned)
     config:
       usingAssignFormSchema: true
       assignFormSchema:

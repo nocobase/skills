@@ -1,0 +1,62 @@
+title: Manual Review Step
+type: collection
+enabled: false
+description: New vendor needs manager review before it's marked active.
+trigger:
+  collection: nb_demo_vendors
+  mode: 1
+graph:
+  - review
+  - review --> decide
+  - decide --> [yes] activate
+  - decide --> [no] reject
+nodes:
+  review:
+    type: manual
+    config:
+      assignees:
+        - '{{$context.data.manager_id}}'
+      forms:
+        vendor_review:
+          title: Review Vendor
+          # Form schema — lives on NB-side; see nocobase-ui-builder for how
+          # to author. This DSL sample omits the full x-component tree.
+          actions:
+            - name: approve
+              title: Approve
+            - name: reject
+              title: Reject
+  decide:
+    type: condition
+    config:
+      calculation:
+        group:
+          type: and
+          calculations:
+            - calculator: equal
+              operands:
+                - '{{$jobsMapByNodeKey.review.result.status}}'
+                - approve
+  activate:
+    type: update
+    config:
+      collection: nb_demo_vendors
+      params:
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+        values:
+          status: active
+          activated_at: '{{$system.now}}'
+  reject:
+    type: update
+    config:
+      collection: nb_demo_vendors
+      params:
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+        values:
+          status: rejected

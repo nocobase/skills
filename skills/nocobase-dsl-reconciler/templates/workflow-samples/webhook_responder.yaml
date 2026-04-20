@@ -1,0 +1,30 @@
+title: Webhook Responder
+type: webhook
+enabled: false
+description: External system GETs /webhooks/stock; returns current stock level for a SKU.
+trigger:
+  # NB exposes POST/GET at /api/webhooks/<path>. The request body/query
+  # lands at $context.data.
+  path: stock
+graph:
+  - lookup
+  - lookup --> reply
+nodes:
+  lookup:
+    type: query
+    config:
+      collection: nb_demo_products
+      multiple: false
+      params:
+        filter:
+          $and:
+            - sku:
+                $eq: '{{$context.data.sku}}'
+  reply:
+    type: response
+    config:
+      # Body is the response returned to the HTTP caller.
+      body:
+        sku: '{{$context.data.sku}}'
+        stock: '{{$jobsMapByNodeKey.lookup.stock}}'
+        checked_at: '{{$system.now}}'

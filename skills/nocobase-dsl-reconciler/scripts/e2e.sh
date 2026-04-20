@@ -196,12 +196,13 @@ stage_4_data() {
   ok "data copy complete — $COPIED row(s) across 25+ tables, $MISMATCH tolerated mismatch(es)"
 }
 
-# ───── Stage 4b: workflow DSL round-trip ─────
-# Pushes the starter workflow, pulls it back, and asserts the core spec
-# survives normalization (defaults filled on push, stripped on pull → same
-# committed YAML). Catches regressions in applySpecDefaults / stripSpecDefaults.
+# ───── Stage 4b: workflow import / run / export round-trip ─────
+# Pushes the starter workflow, enables it, creates a row that satisfies the
+# trigger, asserts an execution was actually produced, then pulls back and
+# verifies the normalized YAML survives the round-trip.
+# Covers all three verbs (import=push, run=execute, export=pull) in one shot.
 stage_4b_workflow_roundtrip() {
-  stage "Stage 4b: workflow DSL round-trip (starter)"
+  stage "Stage 4b: workflow import / run / export (starter)"
   local WS_NAME="e2e_wf_$$"
   local WS_DIR="$WORKSPACES_DIR/$WS_NAME"
   local SRC_STARTER="$SKILL_ROOT/templates/starter"
@@ -212,6 +213,7 @@ stage_4b_workflow_roundtrip() {
   rm -rf "$WS_DIR"
   cp -r "$SRC_STARTER" "$WS_DIR"
 
+  # --- 1. IMPORT: push starter to NB ---
   if ! cli push "$WS_NAME" --force > "$E2E_DIR/wf-push.log" 2>&1; then
     warn "see $E2E_DIR/wf-push.log"
     rm -rf "$WS_DIR"
@@ -222,8 +224,54 @@ stage_4b_workflow_roundtrip() {
   info "workflows created: $DEPLOYED"
   [ "$DEPLOYED" -ge 1 ] || { rm -rf "$WS_DIR"; die "no workflow created — deployer regression"; }
 
-  # Re-pull into the same workspace dir; workflow.yaml should match what we pushed
-  # after normalization passes are applied on both sides.
+  # --- 2. RUN: enable the workflow, create a triggering row, verify execution ---
+  local TOKEN
+  TOKEN=$(curl -sS -X POST "$NB_URL/api/auth:signIn" \
+    -H 'Content-Type: application/json' -H 'X-Authenticator: basic' \
+    -d "{\"account\":\"$NB_USER\",\"password\":\"$NB_PASSWORD\"}" \
+    | python3 -c 'import json,sys;print(json.load(sys.stdin)["data"]["token"])' 2>/dev/null)
+  [ -n "$TOKEN" ] || { rm -rf "$WS_DIR"; die "could not auth for runtime test"; }
+
+  # Find the starter workflow id by title
+  local WF_ID
+  WF_ID=$(curl -sS "$NB_URL/api/workflows:list?filter=%7B%22title%22%3A%22Notify%20on%20new%20project%22%7D" \
+    -H "Authorization: Bearer $TOKEN" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; print(d[0]["id"] if d else "")')
+  [ -n "$WF_ID" ] || { rm -rf "$WS_DIR"; die "starter workflow not found on NB"; }
+  info "starter workflow id: $WF_ID"
+
+  curl -sS -X POST "$NB_URL/api/workflows:update?filterByTk=$WF_ID" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+    -d '{"enabled":true}' > /dev/null
+  info "enabled starter workflow"
+
+  # Create a project row — collection trigger fires on create
+  curl -sS -X POST "$NB_URL/api/nb_starter_projects:create" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+    -d '{"name":"e2e-test","code":"E2E","status":"planned","priority":"low"}' \
+    > "$E2E_DIR/wf-create.log"
+  info "seeded nb_starter_projects row"
+
+  # Poll executions for up to 5s — the workflow runs async
+  local EXEC_COUNT=0
+  until [ "$EXEC_COUNT" -ge 1 ] || [ "${TRIES:-0}" -ge 10 ]; do
+    EXEC_COUNT=$(curl -sS "$NB_URL/api/executions:list?filter=%7B%22workflowId%22%3A$WF_ID%7D&pageSize=5" \
+      -H "Authorization: Bearer $TOKEN" \
+      | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("data",[])))' 2>/dev/null || echo 0)
+    TRIES=$((${TRIES:-0}+1))
+    [ "$EXEC_COUNT" -ge 1 ] || sleep 1
+  done
+
+  # Always disable after the test, even if the assertion fails
+  curl -sS -X POST "$NB_URL/api/workflows:update?filterByTk=$WF_ID" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+    -d '{"enabled":false}' > /dev/null
+
+  info "executions recorded: $EXEC_COUNT"
+  [ "$EXEC_COUNT" -ge 1 ] || { rm -rf "$WS_DIR"; die "workflow enabled + row created but no execution — runtime path broken"; }
+  ok "workflow ran — execution logged"
+
+  # --- 3. EXPORT: pull and confirm round-trip ---
   local REPULL="$E2E_DIR/wf-repull"
   mkdir -p "$REPULL"
   if ! cli_freeroot pull "$REPULL" > "$E2E_DIR/wf-pull.log" 2>&1; then
@@ -238,7 +286,7 @@ stage_4b_workflow_roundtrip() {
   [ "$PULLED_WF" -ge 1 ] || { rm -rf "$WS_DIR"; die "pull returned 0 workflow.yaml files"; }
 
   rm -rf "$WS_DIR"
-  ok "workflow push + pull round-trip ran"
+  ok "workflow import / run / export all green"
 }
 
 # ───── Stage 5: re-pull + coarse diff ─────

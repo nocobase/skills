@@ -1,0 +1,22 @@
+title: Call Subflow
+type: collection
+enabled: false
+description: Refund issued → delegate the "notify + audit + ledger" bookkeeping to a shared subflow.
+trigger:
+  collection: nb_demo_refunds
+  mode: 1
+graph:
+  - run_bookkeeping
+nodes:
+  run_bookkeeping:
+    type: subflow
+    config:
+      # workflowKey of the callee. DSL keeps the stable key; deployer rewrites
+      # to the runtime key on push (state.yaml tracks the mapping).
+      workflowKey: shared_bookkeeping_flow
+      # Inputs passed as trigger context to the called workflow.
+      # The subflow sees these at {{$context.data.*}}.
+      data:
+        refund_id: '{{$context.data.id}}'
+        amount: '{{$context.data.amount}}'
+        reason: '{{$context.data.reason}}'

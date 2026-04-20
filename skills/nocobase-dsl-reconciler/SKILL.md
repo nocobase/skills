@@ -523,6 +523,13 @@ The starter ships this file — `templates/starter/workflows/notify_on_new_proje
 
 Core config required per type is in [DSL.md](src/workflow/DSL.md#nodes).
 
+### Pattern samples
+
+For node types CRM doesn't use, see `templates/workflow-samples/` — one
+minimum-viable workflow per pattern (HTTP request, loop, parallel, manual,
+subflow, webhook, end/output). Lift the shape; placeholders like
+`nb_demo_*` won't deploy without rename.
+
 ### Handing off
 
 Use `nocobase-workflow-manage` instead when the user wants to tweak workflows
@@ -544,6 +551,12 @@ npx tsx cli/cli.ts diff <left> <right>          # compare two DSL trees
 npx tsx cli/cli.ts duplicate-project <src> <dst> --key-suffix _v2
 
 npx tsx cli/cli.ts verify-data <name>           # FK / completeness check
+npx tsx cli/cli.ts validate-workflows <name>    # workflow-only spec lint
+npm --prefix src run test:workflow              # workflow unit tests (normalize + validator)
+
+# demo-instance cleanup (destructive, not for production)
+python3 scripts/cleanup-copy.py                 # drop all Copy/[Copy]-prefixed artefacts
+python3 scripts/cleanup-non-crm.py              # drop nb_starter_* / nb_pm_* / non-CRM workflows + routes
 ```
 
 push and pull are both one-way. Round-tripping = push + pull + git diff.

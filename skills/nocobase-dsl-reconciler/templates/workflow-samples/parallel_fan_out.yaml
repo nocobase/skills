@@ -1,0 +1,48 @@
+title: Parallel Fan Out
+type: collection
+enabled: false
+description: On order placed, send confirmation, log to ERP, and notify finance — in parallel.
+trigger:
+  collection: nb_demo_orders
+  mode: 1
+graph:
+  - fan
+  - fan --> [0] notify_customer
+  - fan --> [1] post_to_erp
+  - fan --> [2] notify_finance
+nodes:
+  fan:
+    type: parallel
+    config:
+      mode: all  # all / any / race
+  notify_customer:
+    type: notification
+    config:
+      channelName: in-app-message
+      title: 'Order {{$context.data.order_no}} confirmed'
+      content: 'Thanks for your order.'
+      receivers:
+        - filter:
+            $and:
+              - id:
+                  $eq: '{{$context.data.customer_id}}'
+  post_to_erp:
+    type: request
+    config:
+      method: POST
+      url: https://erp.example.com/orders
+      data:
+        id: '{{$context.data.id}}'
+        total: '{{$context.data.total}}'
+  notify_finance:
+    type: notification
+    config:
+      channelName: in-app-message
+      title: 'New order: {{$context.data.order_no}}'
+      content: 'Amount {{$context.data.total}}'
+      receivers:
+        - filter:
+            $and:
+              - roles:
+                  name:
+                    $eq: finance

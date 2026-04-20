@@ -1,0 +1,48 @@
+title: End and Output
+type: action
+enabled: false
+description: Action trigger returns a computed score, or terminates early on low stock.
+trigger: {}
+graph:
+  - load
+  - load --> stock_guard
+  - stock_guard --> [yes] bail
+  - stock_guard --> [no] compute_score
+  - compute_score --> return_score
+nodes:
+  load:
+    type: query
+    config:
+      collection: nb_demo_products
+      multiple: false
+      params:
+        filter:
+          $and:
+            - id:
+                $eq: '{{$context.data.id}}'
+  stock_guard:
+    type: condition
+    config:
+      calculation:
+        group:
+          type: and
+          calculations:
+            - calculator: lt
+              operands:
+                - '{{$jobsMapByNodeKey.load.stock}}'
+                - 10
+  bail:
+    # Terminates the workflow without producing output.
+    type: end
+    config: {}
+  compute_score:
+    type: calculation
+    config:
+      expression: '{{$jobsMapByNodeKey.load.stock}} * {{$jobsMapByNodeKey.load.price}}'
+      result: score
+  return_score:
+    # Exposes a value at $jobsMapByNodeKey.return_score so callers (e.g. a
+    # parent subflow) can read it as the workflow's return value.
+    type: output
+    config:
+      value: '{{$jobsMapByNodeKey.compute_score.score}}'
