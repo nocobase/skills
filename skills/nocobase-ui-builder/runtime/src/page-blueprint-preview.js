@@ -1184,6 +1184,113 @@ function analyzeFieldsLayoutDocument(layout, fields, warnings = []) {
   };
 }
 
+function buildCompactFieldsLayoutRow(fieldKeys, blockType) {
+  const normalizedKeys = ensureArray(fieldKeys).filter(Boolean);
+  if (normalizedKeys.length === 0) {
+    return [];
+  }
+  if (normalizeText(blockType) === 'filterForm') {
+    const span = normalizedKeys.length === 1 ? 24 : normalizedKeys.length === 2 ? 12 : 8;
+    return normalizedKeys.map((key) => ({ key, span }));
+  }
+  if (normalizedKeys.length === 1) {
+    return [{ key: normalizedKeys[0], span: 24 }];
+  }
+  return normalizedKeys.map((key) => ({ key, span: 12 }));
+}
+
+function buildDefaultFieldsLayout(block) {
+  if (!isPlainObject(block) || !FIELD_GRID_BLOCK_TYPES.has(normalizeText(block.type)) || hasOwn(block, 'fieldsLayout')) {
+    return undefined;
+  }
+  const fieldKeys = ensureArray(block.fields)
+    .map((field, index) => resolveBlueprintFieldLocalKey(field, index))
+    .filter(Boolean);
+  if (fieldKeys.length === 0) {
+    return undefined;
+  }
+
+  const chunkSize = normalizeText(block.type) === 'filterForm' ? 3 : 2;
+  const rows = [];
+  for (let index = 0; index < fieldKeys.length; index += chunkSize) {
+    rows.push(buildCompactFieldsLayoutRow(fieldKeys.slice(index, index + chunkSize), block.type));
+  }
+  return rows.length ? { rows } : undefined;
+}
+
+function materializePopupForWrite(popup) {
+  if (!isPlainObject(popup)) {
+    return popup;
+  }
+  const nextPopup = cloneSerializable(popup);
+  if (hasOwn(nextPopup, 'blocks')) {
+    nextPopup.blocks = ensureArray(nextPopup.blocks).map(materializeBlockForWrite);
+  }
+  return nextPopup;
+}
+
+function materializeFieldForWrite(field) {
+  if (!isPlainObject(field)) {
+    return field;
+  }
+  const nextField = cloneSerializable(field);
+  if (isPlainObject(nextField.popup)) {
+    nextField.popup = materializePopupForWrite(nextField.popup);
+  }
+  return nextField;
+}
+
+function materializeActionForWrite(action) {
+  if (!isPlainObject(action)) {
+    return action;
+  }
+  const nextAction = cloneSerializable(action);
+  if (isPlainObject(nextAction.popup)) {
+    nextAction.popup = materializePopupForWrite(nextAction.popup);
+  }
+  return nextAction;
+}
+
+function materializeBlockForWrite(block) {
+  if (!isPlainObject(block)) {
+    return block;
+  }
+  const nextBlock = cloneSerializable(block);
+  if (hasOwn(nextBlock, 'fields')) {
+    nextBlock.fields = ensureArray(nextBlock.fields).map(materializeFieldForWrite);
+  }
+  if (hasOwn(nextBlock, 'actions')) {
+    nextBlock.actions = ensureArray(nextBlock.actions).map(materializeActionForWrite);
+  }
+  if (hasOwn(nextBlock, 'recordActions')) {
+    nextBlock.recordActions = ensureArray(nextBlock.recordActions).map(materializeActionForWrite);
+  }
+  if (!hasOwn(nextBlock, 'fieldsLayout')) {
+    const synthesizedLayout = buildDefaultFieldsLayout(nextBlock);
+    if (synthesizedLayout) {
+      nextBlock.fieldsLayout = synthesizedLayout;
+    }
+  }
+  return nextBlock;
+}
+
+function materializeBlueprintForWrite(blueprint) {
+  if (!isPlainObject(blueprint)) {
+    return blueprint;
+  }
+  const nextBlueprint = cloneSerializable(blueprint);
+  nextBlueprint.tabs = ensureArray(nextBlueprint.tabs).map((tab) => {
+    if (!isPlainObject(tab)) {
+      return tab;
+    }
+    return {
+      ...tab,
+      blocks: ensureArray(tab.blocks).map(materializeBlockForWrite),
+    };
+  });
+  return nextBlueprint;
+}
+
 function hasActionType(actions, expectedType) {
   const normalizedExpectedType = normalizeLowerText(expectedType);
   return ensureArray(actions).some((action) => {
@@ -1638,6 +1745,21 @@ function validateBlockFieldsLayout(block, path, state) {
       `Field "${key}" must appear exactly once in fieldsLayout rows.`,
     );
   });
+
+  const rowFieldCounts = analysis.rows.map((row) => ensureArray(row.items).length).filter((count) => count > 0);
+  const fieldCount = ensureArray(block.fields).length;
+  const requiresCompactRows =
+    (normalizeText(block.type) === 'filterForm' && fieldCount >= 3)
+    || (normalizeText(block.type) !== 'filterForm' && FIELD_GRID_BLOCK_TYPES.has(normalizeText(block.type)) && fieldCount >= 2);
+  if (requiresCompactRows && rowFieldCounts.length >= fieldCount && rowFieldCounts.every((count) => count <= 1)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldsLayout.rows`,
+      'fields-layout-single-column',
+      'Field-grid blocks with multiple fields must not place every field on its own row; use the compact multi-column layout instead.',
+    );
+  }
 }
 
 function validateBlock(block, path, state) {
@@ -2053,7 +2175,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   };
 
   if (result.ok) {
-    result.cliBody = cloneSerializable(blueprint);
+    result.cliBody = materializeBlueprintForWrite(blueprint);
   }
 
   return result;

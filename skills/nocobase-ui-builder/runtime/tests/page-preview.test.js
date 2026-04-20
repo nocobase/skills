@@ -1672,6 +1672,76 @@ test('prepareApplyBlueprintRequest accepts fieldsLayout on field-grid blocks and
   });
 });
 
+test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for createForm when omitted', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'createUserForm',
+            type: 'createForm',
+            title: 'Create employee',
+            collection: 'users',
+            fields: [
+              { key: 'nicknameField', field: 'nickname' },
+              { key: 'statusField', field: 'status' },
+              { key: 'phoneField', field: 'phone' },
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [
+      [{ key: 'nicknameField', span: 12 }, { key: 'statusField', span: 12 }],
+      [{ key: 'phoneField', span: 24 }],
+    ],
+  });
+});
+
+test('prepareApplyBlueprintRequest synthesizes compact fieldsLayout for filterForm when omitted', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname', 'email', 'phone'],
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [[{ key: 'nickname', span: 8 }, { key: 'email', span: 8 }, { key: 'phone', span: 8 }]],
+  });
+});
+
 test('prepareApplyBlueprintRequest rejects fieldsLayout on blocks without an inner field grid', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -1855,6 +1925,47 @@ test('prepareApplyBlueprintRequest rejects empty fieldsLayout rows', () => {
   );
 });
 
+test('prepareApplyBlueprintRequest rejects explicit single-column fieldsLayout on multi-field grids', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'filters',
+            type: 'filterForm',
+            title: 'Filters',
+            collection: 'users',
+            fields: ['nickname', 'email', 'phone'],
+            fieldsLayout: {
+              rows: [['nickname'], ['email'], ['phone']],
+            },
+            actions: ['submit', 'reset'],
+          },
+          {
+            key: 'mainTable',
+            type: 'table',
+            title: 'Employees table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'fields-layout-single-column' && issue.path === 'tabs[0].blocks[0].fieldsLayout.rows',
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest allows filter plus one business block without explicit layout', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -1886,6 +1997,9 @@ test('prepareApplyBlueprintRequest allows filter plus one business block without
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fieldsLayout, {
+    rows: [[{ key: 'nickname', span: 8 }, { key: 'email', span: 8 }, { key: 'phone', span: 8 }]],
+  });
 });
 
 test('prepareApplyBlueprintRequest requires filter blocks to occupy the first explicit layout row alone', () => {
