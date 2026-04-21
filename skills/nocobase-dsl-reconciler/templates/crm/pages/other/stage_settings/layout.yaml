@@ -6,8 +6,7 @@ blocks:
       - field: color
         width: 100
       - field: name
-        popup:
-          size: medium
+        clickToOpen: true
       - code
       - win_probability
       - description

@@ -1,34 +1,75 @@
 name: nb_crm_contacts
 title: Contacts
+titleField: name
 fields:
   - name: contact_no
     interface: sequence
-  - name: createdById
-    interface: integer
-  - name: createdAt
-    interface: createdAt
   - name: contact_mail
     interface: o2m
+    target: nb_crm_v_mail_contact
+    foreignKey: contact_id
   - name: role
     interface: select
-  - name: updatedBy
-    interface: updatedBy
+    options:
+      - value: decision_maker
+        label: Decision Maker
+        color: red
+      - value: influencer
+        label: Influencer
+        color: orange
+      - value: user
+        label: User
+        color: blue
+      - value: buyer
+        label: Buyer
+        color: green
+      - value: gatekeeper
+        label: Gatekeeper
+        color: default
   - name: level
     interface: select
+    options:
+      - value: A
+        label: A - Key
+        color: red
+      - value: B
+        label: B - Important
+        color: orange
+      - value: C
+        label: C - Normal
+        color: default
   - name: reports_to_id
     interface: integer
   - name: salutation
     interface: select
+    options:
+      - value: Mr.
+        label: Mr.
+        color: blue
+      - value: Mrs.
+        label: Mrs.
+        color: purple
+      - value: Ms.
+        label: Ms.
+        color: cyan
+      - value: Dr.
+        label: Dr.
+        color: green
   - name: owner
     interface: m2o
+    target: users
+    foreignKey: owner_id
   - name: owner_id
     interface: integer
   - name: tags
     interface: m2m
+    target: nb_crm_tags
+    foreignKey: contact_id
+    through: nb_crm_contact_tags
   - name: customer
     interface: m2o
-  - name: updatedAt
-    interface: updatedAt
+    target: nb_crm_customers
+    foreignKey: customer_id
   - name: department
     interface: input
   - name: description
@@ -39,6 +80,8 @@ fields:
     interface: input
   - name: reports_to
     interface: m2o
+    target: nb_crm_contacts
+    foreignKey: reports_to_id
   - name: name
     interface: input
   - name: linkedin
@@ -47,18 +90,14 @@ fields:
     interface: input
   - name: activities
     interface: o2m
-  - name: id
-    interface: integer
-  - name: updatedById
-    interface: integer
+    target: nb_crm_activities
+    foreignKey: contact_id
   - name: extra
     interface: json
   - name: user_id
     interface: integer
   - name: email
     interface: input
-  - name: createdBy
-    interface: createdBy
   - name: customer_id
     interface: integer
   - name: address
@@ -67,6 +106,25 @@ fields:
     interface: input
   - name: lead_source
     interface: select
+    options:
+      - value: website
+        label: Website
+        color: blue
+      - value: ads
+        label: Advertising
+        color: purple
+      - value: referral
+        label: Referral
+        color: green
+      - value: exhibition
+        label: Exhibition
+        color: orange
+      - value: telemarketing
+        label: Telemarketing
+        color: cyan
+      - value: email
+        label: Email
+        color: geekblue
   - name: is_primary
     interface: checkbox
   - name: title

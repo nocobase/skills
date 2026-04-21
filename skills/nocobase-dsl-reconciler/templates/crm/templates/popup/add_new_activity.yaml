@@ -8,5 +8,10 @@ content:
   blocks:
     - key: reference
       type: reference
+      templateRef:
+        templateUid: fpq7iu2da59
+        templateName: 'Form (Add new): Activities'
+        targetUid: b9e42f19aab
+        mode: reference
   layout:
     - - reference

@@ -49,7 +49,7 @@ function usage() {
     '    [--session-root <path>]',
     '    [--out-dir <dir>]',
     '    [--requirements-file <compile-artifact.json>]',
-    '    [--url-base <http://127.0.0.1:23000 | http://127.0.0.1:23000/admin>]',
+    '    [--url-base <origin-or-admin-url>]',
     '    [--icon <icon>]',
     '    [--parent-id <desktopRouteId>]',
     '    [--menu-mode <auto|group|root>]',
@@ -120,8 +120,7 @@ function isPlainObject(value) {
 }
 
 function normalizeUrlBase(urlBase) {
-  const normalized = normalizeRequiredText(urlBase || 'http://127.0.0.1:23000', 'url base')
-    .replace(/\/+$/, '');
+  const normalized = normalizeRequiredText(urlBase, 'url base').replace(/\/+$/, '');
   if (normalized.endsWith('/admin')) {
     return {
       apiBase: normalized.slice(0, -'/admin'.length),
@@ -132,6 +131,11 @@ function normalizeUrlBase(urlBase) {
     apiBase: normalized,
     adminBase: `${normalized}/admin`,
   };
+}
+
+function resolveRequiredUrlBase(urlBase, env = process.env) {
+  const resolvedUrlBase = normalizeOptionalText(urlBase) || normalizeOptionalText(env?.NOCOBASE_URL_BASE) || undefined;
+  return normalizeRequiredText(resolvedUrlBase, 'url base');
 }
 
 function buildPageUrl(adminBase, schemaUid) {
@@ -2016,7 +2020,7 @@ async function runBuild(flags) {
   const parentId = normalizeOptionalText(flags['parent-id']);
   const registryPath = normalizeOptionalText(flags['registry-path']) || session.registryPath;
   const token = normalizeRequiredText(process.env.NOCOBASE_API_TOKEN, 'NOCOBASE_API_TOKEN');
-  const { apiBase, adminBase } = normalizeUrlBase(flags['url-base'] || 'http://127.0.0.1:23000');
+  const { apiBase, adminBase } = normalizeUrlBase(resolveRequiredUrlBase(flags['url-base']));
 
   ensureDir(outDir);
 
@@ -2375,5 +2379,6 @@ export {
   buildTemplatePriorityList,
   collectRequiredCollectionNames,
   normalizeUrlBase,
+  resolveRequiredUrlBase,
   runBuild,
 };

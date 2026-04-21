@@ -1,6 +1,7 @@
 blocks:
-  - js: ./js/salesrep_jsBlock.js
+  - type: jsBlock
     key: jsBlock
+    file: ./js/salesrep_jsBlock.js
   - key: chart
     type: chart
     chart_config: ./charts/salesrep_chart.yaml

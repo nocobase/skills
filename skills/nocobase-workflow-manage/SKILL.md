@@ -66,7 +66,7 @@ Transport-selection rules:
 - Max clarification rounds: `2`
 - Max questions per round: `3`
 - Default execution bias:
-  - If the intended action path is at least `70%` confident and the remaining uncertainty is in fields that can be safely revised after creation, proceed without asking.
+  - If the intended action path is at least `70%` confident and the remaining uncertainty is in fields that can be safely revised after creation, proceed without asking. For example, nodes in editable (or new) workflow could always be updated (or moved/deleted) later, so if the only uncertainty is about node config details, proceed with the best guess and verify after mutation. Even more, newly created workflow will be in `enabled: false` state by default, so trigger config can be updated and nodes can be added/edited/moved/deleted freely until the user explicitly enables it, which means most uncertainties in a new workflow can be safely resolved after creation without blocking on questions.
   - Ask the user only when the unresolved choice affects a create-time commitment or another field that should not be guessed, or when the action is destructive/high-risk.
 - Mutation preconditions:
   - CLI or MCP is reachable and authenticated.

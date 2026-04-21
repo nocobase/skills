@@ -1,0 +1,83 @@
+blocks:
+  - key: filterForm
+    type: filterForm
+    coll: nb_starter_projects
+    fields:
+      - field: name
+        label: Search
+        filterPaths:
+          - name
+          - code
+          - description
+      - field: status
+      - field: priority
+    field_layout:
+      - - name
+        - status
+        - priority
+  - key: table
+    type: table
+    coll: nb_starter_projects
+    fields:
+      - field: name
+        clickToOpen: true
+      - field: code
+        width: 120
+      - field: status
+        width: 110
+      - field: priority
+        width: 110
+      - field: start_date
+        width: 120
+      - field: end_date
+        width: 120
+    actions:
+      - filter
+      - refresh
+      - addNew
+    recordActions:
+      - type: updateRecord
+        key: updateRecord_active
+        icon: playcircleoutlined
+        tooltip: Mark Active
+        style: link
+        assign:
+          status: active
+        linkageRules:
+          value:
+            - title: hide when not planned
+              enable: true
+              condition:
+                logic: $and
+                items:
+                  - path: '{{ ctx.record.status }}'
+                    operator: $ne
+                    value: planned
+              actions:
+                - name: linkageSetActionProps
+                  params:
+                    value: hidden
+      - type: updateRecord
+        key: updateRecord_done
+        icon: checkcircleoutlined
+        tooltip: Mark Done
+        style: link
+        assign:
+          status: done
+        linkageRules:
+          value:
+            - title: hide when not active
+              enable: true
+              condition:
+                logic: $and
+                items:
+                  - path: '{{ ctx.record.status }}'
+                    operator: $ne
+                    value: active
+              actions:
+                - name: linkageSetActionProps
+                  params:
+                    value: hidden
+layout:
+  - - filterForm
+  - - table

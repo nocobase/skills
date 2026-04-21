@@ -1,0 +1,255 @@
+uid: dbhviahl1mm
+subType: object
+use: ApplyTaskCardDetailsModel
+stepParams:
+  resourceSettings:
+    init:
+      dataSourceKey: main
+      collectionName: approvals
+  detailsSettings:
+    layout:
+      layout: horizontal
+sortIndex: 0
+flowRegistry: {}
+subModels:
+  grid:
+    uid: 5hkvjvfblgu
+    use: ApplyTaskCardGridModel
+    subType: object
+    parentId: dbhviahl1mm
+    subKey: grid
+    stepParams:
+      gridSettings:
+        grid:
+          rows:
+            0hphjhr79m0:
+              - - vdyhs0h658j
+              - - jbhb2qbkmwh
+            plbohczyvqw:
+              - - yv6hg9zrm74
+            uil6spjk1b7:
+              - - oydm7ts3aiw
+            i5v49uekxev:
+              - - ar7jz5w2lwg
+            ccyhtd1gmyt:
+              - - n6mfha0n93x
+              - - 6t7nl1ztub5
+          sizes:
+            0hphjhr79m0:
+              - 12
+              - 12
+            plbohczyvqw:
+              - 24
+            uil6spjk1b7:
+              - 24
+            i5v49uekxev:
+              - 24
+            ccyhtd1gmyt:
+              - 12
+              - 12
+          rowOrder:
+            - 0hphjhr79m0
+            - plbohczyvqw
+            - uil6spjk1b7
+            - i5v49uekxev
+            - ccyhtd1gmyt
+    sortIndex: 1
+    flowRegistry: {}
+    parent: dbhviahl1mm
+    subModels:
+      items:
+        - uid: vdyhs0h658j
+          use: ApplyTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvals
+                fieldPath: id
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          sortIndex: 1
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+          subModels:
+            field:
+              uid: 4niophe1952
+              use: DisplayNumberFieldModel
+              props: null
+              parentId: vdyhs0h658j
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvals
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: vdyhs0h658j
+        - uid: jbhb2qbkmwh
+          use: ApplyTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvals
+                fieldPath: status
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          sortIndex: 2
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+          subModels:
+            field:
+              uid: jeybh8npsyk
+              use: DisplayEnumFieldModel
+              props: null
+              parentId: jbhb2qbkmwh
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvals
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: jbhb2qbkmwh
+        - uid: ar7jz5w2lwg
+          use: ApplyTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvals
+                fieldPath: data.name
+                associationPathName: data
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          sortIndex: 3
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+          subModels:
+            field:
+              uid: q4qtwntgf47
+              use: DisplayTextFieldModel
+              parentId: ar7jz5w2lwg
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvals
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: ar7jz5w2lwg
+        - uid: n6mfha0n93x
+          use: ApplyTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvals
+                fieldPath: data.total_amount
+                associationPathName: data
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          sortIndex: 4
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+          subModels:
+            field:
+              uid: 8z6eisr2xss
+              use: DisplayNumberFieldModel
+              parentId: n6mfha0n93x
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvals
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: n6mfha0n93x
+        - uid: 6t7nl1ztub5
+          use: ApplyTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvals
+                fieldPath: data.total_amount_usd
+                associationPathName: data
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          sortIndex: 5
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+          subModels:
+            field:
+              uid: n7kb0t18qv5
+              use: DisplayNumberFieldModel
+              parentId: 6t7nl1ztub5
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvals
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: 6t7nl1ztub5
+        - uid: yv6hg9zrm74
+          use: DividerItemModel
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          stepParams:
+            markdownItemSetting:
+              title:
+                label: ''
+                orientation: left
+                color: rgba(0, 0, 0, 0.88)
+                borderColor: rgba(5, 5, 5, 0.06)
+          sortIndex: 6
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+        - uid: oydm7ts3aiw
+          use: ApplyTaskCardDetailsItemModel
+          stepParams:
+            fieldSettings:
+              init:
+                dataSourceKey: main
+                collectionName: approvals
+                fieldPath: data.quotation_no
+                associationPathName: data
+          parentId: 5hkvjvfblgu
+          subKey: items
+          subType: array
+          sortIndex: 7
+          flowRegistry: {}
+          parent: 5hkvjvfblgu
+          subModels:
+            field:
+              uid: 9m543rkyka7
+              use: DisplayTextFieldModel
+              parentId: oydm7ts3aiw
+              subKey: field
+              subType: object
+              stepParams:
+                popupSettings:
+                  openView:
+                    collectionName: approvals
+                    dataSourceKey: main
+              sortIndex: 1
+              flowRegistry: {}
+              parent: oydm7ts3aiw

@@ -225,11 +225,11 @@ if [[ "$AUTH_MODE" == "oauth" ]]; then
     record pass CLI-004 "Runtime update completed in OAuth flow."
     record pass CLI-005 "Readback completed in OAuth flow."
   else
-    OAUTH_AUTHORIZATION_URL="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | grep -Eo 'https?://[^[:space:]"]+' | grep -E 'response_type=code|/authorize' | head -n 1 || true)"
+    OAUTH_AUTHORIZATION_URL="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | sed -n 's/^[[:space:]]*"oauth_authorization_url":[[:space:]]*"\(https\?:\/\/[^"]*\)".*$/\1/p' | head -n 1)"
     if [[ -z "$OAUTH_AUTHORIZATION_URL" ]]; then
-      OAUTH_AUTHORIZATION_URL="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | grep -Eo 'https?://[^[:space:]"]+' | head -n 1 || true)"
+      OAUTH_AUTHORIZATION_URL="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | grep -Eo 'https?://[^[:space:]"]+' | grep -E 'response_type=code|/authorize' | head -n 1 || true)"
     fi
-    if printf '%s' "$OAUTH_ADD_OUTPUT" | grep -q 'ENV_OAUTH_INTERACTIVE_REQUIRED\|ENV_OAUTH_AUTH_FAILED' || [[ -n "$OAUTH_AUTHORIZATION_URL" ]]; then
+    if printf '%s' "$OAUTH_ADD_OUTPUT" | grep -q 'ENV_OAUTH_INTERACTIVE_REQUIRED\|ENV_OAUTH_AUTH_FAILED\|complete_oauth_login' || [[ -n "$OAUTH_AUTHORIZATION_URL" ]]; then
       LOGIN_COMMAND="$(printf '%s\n' "$OAUTH_ADD_OUTPUT" | sed -n 's/^[[:space:]]*"login_command":[[:space:]]*"\(.*\)",\{0,1\}[[:space:]]*$/\1/p' | head -n 1)"
       LOGIN_COMMAND="${LOGIN_COMMAND//\\\\/\\}"
       LOGIN_COMMAND="${LOGIN_COMMAND//\\\"/\"}"

@@ -4,13 +4,12 @@ blocks:
     coll: nb_crm_data_analysis
     fields:
       - field: name
-        popup:
-          size: medium
+        clickToOpen: true
       - collection
       - field: description
         width: 300
     actions:
       - filter
       - refresh
-      - bulkDelete
       - addNew
+      - bulkDelete

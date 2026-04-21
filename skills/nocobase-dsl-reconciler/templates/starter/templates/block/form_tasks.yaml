@@ -1,0 +1,31 @@
+name: 'Form: Tasks'
+type: block
+collectionName: nb_starter_tasks
+dataSourceKey: main
+content:
+  key: createForm
+  type: createForm
+  coll: nb_starter_tasks
+  fields:
+    - title
+    - status
+    - priority
+    - project
+    - assignee
+    - due_date
+    - estimate_hours
+    - description
+  field_layout:
+    - '--- Basic Info ---'
+    - - title
+    - - status
+      - priority
+    - '--- Assignment ---'
+    - - project
+      - assignee
+    - - due_date
+      - estimate_hours
+    - '--- Description ---'
+    - - description
+  actions:
+    - submit

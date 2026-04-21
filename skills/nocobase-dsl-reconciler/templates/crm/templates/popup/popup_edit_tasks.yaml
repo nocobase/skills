@@ -1,0 +1,18 @@
+uid: kr4tug9mak3
+name: 'Popup (Edit): Tasks'
+type: popup
+collectionName: nb_pm_tasks
+dataSourceKey: main
+targetUid: 1tf90q2w7r4
+description: 'Popup (Edit): Tasks'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: nahehx62yn5
+        templateName: 'Form (Edit): Tasks'
+        targetUid: 7pax6bupfpl
+        mode: reference
+  layout:
+    - - zuk6qpe5

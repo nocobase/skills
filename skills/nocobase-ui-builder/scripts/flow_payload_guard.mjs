@@ -443,6 +443,20 @@ function hasPopupOpenViewConfigured(node) {
   return isPlainObject(node.stepParams?.popupSettings?.openView) || isPlainObject(node.subModels?.page);
 }
 
+function resolveCollectionPrimaryTitleCandidates(collectionMeta) {
+  const candidates = [];
+  const pushCandidate = (value) => {
+    const normalized = normalizeOptionalText(value);
+    if (normalized && !candidates.includes(normalized)) {
+      candidates.push(normalized);
+    }
+  };
+  pushCandidate(collectionMeta?.titleField);
+  pushCandidate(collectionMeta?.filterTargetKey);
+  ['title', 'name', 'nickname', 'label', 'code'].forEach(pushCandidate);
+  return candidates;
+}
+
 function hasExplicitJsIntent(requirements) {
   const intentTags = Array.isArray(requirements?.intentTags) ? requirements.intentTags : [];
   return intentTags.includes('js.explicit') || intentTags.includes('explicit-js');
@@ -1048,6 +1062,39 @@ function collectGridLayoutMembership(gridNode) {
     layoutUidSet: new Set(sortedLayoutItemUids),
     rowOrder,
   };
+}
+
+function collectExplicitGridRows(gridNode) {
+  const rawGridSettings = isPlainObject(gridNode?.stepParams?.gridSettings?.grid)
+    ? gridNode.stepParams.gridSettings.grid
+    : null;
+  const rawRows = isPlainObject(rawGridSettings?.rows) ? rawGridSettings.rows : null;
+  if (!rawRows) {
+    return [];
+  }
+  const explicitRowOrder = Array.isArray(rawGridSettings?.rowOrder)
+    ? rawGridSettings.rowOrder
+      .filter((item) => typeof item === 'string' && item.trim())
+      .map((item) => item.trim())
+    : [];
+  const rowOrder = explicitRowOrder.length > 0 ? explicitRowOrder : Object.keys(rawRows);
+  return rowOrder.map((rowKey) => {
+    const columns = Array.isArray(rawRows[rowKey]) ? rawRows[rowKey] : [];
+    const itemUids = [];
+    columns.forEach((column) => {
+      const uidGroup = Array.isArray(column) ? column : [column];
+      uidGroup.forEach((value) => {
+        const uid = normalizeOptionalText(value);
+        if (uid && !itemUids.includes(uid)) {
+          itemUids.push(uid);
+        }
+      });
+    });
+    return {
+      rowKey,
+      itemUids,
+    };
+  });
 }
 
 function getCollectionMeta(metadata, collectionName) {
@@ -2841,6 +2888,90 @@ function inspectGridLayoutMembership(payload, mode, blockers, seen) {
   });
 }
 
+function inspectMultiBlockPageLayouts(payload, mode, warnings, blockers, warningSeen, blockerSeen) {
+  walkFlowModelTree(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'BlockGridModel') {
+      return;
+    }
+
+    const items = Array.isArray(node.subModels?.items) ? node.subModels.items.filter((item) => isPlainObject(item)) : [];
+    if (items.length <= 1) {
+      return;
+    }
+
+    const businessItems = items.filter((item) => BUSINESS_BLOCK_MODEL_USES.has(normalizeOptionalText(item.use)));
+    if (businessItems.length <= 1) {
+      return;
+    }
+
+    const rows = collectExplicitGridRows(node);
+    if (rows.length === 0) {
+      return;
+    }
+
+    const businessItemsByUid = new Map(
+      businessItems
+        .map((item) => [normalizeOptionalText(item.uid), item])
+        .filter(([uid]) => uid),
+    );
+    const filterItemUids = businessItems
+      .filter((item) => item.use === 'FilterFormBlockModel')
+      .map((item) => normalizeOptionalText(item.uid))
+      .filter(Boolean);
+    const firstRowBusinessUids = (rows[0]?.itemUids || []).filter((uid) => businessItemsByUid.has(uid));
+
+    if (filterItemUids.length > 0) {
+      const firstRowContainsOnlyFilters =
+        firstRowBusinessUids.length > 0
+        && firstRowBusinessUids.every((uid) => filterItemUids.includes(uid));
+      const allFiltersStayInFirstRow = filterItemUids.every((uid) => firstRowBusinessUids.includes(uid));
+      if (!firstRowContainsOnlyFilters || !allFiltersStayInFirstRow) {
+        const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+        const dedupeSet = mode === VALIDATION_CASE_MODE ? blockerSeen : warningSeen;
+        pushFinding(targetList, dedupeSet, createFinding({
+          severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+          code: 'FILTER_FORM_LAYOUT_NOT_LEADING_ROW',
+          message: '多区块页面/弹窗中，FilterFormBlockModel 应位于最上方并单独占一行。',
+          path: `${pathValue}.stepParams.gridSettings.grid.rows`,
+          mode,
+          dedupeKey: `FILTER_FORM_LAYOUT_NOT_LEADING_ROW:${pathValue}:${filterItemUids.join('|')}`,
+          details: {
+            filterItemUids,
+            firstRowBusinessUids,
+          },
+        }));
+      }
+    }
+
+    const nonFilterBusinessCount = businessItems.length - filterItemUids.length;
+    const nonFilterRows = rows
+      .map((row) => row.itemUids.filter((uid) => businessItemsByUid.has(uid) && !filterItemUids.includes(uid)))
+      .filter((row) => row.length > 0);
+    const isSingleColumnLayout =
+      nonFilterBusinessCount > 1
+      && nonFilterRows.length >= nonFilterBusinessCount
+      && nonFilterRows.every((row) => row.length <= 1);
+    if (!isSingleColumnLayout) {
+      return;
+    }
+
+    const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+    const dedupeSet = mode === VALIDATION_CASE_MODE ? blockerSeen : warningSeen;
+    pushFinding(targetList, dedupeSet, createFinding({
+      severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+      code: 'MULTI_BLOCK_LAYOUT_SINGLE_COLUMN',
+      message: '同一个 BlockGridModel 下有多个业务区块时，不应让所有非筛选区块都一行一个地纵向堆叠。',
+      path: `${pathValue}.stepParams.gridSettings.grid.rows`,
+      mode,
+      dedupeKey: `MULTI_BLOCK_LAYOUT_SINGLE_COLUMN:${pathValue}:${nonFilterBusinessCount}`,
+      details: {
+        nonFilterBusinessCount,
+        rowShapes: nonFilterRows.map((row) => row.length),
+      },
+    }));
+  });
+}
+
 function findRelationBlocksUsingGenericPopupFilter(pageNode, parentCollectionName, metadata) {
   const findings = [];
 
@@ -3127,6 +3258,7 @@ function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, se
     }
 
     const gridItems = Array.isArray(node.subModels?.grid?.subModels?.items) ? node.subModels.grid.subModels.items : [];
+    const actionNodes = Array.isArray(node.subModels?.actions) ? node.subModels.actions : [];
     if (gridItems.length === 0) {
       const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
       pushFinding(targetList, seen, createFinding({
@@ -3136,6 +3268,27 @@ function inspectFilterFormBlocks(payload, metadata, mode, warnings, blockers, se
         path: `${pathValue}.subModels.grid.subModels.items`,
         mode,
         dedupeKey: `FILTER_FORM_EMPTY_GRID:${pathValue}`,
+      }));
+    }
+
+    if (
+      gridItems.length >= 4
+      && !actionNodes.some((item) => isPlainObject(item) && item.use === 'FilterFormCollapseActionModel')
+    ) {
+      const targetList = mode === VALIDATION_CASE_MODE ? blockers : warnings;
+      pushFinding(targetList, seen, createFinding({
+        severity: mode === VALIDATION_CASE_MODE ? 'blocker' : 'warning',
+        code: 'FILTER_FORM_COLLAPSE_MISSING',
+        message: 'FilterFormBlockModel 在筛选字段达到 4 个及以上时必须提供 Collapse 操作，否则首屏会过长且不符合默认交互约束。',
+        path: `${pathValue}.subModels.actions`,
+        mode,
+        dedupeKey: `FILTER_FORM_COLLAPSE_MISSING:${pathValue}:${gridItems.length}`,
+        details: {
+          fieldCount: gridItems.length,
+          actionUses: actionNodes
+            .filter((item) => isPlainObject(item) && typeof item.use === 'string')
+            .map((item) => item.use),
+        },
       }));
     }
 
@@ -3454,6 +3607,21 @@ function inspectChartBlocks(payload, metadata, mode, warnings, blockers, warning
       (Array.isArray(items) ? items : []).forEach((item, index) => {
         if (!isPlainObject(item)) {
           return;
+        }
+
+        if (key !== 'orders' && !normalizeOptionalText(item.alias)) {
+          pushFinding(blockers, blockerSeen, createFinding({
+            severity: 'blocker',
+            code: 'CHART_QUERY_ALIAS_MISSING',
+            message: `ChartBlockModel 的 ${key}[${index}] 必须显式填写 alias，不能留空，否则字段展示名与 option label 无法稳定映射。`,
+            path: `${pathValue}.stepParams.chartSettings.configure.query.${key}[${index}].alias`,
+            mode,
+            dedupeKey: `CHART_QUERY_ALIAS_MISSING:${pathValue}:${key}:${index}`,
+            details: {
+              field: item.field ?? null,
+              queryKey: key,
+            },
+          }));
         }
 
         const fieldPath = `${pathValue}.stepParams.chartSettings.configure.query.${key}[${index}].field`;
@@ -3922,7 +4090,67 @@ function inspectDetailsBlocks(payload, mode, warnings, blockers, seen) {
   });
 }
 
-function inspectTableBlocks(payload, mode, blockers, seen) {
+function inspectTableBlocks(payload, metadata, mode, warnings, blockers, warningSeen, blockerSeen) {
+  walk(payload, (node, pathValue) => {
+    if (!isPlainObject(node) || node.use !== 'TableBlockModel') {
+      return;
+    }
+
+    const collectionName = normalizeOptionalText(node.stepParams?.resourceSettings?.init?.collectionName);
+    const collectionMeta = getCollectionMeta(metadata, collectionName);
+    const titleCandidates = resolveCollectionPrimaryTitleCandidates(collectionMeta);
+    if (titleCandidates.length === 0) {
+      return;
+    }
+
+    const columns = Array.isArray(node.subModels?.columns) ? node.subModels.columns : [];
+    const titleColumns = columns.filter((column) => {
+      if (!isPlainObject(column) || column.use !== 'TableColumnModel') {
+        return false;
+      }
+      const fieldPath = normalizeOptionalText(column.stepParams?.fieldSettings?.init?.fieldPath);
+      return titleCandidates.includes(fieldPath);
+    });
+    if (titleColumns.length === 0) {
+      return;
+    }
+
+    const hasClickableTitleColumn = titleColumns.some((column) => hasClickToOpenEnabled(column) && hasPopupOpenViewConfigured(column));
+    const actionsColumn = columns.find((column) => isPlainObject(column) && column.use === 'TableActionsColumnModel');
+    const recordActions = Array.isArray(actionsColumn?.subModels?.actions) ? actionsColumn.subModels.actions : [];
+    const hasViewRecordAction = recordActions.some((action) => isPlainObject(action) && action.use === 'ViewActionModel');
+
+    if (!hasClickableTitleColumn) {
+      pushFinding(warnings, warningSeen, createFinding({
+        severity: 'warning',
+        code: 'TABLE_CLICK_TO_OPEN_MISSING',
+        message: 'TableBlockModel 已包含可作为主标题的列，但没有为该列启用 clickToOpen/openView；默认交互应优先使用可点击主字段打开详情。',
+        path: pathValue,
+        mode,
+        dedupeKey: `TABLE_CLICK_TO_OPEN_MISSING:${pathValue}:${collectionName}:${titleCandidates.join('|')}`,
+        details: {
+          collectionName: collectionName || null,
+          titleCandidates,
+        },
+      }));
+    }
+
+    if (hasClickableTitleColumn && hasViewRecordAction) {
+      pushFinding(warnings, warningSeen, createFinding({
+        severity: 'warning',
+        code: 'TABLE_VIEW_ACTION_REDUNDANT_WITH_CLICK',
+        message: 'TableBlockModel 已通过主标题列启用了 clickToOpen/openView，此时不应再保留冗余的行级 View 动作。',
+        path: `${pathValue}.subModels.columns`,
+        mode,
+        dedupeKey: `TABLE_VIEW_ACTION_REDUNDANT_WITH_CLICK:${pathValue}`,
+        details: {
+          collectionName: collectionName || null,
+          titleCandidates,
+        },
+      }));
+    }
+  });
+
   walk(payload, (node, pathValue) => {
     if (!isPlainObject(node) || node.use !== 'TableColumnModel') {
       return;
@@ -3930,7 +4158,7 @@ function inspectTableBlocks(payload, mode, blockers, seen) {
 
     const fieldUse = typeof node.subModels?.field?.use === 'string' ? node.subModels.field.use.trim() : '';
     if (!fieldUse) {
-      pushFinding(blockers, seen, createFinding({
+      pushFinding(blockers, blockerSeen, createFinding({
         severity: 'blocker',
         code: 'TABLE_COLUMN_FIELD_SUBMODEL_MISSING',
         message: 'TableColumnModel 不能只写 fieldSettings.init；必须显式补 subModels.field。运行时渲染单元格与快速编辑都会直接读取这一层子模型。',
@@ -3952,7 +4180,7 @@ function inspectTableBlocks(payload, mode, blockers, seen) {
       return;
     }
 
-    pushFinding(blockers, seen, createFinding({
+    pushFinding(blockers, blockerSeen, createFinding({
       severity: 'blocker',
       code: 'TABLE_COLUMN_FIELD_BINDING_ENTRY_INVALID',
       message: 'TableColumnModel.subModels.field 必须使用 FieldModel 作为入口，并通过 stepParams.fieldBinding.use 指向具体 display field model。直接落具体 Display*FieldModel use 会让 builder/runtime 结构不一致。',
@@ -5781,13 +6009,14 @@ export function auditPayload({
   inspectGridCardBlocks(payload, mode, blockers, blockerSeen);
   inspectFormBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectFilterFormBlocks(payload, normalizedMetadata, mode, warnings, blockers, blockerSeen);
-  inspectTableBlocks(payload, mode, blockers, blockerSeen);
+  inspectTableBlocks(payload, normalizedMetadata, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectFilterManagerBindings(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectActionSlots(payload, mode, blockers, blockerSeen);
   inspectUnsupportedFieldSlots(payload, mode, blockers, blockerSeen);
   inspectTabTrees(payload, mode, warnings, blockers, blockerSeen);
   inspectExistingUidReparenting(payload, normalizedMetadata, mode, blockers, blockerSeen);
   inspectGridLayoutMembership(payload, mode, blockers, blockerSeen);
+  inspectMultiBlockPageLayouts(payload, mode, warnings, blockers, warningSeen, blockerSeen);
   inspectPopupActions(payload, normalizedMetadata, mode, normalizedRequirements, warnings, blockers, blockerSeen);
   inspectDetailsBlocks(payload, mode, warnings, blockers, blockerSeen);
   inspectDeclaredRequirements(payload, normalizedMetadata, mode, normalizedRequirements, blockers, blockerSeen);

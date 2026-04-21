@@ -10,6 +10,7 @@ import {
   inferChartSpecFromCollection,
   isVisualizationRuntimeSensitive,
   normalizeVisualizationSpec,
+  shouldPreferJsBlockForAggregation,
 } from './visualization_contracts.mjs';
 
 test('inferChartSpecFromCollection infers builder/basic line chart for trend requests', () => {
@@ -66,6 +67,28 @@ test('buildGridCardBlockFromMetrics creates high-confidence metrics block', () =
   assert.deepEqual(block.fields, ['status', 'current_value']);
   assert.equal(block.visualizationSpec.confidence, 'high');
   assert.equal(isVisualizationRuntimeSensitive(block.visualizationSpec), false);
+});
+
+test('shouldPreferJsBlockForAggregation keeps numeric summary requests on JS when chart intent is explicitly negated', () => {
+  assert.equal(shouldPreferJsBlockForAggregation({
+    requestText: '做一个审批汇总指标页面，展示总数和平均处理时长，不要图表',
+    collectionMeta: {
+      name: 'approvals',
+      scalarFieldNames: ['title', 'status', 'applicant', 'createdAt'],
+    },
+    requestedFields: ['status', 'createdAt'],
+    resolvedFields: ['status', 'createdAt'],
+  }), true);
+
+  assert.equal(shouldPreferJsBlockForAggregation({
+    requestText: '做一个审批趋势图表，展示 createdAt 和总数',
+    collectionMeta: {
+      name: 'approvals',
+      scalarFieldNames: ['title', 'status', 'applicant', 'createdAt'],
+    },
+    requestedFields: ['createdAt'],
+    resolvedFields: ['createdAt'],
+  }), false);
 });
 
 test('evaluateVisualizationUseEligibility allows supported chart dynamic hints', () => {

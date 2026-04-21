@@ -35,6 +35,8 @@ export const BLOCK_REGISTRY: BlockTypeEntry[] = [
   { type: 'chart',          model: 'ChartBlockModel',          composable: true },
   { type: 'markdown',       model: 'MarkdownBlockModel',       composable: true },
   { type: 'iframe',         model: 'IframeBlockModel',         composable: true },
+  { type: 'map',            model: 'MapBlockModel',            composable: true },
+  { type: 'actionPanel',    model: 'ActionPanelBlockModel',    composable: true },
   // Legacy blocks (not supported by compose API)
   { type: 'comments',       model: 'CommentsBlockModel',       composable: false },
   { type: 'recordHistory',  model: 'RecordHistoryBlockModel',  composable: false },

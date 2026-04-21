@@ -298,19 +298,21 @@ if ($AuthMode -eq 'oauth') {
     Record-Check pass 'CLI-005' "Readback completed in OAuth flow."
   } else {
     $oauthAuthorizationUrl = ''
-    $urlMatches = [regex]::Matches($oauthAddOutput, 'https?://[^\s"<>]+')
-    foreach ($match in $urlMatches) {
-      $candidate = [string]$match.Value
-      if ($candidate -match 'response_type=code' -or $candidate -match '/authorize') {
-        $oauthAuthorizationUrl = $candidate
-        break
+    $oauthUrlFromField = [regex]::Match($oauthAddOutput, '"oauth_authorization_url"\s*:\s*"(?<url>https?://[^"]+)"')
+    if ($oauthUrlFromField.Success) {
+      $oauthAuthorizationUrl = [string]$oauthUrlFromField.Groups['url'].Value
+    } else {
+      $urlMatches = [regex]::Matches($oauthAddOutput, 'https?://[^\s"<>]+')
+      foreach ($match in $urlMatches) {
+        $candidate = [string]$match.Value
+        if ($candidate -match 'response_type=code' -or $candidate -match '/authorize') {
+          $oauthAuthorizationUrl = $candidate
+          break
+        }
       }
     }
-    if ([string]::IsNullOrWhiteSpace($oauthAuthorizationUrl) -and $urlMatches.Count -gt 0) {
-      $oauthAuthorizationUrl = [string]$urlMatches[0].Value
-    }
 
-    $needsOauthLogin = ($oauthAddOutput -match 'ENV_OAUTH_INTERACTIVE_REQUIRED') -or ($oauthAddOutput -match 'ENV_OAUTH_AUTH_FAILED') -or (-not [string]::IsNullOrWhiteSpace($oauthAuthorizationUrl))
+    $needsOauthLogin = ($oauthAddOutput -match 'ENV_OAUTH_INTERACTIVE_REQUIRED') -or ($oauthAddOutput -match 'ENV_OAUTH_AUTH_FAILED') -or ($oauthAddOutput -match 'complete_oauth_login') -or (-not [string]::IsNullOrWhiteSpace($oauthAuthorizationUrl))
     if ($needsOauthLogin) {
       $loginCommand = ''
       $loginCommandMatch = [regex]::Match($oauthAddOutput, '"login_command"\s*:\s*"([^"]+)"')

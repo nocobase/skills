@@ -23,6 +23,8 @@ Deciding whether to continue the process based on whether inventory is sufficien
 | calculation | object | None | Yes (if engine=basic) | Logical calculation configuration used when `engine=basic`. See "basic structure description" below. |
 | expression | string | None | Yes (if engine!=basic) | Expression used when `engine` is not `basic`. For available functions see [formula.js reference](../../../nocobase-utils/references/evaluators/formulajs.md) or [math.js reference](../../../nocobase-utils/references/evaluators/mathjs.md). |
 
+If intended condition logic could be cover by basic engine, it's recommended to use it for better performance. Otherwise, select `formula.js` or `math.js` and write the expression directly.
+
 ### basic Structure Description
 `calculation` supports grouping and nesting:
 - `calculation.group.type`: `and` or `or`
@@ -63,11 +65,13 @@ Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes
 
 ### `formula.js` engine
 
+Variable in expression should be wrapped with `{{}}` to be recognized and parsed by the engine.
+
 ```json
 {
   "rejectOnFalse": false,
   "engine": "formula.js",
-  "expression": "IF($context.data.status == 'paid', true, false)"
+  "expression": "IF({{$context.data.status}} == 'paid', true, false)"
 }
 ```
 

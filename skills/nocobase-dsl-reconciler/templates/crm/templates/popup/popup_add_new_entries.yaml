@@ -1,0 +1,18 @@
+uid: npunu46v5aq
+name: 'Popup (Add new): Entries'
+type: popup
+collectionName: nb_pm_time_entries
+dataSourceKey: main
+targetUid: ofgobj26n09
+description: 'Popup (Add new): Entries'
+content:
+  blocks:
+    - key: reference
+      type: reference
+      templateRef:
+        templateUid: psc47ak50zb
+        templateName: 'Form (Add new): Time Entries'
+        targetUid: byzmxdqqq6k
+        mode: reference
+  layout:
+    - - 8at3t3g2

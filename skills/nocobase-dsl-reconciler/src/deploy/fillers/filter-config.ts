@@ -86,38 +86,85 @@ export async function configureFilter(
       } catch { /* skip */ }
     }
 
+    // Build blockKey → targetUid lookup so per-field `targets[].block`
+    // resolves to a real flowModel UID at deploy time.
+    const keyToTargetUid = new Map<string, string>();
+    for (const [bk, binfo] of Object.entries(allBlocksState)) {
+      if ((binfo.type === 'table' || binfo.type === 'reference') && binfo.uid) {
+        keyToTargetUid.set(bk, binfo.uid);
+      }
+    }
+
     const fmEntries: Record<string, unknown>[] = [];
+    // Per-FilterFormItem connectFields.value.targets payload, keyed by item uid.
+    // This is the new authoritative storage (legacy filterManager array still
+    // emitted for backward compat with older deploys). Each entry will be
+    // written to the FilterFormItem itself so multi-table filtering works.
+    const perItemTargets = new Map<string, { targetId: string; filterPaths: string[] }[]>();
+
     for (const rawF of bs.fields || []) {
       const fieldName = typeof rawF === 'string' ? rawF : (rawF as Record<string, unknown>).field as string;
-      // m2o fields: filterPaths should use FK column (assigneeId), not relation name (assignee)
       const fkName = m2oFkMap.get(fieldName || '');
       const defaultPaths = fkName ? [fkName] : fieldName ? [fieldName] : [];
 
       const f = typeof rawF === 'string'
-        ? { field: rawF, filterPaths: defaultPaths }
-        : rawF;
-      if (!f.filterPaths?.length) {
-        if (f.field) f.filterPaths = defaultPaths.length ? defaultPaths : [f.field];
-        else continue;
-      }
-      const fp = f.field || '';
+        ? { field: rawF, filterPaths: defaultPaths } as Record<string, unknown>
+        : rawF as Record<string, unknown>;
+      const fp = (f.field as string) || '';
       if (!fp) continue;
 
-      // Find FilterFormItem UID in live grid
+      // Per-target wins. Each entry binds the field to ONE specific block.
+      // Falls back to flat filterPaths broadcast (backward compat).
+      const perTarget = f.targets as { block: string; paths: string[] }[] | undefined;
+      const flatPaths = (f.filterPaths as string[] | undefined)
+        || (defaultPaths.length ? defaultPaths : (fp ? [fp] : []));
+
+      // Find FilterFormItem UID in live grid (matches by fieldPath)
+      let itemUid = '';
       for (const item of items) {
         const itemFp = ((item.stepParams as Record<string, unknown>)?.fieldSettings as Record<string, unknown>)
           ?.init as Record<string, unknown>;
         if ((itemFp?.fieldPath as string) === fp) {
-          for (const tid of targetUids) {
-            fmEntries.push({
-              filterId: item.uid,
-              targetId: tid,
-              filterPaths: f.filterPaths,
-            });
-          }
-          log(`      filter ${fp} → ${JSON.stringify(f.filterPaths)} (${targetUids.length} targets)`);
+          itemUid = item.uid as string;
           break;
         }
+      }
+      if (!itemUid) continue;
+
+      const itemTargets: { targetId: string; filterPaths: string[] }[] = [];
+      if (perTarget?.length) {
+        for (const t of perTarget) {
+          const tid = keyToTargetUid.get(t.block);
+          if (!tid) {
+            log(`      ⚠ filter ${fp}: target block "${t.block}" not found — skipped`);
+            continue;
+          }
+          itemTargets.push({ targetId: tid, filterPaths: t.paths });
+          fmEntries.push({ filterId: itemUid, targetId: tid, filterPaths: t.paths });
+        }
+        log(`      filter ${fp} → per-target (${itemTargets.length} bindings)`);
+      } else {
+        for (const tid of targetUids) {
+          itemTargets.push({ targetId: tid, filterPaths: flatPaths });
+          fmEntries.push({ filterId: itemUid, targetId: tid, filterPaths: flatPaths });
+        }
+        log(`      filter ${fp} → ${JSON.stringify(flatPaths)} (broadcast to ${targetUids.length})`);
+      }
+      perItemTargets.set(itemUid, itemTargets);
+    }
+
+    // Write per-FilterFormItem connectFields (new canonical location).
+    // Without this, NB falls back to its own auto-detect which broadcasts
+    // every filterPath to every target — broken for multi-table lookups.
+    for (const [itemUid, targets] of perItemTargets) {
+      try {
+        await nb.updateModel(itemUid, {
+          filterFormItemSettings: {
+            connectFields: { value: { targets } },
+          },
+        });
+      } catch (e) {
+        log(`      ! filter connectFields ${itemUid}: ${e instanceof Error ? e.message.slice(0, 60) : e}`);
       }
     }
 

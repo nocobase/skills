@@ -6,10 +6,10 @@ blocks:
     coll: nb_crm_products
     resource_binding:
       filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
-    actions:
-      - submit
     templateRef:
       templateUid: wutkljuh1tj
       templateName: 'Form (Add new): nb_crm_products'
       targetUid: e2c05329a23
       mode: reference
+    actions:
+      - submit

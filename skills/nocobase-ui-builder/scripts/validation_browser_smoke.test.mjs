@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import {
   loadChromium,
+  resolveRequiredAdminBase,
   resolvePlaywrightLoader,
   runCase,
 } from './validation_browser_smoke.mjs';
@@ -144,6 +145,18 @@ test('loadChromium loads chromium export from PLAYWRIGHT_PACKAGE_PATH', () => {
   });
 
   assert.deepEqual(chromium, { name: 'stub-chromium' });
+});
+
+test('resolveRequiredAdminBase prefers explicit flag, falls back to env, and rejects missing values', () => {
+  assert.equal(
+    resolveRequiredAdminBase({ 'admin-base': '  http://example.test/admin/  ' }, {}),
+    'http://example.test/admin/',
+  );
+  assert.equal(
+    resolveRequiredAdminBase({}, { NOCOBASE_ADMIN_BASE: '  http://env.example.test/admin  ' }),
+    'http://env.example.test/admin',
+  );
+  assert.throws(() => resolveRequiredAdminBase({}, {}), /admin base is required/);
 });
 
 test('runCase short-circuits guardBlocked cases before browser navigation', async () => {

@@ -1,0 +1,3 @@
+target: $SELF.details.fields.customer
+mode: drawer
+blocks: []

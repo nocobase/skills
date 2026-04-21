@@ -1,6 +1,0 @@
-name: 'Popup (Detail): Risks'
-type: popup
-collectionName: nb_pm_risks
-content:
-  blocks:
-    - ref: templates/block/detail_nb_pm_risks.yaml

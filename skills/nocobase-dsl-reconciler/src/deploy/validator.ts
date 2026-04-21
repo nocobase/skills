@@ -126,7 +126,7 @@ export async function validate(
     if (!types.includes('jsBlock')) {
       errors.push(
         `Dashboard page has no KPI cards (jsBlock). `
-        + `FIX: run 'deployer --new' to scaffold, or add jsBlock with file: ./js/kpi_*.js`
+        + `FIX: add jsBlock with file: ./js/kpi_*.js (see templates/crm/pages/main/overview/js/overview_jsBlock.js)`
       );
     }
     if (!types.includes('chart')) {
@@ -188,7 +188,7 @@ export async function validate(
           if (!hasRender) {
             errors.push(
               `Chart '${chartFile}' has no render_file. `
-              + `FIX: add render_file and copy from templates/chart_render.js`
+              + `FIX: add render_file, copy a working render from templates/crm/pages/main/analytics/charts/`
             );
           }
           const sqlFile = spec.sql_file || '';
@@ -211,10 +211,10 @@ export async function validate(
         if (fs.existsSync(jsPath)) {
           const code = fs.readFileSync(jsPath, 'utf8');
           if (!code.includes('ctx.render') && !code.includes('ctx.React.createElement')) {
-            errors.push(`JS block '${bs.file}' missing ctx.render(). FIX: copy from templates/kpi_card.js`);
+            errors.push(`JS block '${bs.file}' missing ctx.render(). FIX: copy a working KPI JS from templates/crm/pages/main/overview/js/`);
           }
           if (!code.includes('ctx.sql') && !code.includes('ctx.request')) {
-            errors.push(`JS block '${bs.file}' has no data fetch (ctx.sql/ctx.request). FIX: copy from templates/kpi_card.js`);
+            errors.push(`JS block '${bs.file}' has no data fetch (ctx.sql/ctx.request). FIX: copy a working KPI JS from templates/crm/pages/main/overview/js/`);
           }
           // Validate embedded SQL
           const sqlMatch = code.match(/sql:\s*`([^`]+)`/);

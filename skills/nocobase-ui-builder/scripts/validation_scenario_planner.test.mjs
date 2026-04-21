@@ -233,6 +233,24 @@ test('dynamic scenario planner keeps insight-first selection without forcing tab
   assert.equal(selectedUses.includes('DetailsBlockModel'), false);
 });
 
+test('dynamic scenario planner uses JS blocks for numeric aggregation dashboards that explicitly avoid charts', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个审批汇总指标页面，展示总数和平均处理时长，不要图表，并带筛选',
+    sessionId: 'sess-js-aggregation',
+    baseSlug: 'approvals-js-aggregation',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-js-aggregation',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  const selectedCandidate = result.scenario.layoutCandidates.find((item) => item.selected);
+  const selectedUses = collectLayoutUses(selectedCandidate?.layout);
+
+  assert.ok(selectedCandidate);
+  assert.equal(result.scenario.primaryBlockType, 'JSBlockModel');
+  assert.equal(selectedUses.includes('JSBlockModel'), true);
+  assert.equal(selectedUses.includes('ChartBlockModel'), false);
+});
+
 test('dynamic scenario planner discards runtime-sensitive public uses instead of putting them into final candidates', () => {
   const inventory = makeInstanceInventory();
   inventory.flowSchema.rootPublicUses = ['TableBlockModel', 'CommentsBlockModel', 'ReferenceBlockModel'];

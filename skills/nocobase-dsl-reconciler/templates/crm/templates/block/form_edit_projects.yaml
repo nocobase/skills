@@ -1,38 +1,32 @@
-uid: zcy3145h9jh
+uid: ofjq5s4okjz
 name: 'Form (Edit): Projects'
 type: block
 collectionName: nb_pm_projects
 dataSourceKey: main
-targetUid: bckzrog1y48
+targetUid: mbmyuezgjiw
 description: 'Form (Edit): Projects'
 content:
   key: editForm
   type: editForm
   coll: nb_pm_projects
+  resource_binding:
+    filterByTk: '{{ctx.view.inputArgs.filterByTk}}'
   fields:
     - name
-    - key
+    - code
     - status
-    - priority
     - start_date
     - end_date
     - budget
-    - owner
     - description
   field_layout:
     - '--- Basic Info ---'
     - - name
+      - code
     - - status
-      - priority
-    - - owner
+      - budget
     - - start_date
       - end_date
-    - - budget
     - - description
-    - - key
-    - '--- Project Info ---'
-    - '--- Schedule ---'
-    - '--- Description ---'
-    - '--- Schedule & Budget ---'
   actions:
     - submit

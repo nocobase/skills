@@ -21,6 +21,28 @@ function hasAnyKeyword(text, keywords) {
   return (Array.isArray(keywords) ? keywords : []).some((keyword) => normalizedText.includes(normalizeText(keyword).toLowerCase()));
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasNegatedKeyword(text, keywords) {
+  const normalizedText = normalizeText(text).toLowerCase();
+  if (!normalizedText) {
+    return false;
+  }
+  return (Array.isArray(keywords) ? keywords : []).some((keyword) => {
+    const normalizedKeyword = normalizeText(keyword).toLowerCase();
+    if (!normalizedKeyword) {
+      return false;
+    }
+    const escaped = escapeRegex(normalizedKeyword);
+    return [
+      new RegExp(`(?:不|不要|不用|无需|无须|别用|非|不是)\\s*${escaped}`, 'i'),
+      new RegExp(`(?:no|without)\\s+${escaped}`, 'i'),
+    ].some((pattern) => pattern.test(normalizedText));
+  });
+}
+
 function chooseFirstAvailable(candidates, availableFields) {
   for (const candidate of candidates) {
     if (availableFields.includes(candidate)) {
@@ -33,6 +55,7 @@ function chooseFirstAvailable(candidates, availableFields) {
 export const CHART_BLOCK_USE = 'ChartBlockModel';
 export const GRID_CARD_BLOCK_USE = 'GridCardBlockModel';
 export const TABLE_BLOCK_USE = 'TableBlockModel';
+export const JS_BLOCK_USE = 'JSBlockModel';
 export const DEFAULT_CHART_DATA_SOURCE_KEY = 'main';
 export const VISUALIZATION_BLOCK_USES = new Set([CHART_BLOCK_USE, GRID_CARD_BLOCK_USE]);
 export const VISUALIZATION_QUERY_MODES = new Set(['builder', 'sql']);
@@ -176,6 +199,28 @@ function chooseMetricField(availableFields, request = '') {
 
 function chooseCountField(availableFields, fallback = '') {
   return chooseFirstAvailable(['id', 'title', 'name', 'status', 'createdAt', fallback], availableFields);
+}
+
+export function shouldPreferJsBlockForAggregation({
+  requestText = '',
+  collectionMeta = null,
+  requestedFields = [],
+  resolvedFields = [],
+} = {}) {
+  const request = normalizeText(requestText);
+  const chartKeywords = ['chart', '图表', 'dashboard', '看板', '趋势', 'trend', 'line', 'bar', 'pie', '分布'];
+  const availableFields = uniqueStrings([
+    ...(Array.isArray(resolvedFields) ? resolvedFields : []),
+    ...(Array.isArray(requestedFields) ? requestedFields : []),
+    ...(Array.isArray(collectionMeta?.scalarFieldNames) ? collectionMeta.scalarFieldNames : []),
+    ...(Array.isArray(collectionMeta?.fieldNames) ? collectionMeta.fieldNames : []),
+  ]);
+  const wantsSummary = hasAnyKeyword(request, ['汇总', '总览', '概览', 'summary', 'aggregate', 'aggregation', '聚合', 'kpi', '指标']);
+  const wantsPureMetric = hasAnyKeyword(request, ['总数', 'count', '总额', 'sum', '平均', 'avg', '金额', 'value']);
+  const avoidsChart = hasNegatedKeyword(request, chartKeywords);
+  const wantsChart = hasAnyKeyword(request, chartKeywords) && !avoidsChart;
+  const metricField = chooseMetricField(availableFields, request);
+  return (wantsSummary || wantsPureMetric) && !wantsChart && Boolean(metricField || wantsPureMetric);
 }
 
 function buildDefaultChartBuilder({ chartType = 'bar', dimensionField = '', measureAlias = '' } = {}) {

@@ -1,0 +1,47 @@
+name: nb_starter_tasks
+title: Tasks
+titleField: title
+fields:
+  - name: title
+    interface: input
+  - name: status
+    interface: select
+    options:
+      - value: todo
+        label: To Do
+        color: default
+      - value: in_progress
+        label: In Progress
+        color: blue
+      - value: done
+        label: Done
+        color: green
+      - value: blocked
+        label: Blocked
+        color: red
+  - name: priority
+    interface: select
+    options:
+      - value: low
+        label: Low
+        color: default
+      - value: medium
+        label: Medium
+        color: blue
+      - value: high
+        label: High
+        color: red
+  - name: project
+    interface: m2o
+    target: nb_starter_projects
+    foreignKey: project_id
+  - name: assignee
+    interface: m2o
+    target: users
+    foreignKey: assignee_id
+  - name: due_date
+    interface: date
+  - name: estimate_hours
+    interface: number
+  - name: description
+    interface: textarea

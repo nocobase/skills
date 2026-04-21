@@ -263,6 +263,23 @@ Create a submit button and set its title and type directly:
 }
 ```
 
+When the action can open a popup, keep popup/template routing beside `settings`, not inside it:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "addNew",
+  "settings": {
+    "title": "Create user",
+    "icon": "PlusOutlined",
+    "type": "primary"
+  },
+  "popup": {
+    "tryTemplate": true
+  }
+}
+```
+
 Common action settings suitable for direct inline use:
 
 - `title`
@@ -280,6 +297,12 @@ Common action settings suitable for direct inline use:
 - `emailFieldNames`
 - `defaultSelectAllRecords`
 
+Notes:
+
+- `popup`, `popup.template`, `popup.tryTemplate`, and `popup.saveAsTemplate` are sibling write fields, not `settings` keys.
+- For popup-capable localized writes without an explicit `popup.template`, default to `popup.tryTemplate=true`.
+- If the first local popup should immediately become reusable, use `popup.saveAsTemplate={ name, description }` together with explicit local `popup.blocks`.
+
 ### `add-record-action`
 
 Create a record-level view action and give it a title directly:
@@ -290,6 +313,23 @@ Create a record-level view action and give it a title directly:
   "type": "view",
   "settings": {
     "title": "View"
+  }
+}
+```
+
+If the goal is a standard details popup on a shown title/name field, prefer field/openView configuration over a duplicated `view` record action. When a real record action is still needed, popup routing stays outside `settings`:
+
+```json
+{
+  "target": { "uid": "users-table-uid" },
+  "type": "edit",
+  "settings": {
+    "title": "Edit",
+    "icon": "EditOutlined",
+    "type": "primary"
+  },
+  "popup": {
+    "tryTemplate": true
   }
 }
 ```
@@ -305,6 +345,12 @@ Create a record-level view action and give it a title directly:
   }
 }
 ```
+
+Readback rule for localized creates:
+
+- `table` / `list` / `gridCard` may already come back with merged `filter` + `addNew` + `refresh`.
+- `details` may already come back with merged `edit`.
+- After `add-block`, `compose`, `add-action`, or `add-record-action`, inspect the persisted action list and popup/template binding before adding "missing" actions or extra popup writes.
 
 ## When Not to Force Something into `settings`
 

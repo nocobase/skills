@@ -1,0 +1,6 @@
+target: $SELF.table.actions.addNew
+mode: drawer
+coll: nb_starter_projects
+blocks:
+  - ref: templates/block/form_projects.yaml
+    key: reference

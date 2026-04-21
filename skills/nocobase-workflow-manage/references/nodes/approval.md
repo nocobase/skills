@@ -8,7 +8,8 @@ description: "Explains the configuration items, negotiation/sequential approval 
 ## Node Type
 
 `approval`
-Use the above `type` value when creating the node; do not use the documentation filename as the type.
+
+Approval node type can only be used in approval workflows, which trigger type is `approval`.
 
 ## Node Description
 Initiates an approval task, waits for the approval result to continue the workflow, and can branch based on the approval outcome.
@@ -20,7 +21,7 @@ An expense report goes through an approval process after submission. The branchi
 | Field | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | branchMode | boolean | false | Yes | Passing mode: `false` for direct (termination upon rejection/return), `true` for branching mode. |
-| assignees | array | [] | Yes | List of approvers. Elements can be user IDs or user filter objects (filter structure). |
+| assignees | array | [] | Yes | List of approvers, specified as an array of user IDs or user queries. User IDs could be found by query `users:list` API, or use variables of user IDs form upstream. The query object will contains a `filter` object to describe the query condition of users collection.  See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | negotiation | number | 0 | No | Multi-person negotiation mode: `0` means any one pass/reject takes effect; `1` means all must pass to pass; `0<value<1` is a voting threshold (e.g., 0.6 means pass rate >60% is required to pass). |
 | order | boolean | false | No | Whether to approve in sequence (when sequential, subsequent approvers are initially set to `Assigned`). |
 | endOnReject | boolean | false | No | In branching mode, whether to terminate the workflow immediately after the rejection branch ends. |
@@ -45,6 +46,8 @@ Branching is enabled when `branchMode=true`:
 
 No branches are generated when `branchMode=false`.
 
+Only add strong related nodes in branches, for example, to update approving record status or send notifications. Other process nodes could be add after the approval node. In most case, should not use nested approval nodes (in branches), better to add approval nodes one after another (as direct downstream).
+
 ## Test Support
 Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
 
@@ -52,7 +55,7 @@ Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow
 ```json
 {
   "branchMode": true,
-  "assignees": ["{{ $context.data.ownerId }}"],
+  "assignees": ["{{ $context.data.ownerId }}", { "filter": { "$and": [{ "role.name": "manager" }]} }, 123],
   "negotiation": 1,
   "order": false,
   "endOnReject": true,

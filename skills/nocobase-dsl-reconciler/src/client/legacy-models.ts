@@ -15,6 +15,23 @@ export class LegacyModelsApi {
   ) {}
 
   /**
+   * flowModels:findOne — fetch a flowModel as a tree with FULL stepParams.
+   *
+   * Use this in exporters instead of `nb.surfaces.get` (flowSurfaces:get):
+   * the surfaces variant returns a "rendered surface" tree that strips fields
+   * like `stepParams.referenceSettings.useTemplate`, which makes exporters
+   * lose the template binding on ReferenceBlockModel children.
+   *
+   * Returns the full node tree (subModels nested), or null if not found.
+   */
+  async findOne(uid: string, includeAsyncNode = true): Promise<Record<string, unknown> | null> {
+    const params: Record<string, string> = { uid };
+    if (includeAsyncNode) params.includeAsyncNode = 'true';
+    const resp = await this.http.get(`${this.baseUrl}/api/flowModels:findOne`, { params });
+    return (resp.data?.data as Record<string, unknown>) || null;
+  }
+
+  /**
    * flowModels:save — upsert a single FlowModel node.
    */
   async save(node: Record<string, unknown>) {
@@ -39,12 +56,17 @@ export class LegacyModelsApi {
       }
     }
 
-    // Fallback: GET → deep merge → save
+    // Fallback: GET → deep merge → save.
+    // Return null (not throw) when the node doesn't exist — callers read
+    // UIDs from state.yaml, which can go stale after a NB rollback / manual
+    // cleanup. An updateModel on a zombie UID used to crash the whole push
+    // via unhandled rejection; now it's a no-op that callers can check.
+    // Explicit errors (HTTP 4xx/5xx) still throw via axios.
     const getResp = await this.http.get(`${this.baseUrl}/api/flowModels:get`, {
       params: { filterByTk: uid },
     });
     if (!getResp.data?.data) {
-      throw new Error(`flowModels:get ${uid} → ${getResp.status}`);
+      return null;
     }
     const current = getResp.data.data;
 

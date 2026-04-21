@@ -1,5 +1,0 @@
-target: $SELF.table.actions.addNew
-mode: drawer
-blocks:
-  - ref: templates/block/form_add_new_categories.yaml
-    key: reference

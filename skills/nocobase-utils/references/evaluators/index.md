@@ -19,8 +19,8 @@ NocoBase provides three built-in expression evaluation engines used across workf
 
 | Engine key | Package | Syntax style | Best for |
 |---|---|---|---|
-| `formula.js` | `@formulajs/formulajs` v4.4.9 | Excel-like `UPPER_CASE(args)` | Business calculations, text manipulation, date arithmetic, financial formulas |
-| `math.js` | `mathjs` v15.1.0 | JS/math `camelCase(args)` | Scientific math, matrix/vector operations, unit conversions, complex numbers |
+| `formula.js` | `@formulajs/formulajs` v4.4.9 | Excel-like `UPPER_CASE({{args}})` | Business calculations, text manipulation, date arithmetic, financial formulas |
+| `math.js` | `mathjs` v15.1.0 | JS/math `camelCase({{args}})` | Scientific math, matrix/vector operations, unit conversions, complex numbers |
 | `string` | built-in | Plain text with `{{var}}` replacement | Simple string templates — **no computation**, just variable substitution |
 
 ## Variable Syntax in Expressions
