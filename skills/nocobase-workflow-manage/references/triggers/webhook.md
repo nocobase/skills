@@ -17,7 +17,7 @@ description: "Trigger flows via external HTTP POST calls, supporting request par
 - Accessing the system-generated Webhook URL (only `POST` is supported).
 - Optional HTTP Basic Authentication.
 - Response strategies differ between synchronous and asynchronous modes:
-  - Synchronous mode: The response content is determined by the response node; if no response node is reached, the default is 200/500.
+  - Synchronous mode: The response content is determined by the response node; if no response node is reached, the default is 200/500 based on execution status (success / failed).
   - Asynchronous mode: Returns the `response` configured in the trigger directly.
 
 ## Configuration Items

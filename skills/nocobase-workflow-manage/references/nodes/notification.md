@@ -32,7 +32,7 @@ Other fields depend on the specific notification channel type.
 | --- | --- | --- | --- | --- |
 | title | string | None | Yes | The title of the in-app message. Could use variables in title as string template. |
 | content | string | None | Yes | The content of the in-app message. Could use variables in content as string template. |
-| receivers | Array<string\|number\|object> | [] | Yes | The recipients of the in-app message, specified as an array of user IDs or user queries. The query object will contains a `filter` object to describe the query condition of users collection.  See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
+| receivers | Array<string\|number\|object> | [] | Yes | The recipients of the in-app message, specified as an array of user IDs or user queries. User IDs could be found by query `users:list` API, or use variables of user IDs form upstream. The query object will contains a `filter` object to describe the query condition of users collection.  See [Common Conventions - filter](../conventions/index.md#the-filter-field-in-trigger-and-node-configuration). |
 | options | object | {} | No | Additional options for the in-app message. |
 | options.url | string | None | The URL that the user will be directed to when they click on the message. |
 | options.mobileUrl | string | None | The URL that the user will be directed to when they click on the message on a mobile device. |
@@ -70,6 +70,7 @@ Supported. This node can use CLI `workflow flow-nodes test` and HTTP `flow_nodes
   "receivers": [
     { "filter": { "$and": [{ "role.name": "admin" }]} },
     123,
+    "{{ $context.data.userId }}"
   ],
   "options": {
     "url": "https://example.com/details/{{ $context.data.id }}",
