@@ -35,7 +35,10 @@ const BLOCK_OR_ACTION_LINKAGE_REACTION_TYPES = new Set([
 ]);
 const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
+const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
+const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
+const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
 const COMMON_ANT_DESIGN_ICON_NAMES = new Set([
   'AppstoreOutlined',
   'BankOutlined',
@@ -513,6 +516,27 @@ function collectTemplateBindingsFromPopupItems(items, path, bindings) {
   }
 }
 
+function forEachFieldGroup(fieldGroups, visitor) {
+  for (const [groupIndex, group] of ensureArray(fieldGroups).entries()) {
+    if (!isPlainObject(group)) continue;
+    visitor(group, groupIndex);
+  }
+}
+
+function getFieldGroupEntries(fieldGroups) {
+  const entries = [];
+  forEachFieldGroup(fieldGroups, (group) => {
+    entries.push(...ensureArray(group.fields));
+  });
+  return entries;
+}
+
+function collectTemplateBindingsFromFieldGroups(fieldGroups, path, bindings) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    collectTemplateBindingsFromPopupItems(group.fields, `${path}[${groupIndex}].fields`, bindings);
+  });
+}
+
 function collectTemplateBindingsFromBlock(block, path, bindings) {
   if (!isPlainObject(block)) return;
 
@@ -525,6 +549,7 @@ function collectTemplateBindingsFromBlock(block, path, bindings) {
   }
 
   collectTemplateBindingsFromPopupItems(block.fields, `${path}.fields`, bindings);
+  collectTemplateBindingsFromFieldGroups(block.fieldGroups, `${path}.fieldGroups`, bindings);
   collectTemplateBindingsFromPopupItems(block.actions, `${path}.actions`, bindings);
   collectTemplateBindingsFromPopupItems(block.recordActions, `${path}.recordActions`, bindings);
 }
@@ -547,6 +572,42 @@ function summarizeTemplateBindings(bindings) {
     .slice(0, DEFAULT_MAX_SUMMARY_ITEMS)
     .map((binding) => `"${binding.uid}" via ${binding.mode} at ${binding.path}`)
     .join(', ');
+}
+
+function getBlockFieldEntries(block) {
+  if (!isPlainObject(block)) return [];
+  if (hasOwn(block, 'fieldGroups')) {
+    return getFieldGroupEntries(block.fieldGroups);
+  }
+  return ensureArray(block.fields);
+}
+
+function isCountedBlueprintField(field) {
+  if (typeof field === 'string') return !!normalizeText(field);
+  if (!isPlainObject(field)) return false;
+  const type = normalizeLowerText(field.type);
+  if (NON_COUNTED_FIELD_TYPES.has(type)) return false;
+  return !!normalizeText(field.field);
+}
+
+function countEffectiveBlueprintFields(items) {
+  return ensureArray(items).filter((field) => isCountedBlueprintField(field)).length;
+}
+
+function countBlockEffectiveFields(block) {
+  return countEffectiveBlueprintFields(getBlockFieldEntries(block));
+}
+
+function summarizeFieldGroups(fieldGroups) {
+  const labels = [];
+  forEachFieldGroup(fieldGroups, (group) => {
+    const title = trimLabel(normalizeText(group.title || group.key || 'Group'), MAX_HEADER_TEXT);
+    const count = countEffectiveBlueprintFields(group.fields);
+    if (title) {
+      labels.push(`${title} (${count})`);
+    }
+  });
+  return summarizeList(labels, { formatter: (value) => value });
 }
 
 function describeField(field) {
@@ -572,7 +633,7 @@ function describePopupTrigger(kind, label) {
 function getPopupTriggers(block) {
   const triggers = [];
 
-  for (const field of ensureArray(block?.fields)) {
+  for (const field of getBlockFieldEntries(block)) {
     if (isPlainObject(field) && field.popup) {
       triggers.push({
         kind: 'field',
@@ -821,7 +882,8 @@ function renderPopupTriggers(block, context) {
 
 function renderBlock(block, context) {
   const body = [];
-  const fields = ensureArray(block?.fields).map(describeField).filter(Boolean);
+  const fields = getBlockFieldEntries(block).map(describeField).filter(Boolean);
+  const fieldGroupsSummary = summarizeFieldGroups(block?.fieldGroups);
   const actions = ensureArray(block?.actions).map(describeAction).filter(Boolean);
   const recordActions = ensureArray(block?.recordActions).map(describeAction).filter(Boolean);
   const script = normalizeText(block?.script);
@@ -830,6 +892,8 @@ function renderBlock(block, context) {
   const templateLine = describeTemplateReference(block?.template);
 
   if (templateLine) body.push(templateLine);
+
+  if (fieldGroupsSummary) body.push(`Field groups: ${fieldGroupsSummary}`);
 
   const fieldsSummary = summarizeList(fields, { formatter: (value) => value });
   if (fieldsSummary) body.push(`Fields: ${fieldsSummary}`);
@@ -1200,7 +1264,12 @@ function buildCompactFieldsLayoutRow(fieldKeys, blockType) {
 }
 
 function buildDefaultFieldsLayout(block) {
-  if (!isPlainObject(block) || !FIELD_GRID_BLOCK_TYPES.has(normalizeText(block.type)) || hasOwn(block, 'fieldsLayout')) {
+  if (
+    !isPlainObject(block)
+    || !FIELD_GRID_BLOCK_TYPES.has(normalizeText(block.type))
+    || hasOwn(block, 'fieldsLayout')
+    || hasOwn(block, 'fieldGroups')
+  ) {
     return undefined;
   }
   const fieldKeys = ensureArray(block.fields)
@@ -1240,6 +1309,15 @@ function materializeFieldForWrite(field) {
   return nextField;
 }
 
+function materializeFieldGroupForWrite(group) {
+  if (!isPlainObject(group)) {
+    return group;
+  }
+  const nextGroup = cloneSerializable(group);
+  nextGroup.fields = ensureArray(nextGroup.fields).map(materializeFieldForWrite);
+  return nextGroup;
+}
+
 function materializeActionForWrite(action) {
   if (!isPlainObject(action)) {
     return action;
@@ -1258,6 +1336,9 @@ function materializeBlockForWrite(block) {
   const nextBlock = cloneSerializable(block);
   if (hasOwn(nextBlock, 'fields')) {
     nextBlock.fields = ensureArray(nextBlock.fields).map(materializeFieldForWrite);
+  }
+  if (hasOwn(nextBlock, 'fieldGroups')) {
+    nextBlock.fieldGroups = ensureArray(nextBlock.fieldGroups).map(materializeFieldGroupForWrite);
   }
   if (hasOwn(nextBlock, 'actions')) {
     nextBlock.actions = ensureArray(nextBlock.actions).map(materializeActionForWrite);
@@ -1617,6 +1698,12 @@ function validateFieldPopups(items, path, state) {
   }
 }
 
+function validateFieldGroupPopups(fieldGroups, path, state) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    validateFieldPopups(group.fields, `${path}[${groupIndex}].fields`, state);
+  });
+}
+
 function validateActions(items, path, state, { recordActions = false } = {}) {
   for (const [index, item] of ensureArray(items).entries()) {
     const actionType =
@@ -1639,8 +1726,104 @@ function validateActions(items, path, state, { recordActions = false } = {}) {
   }
 }
 
+function validateBlockFieldGroups(block, path, state) {
+  if (!hasOwn(block, 'fieldGroups')) {
+    if (
+      !isTemplateBackedBlock(block)
+      && FIELD_GROUP_BLOCK_TYPES.has(normalizeText(block.type))
+      && countBlockEffectiveFields(block) > LARGE_FIELD_GRID_GROUPING_THRESHOLD
+    ) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.fieldGroups`,
+        'large-field-grid-requires-field-groups',
+        `Blocks of type ${normalizeText(block.type)} with more than ${LARGE_FIELD_GRID_GROUPING_THRESHOLD} real fields must use fieldGroups instead of one flat fields[] list.`,
+      );
+    }
+    return;
+  }
+
+  if (!FIELD_GROUP_BLOCK_TYPES.has(normalizeText(block.type))) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldGroups`,
+      'unsupported-field-groups-host',
+      'fieldGroups is supported only on createForm, editForm, or details blocks.',
+    );
+    return;
+  }
+
+  if (hasOwn(block, 'fields')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldGroups`,
+      'field-groups-conflicts-with-fields',
+      'fieldGroups cannot be combined with fields on the same block.',
+    );
+  }
+
+  if (hasOwn(block, 'fieldsLayout')) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldGroups`,
+      'field-groups-conflicts-with-fields-layout',
+      'fieldGroups cannot be combined with fieldsLayout on the same block.',
+    );
+  }
+
+  if (!Array.isArray(block.fieldGroups) || block.fieldGroups.length === 0) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.fieldGroups`,
+      'invalid-field-groups',
+      'fieldGroups must be a non-empty array when present.',
+    );
+    return;
+  }
+
+  for (const [groupIndex, group] of ensureArray(block.fieldGroups).entries()) {
+    const groupPath = `${path}.fieldGroups[${groupIndex}]`;
+    if (!isPlainObject(group)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        groupPath,
+        'invalid-field-group',
+        'Each field group must be one object.',
+      );
+      continue;
+    }
+    if (!normalizeText(group.title)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.title`,
+        'field-group-title-required',
+        'Each field group must include a non-empty title.',
+      );
+    }
+    if (!Array.isArray(group.fields) || group.fields.length === 0) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.fields`,
+        'field-group-fields-required',
+        'Each field group must include a non-empty fields array.',
+      );
+    }
+  }
+}
+
 function validateBlockFieldsLayout(block, path, state) {
   if (!hasOwn(block, 'fieldsLayout')) {
+    return;
+  }
+  if (hasOwn(block, 'fieldGroups')) {
     return;
   }
   if (!isPlainObject(block.fieldsLayout)) {
@@ -1778,6 +1961,7 @@ function validateBlock(block, path, state) {
     );
   }
 
+  validateBlockFieldGroups(block, path, state);
   validateBlockFieldsLayout(block, path, state);
 
   if (isPlaceholderBlock(block)) {
@@ -1806,6 +1990,7 @@ function validateBlock(block, path, state) {
   }
 
   validateFieldPopups(block.fields, `${path}.fields`, state);
+  validateFieldGroupPopups(block.fieldGroups, `${path}.fieldGroups`, state);
   validateActions(block.actions, `${path}.actions`, state, { recordActions: false });
   validateActions(block.recordActions, `${path}.recordActions`, state, { recordActions: true });
 }

@@ -29,6 +29,8 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
 8. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
+   - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
+   - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
 9. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup

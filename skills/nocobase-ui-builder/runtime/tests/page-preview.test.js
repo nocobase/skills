@@ -2152,6 +2152,333 @@ test('prepareApplyBlueprintRequest requires collapse action on filter blocks wit
   assert.ok(result.errors.some((issue) => issue.ruleId === 'filter-collapse-required' && issue.path === 'tabs[0].blocks[0].actions'));
 });
 
+test('renderPageBlueprintAsciiPreview shows field group summaries on large field-grid blocks', () => {
+  const result = renderPageBlueprintAsciiPreview({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /Field groups: Basic info \(6\), Assignments \(5\)/);
+  assert.match(result.ascii, /Fields: username, nickname, email, phone, \+7 more/);
+});
+
+test('prepareApplyBlueprintRequest rejects large createForm blocks that skip fieldGroups', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: [
+              'username',
+              'nickname',
+              'email',
+              'phone',
+              'status',
+              'bio',
+              'department.title',
+              'role.name',
+              'manager.nickname',
+              'owner.nickname',
+              'createdBy.nickname',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'large-field-grid-requires-field-groups' && issue.path === 'tabs[0].blocks[0].fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps flat fields valid when createForm has exactly ten real fields', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: [
+              'username',
+              'nickname',
+              'email',
+              'phone',
+              'status',
+              'bio',
+              'department.title',
+              'role.name',
+              'manager.nickname',
+              'owner.nickname',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fields.length, 10);
+  assert.ok(result.cliBody.tabs[0].blocks[0].fieldsLayout);
+});
+
+test('prepareApplyBlueprintRequest accepts fieldGroups on large details blocks and keeps them in cliBody', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups.length, 2);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].title, 'Basic info');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
+});
+
+test('prepareApplyBlueprintRequest accepts fieldGroups on large editForm blocks and keeps grouped write shape', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups.length, 2);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[1].title, 'Assignments');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldsLayout, undefined);
+});
+
+test('prepareApplyBlueprintRequest preserves grouped field popups in preview and cliBody', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userDetails',
+            type: 'details',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: [
+                  'username',
+                  {
+                    field: 'manager.nickname',
+                    popup: {
+                      title: 'Manager details',
+                      blocks: [
+                        {
+                          key: 'managerDetails',
+                          type: 'details',
+                          collection: 'users',
+                          fields: ['nickname', 'email'],
+                        },
+                      ],
+                    },
+                  },
+                  'email',
+                  'phone',
+                  'status',
+                  'bio',
+                ],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'owner.nickname', 'createdBy.nickname', 'updatedBy.nickname'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ascii, /Popup from field "manager\.nickname":/);
+  assert.match(result.ascii, /Popup: Manager details/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].fields[1].popup.title, 'Manager details');
+  assert.equal(result.cliBody.tabs[0].blocks[0].fieldGroups[0].fields[1].popup.blocks[0].key, 'managerDetails');
+});
+
+test('prepareApplyBlueprintRequest does not treat manual divider fields as a valid grouping substitute', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userEditForm',
+            type: 'editForm',
+            collection: 'users',
+            fields: [
+              { type: 'divider', title: 'Basic info' },
+              'username',
+              'nickname',
+              'email',
+              'phone',
+              'status',
+              'bio',
+              { type: 'divider', title: 'Assignments' },
+              'department.title',
+              'role.name',
+              'manager.nickname',
+              'owner.nickname',
+              'createdBy.nickname',
+            ],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'large-field-grid-requires-field-groups' && issue.path === 'tabs[0].blocks[0].fieldGroups',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects fieldGroups when fieldsLayout is also present on the same block', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'userCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fieldGroups: [
+              {
+                title: 'Basic info',
+                fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+              },
+              {
+                title: 'Assignments',
+                fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
+              },
+            ],
+            fieldsLayout: {
+              rows: [['username', 'nickname']],
+            },
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'field-groups-conflicts-with-fields-layout' && issue.path === 'tabs[0].blocks[0].fieldGroups',
+    ),
+  );
+});
+
 test('prepareApplyBlueprintRequest accepts whole-page submit guards when the form submit action has an explicit key', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',

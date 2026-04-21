@@ -862,6 +862,48 @@ test('whole-page authoring docs keep menu, layout, and filter gates aligned with
   );
 });
 
+test('large field-grid docs require fieldGroups on create edit and details blocks', () => {
+  const skill = read('SKILL.md');
+  assert.match(
+    skill,
+    /createForm[\s\S]{0,80}editForm[\s\S]{0,80}details[\s\S]{0,160}more than 10[\s\S]{0,120}`?fieldGroups`?/i,
+    'SKILL.md should require fieldGroups when createForm/editForm/details exceed 10 fields',
+  );
+
+  const pageBlueprint = read('references/page-blueprint.md');
+  assert.match(
+    pageBlueprint,
+    /createForm[\s\S]{0,80}editForm[\s\S]{0,80}details[\s\S]{0,160}more than 10[\s\S]{0,120}`?fieldGroups`?/i,
+    'page-blueprint should require fieldGroups for large field-grid blocks',
+  );
+  assert.match(
+    pageBlueprint,
+    /fieldGroups[\s\S]{0,120}fieldsLayout[\s\S]{0,120}(cannot|must not|mutually exclusive)/i,
+    'page-blueprint should keep fieldGroups and fieldsLayout mutually exclusive',
+  );
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(
+    wholePageQuick,
+    /more than 10[\s\S]{0,120}`?fieldGroups`?[\s\S]{0,120}createForm|createForm[\s\S]{0,80}editForm[\s\S]{0,80}details/i,
+    'whole-page-quick should require fieldGroups for large form/details authoring',
+  );
+
+  const normative = read('references/normative-contract.md');
+  assert.match(
+    normative,
+    /createForm[\s\S]{0,80}editForm[\s\S]{0,80}details[\s\S]{0,160}more than 10[\s\S]{0,120}`?fieldGroups`?/i,
+    'normative-contract should treat fieldGroups as mandatory for large field-grid blocks',
+  );
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /more than 10[\s\S]{0,120}fieldGroups|fieldGroups[\s\S]{0,120}more than 10/i,
+    'default prompt should keep the large-field grouping guardrail visible',
+  );
+});
+
 test('general skill docs stay env-neutral while helper scripts avoid fixed local server defaults', () => {
   for (const relativePath of [
     'SKILL.md',
