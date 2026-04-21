@@ -21,6 +21,28 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 - Layout may be omitted only when one tab/popup contains at most one non-filter block. When multiple non-filter blocks share the same tab/popup, provide explicit layout instead of relying on server-generated top-to-bottom stacking.
 - `layout` is only allowed on `tabs[]` and inline `popup` documents; individual blocks do not accept `layout`.
 - `fieldsLayout` is available only on `createForm`, `editForm`, `details`, and `filterForm` blocks. It uses the same `{ rows: [[...]] }` shape as page/popup layout, but references field keys inside that block.
+- For `createForm`, `editForm`, and `details`, once the block contains more than 10 real fields, switch to explicit `fieldGroups` instead of one flat `fields[]` list.
+- `fieldGroups` and `fieldsLayout` are mutually exclusive. Do not mix `fieldGroups` with `fields[]`, and do not treat manual `divider` items as a grouping substitute.
+- Minimal large-form example:
+
+```json
+{
+  "type": "createForm",
+  "collection": "users",
+  "fieldGroups": [
+    {
+      "title": "Basic info",
+      "fields": ["username", "nickname", "email", "phone", "status", "bio"]
+    },
+    {
+      "title": "Assignments",
+      "fields": ["department.title", "role.name", "manager.nickname", "owner.nickname", "createdBy.nickname"]
+    }
+  ],
+  "actions": ["submit"]
+}
+```
+
 - If `layout` is present, it must be an object, every referenced block must have a `key`, and every keyed block in that scope must be placed by the layout rows.
 - Field entries default to simple strings. Upgrade to a field object only when `popup`, `target`, `renderer`, or field-specific `type` is required.
 - Every field placed into any blueprint `fields[]` must come from live collection metadata truth and have a non-empty `interface`. In CLI-first runs, prefer `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`; if that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback use `collections:get(appends=["fields"])`. Do not place schema-only fields with `interface: null` / empty into block or form fields.

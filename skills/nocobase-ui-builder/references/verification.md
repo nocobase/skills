@@ -86,9 +86,11 @@ After a reaction write, confirm at least:
 
 If you hand-write a readback bundle or a short persisted verification note, start with a stable public summary instead of depending on raw model names or loose full-tree dumps.
 
-- always include page identity under `page` when page-level create / replace happened, especially `page.pageSchemaUid`, `page.title` or `page.pageTitle`, and `page.menuGroupTitle`
+- always include page identity under `page` when page-level create / replace happened, especially `page.pageSchemaUid`, `page.pageTitle`, and `page.menuGroupTitle`
 - use `root`, `tables`, `popups`, `forms`, and `reactions` only when those sections matter to what you changed
 - prefer normalized public type labels such as `table`, `details`, `editForm`, `filterForm`, `createForm`
+- when a scenario spans multiple pages, use the same canonical page identity keys under `pages.*`, especially `pageSchemaUid`, `pageTitle`, and `menuGroupTitle`
+- use `type` for concrete summary nodes such as `tables.*`, `lists.*`, and `forms.*`; reserve `blockTypes` for aggregate summaries such as `root.blockTypes` or `popups.*.blockTypes`
 - if root-level content matters, keep `root.blockTypes`, `root.collections`, `root.fields`, and `root.actionTitles` explicit even when the raw live root only says `type: "page"`
 - for popup same-row layouts, surface a stable `sameRow: true` style proof instead of leaving a free-form layout string as the only evidence
 - when a critical outcome depends on a helper, guard, or computed field, surface one stable boolean or scalar outcome near the summary instead of burying the only proof inside richer nested metadata
