@@ -15,7 +15,7 @@ Choose the first matching row.
 | "Can you make sure the relation is correct?" | `references/relation-fields.md` | the matching `references/relations/*.md` file |
 | "Give me a whole working schema" | `references/collection-types/index.md` and `references/field-capabilities.md` | then `references/relation-fields.md`, then `references/model-packs/*.md` only as an integration check |
 | "How do I verify this model is really correct?" | `references/verification-playbook.md` | then the relevant collection, field, or relation reference |
-| "How should I mutate this through MCP?" | `references/mcp-mutation-sequences.md` | then the relevant schema reference |
+| "What mutation sequence should I use?" | `references/cli-mutation-sequences.md` | then the relevant schema reference |
 | "I need a special derived model" | `references/collection-types/sql.md`, `references/collection-types/view.md`, or `references/collection-types/inherit.md` | `references/verification-playbook.md` |
 | "This depends on a plugin-provided table or field" | `references/plugin-provided-capabilities.md` | then the relevant collection, field, relation, or mutation reference |
 
@@ -72,7 +72,7 @@ Recommended route:
 
 1. special collection reference
 2. upstream dependency inspection
-3. MCP mutation sequence
+3. CLI mutation sequence
 4. verification playbook
 
 Special-case blocker for `view`:
@@ -166,13 +166,14 @@ Open:
 
 Examples:
 
-- what sequence should MCP use
+- what sequence should I use
 - inspect then create then verify
 - how do I patch the model safely
 
 Open:
 
-1. `references/mcp-mutation-sequences.md`
+1. `references/cli-mutation-sequences.md`
+2. then the relevant collection, field, or relation reference
 
 ### Plugin-backed capability wording
 

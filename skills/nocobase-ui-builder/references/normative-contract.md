@@ -227,23 +227,19 @@ The skill may use:
 - `flow_surfaces_get_reaction_meta` when field values, linkage, computed state, or reaction capabilities are the question
 - `flow_surfaces_context` when popup/context variables or lower-level raw variable paths are the question
 - CLI-first collection metadata reads:
-  - `nocobase-ctl data-modeling collections list -j` to narrow candidate collections
-  - `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the default field truth
-  - `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j` when the `data-modeling collections` command family is unavailable
-  - `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up when extra detail is still needed
-- MCP fallback collection metadata reads only after the CLI path is unavailable or has been repaired unsuccessfully:
-  - `collections:list`
-  - `collections:get(appends=["fields"])`
-  - `collections.fields:get` when the field name is already known and that MCP surface is available
+  - `nb api data-modeling collections list -j` to narrow candidate collections
+  - `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the default field truth
+  - `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j` when the `data-modeling collections` command family is unavailable
+  - `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up when extra detail is still needed
 
 ### Field/schema fact priority
 
 When field truth matters:
 
-1. `nocobase-ctl data-modeling collections list -j` narrows candidates only; on MCP fallback, `collections:list` serves the same purpose
-2. `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` is the default truth for scalar fields, relation fields, interface, and association metadata; if that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`; only on MCP fallback should the skill use `collections:get(appends=["fields"])`
-3. Do **not** use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring; treat them as compact browse views, not as authoring truth
-4. Known single-field follow-up may use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j`, or `collections.fields:get` only when the skill is already on MCP fallback
+1. `nb api data-modeling collections list -j` narrows candidates only
+2. `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j` is the default truth for scalar fields, relation fields, interface, and association metadata; if that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`
+3. Do **not** use `nb api data-modeling collections fields list` for page authoring; treat it as a compact browse view, not as authoring truth
+4. Known single-field follow-up may use `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j`
 5. `catalog({ target, sections: ["fields"] })` answers whether the current target can add/use that field now
 
 Field addability rule:

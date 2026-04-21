@@ -18,7 +18,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
   - localized existing-surface edit
   - reaction authoring
 - If one user request spans several pages, split it into ordered single-page runs first.
-- If real fields or relations matter, gather live schema first with `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, fall back to `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`, and only then to MCP `collections:get(appends=["fields"])`. Drop any field whose `interface` is empty / null before authoring.
+- If real fields or relations matter, gather live schema first with `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j`. If that command family is unavailable, fall back to `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`. Drop any field whose `interface` is empty / null before authoring.
 - If JS is involved, validate it first and route through [js.md](./js.md).
 - Before any write or body-based read, confirm the transport shape:
   - `get` uses top-level locator flags and no JSON body
@@ -88,10 +88,10 @@ Use this path when the user wants to change only part of an existing surface.
 
 ## 6. Schema / Capability Reads
 
-- Use `nocobase-ctl data-modeling collections list -j` only to narrow candidates; on MCP fallback, use `collections:list`.
-- Use `nocobase-ctl data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the authoring truth. If that command family is unavailable, use `nocobase-ctl resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`, and only then MCP `collections:get(appends=["fields"])`.
-- Do not use `nocobase-ctl data-modeling collections fields list` / `collections.fields:list` for page authoring / field discovery.
-- Use `nocobase-ctl data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up, or MCP `collections.fields:get` only when already on MCP fallback.
+- Use `nb api data-modeling collections list -j` only to narrow candidates.
+- Use `nb api data-modeling collections get --filter-by-tk <collection> --appends fields -j` as the authoring truth. If that command family is unavailable, use `nb api resource list --resource collections --filter '{"name":"<collection>"}' --appends fields -j`.
+- Do not use `nb api data-modeling collections fields list` for page authoring / field discovery.
+- Use `nb api data-modeling collections fields list --collection-name <collection> --filter '{"name":"<field>"}' -j` only for known single-field follow-up.
 - If required schema is missing, stop and hand off to `nocobase-data-modeling`.
 
 ## 7. Stop / Handoff
