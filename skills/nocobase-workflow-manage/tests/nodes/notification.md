@@ -9,11 +9,15 @@ Tests for the `notification` node type.
 
 #### TC-NODE-NOTIFICATION-001: Add System Notification node
 - **Description**: Add System Notification node to workflow
-- **Prompt**: "增加System Notification节点"
+- **Prompt**: "增加通知节点，使用测试渠道（站内信），给超级管理员发送 hi"
 - **Expected Configuration**:
 ```json
 {
-  // Configuration based on notification documentation
+  "channelName": "test",
+  "receivers": [
+    1
+  ],
+  "title": "hi",
 }
 ```
 - **Validation Points**:

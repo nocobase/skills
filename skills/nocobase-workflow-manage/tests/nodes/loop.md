@@ -9,7 +9,7 @@ Tests for the `loop` node type.
 
 #### TC-NODE-LOOP-001: Add Loop node
 - **Description**: Add Loop node to workflow
-- **Prompt**: "增加Loop节点"
+- **Prompt**: "增加循环节点，循环订单明细"
 - **Expected Configuration**:
 ```json
 {

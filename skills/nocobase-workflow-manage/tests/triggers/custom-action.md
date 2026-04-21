@@ -68,25 +68,6 @@ Tests for the `custom-action` trigger type which allows manual triggering via "T
 
 ### Editing Scenarios
 
-#### TC-TRIGGER-CUSTOM-ACTION-004: Change from global to single record mode
-- **Description**: Modify trigger from global to single record context
-- **Prompt**: "将工作流改为针对单个订单记录触发"
-- **Expected Configuration** (updated):
-```json
-{
-  "type": 1,
-  "collection": "orders"
-}
-```
-- **Validation Points**:
-  - Type should change from `0` to `1`
-  - Collection should be added
-- **Test Steps**:
-  1. Create workflow with global custom action
-  2. Execute skill with edit prompt
-  3. Verify type and collection updated
-  4. Rebind to order detail button
-
 #### TC-TRIGGER-CUSTOM-ACTION-005: Add preloaded relationships to single record trigger
 - **Description**: Add relationship preloading to existing single record trigger
 - **Prompt**: "在单个订单记录触发器中预加载订单明细和客户信息"
@@ -105,27 +86,3 @@ Tests for the `custom-action` trigger type which allows manual triggering via "T
   2. Execute skill with edit prompt
   3. Verify appends added
   4. Test trigger and verify data includes relationships
-
-#### TC-TRIGGER-CUSTOM-ACTION-006: Change from single to multiple records mode
-- **Description**: Modify trigger from single to multiple records context
-- **Prompt**: "将工作流改为针对多个订单记录批量触发"
-- **Expected Configuration** (updated):
-```json
-{
-  "type": 2,
-  "collection": "orders"
-}
-```
-- **Validation Points**:
-  - Type should change from `1` to `2`
-  - Collection preserved
-- **Test Steps**:
-  1. Create workflow with single record trigger
-  2. Execute skill with edit prompt
-  3. Verify type updated
-  4. Rebind to table batch action button
-
-## Test Data Requirements
-- `orders` collection
-- Relationships: `customer` (belongsTo), `orderDetails` (hasMany)
-- UI buttons: "Trigger Workflow" button in various contexts

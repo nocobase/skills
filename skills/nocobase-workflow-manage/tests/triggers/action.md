@@ -9,7 +9,7 @@ Tests for the `action` trigger type which triggers workflows after user actions 
 
 #### TC-TRIGGER-ACTION-001: Create workflow for post-order-submission actions
 - **Description**: Create workflow triggered after order submission
-- **Prompt**: "创建一个在订单提交后执行的工作流，仅由特定的按钮操作触发"
+- **Prompt**: "创建一个在订单提交后执行的工作流，仅由表单提交按钮操作触发"
 - **Expected Configuration**:
 ```json
 {

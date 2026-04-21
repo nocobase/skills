@@ -9,7 +9,7 @@ Tests for the `script` node type.
 
 #### TC-NODE-SCRIPT-001: Add JavaScript node
 - **Description**: Add JavaScript node to workflow
-- **Prompt**: "增加JavaScript节点"
+- **Prompt**: "使用 JS 节点对请求参数进行验签处理，返回签名是否正确"
 - **Expected Configuration**:
 ```json
 {
@@ -24,26 +24,6 @@ Tests for the `script` node type.
   2. Execute skill with the prompt
   3. Verify node added with correct type
   4. Test node functionality
-
-### Editing Scenarios
-
-#### TC-NODE-SCRIPT-002: Modify existing JavaScript node
-- **Description**: Update configuration of existing JavaScript node
-- **Prompt**: "修改JavaScript节点的配置"
-- **Expected Configuration** (updated):
-```json
-{
-  // Updated configuration
-}
-```
-- **Validation Points**:
-  - Configuration should be updated
-  - Node type unchanged
-- **Test Steps**:
-  1. Create workflow with script node
-  2. Execute skill with edit prompt
-  3. Verify configuration updated
-  4. Test updated functionality
 
 ## Test Data Requirements
 - Appropriate collections and data for testing

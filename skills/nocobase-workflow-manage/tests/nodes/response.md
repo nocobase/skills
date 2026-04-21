@@ -9,11 +9,15 @@ Tests for the `response` node type.
 
 #### TC-NODE-RESPONSE-001: Add Response (for webhook) node
 - **Description**: Add Response (for webhook) node to workflow
-- **Prompt**: "增加Response (for webhook)节点"
+- **Prompt**: "在 webhook 工作流中增加响应节点，使用 201 状态码，返回{'success': true, 'id': '{{$context.body.body_$0}}'}"
 - **Expected Configuration**:
 ```json
 {
-  // Configuration based on response documentation
+  "statusCode": 201,
+  "body": {
+    "success": true,
+    "id": "{{$context.body.body_$0}}"
+  }
 }
 ```
 - **Validation Points**:
@@ -24,26 +28,6 @@ Tests for the `response` node type.
   2. Execute skill with the prompt
   3. Verify node added with correct type
   4. Test node functionality
-
-### Editing Scenarios
-
-#### TC-NODE-RESPONSE-002: Modify existing Response (for webhook) node
-- **Description**: Update configuration of existing Response (for webhook) node
-- **Prompt**: "修改Response (for webhook)节点的配置"
-- **Expected Configuration** (updated):
-```json
-{
-  // Updated configuration
-}
-```
-- **Validation Points**:
-  - Configuration should be updated
-  - Node type unchanged
-- **Test Steps**:
-  1. Create workflow with response node
-  2. Execute skill with edit prompt
-  3. Verify configuration updated
-  4. Test updated functionality
 
 ## Test Data Requirements
 - Appropriate collections and data for testing

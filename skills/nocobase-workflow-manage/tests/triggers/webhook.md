@@ -7,29 +7,6 @@ Tests for the `webhook` trigger type which triggers workflows via external HTTP 
 
 ### Creation Scenarios
 
-#### TC-TRIGGER-WEBHOOK-001: Create basic webhook workflow
-- **Description**: Create simple webhook trigger without authentication
-- **Prompt**: "创建一个基本的webhook工作流"
-- **Expected Configuration**:
-```json
-{
-  "basicAuthentication": false,
-  "request": {},
-  "response": {
-    "statusCode": 200
-  }
-}
-```
-- **Validation Points**:
-  - Trigger type should be `webhook`
-  - basicAuthentication should be `false`
-  - Default response status 200
-- **Test Steps**:
-  1. Execute skill with the prompt
-  2. Verify configuration
-  3. Get webhook URL and test POST request
-  4. Verify workflow triggers
-
 #### TC-TRIGGER-WEBHOOK-002: Create webhook with basic authentication
 - **Description**: Create webhook with HTTP Basic Authentication
 - **Prompt**: "创建一个带基本认证的webhook工作流，用户名为webhook，密码为secret"

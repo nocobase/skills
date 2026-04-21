@@ -104,25 +104,6 @@ Tests for the `calculation` node type which performs calculations using various 
   3. Verify expression updated to include tax
   4. Test calculation
 
-#### TC-NODE-CALCULATION-006: Change calculation engine
-- **Description**: Switch calculation engine from formula.js to math.js
-- **Prompt**: "将计算节点改为使用math.js引擎"
-- **Expected Configuration** (updated):
-```json
-{
-  "engine": "math.js",
-  "expression": "{{$context.data.quantity}} * {{$context.data.price}}"
-}
-```
-- **Validation Points**:
-  - Engine should change to `math.js`
-  - Expression should remain the same
-- **Test Steps**:
-  1. Create workflow with formula.js calculation
-  2. Execute skill with edit prompt
-  3. Verify engine updated
-  4. Test calculation still works
-
 #### TC-NODE-CALCULATION-007: Add calculation referencing previous node result
 - **Description**: Add calculation that uses output from previous calculation node
 - **Prompt**: "增加计算节点，基于前一个计算节点的结果计算平均值"

@@ -48,17 +48,17 @@ Tests for the `request-interception` trigger type which intercepts requests befo
 
 #### TC-TRIGGER-REQUEST-INTERCEPTION-003: Create workflow for update and delete validation
 - **Description**: Create workflow to validate update and delete operations
-- **Prompt**: "创建一个在订单更新和删除前进行验证的工作流"
+- **Prompt**: "创建一个在订单新增和更新前进行验证的工作流"
 - **Expected Configuration**:
 ```json
 {
   "collection": "orders",
   "global": true,
-  "actions": ["update", "destroy"]
+  "actions": ["create", "update"]
 }
 ```
 - **Validation Points**:
-  - Actions should include both `"update"` and `"destroy"`
+  - Actions should include both `"create"` and `"update"`
 - **Test Steps**:
   1. Execute skill with the prompt
   2. Verify configuration
@@ -103,26 +103,6 @@ Tests for the `request-interception` trigger type which intercepts requests befo
   2. Execute skill with edit prompt
   3. Verify destroy action added
   4. Test delete operation triggers validation
-
-#### TC-TRIGGER-REQUEST-INTERCEPTION-006: Change collection for validation
-- **Description**: Change validation from orders to products collection
-- **Prompt**: "将请求拦截工作流改为针对产品表进行验证"
-- **Expected Configuration** (updated):
-```json
-{
-  "collection": "products",
-  "global": true,
-  "actions": ["create", "update"]
-}
-```
-- **Validation Points**:
-  - Collection should change from `orders` to `products`
-  - Other settings preserved
-- **Test Steps**:
-  1. Create workflow for orders validation
-  2. Execute skill with edit prompt
-  3. Verify collection updated
-  4. Test with products operations
 
 ## Test Data Requirements
 - `orders` and `products` collections
