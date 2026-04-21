@@ -133,6 +133,8 @@ Localized write:
 
 Use `fieldLinkage` when the intent is “when A/B changes, recompute C/D”.
 
+When the `value` payload uses RunJS, route the example choice first through [js-surfaces/value-return.md](./js-surfaces/value-return.md). When the action itself is `Execute JavaScript`, route first through [js-surfaces/linkage.md](./js-surfaces/linkage.md).
+
 - simple copy -> `source: "path"`
 - formulas or branching -> `source: "runjs"`
 - keep one business intent in one rule

@@ -20,7 +20,6 @@ function usage() {
     '    [--requirements-json <json> | --requirements-file <path>]',
     '    [--risk-accept <code> ...]',
     '    [--mode <general|validation-case>]',
-    '    [--nocobase-root <path>]',
     '    [--snapshot-file <path>]',
     '    [--out-file <path>]',
     '    [--print-payload]',
@@ -108,14 +107,18 @@ function writeJson(filePath, value) {
 }
 
 function summarizeCanonicalize(result) {
+  const runjsSemantic = result.runjsCanonicalization || {};
   return {
-    ok: result.ok,
-    changed: Boolean(result.changed),
+    ok: (result.unresolved || []).length === 0,
+    changed: (result.transforms || []).length > 0,
     transformCodes: (result.transforms || []).map((item) => item.code),
     unresolvedCodes: (result.unresolved || []).map((item) => item.code),
-    blockerCount: result.semantic?.blockerCount || 0,
-    warningCount: result.semantic?.warningCount || 0,
-    autoRewriteCount: result.semantic?.autoRewriteCount || 0,
+    blockerCount: runjsSemantic.blockerCount || 0,
+    warningCount: runjsSemantic.warningCount || 0,
+    autoRewriteCount: runjsSemantic.autoRewriteCount || 0,
+    hasAutoRewrite: Boolean(runjsSemantic.hasAutoRewrite || runjsSemantic.autoRewriteCount),
+    surfaceSummary: runjsSemantic.surfaceSummary || {},
+    repairClassSummary: runjsSemantic.repairClassSummary || {},
   };
 }
 
@@ -131,7 +134,6 @@ export function runPreflightWriteGate({
   requirements = {},
   mode = DEFAULT_AUDIT_MODE,
   riskAccept = [],
-  nocobaseRoot,
   snapshotPath,
   outFile,
 }) {
@@ -139,7 +141,6 @@ export function runPreflightWriteGate({
     payload,
     metadata,
     mode,
-    nocobaseRoot,
     snapshotPath,
   });
   const finalPayload = canonicalizeResult.payload;
@@ -149,7 +150,6 @@ export function runPreflightWriteGate({
     mode,
     riskAccept,
     requirements,
-    nocobaseRoot,
     snapshotPath,
   });
 
@@ -184,7 +184,6 @@ function handleRun(flags) {
     requirements,
     mode,
     riskAccept,
-    nocobaseRoot: flags['nocobase-root'],
     snapshotPath: flags['snapshot-file'],
     outFile: flags['out-file'],
   });

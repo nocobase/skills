@@ -255,7 +255,7 @@ function usage() {
     '  node scripts/flow_payload_guard.mjs build-query-filter (--condition-json <json> | --path <path> --operator <op> --value-json <json>) [--logic <$and|$or>]',
     '  node scripts/flow_payload_guard.mjs extract-required-metadata (--payload-json <json> | --payload-file <path>) [(--metadata-json <json> | --metadata-file <path>)]',
     '  node scripts/flow_payload_guard.mjs canonicalize-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case]',
-    '  node scripts/flow_payload_guard.mjs audit-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case] [(--requirements-json <json> | --requirements-file <path>)] [--nocobase-root <path>] [--snapshot-file <path>] [--risk-accept <CODE>]',
+    '  node scripts/flow_payload_guard.mjs audit-payload (--payload-json <json> | --payload-file <path>) (--metadata-json <json> | --metadata-file <path>) [--mode general|validation-case] [(--requirements-json <json> | --requirements-file <path>)] [--snapshot-file <path>] [--risk-accept <CODE>]',
     '',
     `Default audit mode: ${DEFAULT_AUDIT_MODE}`,
   ].join('\n');
@@ -5091,7 +5091,7 @@ function pushCanonicalizeItem(target, seen, item) {
   target.push(sanitized);
 }
 
-export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE, nocobaseRoot, snapshotPath } = {}) {
+export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUDIT_MODE, snapshotPath } = {}) {
   if (mode !== GENERAL_MODE && mode !== VALIDATION_CASE_MODE) {
     throw new Error(`Unsupported mode "${mode}"`);
   }
@@ -5105,7 +5105,6 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
 
   const runjsCanonicalized = canonicalizeRunJSPayload({
     payload: workingPayload,
-    nocobaseRoot,
     snapshotPath,
   });
   for (const item of runjsCanonicalized.transforms || []) {
@@ -5808,6 +5807,9 @@ export function canonicalizePayload({ payload, metadata = {}, mode = DEFAULT_AUD
       blockerCount: 0,
       warningCount: 0,
       autoRewriteCount: 0,
+      hasAutoRewrite: false,
+      repairClassSummary: {},
+      surfaceSummary: {},
     },
     metadataCoverage: {
       collectionCount: Object.keys(normalizedMetadata.collections).length,
@@ -5984,7 +5986,6 @@ export function auditPayload({
   mode = DEFAULT_AUDIT_MODE,
   riskAccept = [],
   requirements = {},
-  nocobaseRoot,
   snapshotPath,
 }) {
   if (mode !== GENERAL_MODE && mode !== VALIDATION_CASE_MODE) {
@@ -6024,7 +6025,6 @@ export function auditPayload({
     runjsInspection = inspectRunJSPayloadStatic({
       payload,
       mode,
-      nocobaseRoot,
       snapshotPath,
     });
     for (const finding of runjsInspection.blockers || []) {
@@ -6072,6 +6072,9 @@ export function auditPayload({
         semanticBlockerCount: runjsInspection.execution?.semanticBlockerCount || 0,
         semanticWarningCount: runjsInspection.execution?.semanticWarningCount || 0,
         autoRewriteCount: runjsInspection.execution?.autoRewriteCount || 0,
+        hasAutoRewrite: Boolean(runjsInspection.execution?.hasAutoRewrite || runjsInspection.execution?.autoRewriteCount),
+        surfaceSummary: runjsInspection.surfaceSummary || {},
+        repairClassSummary: runjsInspection.repairClassSummary || {},
       }
       : null,
     metadataCoverage: {
@@ -6132,7 +6135,6 @@ function handleCanonicalizePayload(flags) {
     payload,
     metadata,
     mode,
-    nocobaseRoot: flags['nocobase-root'],
     snapshotPath: flags['snapshot-file'],
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -6152,7 +6154,6 @@ function handleAuditPayload(flags) {
     mode,
     riskAccept,
     requirements,
-    nocobaseRoot: flags['nocobase-root'],
     snapshotPath: flags['snapshot-file'],
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

@@ -1,17 +1,42 @@
 # JS
 
-Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. For upstream capability docs, `ctx.*` API references, and scenario-level examples copied from the source docs, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md). For CLI usage, Node-version assumptions, repo-root command entry, and `--skill-mode`, see [runjs-runtime.md](./runjs-runtime.md).
+Read this file when the current write involves JS `code`, `renderer: "js"`, `jsBlock`, `jsColumn`, `jsItem`, a `js` action, or chart `visual.raw / events.raw`. After this file, route by authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), then use [runjs-authoring-loop.md](./runjs-authoring-loop.md). For bundled capability docs, `ctx.*` API references, and scenario-level examples copied into this skill, see [js-reference-index.md](./js-reference-index.md). For capability-placement constraints, see [capabilities.md](./capabilities.md). For family / locator / target, see [runtime-playbook.md](./runtime-playbook.md). For chart topic routing, see [chart.md](./chart.md). For CLI usage, Node-version assumptions, repo-root command entry, and `--skill-mode`, see [runjs-runtime.md](./runjs-runtime.md).
 
 ## Contents
 
 1. Public JS capabilities
-2. Reference layers
-3. RunJS Validator Gate
-4. Skill-to-Runtime mapping
-5. Container support matrix
-6. Code style and context
-7. Strict Render rules
-8. Execution reminders
+2. Surface-first routing
+3. Authoring loop
+4. Reference layers
+5. RunJS Validator Gate
+6. Skill-to-Runtime mapping
+7. Container support matrix
+8. Code style and context
+9. Strict Render rules
+10. Execution reminders
+
+## Surface-first routing
+
+Choose the authoring surface before you chase `ctx.*` details:
+
+- event-flow `Execute JavaScript` -> [js-surfaces/event-flow.md](./js-surfaces/event-flow.md)
+- linkage `Execute JavaScript` -> [js-surfaces/linkage.md](./js-surfaces/linkage.md)
+- field/default/copy/custom-variable value-return RunJS -> [js-surfaces/value-return.md](./js-surfaces/value-return.md)
+- render-style JS model code -> [js-surfaces/js-model-render.md](./js-surfaces/js-model-render.md)
+- action-style JS model code -> [js-surfaces/js-model-action.md](./js-surfaces/js-model-action.md)
+- exact `JSBlockModel` / `JSFieldModel` / `JSItemModel` leaf behavior -> [js-models/index.md](./js-models/index.md) only after the surface is already clear
+
+## Authoring loop
+
+Every JS request follows the same five-step loop:
+
+1. Lock the surface.
+2. Fill the scenario card in [runjs-authoring-loop.md](./runjs-authoring-loop.md).
+3. Select one `safe` snippet from [js-snippets/catalog.json](./js-snippets/catalog.json).
+4. Edit only the snippet's editable slots.
+5. Run validator / preflight and repair from [runjs-repair-playbook.md](./runjs-repair-playbook.md), with at most 3 retry rounds.
+
+If target field, read source, surface, host model, or required form context is unknown, stop and inspect metadata before writing code.
 
 ## Public JS Capabilities
 
@@ -24,8 +49,12 @@ Read this file when the current write involves JS `code`, `renderer: "js"`, `jsB
 
 ## Reference Layers
 
-- Patched source-doc snapshot and product/runtime examples live under [js-reference-index.md](./js-reference-index.md) and [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md). Use that layer when you need `ctx.*` API details, scenario examples, or the original JS authoring guidance from the source repo plus the local skill-mode guardrails layered on top.
+- Surface-first reference docs live under [js-surfaces/index.md](./js-surfaces/index.md). Use that layer first when the main uncertainty is "which RunJS scene am I writing for?".
+- Canonical final-code examples live under [js-snippets/index.md](./js-snippets/index.md). Use this before opening the broader reference snapshot.
+- Bundled upstream snapshot docs and product/runtime examples live under [js-reference-index.md](./js-reference-index.md) and [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md). Use that layer when you need `ctx.*` API details, scenario examples, or broader JS authoring guidance plus the local skill-mode guardrails layered on top.
 - Skill-side execution contract stays here and in [runjs-runtime.md](./runjs-runtime.md). Use this layer for validator gate, runtime-model selection, strict render rules, and skill-mode constraints.
+- The bundled `runjs_contract_snapshot.json` is an internal contract asset used by the validator. Treat it as part of this skill, not as a live link to any external repo.
+- Legacy model-specific leaf docs still live under [js-models/index.md](./js-models/index.md). Treat them as a second-hop lookup, not the first entrypoint.
 - For field values, linkage, block/action state, or whole-page/localized reaction writes, return to [reaction.md](./reaction.md). Upstream linkage/event-flow pages describe product behavior, but they do not replace the skill payload contract.
 
 ## RunJS Validator Gate
@@ -38,7 +67,7 @@ Whenever the current write involves JS `code`, you must run the local validator 
 - If the validator cannot run, the Node version is unsupported, or the result is undecidable, you must stop immediately. Do not bypass the gate and continue writing.
 - Runtime validation may only depend on `./runtime/bin/nb-runjs.mjs`. Do not read NocoBase source code during execution.
 - For CLI usage, stdin JSON shape, Node/cwd assumptions, `--skill-mode`, and network constraints, see [runjs-runtime.md](./runjs-runtime.md).
-- Failure handling: rewrite the code based on validator feedback and validate again, with a maximum of 3 rounds. If it still fails after 3 rounds, stop. Do not continue to MCP writing.
+- Failure handling: rewrite the code based on validator feedback and [runjs-repair-playbook.md](./runjs-repair-playbook.md), then validate again, with a maximum of 3 rounds. If it still fails after 3 rounds, stop. Do not continue to MCP writing.
 
 ## Skill-to-Runtime Mapping
 
@@ -65,7 +94,6 @@ If the live environment does not make it clear which JS action model applies, st
 
 | Capability | Allowed locations | Key constraint |
 | --- | --- | --- |
-| `jsBlock` | block areas in page/tab/popup | only prioritize it when the user explicitly wants runtime code |
 | `js` action | `block` / `record` / `form` / `filterForm` / `actionPanel` | choose the correct action scope first |
 | `renderer: "js"` | `table/details/list/gridCard/form/createForm/editForm` | still binds to a real field |
 | `jsColumn` | `table` | standalone field, not bound to a real `fieldPath` |

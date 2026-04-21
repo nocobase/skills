@@ -17,7 +17,7 @@ Before the first whole-page `applyBlueprint`, default to:
 1. one short summary of the page intent
 2. one ASCII wireframe rendered from the same blueprint
 3. assumptions / open questions outside the payload only when they matter
-4. if duplicate menu-group titles are in play, name the chosen destination routeId outside the wireframe
+4. if duplicate menu-group titles are in play, flag that explicit `navigation.group.routeId` is required outside the wireframe
 5. if review is required, one confirmation question; otherwise one short execution notice and continue
 
 Default to **ASCII-first** prewrite output. Do **not** dump the full JSON blueprint unless:
@@ -30,7 +30,7 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 - render from the same inner page blueprint that would be written later
 - page header should show page title plus `mode`
 - show `MENU` for create runs when it is known
-- when duplicate same-title menu groups exist, show the chosen routeId next to `MENU`
+- when duplicate same-title menu groups exist, do not pretend one was chosen; show that explicit `routeId` is required next to `MENU`
 - show `TARGET` for replace runs when `target.pageSchemaUid` is known
 - every tab should render as its own ASCII box
 - every block should render as its own ASCII box with `type`, optional title, collection, key, and optional `span`
@@ -52,9 +52,9 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 Use the zero-dependency preview helper for deterministic output:
 
 - module: `renderPageBlueprintAsciiPreview(blueprint)`
-- CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json`
+- CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json`
 - prepare-write helper: `prepareApplyBlueprintRequest(blueprint)`
-- prepare-write CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
+- prepare-write CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json --prepare-write`
 
 The CLI/helper should prefer the inner page blueprint object. If it receives a legacy outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
 

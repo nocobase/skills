@@ -147,13 +147,18 @@ function assertSaveAsTemplateWritePath(text, sourceLabel) {
   );
   assert.match(
     text,
-    /explicit(?: local)? `?popup\.blocks`?|requires `?popup\.blocks`?|requires explicit local popup\.blocks/i,
-    `${sourceLabel} should require explicit popup.blocks for popup.saveAsTemplate`,
+    /explicit(?: local)? `?popup\.blocks`?|requires `?popup\.blocks`?|requires explicit local popup\.blocks|miss requires explicit local `?popup\.blocks`?/i,
+    `${sourceLabel} should describe the popup.blocks requirement for popup.saveAsTemplate`,
   );
   assert.match(
     text,
-    /cannot be combined with `?popup\.template`?[\s\S]{0,60}`?popup\.tryTemplate`?|cannot be combined with `?popup\.tryTemplate`?[\s\S]{0,60}`?popup\.template`?/i,
-    `${sourceLabel} should forbid combining popup.saveAsTemplate with popup.template and popup.tryTemplate`,
+    /cannot be combined with `?popup\.template`?/i,
+    `${sourceLabel} should forbid combining popup.saveAsTemplate with popup.template`,
+  );
+  assert.match(
+    text,
+    /combined with `?popup\.tryTemplate`?|if `?popup\.saveAsTemplate`? is also provided|a hit reuses the matched template directly|hit binds the matched template/i,
+    `${sourceLabel} should describe popup.saveAsTemplate coexistence with popup.tryTemplate`,
   );
 }
 
@@ -260,6 +265,24 @@ function assertSkillKeepsIntentFirst(text) {
   assert.doesNotMatch(text, /popup\.saveAsTemplate/i, 'SKILL.md intent-first rule should not absorb popup.saveAsTemplate details');
 }
 
+function assertDuplicateMenuGroupNeedsRouteId(text, sourceLabel) {
+  assert.match(
+    text,
+    /duplicate menu-group titles|duplicate same-title|same-title/i,
+    `${sourceLabel} should mention duplicate same-title group handling`,
+  );
+  assert.match(
+    text,
+    /require(?:s)? explicit[\s\S]{0,100}routeId|multiple[\s\S]{0,140}routeId|duplicate[\s\S]{0,180}routeId|routeId[\s\S]{0,140}(?:required|required before write|before the write)/i,
+    `${sourceLabel} should require explicit routeId when duplicate same-title groups exist`,
+  );
+  assert.doesNotMatch(
+    text,
+    /reuse one visible same-title group deterministically|chosen destination routeId|show the chosen routeId|states which routeId was chosen/i,
+    `${sourceLabel} should not claim deterministic reuse or a preselected routeId for duplicate same-title groups`,
+  );
+}
+
 function assertOpenAIGuardrails(text) {
   assert.match(
     text,
@@ -271,6 +294,11 @@ function assertOpenAIGuardrails(text) {
     text,
     /routeId[\s\S]{0,80}pageSchemaUid|never pass a desktop route id as `?target\.uid`?/i,
     'openai prompt should keep routeId-to-pageSchemaUid normalization visible',
+  );
+  assert.match(
+    text,
+    /Duplicate group titles[\s\S]{0,40}routeId|same-title[\s\S]{0,80}routeId/i,
+    'openai prompt should require explicit routeId for duplicate same-title groups',
   );
   assert.match(text, /field popup/i, 'openai prompt should keep field-popup guidance');
   assert.match(
@@ -341,6 +369,15 @@ test('required docs and relative links stay valid', () => {
     'references/index.md',
     'references/js.md',
     'references/js-reference-index.md',
+    'references/js-snippets/index.md',
+    'references/js-snippets/catalog.json',
+    'references/js-surfaces/index.md',
+    'references/js-surfaces/event-flow.md',
+    'references/js-surfaces/js-model-action.md',
+    'references/js-surfaces/js-model-render.md',
+    'references/js-surfaces/linkage.md',
+    'references/js-surfaces/value-return.md',
+    'references/js-surfaces/snippet-manifest.json',
     'references/local-edit-quick.md',
     'references/normative-contract.md',
     'references/page-archetypes.md',
@@ -349,6 +386,9 @@ test('required docs and relative links stay valid', () => {
     'references/popup.md',
     'references/reaction.md',
     'references/reaction-quick.md',
+    'references/runjs-authoring-loop.md',
+    'references/runjs-failure-taxonomy.md',
+    'references/runjs-repair-playbook.md',
     'references/runjs-runtime.md',
     'references/runtime-playbook.md',
     'references/settings.md',
@@ -400,14 +440,21 @@ test('docs keep canonical CLI-first envelope boundaries', () => {
 
 test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   const skill = read('SKILL.md');
+  assert.match(skill, /\[js-surfaces\/index\.md\]/i, 'SKILL.md should expose the surface-first JS router');
+  assert.match(skill, /\[js-snippets\/index\.md\]|\[js-snippets\/catalog\.json\]/i, 'SKILL.md should expose canonical JS snippets');
   assert.match(skill, /\[js-reference-index\.md\]/i, 'SKILL.md should expose the JS snapshot bridge');
 
   const js = read('references/js.md');
+  assert.match(js, /\[js-surfaces\/index\.md\]/i, 'references/js.md should route surface selection to js-surfaces/index.md');
+  assert.match(js, /\[js-snippets\/catalog\.json\]/i, 'references/js.md should route canonical snippets to js-snippets/catalog.json');
+  assert.match(js, /\[runjs-authoring-loop\.md\]/i, 'references/js.md should document the authoring loop');
+  assert.match(js, /\[runjs-repair-playbook\.md\]/i, 'references/js.md should document the repair playbook');
   assert.match(js, /\[js-reference-index\.md\]/i, 'references/js.md should route capability lookup to js-reference-index.md');
   assert.match(js, /Upstream snapshot|Source-doc snapshot/i, 'references/js.md should describe the upstream snapshot layer');
   assert.match(js, /\[reaction\.md\]/i, 'references/js.md should point reaction work back to reaction.md');
 
   const index = read('references/js-reference-index.md');
+  assert.match(index, /\[js-surfaces\/index\.md\]/i, 'js-reference-index should keep the surface-first router visible');
   assert.match(index, /upstream snapshot/i, 'js-reference-index should describe the snapshot layer');
   assert.match(index, /does \*\*not\*\* replace the skill write contract|does not replace the skill write contract/i);
   assert.match(index, /\[js\.md\]/i, 'js-reference-index should route model/validator work back to js.md');
@@ -415,6 +462,58 @@ test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   assert.match(index, /\[reaction\.md\]/i, 'js-reference-index should route linkage writes back to reaction.md');
   assert.match(index, /Execute JavaScript/i, 'js-reference-index should cover event-flow Execute JavaScript');
   assert.match(index, /ctx\.\*/i, 'js-reference-index should expose ctx API routing');
+});
+
+test('js surface docs stay discoverable and keep progressive disclosure', () => {
+  const rootIndex = read('references/index.md');
+  assert.match(rootIndex, /js-surfaces\/index\.md/i, 'references/index.md should link to js-surfaces/index.md');
+
+  const surfaceIndex = read('references/js-surfaces/index.md');
+  assert.match(surfaceIndex, /snippet-manifest\.json/i, 'js-surfaces/index should expose the snippet manifest');
+  assert.match(surfaceIndex, /js-snippets\/catalog\.json/i, 'js-surfaces/index should expose the snippet catalog');
+  assert.match(surfaceIndex, /Event Flow `?Execute JavaScript`?/i, 'js-surfaces/index should route event-flow RunJS');
+  assert.match(surfaceIndex, /Linkage `?Execute JavaScript`?/i, 'js-surfaces/index should route linkage RunJS');
+  assert.match(surfaceIndex, /value-return/i, 'js-surfaces/index should route value-return RunJS');
+  assert.match(surfaceIndex, /js-model-render\.md/i, 'js-surfaces/index should route render JS models');
+  assert.match(surfaceIndex, /js-model-action\.md/i, 'js-surfaces/index should route action JS models');
+  assert.match(surfaceIndex, /\[..\/*js-models\/index\.md\]/i, 'js-surfaces/index should keep js-models as a later hop');
+
+  const eventFlow = read('references/js-surfaces/event-flow.md');
+  assert.match(eventFlow, /flowRegistry\.\*\.steps\.\*\.params\.code/i, 'event-flow surface doc should expose the writeback path');
+  assert.match(eventFlow, /action-style/i, 'event-flow surface doc should describe action-style validation');
+
+  const linkage = read('references/js-surfaces/linkage.md');
+  assert.match(linkage, /linkageRunjs/i, 'linkage surface doc should name the linkage action');
+  assert.match(linkage, /params\.value\.script/i, 'linkage surface doc should expose the writeback path');
+
+  const valueReturn = read('references/js-surfaces/value-return.md');
+  assert.match(valueReturn, /top-level `?return`? is required|top-level return is required/i, 'value-return doc should require return');
+  assert.match(valueReturn, /ctx\.render/i, 'value-return doc should explicitly forbid ctx.render');
+
+  const jsModelRender = read('references/js-surfaces/js-model-render.md');
+  assert.match(jsModelRender, /ctx\.render\(\.\.\.\).*required|required.*ctx\.render/i, 'js-model-render doc should require ctx.render');
+
+  const jsModelAction = read('references/js-surfaces/js-model-action.md');
+  assert.match(jsModelAction, /clickSettings\.runJs/i, 'js-model-action doc should expose action write path');
+
+  const legacyIndex = read('references/js-models/index.md');
+  assert.match(legacyIndex, /legacy/i, 'js-models/index should mark itself as a legacy entrypoint');
+  assert.match(legacyIndex, /\[..\/js-surfaces\/index\.md\]/i, 'js-models/index should route back to js-surfaces/index.md');
+
+  const jsAction = read('references/js-models/js-action.md');
+  const jsActionFenceBodies = [...jsAction.matchAll(/```(?:js|javascript)\n([\s\S]*?)```/gi)].map((match) => match[1]);
+  assert.equal(jsActionFenceBodies.some((body) => /ctx\.openView\s*\(/i.test(body)), false, 'JSActionModel leaf doc should not provide ctx.openView final-code examples');
+  assert.match(jsAction, /popup action|field popup|configuration|配置层/i, 'JSActionModel leaf doc should reroute popup/openView work to configuration');
+
+  const catalog = JSON.parse(read('references/js-snippets/catalog.json'));
+  const safeIds = new Set(catalog.snippets.filter((entry) => entry.tier === 'safe').map((entry) => entry.id));
+  const manifest = JSON.parse(read('references/js-surfaces/snippet-manifest.json'));
+  for (const surface of manifest.surfaces) {
+    assert.equal(surface.recommendedSnippetIds.length <= 3, true, `${surface.id} should recommend at most 3 snippets`);
+    for (const snippetId of surface.recommendedSnippetIds) {
+      assert.equal(safeIds.has(snippetId), true, `${surface.id} should only recommend safe snippets`);
+    }
+  }
 });
 
 test('key upstream js snapshot pages route back to skill contracts', () => {
@@ -502,6 +601,7 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assertTryTemplateWriteFallback(templates, 'references/templates.md');
   assertSaveAsTemplateWritePath(templates, 'references/templates.md');
   assertExistingReferenceEditMatrix(templates, 'references/templates.md');
+  assert.doesNotMatch(templates, /auto-generated by nocobase-ui-builder/i);
 
   for (const relativePath of [
     'references/execution-checklist.md',
@@ -557,6 +657,20 @@ test('template selection stays centralized and prompt keeps minimum guardrails',
   assert.ok(defaultPrompt.length <= 890, 'openai default_prompt should stay at or below 890 chars');
 });
 
+test('duplicate same-title menu-group docs consistently require explicit routeId', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-intent.md',
+    'references/normative-contract.md',
+    'references/ascii-preview.md',
+    'references/verification.md',
+    'references/tool-shapes.md',
+  ]) {
+    assertDuplicateMenuGroupNeedsRouteId(read(relativePath), relativePath);
+  }
+});
+
 test('quick route docs stay discoverable and point to the deeper references', () => {
   const index = read('references/index.md');
   for (const relativePath of [
@@ -571,6 +685,11 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     assertRelativeMarkdownLinksExist(relativePath);
   }
   assert.doesNotMatch(index, /## Full References/i, 'references/index.md should avoid dumping the whole reference tree up front');
+  assert.match(
+    index,
+    /不会替代 quick route|先命中一个 quick route/i,
+    'references/index.md should keep late-stage docs behind quick-route selection',
+  );
 
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(wholePageQuick, /\[page-blueprint\.md\]/i);
@@ -635,6 +754,7 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     /filter blocks? should sit alone in the first row|filter alone in the first row/i,
     'whole-page-quick should keep the filter-first-row layout guidance',
   );
+  assertDuplicateMenuGroupNeedsRouteId(wholePageQuick, 'references/whole-page-quick.md');
 
   const localEditQuick = read('references/local-edit-quick.md');
   assert.match(localEditQuick, /\[runtime-playbook\.md\]/i);
@@ -691,6 +811,28 @@ test('quick route docs stay discoverable and point to the deeper references', ()
     reactionQuick,
     /existing live page[\s\S]{0,240}get-reaction-meta/i,
     'reaction-quick should require concrete live action targets before action guards',
+  );
+
+  const executionChecklist = read('references/execution-checklist.md');
+  assert.match(
+    executionChecklist,
+    /Use this checklist after the matching quick route is already clear/i,
+    'execution-checklist should stay behind quick-route selection',
+  );
+  assert.match(
+    executionChecklist,
+    /Start with \[whole-page-quick\.md\][\s\S]{0,260}Open \[tool-shapes\.md\][\s\S]{0,120}only/i,
+    'execution-checklist whole-page flow should start with whole-page-quick and delay tool-shapes',
+  );
+  assert.match(
+    executionChecklist,
+    /Start with \[local-edit-quick\.md\][\s\S]{0,260}Open \[tool-shapes\.md\][\s\S]{0,120}only/i,
+    'execution-checklist localized-edit flow should start with local-edit-quick and delay tool-shapes',
+  );
+  assert.match(
+    executionChecklist,
+    /Start with \[reaction-quick\.md\]/i,
+    'execution-checklist reaction flow should start with reaction-quick',
   );
 
   const pageArchetypes = read('references/page-archetypes.md');

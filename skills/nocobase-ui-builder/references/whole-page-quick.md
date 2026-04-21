@@ -16,34 +16,35 @@ Stay on this route when the user is asking for a full page or one route-backed t
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
 5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
-6. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
+6. If visible same-title menu groups already exist, do not pick one locally and do not create another same-title group just to disambiguate. Require explicit `navigation.group.routeId` before the write whenever title lookup would hit multiple groups.
+7. When the page is being created now, keep structure, popup, and whole-page interaction logic in the same blueprint:
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
-7. If the page explicitly asks for filtering, keep a real `filterForm` in that first-pass blueprint:
+8. If the page explicitly asks for filtering, keep a real `filterForm` in that first-pass blueprint:
    - add non-empty filter `fields`
    - when the filter has fewer than 4 fields, add `actions: ["submit", "reset"]`
    - when the filter has 4 or more fields, add `actions: ["submit", "reset", "collapse"]`
    - point each filter field `target` at a same-blueprint table key as a plain string block key
    - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
-8. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
+9. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
    - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
-9. Keep popup semantics close to the opener:
+10. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-10. After any create/init step, normalize locators before follow-up reads or localized writes:
+11. After any create/init step, normalize locators before follow-up reads or localized writes:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nocobase-ctl flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
-11. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
-12. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-13. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope.
-14. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
+12. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
+13. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
+14. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope.
+15. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails
 

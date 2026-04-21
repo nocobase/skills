@@ -1,0 +1,34 @@
+# JS Model Render
+
+Use this surface for JS models whose main job is to render content in a block, field, item, or column.
+
+## Contract
+
+- Editor scene in upstream source: `jsModel`
+- Writeback path in this skill: `stepParams.jsSettings.runJs`
+- Validation style: render
+- `ctx.render(...)` is required.
+- Do not rely on top-level `return` for rendering.
+- Exact modelUse still matters; use `JSBlockModel`, `JSFieldModel`, `JSEditableFieldModel`, `JSItemModel`, `FormJSFieldItemModel`, or `JSColumnModel`.
+
+## Minimal examples
+
+First-hop safe snippets:
+
+- [render/text-from-record](../js-snippets/safe/render/text-from-record.md)
+- [render/status-tag](../js-snippets/safe/render/status-tag.md)
+- [render/null-when-empty](../js-snippets/safe/render/null-when-empty.md)
+
+Example:
+
+```js
+const text = String(ctx.record?.title ?? ctx.record?.name ?? '-');
+ctx.render(text);
+```
+
+## What to open next
+
+- Exact model constraints -> [../js-models/index.md](../js-models/index.md)
+- Render contract -> [../js-models/rendering-contract.md](../js-models/rendering-contract.md)
+- Snippet metadata -> [../js-snippets/catalog.json](../js-snippets/catalog.json)
+- Repair after validator failure -> [../runjs-repair-playbook.md](../runjs-repair-playbook.md)

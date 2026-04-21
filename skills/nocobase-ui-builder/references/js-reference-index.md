@@ -1,18 +1,21 @@
 # JS Reference Index
 
-Read this file when you need the copied upstream JS docs for capability discovery, `ctx.*` API lookup, or scenario examples.
+Read this file when you need the bundled JS reference docs for capability discovery, `ctx.*` API lookup, or scenario examples. If the main problem is still surface selection, go back first to [js-surfaces/index.md](./js-surfaces/index.md).
 
 This file is the bridge between two layers:
 
-- Patched upstream snapshot in [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md): product/runtime capability docs copied from the source repo and lightly adapted with skill-mode guardrails, useful for examples, `ctx` APIs, and scenario descriptions.
+- Surface-first layer in [js-surfaces/index.md](./js-surfaces/index.md): choose the exact RunJS authoring scene first.
+- Canonical snippet layer in [js-snippets/index.md](./js-snippets/index.md): grab the smallest `safe` final-code example before opening upstream docs.
+- Bundled upstream snapshot in [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md): product/runtime capability docs copied into this skill and lightly adapted with skill-mode guardrails, useful for examples, `ctx` APIs, and scenario descriptions.
 - Skill contract in [js.md](./js.md), [runjs-runtime.md](./runjs-runtime.md), and [reaction.md](./reaction.md): validator rules, model selection, CLI/runtime constraints, and actual write payload rules.
 
-The patched upstream snapshot is still only a progressive-disclosure reference layer. It does **not** replace the skill write contract.
+The bundled upstream snapshot is still only a progressive-disclosure reference layer. It does **not** replace the skill write contract.
 
 ## Quick Route
 
 | Need | Read first | Then |
 | --- | --- | --- |
+| which RunJS authoring surface this write belongs to | [js-surfaces/index.md](./js-surfaces/index.md) | [js-snippets/catalog.json](./js-snippets/catalog.json) |
 | which JS authoring surface exists at all | [upstream-js/interface-builder/runjs.md](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) | [upstream-js/runjs/index.md](../runtime/reference-assets/upstream-js/runjs/index.md) |
 | JS Block code | [upstream-js/interface-builder/blocks/other-blocks/js-block.md](../runtime/reference-assets/upstream-js/interface-builder/blocks/other-blocks/js-block.md) | specific `ctx` pages under [`upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md) |
 | JS Action code | [upstream-js/interface-builder/actions/types/js-action.md](../runtime/reference-assets/upstream-js/interface-builder/actions/types/js-action.md) | [upstream-js/runjs/context/request.md](../runtime/reference-assets/upstream-js/runjs/context/request.md), [upstream-js/runjs/context/form.md](../runtime/reference-assets/upstream-js/runjs/context/form.md), [upstream-js/runjs/context/resource.md](../runtime/reference-assets/upstream-js/runjs/context/resource.md) as needed |
@@ -38,7 +41,7 @@ When you already know the scenario and only need a specific runtime API:
 
 ## Skill-Mode Rewrites
 
-When reading copied upstream docs, rewrite the following patterns before you treat them as final skill output:
+When reading the bundled reference docs, rewrite the following patterns before you treat them as final skill output:
 
 - strict render models must end in an explicit `ctx.render(...)`; do not ship examples that only mutate `ctx.element.innerHTML`, `replaceChildren(...)`, or DOM nodes without a final render call
 - do not emit `ctx.openView(...)` as final code under this skill; the local validator blocks it. Prefer field popup / popup action / event-flow configuration outside JS
@@ -47,16 +50,18 @@ When reading copied upstream docs, rewrite the following patterns before you tre
 
 ## Progressive Disclosure Order
 
-1. Start in [js.md](./js.md) to decide the correct JS model and skill-side constraints.
-2. Open the matching upstream scenario page under [`../runtime/reference-assets/upstream-js/interface-builder/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) for examples and expected runtime behavior.
-3. Open only the needed `ctx` pages under [`../runtime/reference-assets/upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md).
-4. Return to [runjs-runtime.md](./runjs-runtime.md) before validation.
-5. Return to [settings.md](./settings.md) before any event-flow write.
-6. Return to [reaction.md](./reaction.md) before any linkage / field-value / action-state write.
+1. Start in [js.md](./js.md) to decide the validator boundary and high-level contract.
+2. Pick the exact authoring surface in [js-surfaces/index.md](./js-surfaces/index.md).
+3. Open [js-snippets/catalog.json](./js-snippets/catalog.json) and one safe snippet doc.
+4. Open the matching bundled scenario page under [`../runtime/reference-assets/upstream-js/interface-builder/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md) only for missing capability detail.
+5. Open only the needed `ctx` pages under [`../runtime/reference-assets/upstream-js/runjs/context/`](../runtime/reference-assets/upstream-js/runjs/context/render.md).
+6. Return to [runjs-runtime.md](./runjs-runtime.md) before validation.
+7. Return to [settings.md](./settings.md) before any event-flow write.
+8. Return to [reaction.md](./reaction.md) before any linkage / field-value / action-state write.
 
 ## Important Boundary
 
-- The upstream snapshot describes product/runtime behavior and authoring examples.
+- The bundled upstream snapshot describes product/runtime behavior and authoring examples.
 - The skill contract is stricter in several places: validator gate, runtime-model choice, skill-mode network policy, and strict `ctx.render(...)` requirements. Those rules stay in [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md).
 - Event Flow `Execute JavaScript` and linkage-rule pages are reference material for author intent and available context, not the final write contract for this skill.
 - For actual field value, linkage, block linkage, or action linkage payloads, [reaction.md](./reaction.md) remains authoritative.

@@ -10,8 +10,11 @@ const DEFAULT_MAX_POPUP_DEPTH = 1;
 const DEFAULT_EXPECTED_OUTER_TABS = 1;
 const MAX_LABEL_LENGTH = 24;
 const MAX_HEADER_TEXT = 48;
+const MAX_AUTO_TEMPLATE_NAME_LENGTH = 96;
+const MAX_AUTO_TEMPLATE_DESCRIPTION_LENGTH = 220;
 const PLACEHOLDER_TEXT_PATTERN = /^(summary|later|placeholder|todo)$/i;
 const PLACEHOLDER_TEXT_CN_PATTERN = /^(备用|待定|稍后)$/;
+const CJK_TEXT_PATTERN = /[\u3400-\u9fff]/;
 const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
 const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['requestBody', 'templateDecision']);
 const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
@@ -37,6 +40,17 @@ const FILTER_BLOCK_TYPES = new Set(['filterForm']);
 const FIELD_GRID_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details', 'filterForm']);
 const FIELD_GROUP_BLOCK_TYPES = new Set(['createForm', 'editForm', 'details']);
 const FORM_ACTION_HOST_BLOCK_TYPES = new Set(['createForm', 'editForm']);
+const FORM_SUBMIT_ACTION_KEY = 'submitAction';
+const FORM_SUBMIT_ACTION_TYPE = 'submit';
+const FIELD_LINKAGE_REACTION_TYPE = 'setFieldLinkageRules';
+const FIELD_STATE_ACTION_TYPE = 'setFieldState';
+const FIELD_STATE_BOOLEAN_SHORTHANDS = {
+  disabled: { true: 'disabled', false: 'enabled' },
+  enabled: { true: 'enabled', false: 'disabled' },
+  hidden: { true: 'hidden', false: 'visible' },
+  required: { true: 'required', false: 'notRequired' },
+  visible: { true: 'visible', false: 'hidden' },
+};
 const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
 const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
 const COMMON_ANT_DESIGN_ICON_NAMES = new Set([
@@ -259,6 +273,285 @@ function buildReactionTargetRegistry(blueprint) {
   };
 }
 
+function splitActionReactionTarget(target) {
+  const segments = normalizeText(target).split('.').filter(Boolean);
+  if (segments.length < 3) {
+    return null;
+  }
+  const actionKey = segments.at(-1);
+  return {
+    actionKey,
+    blockTarget: segments.slice(0, -1).join('.'),
+  };
+}
+
+function findBlockByReactionTarget(blueprint, blockTarget) {
+  const usedTabKeys = new Set();
+
+  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
+    if (!isPlainObject(tab)) continue;
+    const tabInfo = resolveTabLocalKey(tab, tabIndex, usedTabKeys);
+
+    for (const [blockIndex, block] of ensureArray(tab.blocks).entries()) {
+      if (!isPlainObject(block)) continue;
+      const blockInfo = resolveBlockLocalKey(block, blockIndex);
+      if (buildScopedKey(tabInfo.key, blockInfo.key) === blockTarget) {
+        return { tabIndex, blockIndex, block };
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeSubmitActionOnFormBlock(block) {
+  if (!isPlainObject(block) || !FORM_ACTION_HOST_BLOCK_TYPES.has(normalizeText(block.type))) {
+    return false;
+  }
+
+  const actions = ensureArray(block.actions);
+  if (
+    actions.some(
+      (action) => isPlainObject(action) && normalizeText(action.key) === FORM_SUBMIT_ACTION_KEY,
+    )
+  ) {
+    return false;
+  }
+
+  const submitActionIndex = actions.findIndex((action) => {
+    if (typeof action === 'string') {
+      return normalizeLowerText(action) === FORM_SUBMIT_ACTION_TYPE;
+    }
+    return isPlainObject(action) && normalizeLowerText(action.type) === FORM_SUBMIT_ACTION_TYPE;
+  });
+
+  if (submitActionIndex >= 0) {
+    const submitAction = actions[submitActionIndex];
+    if (isPlainObject(submitAction) && normalizeText(submitAction.key)) {
+      return false;
+    }
+    actions[submitActionIndex] =
+      typeof submitAction === 'string'
+        ? { key: FORM_SUBMIT_ACTION_KEY, type: FORM_SUBMIT_ACTION_TYPE }
+        : { ...submitAction, key: FORM_SUBMIT_ACTION_KEY };
+  } else {
+    actions.push({ key: FORM_SUBMIT_ACTION_KEY, type: FORM_SUBMIT_ACTION_TYPE });
+  }
+
+  block.actions = actions;
+  return true;
+}
+
+function normalizeSubmitActionReactionTargets(blueprint) {
+  if (!isPlainObject(blueprint) || !Array.isArray(blueprint?.reaction?.items)) {
+    return blueprint;
+  }
+
+  let nextBlueprint = null;
+  const getMutableBlueprint = () => {
+    nextBlueprint ??= cloneSerializable(blueprint);
+    return nextBlueprint;
+  };
+
+  for (const item of blueprint.reaction.items) {
+    if (!isPlainObject(item) || normalizeText(item.type) !== 'setActionLinkageRules') {
+      continue;
+    }
+
+    const target = splitActionReactionTarget(item.target);
+    if (!target || target.actionKey !== FORM_SUBMIT_ACTION_KEY) {
+      continue;
+    }
+
+    const currentMatch = findBlockByReactionTarget(nextBlueprint ?? blueprint, target.blockTarget);
+    if (!currentMatch || !FORM_ACTION_HOST_BLOCK_TYPES.has(normalizeText(currentMatch.block.type))) {
+      continue;
+    }
+
+    const mutableBlueprint = getMutableBlueprint();
+    const mutableMatch = findBlockByReactionTarget(mutableBlueprint, target.blockTarget);
+    if (mutableMatch) {
+      normalizeSubmitActionOnFormBlock(mutableMatch.block);
+    }
+  }
+
+  return nextBlueprint ?? blueprint;
+}
+
+function normalizeFieldStateActionFieldPaths(action) {
+  return unique([
+    ...ensureArray(action?.fieldPaths),
+    action?.targetPath,
+    action?.fieldPath,
+  ].map((fieldPath) => normalizeText(fieldPath)).filter(Boolean));
+}
+
+function normalizeFieldStateActionStates(action) {
+  if (typeof action?.state === 'string') {
+    return [normalizeText(action.state)].filter(Boolean);
+  }
+  if (!isPlainObject(action?.state)) {
+    return [];
+  }
+
+  const states = [];
+  for (const [key, value] of Object.entries(action.state)) {
+    if (typeof value !== 'boolean') {
+      continue;
+    }
+    const mapping = FIELD_STATE_BOOLEAN_SHORTHANDS[normalizeLowerText(key)];
+    if (mapping) {
+      states.push(mapping[String(value)]);
+    }
+  }
+
+  return unique(states.filter(Boolean));
+}
+
+function withoutFieldStateShorthandKeys(action) {
+  const nextAction = { ...action };
+  delete nextAction.targetPath;
+  delete nextAction.fieldPath;
+  return nextAction;
+}
+
+function normalizeFieldStateAction(action) {
+  if (!isPlainObject(action) || normalizeText(action.type) !== FIELD_STATE_ACTION_TYPE) {
+    return { actions: [action], changed: false, fieldPaths: [] };
+  }
+
+  const fieldPaths = normalizeFieldStateActionFieldPaths(action);
+  const states = normalizeFieldStateActionStates(action);
+  if (fieldPaths.length === 0 || states.length === 0) {
+    return { actions: [action], changed: false, fieldPaths };
+  }
+
+  const hasShorthandFieldPath = hasOwn(action, 'targetPath') || hasOwn(action, 'fieldPath');
+  const hasShorthandState = isPlainObject(action.state);
+  const changed = hasShorthandFieldPath || hasShorthandState;
+  if (!changed) {
+    return { actions: [action], changed: false, fieldPaths };
+  }
+
+  const baseAction = withoutFieldStateShorthandKeys(action);
+  const actions = states.map((stateValue, index) => ({
+    ...baseAction,
+    ...(states.length > 1 && normalizeText(action.key)
+      ? { key: `${normalizeText(action.key)}-${stateValue}` }
+      : {}),
+    fieldPaths,
+    state: stateValue,
+  }));
+
+  return { actions, changed: true, fieldPaths };
+}
+
+function blockHasFieldPath(block, fieldPath) {
+  const expected = normalizeText(fieldPath);
+  if (!expected) {
+    return true;
+  }
+  return getBlockFieldEntries(block).some(
+    (field, index) => resolveBlueprintFieldLocalKey(field, index) === expected,
+  );
+}
+
+function appendFieldPathToBlock(block, fieldPath) {
+  if (hasOwn(block, 'fieldGroups')) {
+    const groups = ensureArray(block.fieldGroups);
+    const targetGroup = groups.find((group) => isPlainObject(group));
+    if (targetGroup) {
+      targetGroup.fields = ensureArray(targetGroup.fields);
+      targetGroup.fields.push(fieldPath);
+      block.fieldGroups = groups;
+      return;
+    }
+  }
+
+  block.fields = ensureArray(block.fields);
+  block.fields.push(fieldPath);
+}
+
+function ensureBlockHasFieldPaths(block, fieldPaths) {
+  if (!isPlainObject(block) || !FORM_ACTION_HOST_BLOCK_TYPES.has(normalizeText(block.type))) {
+    return false;
+  }
+
+  let changed = false;
+  for (const fieldPath of unique(fieldPaths.map((value) => normalizeText(value)).filter(Boolean))) {
+    if (blockHasFieldPath(block, fieldPath)) {
+      continue;
+    }
+    appendFieldPathToBlock(block, fieldPath);
+    changed = true;
+  }
+  return changed;
+}
+
+function normalizeFieldLinkageStateTargets(blueprint) {
+  if (!isPlainObject(blueprint) || !Array.isArray(blueprint?.reaction?.items)) {
+    return blueprint;
+  }
+
+  let nextBlueprint = null;
+  const getMutableBlueprint = () => {
+    nextBlueprint ??= cloneSerializable(blueprint);
+    return nextBlueprint;
+  };
+
+  for (const [itemIndex, item] of blueprint.reaction.items.entries()) {
+    if (!isPlainObject(item) || normalizeText(item.type) !== FIELD_LINKAGE_REACTION_TYPE) {
+      continue;
+    }
+
+    let itemChanged = false;
+    const referencedFieldPaths = [];
+    const normalizedRules = ensureArray(item.rules).map((rule) => {
+      if (!isPlainObject(rule)) {
+        return rule;
+      }
+
+      let ruleChanged = false;
+      const nextThen = [];
+      for (const action of ensureArray(rule.then)) {
+        const normalized = normalizeFieldStateAction(action);
+        referencedFieldPaths.push(...normalized.fieldPaths);
+        nextThen.push(...normalized.actions);
+        if (normalized.changed) {
+          ruleChanged = true;
+        }
+      }
+
+      if (!ruleChanged) {
+        return rule;
+      }
+      itemChanged = true;
+      return {
+        ...rule,
+        then: nextThen,
+      };
+    });
+
+    const target = normalizeText(item.target);
+    const mutableBlueprint = (itemChanged || referencedFieldPaths.length > 0) ? getMutableBlueprint() : null;
+    if (itemChanged && mutableBlueprint?.reaction?.items?.[itemIndex]) {
+      mutableBlueprint.reaction.items[itemIndex] = {
+        ...mutableBlueprint.reaction.items[itemIndex],
+        rules: normalizedRules,
+      };
+    }
+
+    if (referencedFieldPaths.length > 0 && target) {
+      const mutableMatch = findBlockByReactionTarget(mutableBlueprint, target);
+      if (mutableMatch) {
+        ensureBlockHasFieldPaths(mutableMatch.block, referencedFieldPaths);
+      }
+    }
+  }
+
+  return nextBlueprint ?? blueprint;
+}
+
 function visitConditionItems(condition, basePath, visitor) {
   if (!isPlainObject(condition) || !Array.isArray(condition.items)) return;
 
@@ -276,6 +569,93 @@ function trimLabel(value, maxLength = MAX_LABEL_LENGTH) {
   if (source.length <= maxLength) return source;
   if (maxLength <= 3) return source.slice(0, maxLength);
   return `${source.slice(0, maxLength - 3)}...`;
+}
+
+function containsCjkText(value) {
+  return CJK_TEXT_PATTERN.test(normalizeText(value));
+}
+
+function inferPopupTemplateMetadataLocale(popup, options = {}) {
+  const candidates = [
+    popup?.title,
+    options.triggerLabel,
+    options.hostBlock?.title,
+    options.hostBlock?.key,
+    getCollectionLabel(options.hostBlock),
+  ];
+
+  for (const block of ensureArray(popup?.blocks)) {
+    candidates.push(block?.title, block?.key, block?.type, getCollectionLabel(block));
+  }
+
+  return candidates.some((value) => containsCjkText(value)) ? 'zh' : 'en';
+}
+
+function getPopupTemplateTriggerLabel(kind, locale) {
+  const normalizedKind = normalizeLowerText(kind);
+  if (locale === 'zh') {
+    if (normalizedKind === 'field') return '字段';
+    if (normalizedKind === 'recordaction') return '记录操作';
+    if (normalizedKind === 'action') return '操作';
+    return '弹窗';
+  }
+  if (normalizedKind === 'field') return 'field';
+  if (normalizedKind === 'recordaction') return 'record action';
+  if (normalizedKind === 'action') return 'action';
+  return 'popup';
+}
+
+function describePopupTemplateTrigger(kind, label, locale) {
+  const kindLabel = getPopupTemplateTriggerLabel(kind, locale);
+  const normalizedLabel = normalizeText(label);
+  if (!normalizedLabel) return kindLabel;
+  return locale === 'zh' ? `${kindLabel}“${normalizedLabel}”` : `${kindLabel} "${normalizedLabel}"`;
+}
+
+function describePopupTemplateHost(block, locale) {
+  const title = normalizeText(block?.title);
+  const collection = getCollectionLabel(block);
+  const key = normalizeText(block?.key);
+  const type = normalizeText(block?.type);
+  return title || collection || key || type || (locale === 'zh' ? '当前区块' : 'current block');
+}
+
+function summarizePopupTemplateBlocks(blocks, locale) {
+  const labels = unique(
+    ensureArray(blocks)
+      .map((block) => buildBlockHeader(block))
+      .map((label) => trimLabel(label, MAX_HEADER_TEXT))
+      .filter(Boolean),
+  ).slice(0, 3);
+
+  if (!labels.length) return locale === 'zh' ? '本地 popup 内容' : 'local popup content';
+  return labels.join(locale === 'zh' ? '、' : ', ');
+}
+
+function buildAutoSaveTemplateMetadata(popup, options = {}) {
+  const locale = inferPopupTemplateMetadataLocale(popup, options);
+  const popupTitle = normalizeText(popup?.title);
+  const hostLabel = describePopupTemplateHost(options.hostBlock, locale);
+  const triggerLabel = describePopupTemplateTrigger(options.triggerKind, options.triggerLabel, locale);
+  const contentLabel = summarizePopupTemplateBlocks(popup?.blocks, locale);
+
+  const name = popupTitle
+    ? locale === 'zh'
+      ? `${popupTitle}弹窗模板`
+      : `${popupTitle} popup template`
+    : locale === 'zh'
+      ? `${hostLabel} ${triggerLabel} 弹窗模板`
+      : `${hostLabel} ${triggerLabel} popup template`;
+
+  const description =
+    locale === 'zh'
+      ? `复用弹窗模板。宿主：${hostLabel}；触发器：${triggerLabel}；内容：${contentLabel}。`
+      : `Reusable popup template for ${triggerLabel} on ${hostLabel}. Content: ${contentLabel}.`;
+
+  return {
+    name: trimLabel(name, MAX_AUTO_TEMPLATE_NAME_LENGTH),
+    description: trimLabel(description, MAX_AUTO_TEMPLATE_DESCRIPTION_LENGTH),
+  };
 }
 
 function padRight(value, width) {
@@ -1287,64 +1667,116 @@ function buildDefaultFieldsLayout(block) {
   return rows.length ? { rows } : undefined;
 }
 
-function materializePopupForWrite(popup) {
+function shouldDefaultPopupTryTemplate(popup, options = {}) {
+  if (!isPlainObject(popup)) return false;
+  if (normalizeLowerText(options.mode) !== 'create') return false;
+  if (hasTemplateDocument(popup.template)) return false;
+  if (hasOwn(popup, 'tryTemplate')) return false;
+  return true;
+}
+
+function shouldDefaultPopupSaveAsTemplate(popup, options = {}) {
+  if (!isPlainObject(popup)) return false;
+  if (normalizeLowerText(options.mode) !== 'create') return false;
+  if (hasTemplateDocument(popup.template)) return false;
+  if (hasOwn(popup, 'saveAsTemplate')) return false;
+  return ensureArray(popup.blocks).length > 0;
+}
+
+function materializePopupForWrite(popup, options = {}) {
   if (!isPlainObject(popup)) {
     return popup;
   }
   const nextPopup = cloneSerializable(popup);
   if (hasOwn(nextPopup, 'blocks')) {
-    nextPopup.blocks = ensureArray(nextPopup.blocks).map(materializeBlockForWrite);
+    nextPopup.blocks = ensureArray(nextPopup.blocks).map((block) => materializeBlockForWrite(block, options));
+  }
+  if (shouldDefaultPopupTryTemplate(nextPopup, options)) {
+    nextPopup.tryTemplate = true;
+  }
+  if (shouldDefaultPopupSaveAsTemplate(nextPopup, options)) {
+    nextPopup.saveAsTemplate = buildAutoSaveTemplateMetadata(nextPopup, options);
   }
   return nextPopup;
 }
 
-function materializeFieldForWrite(field) {
+function materializeFieldForWrite(field, options = {}) {
   if (!isPlainObject(field)) {
     return field;
   }
   const nextField = cloneSerializable(field);
   if (isPlainObject(nextField.popup)) {
-    nextField.popup = materializePopupForWrite(nextField.popup);
+    nextField.popup = materializePopupForWrite(nextField.popup, {
+      ...options,
+      triggerKind: 'field',
+      triggerLabel: describeField(nextField),
+    });
   }
   return nextField;
 }
 
-function materializeFieldGroupForWrite(group) {
+function materializeFieldGroupForWrite(group, options = {}) {
   if (!isPlainObject(group)) {
     return group;
   }
   const nextGroup = cloneSerializable(group);
-  nextGroup.fields = ensureArray(nextGroup.fields).map(materializeFieldForWrite);
+  nextGroup.fields = ensureArray(nextGroup.fields).map((field) => materializeFieldForWrite(field, options));
   return nextGroup;
 }
 
-function materializeActionForWrite(action) {
+function materializeActionForWrite(action, options = {}) {
   if (!isPlainObject(action)) {
     return action;
   }
   const nextAction = cloneSerializable(action);
   if (isPlainObject(nextAction.popup)) {
-    nextAction.popup = materializePopupForWrite(nextAction.popup);
+    nextAction.popup = materializePopupForWrite(nextAction.popup, {
+      ...options,
+      triggerKind: options.recordActions ? 'recordAction' : 'action',
+      triggerLabel: trimLabel(nextAction.title || nextAction.type || nextAction.key || 'action'),
+    });
   }
   return nextAction;
 }
 
-function materializeBlockForWrite(block) {
+function materializeBlockForWrite(block, options = {}) {
   if (!isPlainObject(block)) {
     return block;
   }
   const nextBlock = cloneSerializable(block);
   if (hasOwn(nextBlock, 'fields')) {
-    nextBlock.fields = ensureArray(nextBlock.fields).map(materializeFieldForWrite);
+    nextBlock.fields = ensureArray(nextBlock.fields).map((field) =>
+      materializeFieldForWrite(field, {
+        ...options,
+        hostBlock: nextBlock,
+      }),
+    );
   }
   if (hasOwn(nextBlock, 'fieldGroups')) {
-    nextBlock.fieldGroups = ensureArray(nextBlock.fieldGroups).map(materializeFieldGroupForWrite);
+    nextBlock.fieldGroups = ensureArray(nextBlock.fieldGroups).map((group) =>
+      materializeFieldGroupForWrite(group, {
+        ...options,
+        hostBlock: nextBlock,
+      }),
+    );
   }
   if (hasOwn(nextBlock, 'actions')) {
-    nextBlock.actions = ensureArray(nextBlock.actions).map(materializeActionForWrite);
+    nextBlock.actions = ensureArray(nextBlock.actions).map((action) =>
+      materializeActionForWrite(action, {
+        ...options,
+        hostBlock: nextBlock,
+        recordActions: false,
+      }),
+    );
   }
   if (hasOwn(nextBlock, 'recordActions')) {
-    nextBlock.recordActions = ensureArray(nextBlock.recordActions).map(materializeActionForWrite);
+    nextBlock.recordActions = ensureArray(nextBlock.recordActions).map((action) =>
+      materializeActionForWrite(action, {
+        ...options,
+        hostBlock: nextBlock,
+        recordActions: true,
+      }),
+    );
   }
   if (!hasOwn(nextBlock, 'fieldsLayout')) {
     const synthesizedLayout = buildDefaultFieldsLayout(nextBlock);
@@ -1360,13 +1792,16 @@ function materializeBlueprintForWrite(blueprint) {
     return blueprint;
   }
   const nextBlueprint = cloneSerializable(blueprint);
+  const options = {
+    mode: nextBlueprint.mode,
+  };
   nextBlueprint.tabs = ensureArray(nextBlueprint.tabs).map((tab) => {
     if (!isPlainObject(tab)) {
       return tab;
     }
     return {
       ...tab,
-      blocks: ensureArray(tab.blocks).map(materializeBlockForWrite),
+      blocks: ensureArray(tab.blocks).map((block) => materializeBlockForWrite(block, options)),
     };
   });
   return nextBlueprint;
@@ -1622,16 +2057,7 @@ function validatePopupDocument(popup, path, state) {
       'popup.saveAsTemplate cannot be combined with popup.template.',
     );
   }
-  if (hasSaveAsTemplate && hasOwn(popup, 'tryTemplate')) {
-    pushValidationError(
-      state.errors,
-      state.seenErrors,
-      `${path}.saveAsTemplate`,
-      'conflicting-popup-save-as-template',
-      'popup.saveAsTemplate cannot be combined with popup.tryTemplate.',
-    );
-  }
-  if (hasSaveAsTemplate && ensureArray(popup.blocks).length === 0) {
+  if (hasSaveAsTemplate && ensureArray(popup.blocks).length === 0 && popup.tryTemplate !== true) {
     pushValidationError(
       state.errors,
       state.seenErrors,
@@ -2180,6 +2606,34 @@ function validateReaction(blueprint, state) {
           );
         }
       });
+
+      if (type === FIELD_LINKAGE_REACTION_TYPE) {
+        for (const [actionIndex, action] of ensureArray(rule.then).entries()) {
+          if (!isPlainObject(action) || normalizeText(action.type) !== FIELD_STATE_ACTION_TYPE) {
+            continue;
+          }
+
+          if (normalizeFieldStateActionFieldPaths(action).length === 0) {
+            pushValidationError(
+              state.errors,
+              state.seenErrors,
+              `${path}.rules[${ruleIndex}].then[${actionIndex}].fieldPaths`,
+              'invalid-field-state-action',
+              'setFieldState actions must include fieldPaths, or use targetPath/fieldPath shorthand so prepare-write can normalize them.',
+            );
+          }
+
+          if (normalizeFieldStateActionStates(action).length === 0) {
+            pushValidationError(
+              state.errors,
+              state.seenErrors,
+              `${path}.rules[${ruleIndex}].then[${actionIndex}].state`,
+              'invalid-field-state-action',
+              'setFieldState state must be a supported state string, or a boolean shorthand such as { "required": true } / { "visible": false }.',
+            );
+          }
+        }
+      }
     }
 
     if (type && target) {
@@ -2316,12 +2770,14 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const normalizeErrors = [];
   const expectedOuterTabs = getExpectedOuterTabs(options);
   const templateDecisionInput = extractPrepareTemplateDecision(input, options);
-  const blueprint = normalizeBlueprintInput(input, warnings, normalizeErrors, {
+  const rawBlueprint = normalizeBlueprintInput(input, warnings, normalizeErrors, {
     suppressLegacyWrapperWarning: isPrepareHelperEnvelope(input),
   });
+  const blueprint = normalizeSubmitActionReactionTargets(normalizeFieldLinkageStateTargets(rawBlueprint));
   const recognizableBlueprint = isRecognizablePageBlueprint(blueprint);
   const facts = buildPrepareFacts(blueprint, expectedOuterTabs);
-  const ascii = recognizableBlueprint ? renderRecognizableBlueprintAscii(blueprint, warnings, options) : '';
+  const preparedBlueprint = recognizableBlueprint ? materializeBlueprintForWrite(blueprint) : null;
+  const ascii = preparedBlueprint ? renderRecognizableBlueprintAscii(preparedBlueprint, warnings, options) : '';
   const { errors: templateDecisionErrors, summary: templateDecision } = validateTemplateDecision(templateDecisionInput);
   const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, blueprint);
   const resolvedTemplateDecision = recognizableBlueprint && templateDecision && !templateDecisionConsistencyErrors.length
@@ -2360,7 +2816,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   };
 
   if (result.ok) {
-    result.cliBody = materializeBlueprintForWrite(blueprint);
+    result.cliBody = preparedBlueprint;
   }
 
   return result;

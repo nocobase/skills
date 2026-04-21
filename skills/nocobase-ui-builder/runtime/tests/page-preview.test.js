@@ -447,6 +447,28 @@ test('page preview cli returns ok=false for invalid blueprint payload', async ()
   assert.match(payload.error, /recognizable inner page blueprint object/i);
 });
 
+test('page preview cli returns a stable JSON error when --input is missing its value', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+
+  const exitCode = await runPagePreviewCli(['--input'], {
+    cwd: process.cwd(),
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(stdout.read(), '');
+  assert.deepEqual(JSON.parse(stderr.read()), {
+    ok: false,
+    error: 'Missing value for --input.',
+    usage: {
+      command:
+        'Render one page blueprint ASCII preview or prepare one applyBlueprint write. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
+    },
+  });
+});
+
 test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normalized cli body', () => {
   const result = prepareApplyBlueprintRequest({
     requestBody: {
@@ -2542,6 +2564,286 @@ test('prepareApplyBlueprintRequest accepts whole-page submit guards when the for
   assert.equal(result.errors.length, 0);
 });
 
+test('prepareApplyBlueprintRequest keys string submit actions targeted by whole-page submit guards', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [
+            {
+              key: 'disableSubmitUntilReady',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$empty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].actions, [
+    {
+      key: 'submitAction',
+      type: 'submit',
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest inserts missing submit actions targeted by whole-page submit guards', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [
+            {
+              key: 'disableSubmitUntilReady',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.username',
+                    operator: '$empty',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setActionState',
+                  state: 'disabled',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].actions, [
+    {
+      key: 'submitAction',
+      type: 'submit',
+    },
+  ]);
+});
+
+test('prepareApplyBlueprintRequest still rejects unknown custom action targets on form guards', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.customSubmitAction',
+          rules: [],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+            actions: ['submit'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'unknown-reaction-target'));
+});
+
+test('prepareApplyBlueprintRequest does not rewrite explicitly keyed submit actions for submitAction guards', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setActionLinkageRules',
+          target: 'main.usersCreateForm.submitAction',
+          rules: [],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username'],
+            actions: [
+              {
+                key: 'saveAction',
+                type: 'submit',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((issue) => issue.ruleId === 'unknown-reaction-target'));
+});
+
+test('prepareApplyBlueprintRequest normalizes field-state shorthand and adds referenced form fields', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    reaction: {
+      items: [
+        {
+          type: 'setFieldLinkageRules',
+          target: 'main.usersCreateForm',
+          rules: [
+            {
+              key: 'requirePrivilegedContact',
+              when: {
+                logic: '$or',
+                items: [
+                  {
+                    path: 'formValues.roles.name',
+                    operator: '$includes',
+                    value: 'admin',
+                  },
+                ],
+              },
+              then: [
+                {
+                  type: 'setFieldState',
+                  targetPath: 'phone',
+                  state: { required: true },
+                },
+                {
+                  key: 'showPassword',
+                  type: 'setFieldState',
+                  targetPath: 'password',
+                  state: { visible: true, required: true },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    tabs: [
+      {
+        key: 'main',
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersCreateForm',
+            type: 'createForm',
+            collection: 'users',
+            fields: ['username', 'roles'],
+            actions: [
+              {
+                key: 'submitAction',
+                type: 'submit',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.cliBody.tabs[0].blocks[0].fields, ['username', 'roles', 'phone', 'password']);
+  assert.deepEqual(result.cliBody.reaction.items[0].rules[0].then, [
+    {
+      type: 'setFieldState',
+      fieldPaths: ['phone'],
+      state: 'required',
+    },
+    {
+      key: 'showPassword-visible',
+      type: 'setFieldState',
+      fieldPaths: ['password'],
+      state: 'visible',
+    },
+    {
+      key: 'showPassword-required',
+      type: 'setFieldState',
+      fieldPaths: ['password'],
+      state: 'required',
+    },
+  ]);
+});
+
 test('prepareApplyBlueprintRequest rejects stringified requestBody payloads', () => {
   const result = prepareApplyBlueprintRequest({
     requestBody: JSON.stringify({
@@ -2695,6 +2997,103 @@ test('prepareApplyBlueprintRequest accepts popup.tryTemplate and keeps it in the
   assert.equal(result.cliBody.tabs[0].blocks[0].fields[0].popup.tryTemplate, true);
 });
 
+test('prepareApplyBlueprintRequest defaults inline create-time popups to popup.tryTemplate=true when no explicit template decision is present', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  blocks: [
+                    {
+                      key: 'userPopupDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
+  assert.match(result.ascii, /Template: save as "User details popup template" \[description provided\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].key, 'userPopupDetails');
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name,
+    'User details popup template',
+  );
+  assert.match(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
+    /Reusable popup template for record action "view" on users/i,
+  );
+});
+
+test('prepareApplyBlueprintRequest preserves an explicit popup.tryTemplate=false override on create-time inline popups', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  title: 'User details',
+                  tryTemplate: false,
+                  blocks: [
+                    {
+                      key: 'userPopupDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.doesNotMatch(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, false);
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name,
+    'User details popup template',
+  );
+});
+
 test('prepareApplyBlueprintRequest accepts popup.saveAsTemplate and keeps it in the normalized cli body', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -2736,11 +3135,59 @@ test('prepareApplyBlueprintRequest accepts popup.saveAsTemplate and keeps it in 
 
   assert.equal(result.ok, true);
   assert.equal(result.errors.length, 0);
+  assert.match(result.ascii, /Template: auto-select \[tryTemplate=true\]/);
   assert.match(result.ascii, /Template: save as "user-popup-template" \[description provided\]/);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
   assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name, 'user-popup-template');
   assert.equal(
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
     'Save this popup as a reusable template.',
+  );
+});
+
+test('prepareApplyBlueprintRequest auto-generates popup.saveAsTemplate metadata for Chinese explicit local popups', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: '用户页' },
+    tabs: [
+      {
+        title: '概览',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                title: '详情',
+                type: 'view',
+                popup: {
+                  title: '用户详情',
+                  blocks: [
+                    {
+                      key: 'userPopupDetails',
+                      type: 'details',
+                      collection: 'users',
+                      fields: ['nickname'],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.name, '用户详情弹窗模板');
+  assert.match(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
+    /复用弹窗模板。宿主：users；触发器：记录操作“详情”；内容：/u,
   );
 });
 
@@ -2841,6 +3288,7 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
               {
                 type: 'view',
                 popup: {
+                  tryTemplate: false,
                   saveAsTemplate: {
                     name: 'user-popup-template',
                     description: 'Save this popup as a reusable template.',
@@ -2862,7 +3310,7 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
     ),
   );
 
-  const conflict = prepareApplyBlueprintRequest({
+  const combined = prepareApplyBlueprintRequest({
     version: '1',
     mode: 'create',
     page: { title: 'Users' },
@@ -2879,14 +3327,42 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
                 type: 'view',
                 popup: {
                   tryTemplate: true,
-                  blocks: [
-                    {
-                      key: 'userPopupDetails',
-                      type: 'details',
-                      collection: 'users',
-                      fields: ['nickname'],
-                    },
-                  ],
+                  saveAsTemplate: {
+                    name: 'user-popup-template',
+                    description: 'Save this popup as a reusable template.',
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(combined.ok, true);
+  assert.equal(combined.errors.length, 0);
+  assert.equal(combined.cliBody.tabs[0].blocks[0].recordActions[0].popup.tryTemplate, true);
+
+  const conflict = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            recordActions: [
+              {
+                type: 'view',
+                popup: {
+                  template: {
+                    uid: 'popup-template-uid',
+                    mode: 'reference',
+                  },
                   saveAsTemplate: {
                     name: 'user-popup-template',
                     description: 'Save this popup as a reusable template.',

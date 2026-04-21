@@ -27,7 +27,7 @@ A page-blueprint draft is good when:
 - tabs/blocks/popups are structurally explicit
 - any ASCII wireframe shown to the user matches the same tabs / blocks / popup structure as the blueprint draft
 - if execution proceeded immediately, the ASCII wireframe still appeared before the first `applyBlueprint`
-- if duplicate same-title menu groups existed, the preview/readback states which routeId was chosen and no extra same-title group was created unless the user explicitly asked for one
+- if duplicate same-title menu groups existed, the preview/readback states that explicit `routeId` was required before write and no extra same-title group was created unless the user explicitly asked for one
 - canonical public names are used (`collection` vs `resource.collectionName`, `popup`, string `field.target`, layout `key`)
 - low-level selectors/internal forms such as `uid`, `ref`, `$ref`, or alias fields do not appear in the JSON
 - destructive blast radius is explicit for replace/delete scenarios

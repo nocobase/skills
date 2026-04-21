@@ -1193,6 +1193,15 @@ const rows = Array.isArray(response?.data?.data) ? response.data.data : [];`,
     blockerCount: 0,
     warningCount: 1,
     autoRewriteCount: 1,
+    hasAutoRewrite: true,
+    repairClassSummary: {},
+    surfaceSummary: {
+      'js-model.render': {
+        nodeCount: 1,
+        blockerCount: 0,
+        warningCount: 1,
+      },
+    },
   });
 });
 
@@ -1203,7 +1212,8 @@ test('auditPayload exposes runjs semantic warning summary for resource reads lef
       jsSettings: {
         runJs: {
           version: 'v2',
-          code: `const response = await ctx.request({
+          code: `ctx.render('');
+const response = await ctx.request({
   url: 'task:list',
   method: 'get',
   params: {
@@ -1226,6 +1236,8 @@ test('auditPayload exposes runjs semantic warning summary for resource reads lef
   assert.equal(result.runjsInspection.semanticBlockerCount, 0);
   assert.equal(result.runjsInspection.semanticWarningCount > 0, true);
   assert.equal(result.runjsInspection.autoRewriteCount, 1);
+  assert.equal(result.runjsInspection.hasAutoRewrite, true);
+  assert.equal(result.runjsInspection.surfaceSummary['js-model.render'].nodeCount, 1);
 });
 
 test('extractRequiredMetadata collects collection refs, field refs, and popup checks', () => {
@@ -4659,7 +4671,7 @@ test('auditPayload blocks forbidden RunJS globals and exposes runjs inspection s
       stepParams: {
         jsSettings: {
           runJs: {
-            code: "await fetch('/api/auth:check')",
+            code: "ctx.render(''); await fetch('/api/auth:check')",
             version: 'v1',
           },
         },
@@ -4674,10 +4686,12 @@ test('auditPayload blocks forbidden RunJS globals and exposes runjs inspection s
   assert.equal(result.runjsInspection.ok, false);
   assert.equal(result.runjsInspection.blockerCount, 1);
   assert.equal(result.runjsInspection.inspectedNodeCount, 1);
-  assert.equal(result.runjsInspection.contractSource, 'live');
+  assert.equal(result.runjsInspection.contractSource, 'snapshot');
   assert.equal(result.runjsInspection.semanticBlockerCount, 0);
   assert.equal(result.runjsInspection.semanticWarningCount, 0);
   assert.equal(result.runjsInspection.autoRewriteCount, 0);
+  assert.equal(result.runjsInspection.repairClassSummary['blocked-global-stop'], 1);
+  assert.equal(result.runjsInspection.surfaceSummary['js-model.render'].nodeCount, 1);
   assert.equal(result.runjsInspection.warningCount >= 0, true);
 });
 
@@ -4709,6 +4723,15 @@ test('canonicalizePayload rewrites render-model innerHTML writes to ctx.render',
     blockerCount: 0,
     warningCount: 1,
     autoRewriteCount: 1,
+    hasAutoRewrite: true,
+    repairClassSummary: {},
+    surfaceSummary: {
+      'js-model.render': {
+        nodeCount: 1,
+        blockerCount: 0,
+        warningCount: 1,
+      },
+    },
   });
 });
 

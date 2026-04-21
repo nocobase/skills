@@ -49,5 +49,5 @@ Read this file when you already know you need to add something into a content ar
 - `addChild` is a record action, not a block action.
 - For the canonical `addChild` placement and live-target rule, follow [normative-contract.md](./normative-contract.md).
 - For localized writes, API may auto-merge default actions: `table` / `list` / `gridCard` commonly fill `filter` + `addNew` + `refresh`, and `details` commonly fills `edit`. Do not fight that completion with duplicate follow-up writes; read back first.
-- When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` or `popup.saveAsTemplate` decision already exists.
+- When you do need popup-capable `add-action` / `add-record-action`, keep `popup.tryTemplate=true` as the default execution fallback unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
 - If click-to-open already covers the requested details behavior on a shown Name/Title-like field, avoid adding a separate `view` record action unless the user explicitly asked for a button/action column.

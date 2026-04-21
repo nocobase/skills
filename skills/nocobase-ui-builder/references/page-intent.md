@@ -32,9 +32,9 @@ Use this file only when the task is whole-page authoring. If the request is real
 7. If the draft contains a repeat-eligible popup / block / fields scene, or one strong standard reusable scene, and you are actually deciding whether to bind / reuse / standardize a template-backed scene, probe [templates.md](./templates.md) before locking in that reusable path.
 8. Contextual `list-templates` is mandatory for those reusable scenes; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask should stay inline and skip template routing.
 9. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the execution fallback. Local popup content may remain as the fallback when present.
-10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
+10. If the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and probing found no usable template, prefer `popup.saveAsTemplate={ name, description }`. It cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 11. Assemble the final blueprint using [page-blueprint.md](./page-blueprint.md).
-12. Before the real write, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+12. Before the real write, run the local prepare-write gate (`node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
     - in `create`, every newly created `navigation.group` / `navigation.item` carries one semantic Ant Design icon
     - tabs count matches the request
     - every `tab.blocks` is non-empty
@@ -54,7 +54,7 @@ Use this file only when the task is whole-page authoring. If the request is real
 - Side-by-side blocks, relation tables, and deep popups normally stay inside one tab, not in separate route-backed tabs.
 - Users may describe blocks, relations, and actions in business language only. Infer the minimum executable structure instead of expanding into a rigid pseudo-spec.
 - Prefer `navigation.group.routeId` when the destination group is already known.
-- If visible same-title groups already exist, reuse one; do not create another same-title group just to disambiguate.
+- If visible same-title groups already exist and title lookup would hit multiple groups, stop and require explicit `navigation.group.routeId`; do not reuse one locally and do not create another same-title group just to disambiguate.
 - If the user says clicking a shown record or relation record opens details, prefer a field popup rather than inventing a button.
 - Keep `fields[]` as simple strings unless a field object is actually needed.
 - Omit `layout` only when the tab/popup contains at most one non-filter block. Otherwise decide the layout explicitly instead of relying on default vertical stacking.

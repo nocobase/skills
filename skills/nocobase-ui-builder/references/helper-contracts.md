@@ -8,7 +8,7 @@ If the task only needs local blueprint / preview artifacts or common-case drafti
 
 Use this before the first real whole-page write.
 
-- CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write`
+- CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json --prepare-write`
 - input: one page blueprint JSON document, or the helper envelope `{ requestBody, templateDecision }`
 - returns: normalized CLI write body plus the ASCII preview
 - rejects: common high-risk write-shape mistakes before the remote write
@@ -25,7 +25,7 @@ Use this helper in local JS code when you need the same prepare-write behavior w
 
 Use this when you only need the ASCII wireframe and are **not** preparing the real write body yet.
 
-- CLI: `node ./runtime/bin/nb-page-preview.mjs --stdin-json`
+- CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json`
 - input: one page blueprint JSON document
 - returns: preview-only result
 - do not use it as the first real write gate when `--prepare-write` is available
@@ -34,7 +34,10 @@ Use this when you only need the ASCII wireframe and are **not** preparing the re
 
 Use this when the task is JS / RunJS specific and you need local validation.
 
-- CLI: `node ./runtime/bin/nb-runjs.mjs validate --stdin-json --skill-mode`
+Before you run it, lock the authoring surface in [js-surfaces/index.md](./js-surfaces/index.md), fill the loop in [runjs-authoring-loop.md](./runjs-authoring-loop.md), and choose a canonical snippet from [js-snippets/catalog.json](./js-snippets/catalog.json). The validator contract now differs between render-style JS models, action-style event/linkage code, and value-return RunJS.
+
+- CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-runjs.mjs" validate --stdin-json --skill-mode`
 - input: `{ model, code, context? }`
 - returns: validation result, policy issues, and execution summary
 - use it for: JS blocks, JS fields, JS actions, and event-flow `Execute JavaScript` snippets
+- if it fails: repair with [runjs-repair-playbook.md](./runjs-repair-playbook.md) and retry at most 3 rounds

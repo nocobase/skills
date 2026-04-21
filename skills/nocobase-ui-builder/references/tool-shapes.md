@@ -31,7 +31,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - `layout` belongs only on `tabs[]` or inline `popup`, and when present it must be an object. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit keyed layout is required.
 - For repeat-eligible popup / block / fields scenes, contextual `list-templates` is mandatory before binding a template or finalizing a reusable/template-backed fallback; keyword-only search stays discovery-only. Fresh one-off pages with explicit local popup / block content, no existing template reference, and no reuse / save-template ask may stay inline and skip template routing.
 - When no explicit `popup.template` is present, use `popup.tryTemplate=true` as the default write fallback on popup-capable `add-field` / `add-fields`, `add-action` / `add-actions`, `add-record-action` / `add-record-actions`, `compose` action/field popup specs, and whole-page `applyBlueprint` inline popup specs. Local popup content may remain as the miss fallback. Keep [templates.md](./templates.md) as the planning source of truth.
-- When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
+- When the user explicitly wants the new local popup to become a reusable popup template immediately, use `popup.saveAsTemplate={ name, description }` on those same create-time popup write paths. It cannot be combined with `popup.template`, and it may coexist with `popup.tryTemplate=true`: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - For localized create/append writes, backend may merge default actions after write: `table` / `list` / `gridCard` often fill `filter` + `addNew` + `refresh`, and `details` often fills `edit`. Do not assume the request body is the final action list; read back the persisted surface before adding more actions or popup wiring.
 - When the intended UX is "click the shown title/name to open details", prefer field popup / `clickToOpen` / `openView` semantics and avoid adding a redundant `view` record action unless the user explicitly asked for a button/action column.
 
@@ -251,7 +251,7 @@ CLI request body:
 }
 ```
 
-When the target group is not already known, `navigation.group.title` is also valid; applyBlueprint will reuse a unique same-title group or create a new one when no match exists. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `update-menu` instead.
+When the target group is not already known, `navigation.group.title` is also valid; applyBlueprint will reuse a unique same-title group or create a new one when no match exists, but multi-match same-title cases must stop and require explicit `routeId` before write. Same-title reuse is title-only. `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`; if an existing group's metadata must change, use low-level `update-menu` instead.
 
 When the requirement is "click the shown record / relation record to open details", prefer a field popup rather than inventing a new action button:
 
@@ -478,7 +478,7 @@ Notes:
 - `fieldsLayout` is available on `compose` only for `createForm`, `editForm`, `details`, and `filterForm`. It uses the same `{ rows: [[...]] }` shape as top-level layout, but references field keys inside that one block.
 - Each `fieldsLayout` row must be non-empty, every keyed field must be placed exactly once, and object-cell `span` must be numeric.
 - `addBlock` does not accept `fieldsLayout`; when the first write must shape a field grid directly, prefer `compose` over `addBlock`.
-- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless a stronger explicit template/save-template decision already exists.
+- `compose` popup-capable field/action children follow the same popup contract as `add-field` / `add-action` / `add-record-action`: default to `popup.tryTemplate=true` unless an explicit `popup.template` or explicit `popup.tryTemplate=false` override already exists.
 - After `compose`, verify the persisted children rather than assuming the write body proves the final action order, popup-template binding, or click/open behavior.
 
 ### `configure`

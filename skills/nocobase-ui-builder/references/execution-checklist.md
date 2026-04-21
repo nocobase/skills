@@ -2,7 +2,7 @@
 
 Canonical front door is `nocobase-ctl flow-surfaces`. Use CLI first, and treat MCP only as the fallback transport after the CLI path has been repaired and still cannot expose the required runtime command family.
 
-Use this checklist by default. For global rules, see [normative-contract.md](./normative-contract.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
+Use this checklist after the matching quick route is already clear. For global rules, see [normative-contract.md](./normative-contract.md). For template planning and existing template reference edits, keep [templates.md](./templates.md) as the only source of truth.
 
 ## 1. Preflight
 
@@ -35,7 +35,7 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 - When no explicit `popup.template` is present, treat `popup.tryTemplate=true` as the write fallback, not as the planning truth source.
 - If there is no explicit local popup content, let the backend miss path continue; if there is local popup content, keep that content as the fallback.
 - When the user explicitly wants the new local popup itself to become reusable immediately, or the first repeated popup seed already exists as local popup content and contextual probing found no usable template, use `popup.saveAsTemplate={ name, description }`.
-- `popup.saveAsTemplate` requires explicit local `popup.blocks` and cannot be combined with `popup.template` or `popup.tryTemplate`.
+- `popup.saveAsTemplate` cannot be combined with `popup.template`; it may coexist with `popup.tryTemplate=true`, where a hit reuses the matched template directly and a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 - If a localized edit already hits an existing template reference, route through [templates.md](./templates.md) before writing.
 - Existing template reference edits default to the template-source route for template-owned content. Keep host-local config changes local, and treat page-scoped wording as not local-only intent.
 - If existing-reference scope is still unresolved, stop and clarify instead of auto-detaching or using `copy` as a safety fallback.
@@ -44,12 +44,12 @@ Use this checklist by default. For global rules, see [normative-contract.md](./n
 
 Use this path when the user is describing one entire page.
 
-1. Read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), [ascii-preview.md](./ascii-preview.md), and [tool-shapes.md](./tool-shapes.md).
+1. Start with [whole-page-quick.md](./whole-page-quick.md). Once whole-page routing is confirmed, read [page-intent.md](./page-intent.md), [page-blueprint.md](./page-blueprint.md), and [ascii-preview.md](./ascii-preview.md). Open [tool-shapes.md](./tool-shapes.md) only when preparing the real CLI body or MCP fallback envelope.
 2. Draft one entire page blueprint only. `applyBlueprint` is for one entire page, not a tiny patch.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
-6. Before the first write, run the local prepare-write gate (`node ./runtime/bin/nb-page-preview.mjs --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+6. Before the first write, run the local prepare-write gate (`node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
    - in `create`, every newly created `navigation.group` / `navigation.item` carries a semantic Ant Design icon
    - tabs count matches the request
    - every `tab.blocks` is non-empty
@@ -69,7 +69,7 @@ Use this path when the user is describing one entire page.
 
 Use this path when the user wants to change only part of an existing surface.
 
-1. Read [runtime-playbook.md](./runtime-playbook.md) first, then [tool-shapes.md](./tool-shapes.md).
+1. Start with [local-edit-quick.md](./local-edit-quick.md). Once localized-edit routing is confirmed, read [runtime-playbook.md](./runtime-playbook.md). Open [tool-shapes.md](./tool-shapes.md) only when the write shape is actually needed.
 2. Use `get` to locate the target. Use `describe-surface` only when the richer tree helps.
 3. Use `catalog` only when capability uncertainty is the real blocker.
 4. Keep the write as small as possible:
@@ -81,6 +81,7 @@ Use this path when the user wants to change only part of an existing surface.
 
 ## 5. Reaction Work
 
+- Start with [reaction-quick.md](./reaction-quick.md) when the task is reaction-first. Use this section only after that route is already confirmed.
 - Whole-page reaction work belongs in blueprint `reaction.items[]`.
 - Localized reaction work starts with `get-reaction-meta` and then writes through the matching `set-field-value-rules`, `set-field-linkage-rules`, `set-block-linkage-rules`, or `set-action-linkage-rules`.
 - Keep form field-value and form field-linkage writes targeted at the outer form block uid/path, not the inner grid.

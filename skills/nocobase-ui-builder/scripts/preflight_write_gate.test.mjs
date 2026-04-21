@@ -49,6 +49,8 @@ test('preflight_write_gate exits with blocker code for forbidden RunJS globals',
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.audit.blockers.some((item) => item.code === 'RUNJS_FORBIDDEN_GLOBAL'), true);
+  assert.equal(parsed.audit.runjsInspection.repairClassSummary['blocked-global-stop'], 1);
+  assert.equal(parsed.audit.runjsInspection.surfaceSummary['js-model.render'].nodeCount, 1);
 });
 
 test('preflight_write_gate writes canonicalized payload for resource reads', () => {
@@ -87,6 +89,9 @@ test('preflight_write_gate writes canonicalized payload for resource reads', () 
 
   const parsed = JSON.parse(stdout);
   assert.equal(parsed.ok, true);
+  assert.equal(parsed.canonicalize.autoRewriteCount, 1);
+  assert.equal(parsed.canonicalize.hasAutoRewrite, true);
+  assert.equal(parsed.canonicalize.surfaceSummary['js-model.render'].nodeCount, 1);
   assert.equal(fs.existsSync(outFile), true);
 
   const canonicalizedPayload = JSON.parse(fs.readFileSync(outFile, 'utf8'));

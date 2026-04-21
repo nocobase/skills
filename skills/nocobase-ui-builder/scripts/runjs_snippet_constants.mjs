@@ -1,0 +1,61 @@
+export const RUNJS_SNIPPET_TIERS = new Set(['safe', 'guarded', 'advanced']);
+
+export const RUNJS_SNIPPET_FAMILIES = new Set([
+  'global',
+  'scene/block',
+  'scene/detail',
+  'scene/form',
+  'scene/table',
+  'value-return',
+  'render',
+  'action',
+]);
+
+export const RUNJS_SCENE_HINTS = new Set([
+  'eventFlow',
+  'linkage',
+  'formValue',
+  'customVariable',
+  'block',
+  'detail',
+  'form',
+  'table',
+  'action',
+]);
+
+export const RUNJS_SURFACES = new Set([
+  'event-flow.execute-javascript',
+  'linkage.execute-javascript',
+  'reaction.value-runjs',
+  'custom-variable.runjs',
+  'js-model.render',
+  'js-model.action',
+]);
+
+export const RUNJS_EFFECT_STYLES = new Set(['action', 'value', 'render']);
+
+export const RUNJS_MODEL_USES = new Set([
+  'JSActionModel',
+  'JSBlockModel',
+  'JSCollectionActionModel',
+  'JSColumnModel',
+  'JSEditableFieldModel',
+  'FilterFormJSActionModel',
+  'FormJSFieldItemModel',
+  'JSFieldModel',
+  'JSFormActionModel',
+  'JSItemActionModel',
+  'JSItemModel',
+  'JSRecordActionModel',
+]);
+
+export const RUNJS_SNIPPET_REQUIRED_DOC_SECTIONS = [
+  'Use when',
+  'Do not use when',
+  'Surfaces',
+  'Required ctx roots',
+  'Contract',
+  'Normalized snippet',
+  'Editable slots',
+  'Skill-mode notes',
+];

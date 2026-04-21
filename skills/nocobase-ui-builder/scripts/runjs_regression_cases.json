@@ -1,0 +1,172 @@
+[
+  {
+    "id": "positive-event-flow-message",
+    "intent": "notify",
+    "surface": "event-flow.execute-javascript",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["global/message-success"],
+    "code": "ctx.message.success(ctx.t('Operation succeeded'));",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-linkage-set-field",
+    "intent": "set-field-value",
+    "surface": "linkage.execute-javascript",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["scene/form/set-field-value"],
+    "code": "ctx.form?.setFieldsValue?.({ status: 'draft' });",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-value-return-subtotal",
+    "intent": "calculate",
+    "surface": "reaction.value-runjs",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["value-return/subtotal"],
+    "code": "const quantity = Number(ctx.formValues?.quantity || 0);\nconst unitPrice = Number(ctx.formValues?.unitPrice || 0);\nreturn quantity * unitPrice;",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-render",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "ctx.render(String(ctx.record?.title ?? '-'));",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "positive-js-action-resource-count",
+    "intent": "iterate-selected-rows",
+    "surface": "js-model.action",
+    "modelOrHost": "JSActionModel",
+    "preferredSnippetIds": ["scene/table/selected-rows-count"],
+    "code": "const rows = ctx.resource?.getSelectedRows?.() || [];\nctx.message.info(ctx.t('Selected {{count}} rows', { count: rows.length }));",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
+    "id": "negative-value-missing-return",
+    "intent": "calculate",
+    "surface": "reaction.value-runjs",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["value-return/subtotal"],
+    "code": "const subtotal = Number(ctx.formValues?.subtotal || 0);",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_VALUE_SURFACE_RETURN_REQUIRED"]
+  },
+  {
+    "id": "negative-value-render",
+    "intent": "calculate",
+    "surface": "reaction.value-runjs",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["value-return/subtotal"],
+    "code": "ctx.render('bad');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_VALUE_SURFACE_RETURN_REQUIRED", "RUNJS_VALUE_SURFACE_CTX_RENDER_FORBIDDEN"]
+  },
+  {
+    "id": "negative-unknown-surface",
+    "intent": "notify",
+    "surface": "runjs.unknown",
+    "modelOrHost": null,
+    "preferredSnippetIds": [],
+    "code": "ctx.message.success('ok');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_SURFACE_UNRESOLVED"]
+  },
+  {
+    "id": "negative-unknown-model",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "TableBlockModel",
+    "preferredSnippetIds": [],
+    "code": "ctx.render('bad');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_UNKNOWN_MODEL_USE"]
+  },
+  {
+    "id": "negative-action-incompatible-model",
+    "intent": "notify",
+    "surface": "js-model.action",
+    "modelOrHost": "TableBlockModel",
+    "preferredSnippetIds": [],
+    "code": "ctx.message.success('ok');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_UNKNOWN_MODEL_USE"]
+  },
+  {
+    "id": "negative-action-missing-model",
+    "intent": "notify",
+    "surface": "js-model.action",
+    "modelOrHost": null,
+    "preferredSnippetIds": [],
+    "code": "ctx.message.success('ok');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_UNKNOWN_MODEL_USE"]
+  },
+  {
+    "id": "negative-blocked-global",
+    "intent": "request-data",
+    "surface": "js-model.action",
+    "modelOrHost": "JSActionModel",
+    "preferredSnippetIds": ["global/http-request"],
+    "code": "await fetch('/api/tasks:list');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_FORBIDDEN_GLOBAL"]
+  },
+  {
+    "id": "negative-blocked-open-view",
+    "intent": "notify",
+    "surface": "js-model.action",
+    "modelOrHost": "JSActionModel",
+    "preferredSnippetIds": [],
+    "code": "await ctx.openView('popupUid');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_BLOCKED_CTX_CAPABILITY"]
+  },
+  {
+    "id": "negative-event-flow-form-root",
+    "intent": "set-field-value",
+    "surface": "event-flow.execute-javascript",
+    "modelOrHost": null,
+    "preferredSnippetIds": [],
+    "code": "ctx.form?.setFieldsValue?.({ title: 'x' });",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_UNKNOWN_CTX_MEMBER"]
+  },
+  {
+    "id": "negative-render-missing-render-call",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["render/text-from-record"],
+    "code": "const title = String(ctx.record?.title || '');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
+  },
+  {
+    "id": "negative-computed-open-view",
+    "intent": "notify",
+    "surface": "js-model.action",
+    "modelOrHost": "JSActionModel",
+    "preferredSnippetIds": [],
+    "code": "const method = 'openView'; await ctx[method]('popupUid');",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_BLOCKED_CTX_CAPABILITY"]
+  },
+  {
+    "id": "warning-resource-request-reroute",
+    "intent": "request-data",
+    "surface": "event-flow.execute-javascript",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["global/resource-list"],
+    "code": "await ctx.request({ url: 'tasks:list' });",
+    "expectedOk": true,
+    "expectedCodes": ["RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST"]
+  }
+]

@@ -51,7 +51,7 @@ Core rules:
 - Preferred CLI family is `nocobase-ctl flow-surfaces set-event-flows`.
 - Preferred body key is `flowRegistry`; `flows` is only a tolerated alias.
 - Always read the full current target first, then preserve the existing `flowRegistry` object shape unless the user explicitly wants a full redesign.
-- For `Execute JavaScript` steps, validate the code first through [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.
+- For `Execute JavaScript` steps, validate the code first through [js.md](./js.md), [js-surfaces/event-flow.md](./js-surfaces/event-flow.md), and [runjs-runtime.md](./runjs-runtime.md), then write the validated code back into the existing step's `params.code`.
 - Do not invent event names, flow keys, step keys, or step payload shapes locally when the live readback has not shown them yet.
 - If `on` is an object instead of a bare string, preserve its `eventName / phase / flowKey / stepKey` structure from readback.
 
@@ -300,8 +300,8 @@ Common action settings suitable for direct inline use:
 Notes:
 
 - `popup`, `popup.template`, `popup.tryTemplate`, and `popup.saveAsTemplate` are sibling write fields, not `settings` keys.
-- For popup-capable localized writes without an explicit `popup.template`, default to `popup.tryTemplate=true`.
-- If the first local popup should immediately become reusable, use `popup.saveAsTemplate={ name, description }` together with explicit local `popup.blocks`.
+- For popup-capable localized writes without an explicit `popup.template`, default to `popup.tryTemplate=true`, including cases that also carry `popup.saveAsTemplate`.
+- If the first local popup should immediately become reusable, use `popup.saveAsTemplate={ name, description }` together with explicit local `popup.blocks`; it cannot be combined with `popup.template`, and with `popup.tryTemplate=true` it acts on the local miss fallback rather than blocking template reuse.
 
 ### `add-record-action`
 
