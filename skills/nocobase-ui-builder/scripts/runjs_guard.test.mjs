@@ -475,6 +475,23 @@ test('inspectRunJSCode accepts top-level control-flow ctx.render calls on render
   assert.equal(result.ok, true);
 });
 
+test('inspectRunJSCode accepts regex quote literals before a top-level ctx.render call', async () => {
+  const result = await inspectRunJSCode({
+    surface: 'js-model.render',
+    modelUse: 'JSBlockModel',
+    code: `
+      const escapeHtml = (value) => String(value)
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+      ctx.render(escapeHtml('Alice'));
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.length, 0);
+});
+
 test('bundled snapshot contains one-time extracted form/item action model contracts', () => {
   const { contract, source } = loadRunJSContract({ snapshotPath: SNAPSHOT_PATH });
 
@@ -720,6 +737,20 @@ const response = await ctx.request({
   assert.equal(getResult.code.includes("ctx.makeResource('SingleRecordResource')"), true);
   assert.equal(getResult.code.includes('__runjsResource.setFilterByTk(currentTaskId);'), true);
   assert.equal(getResult.transforms.some((item) => item.code === 'RUNJS_REQUEST_GET_TO_SINGLE_RECORD_RESOURCE'), true);
+
+  const regexPrefixResult = canonicalizeRunJSCode({
+    modelUse: 'JSBlockModel',
+    code: `const escapeHtml = (value) => String(value)
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+const response = await ctx.request({
+  url: 'task:list',
+  method: 'get',
+});`,
+  });
+  assert.equal(regexPrefixResult.changed, true);
+  assert.equal(regexPrefixResult.code.includes("ctx.makeResource('MultiRecordResource')"), true);
+  assert.equal(regexPrefixResult.transforms.some((item) => item.code === 'RUNJS_REQUEST_LIST_TO_MULTI_RECORD_RESOURCE'), true);
 });
 
 test('inspectRunJSCode accepts JSColumnModel and JSEditableFieldModel specific context members', async () => {

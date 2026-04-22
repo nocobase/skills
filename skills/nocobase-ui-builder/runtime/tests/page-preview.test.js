@@ -820,6 +820,39 @@ test('prepareApplyBlueprintRequest requires description on defaults popup values
   );
 });
 
+test('prepareApplyBlueprintRequest warns when current-record field popups need collectionMetadata but none was provided', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: [
+              {
+                field: 'nickname',
+                popup: {
+                  title: 'User details',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.warnings, ['Defaults completeness check was skipped because collectionMetadata was not provided.']);
+  assert.deepEqual(result.defaultsRequirements, { skipped: true });
+});
+
 test('prepareApplyBlueprintRequest warns when defaults completeness needs collectionMetadata but none was provided', () => {
   const result = prepareApplyBlueprintRequest({
     version: '1',
@@ -845,6 +878,65 @@ test('prepareApplyBlueprintRequest warns when defaults completeness needs collec
   assert.deepEqual(result.errors, []);
   assert.deepEqual(result.warnings, ['Defaults completeness check was skipped because collectionMetadata was not provided.']);
   assert.deepEqual(result.defaultsRequirements, { skipped: true });
+});
+
+test('prepareApplyBlueprintRequest validates current-record field popup defaults completeness against collectionMetadata', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'nickname',
+                  popup: {
+                    title: 'User details',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup-description' && issue.path === 'defaults.collections.users.popups.view.description',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest validates defaults completeness against collectionMetadata', () => {
@@ -970,6 +1062,56 @@ test('prepareApplyBlueprintRequest reports missing popup description only for re
   assert.equal(
     result.errors.some((issue) => issue.path === 'defaults.collections.users.popups.addNew.description'),
     false,
+  );
+});
+
+test('prepareApplyBlueprintRequest rejects dotted collection default fieldGroups paths', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Roles' },
+      defaults: {
+        collections: {
+          roles: {
+            fieldGroups: [
+              {
+                key: 'basic',
+                title: 'Basic info',
+                fields: ['id', 'name', 'name.title', 'title', 'description', 'scope', 'priority', 'status', 'category', 'color', 'code', 'sort', 'notes'],
+              },
+            ],
+            popups: {
+              view: { name: 'Role details', description: 'View one role record.' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'rolesTable',
+              type: 'table',
+              collection: 'roles',
+              fields: ['name'],
+              recordActions: ['view'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'default-field-group-unknown-field'
+        && issue.path === 'defaults.collections.roles.fieldGroups[0].fields[2]',
+    ),
   );
 });
 

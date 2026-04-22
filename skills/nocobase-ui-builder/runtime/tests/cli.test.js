@@ -53,6 +53,38 @@ test('validate command accepts stdin json payload', async () => {
   assert.equal('preview' in payload, false);
 });
 
+test('validate command accepts stdin json payload with regex quote literals before ctx.render', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      model: 'JSBlockModel',
+      surface: 'js-model.render',
+      code: `
+        const escapeHtml = (value) => String(value)
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+        ctx.render(escapeHtml('Alice'));
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.usedContextPaths.includes('render'));
+  assert.equal(payload.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'), false);
+});
+
 test('validate command rejects strict render snippets without explicit ctx.render', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

@@ -439,7 +439,7 @@ test('docs keep canonical CLI-first envelope boundaries', () => {
   assert.match(toolShapes, /`nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body/i);
 
   const asciiPreview = read('references/ascii-preview.md');
-  assert.match(asciiPreview, /\{ requestBody, templateDecision \}/i);
+  assert.match(asciiPreview, /\{\s*requestBody,\s*templateDecision\?,\s*collectionMetadata\?\s*\}/i);
   assert.match(asciiPreview, /normalized `templateDecision`/i);
   assert.doesNotMatch(asciiPreview, /return the normalized \{ requestBody: <blueprint> \} tool-call envelope/i);
 });
@@ -1119,6 +1119,18 @@ test('helper contracts keep prepare-write caller-driven for collectionMetadata c
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });
 
+test('prepare-write helper-envelope docs include optional collectionMetadata', () => {
+  for (const relativePath of [
+    'references/ascii-preview.md',
+    'references/template-decision-summary.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(text, /requestBody/i, `${relativePath} should keep requestBody in the helper envelope`);
+    assert.match(text, /templateDecision/i, `${relativePath} should keep templateDecision in the helper envelope`);
+    assert.match(text, /collectionMetadata/i, `${relativePath} should document optional collectionMetadata in the helper envelope`);
+  }
+});
+
 test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () => {
   for (const relativePath of [
     'SKILL.md',
@@ -1148,6 +1160,20 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
       `${relativePath} should prohibit defaults.blocks`,
     );
   }
+
+  const toolShapes = read('references/tool-shapes.md');
+  assert.match(
+    toolShapes,
+    /"addNew": \{ "name": "[^"]+", "description": "[^"]+" \}[\s\S]{0,120}"view": \{ "name": "[^"]+", "description": "[^"]+" \}[\s\S]{0,120}"edit": \{ "name": "[^"]+", "description": "[^"]+" \}/i,
+    'tool-shapes should keep popup descriptions in the defaults example',
+  );
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}[\s\S]{0,120}associations|associations[\s\S]{0,120}popups?[\s\S]{0,80}\{\s*name,\s*description\s*\}/i,
+    'default prompt should keep popup defaults { name, description } and associations visible together',
+  );
 });
 
 test('general skill docs stay env-neutral while helper scripts avoid fixed local server defaults', () => {

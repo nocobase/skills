@@ -241,9 +241,9 @@ CLI request body:
     "collections": {
       "employees": {
         "popups": {
-          "addNew": { "name": "Create employee" },
-          "view": { "name": "Employee details" },
-          "edit": { "name": "Edit employee" }
+          "addNew": { "name": "Create employee", "description": "Create one employee record." },
+          "view": { "name": "Employee details", "description": "View one employee record." },
+          "edit": { "name": "Edit employee", "description": "Edit one employee record." }
         }
       }
     }

@@ -2055,11 +2055,16 @@ function analyzeInnerHTMLAssignmentsFromSource({ scan, initializers, modelUse, f
   };
 }
 
-function collectCtxRequestRewritesFromSource({ scan, initializers, staticStrings, modelUse, findingModelUse, path: findingPath }) {
+function collectCtxRequestRewritesFromAst({ scan, initializers, modelUse, findingModelUse, path: findingPath }) {
   const rewrites = [];
-  forEachMemberChain(scan, staticStrings, (chain) => {
-    if (chain.segments[0] !== 'ctx' || chain.segments[1] !== 'request') return;
-    if (!isCallAfter(scan.masked, chain.end)) return;
+  for (const entry of scan.semanticNodes?.ctxRequestCalls || []) {
+    const chain = {
+      segments: ['ctx', ...String(entry.path || '').split('.').filter(Boolean)],
+      start: entry.calleeStart ?? entry.start,
+      end: entry.calleeEnd ?? entry.end,
+      dynamicComputed: false,
+      segmentStarts: [],
+    };
     const result = analyzeCtxRequestCallFromSource({
       chain,
       scan,
@@ -2071,7 +2076,7 @@ function collectCtxRequestRewritesFromSource({ scan, initializers, staticStrings
     if (result?.rewrite) {
       rewrites.push(result.rewrite);
     }
-  });
+  }
   return rewrites;
 }
 
@@ -2105,7 +2110,7 @@ function inspectRunJSSemantics({ code, modelUse = 'JSBlockModel', findingModelUs
   }
 
   const findings = [];
-  const { initializers, staticStrings } = collectSimpleInitializers(scan.source, scan.masked);
+  const { initializers } = collectSimpleInitializers(scan.source, scan.masked);
   const env = collectVariableInitializers(scan.wrappedBody || scan.wrappedAst);
 
   for (const entry of scan.semanticNodes?.ctxRequestCalls || []) {
@@ -2136,10 +2141,9 @@ function inspectRunJSSemantics({ code, modelUse = 'JSBlockModel', findingModelUs
   }
 
   const rewrites = [
-    ...collectCtxRequestRewritesFromSource({
+    ...collectCtxRequestRewritesFromAst({
       scan,
       initializers,
-      staticStrings,
       modelUse,
       findingModelUse,
       path: findingPath,
@@ -2433,12 +2437,66 @@ function inspectStaticCode({
 
   const declared = collectDeclaredNames(scan.masked);
   const { staticStrings } = collectSimpleInitializers(scan.source, scan.masked);
+  const astCtxChainKeys = new Set();
+
+  for (const entry of scan.semanticNodes?.ctxMemberChains || []) {
+    const memberName = entry.segments[0] || null;
+    const memberStart = entry.memberStart ?? entry.start;
+    const loc = getLineColumnFromPos(scan.source, memberStart);
+    astCtxChainKeys.add(`${entry.start}:${entry.path}:${entry.dynamicComputed ? '1' : '0'}`);
+
+    if (!memberName && entry.dynamicComputed) {
+      addFinding(findings, createFinding({
+        code: 'RUNJS_DYNAMIC_CTX_MEMBER_UNRESOLVED',
+        message: 'Dynamic ctx[...] access cannot be validated. Use an explicit ctx.<member> reference.',
+        path: findingPath,
+        modelUse: findingModelUse,
+        line: loc.line,
+        column: loc.column,
+      }));
+      continue;
+    }
+
+    if (!memberName) continue;
+
+    if (memberName === 'openView') {
+      addFinding(findings, createFinding({
+        code: 'RUNJS_BLOCKED_CTX_CAPABILITY',
+        message: 'ctx.openView(...) is reference-only for this skill. Configure popup/action/field popup behavior outside JS.',
+        path: findingPath,
+        modelUse: findingModelUse,
+        line: loc.line,
+        column: loc.column,
+        details: {
+          capability: 'ctx.openView',
+          reroute: 'popup-action-or-field-popup',
+        },
+      }));
+      continue;
+    }
+
+    if (!effectiveAllowedCtxRoots.has(memberName)) {
+      addFinding(findings, createFinding({
+        code: 'RUNJS_UNKNOWN_CTX_MEMBER',
+        message: `ctx.${memberName} is not part of the known RunJS contract for ${findingModelUse}.`,
+        path: findingPath,
+        modelUse: findingModelUse,
+        line: loc.line,
+        column: loc.column,
+      }));
+    }
+  }
 
   forEachMemberChain(scan, staticStrings, (chain) => {
     const rootName = chain.segments[0];
     const memberName = chain.segments[1] || null;
     const memberStart = chain.segmentStarts[1] ?? chain.dynamicComputedStart ?? chain.start;
     const loc = getLineColumnFromPos(scan.source, memberStart);
+
+    if (rootName === 'ctx') {
+      const sourceKey = `${chain.start}:${chain.segments.slice(1).join('.')}:${chain.dynamicComputed ? '1' : '0'}`;
+      if (astCtxChainKeys.has(sourceKey)) return;
+    }
 
     if (rootName === 'ctx' && chain.dynamicComputed && !memberName) {
       addFinding(findings, createFinding({

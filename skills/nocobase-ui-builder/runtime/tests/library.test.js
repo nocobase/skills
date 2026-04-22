@@ -28,6 +28,28 @@ test('validateRunJSSnippet accepts JSX after compat lowering', async () => {
   assert.equal('preview' in result, false);
 });
 
+test('validateRunJSSnippet keeps explicit ctx.render visible after regex literals with quotes', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSBlockModel',
+    surface: 'js-model.render',
+    code: `
+      const escapeHtml = (value) => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+      ctx.render(escapeHtml('Alice'));
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.ok(result.usedContextPaths.includes('render'));
+  assert.equal(result.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'), false);
+});
+
 test('strict render models reject bare compat access', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSColumnModel',
