@@ -290,10 +290,15 @@ export function collectWrappedRunJSSemantics(input, options = {}) {
     .filter((entry) => ['request', 'api.request'].includes(entry.path))
     .map((entry) => ({
       node: entry.node,
+      calleeNode: entry.calleeNode,
       ancestors: entry.ancestors,
       path: entry.path,
       start: entry.start,
       end: entry.end,
+      calleeStart: entry.calleeStart,
+      calleeEnd: entry.calleeEnd,
+      segments: [...entry.segments],
+      memberStart: entry.memberStart,
     }));
 
   return {

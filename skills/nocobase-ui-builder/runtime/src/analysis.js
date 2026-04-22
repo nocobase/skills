@@ -1,6 +1,7 @@
 import vm from 'node:vm';
 import { getAllowedContextPaths, getFlattenedContract, getRootBehaviors } from './profiles.js';
 import { collectCompiledRunJSSemantics } from './runjs-parser.js';
+import { maskJavaScriptSource } from './source-mask.js';
 import { compileUserCode as compileUserCodeImpl } from './user-code.js';
 import { safeErrorMessage } from './utils.js';
 
@@ -161,125 +162,7 @@ function readIdentifier(source, index) {
 }
 
 function maskSource(source) {
-  const output = [];
-  const stateStack = [{ mode: 'code' }];
-  for (let index = 0; index < source.length; index += 1) {
-    const char = source[index];
-    const next = source[index + 1];
-    const state = stateStack[stateStack.length - 1];
-
-    if (state.mode === 'line-comment') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (char === '\n') stateStack.pop();
-      continue;
-    }
-    if (state.mode === 'block-comment') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (char === '*' && next === '/') {
-        output.push(' ');
-        index += 1;
-        stateStack.pop();
-      }
-      continue;
-    }
-    if (state.mode === 'single-quote') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (state.escape) {
-        state.escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        state.escape = true;
-        continue;
-      }
-      if (char === "'") stateStack.pop();
-      continue;
-    }
-    if (state.mode === 'double-quote') {
-      output.push(char === '\n' ? '\n' : ' ');
-      if (state.escape) {
-        state.escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        state.escape = true;
-        continue;
-      }
-      if (char === '"') stateStack.pop();
-      continue;
-    }
-    if (state.mode === 'template') {
-      if (state.escape) {
-        output.push(char === '\n' ? '\n' : ' ');
-        state.escape = false;
-        continue;
-      }
-      if (char === '\\') {
-        output.push(' ');
-        state.escape = true;
-        continue;
-      }
-      if (char === '`') {
-        output.push(' ');
-        stateStack.pop();
-        continue;
-      }
-      if (char === '$' && next === '{') {
-        output.push('$');
-        output.push('{');
-        index += 1;
-        stateStack.push({ mode: 'template-expression', braceDepth: 1 });
-        continue;
-      }
-      output.push(char === '\n' ? '\n' : ' ');
-      continue;
-    }
-
-    if (char === '/' && next === '/') {
-      output.push(' ');
-      output.push(' ');
-      index += 1;
-      stateStack.push({ mode: 'line-comment' });
-      continue;
-    }
-    if (char === '/' && next === '*') {
-      output.push(' ');
-      output.push(' ');
-      index += 1;
-      stateStack.push({ mode: 'block-comment' });
-      continue;
-    }
-    if (char === "'") {
-      output.push(' ');
-      stateStack.push({ mode: 'single-quote', escape: false });
-      continue;
-    }
-    if (char === '"') {
-      output.push(' ');
-      stateStack.push({ mode: 'double-quote', escape: false });
-      continue;
-    }
-    if (char === '`') {
-      output.push(' ');
-      stateStack.push({ mode: 'template', escape: false });
-      continue;
-    }
-    if (state.mode === 'template-expression') {
-      if (char === '{') {
-        state.braceDepth += 1;
-        output.push('{');
-        continue;
-      }
-      if (char === '}') {
-        state.braceDepth -= 1;
-        output.push('}');
-        if (state.braceDepth === 0) stateStack.pop();
-        continue;
-      }
-    }
-    output.push(char);
-  }
-  return output.join('');
+  return maskJavaScriptSource(source);
 }
 
 function parseStringLiteral(source, index) {
