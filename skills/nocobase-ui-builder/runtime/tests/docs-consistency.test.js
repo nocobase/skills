@@ -935,7 +935,7 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
   const executionChecklist = read('references/execution-checklist.md');
   assert.match(
     executionChecklist,
-    /Unless follow-up operations or explicit inspection are needed, stop after successful `?apply-blueprint`?/i,
+    /successful `?apply-blueprint`? response is the default stop point[\s\S]{0,120}follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
     'execution-checklist should stop whole-page apply-blueprint by default after a successful response',
   );
   assert.doesNotMatch(
@@ -976,10 +976,22 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
     'verification should keep success-only whole-page reporting from sounding like persisted readback',
   );
 
+  const pageBlueprint = read('references/page-blueprint.md');
+  assert.doesNotMatch(
+    pageBlueprint,
+    /resolved page target plus final `surface` readback/i,
+    'page-blueprint should no longer describe applyBlueprint response as a final surface readback',
+  );
+  assert.match(
+    pageBlueprint,
+    /successful response as the default stop point[\s\S]{0,120}follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
+    'page-blueprint should align its response semantics with the success-only whole-page contract',
+  );
+
   const wholePageQuick = read('references/whole-page-quick.md');
   assert.match(
     wholePageQuick,
-    /successful whole-page `?applyBlueprint`?[\s\S]{0,80}default to no extra `?get`?/i,
+    /successful whole-page `?applyBlueprint`?[\s\S]{0,120}default stop point[\s\S]{0,120}follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
     'whole-page-quick should stop after successful applyBlueprint unless follow-up work needs live reads',
   );
 
@@ -1036,7 +1048,7 @@ test('whole-page applyBlueprint docs default to success-only completion while lo
   const normative = read('references/normative-contract.md');
   assert.match(
     normative,
-    /Whole-page create[\s\S]{0,160}successful response; optional follow-up `?get`? only when localized downstream work or explicit inspection is needed/i,
+    /Whole-page create[\s\S]{0,160}successful response; follow-up `?get`? only when follow-up localized work or explicit inspection needs live structure/i,
     'normative-contract should make follow-up get conditional for whole-page create',
   );
 });
@@ -1231,7 +1243,7 @@ test('whole-page defaults docs require recomputing involved collections and keep
     );
     assert.match(
       text,
-      /fieldGroups[\s\S]{0,220}(target collection|collection-only|do not create per-association)[\s\S]{0,220}popups\.associations|popups\.associations[\s\S]{0,220}(target collection|collection-only|do not create per-association)[\s\S]{0,220}fieldGroups|popups\.associations[\s\S]{0,220}fieldGroups[\s\S]{0,220}(target collection|collection-only|do not create per-association)/i,
+      /fieldGroups[\s\S]{0,360}(target collection|collection-only|do not create per-association)[\s\S]{0,360}popups\.associations|popups\.associations[\s\S]{0,360}(target collection|collection-only|do not create per-association)[\s\S]{0,360}fieldGroups|popups\.associations[\s\S]{0,360}fieldGroups[\s\S]{0,360}(target collection|collection-only|do not create per-association)/i,
       `${relativePath} should keep target-collection fieldGroups separate from association popup naming`,
     );
   }

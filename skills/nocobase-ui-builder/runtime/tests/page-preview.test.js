@@ -1349,6 +1349,37 @@ test('prepareApplyBlueprintRequest validates defaults completeness against colle
   );
 });
 
+test('prepareApplyBlueprintRequest reports each missing default collection path only once when direct and association scopes overlap', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: ['roles.name'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(
+    result.errors.filter(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.users',
+    ).length,
+    1,
+  );
+});
+
 test('prepareApplyBlueprintRequest surfaces users fieldGroups defaults errors once collectionMetadata is supplied', () => {
   const largeUsersCollectionMetadata = {
     collections: {
@@ -1561,6 +1592,83 @@ test('prepareApplyBlueprintRequest keeps fixed association defaults when popup.b
     ),
     false,
   );
+});
+
+test('prepareApplyBlueprintRequest does not upgrade relation popup child blocks without collection into direct collection defaults', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                department: {
+                  view: { name: 'Department details', description: 'View one related department.' },
+                  addNew: { name: 'Create department', description: 'Create one related department.' },
+                  edit: { name: 'Edit department', description: 'Edit one related department.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersDetails',
+              type: 'details',
+              collection: 'users',
+              fields: [
+                {
+                  field: 'department.title',
+                  popup: {
+                    title: 'Department details',
+                    blocks: [
+                      {
+                        key: 'departmentNote',
+                        type: 'markdown',
+                        content: 'Department note',
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'department',
+        targetCollection: 'departments',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
 });
 
 test('prepareApplyBlueprintRequest does not invent self-associations when nested popup blocks contain associatedRecords tables', () => {
@@ -4796,7 +4904,7 @@ test('prepareApplyBlueprintRequest rejects invalid popup.saveAsTemplate payloads
   );
 });
 
-test('prepareApplyBlueprintRequest ignores local popup blocks when a popup template is bound', () => {
+test('prepareApplyBlueprintRequest ignores local popup blocks for write shape when a popup template is bound but still collects their defaults scope', () => {
   const result = prepareApplyBlueprintRequest(
     {
       version: '1',
@@ -4863,8 +4971,29 @@ test('prepareApplyBlueprintRequest ignores local popup blocks when a popup templ
     },
   );
 
-  assert.equal(result.ok, true);
-  assert.equal(result.errors.length, 0);
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+  );
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['addNew', 'edit', 'view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [],
+  });
   assert.match(result.ascii, /Template: user-edit-popup-template \[mode=reference\]/);
   assert.match(result.ascii, /Ignored local popup keys: mode, blocks, layout/);
   assert.deepEqual(result.templateDecision, {

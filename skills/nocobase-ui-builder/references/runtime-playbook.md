@@ -43,7 +43,7 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
 | initialize a menu item into a page | `nocobase-ctl flow-surfaces create-page` |
 
-For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`. A successful `apply-blueprint` response is the default stop point for whole-page create / replace / same-blueprint reactions. Read live again only when follow-up localized work or explicit inspection needs pageSchemaUid/live uids.
+For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`. A successful `apply-blueprint` response is the default stop point for whole-page create / replace / same-blueprint reactions. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure and pageSchemaUid/live uids.
 
 ## 4. Targeting Notes
 

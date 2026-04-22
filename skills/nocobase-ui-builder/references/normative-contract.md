@@ -26,9 +26,9 @@ If a lower-priority local document conflicts with a live contract fact, follow t
 
 ### Default split
 
-- **Whole-page create** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="create")` -> successful response; optional follow-up `get` only when localized downstream work or explicit inspection is needed.
-- **Whole-page replace** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="replace")` -> successful response; optional follow-up `get` only when localized downstream work or explicit inspection is needed.
-- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `nocobase-ctl flow-surfaces apply-blueprint` -> successful response; optional follow-up `get` only when localized downstream work or explicit inspection is needed.
+- **Whole-page create** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="create")` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+- **Whole-page replace** -> `nocobase-ctl flow-surfaces apply-blueprint` -> simplified **page blueprint** -> backend `applyBlueprint(mode="replace")` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
+- **Whole-page interaction / reaction authoring** -> the same page blueprint with top-level `reaction.items[]` -> `nocobase-ctl flow-surfaces apply-blueprint` -> successful response; follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 - **Localized edit on an existing surface** -> matching `nocobase-ctl flow-surfaces ...` command -> low-level APIs (`compose`, `configure`, `add*`, `move*`, `remove*`, `updateMenu`, `createPage`, etc.) -> readback.
 - **Localized interaction / reaction edit** -> `nocobase-ctl flow-surfaces get-reaction-meta` -> matching `set*Rules` -> readback.
 
@@ -207,7 +207,7 @@ For `replace` runs:
 - `navigation.group.routeId` is exact targeting only and must not be mixed with `icon`, `tooltip`, or `hideInMenu`
 - same-title reuse is title-only; if an existing group's metadata must change, use low-level `updateMenu` instead of applyBlueprint create
 
-Use the resolved page `target` from the public response as the carry-forward locator. A successful response is enough for the default whole-page completion path; run follow-up `get` only when explicit inspection or localized downstream work is needed.
+Use the resolved page `target` from the public response as the carry-forward locator. A successful response is the default whole-page stop point; run follow-up `get` only when follow-up localized work or explicit inspection needs live structure.
 
 ### Scope boundary
 

@@ -1161,7 +1161,7 @@ function popupHasExplicitBlocks(popup) {
 }
 
 function shouldTraversePopupBlocks(popup) {
-  return isPlainObject(popup) && popupHasExplicitBlocks(popup) && !popupHasExplicitTemplate(popup);
+  return isPlainObject(popup) && popupHasExplicitBlocks(popup);
 }
 
 function getNodeBinding(node) {
@@ -1375,24 +1375,28 @@ function resolveAssociationRequirement(collectionMetadata, sourceCollection, ass
 function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
   const binding = getNodeBinding(block);
   const directCollection = getCollectionLabel(block);
-  const inheritedCurrentCollection = normalizeText(parentContext?.currentCollection);
-  let currentCollection = directCollection || inheritedCurrentCollection;
+  const inheritedSurfaceCollection = normalizeText(parentContext?.surfaceCollection || parentContext?.currentCollection);
+  const normalizedDirectCollection = normalizeText(directCollection);
+  let surfaceCollection = normalizedDirectCollection || inheritedSurfaceCollection;
+  let directCollectionScope = normalizedDirectCollection;
   let associationRequirement = null;
 
   if (binding === 'associatedrecords') {
     associationRequirement = resolveAssociationRequirement(
       collectionMetadata,
-      inheritedCurrentCollection,
+      inheritedSurfaceCollection,
       getNodeAssociationField(block),
-      directCollection,
+      normalizedDirectCollection,
     );
-    currentCollection = directCollection || associationRequirement?.targetCollection || '';
-  } else if (binding === 'currentrecord' && directCollection) {
-    currentCollection = directCollection;
+    surfaceCollection = normalizedDirectCollection || associationRequirement?.targetCollection || '';
+  } else if (binding === 'currentrecord' && normalizedDirectCollection) {
+    surfaceCollection = normalizedDirectCollection;
+    directCollectionScope = normalizedDirectCollection;
   }
 
   return {
-    currentCollection,
+    surfaceCollection,
+    directCollection: directCollectionScope,
     associationRequirement,
     binding,
   };
@@ -1403,7 +1407,7 @@ function resolveAssociationFieldRequirement(collectionMetadata, blockContext, fi
   if (!normalizedFieldPath) return null;
   return resolveAssociationRequirement(
     collectionMetadata,
-    blockContext?.currentCollection,
+    blockContext?.surfaceCollection || blockContext?.currentCollection,
     getMetadataFieldCoverageKey(normalizedFieldPath),
   );
 }
@@ -1425,7 +1429,7 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
       if (isPlainObject(item) && hasOwn(item, 'popup')) {
         collectDefaultsRequirementsFromPopup(
           item.popup,
-          { currentCollection: normalizeText(blockContext?.currentCollection) },
+          { surfaceCollection: normalizeText(blockContext?.surfaceCollection || blockContext?.currentCollection) },
           requirements,
           `${pathPrefix}[${index}].popup`,
         );
@@ -1435,7 +1439,8 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
 
     const popup = isPlainObject(item) ? item.popup : undefined;
     const associationRequirement = blockContext?.associationRequirement;
-    const targetCollection = normalizeText(blockContext?.currentCollection);
+    const surfaceCollection = normalizeText(blockContext?.surfaceCollection || blockContext?.currentCollection);
+    const directCollection = normalizeText(blockContext?.directCollection);
 
     if (associationRequirement?.sourceCollection && associationRequirement?.associationField && associationRequirement?.targetCollection) {
       addFixedAssociationPopupRequirements(
@@ -1444,13 +1449,13 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
         associationRequirement.associationField,
         associationRequirement.targetCollection,
       );
-    } else if (targetCollection) {
-      addFixedCollectionPopupRequirements(requirements, targetCollection);
+    } else if (directCollection) {
+      addFixedCollectionPopupRequirements(requirements, directCollection);
     }
 
     collectDefaultsRequirementsFromPopup(
       popup,
-      { currentCollection: targetCollection || normalizeText(blockContext?.currentCollection) },
+      { surfaceCollection },
       requirements,
       `${pathPrefix}[${index}].popup`,
     );
@@ -1486,7 +1491,7 @@ function collectDefaultsRequirementsFromFields(items, blockContext, requirements
     collectDefaultsRequirementsFromPopup(
       item.popup,
       {
-        currentCollection: associationRequirement?.targetCollection || normalizeText(blockContext?.currentCollection),
+        surfaceCollection: associationRequirement?.targetCollection || normalizeText(blockContext?.surfaceCollection || blockContext?.currentCollection),
       },
       requirements,
       popupPath,
@@ -1503,10 +1508,10 @@ function collectDefaultsRequirementsFromFieldGroups(fieldGroups, blockContext, r
 function collectDefaultsRequirementsFromBlock(block, parentContext, requirements, path) {
   if (!isPlainObject(block)) return;
   const blockContext = buildBlockTraversalContext(block, parentContext, requirements.collectionMetadata);
-  const currentCollection = normalizeText(blockContext.currentCollection);
+  const directCollection = normalizeText(blockContext.directCollection);
 
-  if (currentCollection) {
-    addFixedCollectionPopupRequirements(requirements, currentCollection);
+  if (directCollection) {
+    addFixedCollectionPopupRequirements(requirements, directCollection);
   }
   if (normalizeLowerText(blockContext.binding) === 'associatedrecords' && blockContext.associationRequirement?.targetCollection) {
     addFixedAssociationPopupRequirements(
@@ -1570,7 +1575,7 @@ function collectBlueprintDefaultsRequirements(blueprint, collectionMetadata) {
   };
   for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
     if (!isPlainObject(tab)) continue;
-    collectDefaultsRequirementsFromBlocks(tab.blocks, { currentCollection: '' }, requirements, `tabs[${tabIndex}].blocks`);
+    collectDefaultsRequirementsFromBlocks(tab.blocks, { surfaceCollection: '' }, requirements, `tabs[${tabIndex}].blocks`);
   }
   return requirements;
 }
@@ -1653,6 +1658,7 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
   const requirements = collectBlueprintDefaultsRequirements(blueprint, collectionMetadata);
   const errors = [];
   const seenErrors = new Set();
+  const missingCollectionPaths = new Set();
   const defaultsCollections = isPlainObject(blueprint?.defaults?.collections) ? blueprint.defaults.collections : {};
 
   for (const entry of requirements.collections.values()) {
@@ -1666,6 +1672,7 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
         'missing-default-collection',
         `${collectionPath} must be present because ${entry.collection} is involved in generated popup defaults.`,
       );
+      missingCollectionPaths.add(collectionPath);
       continue;
     }
 
@@ -1697,6 +1704,9 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
     const collectionPath = `defaults.collections.${entry.sourceCollection}`;
     const collectionDefaults = isPlainObject(defaultsCollections?.[entry.sourceCollection]) ? defaultsCollections[entry.sourceCollection] : null;
     if (!collectionDefaults) {
+      if (missingCollectionPaths.has(collectionPath)) {
+        continue;
+      }
       pushValidationError(
         errors,
         seenErrors,
@@ -1704,6 +1714,7 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
         'missing-default-collection',
         `${collectionPath} must be present because ${entry.sourceCollection}.${entry.associationField} is involved in generated popup defaults.`,
       );
+      missingCollectionPaths.add(collectionPath);
       continue;
     }
 

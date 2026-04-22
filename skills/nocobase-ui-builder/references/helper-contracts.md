@@ -17,6 +17,7 @@ Use this before the first real whole-page write.
 - does not fetch live collection metadata by itself
 - `collectionMetadata` stays caller-supplied; prepare-write does not fetch it for you
 - when `collectionMetadata` is provided, validates fixed defaults completeness for every involved scope: missing `defaults.collections.<collection>`, required popup `{ name, description }` entries for the fixed `view` / `addNew` / `edit` trio, and required `fieldGroups` when any fixed generated popup scene still has more than 10 effective fields; any `table` block also pulls its collection into the `addNew` threshold check
+- explicit local `popup.blocks` still participate in defaults scope collection even when `popup.template` or `popup.tryTemplate` is present; template binding only changes popup content sourcing, not defaults scope registration
 - when that defaults-completeness work is required but `collectionMetadata` is missing or normalizes to no collections, prepare-write returns `defaultsRequirements.skipped=true` and skips completeness validation instead of failing
 - rejects: common high-risk write-shape mistakes before the remote write
 

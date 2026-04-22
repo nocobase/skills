@@ -262,4 +262,4 @@ For localized popup writes, or when explicit post-write inspection is requested,
 - required content actually exists, not only the shell
 - binding semantics are still correct when the user explicitly cares about them
 
-If a whole-page `applyBlueprint` finished without that extra inspection, keep the result phrased as submitted/created popup intent rather than as persisted/readback-verified popup facts.
+For whole-page `applyBlueprint`, reuse the rule above: without explicit post-write inspection, keep popup results phrased as submitted/created intent rather than persisted/readback-verified popup facts.
