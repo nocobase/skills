@@ -15,8 +15,9 @@ Use this before the first real whole-page write.
 - once this helper has run successfully, the first whole-page write must consume `result.cliBody` rather than reusing the original draft blueprint
 - this helper is local/read-only; it does not call `nocobase-ctl` or perform the remote write for you
 - does not fetch live collection metadata by itself
-- when `collectionMetadata` is provided, validates defaults completeness for the involved collections: missing `defaults.collections.<collection>`, required `fieldGroups` for generated popups with more than 10 effective fields, and required popup `{ name, description }` entries for the actions actually used by the blueprint
-- without `collectionMetadata`, that defaults-completeness check is skipped
+- `collectionMetadata` stays caller-supplied; prepare-write does not fetch it for you
+- when `collectionMetadata` is provided, validates fixed defaults completeness for every involved scope: missing `defaults.collections.<collection>`, required popup `{ name, description }` entries for the fixed `view` / `addNew` / `edit` trio, and required `fieldGroups` when any fixed generated popup scene still has more than 10 effective fields; any `table` block also pulls its collection into the `addNew` threshold check
+- when that defaults-completeness work is required but `collectionMetadata` is missing or normalizes to no collections, prepare-write returns `defaultsRequirements.skipped=true` and skips completeness validation instead of failing
 - rejects: common high-risk write-shape mistakes before the remote write
 
 ## `prepareApplyBlueprintRequest(...)`

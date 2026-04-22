@@ -1160,13 +1160,8 @@ function popupHasExplicitBlocks(popup) {
   return Array.isArray(popup?.blocks) && popup.blocks.length > 0;
 }
 
-function popupUsesGeneratedDefaults(popup) {
-  if (!isPlainObject(popup)) return true;
-  return !popupHasExplicitTemplate(popup) && !popupHasExplicitBlocks(popup);
-}
-
 function shouldTraversePopupBlocks(popup) {
-  return isPlainObject(popup) && !popupHasExplicitTemplate(popup) && popupHasExplicitBlocks(popup);
+  return isPlainObject(popup) && popupHasExplicitBlocks(popup) && !popupHasExplicitTemplate(popup);
 }
 
 function getNodeBinding(node) {
@@ -1319,16 +1314,21 @@ function addCollectionPopupRequirement(requirements, targetCollection, action) {
   addCollectionFieldGroupRequirement(requirements, normalizedCollection, normalizedAction);
 }
 
+function addFixedCollectionPopupRequirements(requirements, targetCollection) {
+  for (const action of DEFAULTS_POPUP_ACTIONS) {
+    addCollectionPopupRequirement(requirements, targetCollection, action);
+  }
+}
+
 function addCollectionFieldGroupRequirement(requirements, targetCollection, action) {
   const normalizedCollection = normalizeText(targetCollection);
   const normalizedAction = normalizePopupActionType(action);
   if (!normalizedCollection || !normalizedAction) return;
-  const existing = requirements.collections.get(normalizedCollection) || createDefaultsCollectionRequirement(normalizedCollection);
   const sceneFields = buildDefaultPopupSceneFieldPaths(requirements.collectionMetadata, normalizedCollection, normalizedAction);
-  if (sceneFields.length > LARGE_FIELD_GRID_GROUPING_THRESHOLD) {
-    existing.fieldGroupActions.add(normalizedAction);
-    sceneFields.forEach((fieldPath) => existing.requiredFieldGroupCoverageKeys.add(getMetadataFieldCoverageKey(fieldPath)));
-  }
+  if (sceneFields.length <= LARGE_FIELD_GRID_GROUPING_THRESHOLD) return;
+  const existing = requirements.collections.get(normalizedCollection) || createDefaultsCollectionRequirement(normalizedCollection);
+  existing.fieldGroupActions.add(normalizedAction);
+  sceneFields.forEach((fieldPath) => existing.requiredFieldGroupCoverageKeys.add(getMetadataFieldCoverageKey(fieldPath)));
   requirements.collections.set(normalizedCollection, existing);
 }
 
@@ -1349,54 +1349,63 @@ function addAssociationPopupRequirement(requirements, sourceCollection, associat
   addCollectionFieldGroupRequirement(requirements, normalizedTargetCollection, normalizedAction);
 }
 
+function addFixedAssociationPopupRequirements(requirements, sourceCollection, associationField, targetCollection) {
+  for (const action of DEFAULTS_POPUP_ACTIONS) {
+    addAssociationPopupRequirement(requirements, sourceCollection, associationField, targetCollection, action);
+  }
+}
+
+function resolveAssociationRequirement(collectionMetadata, sourceCollection, associationField, expectedTargetCollection = '') {
+  const normalizedSourceCollection = normalizeText(sourceCollection);
+  const normalizedAssociationField = normalizeText(associationField);
+  const normalizedExpectedTargetCollection = normalizeText(expectedTargetCollection);
+  if (!normalizedSourceCollection || !normalizedAssociationField) return null;
+  const targetCollection = resolveAssociationTargetCollection(collectionMetadata, normalizedSourceCollection, normalizedAssociationField);
+  if (!targetCollection) return null;
+  if (normalizedExpectedTargetCollection && targetCollection !== normalizedExpectedTargetCollection) {
+    return null;
+  }
+  return {
+    sourceCollection: normalizedSourceCollection,
+    associationField: normalizedAssociationField,
+    targetCollection,
+  };
+}
+
 function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
   const binding = getNodeBinding(block);
-  const associationField = getNodeAssociationField(block);
   const directCollection = getCollectionLabel(block);
   const inheritedCurrentCollection = normalizeText(parentContext?.currentCollection);
   let currentCollection = directCollection || inheritedCurrentCollection;
-  let associationSourceCollection = '';
+  let associationRequirement = null;
 
-  if (binding === 'associatedrecords' && associationField) {
-    associationSourceCollection = inheritedCurrentCollection;
-    currentCollection =
-      directCollection
-      || resolveAssociationTargetCollection(collectionMetadata, associationSourceCollection, associationField)
-      || currentCollection;
+  if (binding === 'associatedrecords') {
+    associationRequirement = resolveAssociationRequirement(
+      collectionMetadata,
+      inheritedCurrentCollection,
+      getNodeAssociationField(block),
+      directCollection,
+    );
+    currentCollection = directCollection || associationRequirement?.targetCollection || '';
   } else if (binding === 'currentrecord' && directCollection) {
     currentCollection = directCollection;
   }
 
   return {
     currentCollection,
-    associationSourceCollection,
-    associationField,
+    associationRequirement,
     binding,
   };
 }
 
-function resolveFieldPopupRequirement(collectionMetadata, blockContext, field) {
-  const fieldPath = normalizeText(field?.field);
-  const sourceCollection = normalizeText(blockContext?.currentCollection);
-  if (!fieldPath || !sourceCollection) return null;
-  const fieldKey = getMetadataFieldCoverageKey(fieldPath);
-  const sourceField = getCollectionFieldMeta(collectionMetadata, sourceCollection, fieldKey);
-  if (!sourceField) return null;
-  const targetCollection = normalizeText(sourceField?.target);
-  if (isAssociationFieldMeta(sourceField) && targetCollection) {
-    return {
-      kind: 'association',
-      sourceCollection,
-      associationField: fieldKey,
-      targetCollection,
-      action: 'view',
-    };
-  }
-  return {
-    kind: 'collection',
-    collection: sourceCollection,
-    action: 'view',
-  };
+function resolveAssociationFieldRequirement(collectionMetadata, blockContext, fieldPath) {
+  const normalizedFieldPath = normalizeText(fieldPath);
+  if (!normalizedFieldPath) return null;
+  return resolveAssociationRequirement(
+    collectionMetadata,
+    blockContext?.currentCollection,
+    getMetadataFieldCoverageKey(normalizedFieldPath),
+  );
 }
 
 function collectDefaultsRequirementsFromPopup(popup, popupContext, requirements, pathPrefix) {
@@ -1425,16 +1434,18 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
     }
 
     const popup = isPlainObject(item) ? item.popup : undefined;
-    const sourceCollection = normalizeText(blockContext?.associationSourceCollection);
-    const associationField = normalizeText(blockContext?.associationField);
+    const associationRequirement = blockContext?.associationRequirement;
     const targetCollection = normalizeText(blockContext?.currentCollection);
 
-    if (!popup || popupUsesGeneratedDefaults(popup)) {
-      if (sourceCollection && associationField && targetCollection) {
-        addAssociationPopupRequirement(requirements, sourceCollection, associationField, targetCollection, actionType);
-      } else if (targetCollection) {
-        addCollectionPopupRequirement(requirements, targetCollection, actionType);
-      }
+    if (associationRequirement?.sourceCollection && associationRequirement?.associationField && associationRequirement?.targetCollection) {
+      addFixedAssociationPopupRequirements(
+        requirements,
+        associationRequirement.sourceCollection,
+        associationRequirement.associationField,
+        associationRequirement.targetCollection,
+      );
+    } else if (targetCollection) {
+      addFixedCollectionPopupRequirements(requirements, targetCollection);
     }
 
     collectDefaultsRequirementsFromPopup(
@@ -1448,31 +1459,34 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
 
 function collectDefaultsRequirementsFromFields(items, blockContext, requirements, pathPrefix) {
   for (const [index, item] of ensureArray(items).entries()) {
+    const fieldPath =
+      typeof item === 'string'
+        ? normalizeText(item)
+        : isPlainObject(item)
+          ? normalizeText(item.field)
+          : '';
+    const associationRequirement = resolveAssociationFieldRequirement(
+      requirements.collectionMetadata,
+      blockContext,
+      fieldPath,
+    );
+
+    if (associationRequirement) {
+      addFixedAssociationPopupRequirements(
+        requirements,
+        associationRequirement.sourceCollection,
+        associationRequirement.associationField,
+        associationRequirement.targetCollection,
+      );
+    }
+
     if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
     const popupPath = `${pathPrefix}[${index}].popup`;
-    const requirement = resolveFieldPopupRequirement(requirements.collectionMetadata, blockContext, item);
-
-    if (popupUsesGeneratedDefaults(item.popup) && requirement) {
-      if (requirement.kind === 'association') {
-        addAssociationPopupRequirement(
-          requirements,
-          requirement.sourceCollection,
-          requirement.associationField,
-          requirement.targetCollection,
-          requirement.action,
-        );
-      } else {
-        addCollectionPopupRequirement(requirements, requirement.collection, requirement.action);
-      }
-    }
 
     collectDefaultsRequirementsFromPopup(
       item.popup,
       {
-        currentCollection:
-          requirement?.kind === 'association'
-            ? requirement.targetCollection
-            : normalizeText(blockContext?.currentCollection),
+        currentCollection: associationRequirement?.targetCollection || normalizeText(blockContext?.currentCollection),
       },
       requirements,
       popupPath,
@@ -1489,6 +1503,20 @@ function collectDefaultsRequirementsFromFieldGroups(fieldGroups, blockContext, r
 function collectDefaultsRequirementsFromBlock(block, parentContext, requirements, path) {
   if (!isPlainObject(block)) return;
   const blockContext = buildBlockTraversalContext(block, parentContext, requirements.collectionMetadata);
+  const currentCollection = normalizeText(blockContext.currentCollection);
+
+  if (currentCollection) {
+    addFixedCollectionPopupRequirements(requirements, currentCollection);
+  }
+  if (normalizeLowerText(blockContext.binding) === 'associatedrecords' && blockContext.associationRequirement?.targetCollection) {
+    addFixedAssociationPopupRequirements(
+      requirements,
+      blockContext.associationRequirement.sourceCollection,
+      blockContext.associationRequirement.associationField,
+      blockContext.associationRequirement.targetCollection,
+    );
+  }
+
   collectDefaultsRequirementsFromFields(block.fields, blockContext, requirements, `${path}.fields`);
   collectDefaultsRequirementsFromFieldGroups(block.fieldGroups, blockContext, requirements, `${path}.fieldGroups`);
   collectDefaultsRequirementsFromActions(block.actions, blockContext, requirements, `${path}.actions`);
@@ -1499,79 +1527,6 @@ function collectDefaultsRequirementsFromBlocks(blocks, parentContext, requiremen
   for (const [index, block] of ensureArray(blocks).entries()) {
     collectDefaultsRequirementsFromBlock(block, parentContext, requirements, `${pathPrefix}[${index}]`);
   }
-}
-
-function popupMayNeedDefaultsCompleteness(popup) {
-  if (!shouldTraversePopupBlocks(popup)) return false;
-  return blocksMayNeedDefaultsCompleteness(popup.blocks);
-}
-
-function actionsMayNeedDefaultsCompleteness(items) {
-  for (const item of ensureArray(items)) {
-    const actionType =
-      typeof item === 'string'
-        ? normalizePopupActionType(item)
-        : isPlainObject(item)
-          ? normalizePopupActionType(item.type)
-          : '';
-    const popup = isPlainObject(item) ? item.popup : undefined;
-    if (actionType && (!popup || popupUsesGeneratedDefaults(popup))) {
-      return true;
-    }
-    if (popupMayNeedDefaultsCompleteness(popup)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function fieldsMayNeedDefaultsCompleteness(items) {
-  for (const item of ensureArray(items)) {
-    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
-    if (popupUsesGeneratedDefaults(item.popup) || popupMayNeedDefaultsCompleteness(item.popup)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function fieldGroupsMayNeedDefaultsCompleteness(fieldGroups) {
-  let needsDefaults = false;
-  forEachFieldGroup(fieldGroups, (group) => {
-    if (!needsDefaults && fieldsMayNeedDefaultsCompleteness(group.fields)) {
-      needsDefaults = true;
-    }
-  });
-  return needsDefaults;
-}
-
-function blockMayNeedDefaultsCompleteness(block) {
-  if (!isPlainObject(block)) return false;
-  return (
-    fieldsMayNeedDefaultsCompleteness(block.fields)
-    || fieldGroupsMayNeedDefaultsCompleteness(block.fieldGroups)
-    || actionsMayNeedDefaultsCompleteness(block.actions)
-    || actionsMayNeedDefaultsCompleteness(block.recordActions)
-  );
-}
-
-function blocksMayNeedDefaultsCompleteness(blocks) {
-  for (const block of ensureArray(blocks)) {
-    if (blockMayNeedDefaultsCompleteness(block)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function blueprintMayNeedDefaultsCompleteness(blueprint) {
-  for (const tab of ensureArray(blueprint?.tabs)) {
-    if (!isPlainObject(tab)) continue;
-    if (blocksMayNeedDefaultsCompleteness(tab.blocks)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function buildDefaultsRequirementsSummary(requirements) {
@@ -1593,6 +1548,17 @@ function buildDefaultsRequirementsSummary(requirements) {
         targetCollection: entry.targetCollection,
         popupActions: Array.from(entry.popupActions).sort(),
       })),
+  };
+}
+
+function buildMissingCollectionMetadataDefaultsRequirements(blueprint) {
+  const requirements = collectBlueprintDefaultsRequirements(blueprint, { collections: {} });
+  if (requirements.collections.size === 0 && requirements.associations.size === 0) {
+    return null;
+  }
+  return {
+    skipped: true,
+    ...buildDefaultsRequirementsSummary(requirements),
   };
 }
 
@@ -3836,6 +3802,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
     collections: collectionMetadata,
     errors: collectionMetadataErrors,
   } = normalizeCollectionMetadataInput(collectionMetadataInput);
+  const hasUsableCollectionMetadata = hasCollectionMetadata && Object.keys(collectionMetadata).length > 0;
   const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, blueprint);
   const resolvedTemplateDecision = recognizableBlueprint && templateDecision && !templateDecisionConsistencyErrors.length
     ? cloneSerializable(templateDecision)
@@ -3864,15 +3831,16 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
 
   errors = [...errors, ...validateBlueprint(blueprint, { expectedOuterTabs })];
   let defaultsRequirements;
-  if (hasCollectionMetadata && collectionMetadataErrors.length === 0) {
+  const missingCollectionMetadataDefaultsRequirements =
+    !hasUsableCollectionMetadata && collectionMetadataErrors.length === 0
+      ? buildMissingCollectionMetadataDefaultsRequirements(blueprint)
+      : null;
+  if (hasUsableCollectionMetadata && collectionMetadataErrors.length === 0) {
     const completeness = validateDefaultsCompleteness(blueprint, { collections: collectionMetadata });
     errors = [...errors, ...completeness.errors];
     defaultsRequirements = completeness.defaultsRequirements;
-  } else if (!hasCollectionMetadata && blueprintMayNeedDefaultsCompleteness(blueprint)) {
-    warnings.push('Defaults completeness check was skipped because collectionMetadata was not provided.');
-    defaultsRequirements = {
-      skipped: true,
-    };
+  } else if (missingCollectionMetadataDefaultsRequirements) {
+    defaultsRequirements = missingCollectionMetadataDefaultsRequirements;
   }
   const result = {
     ok: errors.length === 0,

@@ -15,8 +15,9 @@ Stay on this route when the user is asking for a full page or one route-backed t
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
-   - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when the backend-generated popup should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
-   - Keep `fieldGroups` collection-only on the target collection; do not create per-association `fieldGroups`. Under `defaults.collections`, use `popups.view` / `addNew` / `edit` as `{ name, description }` objects for direct collections, and keep relation-field popup descriptors under `popups.associations.<associationField>.<action>` with the same `{ name, description }` contract.
+   - Under `defaults.collections`, every involved direct collection always carries fixed `popups.view` / `addNew` / `edit` `{ name, description }` objects, and any `table` block always pulls its collection into the `addNew` threshold evaluation even when the draft omitted an explicit `addNew` opener.
+   - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when one of those fixed backend-generated popup scenes should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
+   - Keep `fieldGroups` collection-only on the target collection; do not create per-association `fieldGroups`. Keep relation-field popup descriptors under `popups.associations.<associationField>.<action>` with the same fixed `view` / `addNew` / `edit` `{ name, description }` contract.
    - Keep defaults collection-level only: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
 5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
@@ -107,7 +108,9 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
             "edit": { "name": "Edit ticket", "description": "Edit one support ticket." },
             "associations": {
               "assignee": {
-                "view": { "name": "Assignee details", "description": "View one related assignee." }
+                "view": { "name": "Assignee details", "description": "View one related assignee." },
+                "addNew": { "name": "Create assignee", "description": "Create one related assignee." },
+                "edit": { "name": "Edit assignee", "description": "Edit one related assignee." }
               }
             }
           }

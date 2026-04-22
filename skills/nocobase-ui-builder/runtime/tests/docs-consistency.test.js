@@ -1122,12 +1122,66 @@ test('whole-page defaults docs require recomputing involved collections and keep
   );
 });
 
+test('whole-page defaults docs keep the fixed popup trio and table addNew threshold visible', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/helper-contracts.md',
+    'references/execution-checklist.md',
+    'references/page-intent.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/tool-shapes.md',
+    'references/normative-contract.md',
+  ]) {
+    const text = read(relativePath);
+    assert.doesNotMatch(text, /actions actually used/i, `${relativePath} should not keep the old actions-actually-used wording`);
+    assert.match(
+      text,
+      /view[\s\S]{0,80}addNew[\s\S]{0,80}edit|addNew[\s\S]{0,80}edit[\s\S]{0,80}view/i,
+      `${relativePath} should keep the fixed view/addNew/edit defaults trio visible`,
+    );
+    assert.match(
+      text,
+      /table[\s\S]{0,220}addNew[\s\S]{0,220}(threshold|effective fields|fieldGroups|check)/i,
+      `${relativePath} should say table blocks always participate in addNew threshold evaluation`,
+    );
+  }
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /fixed[\s\S]{0,80}view[\s\S]{0,40}addNew[\s\S]{0,40}edit|view[\s\S]{0,40}addNew[\s\S]{0,40}edit[\s\S]{0,80}fixed/i,
+    'default prompt should keep the fixed popup trio visible',
+  );
+  assert.match(
+    defaultPrompt,
+    /table[\s\S]{0,80}addNew[\s\S]{0,120}(threshold|fieldGroups)/i,
+    'default prompt should keep the table addNew threshold rule visible',
+  );
+
+  const pageBlueprint = read('references/page-blueprint.md');
+  assert.match(
+    pageBlueprint,
+    /"associations"\s*:\s*\{[\s\S]{0,80}"roles"\s*:\s*\{[\s\S]{0,160}"view"[\s\S]{0,160}"addNew"[\s\S]{0,160}"edit"/i,
+    'page-blueprint defaults example should show the fixed association popup trio',
+  );
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(
+    wholePageQuick,
+    /"associations"\s*:\s*\{[\s\S]{0,80}"assignee"\s*:\s*\{[\s\S]{0,160}"view"[\s\S]{0,160}"addNew"[\s\S]{0,160}"edit"/i,
+    'whole-page-quick defaults example should show the fixed association popup trio',
+  );
+});
+
 test('helper contracts keep prepare-write caller-driven for collectionMetadata completeness checks', () => {
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /does not fetch live collection metadata/i);
   assert.match(helperContracts, /collectionMetadata/i);
-  assert.match(helperContracts, /validate[s]? defaults completeness/i);
-  assert.match(helperContracts, /without `?collectionMetadata`?[\s\S]{0,120}(skip|skipped)/i);
+  assert.match(helperContracts, /validate[s]?(?: fixed)? defaults completeness/i);
+  assert.match(helperContracts, /caller-supplied/i);
+  assert.match(helperContracts, /missing[\s\S]{0,160}(skip|skipped)/i);
+  assert.doesNotMatch(helperContracts, /collectionMetadata[\s\S]{0,220}(validation error instead of skipping|must fail|fails with a validation error)/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });
 

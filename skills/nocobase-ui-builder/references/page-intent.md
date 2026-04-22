@@ -45,7 +45,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - every chosen field has a non-empty live `interface`
     - any `filterForm` with 4 or more fields includes `collapse`
     - every custom `edit` popup contains exactly one `editForm`
-    - when `collectionMetadata` is supplied, every involved generated-popup collection has the required `defaults.collections` entry, required large-popup `fieldGroups`, and required popup `{ name, description }` values for the actions actually used
+    - when `collectionMetadata` is supplied, every involved scope has the required `defaults.collections` entry, required popup `{ name, description }` values for the fixed `view` / `addNew` / `edit` trio, and required large-popup `fieldGroups` only when a fixed generated scene still exceeds the threshold; `table` blocks always enter the `addNew` check
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
 14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the CLI raw body. Keep the local `prepare-write` gate and the later `nocobase-ctl flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Only in MCP fallback should that same prepared object be wrapped under `requestBody`.
 
