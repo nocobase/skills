@@ -44,8 +44,10 @@ A page-blueprint draft is good when:
 ## 2. Write Readback Principles
 
 - Verify only the surfaces affected by the write, unless hierarchy changed.
-- A successful write response is not enough; confirm via readback.
+- For localized/low-level writes, and for any explicit inspection step, a successful write response is not enough; confirm via readback.
+- Whole-page `applyBlueprint` create / replace and whole-page `reaction.items[]` default to successful-response completion. Do not add an extra `get` unless follow-up localized work or explicit inspection needs it.
 - Popup-specific claims require popup-specific readback.
+- Without an extra `get`, describe whole-page popup/template results only as submitted/created from the success response and sent blueprint, not as readback-verified persisted subtree facts.
 - If a popup write relied on `popup.tryTemplate=true` because no explicit `popup.template` was present, verify whether the final persisted popup stayed inline/default, bound a template, or silently missed. When local popup content was also present, confirm whether it became the miss fallback instead of assuming template reuse from the write request alone.
 - Reaction writes should also verify `resolvedScene` / `resolvedSlot` / `fingerprint` from the write result instead of assuming the backend used the guessed scene.
 - Template-mode claims require template-mode readback; do not assume `reference` or `copy` from the write request alone.
@@ -57,9 +59,9 @@ A page-blueprint draft is good when:
 
 | operation | minimum readback |
 | --- | --- |
-| `apply-blueprint` create | menu tree if menu placement matters + `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
-| `apply-blueprint` replace | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` and affected tab/content checks |
-| `apply-blueprint` with `reaction.items[]` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` plus the affected reaction slot in readback |
+| `apply-blueprint` create | default: none after successful response; if menu placement matters or follow-up localized work / explicit inspection is needed, read the menu tree and `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
+| `apply-blueprint` replace | default: none after successful response; `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
+| `apply-blueprint` with `reaction.items[]` | default: none after successful response; `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` only for follow-up localized work or explicit inspection |
 | `create-page` | `nocobase-ctl flow-surfaces get --page-schema-uid <pageSchemaUid>` |
 | `add-tab` / `update-tab` / `move-tab` / `remove-tab` | page or tab readback |
 | `add-popup-tab` / `update-popup-tab` / `move-popup-tab` / `remove-popup-tab` | popup page/tab readback |
@@ -82,6 +84,15 @@ After a reaction write, confirm at least:
 - for form `fieldValue` / `fieldLinkage`, rules land on the form-grid slot rather than the outer form step root
 - for clear operations, `rules: []` really leaves the persisted slot empty
 
+### Whole-page success-only reporting
+
+When whole-page `applyBlueprint` succeeds and no extra `get` runs:
+
+- report only the successful write, returned `target` / `pageSchemaUid`, and the blueprint intent you sent
+- use wording such as `submitted`, `created`, `replace succeeded`, or `wrote the page blueprint`
+- do not describe popup subtree, template binding, reaction slot placement, or normalized page structure as persisted/readback-verified facts yet
+- switch to persisted/readback wording only after an explicit live `get` or other target-specific readback
+
 ### Structured verification summary
 
 If you hand-write a readback bundle or a short persisted verification note, start with a stable public summary instead of depending on raw model names or loose full-tree dumps.
@@ -98,15 +109,17 @@ If you hand-write a readback bundle or a short persisted verification note, star
 
 ## 4. Popup-specific Checks
 
-After popup-related writes, confirm:
+For localized popup writes, or when explicit post-write inspection is requested, confirm:
 
 - popup subtree exists
 - required content exists, not just shell
 - if the user explicitly cares about binding semantics, binding still matches live facts
 
+If a whole-page `applyBlueprint` finished without that extra inspection, keep the result phrased as submitted/created popup intent rather than as persisted/readback-verified popup facts.
+
 ## 5. Template-specific Checks
 
-After template-related writes, confirm:
+When template readback was actually requested or needed after a write, confirm:
 
 - for `reference` template writes, the readback still exposes the intended template reference / uid / mode
 - for `copy` or `convert-template-to-copy`, the readback no longer exposes the template reference

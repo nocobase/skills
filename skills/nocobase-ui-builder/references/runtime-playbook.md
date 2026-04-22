@@ -43,13 +43,13 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
 | initialize a menu item into a page | `nocobase-ctl flow-surfaces create-page` |
 
-For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`.
+For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`. A successful `apply-blueprint` response is the default stop point for whole-page create / replace / same-blueprint reactions. Read live again only when follow-up localized work or explicit inspection needs pageSchemaUid/live uids.
 
 ## 4. Targeting Notes
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
 - desktop-route `id` and `navigation.group.routeId` are navigation locators, not flow-surface `uid` values.
-- after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
+- when follow-up reads are needed after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
 - only after `get` / `describe-surface` / create responses return a live `uid` should that value feed `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, or `remove*`.
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
 - public `applyBlueprint` is key-oriented and structure-first: layout and in-document targeting use local `key`, whole-page interaction logic may live only in top-level `reaction.items[]`, and you must not author `uid`, `ref`, or `$ref` selectors there.

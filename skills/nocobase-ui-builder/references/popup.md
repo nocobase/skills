@@ -29,7 +29,7 @@ For `addNew`, `view`, and `edit`:
 
 - backend may auto-complete a standard CRUD popup when no explicit popup content/template is supplied
 - if no explicit `popup.template` is present, write `popup.tryTemplate=true` first so the backend can try popup-template reuse before falling back to local popup content, normal CRUD popup completion, or a silent miss; `popup.saveAsTemplate` may stay alongside that fallback path when the local popup should also become reusable
-- read back the popup subtree before assuming whether content is already complete
+- for localized popup writes, or when explicit inspection is requested after a whole-page write, read back the popup subtree before assuming whether content is already complete
 - only add custom popup content when the default completion is insufficient for the confirmed intent
 - for `edit`, rely on the default popup only when a standard single-form edit popup is enough; if the user wants custom layout, extra sibling blocks, or nested popups, author explicit `popup.blocks` / `popup.layout`
 - if an `edit` popup uses explicit `popup.blocks`, that custom popup must contain exactly one `editForm` block
@@ -40,6 +40,8 @@ For `addNew`, `view`, and `edit`:
 Use inline popup when the page as a whole is being created/replaced and the popup is part of that page structure.
 
 For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the default inline popup fallback, and preserve local popup content as the miss fallback when needed. When that inline popup should also become a reusable template immediately, keep `popup.saveAsTemplate={ name, description }` alongside the local fallback: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
+
+A successful whole-page `applyBlueprint` with inline or nested popup content ends the default path. Do not auto-`get` just to verify popup or template outcomes. Without that extra readback, describe the result only as the submitted/created popup structure or template intent from the success response and sent blueprint; do not claim the final normalized popup subtree, template binding, or nested popup persistence as a readback-verified fact.
 
 The popup subtree in public `applyBlueprint` still follows the same public page-blueprint rules:
 
@@ -254,8 +256,10 @@ Typical flow:
 
 ## 6. Verification
 
-After popup-related writes, confirm:
+For localized popup writes, or when explicit post-write inspection is requested, confirm:
 
 - popup subtree exists at the expected place
 - required content actually exists, not only the shell
 - binding semantics are still correct when the user explicitly cares about them
+
+If a whole-page `applyBlueprint` finished without that extra inspection, keep the result phrased as submitted/created popup intent rather than as persisted/readback-verified popup facts.

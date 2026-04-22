@@ -919,6 +919,128 @@ test('quick route docs stay discoverable and point to the deeper references', ()
   assert.match(helperContracts, /nb-runjs/i);
 });
 
+test('whole-page applyBlueprint docs default to success-only completion while localized and chart readback stays explicit', () => {
+  const skill = read('SKILL.md');
+  assert.match(
+    skill,
+    /successful response ends the default flow[\s\S]{0,120}Do not auto-`?get`?|Do not auto-`?get`?[\s\S]{0,120}successful response ends the default flow/i,
+    'SKILL.md should make successful whole-page applyBlueprint responses the default stop point',
+  );
+  assert.match(
+    skill,
+    /request intent rather than as a normalized persisted subtree/i,
+    'SKILL.md should keep success-only whole-page reporting distinct from persisted-readback reporting',
+  );
+
+  const executionChecklist = read('references/execution-checklist.md');
+  assert.match(
+    executionChecklist,
+    /Unless follow-up operations or explicit inspection are needed, stop after successful `?apply-blueprint`?/i,
+    'execution-checklist should stop whole-page apply-blueprint by default after a successful response',
+  );
+  assert.doesNotMatch(
+    executionChecklist,
+    /Verify with `get\(\{ pageSchemaUid \}\)`/i,
+    'execution-checklist should no longer require a default get({ pageSchemaUid }) verification step for whole-page apply-blueprint',
+  );
+
+  const verification = read('references/verification.md');
+  assert.doesNotMatch(
+    verification,
+    /^- A successful write response is not enough; confirm via readback\.$/im,
+    'verification should not require universal readback for whole-page applyBlueprint success responses',
+  );
+  assert.match(
+    verification,
+    /Whole-page `?applyBlueprint`? create \/ replace[\s\S]{0,120}default to successful-response completion/i,
+    'verification should mark whole-page applyBlueprint success responses as the default completion path',
+  );
+  assert.match(
+    verification,
+    /`apply-blueprint` create \| default: none after successful response/i,
+    'verification should make apply-blueprint create readback optional by default',
+  );
+  assert.match(
+    verification,
+    /`apply-blueprint` replace \| default: none after successful response/i,
+    'verification should make apply-blueprint replace readback optional by default',
+  );
+  assert.match(
+    verification,
+    /`apply-blueprint` with `reaction\.items\[\]` \| default: none after successful response/i,
+    'verification should make whole-page reaction.items[] readback optional by default',
+  );
+  assert.match(
+    verification,
+    /do not describe popup subtree, template binding, reaction slot placement, or normalized page structure as persisted\/readback-verified facts yet/i,
+    'verification should keep success-only whole-page reporting from sounding like persisted readback',
+  );
+
+  const wholePageQuick = read('references/whole-page-quick.md');
+  assert.match(
+    wholePageQuick,
+    /successful whole-page `?applyBlueprint`?[\s\S]{0,80}default to no extra `?get`?/i,
+    'whole-page-quick should stop after successful applyBlueprint unless follow-up work needs live reads',
+  );
+
+  const runtime = read('references/runtime-playbook.md');
+  assert.match(
+    runtime,
+    /successful `?apply-blueprint`? response is the default stop point/i,
+    'runtime-playbook should make successful apply-blueprint responses the default stop point',
+  );
+  assert.match(
+    runtime,
+    /localized downstream work or explicit inspection|follow-up localized work or explicit inspection/i,
+    'runtime-playbook should keep follow-up get tied to later localized work or explicit inspection',
+  );
+
+  const popup = read('references/popup.md');
+  assert.match(
+    popup,
+    /successful whole-page `?applyBlueprint`?[\s\S]{0,120}Do not auto-`?get`?/i,
+    'popup.md should split whole-page popup success from localized popup readback',
+  );
+  assert.match(
+    popup,
+    /do not claim the final normalized popup subtree, template binding, or nested popup persistence as a readback-verified fact/i,
+    'popup.md should avoid phrasing whole-page popup outcomes as readback-verified facts without a follow-up get',
+  );
+  assert.match(
+    popup,
+    /For localized popup writes, or when explicit post-write inspection is requested, confirm:/i,
+    'popup.md should keep localized popup readback explicit',
+  );
+
+  const localEditQuick = read('references/local-edit-quick.md');
+  assert.match(
+    localEditQuick,
+    /after the write, read back the persisted actions, popup\/template binding, and click\/open behavior/i,
+    'local-edit-quick should keep localized popup/action readback requirements',
+  );
+
+  const toolShapes = read('references/tool-shapes.md');
+  assert.match(
+    toolShapes,
+    /Use `get` for normal structural inspection and post-write readback\./i,
+    'tool-shapes should keep low-level get readback guidance intact',
+  );
+
+  const chartCore = read('references/chart-core.md');
+  assert.match(
+    chartCore,
+    /Minimum required post-write readback:/i,
+    'chart-core should keep chart post-write readback requirements intact',
+  );
+
+  const normative = read('references/normative-contract.md');
+  assert.match(
+    normative,
+    /Whole-page create[\s\S]{0,160}successful response; optional follow-up `?get`? only when localized downstream work or explicit inspection is needed/i,
+    'normative-contract should make follow-up get conditional for whole-page create',
+  );
+});
+
 test('whole-page authoring docs keep menu, layout, and filter gates aligned with runtime', () => {
   const skill = read('SKILL.md');
   assert.match(
