@@ -56,10 +56,11 @@ Canonical front door is `nocobase-ctl flow-surfaces apply-blueprint`. This file 
 Envelope boundary:
 
 - This file describes the inner page blueprint document only.
-- In CLI-first execution, pass this document itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
-- Only in MCP fallback should that same object be wrapped under `requestBody` as an object.
+- Before whole-page `prepare-write`, this document is the authoring draft blueprint.
+- For the first real whole-page write, `prepare-write` is mandatory, and the actual CLI raw body becomes `result.cliBody`, not the original draft blueprint.
+- Only in MCP fallback should that same object be wrapped under `requestBody` as an object. If `prepare-write` already ran, that same object means the prepared `result.cliBody`.
 - Do not stringify this document into nested JSON such as `requestBody: "{\"version\":\"1\"...}"`.
-- Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint and also as the CLI raw body.
+- Unless a block is explicitly labeled **MCP fallback envelope**, every JSON snippet below should be treated as the inner blueprint draft; for the first real whole-page write, send the returned `cliBody` instead of the raw draft snippet.
 
 ## 2. Top-level Shape
 

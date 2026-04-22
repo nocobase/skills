@@ -190,12 +190,6 @@ function isCtxRenderCallExpression(node) {
   return expression?.type === 'CallExpression' && isCtxMemberExpression(callee, 'render');
 }
 
-function isCtxRequestCallExpression(node) {
-  const expression = unwrapChainExpression(node);
-  const callee = unwrapChainExpression(expression?.callee);
-  return expression?.type === 'CallExpression' && isCtxMemberExpression(callee, 'request');
-}
-
 function isInnerHTMLAssignmentExpression(node) {
   const expression = unwrapChainExpression(node);
   const leftNode = unwrapChainExpression(expression?.left);

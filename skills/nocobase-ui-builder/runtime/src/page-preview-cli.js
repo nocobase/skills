@@ -35,7 +35,7 @@ async function loadJsonFromFile(cwd, filePath) {
 function usage() {
   return {
     command:
-      'Render one page blueprint ASCII preview or prepare one applyBlueprint write. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
+      'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
   };
 }
 

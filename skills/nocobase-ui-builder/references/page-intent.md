@@ -12,10 +12,10 @@ This file is for the inner page document only. For the actual CLI raw body and M
 
 Turn business intent into:
 
-1. one executable inner page blueprint document
-2. one ASCII-first preview rendered from that same blueprint
-3. one CLI raw body for `nocobase-ctl flow-surfaces apply-blueprint`
-4. and, only in MCP fallback, `{ "requestBody": <that same object> }`
+1. one executable draft page blueprint document
+2. one ASCII-first preview rendered from that same draft blueprint
+3. one prepared CLI raw body (`result.cliBody`) for `nocobase-ctl flow-surfaces apply-blueprint`
+4. and, only in MCP fallback, `{ "requestBody": <that same prepared object> }`
 
 ## Route
 
@@ -47,7 +47,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - every custom `edit` popup contains exactly one `editForm`
     - when `collectionMetadata` is supplied, every involved generated-popup collection has the required `defaults.collections` entry, required large-popup `fieldGroups`, and required popup `{ name, description }` values for the actions actually used
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
-14. Then open [tool-shapes.md](./tool-shapes.md) and send the blueprint itself as the CLI raw body. Only in MCP fallback should that same object be wrapped under `requestBody`.
+14. Then open [tool-shapes.md](./tool-shapes.md) and send only `prepare-write` output `result.cliBody` as the CLI raw body. Keep the local `prepare-write` gate and the later `nocobase-ctl flow-surfaces apply-blueprint` call as separate steps, and do not reuse the original draft blueprint after `prepare-write` has succeeded. Only in MCP fallback should that same prepared object be wrapped under `requestBody`.
 
 ## Heuristics
 

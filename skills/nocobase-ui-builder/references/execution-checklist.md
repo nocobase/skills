@@ -61,10 +61,11 @@ Use this path when the user is describing one entire page.
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
    - when `collectionMetadata` is supplied, prepare-write validates the involved `defaults.collections` entries, large-popup `fieldGroups`, and popup `{ name, description }` values for the actions actually used
-7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same blueprint.
-8. In CLI-first execution, pass the page blueprint itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
-9. Only in MCP fallback should that same object be wrapped under `requestBody`.
-10. Verify with `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
+7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same draft blueprint.
+8. In CLI-first execution, keep the first whole-page write as two explicit steps: local `prepare-write` first, then `nocobase-ctl flow-surfaces apply-blueprint` with `result.cliBody` as the raw JSON body.
+9. If you persist the prepared payload to a file for the final CLI write, persist `result.cliBody` itself; do not point `apply-blueprint` back at the original draft blueprint file after `prepare-write` has already run.
+10. Only in MCP fallback should that same prepared business object be wrapped under `requestBody`.
+11. Verify with `get({ pageSchemaUid })` and targeted readback from [verification.md](./verification.md).
 
 ## 4. Localized Existing-surface Edit
 

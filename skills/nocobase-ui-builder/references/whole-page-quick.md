@@ -47,7 +47,7 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - never pass a desktop-route `id` as `target.uid`
 12. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
 13. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-14. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope.
+14. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact CLI body becomes `result.cliBody`, not the original draft blueprint.
 15. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails

@@ -264,12 +264,6 @@ function parseChain(source, index) {
   };
 }
 
-function extractCallArguments(maskedSource, source, openParenIndex) {
-  const closeParenIndex = findMatchingBracket(maskedSource, openParenIndex, '(', ')');
-  if (closeParenIndex < 0) return '';
-  return source.slice(openParenIndex + 1, closeParenIndex);
-}
-
 function skipQuotedLiteral(source, index) {
   const quote = source[index];
   if (!quote || ![`'`, `"`, '`'].includes(quote)) return index;

@@ -509,7 +509,7 @@ test('page preview cli returns a stable JSON error when --input is missing its v
     error: 'Missing value for --input.',
     usage: {
       command:
-        'Render one page blueprint ASCII preview or prepare one applyBlueprint write. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
+        'Render one page blueprint ASCII preview or prepare one local applyBlueprint payload result that includes sendable cliBody. Required: --stdin-json or --input <path>. Optional: --prepare-write --expected-outer-tabs <n> --max-popup-depth <n>.',
     },
   });
 });

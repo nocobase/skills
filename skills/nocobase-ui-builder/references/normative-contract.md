@@ -7,6 +7,7 @@ This page defines the global contract for `nocobase-ui-builder`. Other reference
 - Canonical front door: `nocobase-ctl flow-surfaces`
 - Retained `applyBlueprint`, `flowSurfaces:*`, and MCP tool docs in this skill remain the backend contract, payload reference, and fallback map.
 - `nb-page-preview` and `nb-runjs` remain local helper CLIs only.
+- Whole-page `prepare-write` is local/read-only. For the first real whole-page write, it is mandatory, and the sendable business object becomes `result.cliBody`.
 
 ## 1. Precedence
 
@@ -72,6 +73,7 @@ For actual execution in this skill:
 
 - `nocobase-ctl flow-surfaces get` is the common exception: it uses top-level locator flags and no JSON body
 - most other body-based `flow-surfaces` commands expect the raw business object through CLI `--body` / `--body-file`
+- for a first whole-page write that already ran `prepare-write`, that raw business object is `result.cliBody`, not the original draft blueprint
 - only in MCP fallback should that same business object be wrapped under `requestBody`
 - do **not** stringify the JSON document
 - do **not** wrap it again as `{ values: payload }`

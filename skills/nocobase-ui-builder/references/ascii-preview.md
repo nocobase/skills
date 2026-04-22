@@ -2,7 +2,7 @@
 
 Use this file for **whole-page `applyBlueprint` authoring before the first write**.
 
-This is a **prewrite review surface**, not the write payload. The write truth is still the inner page blueprint from [page-blueprint.md](./page-blueprint.md).
+This is a **prewrite review surface**, not the write payload. The first whole-page write should use `prepare-write` output `result.cliBody`; the ASCII preview is rendered from the same draft blueprint that produced that prepared body.
 
 ## 1. Scope
 
@@ -62,7 +62,7 @@ For local helper usage, `prepare-write` may also receive one outer helper envelo
 
 Preview-only `renderPageBlueprintAsciiPreview(...)` / `nb-page-preview --stdin-json` should not treat `{ requestBody, templateDecision?, collectionMetadata? }` as a special success path. If preview-only receives that helper envelope, it may still unwrap `requestBody` for compatibility, but it should ignore `templateDecision` / `collectionMetadata` and still emit the legacy outer-wrapper warning so wrong-surface calls remain visible.
 
-For the **first real write**, prefer the prepare-write helper/CLI rather than preview-only mode. It should use the same inner blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return the normalized CLI raw body only when the gate passes. If MCP fallback is later required, wrap that same object under `requestBody` according to [tool-shapes.md](./tool-shapes.md).
+For the **first real write**, the prepare-write helper/CLI is mandatory rather than preview-only mode. It should use the same draft blueprint, render the mandatory ASCII wireframe, validate the high-risk write-shape mistakes locally, and return a normalized prepare-write result that includes the sendable `result.cliBody` only when the gate passes. That helper stays local/read-only: the later remote write is still a separate `nocobase-ctl flow-surfaces apply-blueprint` call, and after `prepare-write` the only valid first-write body is `result.cliBody`, not the original draft blueprint. If MCP fallback is later required, wrap that same prepared object under `requestBody` according to [tool-shapes.md](./tool-shapes.md).
 
 The local prepare-write gate should reject at least:
 

@@ -23,7 +23,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - Never stringify the business object.
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
-- For `applyBlueprint`, the page blueprint object itself is the CLI request body. Do not wrap it again.
+- For `applyBlueprint`, the CLI request body is one page blueprint business object. On a first whole-page write that already ran `prepare-write`, that means `result.cliBody`, not the original draft blueprint. The helper stays local/read-only; the later transport step must send only that prepared object. Do not wrap it again.
 - For whole-page `applyBlueprint`, recompute the involved target collections from live metadata and rebuild top-level `defaults.collections` from scratch on each draft. Put popup `{ name, description }` descriptors there, keep relation popup naming under `popups.associations`, and add collection-level `fieldGroups` only on the target collection when the generated popup should still have more than 10 effective fields; do not send `defaults.blocks` or popup-default content/layout.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
@@ -39,7 +39,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 Safe mental model:
 
 1. author the inner business object
-2. send that same object as raw JSON through CLI `--body` / `--body-file`, or use locator flags when the command is bodyless
+2. send that same prepared object as raw JSON through CLI `--body` / `--body-file`, or use locator flags when the command is bodyless
 3. only in MCP fallback wrap that same object under `requestBody`
 4. never transform the business object into a stringified nested `requestBody`
 

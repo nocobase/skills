@@ -43,6 +43,8 @@ Canonical front door is `nocobase-ctl`. The operation names below are the stable
 | reorder/remove node | `nocobase-ctl flow-surfaces move-node` / `remove-node` |
 | initialize a menu item into a page | `nocobase-ctl flow-surfaces create-page` |
 
+For whole-page create / replace, author from the draft blueprint first, then run the mandatory local prepare-write gate before the first remote write; the actual `apply-blueprint` body must be the returned `result.cliBody`.
+
 ## 4. Targeting Notes
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.

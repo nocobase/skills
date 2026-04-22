@@ -10,8 +10,10 @@ Use this before the first real whole-page write.
 
 - CLI: `nb-page-preview --stdin-json --prepare-write`
 - input: one page blueprint JSON document, or the helper envelope `{ requestBody, templateDecision?, collectionMetadata? }`
-- returns: normalized CLI write body plus the ASCII preview
+- returns: normalized prepare-write result including prepared `cliBody` plus the ASCII preview
 - treat the normalized write body as authoritative local write shape; expected helper-added or helper-normalized fields should be kept as-is instead of being locally undone
+- once this helper has run successfully, the first whole-page write must consume `result.cliBody` rather than reusing the original draft blueprint
+- this helper is local/read-only; it does not call `nocobase-ctl` or perform the remote write for you
 - does not fetch live collection metadata by itself
 - when `collectionMetadata` is provided, validates defaults completeness for the involved collections: missing `defaults.collections.<collection>`, required `fieldGroups` for generated popups with more than 10 effective fields, and required popup `{ name, description }` entries for the actions actually used by the blueprint
 - without `collectionMetadata`, that defaults-completeness check is skipped
@@ -22,9 +24,10 @@ Use this before the first real whole-page write.
 Use this helper in local JS code when you need the same prepare-write behavior without shelling out.
 
 - input: one page blueprint document, or the helper envelope `{ requestBody, templateDecision?, collectionMetadata? }`
-- returns: normalized prepare-write result with the blueprint body, preview, and local validation output
+- returns: normalized prepare-write result with prepared `cliBody`, preview, and local validation output
 - accept expected helper-added and helper-normalized output as-is instead of trying to undo it locally
 - use it for: prewrite validation, preview generation, template-decision normalization, and caller-supplied `collectionMetadata` completeness checks
+- do not treat it as a transport wrapper; if it succeeds, persist/inspect `result.cliBody` if needed and send only that prepared object in the later `nocobase-ctl flow-surfaces apply-blueprint` call
 - do not use it as a schema-aware planner; recompute involved collections and rebuild `defaults.collections` before calling it
 
 ## `nb-page-preview` preview-only mode
