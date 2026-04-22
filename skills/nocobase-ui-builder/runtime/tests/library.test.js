@@ -1,9 +1,58 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runBatch, validateRunJSSnippet } from '../src/index.js';
 import { runTask } from '../src/runner.js';
+
+const testsRoot = fileURLToPath(new URL('.', import.meta.url));
+const runtimeRoot = path.resolve(testsRoot, '..');
+const skillRoot = path.resolve(runtimeRoot, '..');
+
+function walkJavaScriptFiles(rootDir) {
+  const output = [];
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const nextPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(nextPath);
+        continue;
+      }
+      if (entry.isFile() && /\.(?:m?js|cjs)$/.test(entry.name)) {
+        output.push(nextPath);
+      }
+    }
+  }
+  return output.sort();
+}
+
+function collectNonLocalImportSpecifiers(filePath) {
+  const source = readFileSync(filePath, 'utf8');
+  const matches = [];
+  const patterns = [
+    /^\s*import\s+(?:[^'"]+\s+from\s+)?['"]([^'"]+)['"]/gm,
+    /(?:^|[^\w$.])import\(\s*['"]([^'"]+)['"]\s*\)/gm,
+    /(?:^|[^\w$.])require\(\s*['"]([^'"]+)['"]\s*\)/gm,
+  ];
+
+  for (const pattern of patterns) {
+    let match = pattern.exec(source);
+    while (match) {
+      const specifier = match[1];
+      if (!specifier.startsWith('node:') && !specifier.startsWith('.') && !specifier.startsWith('/')) {
+        matches.push(specifier);
+      }
+      match = pattern.exec(source);
+    }
+  }
+
+  return [...new Set(matches)].sort();
+}
 
 test('validateRunJSSnippet accepts JSX after compat lowering', async () => {
   const result = await validateRunJSSnippet({
@@ -735,6 +784,49 @@ test('worker path survives parent execArgv that are invalid for Worker threads',
     ok: true,
     executed: true,
   });
+});
+
+test('runtime source stays free of external npm imports', () => {
+  const roots = [
+    path.join(runtimeRoot, 'src'),
+    path.join(skillRoot, 'scripts'),
+  ];
+
+  for (const rootDir of roots) {
+    for (const filePath of walkJavaScriptFiles(rootDir)) {
+      const disallowed = collectNonLocalImportSpecifiers(filePath);
+      assert.deepEqual(disallowed, [], `${path.relative(skillRoot, filePath)} should only import node: modules or local files`);
+    }
+  }
+});
+
+test('nb-runjs stays self-contained when copied without node_modules', () => {
+  const sandboxRoot = mkdtempSync(path.join(tmpdir(), 'nocobase-ui-builder-runtime-'));
+  const skillCopyRoot = path.join(sandboxRoot, 'nocobase-ui-builder');
+
+  try {
+    cpSync(skillRoot, skillCopyRoot, {
+      recursive: true,
+      filter: (sourcePath) => path.basename(sourcePath) !== 'node_modules',
+    });
+
+    const cliPath = path.join(skillCopyRoot, 'runtime', 'bin', 'nb-runjs.mjs');
+    const child = spawnSync(process.execPath, [cliPath, 'validate', '--stdin-json'], {
+      cwd: sandboxRoot,
+      input: JSON.stringify({
+        model: 'JSBlockModel',
+        code: "ctx.render('ok');",
+      }),
+      encoding: 'utf8',
+    });
+
+    assert.equal(child.status, 0, child.stderr || child.stdout);
+    const payload = JSON.parse(child.stdout.trim());
+    assert.equal(payload.ok, true);
+    assert.equal(payload.execution.executed, true);
+  } finally {
+    rmSync(sandboxRoot, { recursive: true, force: true });
+  }
 });
 
 test('validateRunJSSnippet does not leak parent global window or document', async () => {

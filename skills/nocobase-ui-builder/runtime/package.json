@@ -12,9 +12,6 @@
     "nb-page-preview": "./bin/nb-page-preview.mjs",
     "nb-template-decision": "./bin/nb-template-decision.mjs"
   },
-  "dependencies": {
-    "acorn": "^8.15.0"
-  },
   "scripts": {
     "test": "node --test ./tests/*.test.js ../scripts/*.test.mjs"
   }

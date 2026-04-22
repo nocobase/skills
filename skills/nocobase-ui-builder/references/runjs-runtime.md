@@ -22,6 +22,7 @@ nb-runjs batch --input ./runtime/fixtures/batch.json --skill-mode
 The canonical execution path for this skill always includes `--skill-mode`:
 
 - This is the conservative mode intended for normal skill execution
+- The runtime is self-contained inside this skill; copying `nocobase-ui-builder` is enough, with no `npm install` step and no `runtime/node_modules` requirement
 - public runtime mode is fixed to `validate`
 - only absent/mock network is allowed
 - network reads are only allowed through `ctx.request(...)` / `ctx.api.request(...)`; `fetch` is not part of the public contract
@@ -71,6 +72,7 @@ These commands are mainly for local runtime development or debugging. Normal ski
 
 Additional notes:
 
+- The helper CLIs are shipped as skill-local source plus vendored runtime assets; they must not require installing external npm packages first.
 - Single validation can pass mock network config through `--network-file`
 - Batch tasks support either `network` or `networkFile`
 

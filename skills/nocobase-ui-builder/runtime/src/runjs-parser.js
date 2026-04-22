@@ -1,4 +1,4 @@
-import * as acorn from 'acorn';
+import * as acorn from '../vendor/acorn/acorn.mjs';
 
 import { compileUserCode } from './user-code.js';
 

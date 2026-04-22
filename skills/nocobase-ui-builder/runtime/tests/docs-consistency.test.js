@@ -413,6 +413,18 @@ test('required docs and relative links stay valid', () => {
   }
 });
 
+test('runjs docs keep the self-contained zero-install runtime contract', () => {
+  const runtimeDoc = read('references/runjs-runtime.md');
+  assert.match(runtimeDoc, /self-contained inside this skill/i);
+  assert.match(runtimeDoc, /no `npm install` step/i);
+  assert.match(runtimeDoc, /no `runtime\/node_modules` requirement/i);
+  assert.match(runtimeDoc, /must not require installing external npm packages first/i);
+
+  const jsDoc = read('references/js.md');
+  assert.match(jsDoc, /skill-local source and vendored assets/i);
+  assert.match(jsDoc, /Do not require external npm installs/i);
+});
+
 test('upstream js snapshot relative links stay valid', () => {
   for (const relativePath of walkMarkdownFiles('runtime/reference-assets/upstream-js')) {
     assertRelativeMarkdownLinksExist(relativePath);
