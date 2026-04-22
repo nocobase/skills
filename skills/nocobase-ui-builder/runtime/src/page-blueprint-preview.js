@@ -64,6 +64,8 @@ const FIELD_STATE_BOOLEAN_SHORTHANDS = {
   visible: { true: 'visible', false: 'hidden' },
 };
 const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
+const POPUP_PAGE_MODE_BLOCK_THRESHOLD = 3;
+const POPUP_PAGE_MODE_FIELD_THRESHOLD = 20;
 const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
 const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany']);
 const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
@@ -1037,6 +1039,13 @@ function countBlockEffectiveFields(block) {
   return countEffectiveBlueprintFields(getBlockFieldEntries(block));
 }
 
+function countPopupDirectEffectiveFields(blocks) {
+  return ensureArray(blocks).reduce((total, block) => {
+    if (!isPlainObject(block)) return total;
+    return total + countBlockEffectiveFields(block);
+  }, 0);
+}
+
 function normalizeCollectionFieldMetadata(field) {
   if (!isPlainObject(field)) return null;
   const name = normalizeText(field.name || field.field || field.key);
@@ -1965,6 +1974,7 @@ function buildBlockHeader(block, options = {}) {
 function renderPopupDocument(popup, context) {
   const warnings = context.warnings;
   const body = [];
+  const popupMode = normalizeText(popup?.mode);
   const templateLine = describeTemplateReference(popup?.template);
   if (templateLine) body.push(templateLine);
   const tryTemplateLine = describePopupTryTemplate(popup);
@@ -1981,6 +1991,8 @@ function renderPopupDocument(popup, context) {
   if (hasTemplateDocument(popup?.template)) {
     return makeBox(`Popup: ${trimLabel(normalizeText(popup?.title, 'Untitled popup'), MAX_HEADER_TEXT)}`, body);
   }
+
+  if (popupMode) body.unshift(`Mode: ${popupMode}`);
 
   const blocks = ensureArray(popup?.blocks).filter((block) => isPlainObject(block));
   const layoutRows = collectLayoutOrder(popup?.layout, blocks, warnings);
@@ -2486,13 +2498,38 @@ function shouldDefaultPopupSaveAsTemplate(popup, options = {}) {
   return ensureArray(popup.blocks).length > 0;
 }
 
+function getPopupDepth(options = {}) {
+  return Number.isInteger(options.popupDepth) && options.popupDepth > 0 ? options.popupDepth : 1;
+}
+
+function shouldDefaultPopupMode(popup, options = {}) {
+  if (!isPlainObject(popup)) return false;
+  if (hasTemplateDocument(popup.template)) return false;
+  if (hasOwn(popup, 'mode')) return false;
+  if (getPopupDepth(options) !== 1) return false;
+
+  const blocks = ensureArray(popup.blocks).filter((block) => isPlainObject(block));
+  if (blocks.length === 0) return false;
+  if (countNonFilterBlocks(blocks) > POPUP_PAGE_MODE_BLOCK_THRESHOLD) return true;
+  return countPopupDirectEffectiveFields(blocks) > POPUP_PAGE_MODE_FIELD_THRESHOLD;
+}
+
 function materializePopupForWrite(popup, options = {}) {
   if (!isPlainObject(popup)) {
     return popup;
   }
   const nextPopup = cloneSerializable(popup);
+  const popupDepth = getPopupDepth(options);
   if (hasOwn(nextPopup, 'blocks')) {
-    nextPopup.blocks = ensureArray(nextPopup.blocks).map((block) => materializeBlockForWrite(block, options));
+    nextPopup.blocks = ensureArray(nextPopup.blocks).map((block) =>
+      materializeBlockForWrite(block, {
+        ...options,
+        popupDepth,
+      }),
+    );
+  }
+  if (shouldDefaultPopupMode(nextPopup, { ...options, popupDepth })) {
+    nextPopup.mode = 'page';
   }
   if (shouldDefaultPopupTryTemplate(nextPopup, options)) {
     nextPopup.tryTemplate = true;
@@ -2509,8 +2546,10 @@ function materializeFieldForWrite(field, options = {}) {
   }
   const nextField = cloneSerializable(field);
   if (isPlainObject(nextField.popup)) {
+    const popupDepth = (Number.isInteger(options.popupDepth) && options.popupDepth > 0 ? options.popupDepth : 0) + 1;
     nextField.popup = materializePopupForWrite(nextField.popup, {
       ...options,
+      popupDepth,
       triggerKind: 'field',
       triggerLabel: describeField(nextField),
     });
@@ -2533,8 +2572,10 @@ function materializeActionForWrite(action, options = {}) {
   }
   const nextAction = cloneSerializable(action);
   if (isPlainObject(nextAction.popup)) {
+    const popupDepth = (Number.isInteger(options.popupDepth) && options.popupDepth > 0 ? options.popupDepth : 0) + 1;
     nextAction.popup = materializePopupForWrite(nextAction.popup, {
       ...options,
+      popupDepth,
       triggerKind: options.recordActions ? 'recordAction' : 'action',
       triggerLabel: trimLabel(nextAction.title || nextAction.type || nextAction.key || 'action'),
     });

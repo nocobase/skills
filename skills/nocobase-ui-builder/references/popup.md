@@ -41,6 +41,13 @@ Use inline popup when the page as a whole is being created/replaced and the popu
 
 For whole-page `create` / `replace`, do not bind `popup.template` from loose or keyword-only search results. Probe popup templates with the planned opener/resource context first, and bind only when [templates.md](./templates.md) yields one stable best available candidate. When no explicit `popup.template` is present, keep `popup.tryTemplate=true` as the default inline popup fallback, and preserve local popup content as the miss fallback when needed. When that inline popup should also become a reusable template immediately, keep `popup.saveAsTemplate={ name, description }` alongside the local fallback: a hit reuses the matched template directly, while a miss needs explicit local `popup.blocks` so the fallback popup can be saved.
 
+For the first whole-page `prepare-write`, when a first-layer inline popup omits `popup.mode` and also carries explicit local `popup.blocks`, the helper may upgrade that popup to `popup.mode = "page"` when either of these is true:
+
+- the popup has more than 3 direct non-filter blocks
+- the popup's direct blocks contain more than 20 effective fields in total
+
+This auto-upgrade is whole-page/prepare-write only. Nested popups, explicit `popup.mode`, and template-bound popups keep their existing mode behavior.
+
 For whole-page `applyBlueprint`, a successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. Without that extra readback, describe popup or template outcomes only as the submitted/created structure or intent from the success response and sent blueprint; do not claim the final normalized popup subtree, template binding, or nested popup persistence as a readback-verified fact.
 
 The popup subtree in public `applyBlueprint` still follows the same public page-blueprint rules:

@@ -206,6 +206,82 @@ function prepareWithDirectCollectionDefaults(blueprint, options = {}) {
   });
 }
 
+function buildFieldNames(prefix, count) {
+  return Array.from({ length: count }, (_, index) => `${prefix}${index + 1}`);
+}
+
+function buildFourBlockPopupBlocks() {
+  return [
+    {
+      key: 'profile',
+      type: 'details',
+      title: 'Profile',
+      collection: 'users',
+      fields: ['nickname'],
+    },
+    {
+      key: 'contact',
+      type: 'details',
+      title: 'Contact',
+      collection: 'users',
+      fields: ['email'],
+    },
+    {
+      key: 'roles',
+      type: 'table',
+      title: 'Roles',
+      collection: 'roles',
+      fields: ['name'],
+    },
+    {
+      key: 'activity',
+      type: 'table',
+      title: 'Activity',
+      collection: 'users',
+      fields: ['status'],
+    },
+  ];
+}
+
+function buildFourBlockPopupLayout() {
+  return {
+    rows: [
+      [{ key: 'profile', span: 12 }, { key: 'contact', span: 12 }],
+      ['roles'],
+      ['activity'],
+    ],
+  };
+}
+
+function buildPopupModeBlueprint(popup) {
+  return {
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            title: 'Users table',
+            collection: 'users',
+            fields: ['nickname', 'email'],
+            recordActions: [
+              {
+                type: 'view',
+                title: 'View',
+                popup,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 test('renderPageBlueprintAsciiPreview renders row grouping, block summaries, and one popup layer', () => {
   const result = renderPageBlueprintAsciiPreview({
     version: '1',
@@ -4763,6 +4839,143 @@ test('prepareApplyBlueprintRequest defaults inline create-time popups to popup.t
     result.cliBody.tabs[0].blocks[0].recordActions[0].popup.saveAsTemplate.description,
     /Reusable popup template for record action "view" on users/i,
   );
+});
+
+test('prepareApplyBlueprintRequest defaults first-layer popups with more than three direct blocks to page mode', () => {
+  const result = prepareApplyBlueprintRequest(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: buildFourBlockPopupBlocks(),
+      layout: buildFourBlockPopupLayout(),
+    }),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, 'page');
+  assert.match(result.ascii, /Popup: User details[\s\S]*Mode: page/);
+});
+
+test('prepareApplyBlueprintRequest defaults first-layer popups with more than twenty direct effective fields to page mode', () => {
+  const result = prepareApplyBlueprintRequest(
+    buildPopupModeBlueprint({
+      title: 'User data explorer',
+      blocks: [
+        {
+          key: 'userDataExplorer',
+          type: 'table',
+          title: 'User data explorer',
+          collection: 'users',
+          fields: buildFieldNames('field_', 21),
+        },
+      ],
+    }),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, 'page');
+  assert.match(result.ascii, /Popup: User data explorer[\s\S]*Mode: page/);
+});
+
+test('prepareApplyBlueprintRequest keeps popup mode unset at the auto-page thresholds', () => {
+  const exactBlockThreshold = prepareApplyBlueprintRequest(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: buildFourBlockPopupBlocks().slice(0, 3),
+      layout: {
+        rows: [
+          [{ key: 'profile', span: 12 }, { key: 'contact', span: 12 }],
+          ['roles'],
+        ],
+      },
+    }),
+  );
+  assert.equal(exactBlockThreshold.ok, true);
+  assert.equal(exactBlockThreshold.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+
+  const exactFieldThreshold = prepareApplyBlueprintRequest(
+    buildPopupModeBlueprint({
+      title: 'User data explorer',
+      blocks: [
+        {
+          key: 'userDataExplorer',
+          type: 'table',
+          title: 'User data explorer',
+          collection: 'users',
+          fields: buildFieldNames('field_', 20),
+        },
+      ],
+    }),
+  );
+  assert.equal(exactFieldThreshold.ok, true);
+  assert.equal(exactFieldThreshold.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+});
+
+test('prepareApplyBlueprintRequest does not auto-upgrade nested popups to page mode', () => {
+  const result = prepareApplyBlueprintRequest(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      blocks: [
+        {
+          key: 'userDetails',
+          type: 'details',
+          title: 'User profile',
+          collection: 'users',
+          fields: [
+            'nickname',
+            {
+              field: 'email',
+              popup: {
+                title: 'Email details',
+                blocks: buildFourBlockPopupBlocks(),
+                layout: buildFourBlockPopupLayout(),
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+  assert.equal(
+    result.cliBody.tabs[0].blocks[0].recordActions[0].popup.blocks[0].fields[1].popup.mode,
+    undefined,
+  );
+});
+
+test('prepareApplyBlueprintRequest preserves explicit popup modes on complex first-layer popups', () => {
+  for (const explicitMode of ['drawer', 'dialog', 'page']) {
+    const result = prepareApplyBlueprintRequest(
+      buildPopupModeBlueprint({
+        title: `User details ${explicitMode}`,
+        mode: explicitMode,
+        blocks: buildFourBlockPopupBlocks(),
+        layout: buildFourBlockPopupLayout(),
+      }),
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, explicitMode);
+  }
+});
+
+test('prepareApplyBlueprintRequest does not auto-add page mode when a popup template is already bound', () => {
+  const result = prepareApplyBlueprintRequest(
+    buildPopupModeBlueprint({
+      title: 'User details',
+      template: {
+        uid: 'user-details-template',
+        mode: 'reference',
+      },
+      blocks: buildFourBlockPopupBlocks(),
+      layout: buildFourBlockPopupLayout(),
+    }),
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.cliBody.tabs[0].blocks[0].recordActions[0].popup.mode, undefined);
+  assert.deepEqual(result.warnings, ['Popup "User details" will ignore local popup keys: blocks, layout.']);
 });
 
 test('prepareApplyBlueprintRequest preserves an explicit popup.tryTemplate=false override on create-time inline popups', () => {

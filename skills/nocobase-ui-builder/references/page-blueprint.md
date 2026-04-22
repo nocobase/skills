@@ -737,7 +737,7 @@ Inline popup is supported beneath a field/action/record action through:
 {
   "popup": {
     "title": "...",
-    "mode": "replace",
+    "mode": "drawer",
     "template": { "uid": "...", "mode": "reference" },
     "blocks": [],
     "layout": { "rows": [["..."]] }
@@ -746,6 +746,8 @@ Inline popup is supported beneath a field/action/record action through:
 ```
 
 `popup.layout` is valid because popup is a popup document. By contrast, block objects themselves do **not** accept `layout`; use `tab.layout` or `popup.layout`.
+
+`popup.mode` is optional. Common values are `drawer`, `dialog`, and `page`. In whole-page `prepare-write`, when a first-layer inline popup omits `popup.mode` and its local popup content exceeds 3 direct non-filter blocks or 20 direct effective fields, the helper defaults that popup to `page`.
 
 In whole-page `create` / `replace`, do not bind `popup.template` from loose discovery or text search alone. Instead, build the strongest planned opener/resource context you have, run the contextual selection flow from [templates.md](./templates.md), and bind `popup.template` only when one stable best available candidate wins.
 
