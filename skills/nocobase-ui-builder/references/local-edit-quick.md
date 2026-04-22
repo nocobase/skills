@@ -4,9 +4,19 @@ Use this file as the default first stop for normal edits on an existing live Mod
 
 Stay on this route when the request is "change one part of an existing page" rather than "rebuild the whole page".
 
+## URL-derived start uid
+
+When the user gives a NocoBase admin URL for a precise edit on an existing page, popup, or form, derive only the start uid from the URL before the first read:
+
+- if the URL contains one or more `view/<uid>` segments, the last `view/<uid>` wins
+- if the URL has no `view/<uid>`, fallback to the `admin/<pageSchemaUid>` segment and read it with page-level `get --page-schema-uid`
+- this derived uid is only the start uid for the first `flow-surfaces get` or live readback, not the final content uid
+- after choosing the start uid, continue the normal live expansion through popup / template / content routing
+- do not stop early on an outer `details`, `table`, or action host just because that tree is the first one you read
+
 ## Common-case flow
 
-1. Read the current surface first with `nocobase-ctl flow-surfaces get`.
+1. Resolve the start target first from an admin URL or explicit uid, then read that surface with `nocobase-ctl flow-surfaces get`.
 2. Use `describe-surface` only when the richer public tree really helps.
 3. Use `catalog` only when capability uncertainty is the blocker.
 4. Choose the smallest write family that matches the intent: `compose`, `add-*`, `configure`, `update-settings`, `move-*`, or `remove-*`.

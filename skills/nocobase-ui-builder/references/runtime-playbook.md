@@ -49,6 +49,9 @@ For whole-page create / replace, author from the draft blueprint first, then run
 
 - `create-menu(type="item")` returns pre-init ids. The item is not a write-ready page until `create-page(menuRouteId=...)` finishes.
 - desktop-route `id` and `navigation.group.routeId` are navigation locators, not flow-surface `uid` values.
+- For precise localized edits from an admin URL, parse the URL into a start uid first. If the path contains any `view/<uid>` segments, the last `view/<uid>` wins; otherwise fallback to the `admin/<pageSchemaUid>` segment and read it with page-level `get --page-schema-uid`.
+- A URL-sourced start uid is not the final content uid. After selecting it, continue normal live expansion with `get`, popup subtree / template-reference checks, and the localized write-family decision.
+- Example: `/admin/<page>/view/<outerView>/filterbytk/1/view/<innerView>/filterbytk/1` starts from `<innerView>`, not `<outerView>`. The final editable content still comes from live tree and template routing.
 - when follow-up reads are needed after `create-page`, `apply-blueprint` create, or menu-tree discovery, normalize to `pageSchemaUid` first for page-level `get`.
 - only after `get` / `describe-surface` / create responses return a live `uid` should that value feed `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, or `remove*`.
 - `applyBlueprint(mode="replace")` targets a page by `target.pageSchemaUid`, not by patch-style change selectors.
