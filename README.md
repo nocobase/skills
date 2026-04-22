@@ -9,7 +9,7 @@ This repository provides reusable NocoBase skills for coding agent CLIs such as 
 
 - `nocobase-install-start`: installs and starts NocoBase (Docker / create-nocobase-app / git).
 - `nocobase-mcp-setup`: configures NocoBase as an MCP server for your coding agent CLI.
-- `nocobase-data-modeling`: runs data modeling operations through MCP tools.
+- `nocobase-data-modeling`: runs data modeling operations through `nb api data-modeling` first, with MCP as fallback.
 - `nocobase-workflow-manage`: creates and manages NocoBase workflows through MCP tools.
 - `nocobase-ui-builder`: **default** entry point for any NocoBase UI authoring — new pages, new blocks, menu items, and localized edits. Works directly against the live app via MCP / `nocobase-ctl flow-surfaces`, no DSL file commit needed.
 - `nocobase-dsl-reconciler`: **opt-in** YAML-DSL path for building whole NocoBase applications from spec files committed to git and deployed via `cli push`. Use **only** when the user explicitly asks for DSL / YAML / committable spec files — this reconciler is still under active development and has rough edges the live-UI path avoids.

@@ -37,9 +37,9 @@ For plugin management, distinguish these two identifiers:
 Operational rule:
 
 - inspect the plugin list first and use the actual runtime plugin `name` returned by the instance for enablement
-- do not assume `@nocobase/plugin-foo` can be passed directly to `pm_enable`
+- do not assume `@nocobase/plugin-foo` can be passed directly to `nb api pm enable`
 - do not assume stripping `@nocobase/plugin-` is always safe unless the instance has already confirmed that exact runtime name
-- for MCP/plugin-manager actions such as `pm_enable`, pass the plugin identifier in `filterByTk`, not in `requestBody.name`
+- before the first enable or inspect action in the current task, read `nb api pm --help` and the matching subcommand help
 
 Recommended enablement sequence:
 
@@ -54,7 +54,7 @@ Failure handling:
 
 - if the plugin list does not expose a matching runtime plugin `name`, stop and report that enablement could not be resolved safely
 - if enablement returns `plugin name invalid`, assume the wrong identifier was used and go back to plugin-list inspection instead of retrying schema creation
-- if enablement was sent in `requestBody.name` instead of `filterByTk`, treat that as an invalid MCP call shape and retry only after fixing the parameter location
+- if the enable command shape is unclear, stop and inspect the current CLI help instead of guessing flags or payload shape
 
 ## Known plugin-backed capabilities
 
