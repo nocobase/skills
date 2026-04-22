@@ -281,17 +281,17 @@ Symptoms:
 
 Root causes:
 
-- **Wrong execution path**: API key was created via MCP tool call (requires authenticated user context) instead of CLI (`yarn nocobase generate-api-key` / `docker compose exec`). These are not equivalent â€” the CLI bypasses auth and acts on DB directly.
+- **Wrong execution path**: API key was created via MCP tool call (requires authenticated user context) instead of CLI (`yarn nocobase generate-api-key` / `docker compose exec`). These are not equivalent â€?the CLI bypasses auth and acts on DB directly.
 - **Wrong username**: Default `nocobase` may differ from the configured admin username, or the app install step has not yet created any user.
 - **Wrong timing**: `generate-api-key` CLI was called before `nocobase install` finished. Until install completes, no app users exist.
 
 Checks:
 
 1. Confirm the app `install` command has completed (not just `up -d` / container started).
-   - Docker: `docker compose logs app | grep -i "install\|ready\|started"` â€” look for install-complete signal.
+   - Docker: `docker compose logs app | grep -i "install\|ready\|started"` â€?look for install-complete signal.
    - create-app/git: confirm `yarn nocobase install` returned exit 0.
 2. Confirm the app HTTP endpoint is reachable: `curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>/api/health` should return `200`.
-3. Confirm admin user exists: try `curl http://localhost:<port>/api/auth:check` â€” a 401 (not 503/ECONNREFUSED) means the app is ready.
+3. Confirm admin user exists: try `curl http://localhost:<port>/api/auth:check` â€?a 401 (not 503/ECONNREFUSED) means the app is ready.
 4. Confirm the username passed to `generate-api-key` matches the actual admin username (default: `nocobase`).
 
 Actions:
@@ -301,4 +301,4 @@ Actions:
    - docker: `docker compose exec -T app yarn nocobase generate-api-key -n cli_auto_token -u nocobase -r root -e 30d --silent`
 2. If the app install has not completed, run `nocobase install` first and wait for it to finish.
 3. If admin email was customized during install, pass the actual email as `-u <email>`.
-4. After token is generated, run: `nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project` then `nocobase-ctl env update -e local -s project`.
+4. After token is generated, run: `nb env add local --api-base-url http://localhost:<port>/api --access-token <token> -s project` then `nb env update local -s project`.

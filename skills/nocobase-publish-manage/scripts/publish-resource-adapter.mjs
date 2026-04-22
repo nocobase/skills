@@ -486,7 +486,7 @@ export function buildRunCtlResourceArgs(request) {
   const colonIndex = selectedRoute.lastIndexOf(':');
   const resource = selectedRoute.slice(0, colonIndex);
   const action = selectedRoute.slice(colonIndex + 1);
-  const args = ['resource', action, '--resource', resource];
+  const args = ['api', 'resource', action, '--resource', resource];
   const query = request.query || {};
 
   pushOptionalFlag(args, '--filter-by-tk', query.filterByTk);

@@ -17,16 +17,16 @@ Use this template before any ACL write (for example `role.create-blank`, role mo
 ## Guard Sequence (Mandatory)
 
 ```bash
-node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- env -s project
-node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl --help
-node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl roles --help
+nb env -s project
+nb api acl --help
+nb api acl roles --help
 ```
 
 Pass criteria:
 
 - `env -s project` returns an active project env.
-- `acl --help` resolves successfully.
-- `acl roles --help` resolves successfully and lists role lifecycle commands (`create/get/list/update/destroy`).
+- `nb api acl --help` resolves successfully.
+- `nb api acl roles --help` resolves successfully and lists role lifecycle commands (`create/get/list/update/destroy`).
 
 ## Fail-Closed Behavior
 
@@ -45,13 +45,13 @@ If any guard command fails:
 Preferred contract form:
 
 ```bash
-node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl roles create --body '{"name":"<role_name>","title":"<role_title>","description":"Blank role baseline","hidden":false,"allowConfigure":false,"allowNewMenu":false,"snippets":["!ui.*","!pm","!pm.*","!app"],"strategy":{"actions":[]}}'
+nb api acl roles create --body '{"name":"<role_name>","title":"<role_title>","description":"Blank role baseline","hidden":false,"allowConfigure":false,"allowNewMenu":false,"snippets":["!ui.*","!pm","!pm.*","!app"],"strategy":{"actions":[]}}'
 ```
 
 Readback:
 
 ```bash
-node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl roles get --filter-by-tk <role_name> -j
+nb api acl roles get --filter-by-tk <role_name> -j
 ```
 
 ## Evidence Block Template

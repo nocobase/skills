@@ -1,17 +1,17 @@
 # ACL Intent To Command Map v1
 
-This reference maps canonical tasks to `nocobase-ctl` CLI commands for `nocobase-acl-manage` v2.
+This reference maps canonical tasks to `nb` CLI commands for `nocobase-acl-manage` v2.
 
 All operations should use CLI commands instead of MCP JSON-RPC.
-Execute ACL commands through skill-local wrapper:
+Execute ACL commands through direct nb CLI:
 
-- `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`
-- wrapper passthrough must start with a command token (for example `env`, `acl`, `resource`) before flags.
+- `nb <command> [subcommand ...] [flags ...]`
+- command must start with a command token (for example `env` or `api`) before flags.
 - do not start passthrough with flags such as `-e/-t/-j`; this is an invalid command assembly.
-- wrong: `node ./scripts/run-ctl.mjs -- -e local`
-- correct: `node ./scripts/run-ctl.mjs -- resource list --resource users -e local -j`
-- wrapper must preflight-validate independent resource policy writes:
-  - target commands: `acl roles data-source-resources create|update`
+- wrong: `nb -e local`
+- correct: `nb api resource list --resource users -e local -j`
+- preflight must validate independent resource policy writes:
+  - target commands: `api acl roles data-source-resources create|update`
   - require `--body` JSON with `usingActionsConfig=true` and non-empty `actions[]`
   - require non-empty `fields[]` for `create/view/update/export/importXlsx`
   - require non-null positive `scopeId` for `view/update/destroy/export/importXlsx`
@@ -33,12 +33,12 @@ Prerequisite gate before runtime discovery:
    - local URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<local_url> app_scope=project target_dir=<target_dir>`
    - remote URL: `$nocobase-env-bootstrap task=app-manage app_env_action=add app_env_name=<env> app_base_url=<remote_url> app_token=<token> app_scope=project target_dir=<target_dir>`
    - switch: `$nocobase-env-bootstrap task=app-manage app_env_action=use app_env_name=<env> app_scope=project target_dir=<target_dir>`
-3. Run `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`.
+3. Run `nb env update <current_env_name>`.
 4. If output shows `swagger:get` 404 or API documentation plugin error, activate dependency bundle and retry:
    - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
    - restart app before rerun.
 5. If output shows `401/403/Auth required`, ensure `@nocobase/plugin-api-keys` is active and refresh token env first.
-6. If `acl --help` or `acl roles --help` still fails in this same `base-dir`, fail closed:
+6. If `nb api acl --help` or `nb api acl roles --help` still fails in this same `base-dir`, fail closed:
    - stop write execution
    - emit recovery guidance
    - do not use temporary script-file execution as a fallback path
@@ -46,7 +46,7 @@ Prerequisite gate before runtime discovery:
 Resolution order:
 
 1. Try preferred command patterns in this file.
-2. Confirm with `node ./scripts/run-ctl.mjs -- --help` and wrapper-executed subcommand help.
+2. Confirm with `nb --help` and CLI subcommand help.
 3. If preferred pattern is absent, match by fallback regex over command tree text.
 4. Record the resolved runtime command names in execution evidence.
 
@@ -88,33 +88,33 @@ Prefer `-j` for all readback and verification steps.
 
 | Logical Capability | Preferred CLI Patterns | Regex Fallback |
 |---|---|---|
-| `roles_list` | `nocobase-ctl acl roles list` | `(^|\s)roles\s+list$` |
-| `roles_get` | `nocobase-ctl acl roles get --filter-by-tk <name>` | `(^|\s)roles\s+get$` |
-| `roles_create` | `nocobase-ctl acl roles create --body '<json>'` | `(^|\s)roles\s+create$` |
-| `roles_update` | `nocobase-ctl acl roles update --filter-by-tk <name> --body '<json>'` | `(^|\s)roles\s+update$` |
-| `roles_destroy` | `nocobase-ctl acl roles destroy --filter-by-tk <name>` | `(^|\s)roles\s+destroy$` |
-| `roles_set_system_role_mode` | `nocobase-ctl acl roles set-system-role-mode --role-mode <mode>` | `role.*mode.*(set|update)` |
-| `roles_check` | `nocobase-ctl acl roles check` | `(^|\s)roles\s+check$` |
-| `available_actions_list` | `nocobase-ctl acl available-actions list` | `available.*actions.*list` |
-| `data_sources_roles_get` | `nocobase-ctl acl data-sources roles get --data-source-key <key> --filter-by-tk <name>` | `data.*sources.*roles.*get$` |
-| `data_sources_roles_update` | `nocobase-ctl acl data-sources roles update --data-source-key <key> --filter-by-tk <name> --body '<json>'` | `data.*sources.*roles.*update$` |
-| `roles_data_sources_collections_list` | `nocobase-ctl acl roles data-sources-collections list --role-name <name> --filter '{"dataSourceKey":"<key>"}'` | `roles.*data.*sources.*collections.*list` |
-| `roles_data_source_resources_get` | `nocobase-ctl acl roles data-source-resources get --data-source-key <key> --role-name <name> --collection-name <coll>` | `roles.*data.*source.*resources.*get` |
-| `roles_data_source_resources_create` | `nocobase-ctl acl roles data-source-resources create --data-source-key <key> --role-name <name> --collection-name <coll> --body '<json>'` | `roles.*data.*source.*resources.*create$` |
-| `roles_data_source_resources_update` | `nocobase-ctl acl roles data-source-resources update --data-source-key <key> --role-name <name> --collection-name <coll> --filter-by-tk <id> --body '<json>'` | `roles.*data.*source.*resources.*update$` |
-| `roles_desktop_routes_list` | `nocobase-ctl acl roles desktop-routes list --role-name <name>` | `roles.*desktop.*routes.*list` |
-| `roles_desktop_routes_set` | `nocobase-ctl acl roles desktop-routes set --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*set` |
-| `roles_desktop_routes_add` | `nocobase-ctl acl roles desktop-routes add --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*add` |
-| `roles_desktop_routes_remove` | `nocobase-ctl acl roles desktop-routes remove --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*remove` |
-| `roles_resources_scopes_list` | `nocobase-ctl acl roles resources-scopes list --role-name <name> --data-source-key <key>` | `roles.*resources.*scopes.*list` |
-| `roles_resources_scopes_get` | `nocobase-ctl acl roles resources-scopes get --role-name <name> --data-source-key <key> --filter-by-tk <id>` | `roles.*resources.*scopes.*get` |
-| `data_sources_roles_resources_scopes_list` | `nocobase-ctl acl data-sources roles-resources-scopes list --data-source-key <key>` | `data.*sources.*roles.*resources.*scopes.*list` |
-| `data_sources_roles_resources_scopes_create` | `nocobase-ctl acl data-sources roles-resources-scopes create --data-source-key <key> --body '<json>'` | `data.*sources.*roles.*resources.*scopes.*create$` |
-| `data_sources_roles_resources_scopes_update` | `nocobase-ctl acl data-sources roles-resources-scopes update --data-source-key <key> --filter-by-tk <id> --body '<json>'` | `data.*sources.*roles.*resources.*scopes.*update$` |
-| `data_sources_roles_resources_scopes_destroy` | `nocobase-ctl acl data-sources roles-resources-scopes destroy --data-source-key <key> --filter-by-tk <id>` | `data.*sources.*roles.*resources.*scopes.*destroy$` |
-| `resource_list` | `nocobase-ctl resource list --resource <name>` | `(^|\s)resource\s+list$` |
-| `resource_get` | `nocobase-ctl resource get --resource <name> --filter-by-tk <id>` | `(^|\s)resource\s+get$` |
-| `resource_update` | `nocobase-ctl resource update --resource <name> --filter-by-tk <id> --values '<json>'` | `(^|\s)resource\s+update$` |
+| `roles_list` | `nb api acl roles list` | `(^|\s)roles\s+list$` |
+| `roles_get` | `nb api acl roles get --filter-by-tk <name>` | `(^|\s)roles\s+get$` |
+| `roles_create` | `nb api acl roles create --body '<json>'` | `(^|\s)roles\s+create$` |
+| `roles_update` | `nb api acl roles update --filter-by-tk <name> --body '<json>'` | `(^|\s)roles\s+update$` |
+| `roles_destroy` | `nb api acl roles destroy --filter-by-tk <name>` | `(^|\s)roles\s+destroy$` |
+| `roles_set_system_role_mode` | `nb api acl roles set-system-role-mode --role-mode <mode>` | `role.*mode.*(set|update)` |
+| `roles_check` | `nb api acl roles check` | `(^|\s)roles\s+check$` |
+| `available_actions_list` | `nb api acl available-actions list` | `available.*actions.*list` |
+| `data_sources_roles_get` | `nb api acl data-sources roles get --data-source-key <key> --filter-by-tk <name>` | `data.*sources.*roles.*get$` |
+| `data_sources_roles_update` | `nb api acl data-sources roles update --data-source-key <key> --filter-by-tk <name> --body '<json>'` | `data.*sources.*roles.*update$` |
+| `roles_data_sources_collections_list` | `nb api acl roles data-sources-collections list --role-name <name> --filter '{"dataSourceKey":"<key>"}'` | `roles.*data.*sources.*collections.*list` |
+| `roles_data_source_resources_get` | `nb api acl roles data-source-resources get --data-source-key <key> --role-name <name> --collection-name <coll>` | `roles.*data.*source.*resources.*get` |
+| `roles_data_source_resources_create` | `nb api acl roles data-source-resources create --data-source-key <key> --role-name <name> --collection-name <coll> --body '<json>'` | `roles.*data.*source.*resources.*create$` |
+| `roles_data_source_resources_update` | `nb api acl roles data-source-resources update --data-source-key <key> --role-name <name> --collection-name <coll> --filter-by-tk <id> --body '<json>'` | `roles.*data.*source.*resources.*update$` |
+| `roles_desktop_routes_list` | `nb api acl roles desktop-routes list --role-name <name>` | `roles.*desktop.*routes.*list` |
+| `roles_desktop_routes_set` | `nb api acl roles desktop-routes set --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*set` |
+| `roles_desktop_routes_add` | `nb api acl roles desktop-routes add --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*add` |
+| `roles_desktop_routes_remove` | `nb api acl roles desktop-routes remove --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*remove` |
+| `roles_resources_scopes_list` | `nb api acl roles resources-scopes list --role-name <name> --data-source-key <key>` | `roles.*resources.*scopes.*list` |
+| `roles_resources_scopes_get` | `nb api acl roles resources-scopes get --role-name <name> --data-source-key <key> --filter-by-tk <id>` | `roles.*resources.*scopes.*get` |
+| `data_sources_roles_resources_scopes_list` | `nb api acl data-sources roles-resources-scopes list --data-source-key <key>` | `data.*sources.*roles.*resources.*scopes.*list` |
+| `data_sources_roles_resources_scopes_create` | `nb api acl data-sources roles-resources-scopes create --data-source-key <key> --body '<json>'` | `data.*sources.*roles.*resources.*scopes.*create$` |
+| `data_sources_roles_resources_scopes_update` | `nb api acl data-sources roles-resources-scopes update --data-source-key <key> --filter-by-tk <id> --body '<json>'` | `data.*sources.*roles.*resources.*scopes.*update$` |
+| `data_sources_roles_resources_scopes_destroy` | `nb api acl data-sources roles-resources-scopes destroy --data-source-key <key> --filter-by-tk <id>` | `data.*sources.*roles.*resources.*scopes.*destroy$` |
+| `resource_list` | `nb api resource list --resource <name>` | `(^|\s)resource\s+list$` |
+| `resource_get` | `nb api resource get --resource <name> --filter-by-tk <id>` | `(^|\s)resource\s+get$` |
+| `resource_update` | `nb api resource update --resource <name> --filter-by-tk <id> --values '<json>'` | `(^|\s)resource\s+update$` |
 
 ## Domain Execution Map
 
@@ -235,19 +235,19 @@ Allowed only for `users.roles` membership updates:
 - assign role:
 
 ```bash
-nocobase-ctl resource update --resource users --filter-by-tk <userId> --values '{"roles":[{"name":"sales_reader"}]}' --update-association-values roles -j
+nb api resource update --resource users --filter-by-tk <userId> --values '{"roles":[{"name":"sales_reader"}]}' --update-association-values roles -j
 ```
 
 - readback:
 
 ```bash
-nocobase-ctl resource list --resource users.roles --source-id <userId> -j
+nb api resource list --resource users.roles --source-id <userId> -j
 ```
 
 or
 
 ```bash
-nocobase-ctl resource list --resource roles.users --source-id <roleName> -j
+nb api resource list --resource roles.users --source-id <roleName> -j
 ```
 
 ## E) Risk Domain
@@ -268,7 +268,7 @@ Risk tasks are computed by combining read commands:
 - for field-configurable actions with default-all behavior, require explicit non-empty `fields` arrays in write payload
 - for `permission.data-source.resource.set`, require `usingActionsConfig=true` in the same write payload that carries `actions[]`
 - do not split resource writes into staged patches (for example, first write `actions`, then patch `usingActionsConfig` or `fields` later)
-- wrapper preflight must reject malformed independent-resource payloads (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, or `fields`) before execution
+- preflight must reject malformed independent-resource payloads (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, or `fields`) before execution
 - if user asks for `all permissions`, expanded runtime action set must be shown and confirmed before write
 - do not execute `permission.data-source.resource.set` writes until resolved collections are confirmed by user
 - never execute guarded fallback path unless explicitly enabled

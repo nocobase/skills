@@ -22,9 +22,9 @@ Excluded:
 
 | ID | Domain | Capability | Validation Mode |
 |---|---|---|---|
-| ACL-SMOKE-001 | cli | `node ./scripts/run-ctl.mjs -- --help` + `$nocobase-env-bootstrap task=app-manage app_env_action=current` availability | runtime |
-| ACL-SMOKE-002 | cli | execution guard fail-closed check (`env -s project`, `acl --help`, `acl roles --help`) in one locked base-dir | runtime |
-| ACL-SMOKE-003 | cli | wrapper payload guard rejects malformed `acl roles data-source-resources create|update --body` before execution | contract + runtime |
+| ACL-SMOKE-001 | cli | `nb --help` + `$nocobase-env-bootstrap task=app-manage app_env_action=current` availability | runtime |
+| ACL-SMOKE-002 | cli | execution guard fail-closed check (`env -s project`, `nb api acl --help`, `nb api acl roles --help`) in one locked base-dir | runtime |
+| ACL-SMOKE-003 | cli | payload guard rejects malformed `nb api acl roles data-source-resources create|update --body` before execution | contract + runtime |
 | ACL-ROLE-001 | role | create blank role | runtime |
 | ACL-ROLE-002 | role | audit roles read chain | runtime |
 | ACL-GLOBAL-001 | global-role-mode | read current global role mode | runtime |
@@ -52,7 +52,7 @@ Excluded:
 
 Required:
 
-- skill-local wrapper available (`./scripts/run-ctl.mjs`) and `node` available
+- `nb` CLI available in PATH
 - bootstrap skill app-manage available (`$nocobase-env-bootstrap task=app-manage ...`)
 - configured current env context and token (when remote env requires it)
 - `@nocobase/plugin-api-doc` active (`swagger:get` available for runtime command discovery)
@@ -87,6 +87,6 @@ Optional:
 - `ACL-SMOKE-002` must verify fail-closed behavior:
   - when guard commands fail in the selected base-dir, runner stops writes and emits recovery guidance
   - no ad-hoc script file is created to continue execution
-- `ACL-SMOKE-003` must verify wrapper payload guard behavior:
+- `ACL-SMOKE-003` must verify payload guard behavior:
   - malformed independent-resource write payload is blocked before CLI execution
   - error output explains missing/invalid keys (`usingActionsConfig`, `actions`, `scopeId`, `fields`)

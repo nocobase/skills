@@ -2,7 +2,6 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import {
@@ -16,7 +15,6 @@ import {
   buildRunCtlResourceArgs,
   createResourceOperationRequest,
 } from './publish-resource-adapter.mjs';
-import { runCtlWithResolver } from './run-ctl.mjs';
 
 const ACTIONS = new Set(['precheck', 'publish', 'verify', 'rollback']);
 const CHANNELS = new Set(['auto', 'local_cli', 'remote_api', 'remote_ssh_cli']);
@@ -88,7 +86,7 @@ function help() {
       '  --backup-artifact <id> (required for rollback and backup_restore publish --apply)',
       '  --backup-auto true|false (default true)',
       '  --apply --confirm confirm',
-      '  --base-dir <dir> --scope project|global --prefer auto|global|local',
+      '  --base-dir <dir> --scope project|global',
       '',
       'SSH options:',
       '  --ssh-host <host> --ssh-user <user> --ssh-port <port> --ssh-path <path>',
@@ -134,7 +132,6 @@ function parseArgs(argv) {
     confirm: '',
     baseDir: process.cwd(),
     scope: 'project',
-    prefer: 'auto',
     sshHost: '',
     sshUser: '',
     sshPort: '22',
@@ -176,8 +173,6 @@ function parseArgs(argv) {
     if (a.startsWith('--base-dir=')) { opts.baseDir = a.slice(11); continue; }
     if (a === '--scope') { opts.scope = argValue(argv, i, a); i += 1; continue; }
     if (a.startsWith('--scope=')) { opts.scope = a.slice(8); continue; }
-    if (a === '--prefer') { opts.prefer = argValue(argv, i, a); i += 1; continue; }
-    if (a.startsWith('--prefer=')) { opts.prefer = a.slice(9); continue; }
     if (a === '--ssh-host') { opts.sshHost = argValue(argv, i, a); i += 1; continue; }
     if (a.startsWith('--ssh-host=')) { opts.sshHost = a.slice(11); continue; }
     if (a === '--ssh-user') { opts.sshUser = argValue(argv, i, a); i += 1; continue; }
@@ -449,7 +444,7 @@ function parsePluginEnabled(plugin) {
 function inspectPmListViaCli(opts, targetEnvName) {
   let useResult = null;
   if (targetEnvName) {
-    useResult = runCtl(['env', 'use', targetEnvName, '-s', opts.scope], opts);
+    useResult = runCli(['env', 'use', targetEnvName, '-s', opts.scope], opts);
     if (useResult.code !== 0) {
       return {
         ok: false,
@@ -461,7 +456,7 @@ function inspectPmListViaCli(opts, targetEnvName) {
     }
   }
 
-  const pmResult = runCtl(['pm', 'list'], opts);
+  const pmResult = runCli(['pm', 'list'], opts);
   if (pmResult.code !== 0) {
     return {
       ok: false,
@@ -484,22 +479,46 @@ function inspectPmListViaCli(opts, targetEnvName) {
   };
 }
 
-function runCtl(args, opts) {
-  const result = runCtlWithResolver({
-    prefer: opts.prefer,
-    baseDir: opts.baseDir,
-    ctlArgs: args,
+function runCli(args, opts) {
+  const cmd = process.platform === 'win32' ? 'nb.cmd' : 'nb';
+  const spawnEnv = { ...process.env };
+  const safeArgs = Array.isArray(args) ? [...args] : [];
+  if (process.platform === 'win32') {
+    // On cmd.exe, JSON passed to --values/--filter can lose inner quotes.
+    // Escaping quotes keeps JSON valid when parsed by nb CLI.
+    const jsonFlags = new Set(['--values', '--filter']);
+    for (let i = 0; i < safeArgs.length - 1; i += 1) {
+      const flag = safeArgs[i];
+      if (!jsonFlags.has(flag)) {
+        continue;
+      }
+      const raw = safeArgs[i + 1];
+      if (!raw || typeof raw !== 'string') {
+        continue;
+      }
+      const trimmed = raw.trim();
+      if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
+        continue;
+      }
+      safeArgs[i + 1] = raw.replace(/"/g, '\\"');
+    }
+  }
+  const result = spawnSync(cmd, safeArgs, {
+    encoding: 'utf8',
+    cwd: opts.baseDir,
+    env: spawnEnv,
+    shell: process.platform === 'win32',
     stdio: 'pipe',
   });
 
   return {
-    code: result.code,
+    code: result.status ?? 1,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
-    error: result.error || '',
-    command: result.command || [],
-    resolver: result.resolver || '',
-    diagnostics: result.diagnostics || [],
+    error: result.error ? String(result.error.message || result.error) : '',
+    command: [cmd, ...safeArgs],
+    resolver: '',
+    diagnostics: [],
   };
 }
 
@@ -527,39 +546,6 @@ function appendQuery(url, query = {}) {
   }
 }
 
-function tryReadJson(filePath) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return jsonSafe(raw);
-  } catch {
-    return null;
-  }
-}
-
-function candidateCtlConfigPaths(baseDir) {
-  const paths = [];
-  paths.push(path.join(baseDir, '.nocobase-ctl', 'config.json'));
-  if (process.env.NOCOBASE_HOME_CLI) {
-    paths.push(path.join(process.env.NOCOBASE_HOME_CLI, 'config.json'));
-  }
-  paths.push(path.join(os.homedir(), '.nocobase-ctl', 'config.json'));
-  return [...new Set(paths)];
-}
-
-function resolveEnvTokenFromCtlConfig(opts, envName) {
-  if (!envName) {
-    return '';
-  }
-  for (const configPath of candidateCtlConfigPaths(opts.baseDir)) {
-    const config = tryReadJson(configPath);
-    const token = config?.envs?.[envName]?.auth?.accessToken;
-    if (typeof token === 'string' && token.trim()) {
-      return token.trim();
-    }
-  }
-  return '';
-}
-
 function normalizeExecContext(value) {
   return value === 'source' ? 'source' : 'target';
 }
@@ -580,19 +566,12 @@ function resolveTokenEnvCandidates(opts, contextName) {
   ].filter(Boolean))];
 }
 
-function resolveApiToken(opts, contextName, channel, envName) {
+function resolveApiToken(opts, contextName) {
   const tokenEnvCandidates = resolveTokenEnvCandidates(opts, contextName);
   for (const tokenEnvName of tokenEnvCandidates) {
     const tokenFromEnv = (process.env[tokenEnvName] || '').trim();
     if (tokenFromEnv) {
       return { token: tokenFromEnv, token_env: tokenEnvName, source: `env:${tokenEnvName}` };
-    }
-  }
-
-  if (channel === 'local_cli') {
-    const configToken = resolveEnvTokenFromCtlConfig(opts, envName);
-    if (configToken) {
-      return { token: configToken, token_env: '', source: `ctl-config:${envName}` };
     }
   }
 
@@ -1040,6 +1019,42 @@ async function waitForMigrationFileReady(baseUrl, tokenPack, fileName, timeoutMs
   };
 }
 
+function collectLocalCliTokenRequirements(opts, ctx, commands = []) {
+  if (ctx.channel !== 'local_cli' || !Array.isArray(commands) || commands.length === 0) {
+    return [];
+  }
+
+  const requiredByContext = new Map();
+  for (const command of commands) {
+    const request = createResourceOperationRequest(command.operation, command.params || {});
+    if (!request) {
+      continue;
+    }
+    const runCtlArgs = buildRunCtlResourceArgs(request);
+    if (runCtlArgs.length > 0) {
+      continue;
+    }
+    const context = normalizeExecContext(command.exec_context);
+    if (!requiredByContext.has(context)) {
+      requiredByContext.set(context, new Set());
+    }
+    requiredByContext.get(context).add(command.operation);
+  }
+
+  return Array.from(requiredByContext.entries()).map(([context, operationSet]) => {
+    const tokenPack = resolveApiToken(opts, context);
+    const fallbackTokenEnv = context === 'source'
+      ? (opts.sourceTokenEnv || opts.targetTokenEnv || 'NOCOBASE_API_TOKEN')
+      : (opts.targetTokenEnv || 'NOCOBASE_API_TOKEN');
+    return {
+      context,
+      operations: Array.from(operationSet.values()),
+      tokenPack,
+      tokenEnv: tokenPack.token_env || fallbackTokenEnv,
+    };
+  });
+}
+
 function planCommands(opts, ctx) {
   const generatedBackupId = `backup_${nowId()}.nbdata`;
   const backupId = opts.action === 'rollback' ? (opts.backupArtifact || generatedBackupId) : generatedBackupId;
@@ -1125,9 +1140,9 @@ function planCommands(opts, ctx) {
   }
 
   if (opts.action === 'verify') {
-    if (ctx.channel === 'local_cli') commands.push({ step: 'env-list', lane: 'run_ctl', exec_context: 'target', args: ['env', 'list', '-s', opts.scope] });
+    if (ctx.channel === 'local_cli') commands.push({ step: 'env-list', lane: 'run_cli', exec_context: 'target', args: ['env', 'list', '-s', opts.scope] });
     if (ctx.channel === 'remote_api') commands.push({ step: 'pm-list', lane: 'remote_api', exec_context: 'target', method: 'GET', route: '/pm:list' });
-    if (ctx.channel === 'remote_ssh_cli') commands.push({ step: 'pm-list', lane: 'remote_ssh_cli', exec_context: 'target', ssh: `cd ${opts.sshPath} && yarn nocobase pm list` });
+    if (ctx.channel === 'remote_ssh_cli') commands.push({ step: 'pm-list', lane: 'remote_ssh_cli', exec_context: 'target', ssh: `cd ${opts.sshPath} && nb pm list` });
     if (opts.method === 'backup_restore') {
       commands.push({
         step: 'backup-list',
@@ -1231,7 +1246,7 @@ async function executePlan(opts, ctx, commands) {
         );
       }
 
-      const tokenPack = resolveApiToken(opts, execRuntime.context, ctx.channel, execRuntime.envName);
+      const tokenPack = resolveApiToken(opts, execRuntime.context);
       if (!execRuntime.baseUrl && ctx.channel !== 'remote_ssh_cli') {
         steps.push({
           step: c.step,
@@ -1321,11 +1336,11 @@ async function executePlan(opts, ctx, commands) {
       if (ctx.channel === 'local_cli' && runCtlArgs.length > 0 && !tokenPack.token) {
         let envUseResult = null;
         if (execRuntime.envName) {
-          envUseResult = runCtl(['env', 'use', execRuntime.envName, '-s', opts.scope], opts);
+          envUseResult = runCli(['env', 'use', execRuntime.envName, '-s', opts.scope], opts);
           if (envUseResult.code !== 0) {
             steps.push({
               step: c.step,
-              lane: 'run_ctl',
+              lane: 'run_cli',
               operation: c.operation,
               exec_context: execRuntime.context,
               exec_env: execRuntime.envName || '',
@@ -1341,7 +1356,7 @@ async function executePlan(opts, ctx, commands) {
           }
         }
 
-        const r = runCtl(runCtlArgs, opts);
+        const r = runCli(runCtlArgs, opts);
         const stepOk = r.code === 0;
         let parsedPayload = null;
         if (stepOk) {
@@ -1384,7 +1399,7 @@ async function executePlan(opts, ctx, commands) {
 
         steps.push({
           step: c.step,
-          lane: 'run_ctl',
+          lane: 'run_cli',
           operation: c.operation,
           exec_context: execRuntime.context,
           exec_env: execRuntime.envName || '',
@@ -1422,7 +1437,7 @@ async function executePlan(opts, ctx, commands) {
           continue;
         }
         const resourceCmd = runCtlArgs.map((part) => shellQuote(part)).join(' ');
-        const ssh = `cd ${shellQuote(opts.sshPath)} && yarn nocobase ${resourceCmd}`;
+        const ssh = `cd ${shellQuote(opts.sshPath)} && nb ${resourceCmd}`;
         const r = runSsh(ssh, opts);
         const stepOk = r.code === 0;
         steps.push({
@@ -1571,9 +1586,9 @@ async function executePlan(opts, ctx, commands) {
       continue;
     }
 
-    if (c.lane === 'run_ctl') {
+    if (c.lane === 'run_cli') {
       if (execRuntime.envName) {
-        const envUseResult = runCtl(['env', 'use', execRuntime.envName, '-s', opts.scope], opts);
+        const envUseResult = runCli(['env', 'use', execRuntime.envName, '-s', opts.scope], opts);
         if (envUseResult.code !== 0) {
           steps.push({
             step: c.step,
@@ -1591,7 +1606,7 @@ async function executePlan(opts, ctx, commands) {
           continue;
         }
       }
-      const r = runCtl(c.args, opts);
+      const r = runCli(c.args, opts);
       const stepOk = r.code === 0;
       steps.push({
         step: c.step,
@@ -1626,7 +1641,7 @@ async function executePlan(opts, ctx, commands) {
       continue;
     }
     const apiMethod = c.method || 'GET';
-    const tokenPack = resolveApiToken(opts, execRuntime.context, ctx.channel, execRuntime.envName);
+    const tokenPack = resolveApiToken(opts, execRuntime.context);
     const api = await callApi({
       route: c.route,
       baseUrl: execRuntime.baseUrl,
@@ -1664,7 +1679,7 @@ async function executePlan(opts, ctx, commands) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const envListCall = runCtl(['env', 'list', '-s', opts.scope], opts);
+  const envListCall = runCli(['env', 'list', '-s', opts.scope], opts);
   const envs = envListCall.code === 0 ? parseEnvRows(envListCall.stdout) : [];
   const urls = resolveUrls(opts, envs);
   const channelResolution = resolveChannel(opts, urls.source, urls.target);
@@ -1748,7 +1763,7 @@ async function main() {
   }
 
   if (envListCall.code === 0 && opts.sourceEnv && sourceEnvExists === true) {
-    const sourceUpdate = runCtl(['env', 'update', '-e', opts.sourceEnv, '-s', opts.scope], opts);
+    const sourceUpdate = runCli(['env', 'update', opts.sourceEnv, '-s', opts.scope], opts);
     checks.push({
       id: 'REL-CLI-002',
       ok: sourceUpdate.code === 0,
@@ -1767,7 +1782,7 @@ async function main() {
   }
 
   if (envListCall.code === 0 && opts.targetEnv && targetEnvExists === true) {
-    const targetUpdate = runCtl(['env', 'update', '-e', opts.targetEnv, '-s', opts.scope], opts);
+    const targetUpdate = runCli(['env', 'update', opts.targetEnv, '-s', opts.scope], opts);
     checks.push({
       id: 'REL-CLI-003',
       ok: targetUpdate.code === 0,
@@ -1895,7 +1910,7 @@ async function main() {
     sourceEnvExists === true
   ) {
     const sourceRuntime = resolveExecContextRuntime(opts, ctx, 'source');
-    const sourceTokenPack = resolveApiToken(opts, 'source', ctx.channel, sourceRuntime.envName);
+    const sourceTokenPack = resolveApiToken(opts, 'source');
     const candidateResult = await listLatestBackupCandidates(sourceRuntime.baseUrl, sourceTokenPack, 5);
     backupCandidates.push(...candidateResult.artifacts);
 
@@ -2009,6 +2024,29 @@ async function main() {
   if (!opts.sourceEnv && !opts.sourceUrl) warnings.push('source context not explicit; source env defaults to local.');
 
   const plan = planCommands(opts, ctx);
+  const tokenNeeds = collectLocalCliTokenRequirements(opts, ctx, plan.commands);
+  for (const need of tokenNeeds) {
+    const tokenReady = Boolean(need.tokenPack?.token);
+    checks.push({
+      id: need.context === 'source' ? 'REL-TKN-001' : 'REL-TKN-002',
+      ok: tokenReady,
+      message: tokenReady
+        ? `Token for ${need.context} direct API steps is ready via ${need.tokenPack.source}.`
+        : `Token for ${need.context} direct API steps is missing.`,
+    });
+    if (!tokenReady) {
+      blockers.push(`Missing API token for ${need.context} context: ${need.tokenEnv}. Required for operations: ${need.operations.join(', ')}.`);
+      actionRequired.push({
+        type: 'set_api_token_env',
+        context: need.context,
+        token_env: need.tokenEnv,
+        operations: need.operations,
+        must_confirm_by_user: true,
+        message: `Set ${need.tokenEnv} for ${need.context} context and rerun.`,
+      });
+    }
+  }
+
   let execution = {
     ok: true,
     steps: [],
@@ -2094,4 +2132,5 @@ async function main() {
 }
 
 main().catch((e) => fail('RELEASE_RUNTIME_ERROR', 'Unexpected runtime error.', { detail: e.message }));
+
 

@@ -4,7 +4,7 @@ This folder now tracks CLI-oriented verification for `nocobase-acl-manage` v2.
 
 ## Current Status
 
-- Primary transport: `nocobase-ctl` CLI
+- Primary transport: `nb` CLI
 - Legacy MCP runner files are retained for historical comparison only
 
 Legacy files:
@@ -16,32 +16,32 @@ These legacy files are not the default validation path for the current skill con
 
 ## Recommended CLI Verification Flow
 
-1. Verify CLI and env through skill-local wrapper:
+1. Verify CLI and env through direct nb CLI:
 
 ```bash
-node ./scripts/run-ctl.mjs -- --help
-node ./scripts/run-ctl.mjs -- env update -e local
+nb --help
+nb env update local
 ```
 
 Before ACL writes, run execution guard in one locked base-dir:
 
 ```bash
-node ./scripts/run-ctl.mjs --base-dir . -- env -s project
-node ./scripts/run-ctl.mjs --base-dir . -- acl --help
-node ./scripts/run-ctl.mjs --base-dir . -- acl roles --help
+nb env -s project
+nb api acl --help
+nb api acl roles --help
 ```
 
 If guard fails, stop writes and follow recovery guidance. Do not create temporary executor scripts.
 
-Verify wrapper payload guard for independent resource writes (expected to fail fast before execution):
+Verify payload guard for independent resource writes (expected to fail fast before execution):
 
 ```bash
-node ./scripts/run-ctl.mjs -- acl roles data-source-resources update --data-source-key main --role-name reader --collection-name users --filter-by-tk 1 --body '{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}' -j
+nb api acl roles data-source-resources update --data-source-key main --role-name reader --collection-name users --filter-by-tk 1 --body '{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}' -j
 ```
 
 Expected behavior:
 
-- command is blocked by wrapper validation
+- command is blocked by preflight validation
 - error message indicates missing `scopeId` for scoped action and provides correction hints
 
 Use `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=.` to verify current env context before ACL writes.
@@ -60,12 +60,12 @@ If `env update` fails with `swagger:get`/API documentation plugin errors, activa
 Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys
 ```
 
-Then restart app, refresh token env if needed, and rerun `node ./scripts/run-ctl.mjs -- env update -e local`.
+Then restart app, refresh token env if needed, and rerun `nb env update local`.
 
 2. Verify runtime command availability:
 
 ```bash
-node ./scripts/run-ctl.mjs -- --help
+nb --help
 # then inspect resolved acl command group help
 ```
 
@@ -74,8 +74,8 @@ node ./scripts/run-ctl.mjs -- --help
 4. For guarded membership fallback checks, explicitly enable policy in task context and use:
 
 ```bash
-node ./scripts/run-ctl.mjs -- resource update --resource users ...
-node ./scripts/run-ctl.mjs -- resource list --resource users.roles ...
+nb api resource update --resource users ...
+nb api resource list --resource users.roles ...
 ```
 
 ## Report Guidance

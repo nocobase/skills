@@ -7,7 +7,7 @@ Define deterministic release orchestration for `nocobase-publish-manage` with No
 ## Runtime Entry Points
 
 - `node ./scripts/publish-manage.mjs <action> ...`
-- `node ./scripts/run-ctl.mjs -- <nocobase-ctl-args>`
+- `nb <command> [subcommand ...] [flags ...]`
 - `$nocobase-env-bootstrap task=app-manage ...` (environment lifecycle only)
 
 ## Action Matrix
@@ -23,7 +23,7 @@ Define deterministic release orchestration for `nocobase-publish-manage` with No
 
 | Channel | Main Transport | Typical Use |
 |---|---|---|
-| `local_cli` | `scripts/run-ctl.mjs` wrapper | local app / local operator |
+| `local_cli` | direct `nb` CLI | local app / local operator |
 | `remote_api` | API action routes | remote app API reachable |
 | `remote_ssh_cli` | `ssh` + app CLI | remote host with shell access |
 | `auto` | heuristic resolution | default mode |

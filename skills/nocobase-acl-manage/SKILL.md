@@ -1,6 +1,6 @@
 ---
 name: nocobase-acl-manage
-description: Task-driven ACL governance through nocobase-ctl CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
+description: Task-driven ACL governance through nb CLI for role lifecycle, global role mode, permission policy, user-role membership, and risk assessment. Use when users describe business permission outcomes instead of raw command arguments.
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
@@ -181,28 +181,28 @@ Default behavior when user says `you decide`:
 - normalize create-role wording to `role.create-blank` baseline first, then permission assignment
 
 2. Capability gate (CLI).
-- confirm skill-local wrapper is available (`node ./scripts/run-ctl.mjs -- ...`)
-- command assembly guard (hard rule for wrapper calls):
-- wrapper passthrough form must be `node ./scripts/run-ctl.mjs -- <command> [subcommand ...] [flags ...]`
-- first passthrough token after `--` must be a command (for example `env`/`acl`/`resource`), not a flag such as `-e`/`-t`/`-j`
-- wrong: `node ./scripts/run-ctl.mjs -- -e local`
-- correct: `node ./scripts/run-ctl.mjs -- resource list --resource users -e local -j`
+- confirm direct `nb` CLI is available in PATH
+- command assembly guard:
+- command form must be `nb <command> [subcommand ...] [flags ...]`
+- first token after `nb` must be a command (for example `env` or `api`), not a flag such as `-e`/`-t`/`-j`
+- wrong: `nb -e local`
+- correct: `nb api resource list --resource users -e local -j`
 - policy payload guard (hard rule for independent resource writes):
-- wrapper preflight must block `acl roles data-source-resources create|update` when `--body` is missing or invalid
+- preflight must block `api acl roles data-source-resources create|update` when `--body` is missing or invalid
 - for those writes, `--body` must include `usingActionsConfig: true` and non-empty `actions[]`
 - for actions `create/view/update/export/importXlsx`, each action must carry non-empty `fields[]`
 - for actions `view/update/destroy/export/importXlsx`, each action must carry non-null positive `scopeId`
 - if guard fails, stop before CLI execution and return a fixable error
 - lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
 - run execution guard sequence before ACL writes:
-- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- env -s project`
-- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl --help`
-- `node ./scripts/run-ctl.mjs --base-dir <acl_base_dir> -- acl roles --help`
+- `nb env -s project`
+- `nb api acl --help`
+- `nb api acl roles --help`
 - fail-closed policy:
-- if `acl --help` or `acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
+- if `nb api acl --help` or `nb api acl roles --help` fails, stop and return capability-boundary message; do not switch to ad-hoc script execution.
 - confirm current env context through bootstrap skill app-manage (`$nocobase-env-bootstrap task=app-manage app_env_action=current target_dir=<target_dir> app_scope=project`)
 - if no env is configured/current, request env bootstrap through `$nocobase-env-bootstrap task=app-manage` (`app_env_action=add/use`)
-- if runtime command cache is missing/stale, run `node ./scripts/run-ctl.mjs -- env update -e <current_env_name>`
+- if runtime command cache is missing/stale, run `nb env update <current_env_name>`
 - if runtime refresh fails with `swagger:get` 404 or API documentation plugin errors, activate dependency bundle and retry:
 - `Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys`
 - restart app before retrying runtime refresh
@@ -242,7 +242,7 @@ Primary write path:
 Guarded fallback path (user-role membership only):
 
 - allowed only when `allow_generic_association_write=true`
-- use generic `node ./scripts/run-ctl.mjs -- resource update/list` only for `users.roles` association operations
+- use generic `nb api resource update/list` only for `users.roles` association operations
 - mandatory readback after write
 
 Hard restrictions:
@@ -250,7 +250,7 @@ Hard restrictions:
 - never use direct HTTP fallback
 - never use direct database mutation
 - never use generic resource commands for ACL policy writes when ACL-specific runtime commands exist
-- never infer "ACL unsupported" without checking `acl --help` and `acl roles --help` in the same locked `base-dir`
+- never infer "ACL unsupported" without checking `nb api acl --help` and `nb api acl roles --help` in the same locked `base-dir`
 - never create temporary `.js/.ps1/.sh` executor scripts to bypass runtime command discovery
 
 # Safety Gate
@@ -283,14 +283,14 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - CLI capability gate passes (env context available via `$nocobase-env-bootstrap task=app-manage app_env_action=current`, runtime commands resolvable)
 - CLI dependency plugins (`@nocobase/plugin-api-doc`, `@nocobase/plugin-api-keys`) are active or explicit recovery guidance is emitted
 - runtime command names resolved from command map/help
-- execution guard evidence includes locked `base-dir` plus `env -s project`, `acl --help`, and `acl roles --help`
+- execution guard evidence includes locked `base-dir` plus `env -s project`, `nb api acl --help`, and `nb api acl roles --help`
 - every write has immediate readback evidence
 - for `permission.data-source.resource.set`, data source + resolved collections + actions + scope were confirmed before write
 - for `permission.data-source.resource.set`, readback confirms `usingActionsConfig=true` and action-level scope/fields in the same write cycle
 - for scope=`all|own`, readback shows non-null `scopeId` and matching scope key
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
-- wrapper-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
+- command-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
 - global role-mode tasks do not require `role_name`
 - boundary messages are clear and actionable
 

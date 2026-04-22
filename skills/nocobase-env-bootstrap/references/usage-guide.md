@@ -57,7 +57,7 @@ Install script writes `NOCOBASE_INSTALL_METHOD` into the app `.env` file (`docke
 
 ## Install Script Entrypoints
 
-All scripts must be invoked with their **absolute path** (`<SKILL_ROOT>` = directory of SKILL.md). Never use relative paths â€” they break when cwd differs.
+All scripts must be invoked with their **absolute path** (`<SKILL_ROOT>` = directory of SKILL.md). Never use relative paths â€?they break when cwd differs.
 
 ```powershell
 node "<SKILL_ROOT>/scripts/install.mjs" --method <docker|create-nocobase-app|git> --target-dir <dir> --release-channel <latest|beta|alpha> --db-mode <bundled|existing> --db-dialect <postgres|mysql|mariadb> --db-database-mode <existing|create> --db-underscored <true|false> --project-name <name>
@@ -87,10 +87,10 @@ Database policy:
 5. Run local install script for docker path.
 6. Verify logs and login URL.
 7. Run CLI bootstrap final stage:
-- `nocobase-ctl env add --name local --base-url http://localhost:13000/api -s project`
-- `nocobase-ctl env auth -e local -s project`
-- `nocobase-ctl env update -e local -s project`
-- `nocobase-ctl env -s project`
+- `nb env add local --api-base-url http://localhost:13000/api -s project`
+- `nb env auth local -s project`
+- `nb env update local -s project`
+- `nb env -s project`
 
 
 APP_KEY examples:
@@ -163,17 +163,17 @@ For install/upgrade flows, local CLI bootstrap is executed as the final stage by
 
 OAuth mode (default):
 ```bash
-nocobase-ctl env add --name local --base-url http://localhost:<port>/api -s project
-nocobase-ctl env auth -e local -s project
-nocobase-ctl env update -e local -s project
-nocobase-ctl env -s project
+nb env add local --api-base-url http://localhost:<port>/api -s project
+nb env auth local -s project
+nb env update local -s project
+nb env -s project
 ```
 
 Token mode:
 ```bash
-nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project
-nocobase-ctl env update -e local -s project
-nocobase-ctl env -s project
+nb env add local --api-base-url http://localhost:<port>/api --access-token <token> -s project
+nb env update local -s project
+nb env -s project
 ```
 
 In token mode, if no token is available, auto-generate first:
@@ -187,35 +187,35 @@ Ask user manually only when automatic path fails.
 
 ## App Environment Management Task
 
-When user asks to add/switch/check environment directly, use direct `nocobase-ctl` commands:
+When user asks to add/switch/check environment directly, use direct `nb` commands:
 
 OAuth add env:
 ```bash
-nocobase-ctl env add --name staging --base-url https://demo.example.com/api -s project
-nocobase-ctl env auth -e staging -s project
-nocobase-ctl env update -e staging -s project
+nb env add staging --api-base-url https://demo.example.com/api -s project
+nb env auth staging -s project
+nb env update staging -s project
 ```
 
 Token add env (remote, manual token via env var):
 ```bash
-nocobase-ctl env add --name staging --base-url https://demo.example.com/api --token <token> -s project
-nocobase-ctl env update -e staging -s project
+nb env add staging --api-base-url https://demo.example.com/api --access-token <token> -s project
+nb env update staging -s project
 ```
 
 Switch env:
 ```bash
-nocobase-ctl env use staging -s project
+nb env use staging -s project
 ```
 
 Remove env:
 ```bash
-nocobase-ctl env remove -e staging -s project
+nb env remove staging -s project
 ```
 
 List / read current:
 ```bash
-nocobase-ctl env list -s project
-nocobase-ctl env -s project
+nb env list -s project
+nb env -s project
 ```
 
 ## Optional MCP Flow (Explicit Only)

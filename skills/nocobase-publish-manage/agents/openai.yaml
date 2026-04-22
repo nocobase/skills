@@ -4,7 +4,7 @@ agent:
   default_prompt: >
     Use $nocobase-publish-manage for NocoBase publish workflows with precheck,
     backup_restore, migration, verify, and rollback. Keep execution Node-only
-    and use skill-local run-ctl for CLI operations.
+    and use direct `nb` commands for CLI operations.
 
     Deterministic intent routing (must follow exactly):
     1) Explicit method in parameters wins.

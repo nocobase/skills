@@ -127,8 +127,7 @@ function hasCommand(name) {
 }
 
 function resolveCtlCommand() {
-  if (hasCommand('nocobase-ctl')) return 'nocobase-ctl';
-  if (hasCommand('nbctl')) return 'nbctl';
+  if (hasCommand('nb')) return 'nb';
   return '';
 }
 
@@ -501,18 +500,18 @@ async function main() {
       : record('warn', 'DEP-YARN-001', 'Yarn not detected.', 'Install Yarn Classic from https://classic.yarnpkg.com/lang/en/docs/install/');
   }
 
-  // ─── nocobase-ctl ─────────────────────────────────────────────────────────
+  // ─── nb CLI ───────────────────────────────────────────────────────────────
 
   const ctlCommand = resolveCtlCommand();
   if (ctlCommand) {
     const ctlCheck = runCtlCommand(ctlCommand, ['env', 'list', '--help']);
     if (ctlCheck.ok) {
-      record('pass', 'DEP-CTL-001', `nocobase-ctl CLI detected (${ctlCommand}).`);
+      record('pass', 'DEP-CTL-001', `nb CLI detected (${ctlCommand}).`);
     } else {
-      record('fail', 'DEP-CTL-001', `nocobase-ctl CLI exists but command check failed (${ctlCommand}).`, 'Reinstall nocobase-ctl from https://github.com/nocobase/nocobase-ctl and retry.');
+      record('fail', 'DEP-CTL-001', `nb CLI exists but command check failed (${ctlCommand}).`, 'Reinstall @nocobase/cli (for example: npm i -g @nocobase/cli) and retry.');
     }
   } else {
-    record('fail', 'DEP-CTL-001', 'nocobase-ctl CLI not detected.', 'Install nocobase-ctl from https://github.com/nocobase/nocobase-ctl before install/upgrade.');
+    record('fail', 'DEP-CTL-001', 'nb CLI not detected.', 'Install @nocobase/cli (for example: npm i -g @nocobase/cli) before install/upgrade.');
   }
 
   // ─── Git ─────────────────────────────────────────────────────────────────

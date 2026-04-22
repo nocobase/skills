@@ -2,7 +2,7 @@
 
 ## Goal
 
-Install and start NocoBase in one environment with minimal friction, then bootstrap local `nocobase-ctl` environment for downstream CLI-first skills.
+Install and start NocoBase in one environment with minimal friction, then bootstrap local `nb` environment for downstream CLI-first skills.
 
 ## Contents
 
@@ -221,15 +221,15 @@ For install tasks, run this section as the default final stage after app startup
 - Account: `nocobase` (or configured `INIT_ROOT_EMAIL`)
 - Password: `admin123` (or configured `INIT_ROOT_PASSWORD`)
 - Tell user: "When the browser opens, log in with the credentials above. The OAuth authorization page will appear automatically after login."
-- Do NOT output the app login URL â€” follow the OAuth authorization flow started by `env auth`. If `env auth` prints an authorization URL in command output, use that same URL; outputting a separate login URL risks the user navigating there instead and missing the authorization callback.
+- Do NOT output the app login URL â€?follow the OAuth authorization flow started by `env auth`. If `env auth` prints an authorization URL in command output, use that same URL; outputting a separate login URL risks the user navigating there instead and missing the authorization callback.
 - Rationale: `env auth` opens a browser OAuth flow immediately. If the user has no active session, the browser will redirect to the login page first. Showing credentials upfront prevents the user from being stuck on the login page without knowing what to enter.
 - Always include password rotation reminder.
 
 4. Run CLI bootstrap command chain:
 
 ```bash
-nocobase-ctl env add --name local --base-url http://localhost:13000/api -s project
-nocobase-ctl env auth -e local -s project
+nb env add local --api-base-url http://localhost:13000/api -s project
+nb env auth local -s project
 ```
 
 `env auth` is a blocking command that self-terminates when OAuth completes. After printing the authorization URL it blocks waiting for the browser callback. When the user finishes the browser flow, `env auth` exits on its own.
@@ -237,16 +237,16 @@ nocobase-ctl env auth -e local -s project
 - **FORBIDDEN**: running `env update` before `env auth` exits; asking the user if they finished; treating a long wait as failure; interrupting the process.
 
 ```bash
-nocobase-ctl env update -e local -s project
-nocobase-ctl env -s project
+nb env update local -s project
+nb env -s project
 ```
 
 5. Token mode command sequence:
 
 ```bash
-nocobase-ctl env add --name local --base-url http://localhost:<port>/api --token <token> -s project
-nocobase-ctl env update -e local -s project
-nocobase-ctl env -s project
+nb env add local --api-base-url http://localhost:<port>/api --access-token <token> -s project
+nb env update local -s project
+nb env -s project
 ```
 
 ## Optional MCP Stage (Explicit Only)

@@ -74,14 +74,13 @@ Migration template presets (independent rules are always disabled):
 | `confirm` | publish/rollback apply: yes | none | must be `confirm` | "Please type confirm to continue high-risk execution." |
 | `base_dir` | no | current directory | existing path | "Which base directory should commands run in?" |
 | `scope` | no | `project` | one of `project/global` | "Use project scope or global scope?" |
-| `prefer` | no | `auto` | one of `auto/global/local` | "Prefer global ctl or local ctl?" |
 | `ssh_host` | remote_ssh_cli: yes | empty | non-empty host | "What SSH host should be used?" |
 | `ssh_path` | remote_ssh_cli: yes | empty | non-empty path | "What app path on SSH host should be used?" |
 
 Rules:
 
 - Default command entrypoint: `node ./scripts/publish-manage.mjs ...`.
-- Local CLI wrapper: `node ./scripts/run-ctl.mjs ...`.
+- Local CLI execution is direct `nb ...` (no wrapper script).
 - App environment lifecycle (`add/use/current/list`) must be handled by `$nocobase-env-bootstrap task=app-manage ...`, not by this skill.
 - Migration template policy source is code-only: `scripts/migration-template-rules.mjs`.
 - If required inputs are missing, stop mutation and return blocker list.
@@ -116,7 +115,7 @@ Deterministic keyword routing:
 # Workflow
 
 1. Normalize and validate input.
-2. Read environment inventory via CLI wrapper: `node ./scripts/run-ctl.mjs -- env list -s <scope>`.
+2. Read environment inventory via direct CLI: `nb env list -s <scope>`.
 3. If CLI env inventory fails, hand off to `$nocobase-env-bootstrap task=app-manage ...` for repair.
 4. Check source/target env existence and run CLI update checks for both envs.
 5. If env is missing or CLI check fails, hand off to `$nocobase-env-bootstrap task=app-manage ...`.
@@ -158,7 +157,6 @@ Deterministic keyword routing:
 | [references/intent-routing.md](references/intent-routing.md) | mapping user keywords to intent/method flow | deterministic anti-inference routing |
 | [references/test-playbook.md](references/test-playbook.md) | verifying skill behavior | prompt-ready acceptance set |
 | [publish-resource-adapter.mjs](scripts/publish-resource-adapter.mjs) | any release mutation/readback | unified resource templates for backup/migration operations |
-| [run-ctl.mjs](scripts/run-ctl.mjs) | any ctl command execution | local/global nocobase-ctl resolver |
 | [publish-manage.mjs](scripts/publish-manage.mjs) | publish orchestration | precheck/publish/verify/rollback entrypoint |
 
 # Safety Gate
@@ -260,7 +258,6 @@ Final response must include:
 - [NocoBase Commercial](https://www.nocobase.com/en/commercial): official commercial purchase and activation guidance. [verified: 2026-04-15]
 - [Runtime Contract](references/v1-runtime-contract.md): action/channel/method behavior map.
 - [Test Playbook](references/test-playbook.md): acceptance prompts and expected assertions.
-- [run-ctl Resolver](scripts/run-ctl.mjs): skill-local ctl runtime resolver.
 - [Release Resource Adapter](scripts/publish-resource-adapter.mjs): resource operation templates and adapter helpers.
 - [nocobase-env-bootstrap](../nocobase-env-bootstrap/SKILL.md): authoritative app environment lifecycle skill (`task=app-manage`).
 - [Release Runtime](scripts/publish-manage.mjs): skill-local release orchestration entrypoint.

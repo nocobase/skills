@@ -1,549 +1,63 @@
 # Test Playbook
 
-## Table of Contents
-
-1. [Purpose](#purpose)
-2. [Test Setup](#test-setup)
-3. [Global Assertions](#global-assertions)
-4. [Test Cases](#test-cases)
-5. [Quick Regression Set](#quick-regression-set)
-
-## Purpose
-
-Provide copy-ready prompts for testing `nocobase-plugin-manage`.
-Each case defines:
-
-- prompt text
-- intended task
-- expected result
-
-Contract note:
-- Current skill contract supports `inspect`, `enable`, and `disable`.
-- Legacy `install` cases in this file are historical references and should be skipped unless install support is explicitly reintroduced.
-
-## Test Setup
-
-Prepare placeholders before running cases:
-
-- `<LOCAL_APP_PATH>`: local NocoBase app path, for example `E:/apps/my-nocobase`
-- `<REMOTE_BASE_URL>`: remote app base URL, for example `https://demo.example.com`
-- `<VALID_PLUGIN>`: plugin that exists in target app/plugin source
-- `<NON_EXISTENT_PLUGIN>`: plugin name that does not exist
-- `<TOKEN_ENV>`: environment variable name for remote token, for example `NOCOBASE_TOKEN_DEMO`
-- `<COMPOSE_SERVICE>`: local docker compose app service name, default `app`
-
-If testing remote write cases, make sure `<TOKEN_ENV>` is exported in the current shell.
-
-## Global Assertions
-
-All successful cases should include these output fields:
-
-- `request`
-- `channel`
-- `execution_backend`
-- `commands_or_actions`
-- `verification`
-- `assumptions`
-- `target_resolution`
-- `next_steps`
-
-Write actions (`enable` and `disable`) in `safe` mode should also include:
-
-- `pre_state`
-- `post_state`
-- readback verification result (`passed` or `pending_verification`)
-
-Failure cases caused by backend unavailability should include:
-
-- `verification=failed`
-- `fallback_hints`
-- at least one UI fallback URL (`plugin-manager` and/or `api-keys`)
-
-## Test Cases
-
-### TC01 Local Inspect (Catalog)
+## TC01 Inspect
 
 Prompt:
 
 ```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=inspect with:
-{
-  "action": "inspect",
-  "target": {
-    "mode": "local",
-    "app_path": "<LOCAL_APP_PATH>",
-    "base_url": "http://127.0.0.1:13000"
-  },
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 90
-  }
-}
+Use $nocobase-plugin-manage inspect.
 ```
-
-Task:
-
-- Inspect local plugin catalog and status.
 
 Expected:
 
-- `channel=local`
-- local command path uses `yarn nocobase pm list` (or `docker compose exec -T <service> yarn nocobase pm list`)
-- output parsing uses JSON between `--- BEGIN_PLUGIN_LIST_JSON ---` and `--- END_PLUGIN_LIST_JSON ---`
-- API (`pm:list`/`pm:get`) is only fallback when marker extraction fails
-- `verification=passed`
-- output includes plugin entries with state fields (`enabled`/`installed`) when available
+- `commands` includes `nb pm list`.
+- `verification=passed`.
 
-### TC02 Remote Inspect (Catalog)
+## TC02 Enable
 
 Prompt:
 
 ```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=inspect with:
-{
-  "action": "inspect",
-  "target": {
-    "mode": "remote",
-    "base_url": "<REMOTE_BASE_URL>"
-  },
-  "auth": {
-    "token_env": "<TOKEN_ENV>"
-  },
-  "execution_mode": "safe"
-}
+Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc.
 ```
-
-Task:
-
-- Inspect remote plugin catalog and enabled lanes.
 
 Expected:
 
-- `channel=remote`
-- request routes include `pm:list` and/or `pm:listEnabled`
-- `verification=passed`
-- token value is not printed directly, only env var name appears
+- `commands` includes `nb pm enable @nocobase/plugin-api-doc`.
+- readback includes `nb pm list`.
+- when passed, post-state shows `enabled=true`.
 
-### TC03 Local Install (Happy Path)
+## TC03 Disable
 
 Prompt:
 
 ```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=install with:
-{
-  "action": "install",
-  "target": {
-    "mode": "local",
-    "app_path": "<LOCAL_APP_PATH>",
-    "base_url": "http://127.0.0.1:13000"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 120
-  }
-}
+Use $nocobase-plugin-manage disable @nocobase/plugin-api-doc.
 ```
-
-Task:
-
-- Install a plugin in local app using CLI.
 
 Expected:
 
-- `commands_or_actions` includes `yarn nocobase pm add`
-- pre-state and post-state are both shown
-- `verification=passed` or `pending_verification` (if async lag exceeds timeout)
-- when passed, plugin is discoverable in post-state
+- `commands` includes `nb pm disable @nocobase/plugin-api-doc`.
+- readback includes `nb pm list`.
+- when passed, post-state shows `enabled=false`.
 
-### TC04 Remote Install (Custom Registry)
+## TC04 Missing Plugin Guard
 
 Prompt:
 
 ```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=install with:
-{
-  "action": "install",
-  "target": {
-    "mode": "remote",
-    "base_url": "<REMOTE_BASE_URL>"
-  },
-  "auth": {
-    "token_env": "<TOKEN_ENV>"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "options": {
-    "registry": "https://registry.npmjs.org",
-    "version": "latest"
-  },
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 120
-  }
-}
+Use $nocobase-plugin-manage enable.
 ```
-
-Task:
-
-- Install plugin on remote app through `pm:add`.
 
 Expected:
 
-- `channel=remote`
-- action route includes `pm:add`
-- result is not marked success before readback
-- `verification=passed` or `pending_verification`
+- mutation is blocked.
+- output asks for plugin identity.
 
-### TC05 Local Disable (Happy Path)
+## TC05 No Fallback Guarantee
 
-Prompt:
+Expected across all cases:
 
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=disable with:
-{
-  "action": "disable",
-  "target": {
-    "mode": "local",
-    "app_path": "<LOCAL_APP_PATH>",
-    "base_url": "http://127.0.0.1:13000"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 120
-  }
-}
-```
-
-Task:
-
-- Disable a plugin in local app.
-
-Expected:
-
-- `commands_or_actions` includes `yarn nocobase pm disable`
-- post-state shows `enabled=false` for target plugin
-- `verification=passed` or `pending_verification`
-
-### TC06 Remote Disable (Happy Path)
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=disable with:
-{
-  "action": "disable",
-  "target": {
-    "mode": "remote",
-    "base_url": "<REMOTE_BASE_URL>"
-  },
-  "auth": {
-    "token_env": "<TOKEN_ENV>"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 120
-  }
-}
-```
-
-Task:
-
-- Disable plugin remotely through API action.
-
-Expected:
-
-- action route includes `pm:disable`
-- post-state readback confirms `enabled=false`
-- `verification=passed` or `pending_verification`
-
-### TC07 Disable Non-Existent Plugin (Negative)
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=disable with:
-{
-  "action": "disable",
-  "target": {
-    "mode": "local",
-    "app_path": "<LOCAL_APP_PATH>",
-    "base_url": "http://127.0.0.1:13000"
-  },
-  "plugins": ["<NON_EXISTENT_PLUGIN>"],
-  "execution_mode": "safe"
-}
-```
-
-Task:
-
-- Validate not-found handling.
-
-Expected:
-
-- no false success
-- `verification=failed`
-- output explicitly says plugin not found or load error
-- `next_steps` suggests checking name or running inspect first
-
-### TC08 Remote Write Without Token (Negative)
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=install with:
-{
-  "action": "install",
-  "target": {
-    "mode": "remote",
-    "base_url": "<REMOTE_BASE_URL>"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_mode": "safe"
-}
-```
-
-Task:
-
-- Verify auth guard for remote mutation.
-
-Expected:
-
-- mutation is blocked before write
-- response identifies missing token requirement
-- `verification=failed`
-
-### TC09 Unreachable Base URL In Safe Mode (Negative)
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=inspect with:
-{
-  "action": "inspect",
-  "target": {
-    "mode": "remote",
-    "base_url": "http://127.0.0.1:65530"
-  },
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 20
-  }
-}
-```
-
-Task:
-
-- Verify reachability guard.
-
-Expected:
-
-- no mutation attempted
-- clear connectivity error
-- actionable recovery in `next_steps`
-
-### TC10 Timeout Leads To Pending Verification
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=disable with:
-{
-  "action": "disable",
-  "target": {
-    "mode": "remote",
-    "base_url": "<REMOTE_BASE_URL>"
-  },
-  "auth": {
-    "token_env": "<TOKEN_ENV>"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 10
-  }
-}
-```
-
-Task:
-
-- Force tight timeout to validate pending status behavior.
-
-Expected:
-
-- write is triggered
-- readback polling happens
-- if timeout occurs, `verification=pending_verification`
-- result includes last observed `post_state`
-
-### TC11 Local Enable (Happy Path)
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=enable with:
-{
-  "action": "enable",
-  "target": {
-    "mode": "local",
-    "app_path": "<LOCAL_APP_PATH>",
-    "base_url": "http://127.0.0.1:13000"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_mode": "safe",
-  "verify": {
-    "timeout_seconds": 120
-  }
-}
-```
-
-Task:
-
-- Enable a plugin in local app.
-
-Expected:
-
-- `commands_or_actions` includes `yarn nocobase pm enable`
-- post-state shows `enabled=true` for target plugin
-- `verification=passed` or `pending_verification`
-
-### TC12 Compact Invocation + Auto Target Resolution
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage enable <VALID_PLUGIN>
-```
-
-Task:
-
-- Validate compact invocation can auto-resolve local/remote target.
-
-Expected:
-
-- request is normalized into structured execution payload
-- output includes `target_resolution` with explicit decision evidence
-- `channel` is explicit (`local` or `remote`)
-- `verification` is not reported as passed before readback
-
-### TC13 Local Docker Backend Auto-Selection
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage enable <VALID_PLUGIN>
-Assume current workspace is a docker-compose based local NocoBase app.
-```
-
-Task:
-
-- Validate backend auto-selection prefers docker CLI in local docker environments.
-
-Expected:
-
-- `channel=local`
-- `execution_backend=docker_cli`
-- `commands_or_actions` includes `docker compose exec -T app yarn nocobase pm enable`
-- verification behavior remains readback-based (`passed` or `pending_verification`)
-- readback should include local `pm list` marker JSON parsing; API actions such as `pm:get` are fallback only
-
-### TC14 Local Write Fallback To Remote API
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc
-Assume current workspace resolves to a local target.
-Assume local docker write path is unavailable, while remote API is reachable with valid token.
-```
-
-Task:
-
-- Validate local write fallback chain uses remote API after docker failure.
-
-Expected:
-
-- `channel=local`
-- output records docker write failure first
-- then attempts `remote_api` mutation route (`pm:enable`)
-- verification remains readback-based (`passed` or `pending_verification`)
-- no direct jump to manual fallback when remote API path succeeds
-
-### TC15 Auto Mode With Both app_path + base_url
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage at E:/work/develop-skills/skills/nocobase-plugin-manage.
-Run action=enable with:
-{
-  "action": "enable",
-  "target": {
-    "mode": "auto",
-    "app_path": "<LOCAL_APP_PATH>",
-    "base_url": "http://127.0.0.1:13000",
-    "compose_service": "<COMPOSE_SERVICE>"
-  },
-  "plugins": ["<VALID_PLUGIN>"],
-  "execution_backend": "auto",
-  "execution_mode": "safe"
-}
-```
-
-Task:
-
-- Validate `target.mode=auto` prefers local when both `app_path` and `base_url` are provided.
-
-Expected:
-
-- `channel=local`
-- `target_resolution` explicitly mentions `app_path` precedence
-- first write attempt uses `docker_cli`
-- when docker write fails and remote prerequisites are ready, fallback may use `remote_api`
-- verification remains readback-based (`passed`, `pending_verification`, or `failed` with rich manual fallback if both paths fail)
-
-### TC16 Local Port Mismatch Fast Skip
-
-Prompt:
-
-```text
-Use $nocobase-plugin-manage enable @nocobase/plugin-localization
-Assume target resolves to local mode with:
-- app_path compose maps app service port to 13000
-- target.base_url points to http://localhost:19000
-```
-
-Task:
-
-- Validate docker write path is skipped quickly when target URL port does not belong to compose mapping.
-
-Expected:
-
-- output includes explicit docker-eligibility evidence (target port mismatch)
-- no long-running docker write attempt against unrelated compose target
-- write flow proceeds to `remote_api` fallback when token/base_url are ready, otherwise returns manual fallback guidance
-
-## Quick Regression Set
-
-Use this set for fast smoke checks:
-
-1. TC01 local inspect
-2. TC13 local docker backend auto-selection
-3. TC11 local enable
-4. TC05 local disable
-5. TC02 remote inspect
-6. TC14 local write fallback to remote API
-7. TC15 auto mode app_path precedence
-8. TC16 local port mismatch fast skip
+- no `docker compose exec`.
+- no `pm:list`/`pm:enable` API route fallback.
+- no legacy ctl or wrapper-script command path.
