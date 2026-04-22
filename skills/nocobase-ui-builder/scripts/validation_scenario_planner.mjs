@@ -237,6 +237,28 @@ function buildDeleteAction(label) {
   };
 }
 
+function buildFilterAction(label = '筛选') {
+  return {
+    kind: 'filter-action',
+    label,
+    popup: null,
+  };
+}
+
+function withRequestedFilterAction(block, operationIntent) {
+  if (!block || !operationIntent?.requestedFilterAction || !supportsFilterActionOnBlock(block)) {
+    return block;
+  }
+  if (!Array.isArray(block.actions)) {
+    block.actions = [];
+  }
+  if (block.actions.some((action) => normalizeText(action?.kind) === 'filter-action')) {
+    return block;
+  }
+  block.actions.unshift(buildFilterAction());
+  return block;
+}
+
 function resolveMetricFields(collectionMeta, fields = []) {
   const availableFields = uniqueStrings([
     ...(Array.isArray(fields) ? fields : []),
@@ -264,6 +286,7 @@ function buildVisualizationBlock({
   collectionMeta,
   fields,
   requestText,
+  operationIntent,
 }) {
   const collectionName = collectionMeta?.name || '';
   if (shouldPreferJsBlockForAggregation({
@@ -305,12 +328,12 @@ function buildVisualizationBlock({
     }
     if (!isRenderableChartSpec(chartSpec)) {
       return collectionMeta
-        ? buildGridCardBlockFromMetrics({
+        ? withRequestedFilterAction(buildGridCardBlockFromMetrics({
           title,
           collectionName,
           metrics: resolveMetricFields(collectionMeta, fields),
           goal: hasAnyKeyword(requestText, ['总览', 'overview', '概览']) ? 'summary' : 'metrics',
-        })
+        }), operationIntent)
         : null;
     }
     return buildChartBlockFromBuilderSpec({
@@ -329,18 +352,18 @@ function buildVisualizationBlock({
     });
   }
   if (use === 'GridCardBlockModel') {
-    return buildGridCardBlockFromMetrics({
+    return withRequestedFilterAction(buildGridCardBlockFromMetrics({
       title,
       collectionName,
       metrics: resolveMetricFields(collectionMeta, fields),
       goal: hasAnyKeyword(requestText, ['总览', 'overview', '概览']) ? 'summary' : 'metrics',
-    });
+    }), operationIntent);
   }
-  return buildPublicUseBlock({
+  return withRequestedFilterAction(buildPublicUseBlock({
     use,
     title,
     collectionName: COLLECTION_BOUND_PUBLIC_USES.has(use) ? collectionName : '',
-  });
+  }), operationIntent);
 }
 
 const PAGE_PLAN_VERSION = 'page-first-v1';
@@ -668,6 +691,12 @@ const COLLECTION_BOUND_PUBLIC_USES = new Set([
   'CommentsBlockModel',
 ]);
 
+const FILTER_ACTION_HOST_USES = new Set([
+  'TableBlockModel',
+  'ListBlockModel',
+  'GridCardBlockModel',
+]);
+
 const ALWAYS_RUNTIME_SENSITIVE_PUBLIC_USES = {
   CommentsBlockModel: {
     contextRequirements: ['comment collection template'],
@@ -729,6 +758,30 @@ const JS_INSIGHT_KEYWORDS = [
   'interactive',
   'narrative',
   'guide',
+];
+
+const FILTER_FORM_INTENT_KEYWORDS = [
+  '筛选区块',
+  '筛选块',
+  '筛选表单',
+  '查询表单',
+  '搜索表单',
+  '条件查询区',
+  '条件筛选区',
+  'filter form',
+  'filter block',
+  'search form',
+  'query form',
+  'query block',
+];
+
+const GENERIC_FILTER_INTENT_KEYWORDS = [
+  '筛选',
+  'filter',
+  '搜索',
+  'search',
+  '条件查询',
+  'screening',
 ];
 
 function getCreativePriorityUses(requestText = '') {
@@ -1535,6 +1588,7 @@ function resolveOperationIntent(requestText, primaryBlockUse) {
   const explicitEdit = hasAnyKeyword(requestText, ['编辑', '修改', 'edit', 'update']);
   const explicitDelete = hasAnyKeyword(requestText, ['删除', 'delete', 'remove', 'destroy']);
   const explicitView = hasAnyKeyword(requestText, ['查看', '详情', 'view', 'open', 'popup', 'drawer', 'dialog']);
+  const filterIntent = resolveFilterIntent(requestText);
 
   const supportsCollectionActions = primaryBlockUse !== 'MarkdownBlockModel' && primaryBlockUse !== 'ReferenceBlockModel';
   const defaultCrud = supportsCollectionActions && !minimal;
@@ -1545,9 +1599,52 @@ function resolveOperationIntent(requestText, primaryBlockUse) {
     delete: explicitDelete || defaultCrud,
     view: explicitView || defaultCrud,
     requestedTabs: hasAnyKeyword(requestText, ['tab', 'tabs', '页签', '标签']),
-    requestedFilter: hasAnyKeyword(requestText, ['筛选', 'filter']),
+    filterIntent,
+    requestedFilter: filterIntent !== 'none',
+    requestedFilterAction: filterIntent === 'action',
+    requestedFilterForm: filterIntent === 'form',
     minimal,
   };
+}
+
+function resolveFilterIntent(requestText) {
+  if (hasAnyKeyword(requestText, FILTER_FORM_INTENT_KEYWORDS)) {
+    return 'form';
+  }
+  if (hasAnyKeyword(requestText, GENERIC_FILTER_INTENT_KEYWORDS)) {
+    return 'action';
+  }
+  return 'none';
+}
+
+function resolveRequestedFilterPattern(operationIntent) {
+  if (operationIntent?.requestedFilterForm) {
+    return 'filter-form';
+  }
+  if (operationIntent?.requestedFilterAction) {
+    return 'filter-action';
+  }
+  return '';
+}
+
+function resolveRequestedFilterHeuristic(operationIntent) {
+  if (operationIntent?.requestedFilterForm) {
+    return 'place-filter-before-business-blocks';
+  }
+  if (operationIntent?.requestedFilterAction) {
+    return 'prefer-filter-action-on-data-blocks';
+  }
+  return '';
+}
+
+function summarizeResolvedFilterIntent(operationIntent) {
+  if (operationIntent?.requestedFilterForm) {
+    return '显式筛选请求已物化为 FilterFormBlockModel。';
+  }
+  if (operationIntent?.requestedFilterAction) {
+    return '未显式要求筛选区块时，筛选请求已物化为数据区块上的 filter action。';
+  }
+  return '';
 }
 
 function findPrimaryBlockDefinitionByUse(use) {
@@ -1641,6 +1738,10 @@ function isBusinessUse(use) {
   return Boolean(normalizedUse) && !STRUCTURAL_OR_META_USES.has(normalizedUse);
 }
 
+function supportsFilterActionOnBlock(block) {
+  return FILTER_ACTION_HOST_USES.has(resolvePlannedBlockUse(block));
+}
+
 function isCollectionBoundBusinessBlock(block) {
   if (!block || typeof block !== 'object') {
     return false;
@@ -1671,6 +1772,18 @@ function isCollectionBoundBusinessBlock(block) {
 function layoutHasCollectionBoundBusinessBlock(layout) {
   const visitBlocks = (items) => (Array.isArray(items) ? items : []).some((block) => {
     if (isCollectionBoundBusinessBlock(block)) {
+      return true;
+    }
+    const popupBlocks = Array.isArray(block?.popup?.blocks) ? block.popup.blocks : [];
+    return visitBlocks(block?.blocks) || visitBlocks(popupBlocks);
+  });
+  return visitBlocks(layout?.blocks)
+    || (Array.isArray(layout?.tabs) ? layout.tabs.some((tab) => visitBlocks(tab.blocks)) : false);
+}
+
+function layoutHasFilterActionHost(layout) {
+  const visitBlocks = (items) => (Array.isArray(items) ? items : []).some((block) => {
+    if (supportsFilterActionOnBlock(block)) {
       return true;
     }
     const popupBlocks = Array.isArray(block?.popup?.blocks) ? block.popup.blocks : [];
@@ -1928,7 +2041,7 @@ function createCreativeProgram({
         'tabbed-multi-surface',
       ]),
       optionalPatterns: uniqueStrings([
-        operationIntent.requestedFilter ? 'filter-form' : '',
+        resolveRequestedFilterPattern(operationIntent),
         operationIntent.view || operationIntent.edit ? 'record-actions' : '',
         operationIntent.delete ? 'delete-confirm' : '',
       ]),
@@ -1957,11 +2070,11 @@ function createCreativeProgram({
         ? 'prefer-public-root-blocks-without-collection-binding'
         : 'prefer-explicit-collection-and-fields',
       operationIntent.requestedTabs ? 'prefer-tabbed-workbench' : 'prefer-single-focus-layout',
-      operationIntent.requestedFilter ? 'place-filter-before-business-blocks' : '',
+      resolveRequestedFilterHeuristic(operationIntent),
     ]),
     requiredPatterns: uniqueStrings([
       operationIntent.requestedTabs ? 'workspace-tabs' : '',
-      operationIntent.requestedFilter ? 'filter-form' : '',
+      resolveRequestedFilterPattern(operationIntent),
     ]),
     optionalPatterns: uniqueStrings([
       'popup-openview',
@@ -2166,6 +2279,9 @@ function buildTableActions({
 }) {
   const actions = [];
   const rowActions = [];
+  if (operationIntent.requestedFilterAction) {
+    actions.push(buildFilterAction());
+  }
   if (operationIntent.create) {
     actions.push(buildCreateAction(`新建${collectionLabel}`, collectionName, fields, `新建${collectionLabel}`));
   }
@@ -2284,12 +2400,20 @@ function buildPrimaryBlock({
       collectionMeta,
       fields,
       requestText,
+      operationIntent,
     });
   }
   return null;
 }
 
-function buildExplicitPublicUseBlocks({ explicitPublicUses, collectionMeta, availableUses, requestText, fields = [] }) {
+function buildExplicitPublicUseBlocks({
+  explicitPublicUses,
+  collectionMeta,
+  availableUses,
+  requestText,
+  fields = [],
+  operationIntent,
+}) {
   const blocks = [];
   const availableSet = new Set(uniqueStrings(availableUses));
   const collectionLabel = collectionMeta ? humanizeCollectionTitle(collectionMeta) : '';
@@ -2303,6 +2427,7 @@ function buildExplicitPublicUseBlocks({ explicitPublicUses, collectionMeta, avai
       collectionMeta,
       fields,
       requestText,
+      operationIntent,
     });
     if (block) {
       blocks.push(block);
@@ -2362,10 +2487,16 @@ function createLayoutFromPrimary({
     return null;
   }
   const companionBlocks = [];
+  const requiresFilterActionHost = operationIntent.requestedFilterAction && !supportsFilterActionOnBlock(primaryBlock);
   if (
     collectionMeta
-    && !operationIntent.minimal
-    && (forceCompanionTable || primaryBlockDefinition.use !== 'TableBlockModel')
+    && (
+      requiresFilterActionHost
+      || (
+        !operationIntent.minimal
+        && (forceCompanionTable || primaryBlockDefinition.use !== 'TableBlockModel')
+      )
+    )
   ) {
     companionBlocks.push(buildCompanionTable({
       collectionMeta,
@@ -2384,6 +2515,7 @@ function createLayoutFromPrimary({
       availableUses,
       requestText,
       fields,
+      operationIntent,
     }),
     ...companionBlocks,
   ].filter(Boolean);
@@ -2404,6 +2536,7 @@ function createLayoutFromPrimary({
             availableUses,
             requestText,
             fields,
+            operationIntent,
           }),
           ...companionBlocks,
         ].filter(Boolean),
@@ -2503,7 +2636,7 @@ function buildLayoutCandidates({
     primaryDefinition: primaryBlockDefinition,
     rationale: [
       selectionMode === 'dynamic-exploration' ? '按公开 root block 候选稳定排序，选中第一名。' : '按显式 collection / intent 生成主方案。',
-      operationIntent.requestedFilter ? '显式筛选请求已物化为 FilterFormBlockModel。' : '',
+      summarizeResolvedFilterIntent(operationIntent),
     ],
     selected: true,
   });
@@ -2614,6 +2747,10 @@ function collectActionPlan(layout) {
     visitBlocks(tab.blocks, `$.page.tabs[${tabIndex}]`, 0);
   });
   return plans;
+}
+
+function layoutHasFilterAction(layout) {
+  return collectActionPlan(layout).some((item) => normalizeText(item.kind) === 'filter-action');
 }
 
 function buildCoverageFromLayout(layout) {
@@ -2841,9 +2978,15 @@ function finalizeCreativeLayout({
   collectionMeta,
   collectionFallbackBlock,
   requireCollectionFallback = false,
+  requireFilterActionHost = false,
 }) {
   const normalizedBlocks = blocks.filter(Boolean).map((block) => cloneJson(block));
-  if (requireCollectionFallback && collectionMeta && !layoutHasCollectionBoundBusinessBlock({ blocks: normalizedBlocks, tabs })) {
+  if (requireFilterActionHost && collectionMeta && !layoutHasFilterActionHost({ blocks: normalizedBlocks, tabs })) {
+    const fallbackBlock = cloneBlockOrNull(collectionFallbackBlock);
+    if (fallbackBlock) {
+      normalizedBlocks.push(fallbackBlock);
+    }
+  } else if (requireCollectionFallback && collectionMeta && !layoutHasCollectionBoundBusinessBlock({ blocks: normalizedBlocks, tabs })) {
     const fallbackBlock = cloneBlockOrNull(collectionFallbackBlock);
     if (fallbackBlock) {
       normalizedBlocks.push(fallbackBlock);
@@ -2877,7 +3020,11 @@ function buildCandidateScoreSummary({
   const stableSurfaceCount = uses.filter((use) => ['TableBlockModel', 'DetailsBlockModel', 'CreateFormModel', 'EditFormModel'].includes(use)).length;
   const tabCount = Array.isArray(layout?.tabs) ? layout.tabs.length : 0;
   const actionPlan = collectActionPlan(layout);
-  const hasFilter = uses.includes('FilterFormBlockModel');
+  const hasFilterForm = uses.includes('FilterFormBlockModel');
+  const hasFilterAction = layoutHasFilterAction(layout);
+  const hasRequestedFilterMaterialized = operationIntent?.requestedFilterForm
+    ? hasFilterForm
+    : (operationIntent?.requestedFilterAction ? hasFilterAction : true);
   const hasCollectionBinding = collectionMeta ? layoutHasCollectionBoundBusinessBlock(layout) : true;
   const hasExplicitAnchor = explicitAnchorUse ? uses.includes(explicitAnchorUse) : false;
   const selectedInsightStrategy = deriveSelectedInsightStrategy(layout);
@@ -2891,7 +3038,7 @@ function buildCandidateScoreSummary({
       ? (insightUseCount > 0 ? 24 : -18)
       : (collectionMeta ? (hasCollectionBinding ? 18 : -20) : 0))
     + (collectionMeta && hasCollectionBinding ? 10 : 0)
-    + (operationIntent?.requestedFilter && hasFilter ? 10 : 0)
+    + (operationIntent?.requestedFilter ? (hasRequestedFilterMaterialized ? 10 : -14) : 0)
     + (actionPlan.length > 0 ? 6 : 0)
     + (tabCount > 0 ? 4 : 0),
   );
@@ -3403,14 +3550,16 @@ function buildStableFirstValidationScenario({
   if (operationIntent.requestedFilter && !collectionMeta) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_COLLECTION_UNRESOLVED',
-      '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。',
+      operationIntent.requestedFilterForm
+        ? '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。'
+        : '请求要求筛选操作，但当前没有可绑定的 collection 或可承载的 data block，无法稳定规划 filter action。',
       {
         requestedText: requestText,
       },
     ));
   }
   const filterFields = collectionMeta ? resolveFilterFields(collectionMeta, fieldResolution) : [];
-  if (operationIntent.requestedFilter && collectionMeta && filterFields.length === 0) {
+  if (operationIntent.requestedFilterForm && collectionMeta && filterFields.length === 0) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_FIELDS_UNRESOLVED',
       `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
@@ -3430,7 +3579,7 @@ function buildStableFirstValidationScenario({
       ? `${humanizeCollectionTitle(collectionMeta)} ${primaryBlockDefinition?.titleSuffix || '工作台'}`
       : `Validation ${primaryBlockDefinition?.titleSuffix || 'workspace'}`
   );
-  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilter && collectionMeta
+  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilterForm && collectionMeta
     ? buildFilterBlock({
       title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
       collectionName: collectionMeta.name,
@@ -3655,6 +3804,7 @@ function buildCreativeRecipeCandidates({
         ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
+        requireFilterActionHost: operationIntent.requestedFilterAction,
       }),
       title,
       summary: `${normalizeText(title)} / 关键词锚点方案`,
@@ -3678,6 +3828,7 @@ function buildCreativeRecipeCandidates({
         ],
         collectionMeta,
         collectionFallbackBlock: detailsBlock || supportTableBlock || collectionFallbackBlock,
+        requireFilterActionHost: operationIntent.requestedFilterAction,
       }),
       title: `${title} 内容控制`,
       summary: `${normalizeText(title)} / 单主块内容控制`,
@@ -3698,6 +3849,7 @@ function buildCreativeRecipeCandidates({
         ],
         collectionMeta,
         collectionFallbackBlock,
+        requireFilterActionHost: operationIntent.requestedFilterAction,
       }),
       title: `${title} 工作台`,
       summary: `${normalizeText(title)} / collection workbench`,
@@ -3718,6 +3870,7 @@ function buildCreativeRecipeCandidates({
         ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
+        requireFilterActionHost: operationIntent.requestedFilterAction,
       }),
       title: `${title} 分析混合`,
       summary: `${normalizeText(title)} / analytics mix`,
@@ -3748,6 +3901,7 @@ function buildCreativeRecipeCandidates({
         ],
         collectionMeta,
         collectionFallbackBlock: supportTableBlock || collectionFallbackBlock,
+        requireFilterActionHost: operationIntent.requestedFilterAction,
       }),
       title: `${title} 多界面`,
       summary: `${normalizeText(title)} / tabbed multi surface`,
@@ -3845,7 +3999,9 @@ function buildCreativeFirstValidationScenario({
   if (operationIntent.requestedFilter && !collectionMeta) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_COLLECTION_UNRESOLVED',
-      '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。',
+      operationIntent.requestedFilterForm
+        ? '请求显式要求筛选区块，但当前没有可绑定的 collection，无法稳定规划 FilterFormBlockModel。'
+        : '请求要求筛选操作，但当前没有可绑定的 collection 或可承载的 data block，无法稳定规划 filter action。',
       {
         requestedText: requestText,
       },
@@ -3853,7 +4009,7 @@ function buildCreativeFirstValidationScenario({
   }
 
   const filterFields = collectionMeta ? resolveFilterFields(collectionMeta, fieldResolution) : [];
-  if (operationIntent.requestedFilter && collectionMeta && filterFields.length === 0) {
+  if (operationIntent.requestedFilterForm && collectionMeta && filterFields.length === 0) {
     planningBlockers.push(makePlanningBlocker(
       'FILTER_FIELDS_UNRESOLVED',
       `请求显式要求筛选区块，但 ${collectionMeta.name} 没有可用的标量字段可做筛选项。`,
@@ -3868,7 +4024,7 @@ function buildCreativeFirstValidationScenario({
       ? `${humanizeCollectionTitle(collectionMeta)} 创意工作台`
       : `Creative ${anchorDescriptor?.titleSuffix || 'workspace'}`
   );
-  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilter && collectionMeta
+  const filterBlock = planningBlockers.length === 0 && operationIntent.requestedFilterForm && collectionMeta
     ? buildFilterBlock({
       title: `${humanizeCollectionTitle(collectionMeta)}筛选`,
       collectionName: collectionMeta.name,

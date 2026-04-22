@@ -33,6 +33,10 @@ function collectLayoutUses(layout) {
   return [...new Set(uses)];
 }
 
+function collectActionKinds(actionPlan = []) {
+  return [...new Set((Array.isArray(actionPlan) ? actionPlan : []).map((item) => item?.kind).filter(Boolean))];
+}
+
 function makeInstanceInventory() {
   return {
     detected: true,
@@ -133,14 +137,31 @@ test('dynamic scenario planner defaults to creative-first and emits five mixed r
   assert.equal(result.scenario.candidateScores['analytics-mix'].score > 0, true);
   assert.equal(result.scenario.selectedCandidateId.length > 0, true);
   assert.equal(Array.isArray(result.scenario.pagePlan.sections), true);
-  assert.equal(result.scenario.pagePlan.sections[0].role, 'controls');
+  assert.equal(result.scenario.pagePlan.sections.some((section) => section.role === 'controls'), false);
   assert.equal(result.scenario.layoutCandidates.every((item) => Array.isArray(item.pagePlan.sections)), true);
   assert.equal(
     result.scenario.layoutCandidates.find((item) => item.candidateId === 'tabbed-multi-surface')?.pagePlan?.tabs?.length,
     3,
   );
+  assert.notEqual(result.buildSpecInput.layout.blocks[0].kind, 'Filter');
+  assert.equal(collectActionKinds(result.scenario.actionPlan).includes('filter-action'), true);
+  assert.equal(result.scenario.actionPlan.some((item) => item.kind === 'filter-action' && item.hostUse === 'GridCardBlockModel'), true);
+  assert.equal(result.verifySpecInput.stages[0].trigger.text, '编辑审批单');
+});
+
+test('dynamic scenario planner only materializes FilterFormBlockModel for explicit filter-block intent', () => {
+  const result = buildDynamicValidationScenario({
+    caseRequest: '基于 approvals 做一个审批列表页，展示 status applicant，并增加筛选区块',
+    sessionId: 'sess-filter-form',
+    baseSlug: 'approvals-filter-form',
+    candidatePageUrl: 'http://localhost:23000/admin/approvals-filter-form',
+    instanceInventory: makeInstanceInventory(),
+  });
+
+  assert.equal(result.scenario.planningStatus, 'ready');
   assert.equal(result.buildSpecInput.layout.blocks[0].kind, 'Filter');
-  assert.equal(['新建审批单', '编辑审批单'].includes(result.verifySpecInput.stages[0].trigger.text), true);
+  assert.equal(result.scenario.pagePlan.sections[0].role, 'controls');
+  assert.equal(collectActionKinds(result.scenario.actionPlan).includes('filter-action'), false);
 });
 
 test('dynamic scenario planner prefers explicit block keywords when the anchor block is eligible', () => {

@@ -724,6 +724,11 @@ For record-capable blocks (`table`, `details`, `list`, `gridCard`):
 - for `edit`, backend default popup completion is fine for a standard single-form popup; if you author a custom edit popup with `popup.blocks`, that popup must contain exactly one `editForm`
 - in a custom `edit` popup, that `editForm` may omit `resource`; applyBlueprint will inherit the opener's current-record context
 
+For collection-action hosts (`table`, `list`, `gridCard`):
+
+- when the user only asks to “增加筛选 / filter” on that data block, prefer block `actions: ["filter"]`
+- do not upgrade that request into a root `filterForm` unless the user explicitly asks for a filter block/form/query area
+
 ### Popup
 
 Inline popup is supported beneath a field/action/record action through:

@@ -7,8 +7,9 @@ Stay on this route when the user is asking for a full page or one route-backed t
 ## Common-case flow
 
 1. Pick the simplest page shape directly:
-   - management page with explicit filter/search/screening intent -> read [blocks/filter-form.md](./blocks/filter-form.md) and keep a real `filterForm` in the same blueprint
-   - management page without explicit screening -> table or filter-form + table
+   - management page with explicit filter block/form intent -> read [blocks/filter-form.md](./blocks/filter-form.md) and keep a real `filterForm` in the same blueprint
+   - management page with only ambiguous filter/search wording on table/list/grid-like content -> keep the data block and materialize `actions: ["filter"]` first
+   - management page without filtering -> table, list, details, or another primary data block
    - detail page -> details block, maybe one related table
    - dashboard -> summary, charts, light actions
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
@@ -26,30 +27,34 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - root blocks in `tabs[].blocks[]`
    - popup content inline under the owning field/action/record action
    - interaction logic in top-level `reaction.items[]`
-8. If the page explicitly asks for filtering, keep a real `filterForm` in that first-pass blueprint:
+8. If the page explicitly asks for a filter block/form, keep a real `filterForm` in that first-pass blueprint:
    - add non-empty filter `fields`
    - when the filter has fewer than 4 fields, add `actions: ["submit", "reset"]`
    - when the filter has 4 or more fields, add `actions: ["submit", "reset", "collapse"]`
    - point each filter field `target` at a same-blueprint table key as a plain string block key
    - if the page has one filter for `users` and one for `roles`, keep both `filterForm` blocks in the same first layout row and let each field target only its own same-blueprint table key
    - do not push `defaultTargetUid`, `filterManager`, or block-level `fields` / `actions` into raw `settings`
-9. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
+9. If the page only says “增加筛选 / filter / 搜索” on an existing or requested table/list/gridCard-like surface, default to the block action slot instead:
+   - prefer `actions: ["filter"]` on that data block
+   - do not upgrade that request into `filterForm` unless the user explicitly names a filter block/form/query area
+   - if the chosen primary block cannot host a filter action, attach the filter action to the nearest supported companion data block instead of silently creating a `filterForm`
+10. If one tab or popup contains multiple non-filter blocks, give it explicit `layout` and avoid one-row-one-block stacking. Filter blocks should sit alone in the first row when they are present.
    - For `createForm`, `editForm`, `details`, or `filterForm`, use block-level `fieldsLayout` when the draft must control the inner field grid directly.
    - For `createForm`, `editForm`, or `details`, once the block has more than 10 real fields, replace flat `fields[]` authoring with explicit `fieldGroups`.
    - `fieldGroups` and `fieldsLayout` must not be combined, and manual `divider` entries do not satisfy the large-form grouping rule.
-10. Keep popup semantics close to the opener:
+11. Keep popup semantics close to the opener:
    - relation-field click-to-open -> prefer field popup
    - explicit operation button -> prefer action / record-action popup
    - custom edit popup -> keep exactly one `editForm` block in that popup
-11. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
+12. A successful `apply-blueprint` response is the default stop point. Run follow-up `get` only when follow-up localized work or explicit inspection needs live structure. When that happens, normalize locators:
    - keep menu placement on `routeId` only
    - use `pageSchemaUid` for `nocobase-ctl flow-surfaces get`
    - use live `uid` values returned by `get` / `describe-surface` / create responses for `catalog`, `context`, `get-reaction-meta`, `compose`, `configure`, `add*`, and `remove*`
    - never pass a desktop-route `id` as `target.uid`
-12. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
-13. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
-14. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact CLI body becomes `result.cliBody`, not the original draft blueprint.
-15. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
+13. For normal local drafting or artifact-only tasks, stay on this file. Do not enumerate the skill directory or open helper/runtime docs just to reconfirm the route.
+14. For artifact-only drafts, do not open [helper-contracts.md](./helper-contracts.md); draft the preview/checklist directly from the blueprint. Open it only when preparing a real write or running the local prewrite gate.
+15. Open [tool-shapes.md](./tool-shapes.md) only when you are preparing the exact CLI body or MCP fallback envelope. For the first real whole-page write, `prepare-write` is mandatory, and the exact CLI body becomes `result.cliBody`, not the original draft blueprint.
+16. For the common nested-popup pattern used by real builds, open [popup.md](./popup.md) directly instead of searching the whole references tree.
 
 ## Complex Whole-page Guardrails
 
