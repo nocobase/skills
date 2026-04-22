@@ -1148,6 +1148,10 @@ function getMetadataFieldCoverageKey(fieldPath) {
   return normalizeText(fieldPath).split('.')[0] || '';
 }
 
+function getDefaultsAssociationFieldKey(associationField) {
+  return getMetadataFieldCoverageKey(associationField);
+}
+
 function normalizePopupActionType(value) {
   return DEFAULTS_POPUP_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
 }
@@ -1172,10 +1176,33 @@ function getNodeAssociationField(node) {
   return normalizeText(node?.associationField || node?.resource?.associationField);
 }
 
+function getTraversalSurfaceCollection(context) {
+  return normalizeText(context?.surfaceCollection || context?.currentCollection);
+}
+
 function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
   const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
   const targetCollection = normalizeText(associationMeta?.field?.target);
   return targetCollection || '';
+}
+
+function normalizeAssociationPopupDefaultsMap(associations) {
+  if (!isPlainObject(associations)) return associations;
+  const normalizedAssociations = {};
+  for (const [associationField, actionMap] of Object.entries(associations)) {
+    const normalizedAssociationField = normalizeText(associationField);
+    if (!normalizedAssociationField) continue;
+    const canonicalAssociationField = getDefaultsAssociationFieldKey(normalizedAssociationField);
+    if (!canonicalAssociationField) continue;
+    if (normalizedAssociationField === canonicalAssociationField) {
+      normalizedAssociations[canonicalAssociationField] = actionMap;
+      continue;
+    }
+    if (!hasOwn(normalizedAssociations, canonicalAssociationField)) {
+      normalizedAssociations[canonicalAssociationField] = actionMap;
+    }
+  }
+  return normalizedAssociations;
 }
 
 function resolveFieldPathInCollectionMetadata(collectionMetadata, collectionName, fieldPath) {
@@ -1334,7 +1361,7 @@ function addCollectionFieldGroupRequirement(requirements, targetCollection, acti
 
 function addAssociationPopupRequirement(requirements, sourceCollection, associationField, targetCollection, action) {
   const normalizedSourceCollection = normalizeText(sourceCollection);
-  const normalizedAssociationField = normalizeText(associationField);
+  const normalizedAssociationField = getDefaultsAssociationFieldKey(associationField);
   const normalizedTargetCollection = normalizeText(targetCollection);
   const normalizedAction = normalizePopupActionType(action);
   if (!normalizedSourceCollection || !normalizedAssociationField || !normalizedTargetCollection || !normalizedAction) {
@@ -1357,10 +1384,11 @@ function addFixedAssociationPopupRequirements(requirements, sourceCollection, as
 
 function resolveAssociationRequirement(collectionMetadata, sourceCollection, associationField, expectedTargetCollection = '') {
   const normalizedSourceCollection = normalizeText(sourceCollection);
-  const normalizedAssociationField = normalizeText(associationField);
+  const normalizedAssociationPath = normalizeText(associationField);
+  const normalizedAssociationField = getDefaultsAssociationFieldKey(normalizedAssociationPath);
   const normalizedExpectedTargetCollection = normalizeText(expectedTargetCollection);
   if (!normalizedSourceCollection || !normalizedAssociationField) return null;
-  const targetCollection = resolveAssociationTargetCollection(collectionMetadata, normalizedSourceCollection, normalizedAssociationField);
+  const targetCollection = resolveAssociationTargetCollection(collectionMetadata, normalizedSourceCollection, normalizedAssociationPath);
   if (!targetCollection) return null;
   if (normalizedExpectedTargetCollection && targetCollection !== normalizedExpectedTargetCollection) {
     return null;
@@ -1375,7 +1403,7 @@ function resolveAssociationRequirement(collectionMetadata, sourceCollection, ass
 function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
   const binding = getNodeBinding(block);
   const directCollection = getCollectionLabel(block);
-  const inheritedSurfaceCollection = normalizeText(parentContext?.surfaceCollection || parentContext?.currentCollection);
+  const inheritedSurfaceCollection = getTraversalSurfaceCollection(parentContext);
   const normalizedDirectCollection = normalizeText(directCollection);
   let surfaceCollection = normalizedDirectCollection || inheritedSurfaceCollection;
   let directCollectionScope = normalizedDirectCollection;
@@ -1407,8 +1435,8 @@ function resolveAssociationFieldRequirement(collectionMetadata, blockContext, fi
   if (!normalizedFieldPath) return null;
   return resolveAssociationRequirement(
     collectionMetadata,
-    blockContext?.surfaceCollection || blockContext?.currentCollection,
-    getMetadataFieldCoverageKey(normalizedFieldPath),
+    getTraversalSurfaceCollection(blockContext),
+    getDefaultsAssociationFieldKey(normalizedFieldPath),
   );
 }
 
@@ -1429,7 +1457,7 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
       if (isPlainObject(item) && hasOwn(item, 'popup')) {
         collectDefaultsRequirementsFromPopup(
           item.popup,
-          { surfaceCollection: normalizeText(blockContext?.surfaceCollection || blockContext?.currentCollection) },
+          { surfaceCollection: getTraversalSurfaceCollection(blockContext) },
           requirements,
           `${pathPrefix}[${index}].popup`,
         );
@@ -1439,7 +1467,7 @@ function collectDefaultsRequirementsFromActions(items, blockContext, requirement
 
     const popup = isPlainObject(item) ? item.popup : undefined;
     const associationRequirement = blockContext?.associationRequirement;
-    const surfaceCollection = normalizeText(blockContext?.surfaceCollection || blockContext?.currentCollection);
+    const surfaceCollection = getTraversalSurfaceCollection(blockContext);
     const directCollection = normalizeText(blockContext?.directCollection);
 
     if (associationRequirement?.sourceCollection && associationRequirement?.associationField && associationRequirement?.targetCollection) {
@@ -1491,7 +1519,7 @@ function collectDefaultsRequirementsFromFields(items, blockContext, requirements
     collectDefaultsRequirementsFromPopup(
       item.popup,
       {
-        surfaceCollection: associationRequirement?.targetCollection || normalizeText(blockContext?.surfaceCollection || blockContext?.currentCollection),
+        surfaceCollection: associationRequirement?.targetCollection || getTraversalSurfaceCollection(blockContext),
       },
       requirements,
       popupPath,
@@ -1718,7 +1746,9 @@ function validateDefaultsCompleteness(blueprint, collectionMetadata) {
       continue;
     }
 
-    const associationDefaults = collectionDefaults?.popups?.associations?.[entry.associationField];
+    const associationDefaults = isPlainObject(collectionDefaults?.popups?.associations)
+      ? normalizeAssociationPopupDefaultsMap(collectionDefaults.popups.associations)?.[entry.associationField]
+      : null;
     for (const action of entry.popupActions) {
       validateRequiredDefaultPopupValue(
         associationDefaults?.[action],
@@ -2565,6 +2595,32 @@ function materializeBlueprintForWrite(blueprint) {
     return blueprint;
   }
   const nextBlueprint = cloneSerializable(blueprint);
+  if (isPlainObject(nextBlueprint.defaults) && isPlainObject(nextBlueprint.defaults.collections)) {
+    nextBlueprint.defaults = {
+      ...nextBlueprint.defaults,
+      collections: Object.fromEntries(
+        Object.entries(nextBlueprint.defaults.collections).map(([collectionName, collectionDefaults]) => {
+          if (!isPlainObject(collectionDefaults)) {
+            return [collectionName, collectionDefaults];
+          }
+          const popups = isPlainObject(collectionDefaults.popups) ? collectionDefaults.popups : null;
+          if (!isPlainObject(popups?.associations)) {
+            return [collectionName, collectionDefaults];
+          }
+          return [
+            collectionName,
+            {
+              ...collectionDefaults,
+              popups: {
+                ...popups,
+                associations: normalizeAssociationPopupDefaultsMap(popups.associations),
+              },
+            },
+          ];
+        }),
+      ),
+    };
+  }
   const options = {
     mode: nextBlueprint.mode,
   };

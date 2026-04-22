@@ -1253,6 +1253,31 @@ test('whole-page defaults docs require recomputing involved collections and keep
   );
 });
 
+test('association popup defaults docs keep first-segment keying visible', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/helper-contracts.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/tool-shapes.md',
+    'references/normative-contract.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /popups\.associations[\s\S]{0,240}(first relation segment|first segment)|(?:first relation segment|first segment)[\s\S]{0,240}popups\.associations/i,
+      `${relativePath} should keep association popup defaults keyed by the first relation segment`,
+    );
+  }
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /associations[\s\S]{0,40}first-?segment|first-?segment[\s\S]{0,40}associations/i,
+    'default prompt should keep first-segment association popup keying visible',
+  );
+});
+
 test('whole-page defaults docs keep the fixed popup trio and table addNew threshold visible', () => {
   for (const relativePath of [
     'SKILL.md',

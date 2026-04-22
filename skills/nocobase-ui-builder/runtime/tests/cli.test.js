@@ -85,6 +85,37 @@ test('validate command accepts stdin json payload with regex quote literals befo
   assert.equal(payload.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'), false);
 });
 
+test('validate command does not emit a runtime warning for React render output', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      model: 'JSColumnModel',
+      surface: 'js-model.render',
+      code: `
+        ctx.render(<span>{ctx.record?.nickname}</span>);
+      `,
+      context: {
+        record: { nickname: 'Alice' },
+      },
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.usedContextPaths.includes('record.nickname'));
+  assert.equal(payload.runtimeIssues.some((issue) => issue.ruleId === 'react-unsupported'), false);
+});
+
 test('validate command rejects strict render snippets without explicit ctx.render', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

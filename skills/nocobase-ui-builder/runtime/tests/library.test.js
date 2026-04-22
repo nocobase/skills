@@ -99,6 +99,24 @@ test('validateRunJSSnippet keeps explicit ctx.render visible after regex literal
   assert.equal(result.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'), false);
 });
 
+test('validateRunJSSnippet does not emit a runtime warning for React render output', async () => {
+  const result = await validateRunJSSnippet({
+    model: 'JSColumnModel',
+    surface: 'js-model.render',
+    code: `
+      ctx.render(<span>{ctx.record?.nickname}</span>);
+    `,
+    context: {
+      record: { nickname: 'Alice' },
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.ok(result.usedContextPaths.includes('record.nickname'));
+  assert.equal(result.runtimeIssues.some((issue) => issue.ruleId === 'react-unsupported'), false);
+});
+
 test('strict render models reject bare compat access', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSColumnModel',

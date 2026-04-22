@@ -1671,6 +1671,204 @@ test('prepareApplyBlueprintRequest does not upgrade relation popup child blocks 
   });
 });
 
+test('prepareApplyBlueprintRequest normalizes deep associatedRecords defaults keys to the first relation segment', () => {
+  const deepAssociationCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      departments: {
+        ...collectionMetadata.collections.departments,
+        fields: [
+          ...collectionMetadata.collections.departments.fields,
+          { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'users' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                'department.manager': {
+                  view: { name: 'Department manager details', description: 'View one related department manager.' },
+                  addNew: { name: 'Create department manager', description: 'Create one related department manager.' },
+                  edit: { name: 'Edit department manager', description: 'Edit one related department manager.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    title: 'Department manager users',
+                    blocks: [
+                      {
+                        key: 'managerUsers',
+                        type: 'table',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'department.manager',
+                        },
+                        fields: ['nickname'],
+                        recordActions: ['view'],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: deepAssociationCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'department',
+        targetCollection: 'users',
+        popupActions: ['addNew', 'edit', 'view'],
+      },
+    ],
+  });
+  assert.equal(
+    result.cliBody.defaults.collections.users.popups.associations.department.view.name,
+    'Department manager details',
+  );
+  assert.equal(
+    Object.hasOwn(result.cliBody.defaults.collections.users.popups.associations, 'department.manager'),
+    false,
+  );
+});
+
+test('prepareApplyBlueprintRequest keeps the canonical first-segment association defaults when deep aliases also exist', () => {
+  const deepAssociationCollectionMetadata = {
+    collections: {
+      ...collectionMetadata.collections,
+      departments: {
+        ...collectionMetadata.collections.departments,
+        fields: [
+          ...collectionMetadata.collections.departments.fields,
+          { name: 'manager', type: 'belongsTo', interface: 'm2o', target: 'users' },
+        ],
+      },
+    },
+  };
+
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              addNew: { name: 'Create user', description: 'Create one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                'department.manager': {
+                  view: { name: 'Alias manager details', description: 'View one related alias manager.' },
+                  addNew: { name: 'Alias create manager', description: 'Create one related alias manager.' },
+                  edit: { name: 'Alias edit manager', description: 'Edit one related alias manager.' },
+                },
+                department: {
+                  view: { name: 'Canonical department details', description: 'View one related canonical department.' },
+                  addNew: { name: 'Canonical create department', description: 'Create one related canonical department.' },
+                  edit: { name: 'Canonical edit department', description: 'Edit one related canonical department.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: [
+                {
+                  type: 'view',
+                  popup: {
+                    title: 'Department manager users',
+                    blocks: [
+                      {
+                        key: 'managerUsers',
+                        type: 'table',
+                        resource: {
+                          binding: 'associatedRecords',
+                          associationField: 'department.manager',
+                        },
+                        fields: ['nickname'],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata: deepAssociationCollectionMetadata },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.equal(
+    result.cliBody.defaults.collections.users.popups.associations.department.view.name,
+    'Canonical department details',
+  );
+  assert.equal(
+    result.cliBody.defaults.collections.users.popups.associations.department.addNew.name,
+    'Canonical create department',
+  );
+  assert.equal(
+    Object.hasOwn(result.cliBody.defaults.collections.users.popups.associations, 'department.manager'),
+    false,
+  );
+});
+
 test('prepareApplyBlueprintRequest does not invent self-associations when nested popup blocks contain associatedRecords tables', () => {
   const result = prepareApplyBlueprintRequest(
     {

@@ -1336,10 +1336,7 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
       return null;
     }
 
-    if (isReactElementLike(vnode)) {
-      pushRenderNotice('react-unsupported', `React render output is unsupported in zero-dependency mode for profile ${profile.model}.`);
-      return null;
-    }
+    if (isReactElementLike(vnode)) return null;
 
     if (isDomNodeLike(vnode)) {
       pushRenderNotice('dom-render-unsupported', `DOM node render output is unsupported in zero-dependency mode for profile ${profile.model}.`);

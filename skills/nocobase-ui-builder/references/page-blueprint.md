@@ -136,6 +136,7 @@ Envelope boundary:
 - Use `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}` for the fixed collection record popup descriptor trio.
 - Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.{name,description}` for the fixed relation-field popup descriptor trio. Use `associations`, not `relations`. Key it only by the first relation segment from the field path, not by deeper nested relation chains. These relation popup descriptors stay separate from `fieldGroups`: the grouped fields still come only from the target collection entry when needed.
 - Explicit local `popup.blocks` still count when prepare-write recomputes defaults scope, even if that popup also carries `popup.template` or `popup.tryTemplate`; template reuse only changes popup content sourcing.
+- For compatibility, prepare-write can normalize deeper `popups.associations` keys such as `department.manager` back to that first relation segment in `result.cliBody`; when both a one-level key and a deeper alias exist, the explicit one-level key wins.
 - Popup defaults must be `{ name, description }` only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
 - Do not generate `defaults.blocks`; v1 defaults are collection-level only.
 - If `popup.tryTemplate` resolves an existing template, the backend reuses that template and does not regenerate default popup content from `defaults`.
