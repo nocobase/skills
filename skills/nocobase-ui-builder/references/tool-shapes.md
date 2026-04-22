@@ -24,7 +24,7 @@ Canonical front door is `nocobase-ctl`. Use this file in two layers:
 - Never add an outer `{ values: ... }` wrapper.
 - Never invent the literal `"root"` as `target.uid` / `locator.uid`; use a real uid from live readback.
 - For `applyBlueprint`, the page blueprint object itself is the CLI request body. Do not wrap it again.
-- For whole-page `applyBlueprint`, put generated field groups and popup names under top-level `defaults.collections`; do not send `defaults.blocks` or popup-default content/layout.
+- For whole-page `applyBlueprint`, recompute the involved target collections from live metadata and rebuild top-level `defaults.collections` from scratch on each draft. Put popup names there, keep relation popup naming under `popups.associations`, and add collection-level `fieldGroups` only on the target collection when the generated popup should still have more than 10 effective fields; do not send `defaults.blocks` or popup-default content/layout.
 - Public applyBlueprint blocks do **not** support generic `form`; use `editForm` or `createForm`.
 - For custom `edit` popups with `popup.blocks`, include exactly one `editForm` block.
 - For normal single-page requests, keep exactly one real tab in the blueprint; do not send empty / placeholder tabs or placeholder `markdown` / note / banner blocks unless the user explicitly asked for them.
@@ -240,9 +240,6 @@ CLI request body:
   "defaults": {
     "collections": {
       "employees": {
-        "fieldGroups": [
-          { "key": "basic", "title": "Basic info", "fields": ["nickname", "status", "department"] }
-        ],
         "popups": {
           "addNew": { "name": "Create employee" },
           "view": { "name": "Employee details" },

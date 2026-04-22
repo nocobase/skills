@@ -52,9 +52,9 @@ Default to **ASCII-first** prewrite output. Do **not** dump the full JSON bluepr
 Use the zero-dependency preview helper for deterministic output:
 
 - module: `renderPageBlueprintAsciiPreview(blueprint)`
-- CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json`
+- CLI: `nb-page-preview --stdin-json`
 - prepare-write helper: `prepareApplyBlueprintRequest(blueprint)`
-- prepare-write CLI: `node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json --prepare-write`
+- prepare-write CLI: `nb-page-preview --stdin-json --prepare-write`
 
 The CLI/helper should prefer the inner page blueprint object. If it receives a legacy outer `{ requestBody: ... }` wrapper, it may unwrap it with a warning rather than failing silently.
 

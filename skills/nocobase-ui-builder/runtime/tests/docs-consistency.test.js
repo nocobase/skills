@@ -1058,6 +1058,65 @@ test('large field-grid docs require fieldGroups on create edit and details block
   );
 });
 
+test('defaults collection fieldGroups docs keep the large-popup threshold visible', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/normative-contract.md',
+    'references/tool-shapes.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /defaults\.collections[\s\S]{0,240}fieldGroups[\s\S]{0,240}(more than 10|10 or fewer|effective fields)/i,
+      `${relativePath} should explain that defaults collection fieldGroups are only for large generated popups`,
+    );
+  }
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /defaults\.collections[\s\S]{0,120}fieldGroups[\s\S]{0,160}(more than 10|effective fields)/i,
+    'default prompt should keep the defaults collection fieldGroups threshold visible',
+  );
+});
+
+test('whole-page defaults docs require recomputing involved collections and keep fieldGroups target-scoped', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/tool-shapes.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /(recompute|rebuild)[\s\S]{0,160}(involved|defaults\.collections)[\s\S]{0,160}(live metadata|from scratch)/i,
+      `${relativePath} should require rebuilding involved collection defaults from live metadata`,
+    );
+    assert.match(
+      text,
+      /fieldGroups[\s\S]{0,220}(target collection|collection-only|do not create per-association)[\s\S]{0,220}popups\.associations|popups\.associations[\s\S]{0,220}(target collection|collection-only|do not create per-association)[\s\S]{0,220}fieldGroups|popups\.associations[\s\S]{0,220}fieldGroups[\s\S]{0,220}(target collection|collection-only|do not create per-association)/i,
+      `${relativePath} should keep target-collection fieldGroups separate from association popup naming`,
+    );
+  }
+
+  const defaultPrompt = read('agents/openai.yaml');
+  assert.match(
+    defaultPrompt,
+    /(recompute|rebuild)[\s\S]{0,120}(involved target collections|defaults\.collections)[\s\S]{0,120}(live metadata|from scratch)/i,
+    'default prompt should require rebuilding involved collection defaults from live metadata',
+  );
+});
+
+test('helper contracts keep prepare-write schema-blind for missing collection defaults', () => {
+  const helperContracts = read('references/helper-contracts.md');
+  assert.match(helperContracts, /does not fetch live collection metadata/i);
+  assert.match(helperContracts, /cannot infer missing `?defaults\.collections\.<collection>\.fieldGroups`?/i);
+  assert.match(helperContracts, /do not use it as a schema-aware planner/i);
+});
+
 test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () => {
   for (const relativePath of [
     'SKILL.md',
@@ -1120,6 +1179,17 @@ test('general skill docs stay env-neutral while helper scripts avoid fixed local
       relativePath,
       /127\.0\.0\.1:23000/,
       `${relativePath} should require explicit runtime URL input instead of using a fixed localhost default`,
+    );
+  }
+});
+
+test('skill docs keep helper command examples portable', () => {
+  const markdownFiles = ['SKILL.md', ...walkMarkdownFiles('references')];
+  for (const relativePath of markdownFiles) {
+    assertFileDoesNotContain(
+      relativePath,
+      /CODEX_HOME:-\$HOME\/\.codex|\/skills\/nocobase-ui-builder\/runtime\/bin\//,
+      `${relativePath} should not hard-code the skill install root in helper command examples`,
     );
   }
 });

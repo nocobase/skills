@@ -49,7 +49,7 @@ Use this path when the user is describing one entire page.
 3. Default a normal single-page request to exactly one tab. Do not add placeholder tabs or placeholder `markdown` / note / banner blocks.
 4. Keep `fields[]` as simple strings unless `popup`, `target`, `renderer`, or field-specific `type` is actually required.
 5. Keep `layout` only on `tabs[]` or inline `popup`. Omit it only when that tab/popup has at most one non-filter block; otherwise explicit layout is required before write.
-6. Before the first write, run the local prepare-write gate (`node "${CODEX_HOME:-$HOME/.codex}/skills/nocobase-ui-builder/runtime/bin/nb-page-preview.mjs" --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
+6. Before the first write, run the local prepare-write gate (`nb-page-preview --stdin-json --prepare-write` or helper `prepareApplyBlueprintRequest(...)`) and confirm:
    - in `create`, every newly created `navigation.group` / `navigation.item` carries a semantic Ant Design icon
    - tabs count matches the request
    - every `tab.blocks` is non-empty

@@ -543,7 +543,12 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
             {
               key: 'basic',
               title: 'Basic info',
-              fields: ['username', 'nickname'],
+              fields: ['username', 'nickname', 'email', 'phone', 'status', 'bio'],
+            },
+            {
+              key: 'assignments',
+              title: 'Assignments',
+              fields: ['department.title', 'role.name', 'manager.nickname', 'owner.nickname', 'createdBy.nickname'],
             },
           ],
           popups: {
@@ -562,7 +567,7 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
             {
               key: 'basic',
               title: 'Basic info',
-              fields: ['name', 'title'],
+              fields: ['name', 'title', 'description', 'scope', 'priority', 'status', 'category', 'color', 'code', 'sort', 'createdAt'],
             },
           ],
         },
@@ -587,6 +592,52 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
   assert.deepEqual(result.errors, []);
   assert.match(result.ascii, /^DEFAULTS: users\(fieldGroups,popups\), roles\(fieldGroups\)$/m);
   assert.equal(result.cliBody.defaults.collections.users.popups.associations.roles.edit.name, 'Edit user role');
+});
+
+test('prepareApplyBlueprintRequest rejects collection default fieldGroups when they cover ten or fewer fields', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          fieldGroups: [
+            {
+              key: 'basic',
+              title: 'Basic info',
+              fields: ['username', 'nickname', 'email', 'phone', 'status'],
+            },
+          ],
+          popups: {
+            view: { name: 'User details' },
+          },
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) =>
+        issue.ruleId === 'default-field-groups-only-for-large-generated-popups'
+        && issue.path === 'defaults.collections.users.fieldGroups',
+    ),
+  );
 });
 
 test('prepareApplyBlueprintRequest rejects invalid collection defaults shapes', () => {

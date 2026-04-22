@@ -14,8 +14,9 @@ Stay on this route when the user is asking for a full page or one route-backed t
    - portal / static page -> markdown, iframe, `jsBlock`, or `actionPanel`
 2. Default a normal request to exactly one real tab.
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
-   - For every collection involved in whole-page blocks or popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` from the same metadata.
-   - Generate default popup names under `defaults.collections.<collection>.popups.view` / `addNew` / `edit`, and relation-field popup names under `defaults.collections.<sourceCollection>.popups.associations.<associationField>.<action>`.
+   - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
+   - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when the backend-generated popup should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
+   - Keep `fieldGroups` on the target collection only. Generate default popup names under `defaults.collections.<collection>.popups.view` / `addNew` / `edit`, and relation-field popup names under `defaults.collections.<sourceCollection>.popups.associations.<associationField>.<action>`.
    - Keep defaults name-only and collection-level: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
 5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
@@ -100,9 +101,6 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
   "defaults": {
     "collections": {
       "support_tickets": {
-        "fieldGroups": [
-          { "key": "basic", "title": "Basic info", "fields": ["subject", "status", "assignee"] }
-        ],
         "popups": {
           "addNew": { "name": "Create ticket" },
           "view": { "name": "Ticket details" },

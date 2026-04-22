@@ -998,6 +998,19 @@ function countEffectiveBlueprintFields(items) {
   return ensureArray(items).filter((field) => isCountedBlueprintField(field)).length;
 }
 
+function countDefaultFieldGroupEffectiveFields(fieldGroups) {
+  const seen = new Set();
+  forEachFieldGroup(fieldGroups, (group) => {
+    for (const field of ensureArray(group?.fields)) {
+      const normalized = normalizeText(field);
+      if (normalized) {
+        seen.add(normalized);
+      }
+    }
+  });
+  return seen.size;
+}
+
 function countBlockEffectiveFields(block) {
   return countEffectiveBlueprintFields(getBlockFieldEntries(block));
 }
@@ -2107,6 +2120,17 @@ function validateDefaultFieldGroups(fieldGroups, path, state) {
         'defaults field group fields must be non-empty field path strings.',
       );
     }
+  }
+
+  const effectiveFieldCount = countDefaultFieldGroupEffectiveFields(fieldGroups);
+  if (effectiveFieldCount <= LARGE_FIELD_GRID_GROUPING_THRESHOLD) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'default-field-groups-only-for-large-generated-popups',
+      `defaults.collections.*.fieldGroups should be omitted when they cover ${LARGE_FIELD_GRID_GROUPING_THRESHOLD} or fewer effective fields; reserve collection-level fieldGroups for generated popups with more than ${LARGE_FIELD_GRID_GROUPING_THRESHOLD} effective fields.`,
+    );
   }
 }
 

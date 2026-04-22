@@ -119,18 +119,20 @@ Envelope boundary:
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
 - `navigation`: only for `create`; controls menu group/item metadata. Newly created groups must include `icon`, and newly created top-level or second-level items must also include `icon`.
 - `page`: page-level metadata
-- `defaults`: optional collection-level defaults for generated popup names and grouped popup field candidates
+- `defaults`: optional collection-level defaults for generated popup names and large grouped popup field candidates
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `reaction`: optional whole-page interaction authoring section
 - `tabs`: non-empty ordered array of route-backed tabs
 
 ### `defaults.collections`
 
-- Use top-level `defaults.collections.<collection>.fieldGroups` as collection-level candidate groups for backend-generated `details`, `createForm`, and `editForm` popup content.
-- Generate these groups from live collection metadata for every collection involved in the page or in relation-field popup targets.
-- The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted.
+- For each whole-page draft, recompute the involved target collections from live metadata and rebuild `defaults.collections` from scratch instead of copying a stale fragment.
+- Use top-level `defaults.collections.<collection>.fieldGroups` as collection-level candidate groups for backend-generated `details`, `createForm`, and `editForm` popup content only when that generated popup should still have more than 10 effective fields after scene filtering.
+- Generate these groups from live collection metadata only for large generated popups. For 10 or fewer effective fields, omit `defaults.collections.<collection>.fieldGroups` and let the backend keep a flat popup.
+- Keep `fieldGroups` keyed only by target collection. If multiple relation paths land on the same target collection, reuse one collection entry; do not create per-association or per-popup `fieldGroups` branches.
+- The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted, but a provided small `fieldGroups` payload can still force divider-style generated forms, so do not emit it for small scenes.
 - Use `defaults.collections.<collection>.popups.view/addNew/edit.name` for collection record popup names.
-- Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.name` for relation-field popup names. Use `associations`, not `relations`.
+- Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.name` for relation-field popup names. Use `associations`, not `relations`. These relation popup names stay separate from `fieldGroups`: the grouped fields still come only from the target collection entry when needed.
 - Popup defaults are name-only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
 - Do not generate `defaults.blocks`; v1 defaults are collection-level only.
 - If `popup.tryTemplate` resolves an existing template, the backend reuses that template and does not regenerate default popup content from `defaults`.
@@ -143,8 +145,16 @@ Example:
     "collections": {
       "users": {
         "fieldGroups": [
-          { "key": "basic", "title": "Basic information", "fields": ["username", "nickname", "email"] },
-          { "key": "audit", "title": "Audit", "fields": ["createdAt", "updatedAt"] }
+          {
+            "key": "basic",
+            "title": "Basic information",
+            "fields": ["username", "nickname", "email", "phone", "employeeCode", "realName"]
+          },
+          {
+            "key": "profile",
+            "title": "Profile",
+            "fields": ["bio", "personalWebsite", "notificationEnabled", "identityVerified", "city", "country"]
+          }
         ],
         "popups": {
           "view": { "name": "User details" },
@@ -158,9 +168,6 @@ Example:
         }
       },
       "roles": {
-        "fieldGroups": [
-          { "key": "basic", "title": "Basic information", "fields": ["name", "title", "description"] }
-        ],
         "popups": {
           "view": { "name": "Role details" },
           "addNew": { "name": "Create role" },
