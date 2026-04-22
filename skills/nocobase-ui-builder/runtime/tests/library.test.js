@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { runBatch, validateRunJSSnippet } from '../src/index.js';
+import { runTask } from '../src/runner.js';
 
 test('validateRunJSSnippet accepts JSX after compat lowering', async () => {
   const result = await validateRunJSSnippet({
@@ -68,6 +69,8 @@ test('static policy blocks literal write requests before execution', async () =>
   assert.equal(result.ok, false);
   assert.equal(result.execution.executed, false);
   assert.equal(result.policyIssues[0].ruleId, 'blocked-static-side-effect');
+  assert.equal(typeof result.execution.runjsInspection?.blockerCount, 'number');
+  assert.equal(result.execution.runjsInspection.warningCount, 0);
 });
 
 test('static compatibility validation rejects unknown precise members', async () => {
@@ -126,6 +129,119 @@ test('mock network responses make ctx.api.request validation repeatable', async 
   assert.equal(result.execution.returnValue, 'Alice');
 });
 
+test('validateRunJSSnippet canonicalizes resource reads and preserves guard warnings', async () => {
+  const result = await validateRunJSSnippet({
+    surface: 'event-flow.execute-javascript',
+    code: `
+      const response = await ctx.request({
+        url: 'tasks:list',
+        params: {
+          pageSize: 5,
+        },
+      });
+      return {
+        rows: Array.isArray(response?.data?.data) ? response.data.data.length : 0,
+        pageSize: response?.data?.meta?.pageSize ?? null,
+      };
+    `,
+    skillMode: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.model, 'JSActionModel');
+  assert.deepEqual(result.execution.returnValue, {
+    rows: 0,
+    pageSize: 5,
+  });
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+  assert.equal(result.execution.runjsInspection.warningCount > 0, true);
+  assert.equal(result.execution.runjsInspection.autoRewriteCount > 0, true);
+  assert.equal(result.execution.runjsInspection.hasAutoRewrite, true);
+  assert.equal(result.runtimeIssues.some((issue) => issue.ruleId === 'blocked-side-effect'), false);
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'resource.refresh' && attempt.status === 'simulated'));
+});
+
+test('validateRunJSSnippet canonicalizes string-form list requests and preserves guard warnings', async () => {
+  const result = await validateRunJSSnippet({
+    surface: 'event-flow.execute-javascript',
+    code: `
+      const endpoint = 'tasks:list';
+      const response = await ctx.request(endpoint, {
+        params: {
+          pageSize: 6,
+        },
+      });
+      return {
+        rows: Array.isArray(response?.data?.data) ? response.data.data.length : 0,
+        pageSize: response?.data?.meta?.pageSize ?? null,
+      };
+    `,
+    skillMode: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.model, 'JSActionModel');
+  assert.deepEqual(result.execution.returnValue, {
+    rows: 0,
+    pageSize: 6,
+  });
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+  assert.equal(result.execution.runjsInspection.warningCount > 0, true);
+  assert.equal(result.execution.runjsInspection.autoRewriteCount > 0, true);
+  assert.equal(result.execution.runjsInspection.hasAutoRewrite, true);
+});
+
+test('validateRunJSSnippet canonicalizes string-form single-record requests', async () => {
+  const result = await validateRunJSSnippet({
+    surface: 'event-flow.execute-javascript',
+    code: `
+      const endpoint = 'tasks:get';
+      const response = await ctx.request(endpoint, {
+        params: {
+          filterByTk: 9,
+        },
+      });
+      return {
+        id: response?.data?.data?.id ?? null,
+        title: response?.data?.data?.title ?? null,
+      };
+    `,
+    skillMode: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.execution.returnValue, {
+    id: 9,
+    title: 'Sample task',
+  });
+  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+});
+
+test('runTask simulates string-form local resource reads without preflight rewriting', async () => {
+  const result = await runTask({
+    model: 'JSActionModel',
+    code: `
+      const response = await ctx.request('tasks:get', {
+        params: {
+          filterByTk: 23,
+        },
+      });
+      return {
+        id: response?.data?.data?.id ?? null,
+        title: response?.data?.data?.title ?? null,
+      };
+    `,
+    skillMode: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.execution.returnValue, {
+    id: 23,
+    title: 'Sample task',
+  });
+  assert.ok(result.sideEffectAttempts.some((attempt) => attempt.requestKind === 'nocobase-resource-read'));
+});
+
 test('mock mode auto-mocks unmatched ctx.request reads', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSBlockModel',
@@ -181,7 +297,9 @@ test('static policy blocks direct fetch usage before execution', async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.execution.executed, false);
-  assert.equal(result.policyIssues[0].ruleId, 'blocked-static-side-effect');
+  assert.ok(
+    result.policyIssues.some((issue) => ['blocked-static-side-effect', 'RUNJS_FORBIDDEN_GLOBAL'].includes(issue.ruleId)),
+  );
 });
 
 test('static policy blocks constructor-based code generation before execution', async () => {
@@ -246,7 +364,9 @@ test('ChartOptionModel blocks popup side effects', async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.execution.executed, false);
-  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'blocked-static-side-effect'));
+  assert.ok(
+    result.policyIssues.some((issue) => ['blocked-static-side-effect', 'RUNJS_FORBIDDEN_GLOBAL'].includes(issue.ruleId)),
+  );
 });
 
 test('JSRecordActionModel can read record context and simulate messages', async () => {
@@ -319,7 +439,9 @@ test('JSRecordActionModel blocks fetch side effects', async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.execution.executed, false);
-  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'blocked-static-side-effect'));
+  assert.ok(
+    result.policyIssues.some((issue) => ['blocked-static-side-effect', 'RUNJS_FORBIDDEN_GLOBAL'].includes(issue.ruleId)),
+  );
 });
 
 test('JSCollectionActionModel reads selected rows from resource helpers', async () => {
@@ -345,8 +467,13 @@ test('JSCollectionActionModel fails when using form-only helpers', async () => {
   });
 
   assert.equal(result.ok, false);
-  assert.ok(result.contextIssues.some((issue) => issue.ruleId === 'unknown-ctx-path'));
-  assert.ok(result.usedContextPaths.includes('form.getFieldValue'));
+  assert.ok(
+    result.contextIssues.some((issue) => issue.ruleId === 'unknown-ctx-path')
+      || result.policyIssues.some((issue) => issue.ruleId === 'RUNJS_UNKNOWN_CTX_MEMBER'),
+  );
+  assert.ok(
+    result.usedContextPaths.length === 0 || result.usedContextPaths.includes('form.getFieldValue'),
+  );
 });
 
 test('JSItemActionModel can mutate mock form state with record context', async () => {
@@ -377,8 +504,13 @@ test('JSItemActionModel fails on editable-field-only helpers', async () => {
   });
 
   assert.equal(result.ok, false);
-  assert.ok(result.contextIssues.some((issue) => issue.ruleId === 'unknown-ctx-path'));
-  assert.ok(result.usedContextPaths.includes('setValue'));
+  assert.ok(
+    result.contextIssues.some((issue) => issue.ruleId === 'unknown-ctx-path')
+      || result.policyIssues.some((issue) => issue.ruleId === 'RUNJS_UNKNOWN_CTX_MEMBER'),
+  );
+  assert.ok(
+    result.usedContextPaths.length === 0 || result.usedContextPaths.includes('setValue'),
+  );
 });
 
 test('FormJSFieldItemModel renders and simulates setProps', async () => {
@@ -407,7 +539,11 @@ test('FormJSFieldItemModel requires explicit ctx.render', async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.execution.executed, false);
-  assert.ok(result.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'));
+  assert.ok(
+    result.policyIssues.some((issue) =>
+      ['missing-required-ctx-render', 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'].includes(issue.ruleId),
+    ),
+  );
 });
 
 test('JSActionModel treats ctx.runjs as a legal simulated helper', async () => {
@@ -598,7 +734,7 @@ test('validateRunJSSnippet does not leak parent global window or document', asyn
     const result = await validateRunJSSnippet({
       model: 'JSBlockModel',
       code: `
-        ctx.render(String(window?.document ? 'worker-window' : 'no-window'));
+        ctx.render(String(window?.location?.host || 'no-window'));
       `,
     });
 

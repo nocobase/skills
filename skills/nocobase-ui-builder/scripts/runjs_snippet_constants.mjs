@@ -1,5 +1,6 @@
 import {
   RUNJS_EFFECT_STYLES as SURFACE_EFFECT_STYLES,
+  RUNJS_MODEL_USES as SURFACE_MODEL_USES,
   RUNJS_SURFACE_IDS as SURFACE_IDS,
 } from '../runtime/src/surface-policy.js';
 
@@ -32,20 +33,7 @@ export const RUNJS_SURFACES = new Set(SURFACE_IDS);
 
 export const RUNJS_EFFECT_STYLES = new Set(SURFACE_EFFECT_STYLES);
 
-export const RUNJS_MODEL_USES = new Set([
-  'JSActionModel',
-  'JSBlockModel',
-  'JSCollectionActionModel',
-  'JSColumnModel',
-  'JSEditableFieldModel',
-  'FilterFormJSActionModel',
-  'FormJSFieldItemModel',
-  'JSFieldModel',
-  'JSFormActionModel',
-  'JSItemActionModel',
-  'JSItemModel',
-  'JSRecordActionModel',
-]);
+export const RUNJS_MODEL_USES = new Set(SURFACE_MODEL_USES);
 
 export const RUNJS_SNIPPET_REQUIRED_DOC_SECTIONS = [
   'Use when',

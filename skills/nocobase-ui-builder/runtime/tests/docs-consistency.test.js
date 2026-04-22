@@ -1058,6 +1058,32 @@ test('large field-grid docs require fieldGroups on create edit and details block
   );
 });
 
+test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () => {
+  for (const relativePath of [
+    'SKILL.md',
+    'references/whole-page-quick.md',
+    'references/page-blueprint.md',
+    'references/normative-contract.md',
+  ]) {
+    const text = read(relativePath);
+    assert.match(
+      text,
+      /defaults\.collections/i,
+      `${relativePath} should document top-level defaults.collections`,
+    );
+    assert.match(
+      text,
+      /popups\.associations/i,
+      `${relativePath} should document association popup defaults with associations naming`,
+    );
+    assert.match(
+      text,
+      /defaults\.blocks|do not generate `?defaults\.blocks`?|must not include `?defaults\.blocks`?/i,
+      `${relativePath} should prohibit defaults.blocks`,
+    );
+  }
+});
+
 test('general skill docs stay env-neutral while helper scripts avoid fixed local server defaults', () => {
   for (const relativePath of [
     'SKILL.md',

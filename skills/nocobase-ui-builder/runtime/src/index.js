@@ -1,13 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { inspectRunJSStaticCode } from '../../scripts/runjs_guard.mjs';
+import { canonicalizeRunJSCode, inspectRunJSStaticCode } from '../../scripts/runjs_guard.mjs';
 import { DEFAULT_TIMEOUT_MS, VALIDATOR_TYPE } from './constants.js';
 import { runTask } from './runner.js';
-import { getRunJSFallbackRuntimeModel } from './surface-policy.js';
+import { getRunJSFallbackRuntimeModel, RUNJS_MODEL_USES } from './surface-policy.js';
+import { sortIssues } from './utils.js';
 export { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 export { prepareApplyBlueprintRequest } from './page-blueprint-preview.js';
 export { summarizeTemplateDecision } from './template-decision-summary.js';
 export { planTemplateQuery, selectTemplateDecision } from './template-selection.js';
+
+const KNOWN_RUNJS_MODEL_USES = new Set(RUNJS_MODEL_USES);
 
 function normalizeText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
@@ -32,6 +35,10 @@ function resolveRuntimeModel({ model, surface }) {
   return getRunJSFallbackRuntimeModel(surface);
 }
 
+function shouldRunRunJSPreflight({ model, surface }) {
+  return Boolean(normalizeText(surface) || KNOWN_RUNJS_MODEL_USES.has(normalizeText(model)));
+}
+
 function mapRunJSFindingToPolicyIssue(finding) {
   return {
     type: 'policy',
@@ -50,7 +57,83 @@ function mapRunJSFindingToPolicyIssue(finding) {
   };
 }
 
-function createRunJSGuardFailureResult({ task, runtimeModel, inspection }) {
+function mapCanonicalizeUnresolvedToPolicyIssue(issue) {
+  return {
+    type: 'policy',
+    severity: 'error',
+    ruleId: issue.code,
+    message: issue.message,
+    ...(issue.line || issue.column
+      ? {
+          location: {
+            ...(issue.line ? { line: issue.line } : {}),
+            ...(issue.column ? { column: issue.column } : {}),
+          },
+        }
+      : {}),
+    ...(issue.details ? { details: issue.details } : {}),
+  };
+}
+
+function dedupeIssues(issues) {
+  const seen = new Set();
+  const output = [];
+  for (const issue of issues) {
+    const key = [
+      issue.type || '',
+      issue.severity || '',
+      issue.ruleId || '',
+      issue.message || '',
+      issue.location?.line || '',
+      issue.location?.column || '',
+    ].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(issue);
+  }
+  return output;
+}
+
+function mergePolicyIssues(...groups) {
+  return sortIssues(dedupeIssues(groups.flat().filter(Boolean)));
+}
+
+function createRunJSInspectionSummary({ inspection, canonicalization }) {
+  const blockerCount = inspection?.blockers?.length || 0;
+  const warningCount = inspection?.warnings?.length || 0;
+  const semanticBlockerCount = canonicalization?.semantic?.blockerCount ?? inspection?.execution?.semanticBlockerCount ?? 0;
+  const semanticWarningCount = canonicalization?.semantic?.warningCount ?? inspection?.execution?.semanticWarningCount ?? warningCount;
+  const autoRewriteCount = canonicalization?.semantic?.autoRewriteCount ?? inspection?.execution?.autoRewriteCount ?? 0;
+  return {
+    ok: Boolean(inspection?.ok) && (canonicalization ? Boolean(canonicalization.ok) : true),
+    blockerCount,
+    warningCount,
+    semanticBlockerCount,
+    semanticWarningCount,
+    autoRewriteCount,
+    hasAutoRewrite: autoRewriteCount > 0,
+    contractSource: inspection?.contractSource,
+    inspectedSurface: inspection?.inspectedNode?.surface || null,
+    inspectedModelUse: inspection?.inspectedNode?.modelUse || null,
+  };
+}
+
+function withRunJSInspection(result, runjsInspection, extraPolicyIssues = []) {
+  return {
+    ...result,
+    policyIssues: mergePolicyIssues(result.policyIssues || [], extraPolicyIssues),
+    execution: {
+      ...(result.execution || {}),
+      runjsInspection,
+    },
+  };
+}
+
+function createRunJSGuardFailureResult({ task, runtimeModel, inspection, canonicalization = null }) {
+  const runjsInspection = createRunJSInspectionSummary({
+    inspection,
+    canonicalization,
+  });
   return {
     validatorType: VALIDATOR_TYPE,
     model: runtimeModel || String(task.model || ''),
@@ -59,7 +142,13 @@ function createRunJSGuardFailureResult({ task, runtimeModel, inspection }) {
     ok: false,
     syntaxIssues: [],
     contextIssues: [],
-    policyIssues: (inspection.blockers || []).map(mapRunJSFindingToPolicyIssue),
+    policyIssues: mergePolicyIssues(
+      (inspection.blockers || []).map(mapRunJSFindingToPolicyIssue),
+      (inspection.warnings || []).map(mapRunJSFindingToPolicyIssue),
+      canonicalization?.ok === false
+        ? (canonicalization.unresolved || []).map(mapCanonicalizeUnresolvedToPolicyIssue)
+        : [],
+    ),
     runtimeIssues: [],
     logs: [],
     sideEffectAttempts: [],
@@ -70,12 +159,7 @@ function createRunJSGuardFailureResult({ task, runtimeModel, inspection }) {
       executed: false,
       skillMode: Boolean(task.skillMode),
       timeoutMs: task.timeoutMs || DEFAULT_TIMEOUT_MS,
-      runjsInspection: {
-        ok: inspection.ok,
-        blockerCount: inspection.blockers?.length || 0,
-        warningCount: inspection.warnings?.length || 0,
-        contractSource: inspection.contractSource,
-      },
+      runjsInspection,
     },
     availableContextKeys: [],
     topLevelAliases: [],
@@ -146,29 +230,63 @@ export async function validateRunJSSnippet({
   snapshotPath,
 }) {
   assertCode({ filename }, code);
+  const normalizedModel = normalizeText(model);
   const normalizedSurface = normalizeText(surface);
-  const runtimeModel = resolveRuntimeModel({ model, surface: normalizedSurface });
-  if (normalizedSurface) {
-    const inspection = inspectRunJSStaticCode({
+  const runtimeModel = resolveRuntimeModel({ model: normalizedModel, surface: normalizedSurface });
+  if (!shouldRunRunJSPreflight({ model: normalizedModel, surface: normalizedSurface })) {
+    return runTask({
+      model: runtimeModel || normalizedModel,
+      surface: normalizedSurface || undefined,
       code,
-      modelUse: normalizeText(model) || null,
-      surface: normalizedSurface,
+      context,
+      network,
+      skillMode,
       version,
-      snapshotPath,
-      path: filename || '$',
+      timeoutMs,
+      filename,
     });
-    if (!inspection.ok) {
-      return createRunJSGuardFailureResult({
-        task: { model, surface: normalizedSurface, version, skillMode, timeoutMs },
-        runtimeModel,
-        inspection,
-      });
-    }
   }
-  return runTask({
-    model: runtimeModel || model,
-    surface: normalizedSurface || undefined,
+
+  const inspection = inspectRunJSStaticCode({
     code,
+    modelUse: normalizedModel || null,
+    surface: normalizedSurface || null,
+    version,
+    snapshotPath,
+    path: filename || '$',
+  });
+  if (!inspection.ok) {
+    return createRunJSGuardFailureResult({
+      task: { model: normalizedModel, surface: normalizedSurface, version, skillMode, timeoutMs },
+      runtimeModel,
+      inspection,
+    });
+  }
+
+  const canonicalized = canonicalizeRunJSCode({
+    code,
+    modelUse: inspection.policy?.modelUse || runtimeModel || normalizedModel || 'JSBlockModel',
+    findingModelUse: inspection.policy?.findingModelUse || normalizedModel || normalizedSurface || runtimeModel,
+    version,
+    path: filename || '$',
+  });
+  if (!canonicalized.ok) {
+    return createRunJSGuardFailureResult({
+      task: { model: normalizedModel, surface: normalizedSurface, version, skillMode, timeoutMs },
+      runtimeModel,
+      inspection,
+      canonicalization: canonicalized,
+    });
+  }
+
+  const runjsInspection = createRunJSInspectionSummary({
+    inspection,
+    canonicalization: canonicalized,
+  });
+  const runtimeResult = await runTask({
+    model: runtimeModel || normalizedModel,
+    surface: normalizedSurface || undefined,
+    code: canonicalized.code,
     context,
     network,
     skillMode,
@@ -176,6 +294,11 @@ export async function validateRunJSSnippet({
     timeoutMs,
     filename,
   });
+  return withRunJSInspection(
+    runtimeResult,
+    runjsInspection,
+    (inspection.warnings || []).map(mapRunJSFindingToPolicyIssue),
+  );
 }
 
 export async function runBatch({ tasks, cwd = process.cwd(), defaultSkillMode = false }) {

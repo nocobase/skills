@@ -76,7 +76,11 @@ test('validate command rejects strict render snippets without explicit ctx.rende
   assert.equal(exitCode, 1);
   const payload = JSON.parse(stdout.read());
   assert.equal(payload.ok, false);
-  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'));
+  assert.ok(
+    payload.policyIssues.some((issue) =>
+      ['missing-required-ctx-render', 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'].includes(issue.ruleId),
+    ),
+  );
 });
 
 test('validate command accepts value-return surface without render-model ctx.render requirement', async () => {
@@ -146,6 +150,89 @@ test('validate command accepts event-flow surface with the shared fallback actio
   assert.equal(payload.execution.returnValue.metaPage, 3);
 });
 
+test('validate command preserves RunJS guard warnings after canonicalizing resource reads', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'event-flow.execute-javascript',
+      code: `
+        const response = await ctx.request({
+          url: 'tasks:list',
+          params: {
+            pageSize: 7,
+          },
+        });
+        return {
+          rows: Array.isArray(response?.data?.data) ? response.data.data.length : 0,
+          pageSize: response?.data?.meta?.pageSize ?? null,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+  assert.deepEqual(payload.execution.returnValue, {
+    rows: 0,
+    pageSize: 7,
+  });
+  assert.equal(payload.execution.runjsInspection.warningCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.autoRewriteCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.hasAutoRewrite, true);
+});
+
+test('validate command canonicalizes string-form single-record resource reads', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'event-flow.execute-javascript',
+      code: `
+        const target = 'tasks:get';
+        const response = await ctx.request(target, {
+          params: {
+            filterByTk: 12,
+          },
+        });
+        return {
+          id: response?.data?.data?.id ?? null,
+          title: response?.data?.data?.title ?? null,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'));
+  assert.deepEqual(payload.execution.returnValue, {
+    id: 12,
+    title: 'Sample task',
+  });
+  assert.equal(payload.execution.runjsInspection.warningCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.autoRewriteCount > 0, true);
+});
+
 test('validate command blocks value-return surface without top-level return', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();
@@ -171,6 +258,8 @@ test('validate command blocks value-return surface without top-level return', as
   assert.equal(payload.ok, false);
   assert.ok(payload.policyIssues.some((issue) => issue.ruleId === 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED'));
   assert.equal(payload.execution.executed, false);
+  assert.equal(payload.execution.runjsInspection.blockerCount > 0, true);
+  assert.equal(payload.execution.runjsInspection.warningCount, 0);
 });
 
 test('validate command blocks js-model action surface when host model is missing', async () => {

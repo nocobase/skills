@@ -5,7 +5,12 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
-import { buildWrappedRunJSCode, parseWrappedRunJS } from '../runtime/src/runjs-parser.js';
+import { buildWrappedRunJSCode, collectWrappedRunJSSemantics } from '../runtime/src/runjs-parser.js';
+import {
+  DEFAULT_RESOURCE_DATA,
+  DEFAULT_SINGLE_RECORD_DATA,
+  parseRunJSRequestTarget,
+} from '../runtime/src/runjs-request-target.js';
 import {
   RUNJS_ACTION_MODEL_USES,
   RUNJS_RENDER_MODEL_USES,
@@ -14,6 +19,7 @@ import {
   getRunJSSurfaceAllowedModelUses,
   getRunJSSurfaceExtraAllowedRoots,
   getRunJSSurfacePolicy,
+  getRunJSSurfaceValidationModelUses,
 } from '../runtime/src/surface-policy.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -88,10 +94,15 @@ const KNOWN_BARE_GLOBALS = new Set([
   'Infinity',
 ]);
 
-const DEFAULT_RESOURCE_DATA = [{ id: 1, title: 'Sample task', name: 'Sample task' }];
-const DEFAULT_SINGLE_RECORD_DATA = { id: 1, title: 'Sample task', name: 'Sample task' };
 const SAFE_REQUEST_TOP_LEVEL_KEYS = new Set([
   'url',
+  'method',
+  'params',
+  'headers',
+  'skipNotify',
+  'skipAuth',
+]);
+const SAFE_REQUEST_OPTIONS_KEYS = new Set([
   'method',
   'params',
   'headers',
@@ -113,6 +124,7 @@ const SAFE_REQUEST_PARAM_KEYS = new Set([
 const IDENTIFIER_KEY_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const RENDER_MODEL_USES = new Set(RUNJS_RENDER_MODEL_USES);
 const ACTION_MODEL_USES = new Set(RUNJS_ACTION_MODEL_USES);
+const SKILL_LOCAL_COMPAT_ROOTS = Object.freeze(['api', 'runjs']);
 const LOCAL_MODEL_CONTRACTS = {
   JSActionModel: {
     properties: ['resource', 'collection'],
@@ -631,7 +643,7 @@ function createRunJSScan(source) {
 }
 
 function parseRunJSSourceForSyntax(code) {
-  const parsed = parseWrappedRunJS(code);
+  const parsed = collectWrappedRunJSSemantics(code);
   new vm.Script(parsed.wrappedCode, {
     filename: 'runjs.syntax-check.js',
   });
@@ -640,6 +652,7 @@ function parseRunJSSourceForSyntax(code) {
     wrappedAst: parsed.ast,
     wrappedBody: parsed.wrappedBody,
     wrappedStatements: parsed.wrappedStatements,
+    semanticNodes: parsed.semantics,
     sourceOffset: parsed.sourceOffset,
   };
 }
@@ -827,82 +840,6 @@ function forEachMemberChain(scan, staticStrings, visitor) {
 
 function isCallAfter(masked, index) {
   return masked[skipWhitespaceIn(masked, index)] === '(';
-}
-
-function collectCtxRenderCallsFromScan(scan, staticStrings = new Map()) {
-  const calls = [];
-  forEachMemberChain(scan, staticStrings, (chain) => {
-    if (chain.segments[0] !== 'ctx' || chain.segments[1] !== 'render') return;
-    if (!isCallAfter(scan.masked, chain.end)) return;
-    calls.push({
-      start: chain.start,
-      propertyStart: chain.segmentStarts[1] ?? chain.start,
-    });
-  });
-  return calls;
-}
-
-function isStandaloneWordAt(source, index, word) {
-  if (source.slice(index, index + word.length) !== word) return false;
-  const previousChar = source[index - 1] || '';
-  const nextChar = source[index + word.length] || '';
-  return !isIdentifierPartChar(previousChar) && !isIdentifierPartChar(nextChar);
-}
-
-function isTopLevelSemanticBoundary(node) {
-  return isFunctionNode(node) || node?.type === 'ClassDeclaration' || node?.type === 'ClassExpression';
-}
-
-function unwrapChainExpression(node) {
-  return node?.type === 'ChainExpression' ? node.expression : node;
-}
-
-function isCtxRenderCallExpression(node) {
-  const expression = unwrapChainExpression(node);
-  const callee = unwrapChainExpression(expression?.callee);
-  return expression?.type === 'CallExpression' && isCtxMemberExpression(callee, 'render');
-}
-
-function traverseSurfaceTopLevel(scan, visitor) {
-  const visit = (node, ancestors = []) => {
-    if (!isAstNode(node)) return;
-    visitor(node, ancestors);
-    if (isTopLevelSemanticBoundary(node)) return;
-    const nextAncestors = [...ancestors, node];
-    for (const value of Object.values(node)) {
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (isAstNode(item)) visit(item, nextAncestors);
-        }
-        continue;
-      }
-      if (isAstNode(value)) visit(value, nextAncestors);
-    }
-  };
-
-  for (const statement of scan.wrappedStatements || []) {
-    visit(statement);
-  }
-}
-
-function hasTopLevelReturnInScan(scan) {
-  let found = false;
-  traverseSurfaceTopLevel(scan, (node) => {
-    if (!found && node?.type === 'ReturnStatement') {
-      found = true;
-    }
-  });
-  return found;
-}
-
-function collectTopLevelCtxRenderCalls(scan) {
-  const calls = [];
-  traverseSurfaceTopLevel(scan, (node) => {
-    if (isCtxRenderCallExpression(node)) {
-      calls.push(unwrapChainExpression(node));
-    }
-  });
-  return calls;
 }
 
 function parseObjectPropertiesFromSource(source, masked, startIndex = 0) {
@@ -1135,15 +1072,58 @@ function inspectObjectExpression(node, env) {
   };
 }
 
+function createEmptyPropertyInspection() {
+  return {
+    ok: true,
+    reason: null,
+    properties: new Map(),
+  };
+}
+
+function inspectOptionalObjectExpression(node, env) {
+  return node ? inspectObjectExpression(node, env) : createEmptyPropertyInspection();
+}
+
+function inspectCtxRequestCallExpressionInput(callNode, env) {
+  const firstArg = Array.isArray(callNode?.arguments) ? callNode.arguments[0] : null;
+  if (!firstArg) return null;
+
+  const resolvedFirstArg = resolveExpressionNode(firstArg, env);
+  if (resolvedFirstArg?.type === 'ObjectExpression') {
+    const configInfo = inspectObjectExpression(firstArg, env);
+    if (!configInfo.ok) return null;
+
+    const urlProperty = configInfo.properties.get('url');
+    const urlValue = urlProperty ? resolveStaticString(urlProperty.value, env) : null;
+    if (!urlValue) return null;
+
+    return {
+      target: parseRunJSRequestTarget(urlValue),
+      configInfo,
+      methodValue: resolveStaticString(configInfo.properties.get('method')?.value, env),
+      topLevelKeys: SAFE_REQUEST_TOP_LEVEL_KEYS,
+    };
+  }
+
+  const urlValue = resolveStaticString(firstArg, env);
+  if (!urlValue) return null;
+
+  const configInfo = inspectOptionalObjectExpression(callNode.arguments[1], env);
+  if (!configInfo.ok) return null;
+
+  return {
+    target: parseRunJSRequestTarget(urlValue),
+    configInfo,
+    methodValue: resolveStaticString(configInfo.properties.get('method')?.value, env),
+    topLevelKeys: SAFE_REQUEST_OPTIONS_KEYS,
+  };
+}
+
 function isCtxMemberExpression(node, name) {
   return node?.type === 'MemberExpression'
     && node.object?.type === 'Identifier'
     && node.object.name === 'ctx'
     && resolveRootMemberName(node) === name;
-}
-
-function isCtxRequestCall(node) {
-  return node?.type === 'CallExpression' && isCtxMemberExpression(node.callee, 'request');
 }
 
 function isRenderModelUse(modelUse) {
@@ -1395,28 +1375,6 @@ function analyzeInnerHTMLAssignment({ node, ancestors, code, env, modelUse, find
   };
 }
 
-function parseRequestTarget(url) {
-  const normalized = String(url ?? '').trim();
-  if (!normalized || /^https?:\/\//i.test(normalized)) return null;
-  const stripped = normalized
-    .replace(/^\/+/, '')
-    .replace(/^api\//, '');
-  if (stripped === 'auth:check') {
-    return {
-      kind: 'auth-check',
-      normalized: stripped,
-    };
-  }
-  const match = stripped.match(/^([A-Za-z0-9_.-]+):(list|get)$/);
-  if (!match) return null;
-  return {
-    kind: 'resource-read',
-    resourceName: match[1],
-    action: match[2],
-    normalized: stripped,
-  };
-}
-
 function looksLikeFilterGroupExpression(node, env) {
   const resolved = resolveExpressionNode(node, env);
   if (!resolved || resolved.type !== 'ObjectExpression') return false;
@@ -1554,153 +1512,87 @@ function createResourceRequestIIFE({
   return lines.join('\n');
 }
 
-function analyzeCtxRequestCall({ callNode, code, env, modelUse, findingModelUse = modelUse, path: findingPath }) {
-  if (!Array.isArray(callNode.arguments) || callNode.arguments.length === 0) {
-    return null;
-  }
-
-  const configInfo = inspectObjectExpression(callNode.arguments[0], env);
-  if (!configInfo.ok) {
-    return null;
-  }
-
-  const urlProperty = configInfo.properties.get('url');
-  const urlValue = urlProperty ? resolveStaticString(urlProperty.value, env) : null;
-  if (!urlValue) {
-    return null;
-  }
-
-  const target = parseRequestTarget(urlValue);
-  if (!target) {
-    return null;
-  }
-
-  const methodProperty = configInfo.properties.get('method');
-  const methodValue = methodProperty ? resolveStaticString(methodProperty.value, env) : null;
-  if (methodValue && methodValue.toLowerCase() !== 'get') {
-    return null;
-  }
-
-  if (target.kind === 'auth-check') {
-    return {
-      findings: [
-        createFinding({
-          severity: 'warning',
-          code: 'RUNJS_AUTH_CHECK_REDUNDANT',
-          message: '读取当前登录用户时不应再请求 auth:check；优先使用 ctx.user 或 ctx.auth?.user。',
-          path: findingPath,
-          modelUse: findingModelUse,
-          line: callNode.loc?.start?.line,
-          column: callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null,
+function createCtxRequestAuthCheckResult({
+  target,
+  path,
+  modelUse,
+  line,
+  column,
+  start,
+  end,
+}) {
+  return {
+    findings: [
+      createFinding({
+        severity: 'warning',
+        code: 'RUNJS_AUTH_CHECK_REDUNDANT',
+        message: '读取当前登录用户时不应再请求 auth:check；优先使用 ctx.user 或 ctx.auth?.user。',
+        path,
+        modelUse,
+        line,
+        column,
+        details: {
+          url: target.normalized,
+        },
+      }),
+    ],
+    rewrite: {
+      start,
+      end,
+      replacement: `(async () => ({ data: { data: (ctx.user ?? ctx.auth?.user ?? null) } }))()`,
+      transforms: [
+        {
+          code: 'RUNJS_AUTH_CHECK_TO_CTX_USER',
+          message: '把 auth:check 请求改写为直接读取 ctx.user / ctx.auth?.user。',
           details: {
             url: target.normalized,
           },
-        }),
+        },
       ],
-      rewrite: {
-        start: callNode.start,
-        end: callNode.end,
-        replacement: `(async () => ({ data: { data: (ctx.user ?? ctx.auth?.user ?? null) } }))()`,
-        transforms: [
-          {
-            code: 'RUNJS_AUTH_CHECK_TO_CTX_USER',
-            message: '把 auth:check 请求改写为直接读取 ctx.user / ctx.auth?.user。',
-            details: {
-              url: target.normalized,
-            },
-          },
-        ],
-      },
-    };
-  }
+    },
+  };
+}
 
-  const unsupportedTopLevelKeys = [...configInfo.properties.keys()].filter((key) => !SAFE_REQUEST_TOP_LEVEL_KEYS.has(key));
-  if (unsupportedTopLevelKeys.length > 0) {
-    return {
-      findings: [
-        createFinding({
-          code: 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-          message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但包含当前无法安全改写的顶层参数：${unsupportedTopLevelKeys.join(', ')}。请改用 resource API。`,
-          path: findingPath,
-          modelUse: findingModelUse,
-          line: callNode.loc?.start?.line,
-          column: callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null,
-          details: {
-            url: target.normalized,
-            unsupportedTopLevelKeys,
-          },
-        }),
-      ],
-      rewrite: null,
-    };
-  }
+function createCtxRequestRewriteRequiredResult({
+  code = 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
+  message,
+  target,
+  path,
+  modelUse,
+  line,
+  column,
+  details = {},
+}) {
+  return {
+    findings: [
+      createFinding({
+        code,
+        message,
+        path,
+        modelUse,
+        line,
+        column,
+        details: {
+          url: target.normalized,
+          ...details,
+        },
+      }),
+    ],
+    rewrite: null,
+  };
+}
 
-  let paramsInfo = { ok: true, reason: null, properties: new Map() };
-  const paramsProperty = configInfo.properties.get('params');
-  if (paramsProperty) {
-    paramsInfo = inspectObjectExpression(paramsProperty.value, env);
-    if (!paramsInfo.ok) {
-      const filterUnsupported = looksLikeFilterGroupExpression(paramsProperty.value, env);
-      return {
-        findings: [
-          createFinding({
-            code: filterUnsupported ? 'RUNJS_REQUEST_FILTER_GROUP_UNSUPPORTED' : 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-            message: filterUnsupported
-              ? `ctx.request 命中了资源读取接口 "${target.normalized}"，且 filter 使用了 builder 风格结构，但 params 不是可安全改写的静态对象。请改用 resource API 或服务端 query filter。`
-              : `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 当前不是可安全改写的静态对象。请改用 resource API。`,
-            path: findingPath,
-            modelUse: findingModelUse,
-            line: callNode.loc?.start?.line,
-            column: callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null,
-            details: {
-              url: target.normalized,
-              reason: paramsInfo.reason,
-            },
-          }),
-        ],
-        rewrite: null,
-      };
-    }
-  }
-
-  const unsupportedParamKeys = [...paramsInfo.properties.keys()].filter((key) => !SAFE_REQUEST_PARAM_KEYS.has(key));
-  if (unsupportedParamKeys.length > 0) {
-    return {
-      findings: [
-        createFinding({
-          code: 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-          message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 包含当前无法安全改写的字段：${unsupportedParamKeys.join(', ')}。请改用 resource API。`,
-          path: findingPath,
-          modelUse: findingModelUse,
-          line: callNode.loc?.start?.line,
-          column: callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null,
-          details: {
-            url: target.normalized,
-            unsupportedParamKeys,
-          },
-        }),
-      ],
-      rewrite: null,
-    };
-  }
-
-  const findings = [
-    createFinding({
-      severity: 'warning',
-      code: 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST',
-      message: `读取 NocoBase 资源 "${target.normalized}" 时不应默认使用 ctx.request；应优先改写为 ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}。`,
-      path: findingPath,
-      modelUse: findingModelUse,
-      line: callNode.loc?.start?.line,
-      column: callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null,
-      details: {
-        url: target.normalized,
-        resourceName: target.resourceName,
-        action: target.action,
-      },
-    }),
-  ];
-
+function createCtxRequestResourceRewriteResult({
+  target,
+  path,
+  modelUse,
+  line,
+  column,
+  start,
+  end,
+  replacement,
+  includeFilterTransform = false,
+}) {
   const transforms = [
     {
       code: target.action === 'get'
@@ -1715,8 +1607,7 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, findingModelUse 
     },
   ];
 
-  const filterProperty = paramsInfo.properties.get('filter');
-  if (filterProperty && looksLikeFilterGroupExpression(filterProperty.value, env)) {
+  if (includeFilterTransform) {
     transforms.unshift({
       code: 'RUNJS_REQUEST_FILTER_GROUP_TO_QUERY_FILTER',
       message: `把 ${target.normalized} 请求里的 builder filter 自动收敛为服务端 query filter。`,
@@ -1727,20 +1618,150 @@ function analyzeCtxRequestCall({ callNode, code, env, modelUse, findingModelUse 
   }
 
   return {
-    findings,
-    rewrite: {
-      start: callNode.start,
-      end: callNode.end,
-      replacement: createResourceRequestIIFE({
-        code,
-        target,
-        configInfo,
-        paramsInfo,
-        actionName: target.action,
+    findings: [
+      createFinding({
+        severity: 'warning',
+        code: 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST',
+        message: `读取 NocoBase 资源 "${target.normalized}" 时不应默认使用 ctx.request；应优先改写为 ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}。`,
+        path,
+        modelUse,
+        line,
+        column,
+        details: {
+          url: target.normalized,
+          resourceName: target.resourceName,
+          action: target.action,
+        },
       }),
+    ],
+    rewrite: {
+      start,
+      end,
+      replacement,
       transforms,
     },
   };
+}
+
+function analyzeResolvedCtxRequestCall({
+  requestInfo,
+  path,
+  modelUse,
+  line,
+  column,
+  start,
+  end,
+  inspectParams,
+  isFilterGroup,
+  createReplacement,
+}) {
+  if (!requestInfo?.target) {
+    return null;
+  }
+
+  const { configInfo, methodValue, target, topLevelKeys } = requestInfo;
+  if (methodValue && methodValue.toLowerCase() !== 'get') {
+    return null;
+  }
+
+  if (target.kind === 'auth-check') {
+    return createCtxRequestAuthCheckResult({
+      target,
+      path,
+      modelUse,
+      line,
+      column,
+      start,
+      end,
+    });
+  }
+
+  const unsupportedTopLevelKeys = [...configInfo.properties.keys()].filter((key) => !topLevelKeys.has(key));
+  if (unsupportedTopLevelKeys.length > 0) {
+    return createCtxRequestRewriteRequiredResult({
+      message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但包含当前无法安全改写的顶层参数：${unsupportedTopLevelKeys.join(', ')}。请改用 resource API。`,
+      target,
+      path,
+      modelUse,
+      line,
+      column,
+      details: {
+        unsupportedTopLevelKeys,
+      },
+    });
+  }
+
+  let paramsInfo = createEmptyPropertyInspection();
+  const paramsProperty = configInfo.properties.get('params');
+  if (paramsProperty) {
+    paramsInfo = inspectParams(paramsProperty);
+    if (!paramsInfo.ok) {
+      const filterUnsupported = isFilterGroup(paramsProperty);
+      return createCtxRequestRewriteRequiredResult({
+        code: filterUnsupported ? 'RUNJS_REQUEST_FILTER_GROUP_UNSUPPORTED' : 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
+        message: filterUnsupported
+          ? `ctx.request 命中了资源读取接口 "${target.normalized}"，且 filter 使用了 builder 风格结构，但 params 不是可安全改写的静态对象。请改用 resource API 或服务端 query filter。`
+          : `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 当前不是可安全改写的静态对象。请改用 resource API。`,
+        target,
+        path,
+        modelUse,
+        line,
+        column,
+        details: {
+          reason: paramsInfo.reason,
+        },
+      });
+    }
+  }
+
+  const unsupportedParamKeys = [...paramsInfo.properties.keys()].filter((key) => !SAFE_REQUEST_PARAM_KEYS.has(key));
+  if (unsupportedParamKeys.length > 0) {
+    return createCtxRequestRewriteRequiredResult({
+      message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 包含当前无法安全改写的字段：${unsupportedParamKeys.join(', ')}。请改用 resource API。`,
+      target,
+      path,
+      modelUse,
+      line,
+      column,
+      details: {
+        unsupportedParamKeys,
+      },
+    });
+  }
+
+  const filterProperty = paramsInfo.properties.get('filter');
+  return createCtxRequestResourceRewriteResult({
+    target,
+    path,
+    modelUse,
+    line,
+    column,
+    start,
+    end,
+    replacement: createReplacement({ target, configInfo, paramsInfo }),
+    includeFilterTransform: Boolean(filterProperty && isFilterGroup(filterProperty)),
+  });
+}
+
+function analyzeCtxRequestCall({ callNode, code, env, modelUse, findingModelUse = modelUse, path: findingPath }) {
+  return analyzeResolvedCtxRequestCall({
+    requestInfo: inspectCtxRequestCallExpressionInput(callNode, env),
+    path: findingPath,
+    modelUse: findingModelUse,
+    line: callNode.loc?.start?.line ?? null,
+    column: callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null,
+    start: callNode.start,
+    end: callNode.end,
+    inspectParams: (property) => inspectObjectExpression(property.value, env),
+    isFilterGroup: (property) => looksLikeFilterGroupExpression(property.value, env),
+    createReplacement: ({ target, configInfo, paramsInfo }) => createResourceRequestIIFE({
+      code,
+      target,
+      configInfo,
+      paramsInfo,
+      actionName: target.action,
+    }),
+  });
 }
 
 function createResourceRequestIIFEFromProperties({
@@ -1814,190 +1835,99 @@ function createResourceRequestIIFEFromProperties({
   return lines.join('\n');
 }
 
-function analyzeCtxRequestCallFromSource({ chain, scan, initializers, modelUse, findingModelUse = modelUse, path: findingPath }) {
+function inspectOptionalObjectSource(valueSource, initializers) {
+  return valueSource ? inspectObjectSource(valueSource, initializers) : createEmptyPropertyInspection();
+}
+
+function parseCallArgumentSources(source, masked, openParenIndex, closeParenIndex) {
+  const args = [];
+  let cursor = skipWhitespaceIn(source, openParenIndex + 1);
+
+  while (cursor < closeParenIndex) {
+    if (masked[cursor] === ')') break;
+    const valueStart = cursor;
+    const valueEnd = skipExpressionSource(masked, valueStart, new Set([',', ')']));
+    args.push({
+      valueSource: source.slice(valueStart, valueEnd).trim(),
+      valueStart,
+      valueEnd,
+    });
+    cursor = skipWhitespaceIn(source, valueEnd);
+    if (cursor >= closeParenIndex || masked[cursor] !== ',') break;
+    cursor = skipWhitespaceIn(source, cursor + 1);
+  }
+
+  return args;
+}
+
+function inspectCtxRequestCallSourceInput({ chain, scan, initializers }) {
   const { source, masked } = scan;
   const openParenIndex = skipWhitespaceIn(masked, chain.end);
   if (masked[openParenIndex] !== '(') return null;
   const closeParenIndex = findMatchingToken(masked, openParenIndex, '(', ')');
   if (closeParenIndex < 0) return null;
-  const configStart = skipWhitespaceIn(source, openParenIndex + 1);
-  if (masked[configStart] !== '{') return null;
-  const configEnd = findMatchingToken(masked, configStart, '{', '}');
-  if (configEnd < 0 || configEnd > closeParenIndex) return null;
 
-  const configInfo = inspectObjectSource(source.slice(configStart, configEnd + 1), initializers);
+  const args = parseCallArgumentSources(source, masked, openParenIndex, closeParenIndex);
+  const firstArg = args[0];
+  if (!firstArg?.valueSource) return null;
+
+  const resolvedFirstArgSource = resolveInitializerSource(firstArg.valueSource, initializers);
+  const firstArgLiteral = parseStaticStringLiteralAt(
+    resolvedFirstArgSource,
+    skipWhitespaceIn(resolvedFirstArgSource, 0),
+  );
+
+  if (firstArgLiteral) {
+    const configInfo = inspectOptionalObjectSource(args[1]?.valueSource, initializers);
+    if (!configInfo.ok) return null;
+
+    return {
+      callStart: chain.start,
+      callEnd: closeParenIndex + 1,
+      target: parseRunJSRequestTarget(firstArgLiteral.value),
+      configInfo,
+      methodValue: propertyStaticString(configInfo.properties.get('method'), initializers),
+      topLevelKeys: SAFE_REQUEST_OPTIONS_KEYS,
+    };
+  }
+
+  const configInfo = inspectObjectSource(firstArg.valueSource, initializers);
   if (!configInfo.ok) return null;
 
   const urlValue = propertyStaticString(configInfo.properties.get('url'), initializers);
   if (!urlValue) return null;
 
-  const target = parseRequestTarget(urlValue);
-  if (!target) return null;
-
-  const methodValue = propertyStaticString(configInfo.properties.get('method'), initializers);
-  if (methodValue && methodValue.toLowerCase() !== 'get') return null;
-
-  const loc = getLineColumnFromPos(source, chain.start);
-
-  if (target.kind === 'auth-check') {
-    return {
-      findings: [
-        createFinding({
-          severity: 'warning',
-          code: 'RUNJS_AUTH_CHECK_REDUNDANT',
-          message: '读取当前登录用户时不应再请求 auth:check；优先使用 ctx.user 或 ctx.auth?.user。',
-          path: findingPath,
-          modelUse: findingModelUse,
-          line: loc.line,
-          column: loc.column,
-          details: {
-            url: target.normalized,
-          },
-        }),
-      ],
-      rewrite: {
-        start: chain.start,
-        end: closeParenIndex + 1,
-        replacement: `(async () => ({ data: { data: (ctx.user ?? ctx.auth?.user ?? null) } }))()`,
-        transforms: [
-          {
-            code: 'RUNJS_AUTH_CHECK_TO_CTX_USER',
-            message: '把 auth:check 请求改写为直接读取 ctx.user / ctx.auth?.user。',
-            details: {
-              url: target.normalized,
-            },
-          },
-        ],
-      },
-    };
-  }
-
-  const unsupportedTopLevelKeys = [...configInfo.properties.keys()].filter((key) => !SAFE_REQUEST_TOP_LEVEL_KEYS.has(key));
-  if (unsupportedTopLevelKeys.length > 0) {
-    return {
-      findings: [
-        createFinding({
-          code: 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-          message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但包含当前无法安全改写的顶层参数：${unsupportedTopLevelKeys.join(', ')}。请改用 resource API。`,
-          path: findingPath,
-          modelUse: findingModelUse,
-          line: loc.line,
-          column: loc.column,
-          details: {
-            url: target.normalized,
-            unsupportedTopLevelKeys,
-          },
-        }),
-      ],
-      rewrite: null,
-    };
-  }
-
-  let paramsInfo = { ok: true, reason: null, properties: new Map() };
-  const paramsProperty = configInfo.properties.get('params');
-  if (paramsProperty) {
-    paramsInfo = inspectObjectSource(paramsProperty.valueSource, initializers);
-    if (!paramsInfo.ok) {
-      const filterUnsupported = looksLikeFilterGroupSource(paramsProperty.valueSource, initializers);
-      return {
-        findings: [
-          createFinding({
-            code: filterUnsupported ? 'RUNJS_REQUEST_FILTER_GROUP_UNSUPPORTED' : 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-            message: filterUnsupported
-              ? `ctx.request 命中了资源读取接口 "${target.normalized}"，且 filter 使用了 builder 风格结构，但 params 不是可安全改写的静态对象。请改用 resource API 或服务端 query filter。`
-              : `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 当前不是可安全改写的静态对象。请改用 resource API。`,
-            path: findingPath,
-            modelUse: findingModelUse,
-            line: loc.line,
-            column: loc.column,
-            details: {
-              url: target.normalized,
-              reason: paramsInfo.reason,
-            },
-          }),
-        ],
-        rewrite: null,
-      };
-    }
-  }
-
-  const unsupportedParamKeys = [...paramsInfo.properties.keys()].filter((key) => !SAFE_REQUEST_PARAM_KEYS.has(key));
-  if (unsupportedParamKeys.length > 0) {
-    return {
-      findings: [
-        createFinding({
-          code: 'RUNJS_RESOURCE_REQUEST_REWRITE_REQUIRED',
-          message: `ctx.request 命中了资源读取接口 "${target.normalized}"，但 params 包含当前无法安全改写的字段：${unsupportedParamKeys.join(', ')}。请改用 resource API。`,
-          path: findingPath,
-          modelUse: findingModelUse,
-          line: loc.line,
-          column: loc.column,
-          details: {
-            url: target.normalized,
-            unsupportedParamKeys,
-          },
-        }),
-      ],
-      rewrite: null,
-    };
-  }
-
-  const findings = [
-    createFinding({
-      severity: 'warning',
-      code: 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST',
-      message: `读取 NocoBase 资源 "${target.normalized}" 时不应默认使用 ctx.request；应优先改写为 ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}。`,
-      path: findingPath,
-      modelUse: findingModelUse,
-      line: loc.line,
-      column: loc.column,
-      details: {
-        url: target.normalized,
-        resourceName: target.resourceName,
-        action: target.action,
-      },
-    }),
-  ];
-
-  const transforms = [
-    {
-      code: target.action === 'get'
-        ? 'RUNJS_REQUEST_GET_TO_SINGLE_RECORD_RESOURCE'
-        : 'RUNJS_REQUEST_LIST_TO_MULTI_RECORD_RESOURCE',
-      message: `把 ${target.normalized} 的 ctx.request 调用改写为 ${target.action === 'get' ? 'SingleRecordResource' : 'MultiRecordResource'}。`,
-      details: {
-        url: target.normalized,
-        resourceName: target.resourceName,
-        action: target.action,
-      },
-    },
-  ];
-
-  const filterProperty = paramsInfo.properties.get('filter');
-  if (filterProperty && looksLikeFilterGroupSource(filterProperty.valueSource, initializers)) {
-    transforms.unshift({
-      code: 'RUNJS_REQUEST_FILTER_GROUP_TO_QUERY_FILTER',
-      message: `把 ${target.normalized} 请求里的 builder filter 自动收敛为服务端 query filter。`,
-      details: {
-        url: target.normalized,
-      },
-    });
-  }
-
   return {
-    findings,
-    rewrite: {
-      start: chain.start,
-      end: closeParenIndex + 1,
-      replacement: createResourceRequestIIFEFromProperties({
-        target,
-        configInfo,
-        paramsInfo,
-        actionName: target.action,
-      }),
-      transforms,
-    },
+    callStart: chain.start,
+    callEnd: closeParenIndex + 1,
+    target: parseRunJSRequestTarget(urlValue),
+    configInfo,
+    methodValue: propertyStaticString(configInfo.properties.get('method'), initializers),
+    topLevelKeys: SAFE_REQUEST_TOP_LEVEL_KEYS,
   };
+}
+
+function analyzeCtxRequestCallFromSource({ chain, scan, initializers, modelUse, findingModelUse = modelUse, path: findingPath }) {
+  const { source } = scan;
+  const loc = getLineColumnFromPos(source, chain.start);
+  const requestInfo = inspectCtxRequestCallSourceInput({ chain, scan, initializers });
+  return analyzeResolvedCtxRequestCall({
+    requestInfo,
+    path: findingPath,
+    modelUse: findingModelUse,
+    line: loc.line,
+    column: loc.column,
+    start: requestInfo?.callStart ?? null,
+    end: requestInfo?.callEnd ?? null,
+    inspectParams: (property) => inspectObjectSource(property.valueSource, initializers),
+    isFilterGroup: (property) => looksLikeFilterGroupSource(property.valueSource, initializers),
+    createReplacement: ({ target, configInfo, paramsInfo }) => createResourceRequestIIFEFromProperties({
+      target,
+      configInfo,
+      paramsInfo,
+      actionName: target.action,
+    }),
+  });
 }
 
 function collectElementAliasNames(initializers) {
@@ -2125,12 +2055,8 @@ function analyzeInnerHTMLAssignmentsFromSource({ scan, initializers, modelUse, f
   };
 }
 
-function inspectRunJSSemantics({ code, modelUse = 'JSBlockModel', findingModelUse = modelUse, path: findingPath = '$' }) {
-  const findings = [];
+function collectCtxRequestRewritesFromSource({ scan, initializers, staticStrings, modelUse, findingModelUse, path: findingPath }) {
   const rewrites = [];
-  const scan = createRunJSScan(code);
-  const { initializers, staticStrings } = collectSimpleInitializers(scan.source, scan.masked);
-
   forEachMemberChain(scan, staticStrings, (chain) => {
     if (chain.segments[0] !== 'ctx' || chain.segments[1] !== 'request') return;
     if (!isCallAfter(scan.masked, chain.end)) return;
@@ -2142,22 +2068,90 @@ function inspectRunJSSemantics({ code, modelUse = 'JSBlockModel', findingModelUs
       findingModelUse,
       path: findingPath,
     });
-    if (!result) return;
-    findings.push(...(result.findings || []));
-    if (result.rewrite) {
+    if (result?.rewrite) {
       rewrites.push(result.rewrite);
     }
   });
+  return rewrites;
+}
 
-  const innerHTMLResult = analyzeInnerHTMLAssignmentsFromSource({
+function collectInnerHTMLRewritesFromSource({ scan, initializers, modelUse, findingModelUse, path: findingPath }) {
+  return analyzeInnerHTMLAssignmentsFromSource({
     scan,
     initializers,
     modelUse,
     findingModelUse,
     path: findingPath,
-  });
-  findings.push(...innerHTMLResult.findings);
-  rewrites.push(...innerHTMLResult.rewrites);
+  }).rewrites;
+}
+
+function inspectRunJSSemantics({ code, modelUse = 'JSBlockModel', findingModelUse = modelUse, path: findingPath = '$' }) {
+  let scan = null;
+  try {
+    scan = parseRunJSSourceForSyntax(code);
+  } catch (error) {
+    return {
+      blockers: [
+        createFinding({
+          code: 'RUNJS_PARSE_ERROR',
+          message: `Syntax error: ${error.message}`,
+          path: findingPath,
+          modelUse: findingModelUse,
+        }),
+      ],
+      warnings: [],
+      rewrites: [],
+    };
+  }
+
+  const findings = [];
+  const { initializers, staticStrings } = collectSimpleInitializers(scan.source, scan.masked);
+  const env = collectVariableInitializers(scan.wrappedBody || scan.wrappedAst);
+
+  for (const entry of scan.semanticNodes?.ctxRequestCalls || []) {
+    const result = analyzeCtxRequestCall({
+      callNode: entry.node,
+      code: scan.source,
+      env,
+      modelUse,
+      findingModelUse,
+      path: findingPath,
+    });
+    if (!result) continue;
+    findings.push(...(result.findings || []));
+  }
+
+  for (const entry of scan.semanticNodes?.innerHTMLAssignments || []) {
+    const result = analyzeInnerHTMLAssignment({
+      node: entry.node,
+      ancestors: entry.ancestors,
+      code: scan.source,
+      env,
+      modelUse,
+      findingModelUse,
+      path: findingPath,
+    });
+    if (!result) continue;
+    findings.push(...(result.findings || []));
+  }
+
+  const rewrites = [
+    ...collectCtxRequestRewritesFromSource({
+      scan,
+      initializers,
+      staticStrings,
+      modelUse,
+      findingModelUse,
+      path: findingPath,
+    }),
+    ...collectInnerHTMLRewritesFromSource({
+      scan,
+      initializers,
+      modelUse,
+      findingModelUse,
+      path: findingPath,
+    }),
+  ];
 
   return {
     blockers: findings.filter((item) => item.severity !== 'warning'),
@@ -3225,6 +3219,7 @@ function buildAllowedCtxRoots(contract, modelUses = [], extraRoots = []) {
     ...uniqueStrings(contract.ctx?.baseProperties),
     ...uniqueStrings(contract.ctx?.baseMethods),
   ]);
+  addCtxRootNames(allowedRoots, SKILL_LOCAL_COMPAT_ROOTS);
   addCtxRootNames(allowedRoots, extraRoots);
   for (const candidate of uniqueStrings(modelUses)) {
     const modelContract = getModelContract(contract, candidate);
@@ -3239,34 +3234,11 @@ function buildAllowedCtxRoots(contract, modelUses = [], extraRoots = []) {
   return allowedRoots;
 }
 
-function hasTopLevelReturn(ast) {
-  let found = false;
-  traverseAst(ast, (node, ancestors) => {
-    if (found || node?.type !== 'ReturnStatement') return;
-    const insideFunction = ancestors.some((ancestor) => isFunctionNode(ancestor));
-    if (!insideFunction) {
-      found = true;
-    }
-  });
-  return found;
-}
-
-function collectCtxRenderCalls(ast) {
-  const calls = [];
-  traverseAst(ast, (node) => {
-    if (node?.type === 'CallExpression' && isCtxMemberExpression(node.callee, 'render')) {
-      calls.push(node);
-    }
-  });
-  return calls;
-}
-
 function inspectSurfaceStyle({ scan, surfaceStyle, path: findingPath = '$', modelUse }) {
-  const { staticStrings } = collectSimpleInitializers(scan.source, scan.masked);
-  const renderCalls = collectCtxRenderCallsFromScan(scan, staticStrings);
-  const topLevelRenderCalls = collectTopLevelCtxRenderCalls(scan);
+  const renderCalls = (scan.semanticNodes?.topLevelCtxRenderCalls || []).map((entry) => entry.node);
+  const topLevelReturns = scan.semanticNodes?.topLevelReturns || [];
   if (surfaceStyle === 'render') {
-    if (topLevelRenderCalls.length > 0) {
+    if (renderCalls.length > 0) {
       return {
         blockers: [],
         warnings: [],
@@ -3293,7 +3265,7 @@ function inspectSurfaceStyle({ scan, surfaceStyle, path: findingPath = '$', mode
   }
 
   const blockers = [];
-  if (!hasTopLevelReturnInScan(scan)) {
+  if (topLevelReturns.length === 0) {
     blockers.push(
       createFinding({
         code: 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED',
@@ -3305,15 +3277,18 @@ function inspectSurfaceStyle({ scan, surfaceStyle, path: findingPath = '$', mode
   }
 
   for (const callNode of renderCalls) {
-    const loc = getLineColumnFromPos(scan.source, callNode.propertyStart);
+    const line = callNode.callee?.property?.loc?.start?.line ?? callNode.loc?.start?.line ?? null;
+    const column = callNode.callee?.property?.loc?.start?.column != null
+      ? callNode.callee.property.loc.start.column + 1
+      : (callNode.loc?.start?.column != null ? callNode.loc.start.column + 1 : null);
     blockers.push(
       createFinding({
         code: 'RUNJS_VALUE_SURFACE_CTX_RENDER_FORBIDDEN',
         message: 'This RunJS surface returns a value; do not call ctx.render(...).',
         path: findingPath,
         modelUse,
-        line: loc.line,
-        column: loc.column,
+        line,
+        column,
       }),
     );
   }
@@ -3354,6 +3329,7 @@ function resolveRunJSInspectionPolicy(contract, { modelUse, surface, path: findi
   const resolvedSurfacePolicy = explicitSurface ? getRunJSSurfacePolicy(explicitSurface) : null;
   if (explicitSurface && resolvedSurfacePolicy) {
     const allowedModelUses = new Set(getRunJSSurfaceAllowedModelUses(explicitSurface));
+    const validationModelUses = getRunJSSurfaceValidationModelUses(explicitSurface);
     const fallbackRuntimeModel = getRunJSFallbackRuntimeModel(explicitSurface);
     const surfaceStyle = getRunJSEffectStyle(explicitSurface);
     const extraAllowedRoots = getRunJSSurfaceExtraAllowedRoots(explicitSurface);
@@ -3361,9 +3337,7 @@ function resolveRunJSInspectionPolicy(contract, { modelUse, surface, path: findi
     const requiresExplicitModel = Boolean(resolvedSurfacePolicy.requiresExplicitModel);
 
     if (requestedModelUse && knownModelUse) {
-      const supportsRequestedModelUse = allowedModelUses.size === 0
-        || allowedModelUses.has(knownModelUse)
-        || knownModelUse === fallbackRuntimeModel;
+      const supportsRequestedModelUse = allowedModelUses.size === 0 || allowedModelUses.has(knownModelUse);
 
       if (!supportsRequestedModelUse) {
         return {
@@ -3409,7 +3383,13 @@ function resolveRunJSInspectionPolicy(contract, { modelUse, surface, path: findi
       surfaceStyle,
       modelUse: fallbackRuntimeModel,
       findingModelUse: explicitSurface,
-      allowedRoots: buildAllowedCtxRoots(contract, getRunJSSurfaceAllowedModelUses(explicitSurface), extraAllowedRoots),
+      allowedRoots: buildAllowedCtxRoots(
+        contract,
+        validationModelUses.length > 0
+          ? validationModelUses
+          : (fallbackRuntimeModel ? [fallbackRuntimeModel] : []),
+        extraAllowedRoots,
+      ),
     };
   }
 

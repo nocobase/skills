@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Self-contained RunJS compatibility validator CLI for trusted skill workflows.",
+  "description": "Skill-local bundled RunJS compatibility validator CLI for trusted skill workflows.",
   "engines": {
     "node": ">=18"
   },

@@ -228,5 +228,15 @@
     "code": "await ctx.request({ url: 'tasks:list' });",
     "expectedOk": true,
     "expectedCodes": ["RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST"]
+  },
+  {
+    "id": "warning-string-resource-request-reroute",
+    "intent": "request-data",
+    "surface": "event-flow.execute-javascript",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["global/resource-get"],
+    "code": "await ctx.request('tasks:get', { params: { filterByTk: 1 } });",
+    "expectedOk": true,
+    "expectedCodes": ["RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST"]
   }
 ]

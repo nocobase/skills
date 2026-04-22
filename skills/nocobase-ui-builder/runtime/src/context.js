@@ -1,6 +1,11 @@
 import { createCompatDayjs } from './compat-dayjs.js';
 import { MAX_LOG_ENTRIES, READ_ONLY_HTTP_METHODS } from './constants.js';
 import {
+  DEFAULT_RESOURCE_DATA,
+  DEFAULT_SINGLE_RECORD_DATA,
+  parseRunJSRequestTarget,
+} from './runjs-request-target.js';
+import {
   cloneSerializable,
   getByPath,
   interpolate,
@@ -506,6 +511,40 @@ function createNetworkController(state, network, options = {}) {
   };
 }
 
+function createCompatResourceReadResult(target, requestLike = {}) {
+  const page = Number.isFinite(Number(requestLike?.params?.page)) ? Number(requestLike.params.page) : 1;
+  const pageSize = Number.isFinite(Number(requestLike?.params?.pageSize)) ? Number(requestLike.params.pageSize) : 20;
+  const payload = target.action === 'get'
+    ? {
+        data: {
+          ...cloneSerializable(DEFAULT_SINGLE_RECORD_DATA),
+          ...(typeof requestLike?.params?.filterByTk !== 'undefined'
+            ? { id: requestLike.params.filterByTk }
+            : {}),
+        },
+        meta: null,
+      }
+    : {
+        data: cloneSerializable(DEFAULT_RESOURCE_DATA),
+        meta: {
+          page,
+          pageSize,
+          total: DEFAULT_RESOURCE_DATA.length,
+        },
+      };
+  const text = JSON.stringify(payload);
+  return {
+    ok: true,
+    status: 200,
+    headers: {
+      'content-type': 'application/json',
+    },
+    data: payload,
+    text,
+    json: async () => payload,
+  };
+}
+
 function createRequestShim(state, networkController) {
   return async function compatRequest(input, options = {}) {
     const requestLike =
@@ -531,6 +570,18 @@ function createRequestShim(state, networkController) {
       detail.status = 'blocked';
       detail.ruleId = 'blocked-side-effect';
       throw new CompatBlockedError(`Blocked HTTP method "${method}" for ${url || '<unknown url>'}.`, detail);
+    }
+
+    const requestTarget = parseRunJSRequestTarget(url);
+    if (requestTarget?.kind === 'resource-read') {
+      Object.assign(detail, {
+        status: 'simulated',
+        ruleId: undefined,
+        requestKind: 'nocobase-resource-read',
+        resourceName: requestTarget.resourceName,
+        action: requestTarget.action,
+      });
+      return createCompatResourceReadResult(requestTarget, requestLike);
     }
 
     const response = await networkController.fetch('request', url, method, {
@@ -1035,6 +1086,12 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
           },
         ]),
       });
+      if (current.kind === 'SingleRecordResource' && Array.isArray(current.data)) {
+        current.data = {
+          ...cloneSerializable(DEFAULT_SINGLE_RECORD_DATA),
+          ...(typeof current.filterByTk !== 'undefined' ? { id: current.filterByTk } : {}),
+        };
+      }
       if (typeof current.filterByTk !== 'undefined' && !isPlainObject(current.data) && !Array.isArray(current.data)) {
         current.data = { id: current.filterByTk };
       }

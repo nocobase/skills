@@ -18,6 +18,13 @@ const CJK_TEXT_PATTERN = /[\u3400-\u9fff]/;
 const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
 const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['requestBody', 'templateDecision']);
 const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
+const DEFAULTS_ROOT_ALLOWED_KEYS = new Set(['collections']);
+const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set(['fieldGroups', 'popups']);
+const DEFAULTS_FIELD_GROUP_ALLOWED_KEYS = new Set(['key', 'title', 'fields']);
+const DEFAULTS_POPUPS_ALLOWED_KEYS = new Set(['view', 'addNew', 'edit', 'associations']);
+const DEFAULTS_ASSOCIATION_POPUPS_ALLOWED_KEYS = new Set(['view', 'addNew', 'edit']);
+const DEFAULTS_POPUP_NAME_ALLOWED_KEYS = new Set(['name']);
+const DEFAULTS_POPUP_ACTIONS = ['view', 'addNew', 'edit'];
 const EDIT_ACTION_TYPES = new Set(['edit']);
 const REAL_TEMPLATE_MODES = new Set(['reference', 'copy']);
 const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
@@ -704,6 +711,23 @@ function getMenuPath(blueprint) {
 
   if (itemTitle) parts.push(itemTitle);
   return parts.join(' / ');
+}
+
+function summarizeBlueprintDefaults(defaults) {
+  if (!isPlainObject(defaults?.collections)) return '';
+  const collectionSummaries = Object.entries(defaults.collections).flatMap(([collectionName, collectionDefaults]) => {
+    const normalizedCollectionName = normalizeText(collectionName);
+    if (!normalizedCollectionName || !isPlainObject(collectionDefaults)) return [];
+    const parts = [];
+    if (Array.isArray(collectionDefaults.fieldGroups) && collectionDefaults.fieldGroups.length) {
+      parts.push('fieldGroups');
+    }
+    if (isPlainObject(collectionDefaults.popups) && Object.keys(collectionDefaults.popups).length) {
+      parts.push('popups');
+    }
+    return parts.length ? [`${normalizedCollectionName}(${parts.join(',')})`] : [];
+  });
+  return summarizeList(collectionSummaries);
 }
 
 function getPageTitle(blueprint) {
@@ -1477,6 +1501,9 @@ function renderRecognizableBlueprintAscii(blueprint, warnings, options = {}) {
   const targetPage = normalizeText(blueprint?.target?.pageSchemaUid);
   if (targetPage) lines.push(`TARGET: ${targetPage}`);
 
+  const defaultsSummary = summarizeBlueprintDefaults(blueprint.defaults);
+  if (defaultsSummary) lines.push(`DEFAULTS: ${defaultsSummary}`);
+
   lines.push(`TABS: ${blueprint.tabs.length}`);
   lines.push('');
 
@@ -2001,6 +2028,240 @@ function validateCreateMenuIcons(blueprint, state) {
       'invalid-menu-item-icon',
       'navigation.item.icon must be one valid Ant Design icon name such as TeamOutlined.',
     );
+  }
+}
+
+function validateAllowedObjectKeys(input, path, allowedKeys, state, ruleId, label) {
+  if (!isPlainObject(input)) return;
+  for (const key of Object.keys(input)) {
+    if (allowedKeys.has(key)) continue;
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.${key}`,
+      ruleId,
+      `${label} only accepts keys: ${Array.from(allowedKeys).join(', ')}; unsupported key "${key}".`,
+    );
+  }
+}
+
+function validateDefaultFieldGroups(fieldGroups, path, state) {
+  if (typeof fieldGroups === 'undefined') return;
+  if (!Array.isArray(fieldGroups) || !fieldGroups.length) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'invalid-default-field-groups',
+      'defaults.collections.*.fieldGroups must be a non-empty array when present.',
+    );
+    return;
+  }
+
+  for (const [groupIndex, group] of fieldGroups.entries()) {
+    const groupPath = `${path}[${groupIndex}]`;
+    if (!isPlainObject(group)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        groupPath,
+        'invalid-default-field-group',
+        'Each defaults field group must be one object.',
+      );
+      continue;
+    }
+    validateAllowedObjectKeys(
+      group,
+      groupPath,
+      DEFAULTS_FIELD_GROUP_ALLOWED_KEYS,
+      state,
+      'unsupported-default-field-group-key',
+      'defaults field group',
+    );
+    if (!normalizeText(group.title)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.title`,
+        'default-field-group-title-required',
+        'Each defaults field group must include a non-empty title.',
+      );
+    }
+    if (!Array.isArray(group.fields) || !group.fields.length) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.fields`,
+        'default-field-group-fields-required',
+        'Each defaults field group must include a non-empty fields array.',
+      );
+      continue;
+    }
+    for (const [fieldIndex, field] of group.fields.entries()) {
+      if (normalizeText(field)) continue;
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${groupPath}.fields[${fieldIndex}]`,
+        'invalid-default-field-group-field',
+        'defaults field group fields must be non-empty field path strings.',
+      );
+    }
+  }
+}
+
+function validateDefaultPopupName(input, path, state) {
+  if (typeof input === 'undefined') return;
+  if (!isPlainObject(input)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'invalid-default-popup',
+      'defaults popup action values must be one name-only object.',
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    input,
+    path,
+    DEFAULTS_POPUP_NAME_ALLOWED_KEYS,
+    state,
+    'unsupported-default-popup-key',
+    'defaults popup action',
+  );
+  if (!normalizeText(input.name)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.name`,
+      'default-popup-name-required',
+      'defaults popup action values must include one non-empty name.',
+    );
+  }
+}
+
+function validateDefaultPopupActionMap(input, path, state, allowedKeys) {
+  if (typeof input === 'undefined') return;
+  if (!isPlainObject(input)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      path,
+      'invalid-default-popups',
+      'defaults popups must be one object.',
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    input,
+    path,
+    allowedKeys,
+    state,
+    'unsupported-default-popup-action-key',
+    'defaults popups',
+  );
+  for (const action of DEFAULTS_POPUP_ACTIONS) {
+    validateDefaultPopupName(input[action], `${path}.${action}`, state);
+  }
+}
+
+function validateDefaultPopups(popups, path, state) {
+  if (typeof popups === 'undefined') return;
+  validateDefaultPopupActionMap(popups, path, state, DEFAULTS_POPUPS_ALLOWED_KEYS);
+  if (!isPlainObject(popups) || typeof popups.associations === 'undefined') return;
+  if (!isPlainObject(popups.associations)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.associations`,
+      'invalid-default-popup-associations',
+      'defaults popups.associations must be one object keyed by association field path.',
+    );
+    return;
+  }
+  for (const [associationField, actionMap] of Object.entries(popups.associations)) {
+    const normalizedAssociationField = normalizeText(associationField);
+    const associationPath = `${path}.associations.${associationField}`;
+    if (!normalizedAssociationField) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        `${path}.associations`,
+        'invalid-default-popup-association-key',
+        'defaults popups.associations keys must be non-empty association field paths.',
+      );
+      continue;
+    }
+    validateDefaultPopupActionMap(actionMap, associationPath, state, DEFAULTS_ASSOCIATION_POPUPS_ALLOWED_KEYS);
+  }
+}
+
+function validateBlueprintDefaults(blueprint, state) {
+  if (!hasOwn(blueprint, 'defaults')) return;
+  const defaults = blueprint.defaults;
+  if (!isPlainObject(defaults)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'defaults',
+      'invalid-defaults',
+      'defaults must be one object when present.',
+    );
+    return;
+  }
+  validateAllowedObjectKeys(
+    defaults,
+    'defaults',
+    DEFAULTS_ROOT_ALLOWED_KEYS,
+    state,
+    'unsupported-defaults-key',
+    'defaults',
+  );
+  if (typeof defaults.collections === 'undefined') return;
+  if (!isPlainObject(defaults.collections)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      'defaults.collections',
+      'invalid-default-collections',
+      'defaults.collections must be one object keyed by collection name.',
+    );
+    return;
+  }
+  for (const [collectionName, collectionDefaults] of Object.entries(defaults.collections)) {
+    const normalizedCollectionName = normalizeText(collectionName);
+    const collectionPath = `defaults.collections.${collectionName}`;
+    if (!normalizedCollectionName) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        'defaults.collections',
+        'invalid-default-collection-key',
+        'defaults.collections keys must be non-empty collection names.',
+      );
+      continue;
+    }
+    if (!isPlainObject(collectionDefaults)) {
+      pushValidationError(
+        state.errors,
+        state.seenErrors,
+        collectionPath,
+        'invalid-default-collection',
+        'defaults.collections.* values must be one object.',
+      );
+      continue;
+    }
+    validateAllowedObjectKeys(
+      collectionDefaults,
+      collectionPath,
+      DEFAULTS_COLLECTION_ALLOWED_KEYS,
+      state,
+      'unsupported-default-collection-key',
+      'defaults collection',
+    );
+    validateDefaultFieldGroups(collectionDefaults.fieldGroups, `${collectionPath}.fieldGroups`, state);
+    validateDefaultPopups(collectionDefaults.popups, `${collectionPath}.popups`, state);
   }
 }
 
@@ -2712,6 +2973,7 @@ function validateBlueprint(blueprint, options = {}) {
     );
   }
 
+  validateBlueprintDefaults(blueprint, state);
   validateCreateMenuIcons(blueprint, state);
 
   const expectedOuterTabs = getExpectedOuterTabs(options);

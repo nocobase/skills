@@ -531,6 +531,160 @@ test('prepareApplyBlueprintRequest unwraps outer requestBody and returns normali
   });
 });
 
+test('prepareApplyBlueprintRequest accepts collection defaults and summarizes them', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          fieldGroups: [
+            {
+              key: 'basic',
+              title: 'Basic info',
+              fields: ['username', 'nickname'],
+            },
+          ],
+          popups: {
+            view: { name: 'User details' },
+            associations: {
+              roles: {
+                view: { name: 'User role details' },
+                addNew: { name: 'Add user role' },
+                edit: { name: 'Edit user role' },
+              },
+            },
+          },
+        },
+        roles: {
+          fieldGroups: [
+            {
+              key: 'basic',
+              title: 'Basic info',
+              fields: ['name', 'title'],
+            },
+          ],
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.match(result.ascii, /^DEFAULTS: users\(fieldGroups,popups\), roles\(fieldGroups\)$/m);
+  assert.equal(result.cliBody.defaults.collections.users.popups.associations.roles.edit.name, 'Edit user role');
+});
+
+test('prepareApplyBlueprintRequest rejects invalid collection defaults shapes', () => {
+  const buildBlueprint = (defaults) => ({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults,
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['username'],
+          },
+        ],
+      },
+    ],
+  });
+
+  const cases = [
+    {
+      label: 'defaults.blocks',
+      defaults: { blocks: [] },
+      ruleId: 'unsupported-defaults-key',
+      path: 'defaults.blocks',
+    },
+    {
+      label: 'popups.view.blocks',
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: {
+                name: 'User details',
+                blocks: [],
+              },
+            },
+          },
+        },
+      },
+      ruleId: 'unsupported-default-popup-key',
+      path: 'defaults.collections.users.popups.view.blocks',
+    },
+    {
+      label: 'popups.associations.roles.view.fieldGroups',
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              associations: {
+                roles: {
+                  view: {
+                    name: 'User role details',
+                    fieldGroups: [],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      ruleId: 'unsupported-default-popup-key',
+      path: 'defaults.collections.users.popups.associations.roles.view.fieldGroups',
+    },
+    {
+      label: 'popups.relations',
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              relations: {
+                roles: {
+                  view: { name: 'User role details' },
+                },
+              },
+            },
+          },
+        },
+      },
+      ruleId: 'unsupported-default-popup-action-key',
+      path: 'defaults.collections.users.popups.relations',
+    },
+  ];
+
+  for (const item of cases) {
+    const result = prepareApplyBlueprintRequest(buildBlueprint(item.defaults));
+    assert.equal(result.ok, false, item.label);
+    assert.ok(
+      result.errors.some((issue) => issue.ruleId === item.ruleId && issue.path === item.path),
+      `${item.label} should fail with ${item.ruleId} at ${item.path}`,
+    );
+  }
+});
+
 test('prepareApplyBlueprintRequest returns normalized templateDecision when provided through options', () => {
   const result = prepareApplyBlueprintRequest(
     {

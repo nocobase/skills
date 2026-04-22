@@ -198,6 +198,20 @@ test('inspectRunJSCode warns on resource reads left on ctx.request and still all
   );
   assert.equal(requestResult.execution.semanticWarningCount > 0, true);
 
+  const stringRequestResult = await inspectRunJSCode({
+    modelUse: 'JSBlockModel',
+    code: "ctx.render(''); await ctx.request('users:list', { params: { pageSize: 3 } })",
+  });
+  assert.equal(stringRequestResult.ok, true);
+  assert.equal(stringRequestResult.warnings.some((item) => item.code === 'RUNJS_RESOURCE_REQUEST_LEFT_ON_CTX_REQUEST'), true);
+
+  const authCheckResult = await inspectRunJSCode({
+    modelUse: 'JSActionModel',
+    code: "await ctx.request('auth:check')",
+  });
+  assert.equal(authCheckResult.ok, true);
+  assert.equal(authCheckResult.warnings.some((item) => item.code === 'RUNJS_AUTH_CHECK_REDUNDANT'), true);
+
   const jsxResult = await inspectRunJSCode({
     modelUse: 'JSBlockModel',
     code: 'return ctx.render(<div>ok</div>)',
@@ -268,13 +282,27 @@ test('inspectRunJSCode accepts surface-only event-flow inspection without defaul
   assert.equal(result.inspectedNode.surface, 'event-flow.execute-javascript');
 });
 
-test('inspectRunJSCode respects explicit modelUse on linkage surface validation', async () => {
+test('inspectRunJSCode distinguishes linkage host-model validation from surface-only validation', async () => {
+  const surfaceOnlyResult = await inspectRunJSCode({
+    surface: 'linkage.execute-javascript',
+    code: "ctx.form?.setFieldsValue?.({ title: 'x' });",
+  });
+  assert.equal(surfaceOnlyResult.ok, true);
+
   const okResult = await inspectRunJSCode({
     surface: 'linkage.execute-javascript',
     modelUse: 'JSItemModel',
     code: "ctx.form?.setFieldsValue?.({ title: 'x' });",
   });
   assert.equal(okResult.ok, true);
+
+  const unsupportedFallbackResult = await inspectRunJSCode({
+    surface: 'linkage.execute-javascript',
+    modelUse: 'JSFormActionModel',
+    code: "ctx.form?.setFieldsValue?.({ title: 'x' });",
+  });
+  assert.equal(unsupportedFallbackResult.ok, false);
+  assert.equal(unsupportedFallbackResult.blockers.some((item) => item.code === 'RUNJS_UNKNOWN_MODEL_USE'), true);
 
   const badResult = await inspectRunJSCode({
     surface: 'linkage.execute-javascript',
@@ -646,6 +674,14 @@ test('canonicalizeRunJSCode rewrites auth check and list requests to stable reso
   assert.equal(authResult.code.includes('ctx.user ?? ctx.auth?.user ?? null'), true);
   assert.equal(authResult.transforms.some((item) => item.code === 'RUNJS_AUTH_CHECK_TO_CTX_USER'), true);
 
+  const stringAuthResult = canonicalizeRunJSCode({
+    modelUse: 'JSActionModel',
+    code: "const currentUser = await ctx.request('auth:check');",
+  });
+  assert.equal(stringAuthResult.changed, true);
+  assert.equal(stringAuthResult.code.includes('ctx.user ?? ctx.auth?.user ?? null'), true);
+  assert.equal(stringAuthResult.transforms.some((item) => item.code === 'RUNJS_AUTH_CHECK_TO_CTX_USER'), true);
+
   const listResult = canonicalizeRunJSCode({
     modelUse: 'JSBlockModel',
     code: `const filter = {
@@ -670,6 +706,20 @@ const response = await ctx.request({
   assert.equal(listResult.code.includes('current.logic'), true);
   assert.equal(listResult.transforms.some((item) => item.code === 'RUNJS_REQUEST_FILTER_GROUP_TO_QUERY_FILTER'), true);
   assert.equal(listResult.transforms.some((item) => item.code === 'RUNJS_REQUEST_LIST_TO_MULTI_RECORD_RESOURCE'), true);
+
+  const getResult = canonicalizeRunJSCode({
+    modelUse: 'JSActionModel',
+    code: `const response = await ctx.request('task:get', {
+  params: {
+    filterByTk: currentTaskId,
+  },
+  skipNotify: true,
+});`,
+  });
+  assert.equal(getResult.changed, true);
+  assert.equal(getResult.code.includes("ctx.makeResource('SingleRecordResource')"), true);
+  assert.equal(getResult.code.includes('__runjsResource.setFilterByTk(currentTaskId);'), true);
+  assert.equal(getResult.transforms.some((item) => item.code === 'RUNJS_REQUEST_GET_TO_SINGLE_RECORD_RESOURCE'), true);
 });
 
 test('inspectRunJSCode accepts JSColumnModel and JSEditableFieldModel specific context members', async () => {
