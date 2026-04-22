@@ -45,6 +45,7 @@ Use this file only when the task is whole-page authoring. If the request is real
     - every chosen field has a non-empty live `interface`
     - any `filterForm` with 4 or more fields includes `collapse`
     - every custom `edit` popup contains exactly one `editForm`
+    - when `collectionMetadata` is supplied, every involved generated-popup collection has the required `defaults.collections` entry, required large-popup `fieldGroups`, and required popup `{ name, description }` values for the actions actually used
 13. Show one ASCII-first prewrite preview from [ascii-preview.md](./ascii-preview.md) before the first `applyBlueprint`.
 14. Then open [tool-shapes.md](./tool-shapes.md) and send the blueprint itself as the CLI raw body. Only in MCP fallback should that same object be wrapped under `requestBody`.
 

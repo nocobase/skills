@@ -84,9 +84,9 @@ Envelope boundary:
           { "key": "basic", "title": "Basic info", "fields": ["nickname", "status", "department"] }
         ],
         "popups": {
-          "addNew": { "name": "Create employee" },
-          "view": { "name": "Employee details" },
-          "edit": { "name": "Edit employee" }
+          "addNew": { "name": "Create employee", "description": "Create one employee record." },
+          "view": { "name": "Employee details", "description": "View one employee record." },
+          "edit": { "name": "Edit employee", "description": "Edit one employee record." }
         }
       }
     }
@@ -131,9 +131,9 @@ Envelope boundary:
 - Generate these groups from live collection metadata only for large generated popups. For 10 or fewer effective fields, omit `defaults.collections.<collection>.fieldGroups` and let the backend keep a flat popup.
 - Keep `fieldGroups` keyed only by target collection. If multiple relation paths land on the same target collection, reuse one collection entry; do not create per-association or per-popup `fieldGroups` branches.
 - The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted, but a provided small `fieldGroups` payload can still force divider-style generated forms, so do not emit it for small scenes.
-- Use `defaults.collections.<collection>.popups.view/addNew/edit.name` for collection record popup names.
-- Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.name` for relation-field popup names. Use `associations`, not `relations`. These relation popup names stay separate from `fieldGroups`: the grouped fields still come only from the target collection entry when needed.
-- Popup defaults are name-only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
+- Use `defaults.collections.<collection>.popups.view/addNew/edit.{name,description}` for collection record popup descriptors.
+- Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.{name,description}` for relation-field popup descriptors. Use `associations`, not `relations`. These relation popup descriptors stay separate from `fieldGroups`: the grouped fields still come only from the target collection entry when needed.
+- Popup defaults must be `{ name, description }` only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
 - Do not generate `defaults.blocks`; v1 defaults are collection-level only.
 - If `popup.tryTemplate` resolves an existing template, the backend reuses that template and does not regenerate default popup content from `defaults`.
 
@@ -157,21 +157,21 @@ Example:
           }
         ],
         "popups": {
-          "view": { "name": "User details" },
-          "addNew": { "name": "Create user" },
-          "edit": { "name": "Edit user" },
+          "view": { "name": "User details", "description": "View one user record." },
+          "addNew": { "name": "Create user", "description": "Create one user record." },
+          "edit": { "name": "Edit user", "description": "Edit one user record." },
           "associations": {
             "roles": {
-              "view": { "name": "User role details" }
+              "view": { "name": "User role details", "description": "View one related user role." }
             }
           }
         }
       },
       "roles": {
         "popups": {
-          "view": { "name": "Role details" },
-          "addNew": { "name": "Create role" },
-          "edit": { "name": "Edit role" }
+          "view": { "name": "Role details", "description": "View one role record." },
+          "addNew": { "name": "Create role", "description": "Create one role record." },
+          "edit": { "name": "Edit role", "description": "Edit one role record." }
         }
       }
     }

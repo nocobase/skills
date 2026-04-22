@@ -1110,10 +1110,12 @@ test('whole-page defaults docs require recomputing involved collections and keep
   );
 });
 
-test('helper contracts keep prepare-write schema-blind for missing collection defaults', () => {
+test('helper contracts keep prepare-write caller-driven for collectionMetadata completeness checks', () => {
   const helperContracts = read('references/helper-contracts.md');
   assert.match(helperContracts, /does not fetch live collection metadata/i);
-  assert.match(helperContracts, /cannot infer missing `?defaults\.collections\.<collection>\.fieldGroups`?/i);
+  assert.match(helperContracts, /collectionMetadata/i);
+  assert.match(helperContracts, /validate[s]? defaults completeness/i);
+  assert.match(helperContracts, /without `?collectionMetadata`?[\s\S]{0,120}(skip|skipped)/i);
   assert.match(helperContracts, /do not use it as a schema-aware planner/i);
 });
 
@@ -1134,6 +1136,11 @@ test('whole-page docs keep applyBlueprint defaults v1 constraints explicit', () 
       text,
       /popups\.associations/i,
       `${relativePath} should document association popup defaults with associations naming`,
+    );
+    assert.match(
+      text,
+      /defaults\.collections[\s\S]{0,240}popups[\s\S]{0,160}(?:\{\s*name,\s*description\s*\}|name[\s\S]{0,40}description|description[\s\S]{0,40}name)/i,
+      `${relativePath} should require popup defaults to carry both name and description`,
     );
     assert.match(
       text,

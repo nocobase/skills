@@ -9,20 +9,22 @@ If the task only needs local blueprint / preview artifacts or common-case drafti
 Use this before the first real whole-page write.
 
 - CLI: `nb-page-preview --stdin-json --prepare-write`
-- input: one page blueprint JSON document, or the helper envelope `{ requestBody, templateDecision }`
+- input: one page blueprint JSON document, or the helper envelope `{ requestBody, templateDecision?, collectionMetadata? }`
 - returns: normalized CLI write body plus the ASCII preview
 - treat the normalized write body as authoritative local write shape; expected helper-added or helper-normalized fields should be kept as-is instead of being locally undone
-- does not fetch live collection metadata, does not resolve relation targets from schema, and cannot infer missing `defaults.collections.<collection>.fieldGroups`
+- does not fetch live collection metadata by itself
+- when `collectionMetadata` is provided, validates defaults completeness for the involved collections: missing `defaults.collections.<collection>`, required `fieldGroups` for generated popups with more than 10 effective fields, and required popup `{ name, description }` entries for the actions actually used by the blueprint
+- without `collectionMetadata`, that defaults-completeness check is skipped
 - rejects: common high-risk write-shape mistakes before the remote write
 
 ## `prepareApplyBlueprintRequest(...)`
 
 Use this helper in local JS code when you need the same prepare-write behavior without shelling out.
 
-- input: one page blueprint document, or the helper envelope `{ requestBody, templateDecision }`
+- input: one page blueprint document, or the helper envelope `{ requestBody, templateDecision?, collectionMetadata? }`
 - returns: normalized prepare-write result with the blueprint body, preview, and local validation output
 - accept expected helper-added and helper-normalized output as-is instead of trying to undo it locally
-- use it for: prewrite validation, preview generation, and template-decision normalization
+- use it for: prewrite validation, preview generation, template-decision normalization, and caller-supplied `collectionMetadata` completeness checks
 - do not use it as a schema-aware planner; recompute involved collections and rebuild `defaults.collections` before calling it
 
 ## `nb-page-preview` preview-only mode

@@ -16,16 +16,22 @@ const PLACEHOLDER_TEXT_PATTERN = /^(summary|later|placeholder|todo)$/i;
 const PLACEHOLDER_TEXT_CN_PATTERN = /^(备用|待定|稍后)$/;
 const CJK_TEXT_PATTERN = /[\u3400-\u9fff]/;
 const PLACEHOLDER_BLOCK_TYPES = new Set(['markdown', 'note', 'banner']);
-const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['requestBody', 'templateDecision']);
+const BLUEPRINT_ILLEGAL_ROOT_KEYS = new Set(['requestBody', 'templateDecision', 'collectionMetadata']);
 const TAB_ILLEGAL_KEYS = new Set(['pageSchemaUid', 'requestBody', 'target']);
 const DEFAULTS_ROOT_ALLOWED_KEYS = new Set(['collections']);
 const DEFAULTS_COLLECTION_ALLOWED_KEYS = new Set(['fieldGroups', 'popups']);
 const DEFAULTS_FIELD_GROUP_ALLOWED_KEYS = new Set(['key', 'title', 'fields']);
 const DEFAULTS_POPUPS_ALLOWED_KEYS = new Set(['view', 'addNew', 'edit', 'associations']);
 const DEFAULTS_ASSOCIATION_POPUPS_ALLOWED_KEYS = new Set(['view', 'addNew', 'edit']);
-const DEFAULTS_POPUP_NAME_ALLOWED_KEYS = new Set(['name']);
+const DEFAULTS_POPUP_VALUE_ALLOWED_KEYS = new Set(['name', 'description']);
 const DEFAULTS_POPUP_ACTIONS = ['view', 'addNew', 'edit'];
+const DEFAULTS_POPUP_ACTION_TYPE_MAP = new Map([
+  ['view', 'view'],
+  ['edit', 'edit'],
+  ['addnew', 'addNew'],
+]);
 const EDIT_ACTION_TYPES = new Set(['edit']);
+const CRUD_POPUP_ACTION_TYPES = new Set(DEFAULTS_POPUP_ACTION_TYPE_MAP.keys());
 const REAL_TEMPLATE_MODES = new Set(['reference', 'copy']);
 const APPLY_BLUEPRINT_REACTION_TYPES = new Set([
   'setFieldValueRules',
@@ -60,6 +66,23 @@ const FIELD_STATE_BOOLEAN_SHORTHANDS = {
 };
 const LARGE_FIELD_GRID_GROUPING_THRESHOLD = 10;
 const NON_COUNTED_FIELD_TYPES = new Set(['divider', 'jsitem', 'jscolumn']);
+const ASSOCIATION_FIELD_TYPES = new Set(['belongsto', 'hasone', 'hasmany', 'belongstomany']);
+const ASSOCIATION_FIELD_INTERFACES = new Set(['m2o', 'o2m', 'm2m', 'obo', 'oho', 'manytoone', 'onetomany', 'manytomany']);
+const AUDIT_FIELD_NAMES = new Set([
+  'id',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'createdBy',
+  'updatedBy',
+  'deletedBy',
+  'created_by',
+  'updated_by',
+  'deleted_by',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+]);
 const COMMON_ANT_DESIGN_ICON_NAMES = new Set([
   'AppstoreOutlined',
   'BankOutlined',
@@ -1015,6 +1038,697 @@ function countBlockEffectiveFields(block) {
   return countEffectiveBlueprintFields(getBlockFieldEntries(block));
 }
 
+function normalizeCollectionFieldMetadata(field) {
+  if (!isPlainObject(field)) return null;
+  const name = normalizeText(field.name || field.field || field.key);
+  if (!name) return null;
+  return {
+    name,
+    interface: normalizeText(field.interface),
+    type: normalizeText(field.type),
+    target: normalizeText(field.target || field.targetCollection || field.collectionName),
+    foreignKey: normalizeText(field.foreignKey),
+    targetKey: normalizeText(field.targetKey),
+    readOnly: Boolean(field.readOnly ?? field.readonly),
+    writable: typeof field.writable === 'boolean' ? field.writable : undefined,
+    autoCreate: Boolean(field.autoCreate),
+    autoIncrement: Boolean(field.autoIncrement),
+  };
+}
+
+function normalizeCollectionMetadataInput(rawMetadata) {
+  if (typeof rawMetadata === 'undefined') {
+    return {
+      provided: false,
+      collections: {},
+      errors: [],
+    };
+  }
+
+  const rawCollections =
+    isPlainObject(rawMetadata) && hasOwn(rawMetadata, 'collections')
+      ? rawMetadata.collections
+      : rawMetadata;
+
+  if (!Array.isArray(rawCollections) && !isPlainObject(rawCollections)) {
+    return {
+      provided: true,
+      collections: {},
+      errors: [
+        createValidationError(
+          'collectionMetadata',
+          'invalid-collection-metadata',
+          'collectionMetadata must be one object keyed by collection name, one { collections } object, or one array of collection metadata objects.',
+        ),
+      ],
+    };
+  }
+
+  const collectionEntries = Array.isArray(rawCollections)
+    ? rawCollections.map((entry) => [normalizeText(entry?.name || entry?.data?.name), entry])
+    : Object.entries(rawCollections);
+
+  const normalizedCollections = {};
+  for (const [rawCollectionName, rawCollectionEntry] of collectionEntries) {
+    const source = isPlainObject(rawCollectionEntry?.data)
+      ? rawCollectionEntry.data
+      : isPlainObject(rawCollectionEntry)
+        ? rawCollectionEntry
+        : {};
+    const options = isPlainObject(source.options) ? source.options : {};
+    const values = isPlainObject(source.values) ? source.values : {};
+    const collectionName = normalizeText(source.name || rawCollectionName);
+    if (!collectionName) continue;
+    const fields = ensureArray(source.fields).map(normalizeCollectionFieldMetadata).filter(Boolean);
+    normalizedCollections[collectionName] = {
+      name: collectionName,
+      titleField: normalizeText(source.titleField || values.titleField || options.titleField),
+      filterTargetKey:
+        typeof source.filterTargetKey === 'string'
+          ? normalizeText(source.filterTargetKey)
+          : typeof values.filterTargetKey === 'string'
+            ? normalizeText(values.filterTargetKey)
+            : typeof options.filterTargetKey === 'string'
+              ? normalizeText(options.filterTargetKey)
+              : '',
+      fields,
+      fieldsByName: new Map(fields.map((field) => [field.name, field])),
+    };
+  }
+
+  return {
+    provided: true,
+    collections: normalizedCollections,
+    errors: [],
+  };
+}
+
+function getCollectionMeta(collectionMetadata, collectionName) {
+  const normalizedCollectionName = normalizeText(collectionName);
+  if (!normalizedCollectionName) return null;
+  return collectionMetadata?.collections?.[normalizedCollectionName] || null;
+}
+
+function getCollectionFieldMeta(collectionMetadata, collectionName, fieldName) {
+  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
+  const normalizedFieldName = normalizeText(fieldName);
+  if (!collectionMeta || !normalizedFieldName) return null;
+  return collectionMeta.fieldsByName.get(normalizedFieldName) || null;
+}
+
+function isAssociationFieldMeta(field) {
+  if (!isPlainObject(field)) return false;
+  return (
+    !!normalizeText(field.target)
+    || ASSOCIATION_FIELD_TYPES.has(normalizeLowerText(field.type))
+    || ASSOCIATION_FIELD_INTERFACES.has(normalizeLowerText(field.interface))
+  );
+}
+
+function getMetadataFieldCoverageKey(fieldPath) {
+  return normalizeText(fieldPath).split('.')[0] || '';
+}
+
+function normalizePopupActionType(value) {
+  return DEFAULTS_POPUP_ACTION_TYPE_MAP.get(normalizeLowerText(value)) || '';
+}
+
+function popupHasExplicitTemplate(popup) {
+  return !!normalizeText(popup?.template?.uid);
+}
+
+function popupHasExplicitBlocks(popup) {
+  return Array.isArray(popup?.blocks) && popup.blocks.length > 0;
+}
+
+function popupUsesGeneratedDefaults(popup) {
+  if (!isPlainObject(popup)) return true;
+  return !popupHasExplicitTemplate(popup) && !popupHasExplicitBlocks(popup);
+}
+
+function shouldTraversePopupBlocks(popup) {
+  return isPlainObject(popup) && !popupHasExplicitTemplate(popup) && popupHasExplicitBlocks(popup);
+}
+
+function getNodeBinding(node) {
+  return normalizeLowerText(node?.binding || node?.resource?.binding || node?.resource?.resourceBinding);
+}
+
+function getNodeAssociationField(node) {
+  return normalizeText(node?.associationField || node?.resource?.associationField);
+}
+
+function resolveAssociationTargetCollection(collectionMetadata, sourceCollection, associationField) {
+  const associationMeta = resolveFieldPathInCollectionMetadata(collectionMetadata, sourceCollection, associationField);
+  const targetCollection = normalizeText(associationMeta?.field?.target);
+  return targetCollection || '';
+}
+
+function resolveFieldPathInCollectionMetadata(collectionMetadata, collectionName, fieldPath) {
+  const segments = normalizeText(fieldPath).split('.').filter(Boolean);
+  let currentCollectionName = normalizeText(collectionName);
+  let field = null;
+
+  if (!currentCollectionName || segments.length === 0) return null;
+
+  for (const segment of segments) {
+    const collectionMeta = getCollectionMeta(collectionMetadata, currentCollectionName);
+    if (!collectionMeta) {
+      return null;
+    }
+    field = collectionMeta.fieldsByName.get(segment) || null;
+    if (!field) {
+      return null;
+    }
+    currentCollectionName = normalizeText(field.target || currentCollectionName);
+  }
+
+  return {
+    collectionName: currentCollectionName,
+    field,
+  };
+}
+
+function chooseDefaultDisplayField(collectionMeta) {
+  if (!collectionMeta) return '';
+  const candidates = [
+    normalizeText(collectionMeta.titleField),
+    normalizeText(collectionMeta.filterTargetKey),
+    'name',
+    'nickname',
+    'title',
+    'label',
+    'code',
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const fieldMeta = collectionMeta.fieldsByName.get(candidate);
+    if (fieldMeta && normalizeText(fieldMeta.interface) && !isAssociationFieldMeta(fieldMeta)) {
+      return candidate;
+    }
+  }
+
+  const scalarField = collectionMeta.fields.find((field) => normalizeText(field.interface) && !isAssociationFieldMeta(field));
+  return normalizeText(scalarField?.name);
+}
+
+function isAuditMetadataField(field, collectionMeta) {
+  const fieldName = normalizeText(field?.name);
+  return (
+    AUDIT_FIELD_NAMES.has(fieldName)
+    || (!!normalizeText(collectionMeta?.filterTargetKey) && fieldName === normalizeText(collectionMeta?.filterTargetKey))
+  );
+}
+
+function isWritableSceneMetadataField(field, collectionMeta) {
+  if (!normalizeText(field?.interface)) return false;
+  if (field?.writable === false || field?.readOnly || field?.autoCreate || field?.autoIncrement) {
+    return false;
+  }
+  return !isAuditMetadataField(field, collectionMeta);
+}
+
+function buildDefaultPopupSceneFieldPaths(collectionMetadata, collectionName, action) {
+  const collectionMeta = getCollectionMeta(collectionMetadata, collectionName);
+  const normalizedAction = normalizePopupActionType(action);
+  if (!collectionMeta || !normalizedAction) return [];
+
+  const fields = [];
+  for (const field of collectionMeta.fields) {
+    if (!normalizeText(field.interface)) continue;
+
+    if (normalizedAction === 'view') {
+      if (isAssociationFieldMeta(field) && normalizeText(field.target)) {
+        const targetCollection = getCollectionMeta(collectionMetadata, field.target);
+        const displayField = chooseDefaultDisplayField(targetCollection);
+        fields.push(displayField ? `${field.name}.${displayField}` : field.name);
+      } else {
+        fields.push(field.name);
+      }
+      continue;
+    }
+
+    if (normalizedAction === 'edit' || normalizedAction === 'addNew') {
+      if (isWritableSceneMetadataField(field, collectionMeta)) {
+        fields.push(field.name);
+      }
+    }
+  }
+
+  return unique(fields.map((fieldPath) => normalizeText(fieldPath)).filter(Boolean));
+}
+
+function createDefaultsCollectionRequirement(collectionName) {
+  return {
+    collection: collectionName,
+    popupActions: new Set(),
+    fieldGroupActions: new Set(),
+    requiredFieldGroupCoverageKeys: new Set(),
+  };
+}
+
+function createDefaultsAssociationRequirement(sourceCollection, associationField, targetCollection) {
+  return {
+    sourceCollection,
+    associationField,
+    targetCollection,
+    popupActions: new Set(),
+  };
+}
+
+function addCollectionPopupRequirement(requirements, targetCollection, action) {
+  const normalizedCollection = normalizeText(targetCollection);
+  const normalizedAction = normalizePopupActionType(action);
+  if (!normalizedCollection || !normalizedAction) return;
+  const existing = requirements.collections.get(normalizedCollection) || createDefaultsCollectionRequirement(normalizedCollection);
+  existing.popupActions.add(normalizedAction);
+  requirements.collections.set(normalizedCollection, existing);
+  addCollectionFieldGroupRequirement(requirements, normalizedCollection, normalizedAction);
+}
+
+function addCollectionFieldGroupRequirement(requirements, targetCollection, action) {
+  const normalizedCollection = normalizeText(targetCollection);
+  const normalizedAction = normalizePopupActionType(action);
+  if (!normalizedCollection || !normalizedAction) return;
+  const existing = requirements.collections.get(normalizedCollection) || createDefaultsCollectionRequirement(normalizedCollection);
+  const sceneFields = buildDefaultPopupSceneFieldPaths(requirements.collectionMetadata, normalizedCollection, normalizedAction);
+  if (sceneFields.length > LARGE_FIELD_GRID_GROUPING_THRESHOLD) {
+    existing.fieldGroupActions.add(normalizedAction);
+    sceneFields.forEach((fieldPath) => existing.requiredFieldGroupCoverageKeys.add(getMetadataFieldCoverageKey(fieldPath)));
+  }
+  requirements.collections.set(normalizedCollection, existing);
+}
+
+function addAssociationPopupRequirement(requirements, sourceCollection, associationField, targetCollection, action) {
+  const normalizedSourceCollection = normalizeText(sourceCollection);
+  const normalizedAssociationField = normalizeText(associationField);
+  const normalizedTargetCollection = normalizeText(targetCollection);
+  const normalizedAction = normalizePopupActionType(action);
+  if (!normalizedSourceCollection || !normalizedAssociationField || !normalizedTargetCollection || !normalizedAction) {
+    return;
+  }
+  const key = `${normalizedSourceCollection}::${normalizedAssociationField}`;
+  const existing =
+    requirements.associations.get(key)
+    || createDefaultsAssociationRequirement(normalizedSourceCollection, normalizedAssociationField, normalizedTargetCollection);
+  existing.popupActions.add(normalizedAction);
+  requirements.associations.set(key, existing);
+  addCollectionFieldGroupRequirement(requirements, normalizedTargetCollection, normalizedAction);
+}
+
+function buildBlockTraversalContext(block, parentContext, collectionMetadata) {
+  const binding = getNodeBinding(block);
+  const associationField = getNodeAssociationField(block);
+  const directCollection = getCollectionLabel(block);
+  const inheritedCurrentCollection = normalizeText(parentContext?.currentCollection);
+  let currentCollection = directCollection || inheritedCurrentCollection;
+  let associationSourceCollection = '';
+
+  if (binding === 'associatedrecords' && associationField) {
+    associationSourceCollection = inheritedCurrentCollection;
+    currentCollection =
+      directCollection
+      || resolveAssociationTargetCollection(collectionMetadata, associationSourceCollection, associationField)
+      || currentCollection;
+  } else if (binding === 'currentrecord' && directCollection) {
+    currentCollection = directCollection;
+  }
+
+  return {
+    currentCollection,
+    associationSourceCollection,
+    associationField,
+    binding,
+  };
+}
+
+function resolveFieldPopupRequirement(collectionMetadata, blockContext, field) {
+  const fieldPath = normalizeText(field?.field);
+  const sourceCollection = normalizeText(blockContext?.currentCollection);
+  if (!fieldPath || !sourceCollection) return null;
+  const associationField = getMetadataFieldCoverageKey(fieldPath);
+  const sourceField = getCollectionFieldMeta(collectionMetadata, sourceCollection, associationField);
+  const targetCollection = normalizeText(sourceField?.target);
+  if (!isAssociationFieldMeta(sourceField) || !targetCollection) return null;
+  return {
+    sourceCollection,
+    associationField,
+    targetCollection,
+    action: 'view',
+  };
+}
+
+function collectDefaultsRequirementsFromPopup(popup, popupContext, requirements, pathPrefix) {
+  if (!shouldTraversePopupBlocks(popup)) return;
+  collectDefaultsRequirementsFromBlocks(popup.blocks, popupContext, requirements, `${pathPrefix}.blocks`);
+}
+
+function collectDefaultsRequirementsFromActions(items, blockContext, requirements, pathPrefix, { recordActions = false } = {}) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    const actionType =
+      typeof item === 'string'
+        ? normalizePopupActionType(item)
+        : isPlainObject(item)
+          ? normalizePopupActionType(item.type)
+          : '';
+    if (!actionType) {
+      if (isPlainObject(item) && hasOwn(item, 'popup')) {
+        collectDefaultsRequirementsFromPopup(
+          item.popup,
+          { currentCollection: normalizeText(blockContext?.currentCollection) },
+          requirements,
+          `${pathPrefix}[${index}].popup`,
+        );
+      }
+      continue;
+    }
+
+    const popup = isPlainObject(item) ? item.popup : undefined;
+    const sourceCollection = normalizeText(blockContext?.associationSourceCollection);
+    const associationField = normalizeText(blockContext?.associationField);
+    const targetCollection = normalizeText(blockContext?.currentCollection);
+
+    if (!popup || popupUsesGeneratedDefaults(popup)) {
+      if (sourceCollection && associationField && targetCollection) {
+        addAssociationPopupRequirement(requirements, sourceCollection, associationField, targetCollection, actionType);
+      } else if (targetCollection) {
+        addCollectionPopupRequirement(requirements, targetCollection, actionType);
+      }
+    }
+
+    collectDefaultsRequirementsFromPopup(
+      popup,
+      { currentCollection: targetCollection || normalizeText(blockContext?.currentCollection) },
+      requirements,
+      `${pathPrefix}[${index}].popup`,
+    );
+  }
+}
+
+function collectDefaultsRequirementsFromFields(items, blockContext, requirements, pathPrefix) {
+  for (const [index, item] of ensureArray(items).entries()) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    const popupPath = `${pathPrefix}[${index}].popup`;
+    const requirement = resolveFieldPopupRequirement(requirements.collectionMetadata, blockContext, item);
+
+    if (popupUsesGeneratedDefaults(item.popup) && requirement) {
+      addAssociationPopupRequirement(
+        requirements,
+        requirement.sourceCollection,
+        requirement.associationField,
+        requirement.targetCollection,
+        requirement.action,
+      );
+    }
+
+    collectDefaultsRequirementsFromPopup(
+      item.popup,
+      { currentCollection: requirement?.targetCollection || normalizeText(blockContext?.currentCollection) },
+      requirements,
+      popupPath,
+    );
+  }
+}
+
+function collectDefaultsRequirementsFromFieldGroups(fieldGroups, blockContext, requirements, pathPrefix) {
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    collectDefaultsRequirementsFromFields(group.fields, blockContext, requirements, `${pathPrefix}[${groupIndex}].fields`);
+  });
+}
+
+function collectDefaultsRequirementsFromBlock(block, parentContext, requirements, path) {
+  if (!isPlainObject(block)) return;
+  const blockContext = buildBlockTraversalContext(block, parentContext, requirements.collectionMetadata);
+  collectDefaultsRequirementsFromFields(block.fields, blockContext, requirements, `${path}.fields`);
+  collectDefaultsRequirementsFromFieldGroups(block.fieldGroups, blockContext, requirements, `${path}.fieldGroups`);
+  collectDefaultsRequirementsFromActions(block.actions, blockContext, requirements, `${path}.actions`, { recordActions: false });
+  collectDefaultsRequirementsFromActions(block.recordActions, blockContext, requirements, `${path}.recordActions`, { recordActions: true });
+}
+
+function collectDefaultsRequirementsFromBlocks(blocks, parentContext, requirements, pathPrefix) {
+  for (const [index, block] of ensureArray(blocks).entries()) {
+    collectDefaultsRequirementsFromBlock(block, parentContext, requirements, `${pathPrefix}[${index}]`);
+  }
+}
+
+function popupMayNeedDefaultsCompleteness(popup) {
+  if (!shouldTraversePopupBlocks(popup)) return false;
+  return blocksMayNeedDefaultsCompleteness(popup.blocks);
+}
+
+function actionsMayNeedDefaultsCompleteness(items) {
+  for (const item of ensureArray(items)) {
+    const actionType =
+      typeof item === 'string'
+        ? normalizePopupActionType(item)
+        : isPlainObject(item)
+          ? normalizePopupActionType(item.type)
+          : '';
+    const popup = isPlainObject(item) ? item.popup : undefined;
+    if (actionType && (!popup || popupUsesGeneratedDefaults(popup))) {
+      return true;
+    }
+    if (popupMayNeedDefaultsCompleteness(popup)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function fieldsMayNeedDefaultsCompleteness(items) {
+  for (const item of ensureArray(items)) {
+    if (!isPlainObject(item) || !hasOwn(item, 'popup')) continue;
+    if (popupUsesGeneratedDefaults(item.popup) || popupMayNeedDefaultsCompleteness(item.popup)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function fieldGroupsMayNeedDefaultsCompleteness(fieldGroups) {
+  let needsDefaults = false;
+  forEachFieldGroup(fieldGroups, (group) => {
+    if (!needsDefaults && fieldsMayNeedDefaultsCompleteness(group.fields)) {
+      needsDefaults = true;
+    }
+  });
+  return needsDefaults;
+}
+
+function blockMayNeedDefaultsCompleteness(block) {
+  if (!isPlainObject(block)) return false;
+  return (
+    fieldsMayNeedDefaultsCompleteness(block.fields)
+    || fieldGroupsMayNeedDefaultsCompleteness(block.fieldGroups)
+    || actionsMayNeedDefaultsCompleteness(block.actions)
+    || actionsMayNeedDefaultsCompleteness(block.recordActions)
+  );
+}
+
+function blocksMayNeedDefaultsCompleteness(blocks) {
+  for (const block of ensureArray(blocks)) {
+    if (blockMayNeedDefaultsCompleteness(block)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function blueprintMayNeedDefaultsCompleteness(blueprint) {
+  for (const tab of ensureArray(blueprint?.tabs)) {
+    if (!isPlainObject(tab)) continue;
+    if (blocksMayNeedDefaultsCompleteness(tab.blocks)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function buildDefaultsRequirementsSummary(requirements) {
+  return {
+    collections: Array.from(requirements.collections.values())
+      .sort((left, right) => left.collection.localeCompare(right.collection))
+      .map((entry) => ({
+        collection: entry.collection,
+        popupActions: Array.from(entry.popupActions).sort(),
+        requiresFieldGroups: entry.fieldGroupActions.size > 0,
+        fieldGroupActions: Array.from(entry.fieldGroupActions).sort(),
+      })),
+    associations: Array.from(requirements.associations.values())
+      .sort((left, right) =>
+        `${left.sourceCollection}.${left.associationField}`.localeCompare(`${right.sourceCollection}.${right.associationField}`))
+      .map((entry) => ({
+        sourceCollection: entry.sourceCollection,
+        associationField: entry.associationField,
+        targetCollection: entry.targetCollection,
+        popupActions: Array.from(entry.popupActions).sort(),
+      })),
+  };
+}
+
+function collectBlueprintDefaultsRequirements(blueprint, collectionMetadata) {
+  const requirements = {
+    collectionMetadata,
+    collections: new Map(),
+    associations: new Map(),
+  };
+  for (const [tabIndex, tab] of ensureArray(blueprint?.tabs).entries()) {
+    if (!isPlainObject(tab)) continue;
+    collectDefaultsRequirementsFromBlocks(tab.blocks, { currentCollection: '' }, requirements, `tabs[${tabIndex}].blocks`);
+  }
+  return requirements;
+}
+
+function validateRequiredDefaultPopupValue(defaultValue, path, ruleBase, errors, seenErrors) {
+  if (!isPlainObject(defaultValue)) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      path,
+      `missing-${ruleBase}`,
+      `${path} must include one object with non-empty name and description.`,
+    );
+    return;
+  }
+  if (!normalizeText(defaultValue.name)) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      `${path}.name`,
+      `missing-${ruleBase}-name`,
+      `${path}.name must be present for a required defaults popup.`,
+    );
+  }
+  if (!normalizeText(defaultValue.description)) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      `${path}.description`,
+      `missing-${ruleBase}-description`,
+      `${path}.description must be present for a required defaults popup.`,
+    );
+  }
+}
+
+function validateRequiredDefaultFieldGroups(fieldGroups, path, targetCollection, requiredCoverageKeys, collectionMetadata, errors, seenErrors) {
+  if (!Array.isArray(fieldGroups) || fieldGroups.length === 0) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      path,
+      'missing-default-field-groups',
+      `${path} must be present when generated popups for ${targetCollection} still have more than ${LARGE_FIELD_GRID_GROUPING_THRESHOLD} effective fields.`,
+    );
+    return;
+  }
+
+  const providedCoverageKeys = new Set();
+  forEachFieldGroup(fieldGroups, (group, groupIndex) => {
+    for (const [fieldIndex, fieldPath] of ensureArray(group?.fields).entries()) {
+      const normalizedFieldPath = normalizeText(fieldPath);
+      if (!normalizedFieldPath) continue;
+      if (!resolveFieldPathInCollectionMetadata(collectionMetadata, targetCollection, normalizedFieldPath)) {
+        pushValidationError(
+          errors,
+          seenErrors,
+          `${path}[${groupIndex}].fields[${fieldIndex}]`,
+          'default-field-group-unknown-field',
+          `defaults.collections.${targetCollection}.fieldGroups contains unknown field path "${normalizedFieldPath}".`,
+        );
+        continue;
+      }
+      providedCoverageKeys.add(getMetadataFieldCoverageKey(normalizedFieldPath));
+    }
+  });
+
+  const missingCoverageKeys = Array.from(requiredCoverageKeys).filter((fieldKey) => !providedCoverageKeys.has(fieldKey));
+  if (missingCoverageKeys.length > 0) {
+    pushValidationError(
+      errors,
+      seenErrors,
+      path,
+      'default-field-groups-incomplete',
+      `defaults.collections.${targetCollection}.fieldGroups does not cover required fields: ${missingCoverageKeys.join(', ')}.`,
+    );
+  }
+}
+
+function validateDefaultsCompleteness(blueprint, collectionMetadata) {
+  const requirements = collectBlueprintDefaultsRequirements(blueprint, collectionMetadata);
+  const errors = [];
+  const seenErrors = new Set();
+  const defaultsCollections = isPlainObject(blueprint?.defaults?.collections) ? blueprint.defaults.collections : {};
+
+  for (const entry of requirements.collections.values()) {
+    const collectionPath = `defaults.collections.${entry.collection}`;
+    const collectionDefaults = isPlainObject(defaultsCollections?.[entry.collection]) ? defaultsCollections[entry.collection] : null;
+    if (!collectionDefaults) {
+      pushValidationError(
+        errors,
+        seenErrors,
+        collectionPath,
+        'missing-default-collection',
+        `${collectionPath} must be present because ${entry.collection} is involved in generated popup defaults.`,
+      );
+      continue;
+    }
+
+    const popups = isPlainObject(collectionDefaults.popups) ? collectionDefaults.popups : null;
+    for (const action of entry.popupActions) {
+      validateRequiredDefaultPopupValue(
+        popups?.[action],
+        `${collectionPath}.popups.${action}`,
+        'default-popup',
+        errors,
+        seenErrors,
+      );
+    }
+
+    if (entry.fieldGroupActions.size > 0) {
+      validateRequiredDefaultFieldGroups(
+        collectionDefaults.fieldGroups,
+        `${collectionPath}.fieldGroups`,
+        entry.collection,
+        entry.requiredFieldGroupCoverageKeys,
+        collectionMetadata,
+        errors,
+        seenErrors,
+      );
+    }
+  }
+
+  for (const entry of requirements.associations.values()) {
+    const collectionPath = `defaults.collections.${entry.sourceCollection}`;
+    const collectionDefaults = isPlainObject(defaultsCollections?.[entry.sourceCollection]) ? defaultsCollections[entry.sourceCollection] : null;
+    if (!collectionDefaults) {
+      pushValidationError(
+        errors,
+        seenErrors,
+        collectionPath,
+        'missing-default-collection',
+        `${collectionPath} must be present because ${entry.sourceCollection}.${entry.associationField} is involved in generated popup defaults.`,
+      );
+      continue;
+    }
+
+    const associationDefaults = collectionDefaults?.popups?.associations?.[entry.associationField];
+    for (const action of entry.popupActions) {
+      validateRequiredDefaultPopupValue(
+        associationDefaults?.[action],
+        `${collectionPath}.popups.associations.${entry.associationField}.${action}`,
+        'default-association-popup',
+        errors,
+        seenErrors,
+      );
+    }
+  }
+
+  return {
+    errors,
+    defaultsRequirements: buildDefaultsRequirementsSummary(requirements),
+  };
+}
+
 function summarizeFieldGroups(fieldGroups) {
   const labels = [];
   forEachFieldGroup(fieldGroups, (group) => {
@@ -1384,7 +2098,7 @@ function isWrappedBlueprintInput(input) {
 }
 
 function isPrepareHelperEnvelope(input) {
-  return isWrappedBlueprintInput(input) && hasOwn(input, 'templateDecision');
+  return isWrappedBlueprintInput(input) && (hasOwn(input, 'templateDecision') || hasOwn(input, 'collectionMetadata'));
 }
 
 function normalizeBlueprintInput(input, warnings, errors = [], options = {}) {
@@ -1430,6 +2144,18 @@ function extractPrepareTemplateDecision(input, options = {}) {
 
   if (isPrepareHelperEnvelope(input)) {
     return input.templateDecision;
+  }
+
+  return undefined;
+}
+
+function extractPrepareCollectionMetadata(input, options = {}) {
+  if (Object.prototype.hasOwnProperty.call(options, 'collectionMetadata')) {
+    return options.collectionMetadata;
+  }
+
+  if (isPrepareHelperEnvelope(input)) {
+    return input.collectionMetadata;
   }
 
   return undefined;
@@ -2134,7 +2860,7 @@ function validateDefaultFieldGroups(fieldGroups, path, state) {
   }
 }
 
-function validateDefaultPopupName(input, path, state) {
+function validateDefaultPopupValue(input, path, state) {
   if (typeof input === 'undefined') return;
   if (!isPlainObject(input)) {
     pushValidationError(
@@ -2142,14 +2868,14 @@ function validateDefaultPopupName(input, path, state) {
       state.seenErrors,
       path,
       'invalid-default-popup',
-      'defaults popup action values must be one name-only object.',
+      'defaults popup action values must be one { name, description } object.',
     );
     return;
   }
   validateAllowedObjectKeys(
     input,
     path,
-    DEFAULTS_POPUP_NAME_ALLOWED_KEYS,
+    DEFAULTS_POPUP_VALUE_ALLOWED_KEYS,
     state,
     'unsupported-default-popup-key',
     'defaults popup action',
@@ -2161,6 +2887,15 @@ function validateDefaultPopupName(input, path, state) {
       `${path}.name`,
       'default-popup-name-required',
       'defaults popup action values must include one non-empty name.',
+    );
+  }
+  if (!normalizeText(input.description)) {
+    pushValidationError(
+      state.errors,
+      state.seenErrors,
+      `${path}.description`,
+      'default-popup-description-required',
+      'defaults popup action values must include one non-empty description.',
     );
   }
 }
@@ -2186,7 +2921,7 @@ function validateDefaultPopupActionMap(input, path, state, allowedKeys) {
     'defaults popups',
   );
   for (const action of DEFAULTS_POPUP_ACTIONS) {
-    validateDefaultPopupName(input[action], `${path}.${action}`, state);
+    validateDefaultPopupValue(input[action], `${path}.${action}`, state);
   }
 }
 
@@ -3056,6 +3791,7 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const normalizeErrors = [];
   const expectedOuterTabs = getExpectedOuterTabs(options);
   const templateDecisionInput = extractPrepareTemplateDecision(input, options);
+  const collectionMetadataInput = extractPrepareCollectionMetadata(input, options);
   const rawBlueprint = normalizeBlueprintInput(input, warnings, normalizeErrors, {
     suppressLegacyWrapperWarning: isPrepareHelperEnvelope(input),
   });
@@ -3065,12 +3801,17 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   const preparedBlueprint = recognizableBlueprint ? materializeBlueprintForWrite(blueprint) : null;
   const ascii = preparedBlueprint ? renderRecognizableBlueprintAscii(preparedBlueprint, warnings, options) : '';
   const { errors: templateDecisionErrors, summary: templateDecision } = validateTemplateDecision(templateDecisionInput);
+  const {
+    provided: hasCollectionMetadata,
+    collections: collectionMetadata,
+    errors: collectionMetadataErrors,
+  } = normalizeCollectionMetadataInput(collectionMetadataInput);
   const templateDecisionConsistencyErrors = validateTemplateDecisionConsistency(templateDecision, blueprint);
   const resolvedTemplateDecision = recognizableBlueprint && templateDecision && !templateDecisionConsistencyErrors.length
     ? cloneSerializable(templateDecision)
     : undefined;
 
-  let errors = [...normalizeErrors, ...templateDecisionErrors, ...templateDecisionConsistencyErrors];
+  let errors = [...normalizeErrors, ...templateDecisionErrors, ...collectionMetadataErrors, ...templateDecisionConsistencyErrors];
   if (!recognizableBlueprint) {
     if (!errors.length) {
       errors = [
@@ -3092,12 +3833,24 @@ export function prepareApplyBlueprintRequest(input, options = {}) {
   }
 
   errors = [...errors, ...validateBlueprint(blueprint, { expectedOuterTabs })];
+  let defaultsRequirements;
+  if (hasCollectionMetadata && collectionMetadataErrors.length === 0) {
+    const completeness = validateDefaultsCompleteness(blueprint, { collections: collectionMetadata });
+    errors = [...errors, ...completeness.errors];
+    defaultsRequirements = completeness.defaultsRequirements;
+  } else if (!hasCollectionMetadata && blueprintMayNeedDefaultsCompleteness(blueprint)) {
+    warnings.push('Defaults completeness check was skipped because collectionMetadata was not provided.');
+    defaultsRequirements = {
+      skipped: true,
+    };
+  }
   const result = {
     ok: errors.length === 0,
     ascii,
     warnings: unique(warnings),
     errors,
     facts,
+    ...(defaultsRequirements ? { defaultsRequirements } : {}),
     ...(resolvedTemplateDecision ? { templateDecision: resolvedTemplateDecision } : {}),
   };
 

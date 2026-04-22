@@ -24,6 +24,51 @@ function createInputStream(text) {
   return stream;
 }
 
+const collectionMetadata = {
+  collections: {
+    users: {
+      titleField: 'nickname',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'nickname', type: 'string', interface: 'input' },
+        { name: 'email', type: 'string', interface: 'input' },
+        { name: 'phone', type: 'string', interface: 'input' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'bio', type: 'text', interface: 'textarea' },
+        { name: 'department', type: 'belongsTo', interface: 'm2o', target: 'departments', foreignKey: 'department_id', targetKey: 'id' },
+        { name: 'roles', type: 'belongsToMany', interface: 'm2m', target: 'roles' },
+      ],
+    },
+    departments: {
+      titleField: 'title',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'title', type: 'string', interface: 'input' },
+      ],
+    },
+    roles: {
+      titleField: 'name',
+      filterTargetKey: 'id',
+      fields: [
+        { name: 'id', type: 'integer', interface: 'number' },
+        { name: 'name', type: 'string', interface: 'input' },
+        { name: 'title', type: 'string', interface: 'input' },
+        { name: 'description', type: 'string', interface: 'textarea' },
+        { name: 'scope', type: 'string', interface: 'select' },
+        { name: 'priority', type: 'integer', interface: 'number' },
+        { name: 'status', type: 'string', interface: 'select' },
+        { name: 'category', type: 'string', interface: 'input' },
+        { name: 'color', type: 'string', interface: 'input' },
+        { name: 'code', type: 'string', interface: 'input' },
+        { name: 'sort', type: 'integer', interface: 'number' },
+        { name: 'notes', type: 'string', interface: 'textarea' },
+      ],
+    },
+  },
+};
+
 test('renderPageBlueprintAsciiPreview renders row grouping, block summaries, and one popup layer', () => {
   const result = renderPageBlueprintAsciiPreview({
     version: '1',
@@ -552,12 +597,12 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
             },
           ],
           popups: {
-            view: { name: 'User details' },
+            view: { name: 'User details', description: 'View one user record.' },
             associations: {
               roles: {
-                view: { name: 'User role details' },
-                addNew: { name: 'Add user role' },
-                edit: { name: 'Edit user role' },
+                view: { name: 'User role details', description: 'View one related user role.' },
+                addNew: { name: 'Add user role', description: 'Create one related user role.' },
+                edit: { name: 'Edit user role', description: 'Edit one related user role.' },
               },
             },
           },
@@ -592,6 +637,8 @@ test('prepareApplyBlueprintRequest accepts collection defaults and summarizes th
   assert.deepEqual(result.errors, []);
   assert.match(result.ascii, /^DEFAULTS: users\(fieldGroups,popups\), roles\(fieldGroups\)$/m);
   assert.equal(result.cliBody.defaults.collections.users.popups.associations.roles.edit.name, 'Edit user role');
+  assert.equal(Object.prototype.hasOwnProperty.call(result, 'defaultsRequirements'), false);
+  assert.deepEqual(result.warnings, []);
 });
 
 test('prepareApplyBlueprintRequest rejects collection default fieldGroups when they cover ten or fewer fields', () => {
@@ -610,7 +657,7 @@ test('prepareApplyBlueprintRequest rejects collection default fieldGroups when t
             },
           ],
           popups: {
-            view: { name: 'User details' },
+            view: { name: 'User details', description: 'View one user record.' },
           },
         },
       },
@@ -734,6 +781,196 @@ test('prepareApplyBlueprintRequest rejects invalid collection defaults shapes', 
       `${item.label} should fail with ${item.ruleId} at ${item.path}`,
     );
   }
+});
+
+test('prepareApplyBlueprintRequest requires description on defaults popup values', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    defaults: {
+      collections: {
+        users: {
+          popups: {
+            view: { name: 'User details' },
+          },
+        },
+      },
+    },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'default-popup-description-required' && issue.path === 'defaults.collections.users.popups.view.description',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest warns when defaults completeness needs collectionMetadata but none was provided', () => {
+  const result = prepareApplyBlueprintRequest({
+    version: '1',
+    mode: 'create',
+    page: { title: 'Users' },
+    tabs: [
+      {
+        title: 'Overview',
+        blocks: [
+          {
+            key: 'usersTable',
+            type: 'table',
+            collection: 'users',
+            fields: ['nickname'],
+            recordActions: ['view'],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.warnings, ['Defaults completeness check was skipped because collectionMetadata was not provided.']);
+  assert.deepEqual(result.defaultsRequirements, { skipped: true });
+});
+
+test('prepareApplyBlueprintRequest validates defaults completeness against collectionMetadata', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              edit: { name: 'Edit user', description: 'Edit one user record.' },
+              associations: {
+                roles: {
+                  view: { name: 'Role details', description: 'View one related role.' },
+                },
+              },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: [
+                'nickname',
+                {
+                  field: 'roles.name',
+                  popup: {
+                    title: 'Role details',
+                  },
+                },
+              ],
+              recordActions: ['view', 'edit'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.defaultsRequirements, {
+    collections: [
+      {
+        collection: 'roles',
+        popupActions: [],
+        requiresFieldGroups: true,
+        fieldGroupActions: ['view'],
+      },
+      {
+        collection: 'users',
+        popupActions: ['edit', 'view'],
+        requiresFieldGroups: false,
+        fieldGroupActions: [],
+      },
+    ],
+    associations: [
+      {
+        sourceCollection: 'users',
+        associationField: 'roles',
+        targetCollection: 'roles',
+        popupActions: ['view'],
+      },
+    ],
+  });
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-collection' && issue.path === 'defaults.collections.roles',
+    ),
+  );
+});
+
+test('prepareApplyBlueprintRequest reports missing popup description only for required actions', () => {
+  const result = prepareApplyBlueprintRequest(
+    {
+      version: '1',
+      mode: 'create',
+      page: { title: 'Users' },
+      defaults: {
+        collections: {
+          users: {
+            popups: {
+              view: { name: 'User details', description: 'View one user record.' },
+              edit: { name: 'Edit user' },
+            },
+          },
+        },
+      },
+      tabs: [
+        {
+          title: 'Overview',
+          blocks: [
+            {
+              key: 'usersTable',
+              type: 'table',
+              collection: 'users',
+              fields: ['nickname'],
+              recordActions: ['view', 'edit'],
+            },
+          ],
+        },
+      ],
+    },
+    { collectionMetadata },
+  );
+
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.errors.some(
+      (issue) => issue.ruleId === 'missing-default-popup-description' && issue.path === 'defaults.collections.users.popups.edit.description',
+    ),
+  );
+  assert.equal(
+    result.errors.some((issue) => issue.path === 'defaults.collections.users.popups.addNew.description'),
+    false,
+  );
 });
 
 test('prepareApplyBlueprintRequest returns normalized templateDecision when provided through options', () => {

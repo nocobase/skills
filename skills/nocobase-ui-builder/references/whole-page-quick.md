@@ -16,8 +16,8 @@ Stay on this route when the user is asking for a full page or one route-backed t
 3. Collect live collection metadata before choosing fields. Any field used in the blueprint should come from live metadata and should have a non-empty `interface`.
    - On every whole-page draft, recompute the involved target collections from that live metadata and rebuild `defaults.collections` from scratch instead of patching an old fragment.
    - For whole-page popup defaults, generate top-level `defaults.collections.<collection>.fieldGroups` only when the backend-generated popup should still have more than 10 effective fields after scene filtering; for 10 or fewer, omit `fieldGroups`.
-   - Keep `fieldGroups` on the target collection only. Generate default popup names under `defaults.collections.<collection>.popups.view` / `addNew` / `edit`, and relation-field popup names under `defaults.collections.<sourceCollection>.popups.associations.<associationField>.<action>`.
-   - Keep defaults name-only and collection-level: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
+   - Keep `fieldGroups` collection-only on the target collection; do not create per-association `fieldGroups`. Under `defaults.collections`, use `popups.view` / `addNew` / `edit` as `{ name, description }` objects for direct collections, and keep relation-field popup descriptors under `popups.associations.<associationField>.<action>` with the same `{ name, description }` contract.
+   - Keep defaults collection-level only: do not generate `defaults.blocks`, and do not put `blocks`, `fields`, `fieldGroups`, or layout inside `popups`.
 4. For fresh page creation under a menu group, default to one whole-page `applyBlueprint` `create` write. Do not split the work into low-level `create-menu` + `create-page` unless `applyBlueprint create` has already failed with a verified shape problem.
 5. For `create`, any newly created `navigation.group` and any top-level or second-level `navigation.item` must include one valid semantic Ant Design icon. When `navigation.item` is attached under one explicit existing `navigation.group.routeId`, keep an icon by default but do not assume the local preview can prove whether that live target is already third-level or deeper.
 6. If visible same-title menu groups already exist, do not pick one locally and do not create another same-title group just to disambiguate. Require explicit `navigation.group.routeId` before the write whenever title lookup would hit multiple groups.
@@ -99,19 +99,19 @@ The checklist can stay short. It only needs to confirm create vs replace, one re
   "version": "1",
   "mode": "create",
   "defaults": {
-    "collections": {
-      "support_tickets": {
-        "popups": {
-          "addNew": { "name": "Create ticket" },
-          "view": { "name": "Ticket details" },
-          "edit": { "name": "Edit ticket" },
-          "associations": {
-            "assignee": {
-              "view": { "name": "Assignee details" }
+      "collections": {
+        "support_tickets": {
+          "popups": {
+            "addNew": { "name": "Create ticket", "description": "Create one support ticket." },
+            "view": { "name": "Ticket details", "description": "View one support ticket." },
+            "edit": { "name": "Edit ticket", "description": "Edit one support ticket." },
+            "associations": {
+              "assignee": {
+                "view": { "name": "Assignee details", "description": "View one related assignee." }
+              }
             }
           }
         }
-      }
     }
   },
   "navigation": {

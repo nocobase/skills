@@ -60,6 +60,7 @@ Use this path when the user is describing one entire page.
    - every chosen field has a non-empty live `interface`
    - any `filterForm` with 4 or more fields includes `collapse`
    - every custom `edit` popup contains exactly one `editForm`
+   - when `collectionMetadata` is supplied, prepare-write validates the involved `defaults.collections` entries, large-popup `fieldGroups`, and popup `{ name, description }` values for the actions actually used
 7. Before the first `applyBlueprint`, show one ASCII-first prewrite preview from the same blueprint.
 8. In CLI-first execution, pass the page blueprint itself as the raw JSON body to `nocobase-ctl flow-surfaces apply-blueprint`.
 9. Only in MCP fallback should that same object be wrapped under `requestBody`.

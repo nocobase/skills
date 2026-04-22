@@ -43,7 +43,7 @@ The public `applyBlueprint` payload is:
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
-- may include top-level `defaults.collections` for collection-level generated-popup defaults: optional `fieldGroups` only for generated popups with more than 10 effective fields, plus name-only `popups.view/addNew/edit`, and name-only `popups.associations.<associationField>.view/addNew/edit`
+- may include top-level `defaults.collections` for collection-level generated-popup defaults: optional `fieldGroups` only for generated popups with more than 10 effective fields, plus `{ name, description }` `popups.view/addNew/edit`, and `{ name, description }` `popups.associations.<associationField>.view/addNew/edit`
 - collection-level `fieldGroups` stay keyed only by target collection; relation popup names stay under `popups.associations`, and multiple relation paths to the same target collection reuse one defaults collection entry
 - must not include `defaults.blocks`, and must not put `blocks`, `fields`, `fieldGroups`, layout, or other content inside `defaults.collections.*.popups`
 - if `reaction.items[]` is present, every reaction target must be a same-run local key / bind key, not a live uid
