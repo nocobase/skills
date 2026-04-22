@@ -2,7 +2,7 @@
 
 This reference maps canonical tasks to `nb` CLI commands for `nocobase-acl-manage` v2.
 
-All operations should use CLI commands instead of MCP JSON-RPC.
+All operations should use CLI commands.
 Execute ACL commands through direct nb CLI:
 
 - `nb <command> [subcommand ...] [flags ...]`
@@ -69,10 +69,10 @@ Prefer `-j` for all readback and verification steps.
 | `acl roles destroy` | `--filter-by-tk <roleName>` | none | Deletes role |
 | `acl roles check` | none | none | Returns current user's role context + global roleMode |
 | `acl roles set-system-role-mode` | `--role-mode <default|allow-use-union|only-use-union>` | none | Global setting, not per-role |
-| `acl roles data-sources-collections list` | `--role-name <name>` | `--filter`, `--page`, `--page-size` | Use `--filter '{"dataSourceKey":"main"}'` to filter by data source |
-| `acl roles data-source-resources get` | `--data-source-key <key>`, `--role-name <name>`, `--collection-name <coll>` | none | Get resource permission for one collection |
-| `acl roles data-source-resources create` | `--data-source-key <key>`, `--role-name <name>`, `--collection-name <coll>`, `--body <json>` | none | Create collection-level permission |
-| `acl roles data-source-resources update` | `--data-source-key <key>`, `--role-name <name>`, `--collection-name <coll>`, `--filter-by-tk <id>`, `--body <json>` | none | Update collection-level permission; `--filter-by-tk` is the resource config id, not collection name |
+| `acl roles data-sources-collections list` | `--role-name <name>`, (`--data-source-key <key>` or `--filter '{"dataSourceKey":"<key>"}'`) | `--page`, `--page-size` | `dataSourceKey` is required |
+| `acl roles data-source-resources get` | `--role-name <name>`, (`--filter-by-tk <id>` or `--data-source-key <key> --name <coll>`) | `--filter` | Get resource permission for one collection |
+| `acl roles data-source-resources create` | `--role-name <name>`, `--body <json>` | none | Body should include `name`, `dataSourceKey`, `usingActionsConfig`, `actions` |
+| `acl roles data-source-resources update` | `--role-name <name>`, `--body <json>`, (`--filter-by-tk <id>` or `--data-source-key <key> --name <coll>`) | `--filter` | Update collection-level permission; `--filter-by-tk` is resource config id |
 | `acl data-sources roles get` | `--data-source-key <key>`, `--filter-by-tk <roleName>` | none | Get global strategy for role in data source |
 | `acl data-sources roles update` | `--data-source-key <key>`, `--filter-by-tk <roleName>`, `--body <json>` | none | Body should include `roleName`, `dataSourceKey`, `strategy` |
 | `acl data-sources roles-resources-scopes list` | `--data-source-key <key>` | `--page`, `--filter` | Lists reusable scopes |
@@ -98,10 +98,10 @@ Prefer `-j` for all readback and verification steps.
 | `available_actions_list` | `nb api acl available-actions list` | `available.*actions.*list` |
 | `data_sources_roles_get` | `nb api acl data-sources roles get --data-source-key <key> --filter-by-tk <name>` | `data.*sources.*roles.*get$` |
 | `data_sources_roles_update` | `nb api acl data-sources roles update --data-source-key <key> --filter-by-tk <name> --body '<json>'` | `data.*sources.*roles.*update$` |
-| `roles_data_sources_collections_list` | `nb api acl roles data-sources-collections list --role-name <name> --filter '{"dataSourceKey":"<key>"}'` | `roles.*data.*sources.*collections.*list` |
-| `roles_data_source_resources_get` | `nb api acl roles data-source-resources get --data-source-key <key> --role-name <name> --collection-name <coll>` | `roles.*data.*source.*resources.*get` |
-| `roles_data_source_resources_create` | `nb api acl roles data-source-resources create --data-source-key <key> --role-name <name> --collection-name <coll> --body '<json>'` | `roles.*data.*source.*resources.*create$` |
-| `roles_data_source_resources_update` | `nb api acl roles data-source-resources update --data-source-key <key> --role-name <name> --collection-name <coll> --filter-by-tk <id> --body '<json>'` | `roles.*data.*source.*resources.*update$` |
+| `roles_data_sources_collections_list` | `nb api acl roles data-sources-collections list --role-name <name> --data-source-key <key>` | `roles.*data.*sources.*collections.*list` |
+| `roles_data_source_resources_get` | `nb api acl roles data-source-resources get --role-name <name> --data-source-key <key> --name <coll>` | `roles.*data.*source.*resources.*get` |
+| `roles_data_source_resources_create` | `nb api acl roles data-source-resources create --role-name <name> --body '<json>'` | `roles.*data.*source.*resources.*create$` |
+| `roles_data_source_resources_update` | `nb api acl roles data-source-resources update --role-name <name> --filter-by-tk <id> --body '<json>'` | `roles.*data.*source.*resources.*update$` |
 | `roles_desktop_routes_list` | `nb api acl roles desktop-routes list --role-name <name>` | `roles.*desktop.*routes.*list` |
 | `roles_desktop_routes_set` | `nb api acl roles desktop-routes set --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*set` |
 | `roles_desktop_routes_add` | `nb api acl roles desktop-routes add --role-name <name> --body '<json>'` | `roles.*desktop.*routes.*add` |
@@ -264,6 +264,7 @@ Risk tasks are computed by combining read commands:
 ## Validation Rules
 
 - resolve all required logical commands before write operations
+- `roles data-source-resources` supports `create|get|update` only; do not attempt a `list` subcommand
 - for scope=`all|own`, require non-null scope binding in write payload (`scopeId`)
 - for field-configurable actions with default-all behavior, require explicit non-empty `fields` arrays in write payload
 - for `permission.data-source.resource.set`, require `usingActionsConfig=true` in the same write payload that carries `actions[]`

@@ -4,8 +4,8 @@ description: Task-driven ACL governance through nb CLI for role lifecycle, globa
 argument-hint: "[task: role.*|global.role-mode.*|permission.*|user.*|risk.*] [target?] [data_source_key?] [strict_mode?]"
 allowed-tools: shell, local file reads
 owner: platform-tools
-version: 2.4.2
-last-reviewed: 2026-04-17
+version: 2.4.3
+last-reviewed: 2026-04-22
 risk-level: high
 ---
 
@@ -91,7 +91,7 @@ Role creation interaction policy:
 
 - always create with the same default read-only baseline (`role.create-blank`)
 - do not ask users to choose role archetypes (for example, "employee/auditor/manager/custom")
-- if `role_name` exists, execute creation directly
+- if `role_name` is provided, execute creation directly
 - after creation succeeds, move to permission assignment guidance
 - permission follow-up options: system snippets, desktop routes, data-source global strategy, data-source resource strategy
 
@@ -187,12 +187,30 @@ Default behavior when user says `you decide`:
 - first token after `nb` must be a command (for example `env` or `api`), not a flag such as `-e`/`-t`/`-j`
 - wrong: `nb -e local`
 - correct: `nb api resource list --resource users -e local -j`
+- raw JSON input guard (PowerShell/runtime):
+- prefer structured body flags (for example `--resources`, `--actions`) over inline `--body` when possible
+- if raw JSON body is required, prefer `--body-file` over inline `--body`
+- `--body-file` content must be valid JSON encoded as UTF-8 without BOM
+- avoid Bash-style escaped JSON in PowerShell (for example `{\"k\":\"v\"}`), it may be parsed as invalid JSON
 - policy payload guard (hard rule for independent resource writes):
 - preflight must block `api acl roles data-source-resources create|update` when `--body` is missing or invalid
 - for those writes, `--body` must include `usingActionsConfig: true` and non-empty `actions[]`
 - for actions `create/view/update/export/importXlsx`, each action must carry non-empty `fields[]`
-- for actions `view/update/destroy/export/importXlsx`, each action must carry non-null positive `scopeId`
+- for every action item, scope binding must be explicit via one of:
+- `scopeId` (for explicit id binding)
+- `scopeKey` (for key-based resolution, such as `all`/`own`)
+- `scope.{id|key}` (compatibility readback payload)
+- if user intent is scope `all` or `own`, readback must show resolved non-null `scopeId`
 - if guard fails, stop before CLI execution and return a fixable error
+- parameter safety guard:
+- command shape guard for resource permissions:
+- `roles data-source-resources` only has `create|get|update`; do not call `list`
+- for `roles data-source-resources get|update`, locator must be one of:
+- `--filter-by-tk <resource_config_id>`
+- `--data-source-key <data_source_key> --name <collection_name>`
+- for `roles data-sources-collections list`, ensure `dataSourceKey` is present (`--data-source-key` or `filter.dataSourceKey`)
+- for `roles desktop-routes add`, request body must be JSON array of numeric route ids
+- never execute write commands with uncertain, unresolved, or type-mismatched parameters
 - lock execution base-dir before any ACL discovery/write (use one stable project root for the whole task)
 - run execution guard sequence before ACL writes:
 - `nb env -s project`
@@ -238,10 +256,11 @@ Default behavior when user says `you decide`:
 Primary write path:
 
 - ACL-specific CLI runtime commands (swagger-generated)
+- for user-role membership writes, prefer dedicated ACL command path first (`nb api acl roles users add/remove`)
 
 Guarded fallback path (user-role membership only):
 
-- allowed only when `allow_generic_association_write=true`
+- allowed only when dedicated ACL membership command is unavailable and `allow_generic_association_write=true`
 - use generic `nb api resource update/list` only for `users.roles` association operations
 - mandatory readback after write
 
@@ -291,6 +310,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - when field rules were omitted by user, full-field defaults were applied explicitly as non-empty field-name lists
 - when full-field defaults are used, readback field lists match requested names and do not silently lose system fields
 - command-level preflight blocks malformed independent-resource payloads before execution (missing/invalid `usingActionsConfig`, `actions`, `scopeId`, `fields`)
+- `roles data-source-resources get|update` locator is explicit (`filterByTk` or `data-source-key + name`) before execution
+- `roles data-sources-collections list` includes explicit `dataSourceKey`
+- `roles desktop-routes add` uses JSON array body with numeric route ids
+- no write executes with uncertain or type-mismatched parameters
 - global role-mode tasks do not require `role_name`
 - boundary messages are clear and actionable
 
@@ -306,8 +329,8 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 8. `permission.data-source.resource.set` with scope=`all` should write explicit built-in scope binding (non-null `scopeId` for key=`all`).
 9. `permission.data-source.resource.set` should require pre-write confirmation including data source + resolved collections + actions + scope.
 10. `permission.data-source.resource.set` should write independent policy in one complete payload (`usingActionsConfig + actions + scope + fields`), not multi-step patching.
-11. `user.assign-role` in strict mode should block when no dedicated membership command exists.
-12. `user.assign-role` with guarded fallback enabled should succeed with readback.
+11. `user.assign-role` in strict mode should use dedicated membership command when available; if unavailable, block with boundary guidance.
+12. `user.assign-role` guarded fallback should run only when dedicated command is unavailable and guarded mode is explicitly enabled.
 13. `risk.assess-role` should return score + evidence + recommendations.
 14. Full-field default should preserve system fields in readback when metadata includes them.
 15. Wrong base-dir or missing runtime command cache must fail-closed with boundary message, not ad-hoc script fallback.
@@ -322,9 +345,10 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 | [references/result-format-v1.md](references/result-format-v1.md) | output rendering | includes risk cards and capability path |
 | [references/configuration.md](references/configuration.md) | ACL policy details | detailed data-source and scope guidance |
 | [references/independent-permissions.md](references/independent-permissions.md) | resource-level permission writes | `usingActionsConfig + actions + fields + scope` complete-write policy |
-| [references/capability-test-plan.md](references/capability-test-plan.md) | capability matrix | aligned with v2 domains |
+| [tests/capability-test-plan.md](tests/capability-test-plan.md) | capability matrix | aligned with v2 domains |
+| [tests/test-playbook.md](tests/test-playbook.md) | acceptance regression | prompt-first TC01-TC20 with runtime evidence commands |
 | [references/refactor-plan-v2.md](references/refactor-plan-v2.md) | capability gaps and rollout plan | includes CLI migration notes |
-| [tests/README.md](tests/README.md) | runtime verification | runner and report usage |
+| [tests/README.md](tests/README.md) | runtime verification | playbook execution flow and reporting notes |
 
 # References
 
@@ -334,7 +358,8 @@ When a scenario is not supported by current CLI/runtime/tool policy:
 - [Result Format v1](references/result-format-v1.md)
 - [ACL Configuration Details](references/configuration.md)
 - [Table Independent Permissions](references/independent-permissions.md)
-- [ACL Capability Test Plan](references/capability-test-plan.md)
+- [ACL Capability Test Plan](tests/capability-test-plan.md)
+- [ACL Test Playbook](tests/test-playbook.md)
 - [ACL Refactor Plan v2](references/refactor-plan-v2.md)
 - [ACL Capability Tests](tests/README.md)
 - [NocoBase ACL Handbook](https://docs.nocobase.com/handbook/acl) [verified: 2026-04-11]

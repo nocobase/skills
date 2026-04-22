@@ -2,6 +2,10 @@
 
 This document defines executable capability checks for `nocobase-acl-manage` v2 using CLI calls.
 
+Companion acceptance suite:
+
+- `./test-playbook.md` (TC01-TC20)
+
 ## Scope
 
 Included:
@@ -15,7 +19,6 @@ Included:
 
 Excluded:
 
-- deprecated MCP-first transport checks
 - direct REST mutation
 
 ## Capability IDs
@@ -37,8 +40,9 @@ Excluded:
 | ACL-PERM-003 | permission | data-source resource independent strategy | runtime |
 | ACL-PERM-004 | permission | desktop route permission capability | contract + optional runtime |
 | ACL-PERM-005 | permission | role collections listing with `dataSourceKey` | runtime |
+| ACL-PERM-006 | permission | batch independent strategy via `roles apply-data-permissions` | runtime |
 | ACL-USER-001 | user | strict mode blocks membership write without dedicated command | contract/runtime |
-| ACL-USER-002 | user | guarded fallback membership write using `resource update` | optional runtime |
+| ACL-USER-002 | user | dedicated membership command first; guarded fallback only when dedicated path is unavailable | optional runtime |
 | ACL-USER-003 | user | membership readback via `users.roles` or `roles.users` | runtime |
 | ACL-RISK-001 | risk | risk assessment data prerequisites available | runtime |
 
@@ -84,6 +88,9 @@ Optional:
   - action `scopeId` is non-null and equals the resolved scope id
   - scope key matches expected built-in/custom scope
   - action field list length matches resolved collection field count for default-all actions
+- For `ACL-PERM-006`, write should complete in one command call with `resources[]` payload that includes at least two collections.
+- `ACL-PERM-006` must verify action-level `scopeKey` is resolved to non-null `scopeId` in readback.
+- `ACL-PERM-006` must not require pre-querying scope list before write execution.
 - `ACL-SMOKE-002` must verify fail-closed behavior:
   - when guard commands fail in the selected base-dir, runner stops writes and emits recovery guidance
   - no ad-hoc script file is created to continue execution

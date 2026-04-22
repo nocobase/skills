@@ -1,88 +1,52 @@
-# ACL CLI Capability Notes
+# ACL Test Notes
 
-This folder now tracks CLI-oriented verification for `nocobase-acl-manage` v2.
+This folder tracks runtime verification for `nocobase-acl-manage` v2.
 
-## Current Status
+## Primary Test Assets
 
-- Primary transport: `nb` CLI
-- Legacy MCP runner files are retained for historical comparison only
+- `./capability-test-plan.md`: capability matrix and assertions
+- `./test-playbook.md`: prompt-first acceptance cases (default execution entry)
 
-Legacy files:
+## Recommended Verification Flow
 
-- `run-acl-mcp-capability.js`
-- `debug-mcp.js`
-
-These legacy files are not the default validation path for the current skill contract.
-
-## Recommended CLI Verification Flow
-
-1. Verify CLI and env through direct nb CLI:
+1. Run baseline CLI/env readiness checks in one locked base-dir:
 
 ```bash
+cd <BASE_DIR>
 nb --help
-nb env update local
-```
-
-Before ACL writes, run execution guard in one locked base-dir:
-
-```bash
 nb env -s project
+nb env update <ENV_NAME>
 nb api acl --help
 nb api acl roles --help
 ```
 
-If guard fails, stop writes and follow recovery guidance. Do not create temporary executor scripts.
-
-Verify payload guard for independent resource writes (expected to fail fast before execution):
-
-```bash
-nb api acl roles data-source-resources update --data-source-key main --role-name reader --collection-name users --filter-by-tk 1 --body '{"usingActionsConfig":true,"actions":[{"name":"view","fields":["id"]}]}' -j
-```
-
-Expected behavior:
-
-- command is blocked by preflight validation
-- error message indicates missing `scopeId` for scoped action and provides correction hints
-
-Use `$nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=.` to verify current env context before ACL writes.
-
-If there is no current env, bootstrap first:
+2. If env context is missing, recover through bootstrap skill:
 
 ```text
-Use $nocobase-env-bootstrap task=app-manage:
-- app_env_action=add app_env_name=local app_base_url=http://localhost:13000/api app_scope=project target_dir=.
-- app_env_action=use app_env_name=local app_scope=project target_dir=.
+Use $nocobase-env-bootstrap task=app-manage app_env_action=current app_scope=project target_dir=<BASE_DIR>
 ```
 
-If `env update` fails with `swagger:get`/API documentation plugin errors, activate dependency plugins and retry:
+If needed, follow with add/use actions before continuing ACL tests.
 
-```text
-Use $nocobase-plugin-manage enable @nocobase/plugin-api-doc @nocobase/plugin-api-keys
-```
+3. Execute the full serial suite from `./test-playbook.md` (TC01-TC20).
 
-Then restart app, refresh token env if needed, and rerun `nb env update local`.
+4. Capture command evidence and expected assertions for each case.
 
-2. Verify runtime command availability:
+## Safety Requirements
 
-```bash
-nb --help
-# then inspect resolved acl command group help
-```
-
-3. Run task-level checks according to `references/capability-test-plan.md`.
-
-4. For guarded membership fallback checks, explicitly enable policy in task context and use:
-
-```bash
-nb api resource update --resource users ...
-nb api resource list --resource users.roles ...
-```
+- execute through CLI only
+- no direct ACL REST fallback
+- no ad-hoc script fallback (`*.js`, `*.ps1`, `*.sh`)
+- keep high-impact writes gated and reversible
+- restore global role mode when modified
+- cleanup temporary test role when run completes
 
 ## Report Guidance
 
-For each check, report:
+For each case, record:
 
-- command executed
+- case id
+- command(s) executed
 - status (`pass/warn/fail`)
-- concise evidence (key output snippet)
-- follow-up mitigation when `warn` or `fail`
+- concise evidence
+- mitigation or rerun guidance when `warn/fail`
