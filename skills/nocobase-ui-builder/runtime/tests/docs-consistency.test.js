@@ -24,6 +24,12 @@ function readRootRelativeMarkdownLinks(markdown) {
   return [...markdown.matchAll(/\]\((\/[^)]+)\)/g)].map((match) => match[1]);
 }
 
+function extractFirstHopSnippetIds(markdown) {
+  const match = markdown.match(/First-hop safe snippets:\s*\n\s*\n((?:- \[[^\]]+\]\([^)]+\)\s*\n?)+)/i);
+  assert.ok(match, 'surface doc should include a First-hop safe snippets list');
+  return [...match[1].matchAll(/- \[([^\]]+)\]\([^)]+\)/g)].map((item) => item[1]);
+}
+
 function assertRelativeMarkdownLinksExist(relativePath) {
   const markdown = read(relativePath);
   const fileDir = path.dirname(path.join(skillRoot, relativePath));
@@ -450,12 +456,12 @@ test('js reference routing keeps snapshot-vs-skill boundary clear', () => {
   assert.match(js, /\[runjs-authoring-loop\.md\]/i, 'references/js.md should document the authoring loop');
   assert.match(js, /\[runjs-repair-playbook\.md\]/i, 'references/js.md should document the repair playbook');
   assert.match(js, /\[js-reference-index\.md\]/i, 'references/js.md should route capability lookup to js-reference-index.md');
-  assert.match(js, /Upstream snapshot|Source-doc snapshot/i, 'references/js.md should describe the upstream snapshot layer');
+  assert.match(js, /bundled product reference snapshot|bundled reference snapshot/i, 'references/js.md should describe the bundled reference snapshot layer');
   assert.match(js, /\[reaction\.md\]/i, 'references/js.md should point reaction work back to reaction.md');
 
   const index = read('references/js-reference-index.md');
   assert.match(index, /\[js-surfaces\/index\.md\]/i, 'js-reference-index should keep the surface-first router visible');
-  assert.match(index, /upstream snapshot/i, 'js-reference-index should describe the snapshot layer');
+  assert.match(index, /bundled product reference snapshot|bundled reference snapshot/i, 'js-reference-index should describe the snapshot layer');
   assert.match(index, /does \*\*not\*\* replace the skill write contract|does not replace the skill write contract/i);
   assert.match(index, /\[js\.md\]/i, 'js-reference-index should route model/validator work back to js.md');
   assert.match(index, /\[runjs-runtime\.md\]/i, 'js-reference-index should route runtime validation back to runjs-runtime.md');
@@ -513,6 +519,12 @@ test('js surface docs stay discoverable and keep progressive disclosure', () => 
     for (const snippetId of surface.recommendedSnippetIds) {
       assert.equal(safeIds.has(snippetId), true, `${surface.id} should only recommend safe snippets`);
     }
+    const docSnippetIds = extractFirstHopSnippetIds(read(`references/${surface.entryDoc}`));
+    assert.deepEqual(
+      docSnippetIds,
+      surface.recommendedSnippetIds,
+      `${surface.id} surface doc should keep first-hop snippets in exact manifest order`,
+    );
   }
 });
 

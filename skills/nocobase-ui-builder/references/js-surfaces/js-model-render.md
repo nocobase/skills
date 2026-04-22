@@ -4,7 +4,7 @@ Use this surface for JS models whose main job is to render content in a block, f
 
 ## Contract
 
-- Editor scene in upstream source: `jsModel`
+- Editor scene in the bundled product reference snapshot: `jsModel`
 - Writeback path in this skill: `stepParams.jsSettings.runJs`
 - Validation style: render
 - `ctx.render(...)` is required.
@@ -15,9 +15,9 @@ Use this surface for JS models whose main job is to render content in a block, f
 
 First-hop safe snippets:
 
-- [render/text-from-record](../js-snippets/safe/render/text-from-record.md)
-- [render/status-tag](../js-snippets/safe/render/status-tag.md)
-- [render/null-when-empty](../js-snippets/safe/render/null-when-empty.md)
+- [scene/block/text-summary](../js-snippets/safe/scene/block/text-summary.md)
+- [scene/detail/status-tag](../js-snippets/safe/scene/detail/status-tag.md)
+- [render/helper-from-form-value](../js-snippets/safe/render/helper-from-form-value.md)
 
 Example:
 

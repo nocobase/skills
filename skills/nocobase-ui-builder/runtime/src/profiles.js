@@ -1,4 +1,5 @@
 import { COMPAT_PROFILE_VERSION } from './constants.js';
+import { getRunJSSurfacePolicy } from './surface-policy.js';
 import { unique } from './utils.js';
 
 function functionDoc(description) {
@@ -38,6 +39,7 @@ const BASE_CONTRACT = {
   getVar: functionDoc('Resolve one ctx.* path from the current mock context.'),
   getVarInfos: functionDoc('Inspect available keys under the current mock context.'),
   initResource: functionDoc('Initialize one simulated resource on ctx.resource when needed.'),
+  makeResource: functionDoc('Create one independent simulated resource instance without rebinding ctx.resource.'),
   importAsync: functionDoc('Blocked in this runtime.'),
   requireAsync: functionDoc('Blocked in this runtime.'),
   loadCSS: functionDoc('Blocked in this runtime.'),
@@ -132,8 +134,50 @@ const CHART_INSTANCE_CONTRACT = objectDoc('ECharts-like chart instance.', {
   resize: functionDoc('Resize the chart instance.'),
 });
 
+const EVENT_FLOW_OVERLAY_CONTRACT = {
+  acl: valueDoc('Opaque ACL helper namespace.', 'object'),
+  auth: valueDoc('Opaque auth/session context.', 'object'),
+  console: valueDoc('Console helper namespace.', 'object'),
+  dataSourceManager: valueDoc('Opaque data source manager.', 'object'),
+  date: valueDoc('Opaque date helper namespace.', 'object'),
+  engine: valueDoc('Opaque flow engine context.', 'object'),
+  logger: valueDoc('Opaque logger namespace.', 'object'),
+  model: valueDoc('Current flow host model.', 'object'),
+  record: valueDoc('Current event-flow record.', 'object'),
+  role: valueDoc('Current role context.', 'object'),
+  runAction: functionDoc('Run one resource-like action in simulated mode.'),
+  user: valueDoc('Current authenticated user.', 'object'),
+};
+
+const EVENT_FLOW_DEFAULT_CONTEXT_SHAPE = {
+  acl: {},
+  auth: {
+    locale: 'zh-CN',
+    roleName: 'admin',
+    token: 'preview-token',
+    user: { id: 1, nickname: 'Preview user', username: 'preview' },
+  },
+  console: {},
+  dataSourceManager: {},
+  date: {},
+  engine: {},
+  logger: {},
+  model: { uid: 'preview-model', props: {}, constructor: { name: 'JSActionModel' } },
+  record: { id: 1, title: 'Preview task', name: 'Preview task' },
+  role: { name: 'admin' },
+  user: { id: 1, nickname: 'Preview user', username: 'preview' },
+};
+
 const PRECISE_ROOTS = new Set(['api', 'form', 'viewer', 'message', 'notification', 'modal', 'element', 'chart']);
 const OPAQUE_ROOTS = new Set([
+  'acl',
+  'auth',
+  'console',
+  'dataSourceManager',
+  'date',
+  'engine',
+  'logger',
+  'model',
   'React',
   'ReactDOM',
   'antd',
@@ -153,6 +197,8 @@ const OPAQUE_ROOTS = new Set([
   'readOnly',
   'dayjs',
   'libs',
+  'role',
+  'user',
 ]);
 
 function createProfile({
@@ -560,6 +606,42 @@ function getRootBehavior(root) {
 
 function buildRootBehaviors(profile) {
   return Object.fromEntries(Object.keys(profile.contract || {}).map((key) => [key, getRootBehavior(key)]));
+}
+
+function applyEventFlowSurfaceOverlay(profile) {
+  return {
+    ...profile,
+    contract: {
+      ...profile.contract,
+      ...EVENT_FLOW_OVERLAY_CONTRACT,
+    },
+    defaultContextShape: {
+      ...profile.defaultContextShape,
+      ...EVENT_FLOW_DEFAULT_CONTEXT_SHAPE,
+    },
+  };
+}
+
+export function applySurfaceProfile(profileLike, surface) {
+  const profile = typeof profileLike === 'string' ? findProfile(profileLike) : profileLike;
+  if (!profile) return null;
+
+  const policy = getRunJSSurfacePolicy(surface);
+  if (!policy) return profile;
+
+  let nextProfile = profile;
+  if (policy.suppressExplicitRenderRequirement && nextProfile.requireExplicitCtxRender) {
+    nextProfile = {
+      ...nextProfile,
+      requireExplicitCtxRender: false,
+    };
+  }
+
+  if (surface === 'event-flow.execute-javascript') {
+    nextProfile = applyEventFlowSurfaceOverlay(nextProfile);
+  }
+
+  return nextProfile;
 }
 
 export function findProfile(name) {

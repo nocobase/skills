@@ -263,6 +263,51 @@ test('JSRecordActionModel can read record context and simulate messages', async 
   assert.ok(result.sideEffectAttempts.some((attempt) => attempt.name === 'message.success' && attempt.status === 'simulated'));
 });
 
+test('surface-first event-flow validation uses the shared fallback action model', async () => {
+  const result = await validateRunJSSnippet({
+    surface: 'event-flow.execute-javascript',
+    code: `
+      const tempResource = ctx.makeResource('MultiRecordResource');
+      tempResource.setResourceName('tasks');
+      tempResource.setPage(2);
+      await tempResource.refresh();
+      ctx.message.success('ok');
+      return {
+        recordId: ctx.record?.id ?? null,
+        collectionName: tempResource.collectionName,
+        metaPage: tempResource.getMeta?.()?.page ?? null,
+      };
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.model, 'JSActionModel');
+  assert.equal(result.execution.returnValue.recordId, 1);
+  assert.equal(result.execution.returnValue.collectionName, 'tasks');
+  assert.equal(result.execution.returnValue.metaPage, 2);
+});
+
+test('linkage surface no longer re-applies render requirements for editable-field helpers', async () => {
+  const result = await validateRunJSSnippet({
+    surface: 'linkage.execute-javascript',
+    model: 'JSEditableFieldModel',
+    code: `
+      ctx.setValue('Bob');
+      return ctx.getValue();
+    `,
+    context: {
+      value: 'Alice',
+      formValues: { nickname: 'Alice' },
+      namePath: ['nickname'],
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.execution.executed, true);
+  assert.equal(result.execution.returnValue, 'Bob');
+  assert.equal(result.policyIssues.some((issue) => issue.ruleId === 'missing-required-ctx-render'), false);
+});
+
 test('JSRecordActionModel blocks fetch side effects', async () => {
   const result = await validateRunJSSnippet({
     model: 'JSRecordActionModel',

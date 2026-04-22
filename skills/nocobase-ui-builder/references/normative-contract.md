@@ -43,6 +43,8 @@ The public `applyBlueprint` payload is:
 - centered on `navigation`, `page`, ordered `tabs`, `blocks`, `fields`, `actions`, `recordActions`, inline `popup`, and reusable `assets`
 - written with canonical public names such as `collection`, `associationPathName`, `binding`, `field`, `target`, and `popup`
 - key-oriented only inside the document itself: layout cells use block `key`, and `field.target` is only a string block key in the same tab/popup scope
+- may include top-level `defaults.collections` for collection-level generated-popup defaults: `fieldGroups`, name-only `popups.view/addNew/edit`, and name-only `popups.associations.<associationField>.view/addNew/edit`
+- must not include `defaults.blocks`, and must not put `blocks`, `fields`, `fieldGroups`, layout, or other content inside `defaults.collections.*.popups`
 - if `reaction.items[]` is present, every reaction target must be a same-run local key / bind key, not a live uid
 - for form `fieldValue` / form-scene `fieldLinkage`, target the outer form block key/path, not the inner grid uid
 - only explicitly listed reaction items are written; if a slot must exist after `replace`, include it explicitly rather than relying on omission

@@ -5,7 +5,16 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
-import { compileUserCode } from '../runtime/src/analysis.js';
+import { buildWrappedRunJSCode, parseWrappedRunJS } from '../runtime/src/runjs-parser.js';
+import {
+  RUNJS_ACTION_MODEL_USES,
+  RUNJS_RENDER_MODEL_USES,
+  getRunJSEffectStyle,
+  getRunJSFallbackRuntimeModel,
+  getRunJSSurfaceAllowedModelUses,
+  getRunJSSurfaceExtraAllowedRoots,
+  getRunJSSurfacePolicy,
+} from '../runtime/src/surface-policy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -102,87 +111,8 @@ const SAFE_REQUEST_PARAM_KEYS = new Set([
   'tree',
 ]);
 const IDENTIFIER_KEY_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-const RENDER_MODEL_USES = new Set([
-  'JSBlockModel',
-  'JSColumnModel',
-  'JSFieldModel',
-  'JSItemModel',
-  'JSEditableFieldModel',
-  'FormJSFieldItemModel',
-]);
-const ACTION_MODEL_USES = new Set([
-  'JSActionModel',
-  'JSFormActionModel',
-  'JSRecordActionModel',
-  'JSCollectionActionModel',
-  'JSItemActionModel',
-  'FilterFormJSActionModel',
-]);
-const EVENT_FLOW_SURFACE_ROOTS = [
-  'acl',
-  'auth',
-  'console',
-  'dataSourceManager',
-  'date',
-  'dayjs',
-  'engine',
-  'getVar',
-  'importAsync',
-  'initResource',
-  'libs',
-  'logger',
-  'makeResource',
-  'message',
-  'modal',
-  'model',
-  'notification',
-  'record',
-  'React',
-  'ReactDOM',
-  'request',
-  'requireAsync',
-  'resource',
-  'role',
-  'runAction',
-  't',
-  'user',
-  'viewer',
-];
-const LINKAGE_SURFACE_MODEL_USES = [
-  'JSEditableFieldModel',
-  'JSItemModel',
-  'JSRecordActionModel',
-  'JSCollectionActionModel',
-  'JSItemActionModel',
-  'FormJSFieldItemModel',
-];
-const VALUE_SURFACE_MODEL_USES = [
-  'JSEditableFieldModel',
-  'JSItemModel',
-  'FormJSFieldItemModel',
-];
-const SURFACE_POLICIES = {
-  'event-flow.execute-javascript': {
-    style: 'action',
-    defaultModelUse: 'JSActionModel',
-    allowedRoots: EVENT_FLOW_SURFACE_ROOTS,
-  },
-  'linkage.execute-javascript': {
-    style: 'action',
-    defaultModelUse: 'JSActionModel',
-    modelUses: LINKAGE_SURFACE_MODEL_USES,
-  },
-  'reaction.value-runjs': {
-    style: 'value',
-    defaultModelUse: 'JSEditableFieldModel',
-    modelUses: VALUE_SURFACE_MODEL_USES,
-  },
-  'custom-variable.runjs': {
-    style: 'value',
-    defaultModelUse: 'JSActionModel',
-    modelUses: VALUE_SURFACE_MODEL_USES,
-  },
-};
+const RENDER_MODEL_USES = new Set(RUNJS_RENDER_MODEL_USES);
+const ACTION_MODEL_USES = new Set(RUNJS_ACTION_MODEL_USES);
 const LOCAL_MODEL_CONTRACTS = {
   JSActionModel: {
     properties: ['resource', 'collection'],
@@ -466,7 +396,7 @@ export function loadRunJSContract({ snapshotPath } = {}) {
 }
 
 function compileRunJSCode(code) {
-  const compiled = compileUserCode(String(code ?? ''));
+  const compiled = buildWrappedRunJSCode(code);
   if (compiled.compileIssues?.length) {
     const firstIssue = compiled.compileIssues[0];
     throw new Error(firstIssue?.message || 'JSX compile error');
@@ -701,11 +631,17 @@ function createRunJSScan(source) {
 }
 
 function parseRunJSSourceForSyntax(code) {
-  const source = compileRunJSCode(code);
-  new vm.Script(`(async () => {\n${source}\n})`, {
+  const parsed = parseWrappedRunJS(code);
+  new vm.Script(parsed.wrappedCode, {
     filename: 'runjs.syntax-check.js',
   });
-  return createRunJSScan(source);
+  return {
+    ...createRunJSScan(parsed.code),
+    wrappedAst: parsed.ast,
+    wrappedBody: parsed.wrappedBody,
+    wrappedStatements: parsed.wrappedStatements,
+    sourceOffset: parsed.sourceOffset,
+  };
 }
 
 function collectSimpleInitializers(source, masked) {
@@ -852,9 +788,20 @@ function parseMemberChain(source, masked, index, staticStrings = new Map()) {
 }
 
 function previousSignificantChar(source, index) {
+  const cursor = previousSignificantIndex(source, index);
+  return cursor >= 0 ? source[cursor] : '';
+}
+
+function previousSignificantIndex(source, index) {
   let cursor = index - 1;
   while (cursor >= 0 && /\s/.test(source[cursor])) cursor -= 1;
-  return cursor >= 0 ? source[cursor] : '';
+  return cursor;
+}
+
+function nextSignificantIndex(source, index) {
+  let cursor = index;
+  while (cursor < source.length && /\s/.test(source[cursor])) cursor += 1;
+  return cursor;
 }
 
 function isObjectPropertyKeyLike(masked, start, end) {
@@ -895,8 +842,67 @@ function collectCtxRenderCallsFromScan(scan, staticStrings = new Map()) {
   return calls;
 }
 
-function hasTopLevelReturnInScan(masked) {
-  return /\breturn\b/.test(masked);
+function isStandaloneWordAt(source, index, word) {
+  if (source.slice(index, index + word.length) !== word) return false;
+  const previousChar = source[index - 1] || '';
+  const nextChar = source[index + word.length] || '';
+  return !isIdentifierPartChar(previousChar) && !isIdentifierPartChar(nextChar);
+}
+
+function isTopLevelSemanticBoundary(node) {
+  return isFunctionNode(node) || node?.type === 'ClassDeclaration' || node?.type === 'ClassExpression';
+}
+
+function unwrapChainExpression(node) {
+  return node?.type === 'ChainExpression' ? node.expression : node;
+}
+
+function isCtxRenderCallExpression(node) {
+  const expression = unwrapChainExpression(node);
+  const callee = unwrapChainExpression(expression?.callee);
+  return expression?.type === 'CallExpression' && isCtxMemberExpression(callee, 'render');
+}
+
+function traverseSurfaceTopLevel(scan, visitor) {
+  const visit = (node, ancestors = []) => {
+    if (!isAstNode(node)) return;
+    visitor(node, ancestors);
+    if (isTopLevelSemanticBoundary(node)) return;
+    const nextAncestors = [...ancestors, node];
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (isAstNode(item)) visit(item, nextAncestors);
+        }
+        continue;
+      }
+      if (isAstNode(value)) visit(value, nextAncestors);
+    }
+  };
+
+  for (const statement of scan.wrappedStatements || []) {
+    visit(statement);
+  }
+}
+
+function hasTopLevelReturnInScan(scan) {
+  let found = false;
+  traverseSurfaceTopLevel(scan, (node) => {
+    if (!found && node?.type === 'ReturnStatement') {
+      found = true;
+    }
+  });
+  return found;
+}
+
+function collectTopLevelCtxRenderCalls(scan) {
+  const calls = [];
+  traverseSurfaceTopLevel(scan, (node) => {
+    if (isCtxRenderCallExpression(node)) {
+      calls.push(unwrapChainExpression(node));
+    }
+  });
+  return calls;
 }
 
 function parseObjectPropertiesFromSource(source, masked, startIndex = 0) {
@@ -2927,6 +2933,8 @@ function createCtxStub({ contract, modelUse, version, logs, allowedRoots }) {
   const modal = createMessageStub(logs, 'modal');
 
   const commonValues = {
+    acl: {},
+    console: logger,
     logger,
     message,
     notification,
@@ -2965,6 +2973,8 @@ function createCtxStub({ contract, modelUse, version, logs, allowedRoots }) {
     params: {},
     api: { auth: { locale: 'zh-CN' } },
     app: {},
+    dataSourceManager: {},
+    date: {},
     engine: {},
     model: { uid: 'preview-model', props: {}, constructor: { name: modelUse } },
     ref: { current: {} },
@@ -3015,6 +3025,7 @@ function createCtxStub({ contract, modelUse, version, logs, allowedRoots }) {
     openView: createNoopAsync(),
     closeView: createNoopAsync(),
     refresh: createNoopAsync(),
+    runAction: createNoopAsync(),
     exit() {},
     exitAll() {},
     setValue() {},
@@ -3253,8 +3264,9 @@ function collectCtxRenderCalls(ast) {
 function inspectSurfaceStyle({ scan, surfaceStyle, path: findingPath = '$', modelUse }) {
   const { staticStrings } = collectSimpleInitializers(scan.source, scan.masked);
   const renderCalls = collectCtxRenderCallsFromScan(scan, staticStrings);
+  const topLevelRenderCalls = collectTopLevelCtxRenderCalls(scan);
   if (surfaceStyle === 'render') {
-    if (renderCalls.length > 0) {
+    if (topLevelRenderCalls.length > 0) {
       return {
         blockers: [],
         warnings: [],
@@ -3281,7 +3293,7 @@ function inspectSurfaceStyle({ scan, surfaceStyle, path: findingPath = '$', mode
   }
 
   const blockers = [];
-  if (!hasTopLevelReturnInScan(scan.masked)) {
+  if (!hasTopLevelReturnInScan(scan)) {
     blockers.push(
       createFinding({
         code: 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED',
@@ -3339,64 +3351,19 @@ function resolveRunJSInspectionPolicy(contract, { modelUse, surface, path: findi
     };
   }
 
-  if (explicitSurface === 'js-model.action') {
-    if (knownModelUse && ACTION_MODEL_USES.has(knownModelUse)) {
-      return {
-        ok: true,
-        surface: explicitSurface,
-        surfaceStyle: 'action',
-        modelUse: knownModelUse,
-        findingModelUse: knownModelUse,
-        allowedRoots: buildAllowedCtxRoots(contract, [knownModelUse]),
-      };
-    }
-
-    return {
-      ok: false,
-      blockers: [
-        createFinding({
-          code: 'RUNJS_UNKNOWN_MODEL_USE',
-          message: `RunJS action validation requires a locked action model, but received ${requestedModelUse ? `"${requestedModelUse}"` : 'no modelUse'}.`,
-          path: findingPath,
-          modelUse: requestedModelUse || explicitSurface,
-        }),
-      ],
-    };
-  }
-
-  if (explicitSurface === 'js-model.render') {
-    if (knownModelUse && isRenderModelUse(knownModelUse)) {
-      return {
-        ok: true,
-        surface: explicitSurface,
-        surfaceStyle: 'render',
-        modelUse: knownModelUse,
-        findingModelUse: knownModelUse,
-        allowedRoots: buildAllowedCtxRoots(contract, [knownModelUse]),
-      };
-    }
-
-    return {
-      ok: false,
-      blockers: [
-        createFinding({
-          code: 'RUNJS_UNKNOWN_MODEL_USE',
-          message: `RunJS render validation requires a known render model, but received ${modelUse ? `"${modelUse}"` : 'no modelUse'}.`,
-          path: findingPath,
-          modelUse: normalizeOptionalText(modelUse) || 'js-model.render',
-        }),
-      ],
-    };
-  }
-
-  if (explicitSurface && SURFACE_POLICIES[explicitSurface]) {
-    const surfacePolicy = SURFACE_POLICIES[explicitSurface];
-    const allowedModelUses = new Set(surfacePolicy.modelUses || []);
+  const resolvedSurfacePolicy = explicitSurface ? getRunJSSurfacePolicy(explicitSurface) : null;
+  if (explicitSurface && resolvedSurfacePolicy) {
+    const allowedModelUses = new Set(getRunJSSurfaceAllowedModelUses(explicitSurface));
+    const fallbackRuntimeModel = getRunJSFallbackRuntimeModel(explicitSurface);
+    const surfaceStyle = getRunJSEffectStyle(explicitSurface);
+    const extraAllowedRoots = getRunJSSurfaceExtraAllowedRoots(explicitSurface);
+    const explicitModelLabel = normalizeOptionalText(resolvedSurfacePolicy.explicitModelLabel) || 'known JS model';
+    const requiresExplicitModel = Boolean(resolvedSurfacePolicy.requiresExplicitModel);
 
     if (requestedModelUse && knownModelUse) {
       const supportsRequestedModelUse = allowedModelUses.size === 0
         || allowedModelUses.has(knownModelUse)
-        || knownModelUse === surfacePolicy.defaultModelUse;
+        || knownModelUse === fallbackRuntimeModel;
 
       if (!supportsRequestedModelUse) {
         return {
@@ -3415,20 +3382,34 @@ function resolveRunJSInspectionPolicy(contract, { modelUse, surface, path: findi
       return {
         ok: true,
         surface: explicitSurface,
-        surfaceStyle: surfacePolicy.style,
+        surfaceStyle,
         modelUse: knownModelUse,
         findingModelUse: knownModelUse,
-        allowedRoots: buildAllowedCtxRoots(contract, [knownModelUse], surfacePolicy.allowedRoots || []),
+        allowedRoots: buildAllowedCtxRoots(contract, [knownModelUse], extraAllowedRoots),
+      };
+    }
+
+    if (requiresExplicitModel) {
+      return {
+        ok: false,
+        blockers: [
+          createFinding({
+            code: 'RUNJS_UNKNOWN_MODEL_USE',
+            message: `RunJS surface "${explicitSurface}" validation requires a ${explicitModelLabel}, but received ${requestedModelUse ? `"${requestedModelUse}"` : 'no modelUse'}.`,
+            path: findingPath,
+            modelUse: requestedModelUse || explicitSurface,
+          }),
+        ],
       };
     }
 
     return {
       ok: true,
       surface: explicitSurface,
-      surfaceStyle: surfacePolicy.style,
-      modelUse: surfacePolicy.defaultModelUse,
+      surfaceStyle,
+      modelUse: fallbackRuntimeModel,
       findingModelUse: explicitSurface,
-      allowedRoots: buildAllowedCtxRoots(contract, surfacePolicy.modelUses || [], surfacePolicy.allowedRoots || []),
+      allowedRoots: buildAllowedCtxRoots(contract, getRunJSSurfaceAllowedModelUses(explicitSurface), extraAllowedRoots),
     };
   }
 
@@ -3486,7 +3467,7 @@ function resolveRunJSInspectionPolicy(contract, { modelUse, surface, path: findi
 
 function inspectStaticRunJSCodeWithContract({
   code,
-  modelUse = 'JSBlockModel',
+  modelUse = null,
   surface = null,
   version = 'v1',
   contract,
@@ -3572,7 +3553,7 @@ function inspectStaticRunJSCodeWithContract({
 
 export function inspectRunJSStaticCode({
   code,
-  modelUse = 'JSBlockModel',
+  modelUse = null,
   surface = null,
   version = 'v1',
   snapshotPath,
@@ -3593,7 +3574,7 @@ export function inspectRunJSStaticCode({
 
 export async function inspectRunJSCode({
   code,
-  modelUse = 'JSBlockModel',
+  modelUse = null,
   surface = null,
   version = 'v1',
   snapshotPath,

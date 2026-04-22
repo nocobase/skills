@@ -4,7 +4,7 @@ Use this surface for JS actions whose main job is to run click logic.
 
 ## Contract
 
-- Editor scene in upstream source: `jsAction`
+- Editor scene in the bundled product reference snapshot: `jsAction`
 - Writeback path in this skill: `clickSettings.runJs`
 - Validation style: action
 - Return is optional.

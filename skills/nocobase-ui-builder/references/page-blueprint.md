@@ -77,6 +77,20 @@ Envelope boundary:
     "enableHeader": true,
     "displayTitle": true
   },
+  "defaults": {
+    "collections": {
+      "employees": {
+        "fieldGroups": [
+          { "key": "basic", "title": "Basic info", "fields": ["nickname", "status", "department"] }
+        ],
+        "popups": {
+          "addNew": { "name": "Create employee" },
+          "view": { "name": "Employee details" },
+          "edit": { "name": "Edit employee" }
+        }
+      }
+    }
+  },
   "assets": {
     "scripts": {},
     "charts": {}
@@ -105,9 +119,58 @@ Envelope boundary:
 - `target`: required only for `replace`, shape `{ "pageSchemaUid": "..." }`
 - `navigation`: only for `create`; controls menu group/item metadata. Newly created groups must include `icon`, and newly created top-level or second-level items must also include `icon`.
 - `page`: page-level metadata
+- `defaults`: optional collection-level defaults for generated popup names and grouped popup field candidates
 - `assets`: reusable script/chart blobs referenced by blocks/fields/actions
 - `reaction`: optional whole-page interaction authoring section
 - `tabs`: non-empty ordered array of route-backed tabs
+
+### `defaults.collections`
+
+- Use top-level `defaults.collections.<collection>.fieldGroups` as collection-level candidate groups for backend-generated `details`, `createForm`, and `editForm` popup content.
+- Generate these groups from live collection metadata for every collection involved in the page or in relation-field popup targets.
+- The backend filters each group by scene: create/edit forms drop audit and non-writable fields; details can retain read-only/audit fields when displayable. Empty groups are omitted.
+- Use `defaults.collections.<collection>.popups.view/addNew/edit.name` for collection record popup names.
+- Use `defaults.collections.<sourceCollection>.popups.associations.<associationField>.view/addNew/edit.name` for relation-field popup names. Use `associations`, not `relations`.
+- Popup defaults are name-only. Do not place `blocks`, `fields`, `fieldGroups`, `layout`, or other content under `defaults.collections.*.popups`.
+- Do not generate `defaults.blocks`; v1 defaults are collection-level only.
+- If `popup.tryTemplate` resolves an existing template, the backend reuses that template and does not regenerate default popup content from `defaults`.
+
+Example:
+
+```json
+{
+  "defaults": {
+    "collections": {
+      "users": {
+        "fieldGroups": [
+          { "key": "basic", "title": "Basic information", "fields": ["username", "nickname", "email"] },
+          { "key": "audit", "title": "Audit", "fields": ["createdAt", "updatedAt"] }
+        ],
+        "popups": {
+          "view": { "name": "User details" },
+          "addNew": { "name": "Create user" },
+          "edit": { "name": "Edit user" },
+          "associations": {
+            "roles": {
+              "view": { "name": "User role details" }
+            }
+          }
+        }
+      },
+      "roles": {
+        "fieldGroups": [
+          { "key": "basic", "title": "Basic information", "fields": ["name", "title", "description"] }
+        ],
+        "popups": {
+          "view": { "name": "Role details" },
+          "addNew": { "name": "Create role" },
+          "edit": { "name": "Edit role" }
+        }
+      }
+    }
+  }
+}
+```
 
 ### `reaction.items[]`
 

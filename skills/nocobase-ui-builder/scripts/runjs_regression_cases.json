@@ -10,6 +10,16 @@
     "expectedCodes": []
   },
   {
+    "id": "positive-event-flow-record-resource",
+    "intent": "request-data",
+    "surface": "event-flow.execute-javascript",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["global/resource-list"],
+    "code": "const resource = ctx.makeResource('MultiRecordResource');\nresource.setResourceName('tasks');\nawait resource.refresh();\nreturn ctx.record?.id ?? null;",
+    "expectedOk": true,
+    "expectedCodes": []
+  },
+  {
     "id": "positive-linkage-set-field",
     "intent": "set-field-value",
     "surface": "linkage.execute-javascript",
@@ -56,6 +66,36 @@
     "modelOrHost": null,
     "preferredSnippetIds": ["value-return/subtotal"],
     "code": "const subtotal = Number(ctx.formValues?.subtotal || 0);",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_VALUE_SURFACE_RETURN_REQUIRED"]
+  },
+  {
+    "id": "negative-value-nested-return-only",
+    "intent": "calculate",
+    "surface": "reaction.value-runjs",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["value-return/subtotal"],
+    "code": "const compute = () => { return String(ctx.formValues?.title || '').trim(); };",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_VALUE_SURFACE_RETURN_REQUIRED"]
+  },
+  {
+    "id": "negative-value-object-key-return-only",
+    "intent": "calculate",
+    "surface": "reaction.value-runjs",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["value-return/subtotal"],
+    "code": "const shape = { return: 'not a statement' };",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_VALUE_SURFACE_RETURN_REQUIRED"]
+  },
+  {
+    "id": "negative-value-class-method-return-only",
+    "intent": "calculate",
+    "surface": "reaction.value-runjs",
+    "modelOrHost": null,
+    "preferredSnippetIds": ["value-return/subtotal"],
+    "code": "class Example { ['x']() { return 1; } }",
     "expectedOk": false,
     "expectedCodes": ["RUNJS_VALUE_SURFACE_RETURN_REQUIRED"]
   },
@@ -138,6 +178,26 @@
     "code": "ctx.form?.setFieldsValue?.({ title: 'x' });",
     "expectedOk": false,
     "expectedCodes": ["RUNJS_UNKNOWN_CTX_MEMBER"]
+  },
+  {
+    "id": "negative-render-nested-render-only",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "const renderLater = () => { ctx.render('ok'); };",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
+  },
+  {
+    "id": "negative-render-computed-method-render-only",
+    "intent": "render-helper",
+    "surface": "js-model.render",
+    "modelOrHost": "JSBlockModel",
+    "preferredSnippetIds": ["scene/block/text-summary"],
+    "code": "const helpers = { ['x']() { ctx.render('ok'); } };",
+    "expectedOk": false,
+    "expectedCodes": ["RUNJS_RENDER_SURFACE_RENDER_REQUIRED"]
   },
   {
     "id": "negative-render-missing-render-call",

@@ -68,7 +68,7 @@ function throwBlockedSideEffect(state, name, detail = {}) {
 }
 
 function createLogRecorder(state) {
-  return {
+  const api = {
     log(level, args) {
       if (state.logs.length >= MAX_LOG_ENTRIES) {
         if (!state.logOverflow) {
@@ -97,6 +97,7 @@ function createLogRecorder(state) {
       });
     },
   };
+  return api;
 }
 
 class SimpleEvent {
@@ -878,6 +879,8 @@ function createComponentLibrary(prefix) {
 }
 
 function createResourceApi(resource = {}, selectedRows, state, options = {}) {
+  const initialData = cloneSerializable(withDefault(resource.data, Array.isArray(resource.rows) ? resource.rows : []));
+  const initialCount = Array.isArray(initialData) ? initialData.length : initialData ? 1 : 0;
   const current = {
     kind: options.kind || resource.kind || resource.type || 'BoundResource',
     dataSourceKey: resource.dataSourceKey || 'main',
@@ -885,8 +888,24 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
     associationName: resource.associationName,
     sourceId: resource.sourceId,
     filterByTk: resource.filterByTk,
+    filter: cloneSerializable(resource.filter),
+    sort: cloneSerializable(withDefault(resource.sort, [])),
+    fields: cloneSerializable(withDefault(resource.fields, [])),
+    appends: cloneSerializable(withDefault(resource.appends, [])),
+    except: cloneSerializable(withDefault(resource.except, [])),
     selectedRows,
-    data: cloneSerializable(withDefault(resource.data, Array.isArray(resource.rows) ? resource.rows : [])),
+    data: initialData,
+    page: Number.isFinite(Number(resource.page)) ? Number(resource.page) : 1,
+    pageSize: Number.isFinite(Number(resource.pageSize)) ? Number(resource.pageSize) : 20,
+    meta: cloneSerializable(
+      withDefault(resource.meta, {
+        page: Number.isFinite(Number(resource.page)) ? Number(resource.page) : 1,
+        pageSize: Number.isFinite(Number(resource.pageSize)) ? Number(resource.pageSize) : 20,
+        count: initialCount,
+        totalPage: 1,
+      }),
+    ),
+    runActionOptions: cloneSerializable(withDefault(resource.runActionOptions, {})),
   };
   const listeners = new Map();
   const emit = (eventName, payload) => {
@@ -898,7 +917,7 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
       }
     }
   };
-  return {
+  const api = {
     get kind() {
       return current.kind;
     },
@@ -926,25 +945,72 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
     getData() {
       return cloneSerializable(current.data);
     },
+    getMeta() {
+      return cloneSerializable(current.meta);
+    },
     setData(value) {
       current.data = cloneSerializable(value);
       return current.data;
     },
     setDataSourceKey(nextValue) {
       current.dataSourceKey = String(nextValue || 'main');
-      return current.dataSourceKey;
+      return api;
     },
     setResourceName(nextValue) {
       current.collectionName = String(nextValue || 'unknown');
-      return current.collectionName;
+      return api;
     },
     setAssociationName(nextValue) {
       current.associationName = typeof nextValue === 'undefined' ? undefined : String(nextValue || '');
-      return current.associationName;
+      return api;
     },
     setFilterByTk(nextValue) {
       current.filterByTk = nextValue;
-      return current.filterByTk;
+      return api;
+    },
+    setFilter(nextValue) {
+      current.filter = cloneSerializable(nextValue);
+      return api;
+    },
+    getFilter() {
+      return cloneSerializable(current.filter);
+    },
+    setSort(nextValue) {
+      current.sort = cloneSerializable(withDefault(nextValue, []));
+      return api;
+    },
+    getSort() {
+      return cloneSerializable(current.sort);
+    },
+    setFields(nextValue) {
+      current.fields = cloneSerializable(withDefault(nextValue, []));
+      return api;
+    },
+    setAppends(nextValue) {
+      current.appends = cloneSerializable(withDefault(nextValue, []));
+      return api;
+    },
+    setExcept(nextValue) {
+      current.except = cloneSerializable(withDefault(nextValue, []));
+      return api;
+    },
+    setPage(nextValue) {
+      current.page = Number.isFinite(Number(nextValue)) ? Number(nextValue) : current.page;
+      return api;
+    },
+    getPage() {
+      return current.page;
+    },
+    setPageSize(nextValue) {
+      current.pageSize = Number.isFinite(Number(nextValue)) ? Number(nextValue) : current.pageSize;
+      return api;
+    },
+    getPageSize() {
+      return current.pageSize;
+    },
+    setRunActionOptions(actionName, optionsValue = {}) {
+      current.runActionOptions[String(actionName || '')] = cloneSerializable(optionsValue);
+      return api;
     },
     getSelectedRows() {
       return current.selectedRows;
@@ -962,12 +1028,24 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
             dataSourceKey: current.dataSourceKey,
             collectionName: current.collectionName,
             filterByTk: current.filterByTk,
+            filter: current.filter,
+            sort: current.sort,
+            page: current.page,
+            pageSize: current.pageSize,
           },
         ]),
       });
       if (typeof current.filterByTk !== 'undefined' && !isPlainObject(current.data) && !Array.isArray(current.data)) {
         current.data = { id: current.filterByTk };
       }
+      const count = Array.isArray(current.data) ? current.data.length : current.data ? 1 : 0;
+      current.meta = {
+        ...current.meta,
+        page: current.page,
+        pageSize: current.pageSize,
+        count,
+        totalPage: 1,
+      };
       emit('refresh', cloneSerializable(current.data));
       return cloneSerializable(current.data);
     },
@@ -980,7 +1058,7 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
       state?.sideEffectAttempts.push({
         name: 'resource.runAction',
         status: 'simulated',
-        args: cloneSerializable([actionName, payload]),
+        args: cloneSerializable([actionName, payload, current.runActionOptions[String(actionName || '')] || null]),
       });
       emit('saved', cloneSerializable(response));
       return response;
@@ -1001,6 +1079,7 @@ function createResourceApi(resource = {}, selectedRows, state, options = {}) {
       else currentListeners.clear();
     },
   };
+  return api;
 }
 
 function createChartApi(state, inputChart = {}) {
@@ -1245,6 +1324,11 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
   const initialResource = withDefault(inputContext.resource, profile.defaultContextShape.resource);
   let resourceApi =
     typeof initialResource === 'undefined' ? undefined : createResourceApi(initialResource, selectedRows, state);
+  const compatActionResponse = (actionName, payload = {}) => ({
+    action: String(actionName || ''),
+    ok: true,
+    data: cloneSerializable(payload?.data),
+  });
   const fullCtxMembers = {
     t(key, variables) {
       return interpolate(key, variables);
@@ -1326,6 +1410,18 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
       ctx.resource = resourceApi;
       return resourceApi;
     },
+    makeResource(type = 'MultiRecordResource') {
+      return createResourceApi(
+        {
+          dataSourceKey: resourceApi?.dataSourceKey || 'main',
+          collectionName: resourceApi?.collectionName || 'unknown',
+          selectedRows,
+        },
+        selectedRows,
+        state,
+        { kind: type },
+      );
+    },
     React: compatReact,
     ReactDOM: compatReactDOM,
     antd: compatAntd,
@@ -1339,9 +1435,12 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
       dayjs: compatDayjs,
     },
     element: elementProxy,
+    console: compatConsole,
+    acl: cloneSerializable(withDefault(inputContext.acl, profile.defaultContextShape.acl || {})),
     message: feedbackMessage,
     notification: feedbackNotification,
     modal: feedbackModal,
+    logger: typeof inputContext.logger === 'object' && inputContext.logger ? inputContext.logger : compatConsole,
     viewer: blockedViewer,
     openView: (...args) => {
       const detail = {
@@ -1360,6 +1459,15 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
     record: cloneSerializable(withDefault(inputContext.record, profile.defaultContextShape.record)),
     data: cloneSerializable(chartData),
     chart: chartApi,
+    auth: cloneSerializable(withDefault(inputContext.auth, profile.defaultContextShape.auth)),
+    engine: cloneSerializable(withDefault(inputContext.engine, profile.defaultContextShape.engine)),
+    dataSourceManager: cloneSerializable(
+      withDefault(inputContext.dataSourceManager, profile.defaultContextShape.dataSourceManager),
+    ),
+    date: cloneSerializable(withDefault(inputContext.date, profile.defaultContextShape.date)),
+    model: cloneSerializable(withDefault(inputContext.model, profile.defaultContextShape.model)),
+    user: cloneSerializable(withDefault(inputContext.user, profile.defaultContextShape.user)),
+    role: cloneSerializable(withDefault(inputContext.role, profile.defaultContextShape.role)),
     value: currentValue.value,
     formValues,
     form: createFormApi(formValues),
@@ -1392,6 +1500,14 @@ export function createRuntimeEnvironment(profile, inputContext = {}, network, op
       });
       simulatedProps = { ...simulatedProps, ...(patch || {}) };
       return simulatedProps;
+    },
+    async runAction(actionName, payload = {}) {
+      state.sideEffectAttempts.push({
+        name: 'ctx.runAction',
+        status: 'simulated',
+        args: cloneSerializable([actionName, payload]),
+      });
+      return compatActionResponse(actionName, payload);
     },
   };
 

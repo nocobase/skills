@@ -108,6 +108,44 @@ test('validate command accepts value-return surface without render-model ctx.ren
   assert.equal(payload.execution.returnValue, 'Alice');
 });
 
+test('validate command accepts event-flow surface with the shared fallback action model', async () => {
+  const stdout = createMemoryStream();
+  const stderr = createMemoryStream();
+  const stdin = createInputStream(
+    JSON.stringify({
+      surface: 'event-flow.execute-javascript',
+      code: `
+        const tempResource = ctx.makeResource('MultiRecordResource');
+        tempResource.setResourceName('tasks');
+        tempResource.setPage(3);
+        await tempResource.refresh();
+        ctx.message.success('ok');
+        return {
+          recordId: ctx.record?.id ?? null,
+          collectionName: tempResource.collectionName,
+          metaPage: tempResource.getMeta?.()?.page ?? null,
+        };
+      `,
+    }),
+  );
+
+  const exitCode = await runCli(['validate', '--stdin-json', '--skill-mode'], {
+    cwd: process.cwd(),
+    stdin,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), '');
+  const payload = JSON.parse(stdout.read());
+  assert.equal(payload.ok, true);
+  assert.equal(payload.model, 'JSActionModel');
+  assert.equal(payload.execution.returnValue.recordId, 1);
+  assert.equal(payload.execution.returnValue.collectionName, 'tasks');
+  assert.equal(payload.execution.returnValue.metaPage, 3);
+});
+
 test('validate command blocks value-return surface without top-level return', async () => {
   const stdout = createMemoryStream();
   const stderr = createMemoryStream();

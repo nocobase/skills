@@ -4,7 +4,7 @@ Use this surface for event-flow steps whose action title is `Execute JavaScript`
 
 ## Contract
 
-- Editor scene in upstream source: `eventFlow`
+- Editor scene in the bundled product reference snapshot: `eventFlow`
 - Writeback path in this skill: `flowRegistry.*.steps.*.params.code`
 - Validation style: action-style
 - Return is optional. Do not force `ctx.render(...)`, and do not silently treat this as `JSBlockModel`.
@@ -15,7 +15,7 @@ Use this surface for event-flow steps whose action title is `Execute JavaScript`
 First-hop safe snippets:
 
 - [global/message-success](../js-snippets/safe/global/message-success.md)
-- [global/http-request](../js-snippets/safe/global/http-request.md)
+- [global/resource-list](../js-snippets/safe/global/resource-list.md)
 - [scene/table/selected-rows-count](../js-snippets/safe/scene/table/selected-rows-count.md)
 
 Example A:

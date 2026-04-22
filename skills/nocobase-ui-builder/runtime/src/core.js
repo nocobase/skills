@@ -2,28 +2,11 @@ import vm from 'node:vm';
 import { analyzeContextUsage, compileUserCode, createBareCompatAccessIssue } from './analysis.js';
 import { DEFAULT_TIMEOUT_MS, VALIDATOR_TYPE } from './constants.js';
 import { createRuntimeEnvironment, normalizeRuntimeError } from './context.js';
-import { describeProfile, findProfile } from './profiles.js';
+import { applySurfaceProfile, describeProfile, findProfile } from './profiles.js';
 import { sortIssues, toSerializable } from './utils.js';
 
 function buildWrappedCode(code) {
   return `(async () => {\n${code}\n})()`;
-}
-
-function getSurfaceEffectStyle(surface) {
-  if (surface === 'reaction.value-runjs' || surface === 'custom-variable.runjs') return 'value';
-  if (surface === 'js-model.render') return 'render';
-  if (surface === 'event-flow.execute-javascript' || surface === 'linkage.execute-javascript' || surface === 'js-model.action') {
-    return 'action';
-  }
-  return null;
-}
-
-function applySurfaceProfileOverride(profile, surface) {
-  if (getSurfaceEffectStyle(surface) !== 'value') return profile;
-  return {
-    ...profile,
-    requireExplicitCtxRender: false,
-  };
 }
 
 function normalizeJsxChildren(children) {
@@ -111,7 +94,7 @@ function createBaseResult({
 
 export async function executeTaskLocal(task) {
   const baseProfile = findProfile(task.model);
-  const profile = baseProfile ? applySurfaceProfileOverride(baseProfile, task.surface) : null;
+  const profile = baseProfile ? applySurfaceProfile(baseProfile, task.surface) : null;
   const executionMetadata = {
     skillMode: Boolean(task.skillMode),
     networkMode: task?.network?.mode === 'live' ? 'live' : 'mock',

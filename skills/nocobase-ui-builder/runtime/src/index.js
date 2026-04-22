@@ -3,17 +3,11 @@ import path from 'node:path';
 import { inspectRunJSStaticCode } from '../../scripts/runjs_guard.mjs';
 import { DEFAULT_TIMEOUT_MS, VALIDATOR_TYPE } from './constants.js';
 import { runTask } from './runner.js';
+import { getRunJSFallbackRuntimeModel } from './surface-policy.js';
 export { renderPageBlueprintAsciiPreview } from './page-blueprint-preview.js';
 export { prepareApplyBlueprintRequest } from './page-blueprint-preview.js';
 export { summarizeTemplateDecision } from './template-decision-summary.js';
 export { planTemplateQuery, selectTemplateDecision } from './template-selection.js';
-
-const SURFACE_DEFAULT_MODELS = {
-  'event-flow.execute-javascript': 'JSRecordActionModel',
-  'linkage.execute-javascript': 'JSFormActionModel',
-  'reaction.value-runjs': 'JSEditableFieldModel',
-  'custom-variable.runjs': 'JSEditableFieldModel',
-};
 
 function normalizeText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : '';
@@ -35,7 +29,7 @@ function assertCode(taskLike, code) {
 function resolveRuntimeModel({ model, surface }) {
   const explicitModel = normalizeText(model);
   if (explicitModel) return explicitModel;
-  return SURFACE_DEFAULT_MODELS[normalizeText(surface)] || '';
+  return getRunJSFallbackRuntimeModel(surface);
 }
 
 function mapRunJSFindingToPolicyIssue(finding) {

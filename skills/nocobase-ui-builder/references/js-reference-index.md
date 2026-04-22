@@ -6,10 +6,10 @@ This file is the bridge between two layers:
 
 - Surface-first layer in [js-surfaces/index.md](./js-surfaces/index.md): choose the exact RunJS authoring scene first.
 - Canonical snippet layer in [js-snippets/index.md](./js-snippets/index.md): grab the smallest `safe` final-code example before opening upstream docs.
-- Bundled upstream snapshot in [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md): product/runtime capability docs copied into this skill and lightly adapted with skill-mode guardrails, useful for examples, `ctx` APIs, and scenario descriptions.
+- Bundled product reference snapshot in [`../runtime/reference-assets/upstream-js/`](../runtime/reference-assets/upstream-js/interface-builder/runjs.md): product/runtime capability docs copied into this skill and lightly adapted with skill-mode guardrails, useful for examples, `ctx` APIs, and scenario descriptions.
 - Skill contract in [js.md](./js.md), [runjs-runtime.md](./runjs-runtime.md), and [reaction.md](./reaction.md): validator rules, model selection, CLI/runtime constraints, and actual write payload rules.
 
-The bundled upstream snapshot is still only a progressive-disclosure reference layer. It does **not** replace the skill write contract.
+The bundled product reference snapshot is still only a progressive-disclosure reference layer. It does **not** replace the skill write contract.
 
 ## Quick Route
 
@@ -61,7 +61,7 @@ When reading the bundled reference docs, rewrite the following patterns before y
 
 ## Important Boundary
 
-- The bundled upstream snapshot describes product/runtime behavior and authoring examples.
+- The bundled product reference snapshot describes product/runtime behavior and authoring examples.
 - The skill contract is stricter in several places: validator gate, runtime-model choice, skill-mode network policy, and strict `ctx.render(...)` requirements. Those rules stay in [js.md](./js.md) and [runjs-runtime.md](./runjs-runtime.md).
 - Event Flow `Execute JavaScript` and linkage-rule pages are reference material for author intent and available context, not the final write contract for this skill.
 - For actual field value, linkage, block linkage, or action linkage payloads, [reaction.md](./reaction.md) remains authoritative.

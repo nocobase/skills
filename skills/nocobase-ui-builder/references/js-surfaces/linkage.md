@@ -4,7 +4,7 @@ Use this surface for linkage-rule actions whose action name is `linkageRunjs`.
 
 ## Contract
 
-- Editor scene in upstream source: `linkage`
+- Editor scene in the bundled product reference snapshot: `linkage`
 - Writeback path in this skill: `actions[].name="linkageRunjs" -> params.value.script`
 - Validation style: action-style
 - Return is optional unless the script is deliberately computing a temporary value for its own control flow.

@@ -1,3 +1,8 @@
+import {
+  RUNJS_EFFECT_STYLES as SURFACE_EFFECT_STYLES,
+  RUNJS_SURFACE_IDS as SURFACE_IDS,
+} from '../runtime/src/surface-policy.js';
+
 export const RUNJS_SNIPPET_TIERS = new Set(['safe', 'guarded', 'advanced']);
 
 export const RUNJS_SNIPPET_FAMILIES = new Set([
@@ -23,16 +28,9 @@ export const RUNJS_SCENE_HINTS = new Set([
   'action',
 ]);
 
-export const RUNJS_SURFACES = new Set([
-  'event-flow.execute-javascript',
-  'linkage.execute-javascript',
-  'reaction.value-runjs',
-  'custom-variable.runjs',
-  'js-model.render',
-  'js-model.action',
-]);
+export const RUNJS_SURFACES = new Set(SURFACE_IDS);
 
-export const RUNJS_EFFECT_STYLES = new Set(['action', 'value', 'render']);
+export const RUNJS_EFFECT_STYLES = new Set(SURFACE_EFFECT_STYLES);
 
 export const RUNJS_MODEL_USES = new Set([
   'JSActionModel',

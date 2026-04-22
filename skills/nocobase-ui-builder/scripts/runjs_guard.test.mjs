@@ -230,6 +230,44 @@ test('inspectRunJSCode rejects form-only ctx roots on event-flow surface', async
   assert.equal(blocker.details.repairClass, 'ctx-root-mismatch-stop');
 });
 
+test('inspectRunJSCode accepts event-flow record roots and independent resources', async () => {
+  const result = await inspectRunJSCode({
+    modelUse: null,
+    surface: 'event-flow.execute-javascript',
+    code: `
+      const tempResource = ctx.makeResource('MultiRecordResource');
+      tempResource.setResourceName('tasks');
+      await tempResource.refresh();
+      return ctx.record?.id ?? null;
+    `,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.length, 0);
+});
+
+test('inspectRunJSStaticCode accepts surface-only event-flow inspection without defaulting modelUse', () => {
+  const result = inspectRunJSStaticCode({
+    surface: 'event-flow.execute-javascript',
+    code: 'return ctx.record?.id ?? null;',
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.length, 0);
+  assert.equal(result.inspectedNode.surface, 'event-flow.execute-javascript');
+});
+
+test('inspectRunJSCode accepts surface-only event-flow inspection without defaulting modelUse', async () => {
+  const result = await inspectRunJSCode({
+    surface: 'event-flow.execute-javascript',
+    code: 'return ctx.record?.id ?? null;',
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blockers.length, 0);
+  assert.equal(result.inspectedNode.surface, 'event-flow.execute-javascript');
+});
+
 test('inspectRunJSCode respects explicit modelUse on linkage surface validation', async () => {
   const okResult = await inspectRunJSCode({
     surface: 'linkage.execute-javascript',
@@ -367,6 +405,48 @@ test('inspectRunJSCode enforces render-style semantics for render surfaces', asy
   assert.equal(blocker.details.repairClass, 'replace-innerhtml-with-render');
 });
 
+test('inspectRunJSCode ignores nested-only ctx.render calls when render surfaces require top-level rendering', async () => {
+  const result = await inspectRunJSCode({
+    surface: 'js-model.render',
+    modelUse: 'JSBlockModel',
+    code: `
+      const renderLater = () => {
+        ctx.render('nested only');
+      };
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'), true);
+});
+
+test('inspectRunJSCode ignores computed object methods when render surfaces require top-level rendering', async () => {
+  const result = await inspectRunJSCode({
+    surface: 'js-model.render',
+    modelUse: 'JSBlockModel',
+    code: "const helpers = { ['x']() { ctx.render('nested only'); } };",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_RENDER_SURFACE_RENDER_REQUIRED'), true);
+});
+
+test('inspectRunJSCode accepts top-level control-flow ctx.render calls on render surfaces', async () => {
+  const result = await inspectRunJSCode({
+    surface: 'js-model.render',
+    modelUse: 'JSBlockModel',
+    code: `
+      if (ctx.record?.title) {
+        ctx.render(String(ctx.record.title));
+      } else {
+        ctx.render('-');
+      }
+    `,
+  });
+
+  assert.equal(result.ok, true);
+});
+
 test('bundled snapshot contains one-time extracted form/item action model contracts', () => {
   const { contract, source } = loadRunJSContract({ snapshotPath: SNAPSHOT_PATH });
 
@@ -434,6 +514,16 @@ test('inspectRunJSCode requires explicit action modelUse instead of falling back
   assert.equal(blocker.details.repairClass, 'unknown-model-stop');
 });
 
+test('inspectRunJSStaticCode still requires explicit action modelUse when surface-only validation is ambiguous', () => {
+  const result = inspectRunJSStaticCode({
+    surface: 'js-model.action',
+    code: "ctx.message.success('ok');",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_UNKNOWN_MODEL_USE'), true);
+});
+
 test('inspectRunJSCode enforces return-style semantics for value surfaces', async () => {
   const okResult = await inspectRunJSCode({
     modelUse: null,
@@ -459,6 +549,59 @@ const title = String(ctx.formValues?.title || '').trim();`,
     badResult.blockers.find((item) => item.code === 'RUNJS_VALUE_SURFACE_CTX_RENDER_FORBIDDEN')?.details?.repairClass,
     'value-surface-forbids-render',
   );
+});
+
+test('inspectRunJSCode ignores nested-only returns when value surfaces require a top-level return', async () => {
+  const result = await inspectRunJSCode({
+    modelUse: null,
+    surface: 'reaction.value-runjs',
+    code: `
+      function computeTitle() {
+        return String(ctx.formValues?.title || '').trim();
+      }
+      const title = computeTitle();
+    `,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED'), true);
+});
+
+test('inspectRunJSCode ignores object keys named return when value surfaces require a top-level return', async () => {
+  const result = await inspectRunJSCode({
+    modelUse: null,
+    surface: 'reaction.value-runjs',
+    code: "const shape = { return: 'not a statement' };",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED'), true);
+});
+
+test('inspectRunJSCode ignores class computed methods when value surfaces require a top-level return', async () => {
+  const result = await inspectRunJSCode({
+    modelUse: null,
+    surface: 'reaction.value-runjs',
+    code: "class Example { ['x']() { return 1; } }",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blockers.some((item) => item.code === 'RUNJS_VALUE_SURFACE_RETURN_REQUIRED'), true);
+});
+
+test('inspectRunJSCode accepts top-level control-flow returns on value surfaces', async () => {
+  const result = await inspectRunJSCode({
+    modelUse: null,
+    surface: 'reaction.value-runjs',
+    code: `
+      if (ctx.formValues?.title) {
+        return String(ctx.formValues.title).trim();
+      }
+      return 'fallback';
+    `,
+  });
+
+  assert.equal(result.ok, true);
 });
 
 test('inspectRunJSCode blocks skill-mode ctx.openView and returns reroute repair metadata', async () => {
